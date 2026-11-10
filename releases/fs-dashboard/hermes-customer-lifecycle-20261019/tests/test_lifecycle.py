@@ -111,7 +111,7 @@ class Tests(unittest.TestCase):
   self.assertEqual(result['items'][0]['buyer_group_order_count'],2)
 
  def test_buyer_release_binds_only_active_files_and_committed_bytes(self):
-  import importlib.util,shutil
+  import importlib.util
   release=Path(__file__).resolve().parents[1]
   spec=importlib.util.spec_from_file_location('buyer_release',release/'deploy/buyer_release.py')
   buyer=importlib.util.module_from_spec(spec);spec.loader.exec_module(buyer)
@@ -123,7 +123,7 @@ class Tests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as dirname:
    stage=Path(dirname)
    base=release.parents[0]/'hermes-report-repair-20261019/deploy/release_navigation_base.py'
-   shutil.copyfile(base,stage/'release_navigation_base.py')
+   (stage/'release_navigation_base.py').write_bytes(base.read_bytes().replace(b'\r\n',b'\n').replace(b'\n',b'\r\n'))
    (stage/'approved-manifest.json').write_text('{}',encoding='utf8')
    publisher=buyer.load_base(stage)
    self.assertEqual(publisher.expected_files({'scope':buyer.SCOPE}),set(files))
