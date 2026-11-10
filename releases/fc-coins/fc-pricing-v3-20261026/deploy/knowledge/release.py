@@ -1,7 +1,8 @@
 """Publish the V3 teaching catalog using the pinned original CAS publisher."""
-from contextlib import closing
+from contextlib import closing, contextmanager
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import sqlite3
@@ -110,18 +111,56 @@ def load_base():
                     raise ValueError('active_or_unreconciled_learning')
 
     base.hermes_quiescent = quiescent
-    original_restart = base.restart_for
+    original_live_lock=base.live_lock
+    original_fence=base.hermes_admission_fence
+    original_restart=base.restart_for
 
-    def restart(manifest, admission_fence=None):
-        from release_readiness import restart_with_hermes_readiness
-        if manifest.get('scope') != SCOPE:
-            return original_restart(manifest, admission_fence)
-        if admission_fence is None:
-            raise ValueError('original_Hermes_admission_fence_required')
-        admission_fence.stop_then_unlock_database()
-        restart_with_hermes_readiness(base,original_restart,dict(manifest,scope=base.HERMES_WORKER_SCOPE),admission_fence)
-        restart_with_hermes_readiness(base,original_restart,dict(manifest,scope=base.DEEP_SCOPE),admission_fence)
+    @contextmanager
+    def document_live_lock(value,root):
+        if value.get('scope')!=SCOPE:
+            with original_live_lock(value,root):yield
+            return
+        # Only the exact two-document/immutable-artifact scope passed targets().
+        # Its admission fence below does not contend with ordinary cost reads.
+        yield
 
+    @contextmanager
+    def document_fence(value,root):
+        if value.get('scope')!=SCOPE:
+            with original_fence(value,root) as fence:yield fence
+            return
+        # Existing knowledgeOnly reader-entry + task-DB publication protocol.
+        # Already-admitted cost readers retain their admission shared lease.
+        import fcntl
+        path=base.rooted(root,'/var/lib/fs-hermes-fc/fs/reader-entry.lock')
+        base.no_target_link(path)
+        fd,db=os.open(str(path),os.O_RDWR|getattr(os,'O_NOFOLLOW',0)),None
+        try:
+            info,current=os.fstat(fd),path.stat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or
+                    info.st_uid!=os.geteuid() or info.st_mode&0o077 or
+                    (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino)):
+                raise ValueError('unsafe knowledge admission entry')
+            fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            database=base.rooted(root,'/var/lib/fs-hermes-fc/fs/tasks.sqlite3')
+            base.no_target_link(database)
+            db=sqlite3.connect(database.as_uri()+'?mode=rw',uri=True,timeout=0)
+            db.execute('BEGIN IMMEDIATE')
+            base.hermes_quiescent(root)
+            yield None
+        finally:
+            try:
+                if db is not None:
+                    try:db.rollback()
+                    finally:db.close()
+            finally:os.close(fd)
+
+    def restart(value,admission_fence=None):
+        if value.get('scope')!=SCOPE:return original_restart(value,admission_fence)
+        # Policy and baseline are read for each new admission; no code changed.
+
+    base.live_lock=document_live_lock
+    base.hermes_admission_fence=document_fence
     base.restart_for = restart
     return base
 
