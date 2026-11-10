@@ -181,6 +181,8 @@ export function projectFcCatalog(originalCatalog,snapshot) {
   catalog.weekly.bundleIds=keys('Weekly-Scout.html').filter(key=>products[key].kind==='bundle');
   catalog.sbc.bundleIds=sbcKeys.filter(key=>products[key].kind==='bundle');
   catalog.sbc.ids=sbcKeys.filter(key=>products[key].kind==='sbc');
+  const coreOrder=snapshot?.fc_layout?.sbc||[],eligibleCores=new Set(catalog.sbc.ids);
+  catalog.sbc.ids=[...new Set([...coreOrder.filter(key=>eligibleCores.has(key)),...catalog.sbc.ids])];
   const publishedRoutes=snapshot?.fc_layout?.routes??originalCatalog.sbc.routes;
   catalog.sbc.routes=Object.fromEntries(catalog.sbc.ids.filter(key=>publishedRoutes[key]).map(key=>{
     const original=publishedRoutes[key],selected=ids=>(ids||[]).filter(id=>sbcSet.has(id)&&products[id]?.kind==='player');

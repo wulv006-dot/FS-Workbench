@@ -27,3 +27,15 @@
 - 最小生产范围为activity.js、production-server.mjs、products.js、4个公开HTML及110项static manifest（只更新activity.js与4HTML的5项哈希）。构建源与fragment/validation生成物同步入Git，它们不在现役公共静态清单且原生产入口不引用，不虚构新部署路径。复用原publisher锁/CAS/备份/回退；仅重启受影响的dashboard与runtime，使后台入口和启动缓存的公开JS同时生效。原producer自然预热可能短暂缺价，须实际等待自动恢复。
 
 正式CI、部署读回及真实入口结果将在同一记录补齐。原失败页面截图及当前31元数据位于本机 `.agent_runtime/weekly-console/` 和 `initial-price-review-20261110/`；完整业务配置、策略与凭据不入Git。
+
+## 已部署与实际入口
+
+PR969正式CI1863成功；主分支期间前进至6830ac2，旧合并因behind被拒后正常同步，CI1865成功并合并为34fe321。CI1862的唯一失败是测试时钟在并发环境漂移509ms，越过299ms有效期余量；固定测试时钟后精确断言保持，生产代码未为此改变。冻结7个生产源字节与最终CI head逐一一致。
+
+原publisher将精确8目标部署为 `nav-20261110T091222Z`，备份同名。manifest SHA `2c871a0f950389336b3e48394a289aa3fb31c8218f8532f6de5fb416d9e5a375`；8after匹配，45保护项中44保持，唯一center变化是随后原UI保存32。dashboard/runtime新PID18772/18791，marketing仍817，未执行Nginx/range/Hermes/timer动作。原价格producer于09:13:13 UTC自然ready（启动约48秒），无手动刷新或旧价回填。
+
+实际SBC新页先缺价，随后不点击平台/商品按钮即恢复Doku/Senne价格；清单始终0、合计0、核对禁用。Weekly/Trio实页均初始0；Trio主动选Jude后1项、取消后0项，未加购。公开31仍缺9个未安装策略的模型，不能把cache ready当成所有商品已可买。
+
+原编辑器一次保存置顶草稿32：operation `6e489e22-6888-4702-aa9d-b98b6c8bc8c0`，October第1项/defaultCore一致；64模型和其余草稿hash `770e70b80be69b1645ce18fa06060790a532aabcc5c33c5fe26dbcc212652b3a`保持，公开31/旧policy保持。原run `cb68516a-b529-4d84-9f5e-2b857559ca36` 的真实审阅现已成功，可预览三页及进入最终发布确认，未自动发布。
+
+私有预览确认October已默认选中、Gabriel有新鲜参考价，但菜单顺序仍受page.product_keys影响，暴露第二处关联遗漏。`projectFcCatalog`仅将已通过page/role/platform过滤的SBC核心按fc_layout.sbc稳定前置，保留未排序的原成员和其他页面规则。私有/公开同入口及过滤反例13项回归通过；该单文件补丁的正式CI/部署和最终菜单首项须继续核实，不将默认选中冒充顺序已正确。

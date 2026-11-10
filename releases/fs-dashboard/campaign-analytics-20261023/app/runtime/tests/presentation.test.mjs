@@ -100,3 +100,16 @@ test('SBC and Weekly fixed bundles project from their own page bindings when Tri
  assert.deepEqual(result.bundles.ids,[]);assert.deepEqual(result.weekly.bundleIds,[bundle]);assert.deepEqual(result.sbc.bundleIds,[bundle]);assert(result.products[bundle]);
  s.pages[1].product_keys=[];assert.deepEqual(projectFcCatalog(catalog,s).sbc.bundleIds,[],'explicit page removal never inherits a different page bundle pool');
 });
+
+test('private and published SBC projection honors layout order only among eligible page cores',()=>{
+ const [first,second]=catalog.sbc.ids,s=selection();s.pages[1].product_keys=keys([first,second]);
+ s.fc_layout={sbc:[second,'not-selected',first],defaultCore:second,routes:catalog.sbc.routes};
+ const before=structuredClone(s);
+ for(const publication_status of ['preview','published']){
+  const result=projectFcCatalog(catalog,{...s,publication_status});assert.deepEqual(result.sbc.ids,[second,first]);assert.equal(result.sbc.defaultId,second);assert.deepEqual(result.sbc.allListedIds,[second,first]);
+ }
+ assert.deepEqual(s,before);
+ s.fc_layout.sbc=[second];assert.deepEqual(projectFcCatalog(catalog,s).sbc.ids,[second,first],'unranked eligible members remain');
+ s.pages[1].product_roles=Object.fromEntries(keys([second]).map(key=>[key,'companion']));assert.deepEqual(projectFcCatalog(catalog,s).sbc.ids,[first],'configured order cannot bypass role filtering');
+ delete s.pages[1].product_roles;s.pages[1].product_keys=[...keys([first]),'fc-'+second+'-invalid'];assert.deepEqual(projectFcCatalog(catalog,s).sbc.ids,[first],'configured order cannot bypass platform filtering');
+});
