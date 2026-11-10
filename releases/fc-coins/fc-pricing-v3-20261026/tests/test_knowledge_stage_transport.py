@@ -16,6 +16,107 @@ BUILDER = ROOT / 'releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge/buil
 
 
 class KnowledgeStageTransportTest(unittest.TestCase):
+    def test_new_revision_candidate_can_share_current_stable_id_without_publication(self):
+        from copy import deepcopy
+        sys.path.insert(0,str(BUILDER.parent))
+        spec=importlib.util.spec_from_file_location('knowledge_shared_id_candidate',BUILDER)
+        builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+        original_blob=builder.blob
+        index=json.loads(original_blob(ROOT,ROOT/'knowledge/index.json'))
+        candidate=deepcopy(next(r for r in index['entries'] if r['id']=='fc.pricing.constraints'))
+        candidate.update(layer='candidate',status='candidate',revision='unapproved-next',source_commit=None)
+        candidate['source']['path']='knowledge/candidates/unpublished-next-financial.md'
+        index['entries'].append(candidate)
+        commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        def read(checkout,path):
+            if path==ROOT/'knowledge/index.json':return json.dumps(index).encode()
+            self.assertNotEqual(path,ROOT/candidate['source']['path'],'candidate content must not be read')
+            return original_blob(checkout,path)
+        with tempfile.TemporaryDirectory() as folder,patch.object(builder,'blob',side_effect=read):
+            result=builder.build(ROOT,commit,Path(folder)/'candidate.tgz')
+            with tarfile.open(result['archive']) as bundle:
+                prefix=result['release']+'/candidate/artifact/'
+                published=json.load(bundle.extractfile(prefix+'index.json'))
+                rows=[r for r in published['entries'] if r['id']=='fc.pricing.constraints']
+                self.assertEqual({(r['layer'],r['revision']) for r in rows},
+                    {('current','fc27_dual20_d9_d2_platform_100k_v4'),('candidate','unapproved-next')})
+                self.assertNotIn(prefix+'sources/'+candidate['source']['path'],bundle.getnames())
+        duplicate=deepcopy(index);duplicate['entries'].append(deepcopy(candidate))
+        with self.assertRaises(ValueError):self.prepare_module().checked_catalog_inventory(duplicate)
+
+    def prepare_module(self):
+        sys.path.insert(0,str(BUILDER.parent))
+        spec=importlib.util.spec_from_file_location('knowledge_prepare_contract_test',BUILDER.parent/'prepare_manifest.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        return module
+
+    def test_verified_git_experience_is_incremental_without_a_total_inventory_cap(self):
+        from copy import deepcopy
+        module=self.prepare_module()
+        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        row=deepcopy(next(r for r in index['entries'] if r['id']=='fc.evolutions.experience.current-state-cutover'))
+        row['id']='fc.experience.future-verified-learning'
+        index['entries'].append(row)
+        module.checked_catalog_inventory(index)
+        for change in [dict(status='candidate'),dict(authority='unknown'),dict(provenance=[]),dict(layer='decision')]:
+            bad=deepcopy(index);bad['entries'][-1].update(change)
+            with self.subTest(change=change),self.assertRaises(ValueError):module.checked_catalog_inventory(bad)
+
+    def test_experience_increment_is_shipped_with_its_exact_git_source_hash(self):
+        from copy import deepcopy
+        sys.path.insert(0,str(BUILDER.parent))
+        spec=importlib.util.spec_from_file_location('knowledge_experience_increment_builder',BUILDER)
+        builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+        original_blob=builder.blob
+        index=json.loads(original_blob(ROOT,ROOT/'knowledge/index.json'))
+        row=deepcopy(next(r for r in index['entries'] if r['id']=='fc.evolutions.experience.current-state-cutover'))
+        data=b'# Verified incremental experience\n'
+        row.update(id='fc.experience.future-verified-learning',revision='test-1',source_commit=None)
+        row['source']=dict(path='knowledge/experience/test-increment.md',sha256=hashlib.sha256(data).hexdigest(),hash_basis='utf8_lf')
+        index['entries'].append(row)
+        commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        def read(checkout,path):
+            if path==ROOT/'knowledge/index.json':return json.dumps(index).encode()
+            if path==ROOT/row['source']['path']:return data
+            return original_blob(checkout,path)
+        with tempfile.TemporaryDirectory() as folder,patch.object(builder,'blob',side_effect=read):
+            result=builder.build(ROOT,commit,Path(folder)/'increment.tgz')
+            with tarfile.open(result['archive']) as bundle:
+                prefix=result['release']+'/candidate/artifact/'
+                published=json.load(bundle.extractfile(prefix+'index.json'))
+                self.assertEqual(len([r for r in published['entries'] if r['layer']=='current']),19)
+                self.assertEqual(bundle.extractfile(prefix+'sources/'+row['source']['path']).read(),data)
+                self.assertEqual(next(r for r in published['entries'] if r['id']==row['id'])['layer'],'experience')
+            row['source']['sha256']='a'*64
+            with self.assertRaisesRegex(ValueError,'source_sha_mismatch'):
+                builder.build(ROOT,commit,Path(folder)/'bad.tgz')
+
+    def test_prepare_uses_same_inventory_and_exact_published_source_root(self):
+        from copy import deepcopy
+        module=self.prepare_module();commit='a'*40
+        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        release='fc-three-platform-100k-knowledge-20261110-'+commit
+        index.update(release=release,release_state='published',source_commit=commit,
+                     source_root='knowledge-releases/'+release+'/sources')
+        module.checked_catalog_inventory(index,source_commit=commit,release=release)
+        for change in [dict(source_root='sources'),dict(source_commit='b'*40),dict(release=release+'-other')]:
+            bad=deepcopy(index);bad.update(change)
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                module.checked_catalog_inventory(bad,source_commit=commit,release=release)
+
+    def test_prepare_payload_contract_keeps_all_experiences_and_rejects_missing_or_extra_files(self):
+        module=self.prepare_module()
+        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        expected=module.catalog_payload_names(index)
+        for identity in ('fc.evolutions.experience.current-state-cutover','fc.pricing.experience.lootbar-source-availability'):
+            row=next(r for r in index['entries'] if r['id']==identity)
+            self.assertIn('artifact/sources/'+row['source']['path'],expected)
+        for row in index['entries']:
+            if row['layer']=='candidate':self.assertNotIn('artifact/sources/'+row['source']['path'],expected)
+        for names in [expected|{'artifact/sources/unknown.md'},expected-{'artifact/index.json'}]:
+            with self.assertRaisesRegex(ValueError,'git_payload_inventory_invalid'):
+                module.checked_payload_names(index,{n:'a'*64 for n in names})
+
     def test_unpublished_candidate_does_not_change_effective_inventory(self):
         sys.path.insert(0,str(BUILDER.parent))
         spec=importlib.util.spec_from_file_location('knowledge_stage_candidate',BUILDER)
@@ -30,6 +131,13 @@ class KnowledgeStageTransportTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder,patch.object(builder,'blob',side_effect=source):
             result=builder.build(ROOT,commit,Path(folder)/'candidate.tar.gz')
             self.assertEqual(result['sourceCommit'],commit)
+            with tarfile.open(result['archive']) as bundle:
+                prefix=result['release']+'/candidate/artifact/'
+                catalog=json.load(bundle.extractfile(prefix+'index.json'))
+                unpublished=next(r for r in catalog['entries'] if r['id']=='test.unpublished')
+                self.assertEqual(unpublished['layer'],'candidate')
+                self.assertIsNone(unpublished.get('source_commit'))
+                self.assertNotIn(prefix+'sources/'+candidate['source']['path'],bundle.getnames())
 
     def test_candidate_requires_exact_current_ids(self):
         sys.path.insert(0, str(BUILDER.parent))
@@ -79,6 +187,13 @@ class KnowledgeStageTransportTest(unittest.TestCase):
                 release = prefix.removesuffix('deploy/')
                 catalog = json.load(bundle.extractfile(release + 'candidate/artifact/index.json'))
                 self.assertFalse(any(row['status'] == 'retired' for row in catalog['entries']))
+                self.assertEqual(len([r for r in catalog['entries'] if r['layer']=='current']),19)
+                for identity in ('fc.evolutions.experience.current-state-cutover','fc.pricing.experience.lootbar-source-availability'):
+                    row=next(r for r in catalog['entries'] if r['id']==identity)
+                    self.assertEqual((row['layer'],row['status'],row['revision']),('experience','verified','20261111-1'))
+                    body=bundle.extractfile(release+'candidate/artifact/sources/'+row['source']['path']).read()
+                    self.assertEqual(hashlib.sha256(body).hexdigest(),row['source']['sha256'])
+                self.assertEqual(next(r for r in catalog['entries'] if r['id']=='fc.pricing.v3')['revision'],'20261111-lootbar-no-coupon')
                 baseline = bundle.extractfile(release + 'candidate/runtime/business-baseline.md').read()
                 runtime='releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
                 self.assertEqual(baseline,subprocess.check_output(['git','show','HEAD:'+runtime],cwd=ROOT))

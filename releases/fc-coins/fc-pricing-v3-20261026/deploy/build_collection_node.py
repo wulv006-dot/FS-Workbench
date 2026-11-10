@@ -6,9 +6,9 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULES = ('__init__.py', 'contracts.py', 'worker.py', 'adapters.py', 'protocol.py', 'public_sources.py', 'server.py')
+MODULES = ('__init__.py', 'contracts.py', 'worker.py', 'adapters.py', 'protocol.py', 'public_sources.py', 'server.py', 'lootbar.py')
 CONTROL_MODULES = ('__init__.py', 'contracts.py', 'coordinator.py', 'protocol.py', 'ssh_client.py', 'public_sources.py',
-                   'pilot.py', 'client.py', 'adapters.py', 'worker.py', 'failover.py')
+                   'pilot.py', 'client.py', 'adapters.py', 'worker.py', 'failover.py', 'lootbar.py')
 ENTRY = b'''from pathlib import Path
 import sys
 ROOT = Path(__file__).resolve().parent
@@ -32,7 +32,7 @@ def build(output, role='node'):
              for name in (MODULES if role == 'node' else CONTROL_MODULES)}
     files['entry.py'] = ENTRY if role == 'node' else CONTROL_ENTRY
     manifest = dict(schema_version=1, role='limited_fc_collector' if role == 'node' else 'fc_collection_controller', production_consume=False,
-        sources=['ArabUT'], credentials=[], business_runtime=False,
+        sources=['ArabUT','Lootbar'], credentials=[], business_runtime=False,
         sha256={name: hashlib.sha256(body).hexdigest() for name, body in files.items()})
     files['manifest.json'] = json.dumps(manifest, sort_keys=True, indent=2).encode('utf-8')
     with zipfile.ZipFile(output, 'x', compression=zipfile.ZIP_DEFLATED) as archive:

@@ -4,7 +4,8 @@ import json
 
 from .contracts import fingerprint, instant, fresh, ARAB_WARM_PATHS
 
-VERSIONS = {'ArabUT': 'arab-public-quote-collection-v3'}
+from .lootbar import VERSION as LOOTBAR_VERSION
+VERSIONS = {'ArabUT': 'arab-public-quote-collection-v3', 'Lootbar': LOOTBAR_VERSION}
 ARAB_QUERY = dict(platform='playstation', delivery='normal', quantity='100000')
 ARAB_PC_QUERY = dict(platform='pc', quantity='100000')
 REGISTRY = {'ArabUT': {name:dict(host='www.arab-ut.com', path=path,

@@ -128,7 +128,8 @@ class CouponDisplayRelease(unittest.TestCase):
         load=next(n for n in ast.parse((DEPLOY/'fc_v3_release_adapter.py').read_text('utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
         branch=next(n for n in load.body if isinstance(n,ast.If) and any(isinstance(v,ast.Attribute) and v.attr=='hermes_admission_fence' for v in ast.walk(n)))
         original=Mock();base=SimpleNamespace(hermes_admission_fence=original,model_release_lock=original)
-        namespace=dict(scope=target_map.COUPON_DISPLAY_SCOPE,COLLECTION_SCOPE=target_map.COLLECTION_SCOPE,base=base,
+        LOOTBAR_CALLER_SCOPE=target_map.LOOTBAR_CALLER_SCOPE
+        namespace=dict(scope=target_map.COUPON_DISPLAY_SCOPE,COLLECTION_SCOPE=target_map.COLLECTION_SCOPE,LOOTBAR_CALLER_SCOPE=LOOTBAR_CALLER_SCOPE,base=base,
                        original_quiescent=Mock(side_effect=ValueError('original_model_not_idle')))
         quiet=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='quiescent')
         exec(compile(ast.Module(body=[branch,quiet],type_ignores=[]),'coupon-fence-contract','exec'),namespace)

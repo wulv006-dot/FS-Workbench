@@ -117,14 +117,18 @@ def worker_main():
     buf, out = [], {"ok": False}
     t0 = time.time()
     try:
-        cfg = read_cfg()
-        if kind == "scrape":
+        if kind == "fc27_lootbar":
+            from fc27_lootbar import collect
+            out = {"ok": True, "result": collect(task["payload"])}
+        elif kind == "scrape":
+            cfg = read_cfg()
             info = {}
             rows = core_qd.scrape(cfg, log=_mklog(buf), info=info)
             out = {"ok": True, "rows": rows,
                    "missed": info.get("missed") or [],
                    "counts": info.get("counts") or {}}
         elif kind == "scrape_books":
+            cfg = read_cfg()
             targets = [(str(s), n) for s, n in (task.get("targets") or []) if s]
             specs = task.get("specs") or None
             books, meta = core_qd.scrape_books(cfg, targets, log=_mklog(buf),
@@ -146,7 +150,7 @@ def run_worker(task):
     """fork 一个 worker 进程跑抓取（必须独立进程：见文件头「为什么要 fork」）。"""
     p = subprocess.run([sys.executable, os.path.abspath(__file__), "--worker"],
                        input=json.dumps(task, ensure_ascii=False).encode("utf-8"),
-                       stdout=subprocess.PIPE, timeout=WORKER_TIMEOUT)
+                       stdout=subprocess.PIPE, timeout=90 if task.get('kind') == 'fc27_lootbar' else WORKER_TIMEOUT)
     raw = p.stdout.decode("utf-8", "replace")
     i = raw.rfind(WORKER_MARK)
     if i < 0:
@@ -185,12 +189,38 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         p = self.path.split("?")[0]
+        if p == '/fc27_lootbar':
+            try:
+                length = self.headers.get('Content-Length', '')
+                if not length.isdecimal() or not 0 < int(length) <= 2048 or self.path != p:
+                    raise ValueError('invalid_fc_body_length')
+            except (ValueError, TypeError):
+                self.close_connection = True
+                self._send(400, {'ok':False, 'reason':'lootbar_render_task_invalid'})
+                return
         n = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(n) if n else b"{}"
         try:
             body = json.loads(raw.decode("utf-8") or "{}")
         except Exception:
             body = {}
+        if p == '/fc27_lootbar':
+            try:
+                from fc27_lootbar import validate_task
+                validate_task(body)
+            except (ValueError, TypeError):
+                self._send(400, {'ok':False, 'reason':'lootbar_render_task_invalid'})
+                return
+            if not _lock.acquire(blocking=False):
+                self._send(503, {'ok':False, 'reason':'renderer_busy'})
+                return
+            try:
+                self._send(200, run_worker({'kind':'fc27_lootbar', 'payload':body}))
+            except Exception:
+                self._send(500, {'ok':False, 'reason':'renderer_unavailable'})
+            finally:
+                _lock.release()
+            return
         if core_qd is None:
             self._send(500, {"ok": False,
                              "err": "core_qd import 失败: %s" % CORE_ERR})
