@@ -58,6 +58,7 @@ function readVisibleOffer() {
   let currentPrice = null, priceState = 'missing', currentPriceNode = null;
   let gift = null, giftState = 'missing';
   let couponState = 'none', observedCouponPrice = null, excludedCouponDiscount = null;
+  let reconstruction = {method:'direct_no_coupon', exact:true, precision:'USD_cent'};
   if (chosen) {
     const priceNodes = visibleAll(chosen.card, '.discount-price');
     if (priceNodes.length > 1) priceState = 'multiple';
@@ -99,6 +100,11 @@ function readVisibleOffer() {
     const minimalNegativeNodes = negativeNodes.filter(node =>
       !negativeNodes.some(other => other !== node && node.contains?.(other)));
     const couponCandidates = [];
+    const advertisedAmount = node => {
+      for (let current = node; current && current !== chosen.card; current = current.parentElement)
+        if (/up\s+to|maximum|\bmax\b|\bcap\b/i.test(text(current))) return true;
+      return false;
+    };
     let malformedCouponAmount = false;
     for (const node of minimalNegativeNodes) {
       const nodeText = text(node);
@@ -107,7 +113,7 @@ function readVisibleOffer() {
       const negativeTokens = [...nodeText.matchAll(new RegExp('[-−]\\s*\\$\\s*(' + amountPattern + ')(?![\\d,.])', 'g'))];
       if (/[-−]\s*\$/.test(nodeText) && (dollarCount !== 1 || tokens.length !== 1 || negativeTokens.length !== 1))
         malformedCouponAmount = true;
-      if (dollarCount === 1 && tokens.length === 1 && negativeTokens.length === 1) {
+      if (dollarCount === 1 && tokens.length === 1 && negativeTokens.length === 1 && !advertisedAmount(node)) {
         couponCandidates.push({node, value:negativeTokens[0][1]});
       }
     }
@@ -146,7 +152,19 @@ function readVisibleOffer() {
           const strikes = nestedSameText(strikeCandidates);
           if (malformedStrike) couponState = 'original_format';
           else if (strikes.length > 1) couponState = 'original_multiple';
-          else if (!strikes.length) couponState = 'original_missing';
+          else if (!strikes.length) {
+            const currentCents = toCents(currentPrice);
+            if (currentCents == null || discountCents <= 0n) couponState = 'cent_precision';
+            else {
+              const originalCents = currentCents + discountCents;
+              observedCouponPrice = currentPrice;
+              excludedCouponDiscount = discount;
+              currentPrice = String(originalCents / 100n) + '.' + String(originalCents % 100n).padStart(2,'0');
+              couponState = 'excluded';
+              reconstruction = {method:'derived_actual_discount', exact:true, precision:'USD_cent',
+                paid_usd:observedCouponPrice, discount_usd:discount};
+            }
+          }
           else {
             const original = parseAmount(strikes[0].value);
             const currentCents = toCents(currentPrice);
@@ -159,6 +177,8 @@ function readVisibleOffer() {
               observedCouponPrice = currentPrice;
               excludedCouponDiscount = discount;
               currentPrice = original;
+              reconstruction = {method:'direct_strike', exact:true, precision:'USD_cent',
+                paid_usd:observedCouponPrice, discount_usd:discount};
             }
           }
         }
@@ -169,7 +189,7 @@ function readVisibleOffer() {
   return {selected, loggedIn, currencyLabel, currencyState, tierState,
     tierCandidateCount:oneHundredK.length, visibleCardCount:cards.length,
     baseK:chosen?.baseK, priceState, usdPrice:currentPrice, giftState, bonusK:gift,
-    couponState, observedCouponPrice, excludedCouponDiscount};
+    couponState, observedCouponPrice, excludedCouponDiscount, reconstruction};
 }
 
 async function collectOne(target) {

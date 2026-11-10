@@ -77,6 +77,7 @@ class CollectionRelease(unittest.TestCase):
         ready=Mock()
         scope=dict(subprocess=process,base=SimpleNamespace(),original_restart=Mock(),restart_with_hermes_readiness=ready,
             SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection')
+        scope['LOOTBAR_CALLER_SCOPE']=target_map.LOOTBAR_CALLER_SCOPE
         exec(compile(ast.Module(body=[restart],type_ignores=[]),'collection-restart','exec'),scope)
         for _ in range(2):
             scope['restart'](dict(scope='collection'))
@@ -89,6 +90,7 @@ class CollectionRelease(unittest.TestCase):
         quiet=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='quiescent')
         original=Mock(side_effect=ValueError('other Hermes unknown'))
         environment=dict(scope='collection',COLLECTION_SCOPE='collection',original_quiescent=original)
+        environment['LOOTBAR_CALLER_SCOPE']=target_map.LOOTBAR_CALLER_SCOPE
         exec(compile(ast.Module(body=[quiet],type_ignores=[]),'collection-quiescent','exec'),environment)
         environment['quiescent'](Path('/'))
         original.assert_not_called()
@@ -114,7 +116,7 @@ class CollectionRelease(unittest.TestCase):
             and any(isinstance(v,ast.Attribute) and v.attr=='hermes_admission_fence' for v in ast.walk(n)))
         original=Mock(side_effect=AssertionError('other business fence'))
         base=SimpleNamespace(hermes_admission_fence=original, model_release_lock=original)
-        environment=dict(scope='collection',COLLECTION_SCOPE='collection',base=base,nullcontext=nullcontext)
+        environment=dict(scope='collection',COLLECTION_SCOPE='collection',LOOTBAR_CALLER_SCOPE=target_map.LOOTBAR_CALLER_SCOPE,base=base,nullcontext=nullcontext)
         module=ast.Module(body=[branch],type_ignores=[])
         exec(compile(module,'collection-fences','exec'),environment)
         for fence in (base.hermes_admission_fence,base.model_release_lock):

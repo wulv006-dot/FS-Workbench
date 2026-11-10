@@ -133,6 +133,8 @@ def _offer(platform: str, snapshot: dict) -> dict:
     if coupon_excluded:
         result["observed_coupon_price"] = str(snapshot["observedCouponPrice"])
         result["excluded_coupon_discount"] = str(snapshot["excludedCouponDiscount"])
+    if isinstance(snapshot.get('reconstruction'), dict):
+        result['reconstruction'] = snapshot['reconstruction']
     return result
 
 

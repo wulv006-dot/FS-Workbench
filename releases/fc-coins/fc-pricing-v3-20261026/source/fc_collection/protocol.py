@@ -55,7 +55,9 @@ def validate_task(task, identity, versions, now):
         if (task['node_id'] != identity['node_id'] or task['node_boot_id'] != identity['node_boot_id']
                 or versions.get(task['source_id']) != task['adapter_version']
                 or not 0 < (instant(task['deadline_at']) - instant(now)).total_seconds() <= 900
-                or not 0 < task['total_request_budget'] <= 8 or not 0 < task['total_attempt_limit'] <= 3
+                or not 0 < task['total_request_budget'] <= (128 if task['source_id'] == 'Lootbar' else 8)
+                or task['source_id'] == 'Lootbar' and task['total_request_budget'] != 128
+                or not 0 < task['total_attempt_limit'] <= 3
                 or not 0 <= task['clock_margin_seconds'] <= 5
                 or (instant(task['lease_started_at']) - instant(now)).total_seconds() > task['clock_margin_seconds']
                 or instant(now) >= instant(task['lease_expires_at'])

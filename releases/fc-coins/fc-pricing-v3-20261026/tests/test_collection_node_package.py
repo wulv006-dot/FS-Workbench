@@ -44,7 +44,7 @@ class NodePackage(unittest.TestCase):
             with zipfile.ZipFile(bundle) as archive:
                 self.assertEqual(set(archive.namelist()), {'manifest.json', 'entry.py'} | {
                     'fc_collection/' + name for name in ('__init__.py', 'contracts.py', 'worker.py', 'adapters.py',
-                                                       'protocol.py', 'public_sources.py', 'server.py')})
+                                                       'protocol.py', 'public_sources.py', 'server.py', 'lootbar.py')})
                 code = folder / 'code'
                 archive.extractall(code)
             (folder / 'node.json').write_text(json.dumps(dict(node_id='187', spool=str(folder / 'spool'),
@@ -52,7 +52,7 @@ class NodePackage(unittest.TestCase):
             digest = hashlib.sha256((code / 'manifest.json').read_bytes()).hexdigest()
             with Session([sys.executable, '-I', '-B', str(code / 'entry.py'), 'stdio'], max_seconds=10) as session:
                 result = session.health('187', digest)
-                self.assertEqual(result['adapters'], {'ArabUT': 'arab-public-quote-collection-v3'})
+                self.assertEqual(result['adapters'], {'ArabUT': 'arab-public-quote-collection-v3', 'Lootbar':'lootbar-public-browser-v1'})
                 session.send(dict(method='shell', command='must-not-execute'))
                 message = session.read()
                 self.assertEqual(message['kind'], 'error')

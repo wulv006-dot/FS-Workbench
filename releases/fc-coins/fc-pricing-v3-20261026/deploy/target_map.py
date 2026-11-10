@@ -3,6 +3,17 @@ from pathlib import Path
 
 TARGET_COUNT = 101
 
+LOOTBAR_CALLER_SCOPE='fc-lootbar-183-caller-20261111'
+LOOTBAR_CALLER_NAMES=tuple('source/'+n for n in ('snapshot_layer.py','server_quote_job.py','fc27_cloud_worker.py','collect_lootbar.sh'))
+LOOTBAR_CALLER_SOURCE='fc27_cloud_browser/collect_lootbar.sh'
+LOOTBAR_CALLER_EXTRA={'source/collect_lootbar.sh':'/opt/fc27-cloud-browser/collect_lootbar.sh'}
+LOOTBAR_CALLER_REPOSITORY_SOURCES={'source/collect_lootbar.sh':LOOTBAR_CALLER_SOURCE}
+for _name in ('lootbar_server_collector.py','background.js'):
+    _candidate='source/lootbar-collector/'+_name
+    LOOTBAR_CALLER_EXTRA[_candidate]='/opt/fc27-cloud-browser/collector/'+_name
+    LOOTBAR_CALLER_REPOSITORY_SOURCES[_candidate]='releases/ops/pricing-recovery-20261023/fc_residency/source/'+_name
+    LOOTBAR_CALLER_NAMES+=(_candidate,)
+
 THREE_PLATFORM_SCOPE='fc-pricing-three-platform-20261110'
 THREE_PLATFORM_MODULES=('platforms.py','legacy_simulation/platform_v2_engine.py',
                         'legacy_simulation/platform_v2_financial.py')

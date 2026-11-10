@@ -37,6 +37,26 @@ def positive(value):
 
 def lootbar_snapshots(run_id: str, events: list[dict]) -> list[dict]:
     last = events[-1] if events else {}
+    if last.get('stage') == 'remote_complete':
+        if (last.get('read_only') is not True or last.get('node_id') != '183'
+                or last.get('run_id') != run_id or last.get('source_receipt_verified') is not True
+                or not isinstance(last.get('offers'), list) or not last['offers']):
+            raise ValueError('remote_lootbar_receipt_invalid')
+        rows = last['offers']
+        seen = set()
+        for row in rows:
+            if (row.get('source') != 'Lootbar' or row.get('run_id') != run_id or row.get('status') != 'valid'
+                    or row.get('platform') not in PLATFORMS or row['platform'] in seen
+                    or row.get('currency') != 'USD' or row.get('selection_verified') is not True
+                    or row.get('coupon_excluded') is not True or row.get('auth_state') not in ('public','logged_in')
+                    or not row.get('source_metadata') or not row.get('observation_id')):
+                raise ValueError('remote_lootbar_offer_invalid')
+            captured = datetime.fromisoformat(row['captured_at'].replace('Z','+00:00'))
+            if captured.tzinfo is None or not 0 <= (datetime.now(timezone.utc)-captured).total_seconds() <= 900:
+                raise ValueError('stale_capture')
+            positive(row['gross_usd']); positive(row['purchase_k'])
+            seen.add(row['platform'])
+        return rows + [r for r in missing_competitors(run_id, 'remote_platform_quote_missing') if r['platform'] not in seen]
     if (last.get("stage") != "complete" or last.get("read_only") is not True
             or not any(event.get("stage") == "ps_restored" for event in events)):
         raise ValueError("collector_incomplete")
@@ -50,22 +70,24 @@ def lootbar_snapshots(run_id: str, events: list[dict]) -> list[dict]:
         raise ValueError("invalid_capture_time") from None
     if captured.tzinfo is None or abs((datetime.now(timezone.utc) - captured).total_seconds()) > 3600:
         raise ValueError("stale_capture")
-    # The comparison rule is "same basis across platforms", not "a coupon must
-    # exist". Mixing a pre-coupon price with a post-coupon (or no-coupon) price
-    # would make the platforms incomparable and yield a wrong quote, so the
-    # three platforms must agree; which way they agree is the site's business.
-    coupon_states = {offers[platform].get("coupon_excluded") for platform in PLATFORMS}
-    if len(coupon_states) != 1:
-        raise ValueError("platform_or_coupon_mismatch")
-    coupon_excluded = coupon_states.pop()
-    if type(coupon_excluded) is not bool:
-        raise ValueError("platform_or_coupon_mismatch")
     rows = []
     for platform in PLATFORMS:
         offer = offers[platform]
         if offer.get("platform") != platform:
             raise ValueError("platform_or_coupon_mismatch")
         gross = positive(offer.get("usd_price"))
+        coupon_excluded = offer.get('coupon_excluded')
+        if type(coupon_excluded) is not bool:
+            raise ValueError('platform_or_coupon_mismatch')
+        # The legacy bool means whether exclusion was needed, not whether the price is usable.
+        if coupon_excluded:
+            paid = positive(offer.get('observed_coupon_price'))
+            discount = positive(offer.get('excluded_coupon_discount'))
+            if gross-paid != discount:
+                raise ValueError('coupon_reconstruction_mismatch')
+        elif (offer.get('observed_coupon_price') is not None or offer.get('excluded_coupon_discount') is not None
+                or offer.get('price_basis') not in (None,'当前无券商品价')):
+            raise ValueError('coupon_reconstruction_unverified')
         purchase = positive(offer.get("base_k"))
         if purchase != 100:
             raise ValueError("unexpected_package_size")
@@ -81,7 +103,9 @@ def lootbar_snapshots(run_id: str, events: list[dict]) -> list[dict]:
             "purchase_k": str(purchase), "bonus_k": str(bonus),
             "gross_usd": str(gross),
             "effective_usd_per_k": str(gross / (purchase + bonus)),
-            "coupon_excluded": coupon_excluded, "auth_state": "logged_in",
+            "coupon_excluded": True, "raw_coupon_excluded": coupon_excluded, "auth_state": "logged_in",
+            "price_basis": "visible_public_sale_price", "discount_source": "visible_coupon_excluded" if coupon_excluded else "visible_no_coupon",
+            "source_metadata": {k:offer[k] for k in ('price_basis','reconstruction','observed_coupon_price','excluded_coupon_discount') if k in offer},
             "status": "valid", "reason": None,
         })
     return rows
@@ -204,7 +228,7 @@ def collect_once(run_id=None):
     failures = []
     before = {p for p in glob.glob(str(ROOT / "evidence/lootbar-*.jsonl"))}
     try:
-        result = subprocess.run([str(COLLECTOR)], capture_output=True, timeout=100)
+        result = subprocess.run([str(COLLECTOR), run_id], capture_output=True, timeout=230)
         if result.returncode:
             failures.append("Lootbar:" + collector_failure("lootbar-*.jsonl", before, "Lootbar"))
         else:

@@ -98,7 +98,7 @@ def collect_quote(job):
                               'source_warnings': evidence['snapshot']['source_warnings'], 'valid_costs': 3, 'fx_status': 'valid',
                               'quote_status': 'PENDING', 'collection_location': 'local'}
     else:
-        code, snapshot = run(["python3", str(APP / "snapshot_layer.py"), run_id], 440)
+        code, snapshot = run(["python3", str(APP / "snapshot_layer.py"), run_id], 480)
     from fc_pricing_v3.runtime import collection_scope,ledger
     from fc_pricing_v3.selective_sources import source_plan
     selection=collection_scope(ledger(),run_id)

@@ -233,6 +233,9 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
             "comparable": offer.get("comparable", True), "url": offer["url"],
             "checked_at": offer["captured_at"], "status": "已核对",
         }
+        for field in ('price_basis','discount_source','coupon_excluded','auth_state','source_metadata','observation_id','selection_verified','request_accounting'):
+            if field in offer:
+                offers[platform][site][field] = offer[field]
     if set(costs) != set(PLATFORMS):
         raise ValueError("coverage_incomplete")
     reference_market = reference_context(snapshot, now) if 'ItemD2R' in planned['required_markets'] else dict(status='not_required',offers=[])

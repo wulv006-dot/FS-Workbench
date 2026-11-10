@@ -1,0 +1,24 @@
+{
+  "business_runtime": false,
+  "credentials": [],
+  "production_consume": false,
+  "role": "fc_collection_controller",
+  "schema_version": 1,
+  "sha256": {
+    "entry.py": "813ebced8c7e67c0959df678d402f847aa1f56d8ca282e6d8827ceb48c9ca756",
+    "fc_collection/__init__.py": "1934996529418bdccdd9442e586c6d2de2c37254b44beb80fa5a44c94b592341",
+    "fc_collection/adapters.py": "f6956b771e94accb6c40a147a5efb661916577b3f0603e2670e467dd69313337",
+    "fc_collection/client.py": "68e65a4bba24f59f8847c785db92798f5256286ffa65f2ae57a7bb690d066eca",
+    "fc_collection/contracts.py": "6c391db2c15f6c8c74aa8aad9f79f5ced696d7a67ed65bc65935a888e321c491",
+    "fc_collection/coordinator.py": "49c59e2c1ca5eddb82aa9910a57a887e0447bbafdeca28abcc269d2d69425e09",
+    "fc_collection/failover.py": "045508edc19126407df46675c34b258168cd1dab535143afd847f3a5e6fefb27",
+    "fc_collection/pilot.py": "36b05276fabb159f995501c3fa41185d6e9975044cb93c5ab249dfc03d50d63a",
+    "fc_collection/protocol.py": "7f83c75375303d965ea4bb8c3614b6b437b9f6e95a08230d888cb0fc7ba22d84",
+    "fc_collection/public_sources.py": "c071cded9b2c8882835ba5ac1f3f0f9edf5d03fc73708fb53217b19fbc3062eb",
+    "fc_collection/ssh_client.py": "68ed1fb45ea655b7c4907d52871ddfa66471c0c3d53567ae918a25a4dfcca90c",
+    "fc_collection/worker.py": "eed508af501534d522acdfeb4e9303907f0d08731b941d480220f2c321350195"
+  },
+  "sources": [
+    "ArabUT"
+  ]
+}

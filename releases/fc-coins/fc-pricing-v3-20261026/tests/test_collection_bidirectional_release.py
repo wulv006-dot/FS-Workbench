@@ -26,16 +26,23 @@ class BidirectionalRoleRelease(unittest.TestCase):
         self.assertEqual(release.OLD,dict(node='55eeff178d37e4747c1fe5b4f3d49b9a258b4d5cf7eeb75a6cbf6493cba5b14d',
             control='53e1e8fa7719d57e35a7dc33a200948827ef06e8479e70922379479834f913ec'))
         with tempfile.TemporaryDirectory() as folder:
-            bundle=Path(folder)/'node.zip';builder.build(bundle)
-            with zipfile.ZipFile(bundle) as archive:
-                self.assertEqual(hashlib.sha256(archive.read('manifest.json')).hexdigest(),release.WORKER)
+            # The current builder intentionally includes Lootbar. Historical pins bind
+            # the original ea496e2 Git bytes, not whatever the current builder emits.
+            raw=(ROOT/'tests/fixtures/collection-node-20261107.json').read_bytes()
+            self.assertEqual(hashlib.sha256(raw).hexdigest(),release.WORKER)
+            self.assertEqual(json.loads(raw)['sources'],['ArabUT'])
 
     def fixture(self, folder, *, extra_change=False):
         release=load('update_collection_bidirectional');builder=load('build_collection_node')
         root=Path(folder)/'role';stage=Path(folder)/'stage';stage.mkdir();(root/'code').mkdir(parents=True)
         spool=Path(folder)/'spool';spool.mkdir()
-        candidate=stage/'new.zip';builder.build(candidate)
-        with zipfile.ZipFile(candidate) as archive:current={name:archive.read(name) for name in archive.namelist()}
+        candidate=stage/'new.zip'
+        old_manifest=json.loads((ROOT/'tests/fixtures/collection-node-20261107.json').read_text())
+        current={name:('# new fixture '+name+'\n').encode() for name in old_manifest['sha256']}
+        manifest=dict(old_manifest,sha256={n:hashlib.sha256(b).hexdigest() for n,b in current.items()})
+        current['manifest.json']=json.dumps(manifest).encode()
+        with zipfile.ZipFile(candidate,'w') as archive:
+            for name,body in current.items():archive.writestr(name,body)
         previous=current.copy()
         changed=release.CHANGED['node']-{'manifest.json'}
         for name in changed|({'fc_collection/protocol.py'} if extra_change else set()):previous[name]=b'# original fixture\n'
@@ -47,6 +54,7 @@ class BidirectionalRoleRelease(unittest.TestCase):
         for name,body in previous.items():
             target=root/'code'/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(body)
         release.STAGE=stage;release.OLD=dict(node=hashlib.sha256(old.read_bytes()).hexdigest());release.NEW=dict(node=hashlib.sha256(candidate.read_bytes()).hexdigest())
+        release.WORKER=hashlib.sha256(current['manifest.json']).hexdigest()
         original_stat=Path.stat
         def stat_(path,*args,**kwargs):
             values=list(original_stat(path,*args,**kwargs));values[4]=0;return os.stat_result(values)

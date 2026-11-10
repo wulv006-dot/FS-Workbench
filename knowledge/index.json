@@ -324,7 +324,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "622aff19e1eae780c0511fbb81061ae89848bf3a49c8b8be51e600d16b594ca8",
+        "sha256": "b23876186e0e1745e1b6628c7d32b2927cb74f9d69ee6b5e424144f4ac30b5b9",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -1015,20 +1015,20 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "20261110-three-platform-100k",
+      "revision": "20261111-lootbar-no-coupon",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-10",
+      "effective_at": "2026-11-11",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "622aff19e1eae780c0511fbb81061ae89848bf3a49c8b8be51e600d16b594ca8",
+        "sha256": "b23876186e0e1745e1b6628c7d32b2927cb74f9d69ee6b5e424144f4ac30b5b9",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1042,7 +1042,8 @@
         "fc.pricing.v3@20261107-profit-summary",
         "fc.pricing.v3@20261107-time-attribution",
         "fc.pricing.v3@20261107-bidirectional-v2",
-        "fc.pricing.v3@20261109-coupon-display"
+        "fc.pricing.v3@20261109-coupon-display",
+        "fc.pricing.v3@20261110-three-platform-100k"
       ],
       "provenance": [
         {
@@ -1112,6 +1113,12 @@
           "date": "2026-11-10",
           "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
           "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
+        },
+        {
+          "kind": "direct_user_rpg_render_reuse_and_coupon_reverse",
+          "date": "2026-11-11",
+          "decision": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
+          "scope": "No-coupon quote reconstruction and existing renderer reuse; financial selected section unchanged"
         }
       ],
       "consumers": [
@@ -1526,6 +1533,38 @@
         "Hermes explicit experience selection"
       ],
       "time_precision": "date_only"
+    },
+    {
+      "id": "fc.pricing.experience.lootbar-source-availability",
+      "revision": "20261111-1",
+      "layer": "experience",
+      "status": "verified",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-11-11",
+      "time_precision": "date_only",
+      "owner": "吴律 / FC27",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/experience/fc27-lootbar-source-availability-20261111.md",
+        "sha256": "1e74401c151da7cfab4f57da4c1579c5c3d7fdf21c0d05332a90c8489cfbdaff",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "verified_original_trace_and_read_only_source_recovery",
+          "date": "2026-11-11",
+          "decision": "knowledge/experience/fc27-lootbar-source-availability-20261111.md",
+          "scope": "Diagnosis and one source-only recovery; automatic fallback and business effects independently verified"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes formal knowledge entry"
+      ]
     }
   ],
   "base_commit": "0e2d02efd7c894199ab0f62ca69a9c75ed7c2578"
