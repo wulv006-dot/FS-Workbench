@@ -465,6 +465,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('releases/fs-dashboard/order-email-export-20261111/'):
+            groups.add('order-email-deployment');continue
         if name in ('tools/release_channel.py', 'tools/test_release_channel.py'):
             groups.add('release-channel');continue
         if name.startswith('docs/planning/fc27-weekly-console-20261109/deploy/') or name in ('tools/campaign_weekly_readonly_acceptance.mjs', 'tools/campaign_weekly_model_receipt_readonly.py', 'tools/test_campaign_weekly_acceptance.py'):
@@ -914,6 +916,13 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group == 'order-email-deployment':
+            integration='releases/fs-dashboard/order-email-export-20261111/integration'
+            units(integration, ['test_prepare.Backend', 'test_workspace_patch', 'test_nginx_patch', 'test_package'])
+            # The page test spawns Node locally; the CI job supplies the network namespace.
+            subprocess.run([sys.executable, '-B', '-m', 'unittest', 'discover', '-s', integration, '-p', 'test_prepare.py', '-k', 'Frontend'], cwd=ROOT, check=True, timeout=45)
+            units('releases/fs-dashboard/order-email-export-20261111/publisher', ['test_adapter'])
+            continue
         if group == 'release-channel':
             units('tools', ['test_release_channel'])
             continue
