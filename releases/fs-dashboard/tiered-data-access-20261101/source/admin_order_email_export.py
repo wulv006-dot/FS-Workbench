@@ -14,6 +14,104 @@ MAX_SECONDS = 45
 MAX_EXPORT_BYTES = 1048576
 
 
+def parse_page_body(raw, *, observed_at=utc_now):
+    """One source window; the source cursor is opaque and has no resume guarantee."""
+    if not isinstance(raw, bytes) or not 1 <= len(raw) <= 4096:
+        raise ValueError('invalid_export_request')
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError('duplicate_field')
+            value[key] = item
+        return value
+    value = json.loads(raw.decode('utf8'), object_pairs_hook=unique)
+    required = {'site_id', 'game_id', 'start', 'end_exclusive'}
+    if not isinstance(value, dict) or not required <= set(value) or set(value) - required - {'filters', 'cursor'}:
+        raise ValueError('invalid_export_request')
+    if any(not isinstance(value[k], str) or not value[k].isascii() or not value[k].isdigit() or len(value[k]) > 20 for k in ('site_id', 'game_id')):
+        raise ValueError('invalid_export_request')
+    if not isinstance(value.get('filters', {}), dict):
+        raise ValueError('invalid_export_request')
+    if value.get('filters'):
+        raise ValueError('unsupported_export_filters')
+    if 'cursor' in value and (not isinstance(value['cursor'], str) or not 1 <= len(value['cursor']) <= 1024):
+        raise ValueError('invalid_export_request')
+    try:
+        validate_period(value, observed_at)
+    except LivePageError:
+        raise ValueError('invalid_export_request') from None
+    return value
+
+
+def page_get(request, user, *, run_source=None):
+    """Project exactly one authorized live page without storing PII or cursors."""
+    import sys
+    from admin_live_host import get as live_get
+    if not user:
+        return 401, {'error': 'login_required', 'complete': False}
+    try:
+        request = parse_page_body(json.dumps(request).encode('utf8'))
+    except (ValueError, TypeError, UnicodeError):
+        return 422, {'error': 'invalid_export_request', 'complete': False}
+    try:
+        sys.path.insert(0, '/opt/fs-access-policy')
+        from user_runtime import authorize
+        scope = {k: request[k] for k in ('site_id', 'game_id')}
+        period = {k: request[k] for k in ('start', 'end_exclusive')}
+        if authorize(user, {'scope': 'site', 'scope_id': request['site_id']}, True) is not True:
+            return 403, {'error': 'scope_denied', 'complete': False}
+        query = {k: [v] for k, v in request.items() if k != 'filters'}
+        status, result = live_get(query, user, run_source=run_source)
+        if type(status) is not int or not isinstance(result, dict):
+            raise ValueError()
+        if status != 206:
+            failure = {'error': result.get('error', 'export_source_incomplete'), 'complete': False}
+            if 'retryAfter' in result:
+                failure['retryAfter'] = result['retryAfter']
+            return status if status >= 400 else 503, failure
+        if (result['complete'] is not False or result['status'] != 'partial'
+                or result['semantics'] != 'live_non_snapshot'
+                or result['limitation'] != 'live_pagination_not_snapshot'
+                or result['scope'] != scope or result['period'] != period
+                or result['timezone'] != 'Asia/Shanghai'):
+            raise ValueError()
+        at = result['observed_at']
+        if not isinstance(at, str) or datetime.datetime.fromisoformat(at.replace('Z', '+00:00')).utcoffset() is None:
+            raise ValueError()
+        rows, total, count, cursor = (result[k] for k in ('data', 'source_reported_total', 'observed_page_rows', 'next_cursor'))
+        if (not isinstance(rows, list) or type(total) is not int or total < 0
+                or type(count) is not int or count != len(rows) or not 0 <= count <= min(20, total)
+                or (not rows and total != 0)
+                or (cursor is not None and (not isinstance(cursor, str) or not 1 <= len(cursor) <= 1024
+                    or count != 20 or count >= total or cursor == request.get('cursor')))
+                or ('cursor' not in request and cursor is None and count != total)):
+            raise ValueError()
+        data = []
+        seen = set()
+        for row in rows:
+            ident, email = row['order_id'], row['customer_email']
+            if not isinstance(ident, str) or not ident.isascii() or not ident.isdigit() or len(ident) > 20 or int(ident) <= 0 or ident in seen:
+                raise ValueError()
+            seen.add(ident)
+            if email is not None:
+                if not isinstance(email, str) or len(email) > 320:
+                    raise ValueError()
+                email = email.strip() or None
+                if email is not None and not valid_customer_email(email):
+                    raise ValueError()
+            data.append(dict(order_id=ident, email=email, email_key=email.casefold() if email else None))
+        return 206, dict(status='partial', complete=False, semantics='live_non_snapshot',
+                         limitation='live_pagination_not_snapshot', scope=scope, period=period,
+                         date_field='paytime', timezone='Asia/Shanghai', email_field='user_email',
+                         deduplication='trim_casefold', observed_at=at, source_reported_total=total,
+                         observed_page_rows=count, data=data, next_cursor=cursor)
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return 503, {'error': 'export_source_schema_changed', 'complete': False}
+    except Exception:
+        return 503, {'error': 'export_source_unavailable', 'complete': False}
+
+
 def parse_body(raw):
     if not isinstance(raw, bytes) or not 1 <= len(raw) <= 4096:
         raise ValueError('invalid_export_request')

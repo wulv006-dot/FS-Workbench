@@ -7,9 +7,29 @@
  * Throws TypeError before returning any CSV if the payload is invalid.
  */
 export function orderEmailCsv(payload) {
+  if (!payload || payload.complete !== true || payload.status !== 'available')
+    throw new TypeError('Invalid or incomplete order email export');
+  return serialize(payload);
+}
+
+/** A client traversal is exhausted, never a server complete:true response. */
+export function orderEmailTraversalCsv(payload) {
+  const positive = value => Number.isSafeInteger(value) && value > 0;
+  if (!payload || payload.state !== 'exhausted' || payload.complete !== false ||
+      payload.traversal_exhausted !== true || !positive(payload.total_windows) ||
+      payload.exhausted_windows !== payload.total_windows ||
+      !positive(payload.accepted_pages) || payload.accepted_pages < payload.total_windows ||
+      payload.timezone !== 'Asia/Shanghai' || payload.date_field !== 'paytime' ||
+      !Number.isSafeInteger(payload.source_reported_total) || payload.source_reported_total < 0 ||
+      payload.source_reported_total !== payload.observed_orders)
+    throw new TypeError('Invalid or incomplete order email traversal');
+  return serialize(payload);
+}
+
+// Private shared schema/address checks and serialization; no unchecked public serializer.
+function serialize(payload) {
   const fail = () => { throw new TypeError('Invalid or incomplete order email export'); };
   if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
-      payload.complete !== true || payload.status !== 'available' ||
       payload.email_field !== 'user_email' || payload.deduplication !== 'trim_casefold' ||
       payload.semantics !== 'live_non_snapshot' ||
       payload.limitation !== 'live_pagination_not_snapshot' || 'error' in payload) fail();

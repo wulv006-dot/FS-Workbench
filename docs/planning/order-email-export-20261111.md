@@ -58,6 +58,29 @@ CodeGraph MCP已调用，本任务无索引，服务要求本会话使用源码�
 - Python全套172项/1.182s/OK，pr-fast selfcheck、CRLF-aware diff --check通过，pr-fast仅3增1删。组件测试已接入现有CI分组。
 - 真实页面尚未挂载，未获生产协议/目录/路由证据；全年大名单续跑、Admin广筛选、183Linux和生产入口仍待完成。准备将当前最小候选提交草稿PR追踪，不等同可合并或已交付。
 
+## 逐页续跑施工（2026-11-11，续轮6）
+
+- 草稿PR990（https://github.com/wulv006-dot/FS-Workbench/pull/990）初始提交ee1886d的pr-fast已SUCCESS；本轮新增改动尚未提交，不能沿用旧CI证明新代码。
+- 新增私有POST `/users/order-email-export-page`，保留旧同步接口。单游戏/最多28日/每次一页，沿用原真实Cookie actor、private/site检查、共享admission和源签名cursor；数据仅投影order_id/user email/Python trim-casefold key，支付邮箱不回退。每页始终HTTP206/complete:false，不把末页当整个年度完成。非法请求/权限/源错误不返回部分地址，忙碌retryAfter保留。
+- lead完整读回新增后端与HTTP分支，独立执行Python3.9全套180 tests/1.197s/OK；本次没有skip。子代理此前报告180 tests含1项Windows符号链接权限skip，不能替代lead这次实际结果。CRLF-aware diff --check通过。新增模拟真实host签名游标的两页/撤权测试，不等于生产验收。
+- 原有分页token没有时间TTL，依赖进程随机key；进程重启、多进程路由或权限配置变化会使续跑失效。日期仍受滚动365日限制；不承诺无限期或跨刷新恢复。浏览器协调器及组件接入仍施工中，计划只在当前页内存保留去重状态，无后端PII持久化。
+- 修正组件未定义的native-card/native-form类，改用同模块现有fc-card/hsel/dinput；Node现有14项模块回归通过，未做真实视觉验收。尝试增加样式断言时文件编辑因Windows所有者元数据错误1307/METADATA_UNSUPPORTED被拒，effectState=none；没有换工具强写或声称新增该测试。
+- 尝试按插件建议在注册镜像路径创建独立只读子会话：Codex子会话无rw工具，普通子会话有rw_info但仍报告LOCAL/no remote workspace bound，故停止，没有实际服务器读取或替代SSH路径。真实Admin筛选/下单时间/目录与活动路由证据仍未获得。
+
+- 浏览器纯内存协调器 `frontend/order-email-run.js` 已读回：逐游戏×28日计划、整页验证后一次提交去重状态、稳定总数/全局订单ID/cursor循环检查；网络中断重取相同pending request，不使用存储或服务器任务。仅所有计划窗耗尽才给result，仍complete:false并独立traversal_exhausted:true，不冒充服务端全量响应。lead独立复跑12项Node协调器测试通过，已接入pr-fast分组；pr-fast selfcheck与diff检查通过。
+- 独立CSV字节探针验证空名单实际UTF-8 hex为efbbbf656d61696c0d0a（BOM+email+CRLF），不是字面转义字符。协调器结果的独立CSV门槛及暂停/续跑页面集成仍在修改，未提交、未做生产验收。
+
+## 分页组件集成复核（2026-11-11，续轮6）
+
+- 显式paged模式已接入纯内存协调器：串行逐页请求，暂停保留未提交页、手动续跑同一游标；条件变化/取消/dispose清除名单，旧fetch/JSON完成不覆盖新运行。只有全部窗口遍历结束才允许生成CSV；仍标明实时非快照，不伪装server complete。
+- 修复限流等待：同时读取HTTP Retry-After与原API JSON retryAfter，采用有效指导中较晚的截止时间；没有有效指导才默认60秒。新增4项真实组件mock-DOM回归。原新子代理测试文件编辑再次因METADATA_UNSUPPORTED/os error1307被拒且无效果，保持原文件，独立新建测试文件而非强写原文件。
+- lead独立复跑全部邮箱相关Node测试54项通过；Python3.9全套180项/1.218s/OK；pr-fast selfcheck和CRLF-aware diff --check通过。新续跑/遍历CSV/重试测试均注册现有CI组。所有UI测试仍是mock DOM，不是浏览器、浅暗主题或183Linux验证。
+- 独立只读复核指出两个P2问题，已修正：成功响应体读取TypeError作为传输中断暂停并保留同页游标；503中明确的source_auth/source_schema_changed/export_source_schema_changed以及未知错误清除名单，不当作可续跑临时故障。临时source_busy/source_unavailable/live_source_unavailable/export_source_unavailable仍遵守等待时间。格式错误SyntaxError仍清除名单。
+- 修正后独立复跑既有54项Node测试通过，另以内存临时验证执行6个定向检查（响应体中断保留20条后重试原游标、4类终止错误清除、无效JSON清除）通过；未修改现有测试资产或放宽验收。Python仍引用上述180项已完成验证，未以重复跑分代替业务验收。
+- 真实页面尚未挂载，无生产协议/目录/路由证据，不声称全年FC26+FC27实际名单已可导出；未合并、未部署。PR990保持draft，本轮提交只交付候选实现，不代表功能上线。
+
+- 暂存区全量diff --check发现test_order_email_resume_panel.cjs:200末尾额外空行（此前未跟踪文件不在普通diff检查范围）；返回2，后续commit/push因&&未执行。这是格式警告而非业务测试失败。该文件曾明确METADATA_UNSUPPORTED/retry=never，未强写或切换工具绕过；保留警告交CI判断，不修改测试或CI规则。
+
 ## 业务及生产验收（均待执行，本地测试结果见上）
 
 1. 真实站点与多选游戏目录、截图筛选语义一致。

@@ -138,17 +138,20 @@ class HttpTests(unittest.TestCase):
         self.env = dict(urlsplit=urlsplit, re=re, LIVE_ADMIN=types.SimpleNamespace(run=lambda op, timeout: op()), verify_live_session=lambda cookie: (200, 'real-actor'))
         exec(compile(ast.fix_missing_locations(ast.Module(body=[method], type_ignores=[])), str(source), 'exec'), self.env)
 
-    def invoke(self, extra=None, query=''):
+    def invoke(self, extra=None, query='', path='/users/order-email-export', raw=None, implementation=None):
         import io
         import types
-        raw = json.dumps(dict(site_id='266', game_ids=['1'], start='2026-10-01', end_exclusive='2026-10-02')).encode()
+        if raw is None:
+            request = dict(site_id='266', start='2026-10-01', end_exclusive='2026-10-02')
+            request.update(game_id='1') if path.endswith('-page') else request.update(game_ids=['1'])
+            raw = json.dumps(request).encode()
         headers = {'Content-Type': 'application/json', 'Content-Length': str(len(raw)), 'Sec-Fetch-Site': 'same-origin', 'X-Auth-User': 'forged'}
         headers.update(extra or {})
-        target = types.SimpleNamespace(path='/users/order-email-export' + query, headers=headers, rfile=io.BytesIO(raw), connection=types.SimpleNamespace(settimeout=lambda t: None), reply=lambda status, result: self.responses.append((status, result)))
+        target = types.SimpleNamespace(path=path + query, headers=headers, rfile=io.BytesIO(raw), connection=types.SimpleNamespace(settimeout=lambda t: None), reply=lambda status, result: self.responses.append((status, result)))
         def get(request, actor, *, run_source):
             run_source(lambda: self.calls.append(actor), 10)
             return 200, {'complete': True, 'emails': []}
-        with patch.object(export, 'get', get):
+        with patch.object(export, 'page_get' if path.endswith('-page') else 'get', implementation or get):
             self.env['do_POST'](target)
         return self.responses[-1]
 
@@ -164,6 +167,170 @@ class HttpTests(unittest.TestCase):
         self.env['verify_live_session'] = lambda cookie: next(answers)
         self.assertEqual(self.invoke()[0], 503)
         self.assertEqual(self.calls, [])
+
+    def test_both_paths_share_all_guards_and_verified_session(self):
+        for path in ('/users/order-email-export', '/users/order-email-export-page'):
+            self.env['verify_live_session'] = lambda cookie: (200, 'real-actor')
+            self.assertEqual(self.invoke(path=path)[0], 200)
+            self.assertEqual(self.calls[-1], 'real-actor')
+            before = len(self.calls)
+            for headers, query, raw in [({'Sec-Fetch-Site': 'cross-site'}, '', None),
+                    ({'Content-Length': '4097'}, '', None), ({'Content-Type': 'text/plain'}, '', None),
+                    ({'Transfer-Encoding': 'chunked'}, '', None), ({}, '?cursor=secret', None),
+                    ({}, '', b'{}'), ({}, '', b'{"site_id":"266","site_id":"266"}'),
+                    ({'Content-Length': '4096'}, '', b'{}')]:
+                with self.subTest(path=path, headers=headers, raw=raw):
+                    self.assertGreaterEqual(self.invoke(headers, query, path, raw)[0], 400)
+            self.assertEqual(len(self.calls), before)
+            for status in (401, 403, 429, 503):
+                self.env['verify_live_session'] = lambda cookie, status=status: (status, None)
+                self.assertEqual(self.invoke(path=path)[0], status)
+            answers = iter([(200, 'real-actor'), (200, 'different-actor')])
+            self.env['verify_live_session'] = lambda cookie: next(answers)
+            self.assertEqual(self.invoke(path=path)[0], 503)
+            self.assertEqual(len(self.calls), before)
+
+    def test_both_paths_private_permission_and_source_errors(self):
+        import types
+        for path, implementation in (('/users/order-email-export', export.get),
+                                     ('/users/order-email-export-page', export.page_get)):
+            with patch.dict(sys.modules, {'user_runtime': types.SimpleNamespace(authorize=lambda *a: False)}), patch('admin_live_host.get') as source:
+                self.assertEqual(self.invoke(path=path, implementation=implementation)[0], 403)
+                source.assert_not_called()
+            with patch.dict(sys.modules, {'user_runtime': types.SimpleNamespace(authorize=lambda *a: True)}), patch('admin_live_host.get', return_value=(503, {'error': 'source_timeout'})):
+                self.assertEqual(self.invoke(path=path, implementation=implementation), (503, {'error': 'source_timeout', 'complete': False}))
+
+
+class PageExportTests(unittest.TestCase):
+    def setUp(self):
+        import types
+        self.request = dict(site_id='266', game_id='1', start='2026-10-01', end_exclusive='2026-10-02')
+        self.payload = dict(status='partial', complete=False, semantics='live_non_snapshot',
+            limitation='live_pagination_not_snapshot', scope=dict(site_id='266', game_id='1'),
+            period=dict(start='2026-10-01', end_exclusive='2026-10-02'), timezone='Asia/Shanghai',
+            observed_at='2026-11-11T12:00:00+08:00', source_reported_total=0,
+            observed_page_rows=0, data=[], next_cursor=None)
+        self.auth = unittest.mock.Mock(return_value=True)
+        self.runtime = patch.dict(sys.modules, {'user_runtime': types.SimpleNamespace(authorize=self.auth)})
+        self.runtime.start()
+        self.addCleanup(self.runtime.stop)
+
+    def call(self, payload=None, status=206, request=None):
+        with patch('admin_live_host.get', return_value=(status, self.payload if payload is None else payload)) as source:
+            result = export.page_get(self.request if request is None else request, 'real-actor', run_source='admission')
+            self.source = source
+            return result
+
+    def test_one_page_projection_keeps_orders_and_original_spelling(self):
+        self.payload.update(data=[dict(order_id=str(i + 1), customer_email=e, pay_email='never@test.invalid')
+            for i, e in enumerate([' Straße@Example.test ', 'STRASSE@example.test', None, '', '  '])],
+            source_reported_total=5, observed_page_rows=5)
+        status, result = self.call()
+        self.assertEqual(status, 206)
+        self.assertFalse(result['complete'])
+        self.assertEqual(result['date_field'], 'paytime')
+        self.assertEqual(result['email_field'], 'user_email')
+        self.assertEqual(len(result['data']), 5)
+        self.assertEqual(result['data'][0]['email'], 'Straße@Example.test')
+        self.assertEqual(result['data'][0]['email_key'], result['data'][1]['email_key'])
+        self.assertEqual(result['data'][2], dict(order_id='3', email=None, email_key=None))
+        self.assertNotIn('never', json.dumps(result))
+        self.source.assert_called_once_with({k: [v] for k, v in self.request.items()}, 'real-actor', run_source='admission')
+        self.auth.assert_called_once_with('real-actor', {'scope': 'site', 'scope_id': '266'}, True)
+
+    def test_opaque_cursor_and_last_page_remain_partial(self):
+        self.request['cursor'] = 'opaque.source-token'
+        self.payload.update(data=[dict(order_id='1', customer_email=None)], source_reported_total=21, observed_page_rows=1)
+        status, result = self.call()
+        self.assertEqual(status, 206)
+        self.assertIsNone(result['next_cursor'])
+        self.assertFalse(result['complete'])
+        self.assertEqual(self.source.call_args[0][0]['cursor'], ['opaque.source-token'])
+        self.payload.update(data=[dict(order_id=str(i+1), customer_email=None) for i in range(20)], observed_page_rows=20, next_cursor='next.opaque')
+        self.assertEqual(self.call()[1]['next_cursor'], 'next.opaque')
+
+    def test_request_validation_before_source(self):
+        for changes in [dict(game_id=1), dict(site_id='２６６'), dict(game_id=''), dict(game_ids=['1']),
+                dict(actor='forged'), dict(start='20261001'), dict(start='2026-1-01'), dict(start='2026-W40-4'),
+                dict(end_exclusive='2026-11-01'), dict(start='2020-01-01'), dict(end_exclusive='2027-01-01'),
+                dict(filters={'status': 'paid'}), dict(filters=[]), dict(cursor=None), dict(cursor=''), dict(cursor=1), dict(cursor='a'*1025)]:
+            with self.subTest(changes=changes):
+                self.assertEqual(self.call(request=dict(self.request, **changes))[0], 422)
+                self.source.assert_not_called()
+        for raw in [b'{}', b'[]', b' '*4097, b'\xff', b'{"site_id":"266","site_id":"266"}',
+                    json.dumps(dict(self.request, filters={'x': 1})).encode()]:
+            with self.assertRaises(ValueError):
+                export.parse_page_body(raw)
+
+    def test_malformed_source_discards_all_data(self):
+        good = dict(self.payload, data=[dict(order_id='1', customer_email='private@example.test')], observed_page_rows=1, source_reported_total=1)
+        for changes in [dict(complete=True), dict(status='available'), dict(scope={}), dict(period={}),
+                dict(timezone='UTC'), dict(observed_at='bad'), dict(observed_at='2026-11-11'),
+                dict(source_reported_total=True), dict(source_reported_total=-1), dict(observed_page_rows=True),
+                dict(observed_page_rows=2), dict(source_reported_total=2), dict(next_cursor=1), dict(next_cursor=''),
+                dict(next_cursor='next'), dict(data={}), dict(data=[{}]),
+                dict(data=[dict(order_id=1, customer_email=None)]), dict(data=[dict(order_id='1', customer_email=5)]),
+                dict(data=[dict(order_id='1', pay_email='payment@example.test')]),
+                dict(data=[dict(order_id='1', customer_email='bad')]),
+                dict(data=good['data']*2, observed_page_rows=2, source_reported_total=2),
+                dict(data=good['data']*21, observed_page_rows=21, source_reported_total=21)]:
+            with self.subTest(changes=changes):
+                status, result = self.call(dict(good, **changes))
+                self.assertEqual(status, 503)
+                self.assertNotIn('data', result)
+                self.assertNotIn('private@', json.dumps(result))
+        for payload in ([], None, {}, {'data': []}):
+            if payload is not None:
+                self.assertEqual(self.call(payload)[0], 503)
+
+    def test_permission_and_source_errors_retry_after(self):
+        self.assertEqual(export.page_get({}, None)[0], 401)
+        self.auth.return_value = False
+        self.assertEqual(self.call()[0], 403)
+        self.source.assert_not_called()
+        self.auth.return_value = True
+        for status, error in [(403, 'scope_denied'), (422, 'invalid_live_query'), (409, 'source_changed_restart_required'),
+                (429, 'source_busy'), (503, 'source_timeout')]:
+            self.assertEqual(self.call({'error': error, 'retryAfter': 10, 'data': ['secret']}, status),
+                (status, {'error': error, 'retryAfter': 10, 'complete': False}))
+
+    def test_real_host_scope_cursor_and_revocation_boundaries(self):
+        from admin_live_host import build_handler
+        from test_live_global_authorization import RBAC
+        config = dict(activation_status='W0_verified', sites={'266': {}, '267': {}},
+                      projects={'1': {}}, live_admin_single_page=True)
+        calls = []
+        def fetch(path, params, timeout, cap):
+            calls.append(params)
+            rows = [dict(id=i, site_id=266, gid=1, paytime='2026-10-01 12:00:00',
+                         status='11', pay_status='1', email='Buyer@example.test')
+                    for i in (range(21, 1, -1) if params['page'] == 1 else [1])]
+            return 200, json.dumps(dict(code=1, data=dict(total=21, list=rows))).encode()
+        def live(params, actor, *, run_source):
+            return build_handler(load_config=lambda: config, load_policy=lambda: {}, rbac=RBAC,
+                fetch=fetch, run_source=run_source, existing_authorizer=self.auth)(params, actor)
+        with patch('admin_live_host.get', live):
+            def invoke(request):
+                return export.page_get(request, 'real-actor', run_source=lambda op, timeout: op())
+            for changes in (dict(site_id='267'), dict(game_id='999')):
+                self.assertEqual(invoke(dict(self.request, **changes))[0], 403)
+            self.assertEqual(calls, [])
+            status, first = invoke(self.request)
+            self.assertEqual(status, 206)
+            self.assertEqual(len(first['data']), 20)
+            self.assertEqual(calls[0]['limit'], 20)
+            self.assertEqual(calls[0]['search[2][field]'], 'paytime')
+            continuation = dict(self.request, cursor=first['next_cursor'])
+            self.assertEqual(invoke(dict(continuation, cursor=first['next_cursor'] + 'bad'))[0], 422)
+            status, last = invoke(continuation)
+            self.assertEqual(status, 206)
+            self.assertEqual(len(last['data']), 1)
+            self.assertIsNone(last['next_cursor'])
+            self.assertFalse(last['complete'])
+            self.assertEqual(len(calls), 2)
+            self.auth.return_value = False
+            self.assertEqual(invoke(continuation)[0], 403)
+            self.assertEqual(len(calls), 2)
 
 
 if __name__ == '__main__':
