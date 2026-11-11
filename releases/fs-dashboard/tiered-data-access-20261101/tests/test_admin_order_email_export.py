@@ -63,7 +63,7 @@ class ExportTests(unittest.TestCase):
             self.assertGreaterEqual(status, 400)
             self.assertNotIn('emails', result)
         status, result = self.run_export(lambda *args: self.fail(), self.request(filters={'made_up': '1'}))
-        self.assertEqual((status, result['error']), (422, 'unsupported_export_filters'))
+        self.assertEqual((status, result['error']), (422, 'invalid_export_request'))
 
     def test_dates_and_duplicate_json_fail_closed(self):
         for request in [self.request(start='2020-01-01'), self.request(end_exclusive='2027-01-01'), self.request(game_ids=['1', '1']), self.request(start='2026-1-01'), self.request(start='20261001'), self.request(end_exclusive='20261002'), self.request(start='2026-W40-4')]:
@@ -194,10 +194,10 @@ class HttpTests(unittest.TestCase):
         import types
         for path, implementation in (('/users/order-email-export', export.get),
                                      ('/users/order-email-export-page', export.page_get)):
-            with patch.dict(sys.modules, {'user_runtime': types.SimpleNamespace(authorize=lambda *a: False)}), patch('admin_live_host.get') as source:
+            with patch.dict(sys.modules, {'user_runtime': types.SimpleNamespace(authorize=lambda *a: False)}), patch('admin_email_export_source.get') as source:
                 self.assertEqual(self.invoke(path=path, implementation=implementation)[0], 403)
                 source.assert_not_called()
-            with patch.dict(sys.modules, {'user_runtime': types.SimpleNamespace(authorize=lambda *a: True)}), patch('admin_live_host.get', return_value=(503, {'error': 'source_timeout'})):
+            with patch.dict(sys.modules, {'user_runtime': types.SimpleNamespace(authorize=lambda *a: True)}), patch('admin_email_export_source.get', return_value=(503, {'error': 'source_timeout'})):
                 self.assertEqual(self.invoke(path=path, implementation=implementation), (503, {'error': 'source_timeout', 'complete': False}))
 
 
@@ -216,7 +216,7 @@ class PageExportTests(unittest.TestCase):
         self.addCleanup(self.runtime.stop)
 
     def call(self, payload=None, status=206, request=None):
-        with patch('admin_live_host.get', return_value=(status, self.payload if payload is None else payload)) as source:
+        with patch('admin_email_export_source.get', return_value=(status, self.payload if payload is None else payload)) as source:
             result = export.page_get(self.request if request is None else request, 'real-actor', run_source='admission')
             self.source = source
             return result
@@ -295,7 +295,7 @@ class PageExportTests(unittest.TestCase):
                 (status, {'error': error, 'retryAfter': 10, 'complete': False}))
 
     def test_real_host_scope_cursor_and_revocation_boundaries(self):
-        from admin_live_host import build_handler
+        from admin_email_export_source import build_handler
         from test_live_global_authorization import RBAC
         config = dict(activation_status='W0_verified', sites={'266': {}, '267': {}},
                       projects={'1': {}}, live_admin_single_page=True)
@@ -308,13 +308,17 @@ class PageExportTests(unittest.TestCase):
             return 200, json.dumps(dict(code=1, data=dict(total=21, list=rows))).encode()
         def live(params, actor, *, run_source):
             return build_handler(load_config=lambda: config, load_policy=lambda: {}, rbac=RBAC,
-                fetch=fetch, run_source=run_source, existing_authorizer=self.auth)(params, actor)
-        with patch('admin_live_host.get', live):
+                fetch=fetch, run_source=run_source, authorize=self.auth)(params, actor)
+        with patch('admin_email_export_source.get', live):
             def invoke(request):
                 return export.page_get(request, 'real-actor', run_source=lambda op, timeout: op())
-            for changes in (dict(site_id='267'), dict(game_id='999')):
-                self.assertEqual(invoke(dict(self.request, **changes))[0], 403)
+            self.auth.return_value = False
+            self.assertEqual(invoke(dict(self.request, site_id='999'))[0], 403)
             self.assertEqual(calls, [])
+            self.auth.return_value = True
+            # The old generic project/site directory is not the admin's export scope.
+            config['sites'] = {}
+            config['projects'] = {}
             status, first = invoke(self.request)
             self.assertEqual(status, 206)
             self.assertEqual(len(first['data']), 20)

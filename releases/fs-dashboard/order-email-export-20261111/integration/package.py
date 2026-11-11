@@ -36,12 +36,14 @@ def build(sha, read_git, nginx_source):
     candidates = prepare(baseline['range_api.py'], baseline['page.js'])
     candidates['data-workspace.js'] = prepare_workspace(baseline['data-workspace.js'])
     candidates['formal.locations.conf'] = prepare_nginx(nginx_source)
-    candidates['admin_order_email_export.py'] = read_git(BACKEND + 'admin_order_email_export.py')
+    for name in ('admin_order_email_export.py', 'admin_email_export_source.py', 'admin_email_export_worker.py'):
+        candidates[name] = read_git(BACKEND + name)
     for name in ('order-email-panel.js', 'order-email-run.js', 'order-email-csv.js', 'order-email-xlsx.js'):
         candidates[name] = read_git(FRONTEND + name)
     targets = {name: STATIC + name for name in candidates if name.endswith('.js')}
     targets.update({'range_api.py': '/opt/fs-exact-range-20261001/range_api.py',
-                    'admin_order_email_export.py': '/opt/fs-hermes-fc/admin_order_email_export.py',
+                    **{name: '/opt/fs-hermes-fc/' + name for name in ('admin_order_email_export.py',
+                        'admin_email_export_source.py', 'admin_email_export_worker.py')},
                     'formal.locations.conf': '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'})
     baseline['formal.locations.conf'] = nginx_source
     manifest = {'schemaVersion': 1, 'scope': 'order-email-export-20261111',

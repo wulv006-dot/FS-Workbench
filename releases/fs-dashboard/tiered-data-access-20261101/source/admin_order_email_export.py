@@ -8,6 +8,7 @@ import json
 import time
 
 from admin_live_page import valid_customer_email, validate_period, utc_now, LivePageError
+from admin_email_export_source import validate_filters
 
 MAX_PAGES = 1000
 MAX_SECONDS = 45
@@ -33,8 +34,7 @@ def parse_page_body(raw, *, observed_at=utc_now):
         raise ValueError('invalid_export_request')
     if not isinstance(value.get('filters', {}), dict):
         raise ValueError('invalid_export_request')
-    if value.get('filters'):
-        raise ValueError('unsupported_export_filters')
+    validate_filters(value.get('filters', {}))
     if 'cursor' in value and (not isinstance(value['cursor'], str) or not 1 <= len(value['cursor']) <= 1024):
         raise ValueError('invalid_export_request')
     try:
@@ -47,7 +47,7 @@ def parse_page_body(raw, *, observed_at=utc_now):
 def page_get(request, user, *, run_source=None):
     """Project exactly one authorized live page without storing PII or cursors."""
     import sys
-    from admin_live_host import get as live_get
+    from admin_email_export_source import get as live_get
     if not user:
         return 401, {'error': 'login_required', 'complete': False}
     try:
@@ -61,7 +61,7 @@ def page_get(request, user, *, run_source=None):
         period = {k: request[k] for k in ('start', 'end_exclusive')}
         if authorize(user, {'scope': 'site', 'scope_id': request['site_id']}, True) is not True:
             return 403, {'error': 'scope_denied', 'complete': False}
-        query = {k: [v] for k, v in request.items() if k != 'filters'}
+        query = {k: [v] for k, v in request.items()}
         status, result = live_get(query, user, run_source=run_source)
         if type(status) is not int or not isinstance(result, dict):
             raise ValueError()
@@ -102,7 +102,7 @@ def page_get(request, user, *, run_source=None):
                     raise ValueError()
             data.append(dict(order_id=ident, email=email, email_key=email.casefold() if email else None))
         return 206, dict(status='partial', complete=False, semantics='live_non_snapshot',
-                         limitation='live_pagination_not_snapshot', scope=scope, period=period,
+                         limitation='live_pagination_not_snapshot', scope=scope, period=period, filters=request.get('filters', {}),
                          date_field='paytime', timezone='Asia/Shanghai', email_field='user_email',
                          deduplication='trim_casefold', observed_at=at, source_reported_total=total,
                          observed_page_rows=count, data=data, next_cursor=cursor)
@@ -133,6 +133,7 @@ def parse_body(raw):
         raise ValueError('invalid_export_request')
     if not isinstance(value.get('filters', {}), dict):
         raise ValueError('invalid_export_request')
+    validate_filters(value.get('filters', {}))
     return value
 
 
@@ -141,8 +142,6 @@ def collect(request, user, *, page_get, observed_at=utc_now, clock=time.monotoni
         return 401, {'error': 'login_required', 'complete': False}
     try:
         request = parse_body(json.dumps(request).encode('utf8'))
-        if request.get('filters'):
-            return 422, {'error': 'unsupported_export_filters', 'complete': False}
         start = datetime.date.fromisoformat(request['start'])
         end = datetime.date.fromisoformat(request['end_exclusive'])
         if start.isoformat() != request['start'] or end.isoformat() != request['end_exclusive'] or not 0 < (end - start).days <= 366:
@@ -162,7 +161,7 @@ def collect(request, user, *, page_get, observed_at=utc_now, clock=time.monotoni
     pages = missing = email_bytes = 0
     for game in request['game_ids']:
         for window in windows:
-            query = dict(site_id=[request['site_id']], game_id=[game], **{k: [v] for k, v in window.items()})
+            query = dict(site_id=[request['site_id']], game_id=[game], filters=[request.get('filters', {})], **{k: [v] for k, v in window.items()})
             total = None
             count = 0
             cursors = set()
@@ -216,7 +215,7 @@ def collect(request, user, *, page_get, observed_at=utc_now, clock=time.monotoni
                     return 409 if 'changed' in error.code else 503, {'error': error.code, 'complete': False}
                 except (KeyError, TypeError, ValueError):
                     return 503, {'error': 'export_source_schema_changed', 'complete': False}
-    payload = dict(status='available', complete=True, semantics='live_non_snapshot', emails=[emails[key] for key in sorted(emails)], unique_emails=len(emails), observed_orders=len(seen_orders), missing_email_orders=missing, observed_at=observed_at(), period={k: request[k] for k in ('start', 'end_exclusive')}, scope={k: request[k] for k in ('site_id', 'game_ids')}, email_field='user_email', deduplication='trim_casefold', limitation='live_pagination_not_snapshot')
+    payload = dict(status='available', complete=True, filters=request.get('filters', {}), semantics='live_non_snapshot', emails=[emails[key] for key in sorted(emails)], unique_emails=len(emails), observed_orders=len(seen_orders), missing_email_orders=missing, observed_at=observed_at(), period={k: request[k] for k in ('start', 'end_exclusive')}, scope={k: request[k] for k in ('site_id', 'game_ids')}, email_field='user_email', deduplication='trim_casefold', limitation='live_pagination_not_snapshot')
     # Bound the complete JSON envelope, including escaping, not just raw addresses.
     # ASCII-escaped standard JSON is a conservative bound for the HTTP encoder.
     if len(json.dumps(payload, ensure_ascii=True).encode('utf8')) > MAX_EXPORT_BYTES:
@@ -226,7 +225,7 @@ def collect(request, user, *, page_get, observed_at=utc_now, clock=time.monotoni
 
 def get(request, user, *, run_source=None):
     import sys
-    from admin_live_host import get as live_get
+    from admin_email_export_source import get as live_get
     if not user:
         return 401, {'error': 'login_required', 'complete': False}
     try:

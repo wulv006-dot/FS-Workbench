@@ -24,17 +24,24 @@ function date(value) {
 /** Inclusive calendar dates; UTC arithmetic avoids local DST and timezone shifts.
  * Server remains authoritative for permissions and the rolling date boundary.
  */
-export function orderEmailRequest({ site_id, game_ids, start, end }, sites, games) {
+export function orderEmailRequest({ site_id, game_ids, start, end, filters }, sites, games) {
   const siteIds = new Set(directory(sites).map(entry => entry.value));
   const gameIds = new Set(directory(games).map(entry => entry.value));
   if (!siteIds.has(site_id) || !Array.isArray(game_ids) || !game_ids.length ||
       game_ids.length > 100 || new Set(game_ids).size !== game_ids.length ||
       Array.from(game_ids).some(value => !gameIds.has(value))) throw new TypeError('Invalid selection');
+  if (filters !== undefined) {
+    const allowed = ['progress', 'status', 'cid', 'content', 'aid', 'recommend_uid', 'discount_code', 'promotion_id', 'pid', 'admin_id', 'country'];
+    if (!filters || typeof filters !== 'object' || Array.isArray(filters) ||
+        Object.keys(filters).some(key => !allowed.includes(key) || typeof filters[key] !== 'string' ||
+          !filters[key].length || filters[key].length > 320 || /[\u0000-\u001f\u007f]/.test(filters[key]))) throw new TypeError('Invalid filters');
+  }
   const first = date(start), last = date(end);
   const days = (last - first) / 86400000 + 1;
   if (days < 1 || days > 366 || end === '9999-12-31') throw new TypeError('Invalid range');
   last.setUTCDate(last.getUTCDate() + 1);
-  return { site_id, game_ids: [...game_ids], start, end_exclusive: last.toISOString().slice(0, 10) };
+  return { site_id, game_ids: [...game_ids], start, end_exclusive: last.toISOString().slice(0, 10),
+    ...(filters && Object.keys(filters).length ? { filters: { ...filters } } : {}) };
 }
 
 /** Standalone only: caller supplies a verified endpoint and real directories.
@@ -58,7 +65,8 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     if (!/^https?:$/.test(url.protocol) || url.origin !== win.location.origin ||
         url.username || url.password || url.search || url.hash || /[?#]/.test(endpoint)) throw new Error();
   } catch { throw new TypeError('Explicit same-origin endpoint without query or fragment required'); }
-  sites = directory(sites); games = directory(games);
+  const remoteOptions = sites === undefined && games === undefined;
+  sites = remoteOptions ? [] : directory(sites); games = remoteOptions ? [] : directory(games);
   fetcher = fetcher || win.fetch.bind(win);
   const el = (tag, text, className) => {
     const node = doc.createElement(tag);
@@ -68,7 +76,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   };
   const panel = el('article', null, 'fc-card');
   panel.append(el('h3', '订单用户邮箱导出'));
-  panel.append(el('p', '当前范围：仅付款日期、站点、游戏；不是下单日期。其他 Admin 筛选暂不可用。'));
+  panel.append(el('p', 'Admin 全部 14 项筛选；下单时间使用 Admin 实际字段 paytime（Asia/Shanghai），不改为 create_time。'));
   panel.append(el('p', paged
     ? '逐页串行读取，全部计划窗口遍历结束后才能导出。暂停仅在当前页面内存中续跑，刷新页面丢失进度；服务端进程重启后游标失效，须重新查询。付款日期按 Asia/Shanghai，受服务端滚动近 365 天及权限限制。实时分页非快照。'
     : '当前源限时 45 秒、最多 1000 页、约 1 MiB 响应，无续跑；全年导出尚未验收。实时分页非快照，失败或超限不提供部分名单。日期仍受服务端近 365 天及权限限制。'));
@@ -88,8 +96,19 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       const option = el('option', entry.label); option.value = entry.value; select.append(option);
     }
   }
-  const start = field('付款开始日期', 'input', 'start'); start.type = 'date';
-  const end = field('付款结束日期（含当天）', 'input', 'end'); end.type = 'date';
+  const filters = {};
+  for (const [name, label, tag] of [
+    ['progress', '订单进度', 'select'], ['status', '订单状态', 'select'],
+    ['cid', '产品类型', 'select'], ['content', '游戏/服务器/产品（包含）', 'input'],
+    ['aid', '服务区', 'select'], ['recommend_uid', '推广人ID', 'input'],
+    ['discount_code', '折扣码完整', 'input'], ['promotion_id', '促销活动ID', 'input'],
+    ['pid', '商品ID', 'input'], ['admin_id', '操作人', 'select'], ['country', '国家（包含）', 'select']]) {
+    const control = field(label, tag, name); control.required = false;
+    if (tag === 'select') { const option = el('option', '不限'); option.value = ''; control.append(option); }
+    filters[name] = control;
+  }
+  const start = field('下单时间开始（paytime）', 'input', 'start'); start.type = 'date';
+  const end = field('下单时间结束（含当天）', 'input', 'end'); end.type = 'date';
   const button = (text, type) => { const node = el('button', text, 'ghostbtn'); node.type = type; return node; };
   const query = button('查询完整名单', 'submit');
   const cancel = button('取消并清除', 'button');
@@ -113,6 +132,55 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   };
   const invalidate = () => { if (!disposed) { clear(); status.textContent = '条件已变更，请重新查询。'; } };
   const onCancel = () => { if (!disposed) { clear(); status.textContent = '已取消并清除名单。'; } };
+  let metadataSequence = 0, metadataReady = !remoteOptions;
+  const fill = (select, entries) => {
+    if (!Array.isArray(entries)) throw new TypeError('Invalid options');
+    const seen = new Set();
+    const options = entries.map(entry => {
+      if (!entry || typeof entry.value !== 'string' || !entry.value || seen.has(entry.value) ||
+          typeof entry.label !== 'string' || !entry.label.trim()) throw new TypeError('Invalid option');
+      seen.add(entry.value);
+      const option = el('option', entry.label); option.value = entry.value; return option;
+    });
+    while (select.children.length) select.children[0].remove();
+    if (!select.multiple) { const option = el('option', select === site ? '请选择站点' : '不限'); option.value = ''; select.append(option); }
+    select.append(...options); select.value = '';
+  };
+  const loadOptions = async (dependent = false) => {
+    const current = ++metadataSequence; metadataReady = false; query.disabled = true;
+    status.textContent = '正在读取 Admin 筛选选项。';
+    const selectedGames = Array.from(game.selectedOptions, option => option.value);
+    try {
+      const response = await fetcher(url.href, { method: 'POST', credentials: 'same-origin', redirect: 'error',
+        cache: 'no-store', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ kind: 'order_email_export_options',
+          ...(filters.progress.value ? { progress: filters.progress.value } : {}),
+          ...(selectedGames.length ? { game_ids: selectedGames } : {}) }) });
+      if (disposed || current !== metadataSequence) return;
+      if (!response.ok || response.redirected) throw new Error();
+      const data = await response.json();
+      if (disposed || current !== metadataSequence) return;
+      if (!data.options || data.error) throw new Error();
+      if (!dependent) {
+        sites = directory(data.options.sites); games = directory(data.options.games);
+        fill(site, sites); fill(game, games);
+        for (const name of ['progress', 'cid', 'admin_id', 'country']) fill(filters[name], data.options[name]);
+      }
+      fill(filters.status, data.options.status); fill(filters.aid, data.options.aid);
+      metadataReady = true; query.disabled = false; status.textContent = '请选择范围后查询。';
+    } catch {
+      if (disposed || current !== metadataSequence) return;
+      clear(); metadataReady = false; query.disabled = true;
+      status.textContent = 'Admin 筛选选项读取失败，请重新打开面板重试。';
+    }
+  };
+  const dependentChange = event => {
+    invalidate();
+    if (event.target === filters.progress || event.target === game) {
+      filters.status.value = ''; filters.aid.value = '';
+      if (remoteOptions) return loadOptions(true);
+    }
+  };
   const progress = () => {
     const s = run.snapshot();
     return `已接受 ${s.accepted_pages} 页；已完成窗口 ${s.exhausted_windows}/${s.total_windows}。`;
@@ -203,7 +271,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   };
   const onResume = () => { if (!disposed && paused && run) return readPages(); };
   const onSubmit = async event => {
-    event.preventDefault(); if (disposed) return;
+    event.preventDefault(); if (disposed || !metadataReady) return;
     if (paged && Date.now() < retryAt) {
       status.textContent = `冷却中，请等待 ${Math.ceil((retryAt - Date.now()) / 1000)} 秒后手动重试。`;
       return;
@@ -211,7 +279,8 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     clear();
     let request;
     try { request = orderEmailRequest({ site_id: site.value,
-      game_ids: Array.from(game.selectedOptions, option => option.value), start: start.value, end: end.value }, sites, games); }
+      game_ids: Array.from(game.selectedOptions, option => option.value), start: start.value, end: end.value,
+      filters: Object.fromEntries(Object.entries(filters).filter(([, control]) => control.value !== '').map(([name, control]) => [name, control.value])) }, sites, games); }
     catch { status.textContent = '请选择有效站点、游戏及付款日期（含结束日，最多 366 天）。'; return; }
     const current = sequence;
     if (paged) {
@@ -241,6 +310,8 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       const result = await response.json();
       if (disposed || current !== sequence) return;
       orderEmailCsv(result);
+      if (request.filters && (!result.filters || Object.keys(result.filters).length !== Object.keys(request.filters).length ||
+          Object.keys(request.filters).some(key => result.filters[key] !== request.filters[key]))) throw new Error();
       if (result.period?.start !== request.start || result.period?.end_exclusive !== request.end_exclusive ||
           result.scope.site_id !== request.site_id || result.scope.game_ids.length !== request.game_ids.length ||
           result.scope.game_ids.some(value => !request.game_ids.includes(value))) throw new Error();
@@ -282,14 +353,15 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     }
   };
   form.addEventListener('submit', onSubmit);
-  form.addEventListener('input', invalidate); form.addEventListener('change', invalidate);
+  form.addEventListener('input', invalidate); form.addEventListener('change', dependentChange);
   cancel.addEventListener('click', onCancel); download.addEventListener('click', onDownload);
   pause?.addEventListener('click', onPause); resume?.addEventListener('click', onResume);
+  if (remoteOptions) loadOptions();
   return { dispose() {
     if (disposed) return;
     disposed = true; clear();
     form.removeEventListener('submit', onSubmit);
-    form.removeEventListener('input', invalidate); form.removeEventListener('change', invalidate);
+    form.removeEventListener('input', invalidate); form.removeEventListener('change', dependentChange);
     cancel.removeEventListener('click', onCancel); download.removeEventListener('click', onDownload);
     pause?.removeEventListener('click', onPause); resume?.removeEventListener('click', onResume);
     panel.remove();

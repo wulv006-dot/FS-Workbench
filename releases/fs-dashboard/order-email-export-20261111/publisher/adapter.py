@@ -16,7 +16,8 @@ NGINX = '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'
 TARGETS = {
     'formal.locations.conf': NGINX,
     'range_api.py': '/opt/fs-exact-range-20261001/range_api.py',
-    'admin_order_email_export.py': '/opt/fs-hermes-fc/admin_order_email_export.py',
+    **{name: '/opt/fs-hermes-fc/' + name for name in ('admin_order_email_export.py',
+        'admin_email_export_source.py', 'admin_email_export_worker.py')},
     **{name: STATIC + name for name in ('page.js', 'data-workspace.js', 'order-email-panel.js',
                                        'order-email-run.js', 'order-email-csv.js', 'order-email-xlsx.js')},
 }
@@ -45,7 +46,7 @@ def contract(manifest):
         raise ValueError('exact source commit required')
     files = manifest.get('files', [])
     if len(files) != len(TARGETS) or {r.get('candidate') for r in files} != set(TARGETS):
-        raise ValueError('exact nine targets required; tools-index.html is not in this scope')
+        raise ValueError('exact email targets required; tools-index.html is not in this scope')
     for row in files:
         if set(row) != {'candidate', 'target', 'sha256', 'beforeSha256'}:
             raise ValueError('exact file row required')
@@ -56,8 +57,6 @@ def contract(manifest):
             raise ValueError('invalid before CAS')
         if row['candidate'] in ('formal.locations.conf', 'range_api.py', 'page.js', 'data-workspace.js') and before is None:
             raise ValueError('existing source requires non-null CAS')
-        if row['candidate'] == 'admin_order_email_export.py' and before is not None:
-            raise ValueError('new module requires null CAS')
     protected = manifest.get('unchangedRequired', [])
     paths = [r.get('path') for r in protected]
     if len(paths) != len(set(paths)) or set(paths) != PROTECTED:

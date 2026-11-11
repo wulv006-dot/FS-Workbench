@@ -21,7 +21,14 @@ function date(value) {
 
 /** Validate an annual request and return fresh game-major, <=28-day bodies. */
 export function buildOrderEmailRequests(input) {
-  requireValid(exactKeys(input, ['site_id', 'game_ids', 'start', 'end_exclusive']));
+  requireValid(exactKeys(input, ['site_id', 'game_ids', 'start', 'end_exclusive']) ||
+    exactKeys(input, ['site_id', 'game_ids', 'start', 'end_exclusive', 'filters']));
+  if (input.filters !== undefined) {
+    const allowed = ['progress', 'status', 'cid', 'content', 'aid', 'recommend_uid', 'discount_code', 'promotion_id', 'pid', 'admin_id', 'country'];
+    requireValid(object(input.filters) && Object.keys(input.filters).every(key => allowed.includes(key) &&
+      typeof input.filters[key] === 'string' && input.filters[key].length > 0 && input.filters[key].length <= 320 &&
+      !/[\u0000-\u001f\u007f]/.test(input.filters[key])));
+  }
   requireValid(id(input.site_id) && Array.isArray(input.game_ids) &&
     input.game_ids.length > 0 && input.game_ids.length <= 100 &&
     Array.from(input.game_ids).every(id) && new Set(input.game_ids).size === input.game_ids.length);
@@ -31,6 +38,7 @@ export function buildOrderEmailRequests(input) {
   for (const game_id of input.game_ids) {
     for (let t = start; t < end; t += 28 * DAY) requests.push({
       site_id: input.site_id, game_id,
+      ...(input.filters === undefined ? {} : { filters: { ...input.filters } }),
       start: new Date(t).toISOString().slice(0, 10),
       end_exclusive: new Date(Math.min(t + 28 * DAY, end)).toISOString().slice(0, 10),
     });
@@ -56,6 +64,7 @@ export class OrderEmailRun {
     requireValid(this.#state === 'active');
     this.#pending = true;
     return { ...this.#requests[this.#index],
+      ...(this.#requests[this.#index].filters === undefined ? {} : { filters: { ...this.#requests[this.#index].filters } }),
       ...(this.#cursor === null ? {} : { cursor: this.#cursor }) };
   }
 
@@ -78,6 +87,8 @@ export class OrderEmailRun {
         payload.scope.site_id === request.site_id && payload.scope.game_id === request.game_id &&
         exactKeys(payload.period, ['start', 'end_exclusive']) &&
         payload.period.start === request.start && payload.period.end_exclusive === request.end_exclusive);
+      if (request.filters !== undefined) requireValid(exactKeys(payload.filters, Object.keys(request.filters)) &&
+        Object.keys(request.filters).every(key => payload.filters[key] === request.filters[key]));
       const total = payload.source_reported_total, rows = payload.data;
       requireValid(count(total) && (this.#total === null || total === this.#total) &&
         Array.isArray(rows) && count(payload.observed_page_rows) &&
@@ -145,6 +156,7 @@ export class OrderEmailRun {
       limitation: 'live_pagination_not_snapshot', timezone: 'Asia/Shanghai',
       date_field: 'paytime', email_field: 'user_email', deduplication: 'trim_casefold',
       source_reported_total: this.#reported, emails: [...this.#emails.values()],
+      ...(this.#requests[0].filters === undefined ? {} : { filters: { ...this.#requests[0].filters } }),
       scope: { ...this.#scope, game_ids: [...this.#scope.game_ids] }, period: { ...this.#period } };
   }
 

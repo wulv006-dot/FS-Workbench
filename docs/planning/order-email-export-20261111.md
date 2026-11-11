@@ -132,10 +132,33 @@ CodeGraph MCP已调用，本任务无索引，服务要求本会话使用源码�
 - 本轮独立运行：邮箱前端共 **69 项通过**；后端 **180 项通过**；pr-fast `--selfcheck` 与保留 CRLF 的 `git diff --check` 通过。
 - 这些测试不代表浏览器、183 Linux 或生产验收。生产 tools-page 仍未提供已核实的配置，受限发布脚本仍无已核实的本地至187触发器/邮箱模块适配；完整 Admin 筛选与真实全年多游戏导出继续待验。不将此增量称为已上线。
 
+## 16:37 固定 main 发布进展（尚未完成线上验收）
+
+- PR #992 已合并，固定 main `adfba97ef2b3efdba4b7ea062a825f92133c4011` 的 push CI `42987556932` 已成功。从该 SHA 的 Git 字节组包，不使用工作区候选冒充 main。
+- 隔离 staging：`/opt/fs-release-stage/order-email-export-20261111-adfba97`；批准 manifest SHA `f85d4a31bf4f78d9a7a43d543d12f44c2fea6bbfcc50d99c4bf282f1eeecc3d3`。已修正原 writer 要求的 `candidate/` 布局；真实 Linux plan/inspect 均通过，九目标 source/protected CAS 通过。
+- apply 在原 collector.lock 处被正在自然运行的 `fs-transaction-collect.service` 拦截。已核对九目标均仍为 before SHA、指定 release backup 不存在、range 与 FC 服务 active，没有替换生产。未抢锁、停止采集或改锁规则。
+- 首次只读观察到锁释放后，调用前被新一轮采集重新持有。因此改为有界观察下一次自然空闲窗口，重新核对全部 before SHA 和无 backup 后，仅调用一次原固定 adapter/manifest/release ID；不得失败自动重发。后台任务 `bash-f8589c54e39e4901` 已收取并成功，备份 `/var/backups/fs-navigation-20261006/nav-20261111T083330Z`，原 writer 状态 applied-awaiting-actual-http-role-acceptance；九目标及五保护哈希一致，nginx/range/FC active。不是导出验收成功。
+- 原浏览器中实际已有 `47.85.224.112/dashboard/data-tools/` 登录页面（Chrome HWND 4330660）；已定位，尚未在新版本上执行导出验收。完整 Admin 广筛选、下单时间与真实全年名单仍未验收。
+
+## 16:45 首次真实查询发现并修复 URL 接线问题
+
+- 真实 FS 登录页面已加载新面板；选主站、FC26+FC27、2026-11-10 后，第0页即暂停。定位到 panel 传入绝对 URL 而现役包装器只接收相对字面量，网络请求前被拒绝。
+- 仅改为解析并精确比较同源固定端点；仍拒绝 query/hash/异源和非 POST。真实调用形态补入测试，19 项接线测试通过。
+- 原适配器强制新增 backend 永远 null CAS，无法更新已安装版本；移除该一次性假设，保留精确目标、原哈希 CAS、锁/fence/恢复，并增加已部署九目标更新及回退测试。15 项发布回归通过。
+- 本增量待 PR、最新 main CI、受限发布及真实页面重验。尚无真实名单或 Excel 下载成功证据；完整 Admin 广筛选仍未完成。
+
+## 17:06 完整14筛选本地修正与实际接口阻塞
+
+- 按真实 Admin shipped 页面协议补齐14控件、目录依赖及逐页筛选；新导出专用 source/worker，不修改 generic live 的266站点限制。专用权限复用真实 private/RBAC admin，不沿用旧 generic sites/projects 目录充当新筛选范围。
+- 修复独立审核发现的 filters 响应回显缺口；每页及最终汇总回显校验后的 filters，保留前端严格绑定校验。前后端筛选长度统一320。真实全列表目录 data.list 无 total 按 Admin 原客户端协议读取，有 total 时仍逐页/总数一致性及字节预算检查。
+- 独立回归：tiered 全组190项、integration20项、十一目标 publisher15项通过；本轮长度/回显修正后所有 test_order_email*.cjs 共72项全部通过。Windows离线测试，不冒称183 Linux/真实用户全年导出验收。
+- 实际只读 HMAC API 验证：站点266项、游戏583项、国家245项，均 data.list 且不带 total；另外进度、状态、类型、区服、操作人5个目录返回应用 code=401。未换凭据、取 Cookie、绕过401或用示例选项补全。需 Admin 直连接口维护方核实这5个只读方法的支持及原有授权。
+- 完整筛选候选已提交4cf98b6d59d0558215b57e03a08661a53faedf0d，推送原任务分支并创建 Draft PR #993（https://github.com/wulv006-dot/FS-Workbench/pull/993）；必需CI初始运行中，未合并/未部署，不能覆盖线上为“已完成”。另只读 /admin/index/index 返回HTTP200/code1，现有身份公布order/order/index、getCountryList及站点/游戏目录路由，但未公布被401拒绝的5个方法；不是整体API登录故障，不更换身份或绕过拒绝。先解除上述真实接口阻塞，再继续 PR/CI/main/受限发布及实际入口和全年 XLSX 验收；不恢复已知不满足原需求的缩减范围。
+
 ## 16:26 现役接线及九目标发布候选
 
 - 本次已只读核实实际生产页面、range API、真实游戏目录、原导航发布器、锁/备份/journal、服务及静态路由；此前“找不到原发布器”阻塞已解除，不能继续据旧记录要求用户重给入口。
 - 新增固定基线增量补丁及九目标清单组装，接入现有 live-orders 私有 POST，不改变普通查询。补齐四个精确鉴权 JS 路由，否则新模块会被原通配目录规则 404；原生产 nginx 字节保持完整前缀，未开放通配目录。
 - 固定 SHA 的原 writer 适配器复用原 CAS、锁/fence、备份、journal 和失败恢复；nginx 语法失败时不触发 range 停启。保护原 FC writer/调度，不部署旧快照整文件。
 - 本轮独立 19 项接线/补丁/组装测试、14 项原 writer 适配/恢复测试通过；pr-fast 自检、保留 CRLF diff 检查通过。真实 nginx 字节补丁及完整九目标内存组装通过，不代表已验证 main 发布包。
-- 已提交候选 `f5e09fde82ca46993a75c7291a1511bfd9cd0198` 并创建 PR #992；独立九目标复核未发现具体阻断问题（未做真实 Linux 服务及会话验收）。与最新 main 同步时仅进度文档出现空分支冲突，保留全部历史记录解决，未改业务代码。下一步是 CI/main、Linux、固定 main 包及原 writer plan/inspect/apply，随后真实 FS 鉴权页面及下载验收。已确认范围为主站、FC26/27、付款时间与原365日边界，不把它冒称完整 Admin 广筛选、下单日期或真实全年名单验收。
+- 已提交候选 `f5e09fde82ca46993a75c7291a1511bfd9cd0198` 并创建 PR #992；独立九目标复核未发现具体阻断问题（未做真实 Linux 服务及会话验收）。与最新 main 同步时仅进度文档出现空分支冲突，保留全部历史记录解决，未改业务代码。后续进展见下节；仍需真实 FS 鉴权页面及下载验收。已确认范围为主站、FC26/27、付款时间与原365日边界，不把它冒称完整 Admin 广筛选、下单日期或真实全年名单验收。

@@ -19,6 +19,7 @@ ROOT = HERE.parents[3]
 SOURCE = ROOT / 'releases/fs-dashboard/tiered-data-access-20261101/source'
 sys.path.insert(0, str(SOURCE))
 import admin_order_email_export as exporter
+import admin_email_export_source as export_source
 from admin_live_dispatch import private_body_params
 import os
 
@@ -58,7 +59,7 @@ class Backend(unittest.TestCase):
         replies = []
         obj.reply = lambda *args: replies.append(args)
         # Real parser, stub only the source call; no customers or credentials.
-        with patch.object(exporter, 'page_get', page):
+        with patch.object(exporter, 'page_get', page), patch.object(export_source, 'options_get', page, create=True):
             obj.do_POST()
         return replies[-1], calls
 
@@ -79,6 +80,24 @@ class Backend(unittest.TestCase):
         export = next(c for c in calls if c[0] == 'export')
         self.assertNotIn('kind', export[1])
         self.assertEqual(export[2], 'real-actor')
+
+    def test_filtered_page_preserves_all_values_and_metadata_uses_same_actor(self):
+        filters = {'progress': '10', 'status': '101', 'cid': '1', 'content': 'FC',
+                   'aid': '22', 'recommend_uid': '3', 'discount_code': 'summer',
+                   'promotion_id': '4', 'pid': '5', 'admin_id': '6', 'country': 'US'}
+        body = dict(self.export_body(), filters=filters)
+        reply, calls = self.request(body)
+        self.assertEqual(reply[0], 206)
+        self.assertEqual(next(c for c in calls if c[0] == 'export')[1]['filters'], filters)
+        metadata = dict(kind='order_email_export_options', progress='10', game_ids=['833','1327'])
+        reply, calls = self.request(metadata)
+        self.assertEqual(reply[0], 206)
+        request = next(c for c in calls if c[0] == 'export')
+        self.assertEqual(request[1], dict(progress='10', game_ids=['833','1327']))
+        self.assertEqual(request[2], 'real-actor')
+        reply, calls = self.request(metadata, [(200,'real-actor'), (200,'other')])
+        self.assertEqual(reply[0], 503)
+        self.assertNotIn('source', [c[0] for c in calls])
 
     def test_revoked_and_changed_actor_never_reads_source(self):
         for session in [(403, None), (200, 'other')]:
@@ -136,17 +155,20 @@ vm.createContext(sandbox); vm.runInContext(PAGE,sandbox);
  await vm.runInContext('start()',sandbox);
  assert(mounted); const cfg=mounted.orderEmailExport;
  assert.equal(cfg.endpoint,'/dashboard/users/live-orders.json'); assert.equal(cfg.paged,true);
- assert.equal(JSON.stringify(cfg.games),JSON.stringify([{value:'833',label:'FC26'},{value:'1327',label:'FC27'}]));
- assert.equal(cfg.sites[0].value,'266');
- for(const [url,options] of [['/evil',{method:'POST',body:'{}'}],[cfg.endpoint,{method:'GET'}],[cfg.endpoint,{method:'POST',body:'[]'}],[cfg.endpoint,{method:'POST',body:'{"kind":"bad"}'}]]) {
+ assert.equal(cfg.games,undefined); assert.equal(cfg.sites,undefined); // production directories come from authenticated metadata
+ for(const [url,options] of [['https://other.invalid/dashboard/users/live-orders.json',{method:'POST',body:'{}'}],[cfg.endpoint+'?x=1',{method:'POST',body:'{}'}],[cfg.endpoint+'#fragment',{method:'POST',body:'{}'}],['/evil',{method:'POST',body:'{}'}],[cfg.endpoint,{method:'GET'}],[cfg.endpoint,{method:'POST',body:'[]'}],[cfg.endpoint,{method:'POST',body:'{"kind":"bad"}'}]]) {
   assert.throws(()=>cfg.fetch(url,options));
  }
  assert.equal(requests.length,0);
  const signal=new AbortController().signal;
- await cfg.fetch(cfg.endpoint,{method:'POST',body:'{"game_id":"833"}',signal,credentials:'omit',redirect:'follow'});
+ // The real panel resolves its endpoint to an absolute same-origin URL.
+ await cfg.fetch(new URL(cfg.endpoint,sandbox.location.href).href,{method:'POST',body:'{"game_id":"833"}',signal,credentials:'omit',redirect:'follow'});
  const req=requests[0];assert.equal(req.options.credentials,'same-origin');assert.equal(req.options.redirect,'error');assert.equal(req.options.cache,'no-store');
  assert.equal(JSON.parse(req.options.body).kind,'order_email_export_page'); assert.equal(JSON.parse(req.options.body).game_id,'833');
  assert.notEqual(req.options.signal,signal);
+ await cfg.fetch(cfg.endpoint,{method:'POST',body:'{"kind":"order_email_export_options","progress":"10","game_ids":["833","1327"]}'});
+ assert.equal(JSON.parse(requests[1].options.body).kind,'order_email_export_options');
+ assert.deepEqual(JSON.parse(requests[1].options.body).game_ids,['833','1327']);
  sandbox.code=401;await cfg.fetch(cfg.endpoint,{method:'POST',body:'{}'});
  assert.equal(disposed,1);assert.equal(nodes.get('workspace-host').hidden,true);
  assert.equal(vm.runInContext('identity',sandbox),null);assert.equal(vm.runInContext('widget',sandbox),null);
