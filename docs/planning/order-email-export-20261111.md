@@ -151,9 +151,9 @@ CodeGraph MCP已调用，本任务无索引，服务要求本会话使用源码�
 
 - 按真实 Admin shipped 页面协议补齐14控件、目录依赖及逐页筛选；新导出专用 source/worker，不修改 generic live 的266站点限制。专用权限复用真实 private/RBAC admin，不沿用旧 generic sites/projects 目录充当新筛选范围。
 - 修复独立审核发现的 filters 响应回显缺口；每页及最终汇总回显校验后的 filters，保留前端严格绑定校验。前后端筛选长度统一320。真实全列表目录 data.list 无 total 按 Admin 原客户端协议读取，有 total 时仍逐页/总数一致性及字节预算检查。
-- 独立回归：tiered 全组190项、integration20项、十一目标 publisher15项通过；frontend完整66项曾通过，本轮长度/回显修正后 panel/run22项再次通过。Windows离线测试，不冒称183 Linux/真实用户全年导出验收。
+- 独立回归：tiered 全组190项、integration20项、十一目标 publisher15项通过；本轮长度/回显修正后所有 test_order_email*.cjs 共72项全部通过。Windows离线测试，不冒称183 Linux/真实用户全年导出验收。
 - 实际只读 HMAC API 验证：站点266项、游戏583项、国家245项，均 data.list 且不带 total；另外进度、状态、类型、区服、操作人5个目录返回应用 code=401。未换凭据、取 Cookie、绕过401或用示例选项补全。需 Admin 直连接口维护方核实这5个只读方法的支持及原有授权。
-- 当前完整筛选增量仍本地未提交/未部署，不能覆盖线上为“已完成”。先解除上述真实接口阻塞，再继续 PR/CI/main/受限发布及实际入口和全年 XLSX 验收；不恢复已知不满足原需求的缩减范围。
+- 完整筛选候选已提交4cf98b6d59d0558215b57e03a08661a53faedf0d，推送原任务分支并创建 Draft PR #993（https://github.com/wulv006-dot/FS-Workbench/pull/993）；必需CI初始运行中，未合并/未部署，不能覆盖线上为“已完成”。另只读 /admin/index/index 返回HTTP200/code1，现有身份公布order/order/index、getCountryList及站点/游戏目录路由，但未公布被401拒绝的5个方法；不是整体API登录故障，不更换身份或绕过拒绝。先解除上述真实接口阻塞，再继续 PR/CI/main/受限发布及实际入口和全年 XLSX 验收；不恢复已知不满足原需求的缩减范围。
 
 ## 16:26 现役接线及九目标发布候选
 
