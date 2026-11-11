@@ -52,6 +52,12 @@
 | G2G | `g2g.state/job` | 原state/job已接业务行、计划、汇总、最近30条执行回执及任务阶段；只返回凭据可用状态，raw错误正文/未核日志明确withheld并保留log_coverage，不以空结果冒充完整 |
 | 账号与权限 | `accounts.overview/audit` | 原受保护`/__auth/access/api/overview`及audit、原管理员manage权限；固定投影成员、角色、资源目录及审计，过滤会话/CSRF/token，不新增成员或权限 |
 
+## 订单用户邮箱导出：已发布页面，不是连接器操作（2026-11-11）
+
+现行规则见[订单用户邮箱导出](../../../knowledge/order-email-export.md)，发布/真实验收见[专项记录](../order-email-export-20261111.md)：FS数据分析工具专用UI/API源码`158ddab93103695ef13917bbd5368bbbe5c7b179`、生产`nav-20261111T113950Z`。选择真实站点、多游戏与日期；`progress/status/cid/aid`四项置灰空值，不请求四目录、不提交四条件，沿Admin默认行为；操作人已移除，不推进补权，不称固定已支付/已完成或已证明的全部状态。
+
+专用链路以真实actor/private权限从`/dashboard/users/live-orders.json`读取`user_email`，日期沿`paytime`、每页20条/最多28日窗口/滚动近365日边界，逐游戏串行和完整覆盖后生成去重XLSX；失败不交部分名单。不是普通`orders.live/customer`的主站266投影，也没有新增MCP/Hermes导出operation。这里只记录页面能力与工具边界，不更改catalog、操作数量或声称连接器已接通；实际调用仍仅接受当前目录中的schema。
+
 ## 未接通面及必要工作
 
 以下为当前FS业务数据范围的剩余面，不以目录数量替代完成；Hermes会话与历史生成报告已按用户要求退出，不能再列为本轮取数缺口。

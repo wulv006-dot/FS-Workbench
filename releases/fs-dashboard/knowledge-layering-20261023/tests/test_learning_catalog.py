@@ -24,7 +24,7 @@ import business_context as bc
 BASE = '0e2d02efd7c894199ab0f62ca69a9c75ed7c2578'
 BASELINE = 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'
 HISTORY = 'knowledge/history/fc-business-baseline-before-aion2-20261023.md'
-CURRENT_IDS = {'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'fc.marketing.attribution',
+CURRENT_IDS = {'fs.orders.email_export', 'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'fc.marketing.attribution',
                'fs.finance.procurement', 'fc.pricing.constraints', 'fs.procurement.inputs',
                'fs.pricing.parameter-identity', 'fs.product.identity', 'fs.customer.lifecycle',
                'fs.learning.methods', 'fs.project.execution', 'fc.pricing.v3',
@@ -249,9 +249,9 @@ class LearningCatalog(unittest.TestCase):
 
     def test_current_entries_cover_rules_and_reporting_and_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 29)
+        self.assertEqual(len(entries), 30)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 29)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 30)
         experience = next(r for r in entries if r['id'] == 'fc.evolutions.experience.current-state-cutover')
         self.assertEqual(experience['layer'], 'experience')
         self.assertEqual(experience['status'], 'verified')
@@ -339,7 +339,7 @@ class LearningCatalog(unittest.TestCase):
             self.assertLess(len(knowledge['text'].encode()), bc.MAX_TOTAL)
             loaded = bc.loaded_learning(root, knowledge['version'])
             receipt = bc.effective_learning(loaded, [dict(role='system', content=loaded['text'])])
-            self.assertEqual(len(receipt['knowledge_entries']), 19)
+            self.assertEqual({row['id'] for row in receipt['knowledge_entries']}, CURRENT_IDS)
             sections = read_all_sections(root, loaded)
             for row in selection['entries']:
                 path = 'knowledge/'+row['id']+'@'+row['revision']
