@@ -1,0 +1,13 @@
+Read-only production evidence, 2026-11-11. SHA256 of full formal locations: 3b77089472b1f21e25f05015055e0badfec4836569c7836d2d23d38359733db0
+
+location = /dashboard/workspace-assets/workspace-native-20261006-4f4a56f7a335/data-workspace.js {
+    if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    auth_request /__nav_formal_native_session;
+    error_page 401 = @auth_login;
+    types { }
+    default_type application/javascript;
+    alias /var/lib/fs-navigation-formal-static/workspace-native-20261006-4f4a56f7a335/data-workspace.js;
+    disable_symlinks on;
+    expires -1;
+    sub_filter "</body>" "</body>";
+}

@@ -107,6 +107,22 @@ CodeGraph MCP已调用，本任务无索引，服务要求本会话使用源码�
 6. CSV格式/公式防护、筛选变更清除旧结果、取消与失败状态、浅暗主题。
 7. 相关Windows与183隔离Linux测试、main必需CI、PR、合并、部署及真实入口分别记录；当前均不声称完成。
 
+## 2026-11-11 16:16：已取得真实生产基线，精确适配施工中
+
+- 按用户本轮明确授权，以指定现有 fs_admin 身份、StrictHostKeyChecking=yes 的 SSH 只读取证成功，主机 `play187`；不再把 Remote Workspace 的 LOCAL 会话检查误称为整机 SSH 禁令。未读凭据、未发客户订单请求、未改生产文件/服务。
+- 实际 range `/opt/fs-exact-range-20261001/range_api.py` SHA256 `ac0c9ff2465f6824879f69d00f07bf24e909f5fb9ee76c00e79cb9c510d67b10`，与 `nav-20261109T060138Z` 账本一致。线上尚无邮箱导出。服务 `fs-business-range.service` 使用 `/opt/python39/bin/python3 -B`，独立于 FC writer。
+- 实际工具页模块目录 `/var/lib/fs-navigation-formal-static/workspace-native-20261006-4f4a56f7a335/`。page.js SHA `7827b3f3b04da8bfd3b608b808a3ddf971fa81e416684c67fb2ad9ac3390615a`；data-workspace.js SHA `4f4a56f7a335357f0a83ab0034a49b8757a6cd6eef64541dfba837249c38fba0`。后者有仓库旧候选欠缺的折扣渠道/复购文案，不能直接覆盖；新 integration/workspace_patch.py 仅替换生命周期块，2项Python测试确认其他字节原样保留及基线变动拒绝。
+- 生产 config 已核实 FC26=833、FC27=1327，site266=MMOEXP，live_admin_single_page=true。现有 worker/authorizer 仍固定主站、付款日期、单游戏、28日/365日；跨游戏按现有分页串行组合。完整截图筛选和下单日期协议未核实，不扩大原worker权限、不冒充已支持。
+- 复用 base `/opt/fs-release-stage/data-tools-query-fix-ui-20261018-v1/release_navigation_base.py` SHA `5548d9c8411eb5bb888672b0e58246bfd9043a5e519decb1f8407d2da9e71357`，共享 `/var/lock/fs-navigation-release.lock`、`fs-dashboard-release.lock`，备份及 journal 位于 `/var/backups/fs-navigation-20261006/nav-*/`。native pending 当前不存在。精确scope适配及当前线上增量接线正在独立文件施工，尚未执行 inspect/apply/rollback。
+- 计划复用实际已存在且保留Cookie验证的 `/dashboard/users/live-orders.json` POST 通道，以严格的 `kind=order_email_export_page` 分派，避免新增猜测nginx路由；普通订单请求维持原有协议。此为施工方案，未部署或真实验收。
+
+## 续轮12：集成增量完成合并，未部署
+
+- 提交 `4a2ea7efda45ef35328d9ddd301ebb8e249d7d49` 的 PR #991 已经 squash 合并；main 为 `ee4cf99be287266e01d2f46d950b77e3eccc7a8e`。
+- PR 必需 CI `42978977727` 成功；同一 main SHA 的 push CI `42979221644` 成功（`gh run watch --exit-status` 返回0）。独立只读复核未发现本增量具体生命周期/隐私阻断缺陷，新6项测试复跑通过；真实浏览器/动态模块加载仍未运行验收。
+- 没有执行生产发布。续轮10至12仍缺同一项外部依赖：已核实的生产模块/原publisher映射，以及本地实际可调用的受限发布触发器。当前脚本是服务器本地 business-html 入口，不能在 Windows 运行后宣称187已更新；不能据历史模板编造当前CAS/目标路径或转为任意SSH命令。
+- 保留原任务分支与已合并增量；完整Admin筛选、实际页面配置、真实全年名单、生产健康检查/恢复仍未完成。该进度记录先保留于任务工作区，未声称本段已随PR入main。
+
 ## 续轮11：接入数据专区生命周期（本地验证）
 
 - 原任务分支保留，HEAD 基线为 `4009bfd76972a2aff9a2a3e244b6a3b2f0d2eb2b`（已合入 main `5d2849c73ad1fac6addc65f6a51f69171d7c7412`）。
@@ -115,3 +131,11 @@ CodeGraph MCP已调用，本任务无索引，服务要求本会话使用源码�
 - 新增 6 项独立 mock DOM 集成测试，验证实际工作区函数调用、显式参数、加载竞态、销毁及失败隐私，并注册到 pr-fast。
 - 本轮独立运行：邮箱前端共 **69 项通过**；后端 **180 项通过**；pr-fast `--selfcheck` 与保留 CRLF 的 `git diff --check` 通过。
 - 这些测试不代表浏览器、183 Linux 或生产验收。生产 tools-page 仍未提供已核实的配置，受限发布脚本仍无已核实的本地至187触发器/邮箱模块适配；完整 Admin 筛选与真实全年多游戏导出继续待验。不将此增量称为已上线。
+
+## 16:26 现役接线及九目标发布候选
+
+- 本次已只读核实实际生产页面、range API、真实游戏目录、原导航发布器、锁/备份/journal、服务及静态路由；此前“找不到原发布器”阻塞已解除，不能继续据旧记录要求用户重给入口。
+- 新增固定基线增量补丁及九目标清单组装，接入现有 live-orders 私有 POST，不改变普通查询。补齐四个精确鉴权 JS 路由，否则新模块会被原通配目录规则 404；原生产 nginx 字节保持完整前缀，未开放通配目录。
+- 固定 SHA 的原 writer 适配器复用原 CAS、锁/fence、备份、journal 和失败恢复；nginx 语法失败时不触发 range 停启。保护原 FC writer/调度，不部署旧快照整文件。
+- 本轮独立 19 项接线/补丁/组装测试、14 项原 writer 适配/恢复测试通过；pr-fast 自检、保留 CRLF diff 检查通过。真实 nginx 字节补丁及完整九目标内存组装通过，不代表已验证 main 发布包。
+- 已提交候选 `f5e09fde82ca46993a75c7291a1511bfd9cd0198` 并创建 PR #992；独立九目标复核未发现具体阻断问题（未做真实 Linux 服务及会话验收）。与最新 main 同步时仅进度文档出现空分支冲突，保留全部历史记录解决，未改业务代码。下一步是 CI/main、Linux、固定 main 包及原 writer plan/inspect/apply，随后真实 FS 鉴权页面及下载验收。已确认范围为主站、FC26/27、付款时间与原365日边界，不把它冒称完整 Admin 广筛选、下单日期或真实全年名单验收。
