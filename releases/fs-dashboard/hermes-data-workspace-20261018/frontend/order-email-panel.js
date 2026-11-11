@@ -82,13 +82,66 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     : '当前源限时 45 秒、最多 1000 页、约 1 MiB 响应，无续跑；全年导出尚未验收。实时分页非快照，失败或超限不提供部分名单。日期仍受服务端近 365 天及权限限制。'));
   panel.append(el('p', '订单邮箱不代表营销订阅；发送前请应用退订与拒收名单。本工具仅导出，不发送邮件。Excel 导出将地址保存为文本，保留原地址；旧 CSV 导出对公式前缀添加安全单引号。'));
   const form = el('form', null, 'fc-actions');
+  form.setAttribute('style', 'align-items:flex-start');
   const field = (text, tag, name) => {
     const label = el('label', text);
+    label.setAttribute('style', 'display:flex;flex-direction:column;gap:6px;flex:1 1 200px;min-width:0;max-width:100%');
     const input = el(tag, null, tag === 'select' ? 'hsel' : 'dinput'); input.name = name; input.required = true;
+    input.setAttribute('style', 'width:100%;min-width:0;box-sizing:border-box');
     label.append(input); form.append(label); return input;
   };
   const site = field('站点', 'select', 'site_id');
-  const game = field('游戏（可多选）', 'select', 'game_ids'); game.multiple = true;
+  // Keep the native select as the single source of request/legacy selection state.
+  const game = el('select'); game.name = 'game_ids'; game.multiple = true; game.hidden = true;
+  form.append(game);
+  const gameField = el('div');
+  gameField.setAttribute('style', 'flex:1 1 320px;min-width:0;max-width:100%');
+  const gamePicker = el('details', null, 'source-details');
+  gamePicker.setAttribute('style', 'margin:0;box-sizing:border-box;width:100%');
+  const gameSummary = el('summary', '游戏（可多选） · 请选择');
+  const gameSearch = el('input', null, 'dinput'); gameSearch.type = 'search';
+  gameSearch.placeholder = '搜索游戏名称或 ID'; gameSearch.setAttribute('aria-label', '搜索游戏名称或 ID');
+  gameSearch.setAttribute('style', 'width:100%;min-width:0;box-sizing:border-box;margin:10px 0');
+  const gameList = el('div');
+  gameList.setAttribute('style', 'max-height:240px;overflow:auto');
+  const gameMatches = el('p'); gameMatches.setAttribute('role', 'status');
+  const gameSelection = el('p', '尚未选择游戏');
+  gameSelection.setAttribute('style', 'margin:6px 0;max-height:6rem;overflow:auto;overflow-wrap:anywhere');
+  gameSelection.setAttribute('aria-live', 'polite');
+  gamePicker.append(gameSummary, gameSearch, gameMatches, gameList);
+  gameField.append(gamePicker, gameSelection); form.append(gameField);
+  let gameRows = [];
+  const searchGames = () => {
+    const term = gameSearch.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    for (const item of gameRows) {
+      item.row.hidden = !item.text.toLocaleLowerCase().includes(term);
+      if (!item.row.hidden) visible++;
+    }
+    gameMatches.textContent = visible ? `显示 ${visible} / ${gameRows.length} 款游戏（最多选择 100 款）` : '没有匹配的游戏';
+  };
+  const syncGames = () => {
+    const selected = Array.from(game.selectedOptions);
+    gameSummary.textContent = selected.length ? `游戏（可多选） · 已选 ${selected.length} 款` : '游戏（可多选） · 请选择';
+    gameSelection.textContent = selected.length ? selected.map(option => option.textContent).join('、') : '尚未选择游戏';
+    for (const item of gameRows) {
+      item.check.checked = item.option.selected;
+      item.check.disabled = !item.option.selected && selected.length >= 100;
+    }
+  };
+  const renderGames = () => {
+    while (gameList.children.length) gameList.children[0].remove();
+    gameRows = Array.from(game.children, option => {
+      const row = el('label');
+      row.setAttribute('style', 'display:flex;align-items:center;gap:8px;padding:6px 0;overflow-wrap:anywhere');
+      const check = el('input'); check.type = 'checkbox'; check.value = option.value;
+      check.setAttribute('style', 'flex:none;width:auto');
+      const text = `${option.value} | ${option.textContent}`;
+      row.append(check, el('span', text)); gameList.append(row);
+      return { row, check, option, text };
+    });
+    syncGames(); searchGames();
+  };
   for (const [select, entries] of [[site, sites], [game, games]]) {
     const placeholder = select === site ? el('option', '请选择站点') : null;
     if (placeholder) { placeholder.value = ''; select.append(placeholder); }
@@ -96,6 +149,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       const option = el('option', entry.label); option.value = entry.value; select.append(option);
     }
   }
+  renderGames();
   const filters = {};
   for (const [name, label, tag] of [
     ['progress', '订单进度', 'select'], ['status', '订单状态', 'select'],
@@ -138,7 +192,10 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     if (paged) pause.disabled = resume.disabled = true;
     download.disabled = true; query.disabled = false; panel.removeAttribute('aria-busy');
   };
-  const invalidate = () => { if (!disposed) { clear(); status.textContent = '条件已变更，请重新查询。'; } };
+  const invalidate = event => {
+    if (event?.target === gameSearch) { searchGames(); return; }
+    if (!disposed) { clear(); status.textContent = '条件已变更，请重新查询。'; }
+  };
   const onCancel = () => { if (!disposed) { clear(); status.textContent = '已取消并清除名单。'; } };
   let metadataSequence = 0, metadataReady = !remoteOptions;
   const fill = (select, entries) => {
@@ -153,6 +210,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     while (select.children.length) select.children[0].remove();
     if (!select.multiple) { const option = el('option', select === site ? '请选择站点' : '不限'); option.value = ''; select.append(option); }
     select.append(...options); select.value = '';
+    if (select === game) renderGames();
   };
   const loadOptions = async (dependent = false) => {
     const current = ++metadataSequence; metadataReady = false; query.disabled = true;
@@ -198,8 +256,12 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     }
   };
   const dependentChange = event => {
+    if (event.target === gameSearch) return;
+    const item = gameRows.find(item => item.check === event.target);
+    if (item) item.option.selected = item.check.checked;
     invalidate();
-    if (event.target === game) {
+    if (event.target === game || item) {
+      syncGames();
       filters.cid.value = ''; filters.aid.value = '';
       filters.cid.disabled = filters.aid.disabled = true;
       if (remoteOptions) return loadOptions(true);
@@ -285,7 +347,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       const result = activeRun.result();
       csv(result);
       payload = result; download.disabled = false; pause.disabled = resume.disabled = true;
-      status.textContent = `${progress()} 全部计划窗口遍历结束，可下载 CSV；实时非快照。`;
+      status.textContent = `${progress()} 全部计划窗口遍历结束，可下载 ${format === 'xlsx' ? 'Excel' : 'CSV'}；实时非快照。`;
     } catch {
       if (stale()) return;
       clear(); status.textContent = '查询结果、权限或游标无效，名单已清除，无法导出。请重新查询。';
@@ -376,6 +438,11 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       if (!disposed && current === sequence && payload === selected) download.disabled = false;
     }
   };
+  const onSearchKey = event => {
+    if (event.key === 'Enter') event.preventDefault();
+    if (event.key === 'Escape') { gamePicker.open = false; gameSummary.focus(); }
+  };
+  gameSearch.addEventListener('keydown', onSearchKey);
   form.addEventListener('submit', onSubmit);
   form.addEventListener('input', invalidate); form.addEventListener('change', dependentChange);
   cancel.addEventListener('click', onCancel); download.addEventListener('click', onDownload);
@@ -384,6 +451,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   return { dispose() {
     if (disposed) return;
     disposed = true; clear();
+    gameSearch.removeEventListener('keydown', onSearchKey);
     form.removeEventListener('submit', onSubmit);
     form.removeEventListener('input', invalidate); form.removeEventListener('change', dependentChange);
     cancel.removeEventListener('click', onCancel); download.removeEventListener('click', onDownload);
