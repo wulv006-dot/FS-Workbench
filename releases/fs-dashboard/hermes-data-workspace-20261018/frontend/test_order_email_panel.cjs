@@ -20,15 +20,33 @@ class Element {
   constructor(tag, doc) {
     this.tag = tag; this.ownerDocument = doc; this.children = []; this.listeners = new Map();
     this.attributes = {}; this.value = ''; this.textContent = ''; this.disabled = false;
+    this.selected = this.checked = this.hidden = this.open = false;
   }
   append(...nodes) { for (const node of nodes) { node.parent = this; this.children.push(node); } }
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(node => node !== this); }
   setAttribute(key, value) { this.attributes[key] = value; }
+  focus() { this.ownerDocument.activeElement = this; }
   removeAttribute(key) { delete this.attributes[key]; }
   addEventListener(name, fn) { this.listeners.set(name, fn); }
   removeEventListener(name, fn) { if (this.listeners.get(name) === fn) this.listeners.delete(name); }
-  fire(name, target = this) { return this.listeners.get(name)?.({ target, preventDefault() {} }); }
-  click() { if (this.tag === 'a') this.ownerDocument.downloads.push({ href: this.href, name: this.download }); return this.fire('click'); }
+  fire(name, target = this) {
+    const event = { target, preventDefault() {} };
+    let result;
+    for (let node = this; node; node = node.parent) {
+      const listener = node.listeners.get(name);
+      if (listener) result = listener(event);
+    }
+    return result;
+  }
+  click() {
+    if (this.disabled) return;
+    if (this.tag === 'a') this.ownerDocument.downloads.push({ href: this.href, name: this.download });
+    if (this.tag === 'summary') this.parent.open = !this.parent.open;
+    if (this.tag === 'input' && this.type === 'checkbox') {
+      this.checked = !this.checked; this.fire('input'); return this.fire('change');
+    }
+    return this.fire('click');
+  }
   get selectedOptions() { return this.children.filter(node => node.selected); }
 }
 const walk = node => [node, ...node.children.flatMap(walk)];
@@ -126,6 +144,91 @@ test('metadata failures stay closed; stale game directories and disposed respons
   assert.equal(h.fields.status.value, '11'); assert.equal(h.fields.site_id.value, '266');
   const late = h.form.fire('change', h.fields.game_ids); h.widget.dispose();
   h.respond(3, metadata()); await late; assert.equal(h.root.children.length, 0);
+});
+
+test('clickable game dropdown searches by name/ID and preserves multi-selection across searches', async () => {
+  const h = await setup();
+  h.fields.game_ids.children.forEach(option => { option.selected = false; });
+  h.form.fire('change', h.fields.game_ids);
+  const nodes = walk(h.root), picker = nodes.find(node => node.tag === 'details');
+  const summary = picker.children[0], search = nodes.find(node => node.type === 'search');
+  const checks = nodes.filter(node => node.type === 'checkbox');
+  assert.equal(h.fields.game_ids.hidden, true); assert.equal(h.fields.game_ids.required, undefined);
+  for (const name of ['site_id', 'progress', 'status', 'cid', 'aid', 'country']) {
+    assert.match(h.fields[name].attributes.style, /width:100%/);
+    assert.match(h.fields[name].parent.attributes.style, /flex:1 1 200px/);
+  }
+  assert.match(picker.parent.attributes.style, /flex:1 1 320px/);
+  summary.click(); assert.equal(picker.open, true);
+  let prevented = false;
+  search.listeners.get('keydown')({key:'Enter',preventDefault() { prevented = true; }});
+  assert.equal(prevented, true); assert.equal(h.requests.length, 0);
+  search.listeners.get('keydown')({key:'Escape'});
+  assert.equal(picker.open, false); assert.equal(h.doc.activeElement, summary);
+  summary.click(); assert.equal(picker.open, true);
+  search.value = 'fIXture b'; search.fire('input');
+  assert.equal(checks[0].parent.hidden, true); assert.equal(checks[1].parent.hidden, false);
+  checks[1].click();
+  assert.deepEqual(h.fields.game_ids.selectedOptions.map(option => option.value), ['27']);
+  assert.match(summary.textContent, /已选 1 款/); assert.match(text(picker.parent), /Fixture B/);
+  search.value = '26'; search.fire('input'); checks[0].click();
+  assert.deepEqual(h.fields.game_ids.selectedOptions.map(option => option.value), ['26', '27']);
+  assert.match(summary.textContent, /已选 2 款/);
+  search.value = 'not-present'; search.fire('input');
+  assert.ok(checks.every(check => check.parent.hidden)); assert.match(text(picker), /没有匹配的游戏/);
+  search.value = ''; search.fire('input');
+  assert.ok(checks.every(check => !check.parent.hidden && check.checked));
+  summary.click(); assert.equal(picker.open, false);
+  const pending = h.form.fire('submit');
+  assert.deepEqual(JSON.parse(h.requests[0].options.body).game_ids, ['26','27']);
+  h.respond(0); await pending; h.buttons[2].click(); assert.equal(h.blobs.size, 1);
+  search.value = 'Fixture'; search.fire('input'); search.fire('change');
+  assert.equal(h.blobs.size, 1); assert.equal(h.buttons[2].disabled, false);
+  checks[0].click(); assert.equal(h.blobs.size, 0); assert.equal(h.buttons[2].disabled, true);
+  checks[1].click(); assert.match(summary.textContent, /请选择/);
+  await h.form.fire('submit'); assert.equal(h.requests.length, 1);
+  h.widget.dispose(); checks[0].click(); assert.equal(h.fields.game_ids.selectedOptions.length, 0);
+  assert.equal(search.listeners.size, 0);
+});
+
+test('full remote game directory is searchable without truncation and checkbox changes load dependencies', async () => {
+  const h = await setup('/test-only-export', true);
+  const allGames = Array.from({length:583}, (_, i) => ({value:String(1000+i), label:`Fixture game ${i}`}));
+  h.respond(0, {options:{...metadata().options, games:allGames}}); await tick();
+  const nodes = walk(h.root), search = nodes.find(node => node.type === 'search');
+  const checks = nodes.filter(node => node.type === 'checkbox');
+  assert.equal(checks.length, 583); assert.equal(h.fields.game_ids.children.length, 583);
+  search.value = '1582'; search.fire('input');
+  assert.equal(checks.filter(check => !check.parent.hidden).length, 1);
+  assert.equal(text(checks[582].parent).trim(), '1582 | Fixture game 582');
+  const refresh = checks[582].click();
+  assert.deepEqual(JSON.parse(h.requests[1].options.body), {kind:'order_email_export_options', progress:'1',game_ids:['1582']});
+  assert.equal(h.fields.cid.disabled, true); assert.equal(h.buttons[0].disabled, true);
+  h.respond(1, metadata()); await refresh;
+  assert.equal(h.fields.cid.disabled, false); assert.equal(h.fields.aid.disabled, false);
+  assert.equal(h.fields.progress.value, '1'); assert.equal(h.fields.status.value, '11');
+  assert.equal(checks[582].checked, true);
+  search.value = 'Fixture game 0'; search.fire('input');
+  const next = checks[0].click();
+  assert.deepEqual(JSON.parse(h.requests[2].options.body).game_ids, ['1000', '1582']);
+  h.widget.dispose(); h.respond(2, metadata()); await next;
+  assert.equal(h.root.children.length, 0);
+});
+
+test('game picker enforces existing 100-game request limit without losing selected hidden matches', async () => {
+  const h = await setup('/test-only-export', true);
+  const allGames = Array.from({length:101}, (_, i) => ({value:String(i+1),label:`Fixture ${i}`}));
+  h.respond(0, {options:{...metadata().options,games:allGames}}); await tick();
+  h.fields.game_ids.children.forEach((option, i) => { option.selected = i < 100; });
+  const refresh = h.form.fire('change', h.fields.game_ids); h.respond(1, metadata()); await refresh;
+  const checks = walk(h.root).filter(node => node.type === 'checkbox');
+  assert.equal(checks[100].disabled, true); checks[100].click(); assert.equal(h.requests.length, 2);
+  const next = checks[0].click(); h.respond(2, metadata()); await next;
+  assert.equal(checks[100].disabled, false);
+  const final = checks[100].click(); h.respond(3, metadata()); await final;
+  assert.equal(h.fields.game_ids.selectedOptions.length, 100);
+  assert.equal(checks[0].disabled, true); assert.equal(checks[100].checked, true);
+  h.widget.dispose();
 });
 
 test('strict calendar validation, inclusive UTC conversion and source range limit', async () => {
