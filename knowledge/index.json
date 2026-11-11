@@ -5,8 +5,27 @@
   "source_commit": null,
   "entries": [
     {
+      "id": "fs.orders.email_export",
+      "revision": "order-email-defaults-20261111",
+      "layer": "current",
+      "status": "effective",
+      "modules": ["FS", "marketing"],
+      "effective_at": "2026-11-11",
+      "owner": "吴律；订单邮箱功能负责人",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/order-email-export.md",
+        "sha256": "c98f7900d4e2b0b690e29ae48ca1a0de91f599bacfdb46481b72b48581a61bd3",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [{"kind": "direct_user", "date": "2026-11-11", "decision": "四条件置灰省略及知识同步", "runtime_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/999", "acceptance_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/1000"}],
+      "consumers": ["Hermes selected knowledge candidate", "DSH", "FS connector method guidance"]
+    },
+    {
       "id": "fs.data.sources",
-      "revision": "activity-traffic-20261031",
+      "revision": "order-email-sources-20261111",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -19,7 +38,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -27,6 +46,7 @@
         }
       },
       "supersedes": [
+        "fs.data.sources@activity-traffic-20261031",
         "fs.data.sources@baseline-v15",
         "fs.data.sources@baseline-v15-dashboard-refresh-20261025",
         "fs.data.sources@baseline-v15-management-all-sites-20261025",
@@ -106,7 +126,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -179,7 +199,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -252,7 +272,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -535,7 +555,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -611,7 +631,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -671,7 +691,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -731,7 +751,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -855,7 +875,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",

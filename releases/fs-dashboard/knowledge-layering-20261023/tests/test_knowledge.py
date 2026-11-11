@@ -56,6 +56,16 @@ class Knowledge(unittest.TestCase):
         self.assertNotIn('18:21最新自然验收', v['entries'][0]['content'])
         self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'])['status'], 'not_published')
 
+    def test_email_export_current_scope_not_old_paid_defaults(self):
+        path = ROOT / 'knowledge/index.json'
+        sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
+        result = kc.select(ROOT, 'knowledge/index.json', sha, ['FS'], ['fs.orders.email_export'], preview=True)
+        self.assertEqual(result['status'], 'available_preview')
+        text = result['entries'][0]['content']
+        for value in ('progress', 'status', 'cid', 'aid', '不提交四条件', '没有注册', '725'):
+            self.assertIn(value, text)
+        self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FS'], ['fs.orders.email_export'])['status'], 'not_published')
+
     def test_old_report_never_overrides_current_and_history_is_explicit(self):
         old = dict(self.row, revision='v1', layer='archive', status='archived', effective_at='2026-10-21',
                    source=dict(path='old.md', sha256=hashlib.sha256((self.root / 'old.md').read_bytes()).hexdigest()))
