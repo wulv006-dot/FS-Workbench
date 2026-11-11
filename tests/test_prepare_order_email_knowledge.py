@@ -3,7 +3,7 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
-import subprocess
+from unittest import mock
 import tempfile
 import unittest
 
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('email_overlay', ROOT / 'tools/prepare_order_email_knowledge.py')
 builder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(builder)
-COMMIT = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+COMMIT = 'a' * 40
 
 
 def write(path, data):
@@ -28,6 +28,12 @@ def row(identity, revision, path, data, layer='current', status='effective'):
 
 class OverlayTest(unittest.TestCase):
     def setUp(self):
+        def pinned_fixture(root, commit, name):
+            self.assertEqual(commit, COMMIT)
+            return (Path(root) / name).read_bytes()
+        patch = mock.patch.object(builder, 'git_bytes', side_effect=pinned_fixture)
+        patch.start()
+        self.addCleanup(patch.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name)
