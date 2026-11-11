@@ -27,13 +27,13 @@ class Element {
   removeAttribute(key) { delete this.attributes[key]; }
   addEventListener(name, fn) { this.listeners.set(name, fn); }
   removeEventListener(name, fn) { if (this.listeners.get(name) === fn) this.listeners.delete(name); }
-  fire(name) { return this.listeners.get(name)?.({ preventDefault() {} }); }
+  fire(name, target = this) { return this.listeners.get(name)?.({ target, preventDefault() {} }); }
   click() { if (this.tag === 'a') this.ownerDocument.downloads.push({ href: this.href, name: this.download }); return this.fire('click'); }
   get selectedOptions() { return this.children.filter(node => node.selected); }
 }
 const walk = node => [node, ...node.children.flatMap(walk)];
 const text = node => walk(node).map(item => item.textContent).join(' ');
-async function setup(endpoint = '/test-only-export') {
+async function setup(endpoint = '/test-only-export', remote = false) {
   const { mountOrderEmailExport } = await modulePromise;
   const requests = [], blobs = new Map(), revoked = [];
   let nextUrl = 0;
@@ -45,7 +45,7 @@ async function setup(endpoint = '/test-only-export') {
     },
   } };
   const root = new Element('root', doc);
-  const widget = mountOrderEmailExport(root, { endpoint, sites, games,
+  const widget = mountOrderEmailExport(root, { endpoint, ...(remote ? {} : { sites, games }),
     fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })) });
   const nodes = walk(root), form = nodes.find(node => node.tag === 'form');
   const fields = Object.fromEntries(nodes.filter(node => node.name).map(node => [node.name, node]));
@@ -55,6 +55,40 @@ async function setup(endpoint = '/test-only-export') {
   const respond = (index, payload = success(), ok = true) => requests[index].resolve({ ok, json: async () => payload });
   return { root, doc, widget, requests, blobs, revoked, form, fields, buttons, respond };
 }
+
+test('all 14 Admin filters serialize and filter changes revoke downloaded data', async () => {
+  const h = await setup();
+  const names = ['progress','status','cid','content','aid','recommend_uid','discount_code','promotion_id','pid','admin_id','country'];
+  for (const name of [...names, 'site_id', 'game_ids', 'start', 'end']) assert.ok(h.fields[name]);
+  const filters = Object.fromEntries(names.map(name => [name, name === 'content' ? 'game / server' : '1']));
+  for (const name of names) h.fields[name].value = filters[name];
+  const pending = h.form.fire('submit');
+  assert.deepEqual(JSON.parse(h.requests[0].options.body).filters, filters);
+  h.respond(0, { ...success(), filters }); await pending;
+  h.buttons[2].click(); assert.equal(h.blobs.size, 1);
+  h.fields.discount_code.value = 'another'; h.form.fire('change', h.fields.discount_code);
+  assert.equal(h.blobs.size, 0); assert.equal(h.buttons[2].disabled, true);
+  h.fields.status.value = '2'; h.fields.aid.value = '3';
+  h.form.fire('change', h.fields.progress);
+  assert.equal(h.fields.status.value, ''); assert.equal(h.fields.aid.value, '');
+  h.widget.dispose();
+});
+
+test('authenticated same-endpoint metadata and dependent refresh use real options', async () => {
+  const h = await setup('/test-only-export', true);
+  assert.deepEqual(JSON.parse(h.requests[0].options.body), { kind: 'order_email_export_options' });
+  assert.equal(h.requests[0].options.credentials, 'same-origin');
+  const options = { sites, games };
+  for (const name of ['progress','status','cid','aid','admin_id','country']) options[name] = [{value:'1',label:'Real option'}];
+  h.respond(0, {options}); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.fields.progress.children[1].textContent, 'Real option');
+  h.fields.progress.value = '1'; h.fields.status.value = '1';
+  const refresh = h.form.fire('change', h.fields.progress);
+  assert.equal(h.fields.status.value, '');
+  assert.equal(JSON.parse(h.requests[1].options.body).progress, '1');
+  h.respond(1, {options}); await refresh;
+  h.widget.dispose();
+});
 
 test('strict calendar validation, inclusive UTC conversion and source range limit', async () => {
   const { orderEmailRequest: build } = await modulePromise;

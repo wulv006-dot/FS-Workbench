@@ -17,6 +17,25 @@ function page(request, data = [], total = data.length, next_cursor = null) {
     source_reported_total: total, observed_page_rows: data.length, data, next_cursor };
 }
 
+test('filters bind every traversal page and altered response filters erase PII', async () => {
+  const { OrderEmailRun } = await modulePromise;
+  const filters = {progress:'1',status:'2',country:'US',discount_code:'ExactCode'};
+  const run = new OrderEmailRun({...input(), filters});
+  filters.progress = 'changed';
+  while (run.snapshot().state === 'active') {
+    const request = run.nextRequest(); assert.equal(request.filters.progress, '1');
+    const response = {...page(request), filters: {...request.filters}};
+    request.filters.progress = 'mutated';
+    run.acceptPage(response);
+  }
+  assert.equal(run.result().filters.progress, '1');
+  const invalid = new OrderEmailRun({...shortInput(), filters:{progress:'1'}});
+  const request = invalid.nextRequest();
+  assert.throws(() => invalid.acceptPage({...page(request),filters:{progress:'2'}}), TypeError);
+  assert.equal(invalid.snapshot().state, 'invalid');
+  assert.equal(invalid.snapshot().unique_emails, 0);
+});
+
 test('strict dates, leap day and game-major windows cover exactly 366 days', async () => {
   const { buildOrderEmailRequests } = await modulePromise;
   const annual = { ...input(), game_ids: ['26', '27'], start: '2024-01-01', end_exclusive: '2025-01-01' };
@@ -42,7 +61,7 @@ test('strict dates, leap day and game-major windows cover exactly 366 days', asy
 
 test('invalid annual inputs are rejected without coercion or ignored filters', async () => {
   const { OrderEmailRun } = await modulePromise;
-  const invalid = [null, [], {}, { ...input(), extra: true }, { ...input(), filters: {} },
+  const invalid = [null, [], {}, { ...input(), extra: true }, { ...input(), filters: { unknown: '1' } },
     ...[266, '', ' 266', '266 ', '2.1', '-1', '1e2', '１', '1'.repeat(21)].map(site_id => ({ ...input(), site_id })),
     ...[[], Array(1), ['26', '26'], [26], [''], Array(101).fill('26'), '26'].map(game_ids => ({ ...input(), game_ids })),
     ...['2023-02-29', '2024-02-30', '2024-13-01', '2024-2-01', ' 2024-02-01',

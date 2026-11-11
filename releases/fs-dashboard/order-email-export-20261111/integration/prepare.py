@@ -21,8 +21,9 @@ RANGE_REPLACEMENT = """    def run_scoped(operation,timeout):
       return operation()
      return LIVE_ADMIN.run(checked,timeout)
     body=json.loads(raw.decode('utf8'))
-    if isinstance(body,dict) and body.get('kind')=='order_email_export_page':
+    if isinstance(body,dict) and body.get('kind') in ('order_email_export_page','order_email_export_options'):
      from admin_order_email_export import parse_page_body,page_get
+     from admin_email_export_source import options_get
      def unique(pairs):
       value={}
       for key,item in pairs:
@@ -30,9 +31,12 @@ RANGE_REPLACEMENT = """    def run_scoped(operation,timeout):
        value[key]=item
       return value
      body=json.loads(raw.decode('utf8'),object_pairs_hook=unique)
-     del body['kind']
-     export_request=parse_page_body(json.dumps(body,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf8'))
-     status,data=page_get(export_request,actor,run_source=run_scoped);self.reply(status,data)
+     kind=body.pop('kind')
+     if kind=='order_email_export_options':
+      status,data=options_get(body,actor,run_source=run_scoped);self.reply(status,data)
+     else:
+      export_request=parse_page_body(json.dumps(body,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf8'))
+      status,data=page_get(export_request,actor,run_source=run_scoped);self.reply(status,data)
     else:
      live_query=private_live_body(raw)
      status,data=get_live_orders(live_query,actor,run_source=run_scoped);self.reply(status,data)
@@ -44,16 +48,15 @@ PAGE_REPLACEMENT = """    const orderEmailFetch = (url, options = {}) => {
       const target = new URL(url, location.href);
       if (target.href !== new URL('/dashboard/users/live-orders.json', location.origin).href || options.method !== 'POST') throw Error('order_email_endpoint_only');
       const body = JSON.parse(options.body);
-      if (!body || typeof body !== 'object' || Array.isArray(body) || Object.hasOwn(body, 'kind')) throw Error('invalid_export_request');
-      return fetch(url, {...options, body: JSON.stringify({...body, kind: 'order_email_export_page'}),
+      if (!body || typeof body !== 'object' || Array.isArray(body) || (Object.hasOwn(body, 'kind') && body.kind !== 'order_email_export_options')) throw Error('invalid_export_request');
+      return fetch(url, {...options, body: JSON.stringify({...body, kind: body.kind || 'order_email_export_page'}),
         credentials: 'same-origin', redirect: 'error', cache: 'no-store', signal: scopedSignal(options.signal)}).then(response => {
         if (response.status === 401 || response.status === 403) deny(response.status);
         return response;
       });
     };
     widget = mountDataWorkspace(root, {
-      orderEmailExport: {endpoint: '/dashboard/users/live-orders.json', sites: [{value: '266', label: 'MMOEXP'}],
-        games: [{value: '833', label: 'FC26'}, {value: '1327', label: 'FC27'}], paged: true, fetch: orderEmailFetch},
+      orderEmailExport: {endpoint: '/dashboard/users/live-orders.json', paged: true, fetch: orderEmailFetch},
       fetch: read, writeFetch: write, start: yesterday, end: yesterday,
 """
 

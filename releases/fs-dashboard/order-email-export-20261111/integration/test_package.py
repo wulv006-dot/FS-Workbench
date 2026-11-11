@@ -24,8 +24,8 @@ class PackageTests(unittest.TestCase):
             candidates, manifest = package.build('a' * 40, read_git, original)
         nginx.assert_called_once_with(original)
         self.assertEqual(set(candidates), set(adapter.TARGETS))
-        self.assertEqual(len(reads), 8)
-        self.assertEqual(len(set(reads)), 8)
+        self.assertEqual(len(reads), 10)
+        self.assertEqual(len(set(reads)), 10)
         adapter.contract(manifest)
         for row in manifest['files']:
             self.assertEqual(row['sha256'], hashlib.sha256(candidates[row['candidate']]).hexdigest())

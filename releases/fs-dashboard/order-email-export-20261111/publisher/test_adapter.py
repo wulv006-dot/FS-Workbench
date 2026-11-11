@@ -20,13 +20,13 @@ def manifest():
             'runtimeRequired': copy.deepcopy(a.RUNTIME),
             'unchangedRequired': [{'path': p, 'sha256': 'b' * 64} for p in sorted(a.PROTECTED)],
             'files': [{'candidate': name, 'target': target, 'sha256': hashlib.sha256(name.encode()).hexdigest(),
-                       'beforeSha256': None if name == 'admin_order_email_export.py' or name.startswith('order-email-') else hashlib.sha256(b'old').hexdigest()}
+                       'beforeSha256': None if name.startswith('admin_') or name.startswith('order-email-') else hashlib.sha256(b'old').hexdigest()}
                       for name, target in a.TARGETS.items()]}
 
 
 class ContractTests(unittest.TestCase):
     def test_exact_contract(self):
-        self.assertEqual(len(a.contract(manifest())), 9)
+        self.assertEqual(len(a.contract(manifest())), 11)
 
     def test_fail_closed(self):
         for change in (lambda m: m.update(scope='old'), lambda m: m.update(businessWrites=True),
@@ -135,7 +135,7 @@ class FrozenWriterTests(unittest.TestCase):
     def test_apply_rollback_and_ledger(self):
         result = self.apply()
         backup = Path(result['backup'])
-        self.assertEqual(result['staticFiles'], 9)
+        self.assertEqual(result['staticFiles'], 11)
         self.assertEqual(json.loads((backup / 'journal.json').read_text())['approvedManifestSha256'], self.sha)
         self.base.rollback(backup, self.sha, self.root)
         self.assert_restored()

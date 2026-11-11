@@ -10,7 +10,7 @@ const panelSource = readFileSync(join(__dirname, 'order-email-panel.js'), 'utf8'
   .replace("'./order-email-csv.js'", JSON.stringify(csv));
 // Reuse the established mock DOM without modifying its metadata-protected file.
 const fixtureSource = readFileSync(join(__dirname, 'test_order_email_panel.cjs'), 'utf8');
-const fixture = fixtureSource.slice(fixtureSource.indexOf('// Fixture directories only;'), fixtureSource.indexOf("test('strict calendar"))
+const fixture = fixtureSource.slice(fixtureSource.indexOf('// Fixture directories only;'), fixtureSource.indexOf("test('all 14 Admin"))
   .replaceAll('mountOrderEmailExport', 'mountOrderEmailExcelExport');
 function harness(modulePromise) {
   const context = { modulePromise, AbortController, Blob };
