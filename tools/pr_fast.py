@@ -1444,6 +1444,7 @@ def main():
             node(release+"/frontend/test_order_email_retry.cjs")
             node(release+"/frontend/test_order_email_xlsx.cjs")
             node(release+"/frontend/test_order_email_excel_panel.cjs")
+            node(release+"/frontend/test_order_email_workspace.cjs")
         elif group=="hermes-conversation":
             release="releases/fs-dashboard/hermes-conversation-20261018"
             # Class partitions require the complete two-class module, without a loader hook.

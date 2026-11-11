@@ -248,7 +248,32 @@ export function mountDataWorkspace(root, options = {}) {
     }
     panels.push({invalidate});
   }
-  return {dispose() { for (const panel of panels) panel.invalidate(); section.remove(); }};
+  let disposed = false, emailWidget, emailHost;
+  // Host owns verified routes/directories; legacy callers never load the email module.
+  if (options.orderEmailExport) {
+    emailHost = el('div');
+    const status = el('p', '订单用户邮箱导出正在加载…', 'hint');
+    status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+    section.append(status, emailHost);
+    const {endpoint, sites, games, fetch, paged} = options.orderEmailExport;
+    import('./order-email-panel.js').then(({mountOrderEmailExcelExport}) => {
+      if (disposed) return;
+      emailWidget = mountOrderEmailExcelExport(emailHost, {endpoint, sites, games, fetch, paged});
+      status.textContent = '订单用户邮箱 Excel 导出已就绪；尚未查询';
+    }).catch(() => {
+      if (disposed) return;
+      emailHost.replaceChildren();
+      status.textContent = '订单用户邮箱导出暂不可用，请核对配置或稍后重试';
+    });
+  }
+  return {dispose() {
+    if (disposed) return;
+    disposed = true;
+    emailWidget?.dispose(); emailWidget = null;
+    emailHost?.replaceChildren();
+    for (const panel of panels) panel.invalidate();
+    section.remove();
+  }};
 }
 
 export function hermesHandoffURL({kind,selection,data}) {
