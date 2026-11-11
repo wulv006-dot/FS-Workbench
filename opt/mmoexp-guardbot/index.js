@@ -17,7 +17,7 @@
  * 启动：node index.js
  * ==========================================================================*/
 
-const fs = require('fs');
+const fs = require('./secure-storage');
 const path = require('path');
 const {
   Client,
@@ -61,6 +61,19 @@ const DEFAULTS = {
   brandCore: 'mmoexp',
   // 片段匹配的拼写容错：0=只认全等；1=少一个字母 / 换一个字母也算（如 service_mmoex = mmoexp 少个 p）
   brandTokenFuzzy: 1,
+  /* 【多品牌关键词 · 2026-11-06】竞品站点名一起封。留空 = 退回「只用上面单品牌字段」的旧行为。
+   * 每项：{ label, core, fuzzy?, pattern?, token?, prefix?, glued?, matchMode?, official? }
+   *   core     品牌词本体（大小写无所谓，内部会归一化）
+   *   pattern  可选，自定义「开头即命中」正则（第 1 个捕获组 = 尾巴）；不填则自动按品牌词生成
+   *   token    名字里出现独立片段即命中（默认 true，允许 1 字符拼写容错）
+   *   prefix   名字以品牌词开头即命中（默认 true，尾巴按 strict/loose 判）
+   *   glued    品牌词后紧跟官方/广告类后缀也算（如 buyu4gmgold，默认 true）
+   *   official true = 我们自己家品牌（用 kick/banReason）；false = 竞品（用 competitor*Reason）
+   */
+  brandList: [],
+  // 竞品品牌命中时的处罚理由（留空则沿用 kickReason / banReason）
+  competitorKickReason: '',
+  competitorBanReason: '',
   // 白名单
   whitelistRoleIds: [],
   whitelistUserIds: [],
@@ -78,7 +91,16 @@ const SUFFIX_OK = [
   'store', 'sale', 'sales', 'gift', 'giveaway', 'airdrop', 'claim', 'reward',
   'promo', 'bot', 'mod', 'manager', 'agent', 'online', 'shop', 'market',
   'trade', 'vip', 'global', 'hq', 'inc', 'llc', 'top', 'buy', 'sell',
+  // 2026-11-06 补：竞品站点名常带的域名/广告尾巴（u4gm.com / u4gm-gold / lootbar-cheap…）
+  'com', 'net', 'org', 'gg', 'site', 'web', 'gold', 'cheap', 'coins', 'coin',
+  'currency', 'delivery', 'boost', 'boosting', 'account', 'accounts', 'powerleveling',
 ];
+
+// 供「品牌词 + 广告类后缀」用；长的排前面，避免短后缀抢先吃掉
+const SUFFIX_ALT = SUFFIX_OK.slice()
+  .sort((a, b) => b.length - a.length)
+  .map((s) => s.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&'))
+  .join('|');
 
 /* ------------------------------- 名称归一化 ------------------------------- */
 /* 目的：把 "ＭＭＯＥＸＰ" / "ММОЕХР"(西里尔) / "MM0EXP" / 零宽字符 全部压成 mmoexp */
@@ -138,7 +160,7 @@ function loadConfig() {
   let wl = { userIds: [], roleIds: [], note: '' };
   try {
     wl = Object.assign(wl, JSON.parse(fs.readFileSync(WL_PATH, 'utf8')));
-  } catch (e) { /* 首次运行没有白名单文件是正常的 */ }
+  } catch (e) { if (e.code !== 'ENOENT') throw e; }
   wl.userIds = Array.from(new Set([...(wl.userIds || []), ...(state.config.whitelistUserIds || [])]));
   wl.roleIds = Array.from(new Set([...(wl.roleIds || []), ...(state.config.whitelistRoleIds || [])]));
   state.whitelist = wl;
@@ -149,74 +171,204 @@ function saveWhitelist() {
   fs.writeFileSync(WL_PATH, JSON.stringify(state.whitelist, null, 2), 'utf8');
 }
 
-/* --------------- 片段式匹配：品牌词作为"独立片段"出现在名字任意位置 ---------------
- * 背景：旧的前缀正则只认「开头」，所以
- *   nick.mmoexp   （品牌词在中间/结尾）
- *   service_mmoex （品牌词拼错少个字母）
- * 这两类全部放行。下面按「非字母数字切分后的独立片段」比对品牌词核心，
- * 并允许 1 个字符的拼写容错（少一个字母 / 换一个字母），两种冒充形态都能覆盖。
- * 注意：只匹配**独立片段**，所以 mmoexpert / mmoexpo / MMOEXPfan2026 这类
- * 品牌词与其他词粘连在一起的名字**不会**被误伤。
- * ------------------------------------------------------------------------- */
+/* ===================== 多品牌关键词判定（2026-11-06 起） =====================
+ * 原来只认 mmoexp 一个品牌，其它竞品站点名（U4GM / IGGM / LOOTBAR…）完全放行。
+ * 现在改成「一张品牌表 + 三种命中形态」，品牌词全写在 config.json 的 brandList 里，
+ * 加品牌不用改代码。
+ *
+ * 每个品牌的三种形态：
+ *   ① token  名字里出现「独立片段」等于品牌词 —— nick.u4gm / iggm-store / 官方_iggm
+ *            允许 1 个字符的拼写容错：少一个字母、换一个字母、多一个字母
+ *   ② prefix 名字以品牌词开头 —— u4gm / U4GM Support / u4gm2026 / u4gm.com
+ *            尾巴按 strict（空 / 纯数字 / 官方类后缀）或 loose（一律命中）判
+ *   ③ glued  品牌词后面紧跟官方/广告类后缀、但位置不在开头 —— buyu4gmgold / xx-iggm-shop
+ *
+ * 变体覆盖（全部自动，无需在配置里列）：
+ *   · 大小写          —— 正则可选 i
+ *   · 数字替换        —— 0↔o 1↔i/l 3↔e 4↔a 5↔s 6/9↔g 7↔t 8↔b（u4gm↔uagm、l00tbar↔lootbar）
+ *   · 形近字母        —— i↔l、u↔v（iggm↔lggm、u4gm↔v4gm）
+ *   · 全角 / 西里尔 / 零宽 / 希腊同形字 —— canon() 先归一化
+ *   · 分隔符          —— m.m.o.e.x.p / mmo_exp / mmo exp，squash() 去掉后比对
+ *
+ * 只匹配「独立片段」，所以 biggmike / mmoexpert 这类品牌词嵌在正常单词里的名字不会被误伤。
+ * ========================================================================= */
 
-/** a 删掉恰好 1 个字符后是否等于 b */
-function dropOneChar(a, b) {
-  if (a.length - b.length !== 1) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (a.slice(0, i) + a.slice(i + 1) === b) return true;
+/* 逐字符「易混写法」表。作用在 squash(canon(name)) 之后的纯 [a-z0-9] 串上。 */
+const BRAND_CLASS = {
+  a: '[a4]', b: '[b8]', c: 'c', d: 'd', e: '[e3]', f: 'f', g: '[g69]', h: 'h',
+  i: '[i1l]', j: 'j', k: 'k', l: '[l1i]', m: 'm', n: 'n', o: '[o0]', p: 'p',
+  q: 'q', r: 'r', s: '[s5]', t: '[t7]', u: '[uv]', v: '[uv]', w: 'w', x: 'x',
+  y: 'y', z: 'z',
+  '0': '[0o]', '1': '[1il]', '3': '[3e]', '4': '[4a]', '5': '[5s]',
+  '6': '[6g9]', '7': '[7t]', '8': '[8b]', '9': '[9g6]',
+};
+
+/** 把品牌词逐字符换成「易混字符组」 */
+function classOf(text) {
+  return String(text)
+    .split('')
+    .map((ch) => BRAND_CLASS[ch] || ch.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&'))
+    .join('');
+}
+
+function safeRegex(src) {
+  try {
+    return new RegExp(String(src), 'i');
+  } catch (e) {
+    console.warn('[WARN] 品牌正则无效，已退回自动生成：', src, e.message);
+    return null;
   }
-  return false;
 }
 
-/** 等长且恰好 1 个位置不同 */
-function oneCharDiff(a, b) {
-  if (a.length !== b.length) return false;
-  let d = 0;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d++;
-  return d === 1;
+/** 把 config.brandList 编译成可执行的规则表（只在配置变化时重编译） */
+function compileBrands(cfg) {
+  const globalMode = cfg.matchMode === 'loose' ? 'loose' : 'strict';
+  let list = Array.isArray(cfg.brandList) ? cfg.brandList.filter((b) => b && typeof b === 'object') : [];
+
+  // 没配 brandList → 完全退回旧的单品牌行为
+  if (!list.length) {
+    list = [{
+      label: 'MMOEXP',
+      core: cfg.brandCore || 'mmoexp',
+      fuzzy: Number(cfg.brandTokenFuzzy) || 0,
+      pattern: cfg.brandPattern,
+      token: cfg.brandTokenMatch !== false,
+      official: true,
+    }];
+  }
+
+  const out = [];
+  for (const b of list) {
+    const core = squash(canon(b.core || b.label || ''));
+    if (core.length < 3) {
+      console.warn('[WARN] 品牌词太短（<3），已忽略以免误伤：', JSON.stringify(b));
+      continue;
+    }
+    const cls = classOf(core);
+    const fuzzyRaw = Number(b.fuzzy == null ? cfg.brandTokenFuzzy || 0 : b.fuzzy);
+    const fuzzy = Math.max(0, Math.min(2, Number.isFinite(fuzzyRaw) ? fuzzyRaw : 0));
+    const mode = b.matchMode === 'loose' || b.matchMode === 'strict' ? b.matchMode : globalMode;
+
+    // 近似串：少一个字符 / 多一个字符。
+    // ⚠️ 只对「6 个字母以上」的品牌开启，且不做「随便换一个字母」：
+    //    4 位品牌（u4gm / iggm）容忍少一个字母会变成 3 位片段（u4g / igg），
+    //    随便换一个字母会把 lootbag / footbar 这类正常单词误判成 lootbar。
+    //    0↔o、4↔a、1↔i 这些真实存在的手法是靠上面的字符组覆盖的，不靠编辑距离。
+    const approx = [];
+    if (fuzzy >= 1 && core.length >= 6) {
+      const chars = core.split('');
+      for (let i = 0; i < chars.length; i++) {
+        const del = chars.filter((c, j) => j !== i).map(classOf).join('');
+        if (del) approx.push(new RegExp('^' + del + '$'));
+        approx.push(new RegExp(
+          '^' + chars.slice(0, i).map(classOf).join('') + '.' + chars.slice(i).map(classOf).join('') + '$'
+        ));
+      }
+    }
+
+    out.push({
+      label: String(b.label || b.core || core).toUpperCase(),
+      core,
+      cls,
+      fuzzy,
+      mode,
+      token: b.token !== false,
+      prefix: b.prefix !== false,
+      glued: b.glued !== false,
+      official: !!b.official,
+      prefixRe: (b.pattern && safeRegex(b.pattern)) || new RegExp('^' + cls + '([a-z0-9]*)$'),
+      exactRe: new RegExp('^' + cls + '$'),
+      approx,
+      gluedRe: new RegExp('(' + cls + ')(' + SUFFIX_ALT + ')'),
+    });
+  }
+  return out;
 }
 
-/** 片段匹配：命中返回 {tail, via, token}，否则 null */
-function tokenMatch(rawName) {
-  if (!state.config.brandTokenMatch) return null;
-  const core = squash(canon(state.config.brandCore || 'mmoexp'));
-  if (core.length < 4) return null;
-  const fuzzy = Number(state.config.brandTokenFuzzy) || 0;
-  const parts = canon(rawName).split(/[^a-z0-9]+/).filter(Boolean);
+/** 规则表缓存：配置没变就不重编译 */
+function brandRules() {
+  const cfg = state.config || {};
+  const key = JSON.stringify([
+    cfg.brandList, cfg.brandCore, cfg.brandPattern, cfg.brandTokenMatch,
+    cfg.brandTokenFuzzy, cfg.matchMode,
+  ]);
+  if (state._brandKey !== key) {
+    state._brandRules = compileBrands(cfg);
+    state._brandKey = key;
+  }
+  return state._brandRules;
+}
+
+/** 片段匹配：命中返回 {tail, via, brand, token}，否则 null（对单个品牌） */
+function matchToken(parts, b) {
+  if (!b.token) return null;
   for (const p of parts) {
-    if (p.length < 4) continue;
-    if (p === core) return { tail: '', via: 'token', token: p };
-    if (fuzzy >= 1) {
-      if (dropOneChar(core, p)) return { tail: '', via: 'token-approx', token: p };
-      if (oneCharDiff(core, p)) return { tail: '', via: 'token-approx', token: p };
+    if (p.length < 3) continue;
+    if (b.exactRe.test(p)) return { tail: '', via: 'token', brand: b.label, official: b.official, token: p };
+  }
+  if (b.fuzzy >= 1) {
+    for (const p of parts) {
+      if (Math.abs(p.length - b.core.length) > 1) continue; // 长度差太多，省掉正则
+      if (b.approx.some((re) => re.test(p))) {
+        return { tail: '', via: 'token-approx', brand: b.label, official: b.official, token: p };
+      }
     }
   }
   return null;
 }
 
-/** 判断一个名字是否冒充官方。命中返回 {tail}，否则 null */
+/** 判断一个名字是否命中任一品牌。命中返回 {tail, via, brand}，否则 null */
 function classify(rawName) {
   const sq = squash(canon(rawName));
-  if (sq.length < 6) return null;
+  if (sq.length < 4) return null; // 整个名字太短，判了也全是噪声
 
   for (const token of state.config.extraStartsWith || []) {
     const t = squash(canon(token));
-    if (t && sq.startsWith(t)) return { tail: sq.slice(t.length), via: 'extraStartsWith' };
+    if (t && sq.startsWith(t)) return { tail: sq.slice(t.length), via: 'extraStartsWith', brand: 'EXTRA' };
   }
 
-  // 片段式匹配（品牌词在任意位置的独立片段）—— 先于前缀正则，命中信息更准确
-  const tk = tokenMatch(rawName);
-  if (tk) return tk;
+  const parts = canon(rawName).split(/[^a-z0-9]+/).filter(Boolean);
 
-  const m = sq.match(new RegExp(state.config.brandPattern, 'i'));
-  if (!m) return null;
-  const tail = m[1] || '';
+  for (const b of brandRules()) {
+    /* 边界：名字整体比品牌词还短 —— 不判。
+     * 这条顶替了旧版「sq.length < 6 一律放行」的粗暴早退：
+     * 现在 U4GM / IGGM 本身就是 4 个字母，必须能抓「名字就叫 U4GM」；
+     * 而 mmoex（5，比 mmoexp 短）依旧按旧规矩放行，不让 5 个字母的名字乱撞。 */
+    if (sq.length < b.core.length) continue;
 
-  if (state.config.matchMode === 'loose') return { tail, via: 'loose' };
-  if (tail === '') return { tail, via: 'exact' };
-  if (/^[0-9]+$/.test(tail)) return { tail, via: 'digits' };
-  if (SUFFIX_OK.some((s) => tail.startsWith(s))) return { tail, via: 'suffix' };
-  return null; // 例如 mmoexpert / mmoexpo，判为正常
+    // ① 独立片段（品牌词在中间/结尾也算）
+    const tk = matchToken(parts, b);
+    if (tk) return tk;
+
+    // ② 开头即品牌词，尾巴按 strict / loose 判
+    if (b.prefix) {
+      const m = sq.match(b.prefixRe);
+      if (m) {
+        const tail = m[1] || '';
+        const isDigits = /^[0-9]+$/.test(tail);
+        const isSuffix = SUFFIX_OK.some((s) => tail.startsWith(s));
+        if (b.mode === 'loose') {
+          return { tail, via: 'loose', brand: b.label, official: b.official };
+        }
+        if (tail === '' || isDigits || isSuffix) {
+          return {
+            tail,
+            via: tail === '' ? 'exact' : isDigits ? 'digits' : 'suffix',
+            brand: b.label,
+            official: b.official,
+          };
+        }
+      }
+    }
+    // ③ 品牌词 + 官方/广告类后缀，出现在名字任意位置
+    if (b.glued) {
+      const g = sq.match(b.gluedRe);
+      if (g) {
+        return { tail: g[2] || '', via: 'glued-suffix', brand: b.label, official: b.official };
+      }
+    }
+  }
+  return null; // 例如 mmoexpert / biggmike，判为正常
 }
 
 /** 检查成员所有名字字段 */
@@ -230,7 +382,16 @@ function assessMember(member) {
   for (const [field, value] of fields) {
     if (!value) continue;
     const hit = classify(value);
-    if (hit) return { field, value, tail: hit.tail, via: hit.via };
+    if (hit) {
+      return {
+        field,
+        value,
+        tail: hit.tail,
+        via: hit.via,
+        brand: hit.brand || 'MMOEXP',
+        official: !!hit.official,
+      };
+    }
   }
   return null;
 }
@@ -306,9 +467,7 @@ function persistConfig(patch) {
   let raw = {};
   try {
     raw = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-  } catch (e) {
-    raw = {};
-  }
+  } catch (e) { throw Error('Cannot safely read encrypted configuration'); }
   Object.assign(raw, patch);
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(raw, null, 2) + '\n', 'utf8');
   Object.assign(state.config, patch); // 顺带同步内存态
@@ -363,15 +522,19 @@ async function buildReport(c) {
           : `ℹ️ 只能处置最高角色位置 **低于 ${me.roles.highest.position}** 的成员（新加入、未领角色的成员通常在这个范围内）`)
       : '（读不到角色层级）';
 
+  const rules = brandRules();
   const ruleTxt = [
     `演练模式 dryRun：**${cfg.dryRun ? '🟡 开（只记录，不处置任何人）' : '🟢 关（会真的处置）'}**`,
     `处置动作 action：\`${cfg.action}\``,
     cfg.action === 'timeout' ? `禁言时长：\`${cfg.timeoutMinutes} 分钟\`` : null,
-    `匹配模式 matchMode：\`${cfg.matchMode}\``,
-    `品牌词正则：\`${cfg.brandPattern}\``,
-    `片段匹配 brandTokenMatch：${cfg.brandTokenMatch === false ? '**关**' : `开（品牌词 \`${cfg.brandCore || 'mmoexp'}\` 以独立片段出现在名字任意位置即命中，容错 ${Number(cfg.brandTokenFuzzy) || 0} 个字符）`}`,
+    `匹配模式 matchMode：\`${cfg.matchMode}\`（品牌可用 brandList 里的 matchMode 单独覆盖）`,
+    `品牌关键词（${rules.length} 个）：${rules.length
+      ? rules.map((b) => `\`${b.label}\`${b.official ? '(自家)' : '(竞品)'}·${b.core}·${b.mode}·容错${b.fuzzy}`).join('\n　')
+      : '（空）'}`,
+    `品牌词正则（单品牌兼容字段）：\`${cfg.brandPattern}\``,
+    `片段匹配 brandTokenMatch：${cfg.brandTokenMatch === false ? '**关**' : '开（品牌词以独立片段出现在任意位置即命中）'}`,
     `额外前缀 extraStartsWith：${(cfg.extraStartsWith || []).length ? cfg.extraStartsWith.map((x) => `\`${x}\``).join(' ') : '（空）'}`,
-    `处置理由：\`${cfg.action === 'ban' ? cfg.banReason : cfg.kickReason}\``,
+    `处置理由：\`${cfg.action === 'ban' ? cfg.banReason : cfg.kickReason}\`${cfg.competitorBanReason || cfg.competitorKickReason ? '（竞品命中用 competitor*Reason）' : ''}`,
     `白名单成员命中时是否也告警：\`${cfg.alertOnWhitelistedHit ? '是' : '否'}\``,
   ]
     .filter(Boolean)
@@ -542,9 +705,22 @@ async function canActOn(member) {
  *  事后翻 Audit Log / 封禁名单只能看到「很正常」的账号名，完全查不出为什么被封。
  *  把命中值写进 reason，封禁那一刻的名字就永久钉在审计日志上。
  *  Discord reason 上限 512 字符 → 这里截到 400 留余量。 */
+/** 审计日志里的理由：基础文案 + 命中品牌 + 命中字段值（对方事后改名也能还原） */
 function reasonWithHit(base, hit) {
   const key = (hit.field || '').split(' ').pop() || 'name';
-  return `${base || ''} [${key}=${hit.value}]`.slice(0, 400);
+  const brand = hit.brand && hit.brand !== 'EXTRA' ? `brand=${hit.brand}; ` : '';
+  return `${base || ''} [${brand}${key}=${hit.value}]`.slice(0, 400);
+}
+
+/** 选基础处罚文案：自家品牌用 kick/banReason，竞品用 competitor*Reason（没配就回退） */
+function baseReasonFor(hit, action) {
+  const cfg = state.config;
+  const isBan = action === 'ban';
+  if (hit && hit.official === false) {
+    const comp = isBan ? cfg.competitorBanReason : cfg.competitorKickReason;
+    if (comp) return comp;
+  }
+  return isBan ? cfg.banReason : cfg.kickReason;
 }
 
 /** 处置瞬间的名字快照 —— 对方事后改名也能还原「当时叫什么」。 */
@@ -588,6 +764,7 @@ async function act(member, reason) {
 async function handle(member, source) {
   const at = new Date().toISOString();
   if (!member || !member.guild) return;
+  if (state.config.guildId && member.guild.id !== state.config.guildId) return; // D4 uses its separate policy below
   if (member.user && member.user.bot) return;
   // 🛡️ 官方管理组（带 Administrator 权限）硬保护：不看名字、不计命中、不处置
   if (isProtectedAdmin(member)) return;
@@ -630,23 +807,23 @@ async function handle(member, source) {
   if (state.config.dryRun || block) {
     noteHit(state.config.dryRun ? 'DRY-RUN 未处置' : `被阻塞（${block}）`);
     await log(member.client, {
-      title: state.config.dryRun ? '【DRY-RUN】命中冒充前缀（未处置）' : '命中冒充前缀但无法处置',
-      body: `${who}\n字段：\`${hit.field}\`  命中值：\`${hit.value}\`\n判定：\`${hit.via}\`  计划动作：\`${planned}\`  来源：\`${source}\`` +
+      title: state.config.dryRun ? '【DRY-RUN】命中封禁关键词（未处置）' : '命中封禁关键词但无法处置',
+      body: `${who}\n品牌：\`${hit.brand}\`　字段：\`${hit.field}\`  命中值：\`${hit.value}\`\n判定：\`${hit.via}\`  计划动作：\`${planned}\`  来源：\`${source}\`` +
         (block ? `\n⚠️ 阻塞原因：**${block}**` : '') +
         (state.config.dryRun ? '\n\n（当前 dryRun=true，只记录不动作。确认无误后改为 false 上线）' : ''),
       fields: [{ name: '账号创建于', value: `${ageDays} 天前`, inline: true }],
     }, state.config.dryRun ? 0x8a8f98 : 0xd23f3f);
-    console.log(`[${at}] ${state.config.dryRun ? 'DRY-RUN ' : 'BLOCKED '}${hit.field}="${hit.value}" user=${member.user.tag} (${member.id}) ${block || ''}`);
+    console.log(`[${at}] ${state.config.dryRun ? 'DRY-RUN ' : 'BLOCKED '}brand=${hit.brand} ${hit.field}="${hit.value}" user=${member.user.tag} (${member.id}) ${block || ''}`);
     return;
   }
 
   try {
-    const reason = reasonWithHit(planned === 'ban' ? state.config.banReason : state.config.kickReason, hit);
+    const reason = reasonWithHit(baseReasonFor(hit, planned), hit);
     const done = await act(member, reason);
     noteHit(done);
     const snap = snapshotNames(member);
     console.log(
-      `[${at}] ACTION ${done} user=${member.user.tag} (${member.id}) field=${hit.field} value="${hit.value}" ` +
+      `[${at}] ACTION ${done} user=${member.user.tag} (${member.id}) brand=${hit.brand} field=${hit.field} value="${hit.value}" ` +
       `via=${hit.via} src=${source} names=${JSON.stringify(snap)} reason="${reason}"`
     );
     appendLedger({
@@ -655,6 +832,7 @@ async function handle(member, source) {
       user_id: member.id,
       tag: member.user.tag,
       ...snap,
+      brand: hit.brand,
       field: hit.field,
       value: hit.value,
       via: hit.via,
@@ -662,8 +840,8 @@ async function handle(member, source) {
       reason,
     });
     await log(member.client, {
-      title: '已处置：冒充官方前缀',
-      body: `${who}\n字段：\`${hit.field}\`  命中值：\`${hit.value}\`\n判定：\`${hit.via}\`  动作：**${done}**  来源：\`${source}\`` +
+      title: '已处置：命中封禁关键词',
+      body: `${who}\n品牌：\`${hit.brand}\`　字段：\`${hit.field}\`  命中值：\`${hit.value}\`\n判定：\`${hit.via}\`  动作：**${done}**  来源：\`${source}\`` +
         `\n\n**处置时的名字**\n用户名：\`${snap.username}\`　全局显示名：\`${snap.global_name || '（无）'}\`　服务器昵称：\`${snap.nickname || '（无）'}\`` +
         `\n写入审计日志的理由：\`${reason}\``,
       fields: [{ name: '账号创建于', value: `${ageDays} 天前`, inline: true }],
@@ -699,15 +877,20 @@ client.once(Events.ClientReady, async (c) => {
     console.log('ℹ️  未配置 guildId，本次跳过斜杠命令注册（核心防护不依赖命令）。填入 guildId 后重启即可注册。');
   } else {
     try {
-      const cmds = buildCommands();
+      const cmds = [...buildCommands(), ...require('./privacy').commands()];
       const rest = new REST({ version: '10' }).setToken(state.config.token);
       await rest.put(Routes.applicationGuildCommands(c.user.id, state.config.guildId), { body: cmds });
-      console.log(`✅ 已注册 ${cmds.length} 条斜杠命令到服务器 ${state.config.guildId}`);
+      for (const guild of c.guilds.cache.values()) {
+        if(guild.id===state.config.guildId)continue;
+        for(const cmd of require('./privacy').commands()) await rest.post(Routes.applicationGuildCommands(c.user.id,guild.id),{body:cmd});
+      }
+      console.log('Registered guard and privacy commands');
     } catch (e) {
       console.warn('[WARN] 斜杠命令注册失败（不影响核心防护）：', e.message);
     }
   }
   console.log(`模式：${state.config.dryRun ? 'DRY-RUN（只记录）' : '正式处置'}  动作：${state.config.action}  匹配：${state.config.matchMode}`);
+  console.log(`品牌关键词：${brandRules().map((b) => `${b.label}(${b.core}/${b.mode}/fuzzy${b.fuzzy})`).join(' ') || '（无）'}`);
   console.log(`白名单：角色 ${state.whitelist.roleIds.length} 个 / 用户 ${state.whitelist.userIds.length} 个`);
 
   // intent 自检：直接反映「私信到底收不收得到」。MessageContent 应当恒为 false ——
@@ -749,6 +932,7 @@ client.on(Events.MessageCreate, async (msg) => {
     if (!msg || !msg.author || msg.author.bot) return;
     if (!client.user || msg.author.id === client.user.id) return;
 
+    if (!msg.guildId && /^privacy\s*$/i.test(msg.content || '')) return;
     const isDM = !msg.guildId;
     const mentioned = !isDM && !!(msg.mentions && msg.mentions.users.has(client.user.id));
 
@@ -916,7 +1100,7 @@ client.on(Events.InteractionCreate, async (i) => {
             try {
               const blocked = await canActOn(h.m);
               if (blocked) { fail++; continue; }
-              await act(h.m, '存量清理：名称冒充 MMOEXP 官方');
+              await act(h.m, reasonWithHit(baseReasonFor(h.hit, state.config.action), h.hit).slice(0, 400));
               ok++;
               await new Promise((r) => setTimeout(r, 350)); // 轻微限速，避免触发风控
             } catch (e) { fail++; }
@@ -936,10 +1120,24 @@ client.on(Events.InteractionCreate, async (i) => {
 /* --------------------------------- 入口 ---------------------------------- */
 
 function main() {
+  require('./privacy').installConsole();
+  process.on('uncaughtException', error => { console.error('[FATAL] uncaught exception', error); process.exit(1); });
   const cfg = loadConfig();
+  const privacyHooks = [];
+  require('./privacy').install(client, {onErase: async id => {
+    if(state.stats.lastHit?.id===id) state.stats.lastHit=null;
+    loadConfig();
+    for(const hook of privacyHooks) await hook(id);
+  }});
   if (!cfg.token || cfg.token.includes('在这里')) {
     console.error('[FATAL] 请先把 config.json 里的 token 填上（Discord 开发者后台 → Bot → Reset Token）。');
     process.exit(1);
+  }
+  const welcome = require('./self-welcome.js').install(client, { canWelcome: (member) => !assessMember(member) || Boolean(whitelisted(member)) || isProtectedAdmin(member) });
+  privacyHooks.push(id=>welcome.forget(id));
+  if (fs.existsSync(path.join(ROOT, 'd4-guard.json'))) {
+    const d4 = require('./d4-guard-extension.js').install(client);
+    privacyHooks.push(id=>{ d4.forget(id); Object.assign(d4.config,JSON.parse(fs.readFileSync(path.join(ROOT,'d4-guard.json'),'utf8'))); });
   }
   client.login(cfg.token).catch((e) => {
     console.error('[FATAL] 登录失败：', e.message);
@@ -954,8 +1152,10 @@ process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e)
 
 module.exports = {
   canon, squash, classify, assessMember, loadConfig, state, DEFAULTS,
+  compileBrands, brandRules, classOf, SUFFIX_OK, // 多品牌规则（供单测 / 体检脚本复用）
   client, // 真实 discord.js 客户端实例（供单测投递合成事件）
   handle, canActOn, isProtectedAdmin, // 处置主流程（供单测验证 dryRun 硬闸与 Admin 硬保护）
   // 状态自检（供单测直接调用，不触发登录）
   buildReport, handleSelfCheck, operatorCheck, fmtDur, persistConfig,
+  baseReasonFor, reasonWithHit,
 };

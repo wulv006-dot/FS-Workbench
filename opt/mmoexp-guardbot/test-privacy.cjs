@@ -1,0 +1,63 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('fs'),os=require('os'),path=require('path'),crypto=require('crypto');
+const {createStorage,MAGIC,DAY}=require('./secure-storage');
+// CI exercises pure privacy decisions offline. Live/host tests use the installed Discord SDK.
+let sdkPresent=true;try{require.resolve('discord.js');}catch(e){if(e.code!=='MODULE_NOT_FOUND')throw e;sdkPresent=false;}
+let controls;
+if(sdkPresent)controls=require('./privacy');else{
+ const Module=require('module'),load=Module._load;
+ class CommandFixture{setName(name){this.name=name;return this;}setDescription(description){this.description=description;return this;}toJSON(){return{name:this.name,description:this.description};}}
+ Module._load=function(name,...args){if(name==='discord.js')return{Events:{InteractionCreate:'interactionCreate',MessageCreate:'messageCreate'},MessageFlags:{Ephemeral:64},SlashCommandBuilder:CommandFixture};return load.call(this,name,...args);};
+ try{controls=require('./privacy');}finally{Module._load=load;}
+}
+const {createPrivacy,commands,privacyPayload}=controls;
+let assertions=0;
+function check(name,fn){fn();assertions++;console.log('PASS '+name);}
+async function main(){
+ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'guard-privacy-test-'));
+ const root=path.join(temp,'bot'),key=path.join(temp,'key');fs.mkdirSync(root);
+ fs.writeFileSync(key,crypto.randomBytes(32),{mode:0o600});fs.chmodSync(key,0o600);
+ let now=Date.UTC(2026,10,11);const store=createStorage({root,keyFile:key,enforce:true,now:()=>now});
+ const a='111111111111111111',b='222222222222222222';
+ const config=path.join(root,'config.json'),ledger=path.join(root,'action-ledger.jsonl');
+ fs.writeFileSync(config,JSON.stringify({guildId:'333333333333333333',token:'fictional-only-token',whitelistUserIds:[a,b]}));
+ check('production refuses an unencrypted document',()=>assert.throws(()=>store.readFileSync(config,'utf8'),/Unencrypted/));
+ const migrated=store.migrate();check('legacy data migrated',()=>assert.equal(migrated.migratedFiles,1));
+ check('disk has no token or user ID plaintext',()=>{const disk=fs.readFileSync(config,'utf8');assert(disk.startsWith(MAGIC));assert(!disk.includes(a));assert(!disk.includes('fictional-only-token'));});
+ check('config decrypts without changing values',()=>assert.deepEqual(JSON.parse(store.readFileSync(config,'utf8')).whitelistUserIds,[a,b]));
+ const first=fs.readFileSync(config,'utf8');store.writeFileSync(config,store.readFileSync(config));
+ check('nonce is fresh on repeated write',()=>assert.notEqual(fs.readFileSync(config,'utf8'),first));
+ const valid=fs.readFileSync(config,'utf8');const box=JSON.parse(valid.slice(MAGIC.length));box.tag=Buffer.alloc(16).toString('base64');fs.writeFileSync(config,MAGIC+JSON.stringify(box));
+ check('tampering is rejected',()=>assert.throws(()=>store.readFileSync(config,'utf8')));fs.writeFileSync(config,valid);
+ check('wrong key is rejected',()=>{const wrong=path.join(temp,'wrong');fs.writeFileSync(wrong,crypto.randomBytes(32),{mode:0o600});fs.chmodSync(wrong,0o600);assert.throws(()=>createStorage({root,keyFile:wrong,enforce:true}).readFileSync(config));});
+ const outside=path.join(temp,'outside.json');store.writeFileSync(outside,'{"public":true}');
+ check('adapter leaves unrelated files alone',()=>assert.equal(fs.readFileSync(outside,'utf8'),'{"public":true}'));
+ const rows=[{ts:new Date(now-31*DAY).toISOString(),user_id:a,username:'Fabricated old name'},{ts:new Date(now-DAY).toISOString(),user_id:a,username:'Fabricated account A'},{ts:new Date(now-DAY).toISOString(),user_id:b,username:'Fabricated account B'}];
+ for(const row of rows)store.appendFileSync(ledger,JSON.stringify(row)+'\n');
+ const logs=path.join(root,'runtime-events.jsonl');store.appendFileSync(logs,JSON.stringify({at:new Date(now-8*DAY).toISOString(),text:'old diagnostic'})+'\n');
+ const backup=path.join(root,'backups','test');fs.mkdirSync(backup,{recursive:true});store.writeFileSync(path.join(backup,'whitelist.json'),JSON.stringify({userIds:[a,b]}));
+ check('retention removes expired records only',()=>{assert.equal(store.prune().removedRecords,2);assert.equal(store.readFileSync(ledger,'utf8').trim().split('\n').length,2);assert.equal(store.readFileSync(logs,'utf8'),'');});
+ let erasedId=null;const privacy=createPrivacy({store,onErase:id=>{erasedId=id;},now:()=>now});
+ const replies=[];
+ const command={user:{id:a},commandName:'privacy-delete',isChatInputCommand:()=>true,isButton:()=>false,reply:async p=>replies.push(p)};
+ await privacy.handle(command);const confirmation=replies.at(-1);const customId=confirmation.components[0].components[0].custom_id;
+ check('confirmation is private and has no caller supplied target',()=>{assert.equal(confirmation.flags,64);assert(!commands()[1].options?.length);});
+ let altered=0;
+ const button=(id,custom)=>({user:{id},customId:custom,isChatInputCommand:()=>false,isButton:()=>true,reply:async p=>replies.push(p),deferUpdate:async()=>{},editReply:async p=>{altered++;replies.push(p);},update:async p=>replies.push(p)});
+ await privacy.handle(button(b,customId));
+ check('another user cannot replay the confirmation',()=>{assert.equal(altered,0);assert(store.readFileSync(ledger,'utf8').includes(a));});
+ await privacy.handle(button(a,customId));
+ check('verified self deletion completes',()=>{assert.equal(erasedId,a);assert.match(replies.at(-1).content,/Deletion completed/);});
+ check('deletion covers data and backups while preserving another user',()=>{for(const file of store.paths())assert(!store.readFileSync(file,'utf8').includes(a));assert.deepEqual(JSON.parse(store.readFileSync(config,'utf8')).whitelistUserIds,[b]);assert(store.readFileSync(ledger,'utf8').includes(b));assert(!store.readFileSync(ledger,'utf8').includes('Fabricated account A'));});
+ await privacy.handle(button(a,customId));check('used confirmation cannot execute again',()=>assert.equal(altered,1));
+ await privacy.handle(command);const expired=replies.at(-1).components[0].components[0].custom_id;now+=600001;await privacy.handle(button(a,expired));check('confirmation expires',()=>assert.equal(altered,1));
+ const failing=createPrivacy({store:{eraseSubject:()=>{throw Error('test I/O failure');}},now:()=>now});
+ const p=[];await failing.handle({...command,reply:async q=>p.push(q)});await failing.handle({...button(a,p[0].components[0].components[0].custom_id),editReply:async q=>p.push(q)});
+ check('I/O failure never reports successful deletion',()=>assert.match(p.at(-1).content,/could not be fully verified/));
+ check('privacy policy link is publicly addressable',()=>assert.match(privacyPayload().embeds[0].description,/https:\/\/mmoexp-bot-privacy\./));
+ check('all tracked files remain authenticated ciphertext',()=>assert(store.verify().verified));
+ const symlink=path.join(root,'escape.json');try{fs.symlinkSync(outside,symlink);check('scanning ignores symlinks',()=>assert(!store.paths().includes(symlink)));}catch(e){if(!['EPERM','EACCES'].includes(e.code))throw e;}
+ console.log(JSON.stringify({suite:'privacy',assertions,status:'passed',fixture:'fabricated accounts only'}));
+ fs.rmSync(temp,{recursive:true,force:true});
+}
+main().catch(e=>{console.error(e);process.exitCode=1;});

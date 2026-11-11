@@ -8,7 +8,7 @@
  * 跑法：node _test_selfcheck.js
  * ==========================================================================*/
 
-const fs = require('fs');
+const fs = require('./secure-storage');
 const path = require('path');
 const { PermissionFlagsBits } = require('discord.js');
 

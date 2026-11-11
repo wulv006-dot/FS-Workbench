@@ -424,6 +424,10 @@ def selfcheck():
                  "opt/wowforever-bot/deploy/wowforever-goldsync.timer"):
         if select([path]) != ["bots"]:
             raise RuntimeError("wowforever_bot_mapping_missing:"+path)
+    if select(["docs/ops/mmoexp-privacy-20261111/archive-journals.cjs"]) != ["mmoexp-privacy"]:
+        raise RuntimeError("mmoexp_privacy_archive_mapping_missing")
+    if select(["opt/mmoexp-guardbot/secure-storage.js"]) != ["bots", "mmoexp-privacy"]:
+        raise RuntimeError("mmoexp_privacy_storage_mapping_missing")
     # ops-modules 覆盖 6 个 /opt 模块；漏一条就等于放一条改动能不跑测试地进主干。
     for path in ("opt/auth-portal/auth_portal.py","opt/auth-portal/fs_ip_alert.py",
                  "opt/fs-access-policy/access_policy.py","opt/iggm-web/core.py",
@@ -832,6 +836,11 @@ def select(paths):
         # 由 pr_fast_tests.BotModuleContracts 做离线契约检查（纯 AST / 文本，
         # 不 exec、不联网）。.mjs 一并归组：它不在下面的按后缀分流表里，
         # 不入组就只有 selfcheck 会跑，改了也没人看。
+        if name.startswith("docs/ops/mmoexp-privacy-20261111/") and suffix == ".cjs":
+            groups.add("mmoexp-privacy");continue
+        if name in ("opt/mmoexp-guardbot/secure-storage.js", "opt/mmoexp-guardbot/privacy.js",
+                    "opt/mmoexp-guardbot/privacy-admin.js", "opt/mmoexp-guardbot/test-privacy.cjs"):
+            groups.update(("bots", "mmoexp-privacy"));continue
         if name.startswith("opt/wowforever-bot/") and suffix in (".py", ".service", ".timer"):
             groups.add("bots");continue
         if name.startswith(("opt/mmoexp-guardbot/","opt/shugo-bot/","opt/bot-console/")) \
@@ -1161,6 +1170,10 @@ def main():
             units("opt/d4follow",["test_wow_sources","test_iggm_local_first"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
+        elif group=="mmoexp-privacy":
+            node("opt/mmoexp-guardbot/test-privacy.cjs")
+            node("docs/ops/mmoexp-privacy-20261111/test-journal-archive.cjs")
+            node("docs/ops/mmoexp-privacy-20261111/test-text-archive.cjs")
         elif group=="fc-community":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"opt/mmoexp-fc-community/ci_check.py")],
                            cwd=ROOT,check=True,timeout=180)
