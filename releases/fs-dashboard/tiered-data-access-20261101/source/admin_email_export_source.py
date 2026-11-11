@@ -122,6 +122,8 @@ def directory_read(name, args, *, deps, run_source, check, epoch):
             result = json.loads(raw)
         except (ValueError, UnicodeError):
             raise RuntimeError('metadata_source_schema_changed')
+        if isinstance(result, dict) and type(result.get('code')) is int and result['code'] == 401:
+            raise RuntimeError('metadata_source_unavailable')
         if not isinstance(result, dict) or type(result.get('code')) is not int or result['code'] != 1:
             raise RuntimeError('metadata_source_schema_changed')
         data = result.get('data')
@@ -138,9 +140,13 @@ def directory_read(name, args, *, deps, run_source, check, epoch):
             raise RuntimeError('metadata_source_changed')
         total = reported
         for row in batch:
-            if not isinstance(row, dict) or type(row.get(key)) not in (str, int) or str(row[key]) in seen:
+            if not isinstance(row, dict) or type(row.get(key)) not in (str, int):
                 raise RuntimeError('metadata_source_schema_changed')
-            seen.add(str(row[key]))
+            # Admin countries repeat names for distinct phone codes; retain raw coverage.
+            identity = json.dumps(row, sort_keys=True) if name == 'countries' else str(row[key])
+            if identity in seen:
+                raise RuntimeError('metadata_source_schema_changed')
+            seen.add(identity)
             rows.append(row)
         if len(rows) == total:
             return rows
@@ -186,7 +192,7 @@ def options_get(request, user, *, run_source=None, deps=None):
                       games=options(read('games')),
                       progress=[dict(value='1', label='1 | 已支付')], status=[], cid=[],
                       aid=[], admin_id=[],
-                      country=options(read('countries'), key='country', label='country'))
+                      country=list({o['value']: o for o in options(read('countries'), key='country', label='country')}.values()))
         if progress:
             if progress not in {o['value'] for o in result['progress']}:
                 raise ValueError()
