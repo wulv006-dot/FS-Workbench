@@ -76,7 +76,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   };
   const panel = el('article', null, 'fc-card');
   panel.append(el('h3', '订单用户邮箱导出'));
-  panel.append(el('p', 'Admin 全部 14 项筛选；下单时间使用 Admin 实际字段 paytime（Asia/Shanghai），不改为 create_time。'));
+  panel.append(el('p', '默认订单进度、订单状态均为已支付；选择游戏后可选产品类型和服务区；下单时间使用 Admin 实际字段 paytime（Asia/Shanghai），不改为 create_time。'));
   panel.append(el('p', paged
     ? '逐页串行读取，全部计划窗口遍历结束后才能导出。暂停仅在当前页面内存中续跑，刷新页面丢失进度；服务端进程重启后游标失效，须重新查询。付款日期按 Asia/Shanghai，受服务端滚动近 365 天及权限限制。实时分页非快照。'
     : '当前源限时 45 秒、最多 1000 页、约 1 MiB 响应，无续跑；全年导出尚未验收。实时分页非快照，失败或超限不提供部分名单。日期仍受服务端近 365 天及权限限制。'));
@@ -102,11 +102,19 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     ['cid', '产品类型', 'select'], ['content', '游戏/服务器/产品（包含）', 'input'],
     ['aid', '服务区', 'select'], ['recommend_uid', '推广人ID', 'input'],
     ['discount_code', '折扣码完整', 'input'], ['promotion_id', '促销活动ID', 'input'],
-    ['pid', '商品ID', 'input'], ['admin_id', '操作人', 'select'], ['country', '国家（包含）', 'select']]) {
+    ['pid', '商品ID', 'input'], ['country', '国家（包含）', 'select']]) {
     const control = field(label, tag, name); control.required = false;
     if (tag === 'select') { const option = el('option', '不限'); option.value = ''; control.append(option); }
     filters[name] = control;
   }
+  for (const [name, value] of [['progress', '1'], ['status', '11']]) {
+    // The live FS panel owns the paid default; explicit-directory legacy callers
+    // retain their existing unfiltered API unless they choose these options.
+    const option = el('option', '已支付'); option.value = value; option.defaultSelected = remoteOptions;
+    filters[name].append(option); filters[name].value = remoteOptions ? value : '';
+  }
+  filters.cid.disabled = filters.aid.disabled = true;
+  const serverNotice = el('p', ''); panel.append(serverNotice);
   const start = field('下单时间开始（paytime）', 'input', 'start'); start.type = 'date';
   const end = field('下单时间结束（含当天）', 'input', 'end'); end.type = 'date';
   const button = (text, type) => { const node = el('button', text, 'ghostbtn'); node.type = type; return node; };
@@ -148,6 +156,8 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   };
   const loadOptions = async (dependent = false) => {
     const current = ++metadataSequence; metadataReady = false; query.disabled = true;
+    filters.cid.disabled = filters.aid.disabled = true;
+    serverNotice.textContent = '';
     status.textContent = '正在读取 Admin 筛选选项。';
     const selectedGames = Array.from(game.selectedOptions, option => option.value);
     try {
@@ -164,9 +174,22 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       if (!dependent) {
         sites = directory(data.options.sites); games = directory(data.options.games);
         fill(site, sites); fill(game, games);
-        for (const name of ['progress', 'cid', 'admin_id', 'country']) fill(filters[name], data.options[name]);
+        for (const [name, value] of [['progress', '1'], ['status', '11']]) {
+          if (!data.options[name]?.some(entry => entry.value === value)) throw new Error();
+          fill(filters[name], data.options[name]); filters[name].value = value;
+          for (const option of filters[name].children) option.defaultSelected = option.value === value;
+        }
+        if (!data.options.country?.length) throw new Error();
+        fill(filters.country, data.options.country);
       }
-      fill(filters.status, data.options.status); fill(filters.aid, data.options.aid);
+      const hasGame = selectedGames.length > 0;
+      fill(filters.cid, hasGame ? data.options.cid : []);
+      const serverUnavailable = data.unavailable?.aid === 'metadata_source_unavailable';
+      if (serverUnavailable && (!Array.isArray(data.options.aid) || data.options.aid.length)) throw new Error();
+      fill(filters.aid, hasGame && !serverUnavailable ? data.options.aid : []);
+      filters.cid.disabled = !hasGame;
+      filters.aid.disabled = !hasGame || serverUnavailable;
+      serverNotice.textContent = serverUnavailable ? '服务区目录暂不可用，可按其他条件查询' : '';
       metadataReady = true; query.disabled = false; status.textContent = '请选择范围后查询。';
     } catch {
       if (disposed || current !== metadataSequence) return;
@@ -176,8 +199,9 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   };
   const dependentChange = event => {
     invalidate();
-    if (event.target === filters.progress || event.target === game) {
-      filters.status.value = ''; filters.aid.value = '';
+    if (event.target === game) {
+      filters.cid.value = ''; filters.aid.value = '';
+      filters.cid.disabled = filters.aid.disabled = true;
       if (remoteOptions) return loadOptions(true);
     }
   };
@@ -280,7 +304,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     let request;
     try { request = orderEmailRequest({ site_id: site.value,
       game_ids: Array.from(game.selectedOptions, option => option.value), start: start.value, end: end.value,
-      filters: Object.fromEntries(Object.entries(filters).filter(([, control]) => control.value !== '').map(([name, control]) => [name, control.value])) }, sites, games); }
+      filters: Object.fromEntries(Object.entries(filters).filter(([, control]) => !control.disabled && control.value !== '').map(([name, control]) => [name, control.value])) }, sites, games); }
     catch { status.textContent = '请选择有效站点、游戏及付款日期（含结束日，最多 366 天）。'; return; }
     const current = sequence;
     if (paged) {

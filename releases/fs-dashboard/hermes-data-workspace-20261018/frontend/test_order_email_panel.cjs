@@ -58,10 +58,11 @@ async function setup(endpoint = '/test-only-export', remote = false) {
 
 test('all 14 Admin filters serialize and filter changes revoke downloaded data', async () => {
   const h = await setup();
-  const names = ['progress','status','cid','content','aid','recommend_uid','discount_code','promotion_id','pid','admin_id','country'];
+  const names = ['progress','status','cid','content','aid','recommend_uid','discount_code','promotion_id','pid','country'];
   for (const name of [...names, 'site_id', 'game_ids', 'start', 'end']) assert.ok(h.fields[name]);
   const filters = Object.fromEntries(names.map(name => [name, name === 'content' ? 'game / server' : '1']));
-  for (const name of names) h.fields[name].value = filters[name];
+  for (const name of names) { h.fields[name].disabled = false; h.fields[name].value = filters[name]; }
+  assert.equal(h.fields.admin_id, undefined);
   const pending = h.form.fire('submit');
   assert.deepEqual(JSON.parse(h.requests[0].options.body).filters, filters);
   h.respond(0, { ...success(), filters }); await pending;
@@ -69,25 +70,62 @@ test('all 14 Admin filters serialize and filter changes revoke downloaded data',
   h.fields.discount_code.value = 'another'; h.form.fire('change', h.fields.discount_code);
   assert.equal(h.blobs.size, 0); assert.equal(h.buttons[2].disabled, true);
   h.fields.status.value = '2'; h.fields.aid.value = '3';
-  h.form.fire('change', h.fields.progress);
-  assert.equal(h.fields.status.value, ''); assert.equal(h.fields.aid.value, '');
+  h.form.fire('change', h.fields.game_ids);
+  assert.equal(h.fields.status.value, '2'); assert.equal(h.fields.aid.value, '');
   h.widget.dispose();
 });
 
 test('authenticated same-endpoint metadata and dependent refresh use real options', async () => {
   const h = await setup('/test-only-export', true);
-  assert.deepEqual(JSON.parse(h.requests[0].options.body), { kind: 'order_email_export_options' });
+  assert.deepEqual(JSON.parse(h.requests[0].options.body), { kind: 'order_email_export_options', progress: '1' });
   assert.equal(h.requests[0].options.credentials, 'same-origin');
   const options = { sites, games };
   for (const name of ['progress','status','cid','aid','admin_id','country']) options[name] = [{value:'1',label:'Real option'}];
+  options.status = [{value:'11',label:'已支付'}];
   h.respond(0, {options}); await new Promise(resolve => setImmediate(resolve));
   assert.equal(h.fields.progress.children[1].textContent, 'Real option');
-  h.fields.progress.value = '1'; h.fields.status.value = '1';
-  const refresh = h.form.fire('change', h.fields.progress);
-  assert.equal(h.fields.status.value, '');
+  assert.equal(h.fields.progress.value, '1'); assert.equal(h.fields.status.value, '11');
+  assert.equal(h.fields.cid.disabled, true); assert.equal(h.fields.aid.disabled, true);
+  h.fields.site_id.value = '266';
+  h.fields.game_ids.children[0].selected = true;
+  const refresh = h.form.fire('change', h.fields.game_ids);
+  assert.equal(h.fields.status.value, '11');
   assert.equal(JSON.parse(h.requests[1].options.body).progress, '1');
-  h.respond(1, {options}); await refresh;
+  h.respond(1, {options: {...options, aid: []}, unavailable: {aid:'metadata_source_unavailable'}}); await refresh;
+  assert.equal(h.fields.cid.disabled, false); assert.equal(h.fields.aid.disabled, true);
+  assert.equal(h.buttons[0].disabled, false);
+  assert.equal(h.fields.site_id.value, '266'); assert.equal(h.fields.status.value, '11');
+  assert.match(text(h.root), /服务区目录暂不可用，可按其他条件查询/);
+  h.fields.start.value = input.start; h.fields.end.value = input.end;
+  h.fields.aid.value = 'stale';
+  const query = h.form.fire('submit');
+  assert.deepEqual(JSON.parse(h.requests[2].options.body).filters, {progress:'1',status:'11'});
+  h.respond(2, {...success(), filters: {progress:'1',status:'11'}, scope: {site_id:'266',game_ids:['26']}}); await query;
+  assert.equal(h.buttons[2].disabled, false);
   h.widget.dispose();
+});
+
+const metadata = () => ({options: {sites, games, progress:[{value:'1',label:'已支付'}],
+  status:[{value:'11',label:'已支付'}], cid:[{value:'1',label:'金币'}],
+  aid:[{value:'9',label:'服务器'}], admin_id:[], country:[{value:'US',label:'美国'}]}});
+const tick = () => new Promise(resolve => setImmediate(resolve));
+test('metadata failures stay closed; stale game directories and disposed responses cannot revive controls', async () => {
+  const broken = await setup('/test-only-export', true);
+  broken.respond(0, {options:{...metadata().options, country:[]}}); await tick();
+  assert.equal(broken.buttons[0].disabled, true);
+  await broken.form.fire('submit'); assert.equal(broken.requests.length, 1); broken.widget.dispose();
+  const h = await setup('/test-only-export', true);
+  h.respond(0, metadata()); await tick();
+  h.fields.site_id.value = '266'; h.fields.game_ids.children[0].selected = true;
+  const older = h.form.fire('change', h.fields.game_ids);
+  h.fields.game_ids.children[0].selected = false; h.fields.game_ids.children[1].selected = true;
+  const newer = h.form.fire('change', h.fields.game_ids);
+  h.respond(2, {options:{...metadata().options, aid:[]}, unavailable:{aid:'metadata_source_unavailable'}}); await newer;
+  h.respond(1, metadata()); await older;
+  assert.equal(h.fields.aid.disabled, true); assert.equal(h.fields.aid.children.length, 1);
+  assert.equal(h.fields.status.value, '11'); assert.equal(h.fields.site_id.value, '266');
+  const late = h.form.fire('change', h.fields.game_ids); h.widget.dispose();
+  h.respond(3, metadata()); await late; assert.equal(h.root.children.length, 0);
 });
 
 test('strict calendar validation, inclusive UTC conversion and source range limit', async () => {
@@ -122,7 +160,7 @@ test('POST and validated download; no email in DOM, URL, or automatic download',
   assert.equal(options.redirect, 'error'); assert.equal(options.cache, 'no-store');
   assert.equal(options.headers['Content-Type'], 'application/json');
   assert.deepEqual(JSON.parse(options.body), { site_id: '266', game_ids: ['26', '27'], start: '2026-01-01', end_exclusive: '2026-02-01' });
-  assert.ok(Object.values(h.fields).every(node => !node.disabled));
+  assert.equal(h.fields.cid.disabled, true); assert.equal(h.fields.aid.disabled, true);
   assert.equal(h.buttons[2].disabled, true);
   h.respond(0); await pending;
   assert.equal(h.buttons[2].disabled, false); assert.equal(h.doc.downloads.length, 0);

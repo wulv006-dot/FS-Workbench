@@ -169,10 +169,25 @@ class ExportSourceTests(unittest.TestCase):
         self.assertEqual(options['status'][0]['value'], '11')
         self.assertTrue(all(set(o) == {'value', 'label'} and all(isinstance(v, str) for v in o.values()) for items in options.values() for o in items))
         self.assertTrue(any(q['page'] == 3 for q in calls))
-        self.assertTrue(any(q['arguments'] == {'gid': '8,11'} for q in calls))
+        self.assertEqual(options['progress'], [{'value': '1', 'label': '1 | 已支付'}])
+        self.assertEqual(options['status'], [{'value': '11', 'label': '11 | 已支付'}])
+        self.assertEqual(options['admin_id'], [])
+        self.assertEqual(options['cid'], [
+            {'value': '1', 'label': '货币(Gold)'}, {'value': '0', 'label': '物品(Items)'},
+            {'value': '3', 'label': '账号(Account)'}, {'value': '2', 'label': '代练(Powerleveling)'},
+            {'value': '5', 'label': '代练包(Package)'}, {'value': '7', 'label': '礼品卡(Gift Cards)'},
+            {'value': '8', 'label': '充值(Top Up)'}, {'value': '9', 'label': '陪玩(Coach)'}])
+        self.assertFalse(any(q['metadata'] in ('progress', 'status', 'types', 'admins') for q in calls))
         calls.clear()
-        self.assertEqual(call({})[0], 200)
-        self.assertFalse(any(q['metadata'] in ('status', 'servers') for q in calls))
+        status, initial = call({})
+        self.assertEqual(status, 200)
+        self.assertEqual(initial['options']['status'], [{'value': '11', 'label': '11 | 已支付'}])
+        self.assertEqual(initial['options']['cid'], [])
+        self.assertEqual(initial['options']['aid'], [])
+        self.assertNotIn('unavailable', initial)
+        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries'})
+        self.assertEqual(call({'progress': ''})[1]['options']['status'], [])
+        self.assertEqual(call({'progress': '2'})[0], 422)
         self.assertEqual(call({'game_ids': ['99']})[0], 200)
         self.assertEqual(call({'game_ids': ['100']})[0], 403)
         self.assertEqual(call({'progress': 'bad'})[0], 422)
@@ -181,6 +196,60 @@ class ExportSourceTests(unittest.TestCase):
         calls.clear()
         self.assertEqual(call({})[0], 403)
         self.assertEqual(calls, [])
+
+    def test_options_optional_server_refusal_not_partial_or_revocation(self):
+        calls = []
+        def fetch(path, query, timeout, cap):
+            name = query['metadata']
+            calls.append((name, query['arguments']))
+            if name == 'servers' and query['arguments']['gid'] == '3':
+                return 401, b'{}'
+            rows = {'sites': [{'id': 267, 'full_title': 'Site'}],
+                    'games': [{'id': 2, 'title': 'Game'}, {'id': 3, 'title': 'Other'}],
+                    'countries': [{'country': 'US'}],
+                    'servers': [{'id': 10, 'title': 'Server'}]}[name]
+            return 200, json.dumps({'code': 1, 'data': {'list': rows, 'total': len(rows)}}).encode()
+        self.deps['fetch'] = fetch
+        def call():
+            return source.options_get({'game_ids': ['2', '3']}, 'actor', deps=self.deps, run_source=lambda op,t: op())
+        status, result = call()
+        self.assertEqual(status, 200)
+        self.assertEqual(result['options']['aid'], [])
+        self.assertEqual(result['unavailable'], {'aid': 'metadata_source_unavailable'})
+        self.assertEqual(len(result['options']['cid']), 8)
+        self.assertIn(('servers', {'gid': '2'}), calls)
+        original = self.deps['fetch']
+        for failure in (RuntimeError('metadata_source_unavailable'), PermissionError(),
+                        RuntimeError('metadata_source_schema_changed'), RuntimeError('metadata_coverage_incomplete')):
+            def fail_server(path, query, timeout, cap):
+                if query['metadata'] == 'servers':
+                    raise failure
+                return original(path, query, timeout, cap)
+            self.deps['fetch'] = fail_server
+            self.assertEqual(call()[0], 403 if isinstance(failure, PermissionError) else 200 if str(failure) == 'metadata_source_unavailable' else 503)
+        for malformed in ((200, {}), (200, b'not json'),
+                          (200, b'{"code":1,"data":{"options":[]}}'),
+                          (200, b'{"code":1,"data":{"list":[{"id":1}],"total":1}}')):
+            def bad_server(path, query, timeout, cap):
+                if query['metadata'] == 'servers':
+                    return malformed
+                return original(path, query, timeout, cap)
+            self.deps['fetch'] = bad_server
+            self.assertEqual(call()[0], 503)
+        for mandatory in ('sites', 'games', 'countries'):
+            def fail_required(path, query, timeout, cap):
+                if query['metadata'] == mandatory:
+                    return 401, b'{}'
+                return original(path, query, timeout, cap)
+            self.deps['fetch'] = fail_required
+            self.assertEqual(call()[0], 503)
+        def revoke_server(path, query, timeout, cap):
+            if query['metadata'] == 'servers':
+                self.allowed = False
+                return 401, b'{}'
+            return original(path, query, timeout, cap)
+        self.deps['fetch'] = revoke_server
+        self.assertEqual(call()[0], 403)
 
     def test_options_fail_closed_on_partial_schema_and_revocation(self):
         for data in ({'options': []}, {'options': [], 'total': 1}, {'options': [{'id': 267, 'full_title': 'Site'}], 'total': 2}):

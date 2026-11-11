@@ -111,8 +111,10 @@ def directory_read(name, args, *, deps, run_source, check, epoch):
         status, raw = run_source(operation, 10)
         if check() != epoch:
             raise PermissionError()
-        if status != 200 or not isinstance(raw, bytes):
+        if status != 200:
             raise RuntimeError('metadata_source_unavailable')
+        if not isinstance(raw, bytes):
+            raise RuntimeError('metadata_source_schema_changed')
         byte_count += len(raw)
         if len(raw) > 1048576 or byte_count > 4194304:
             raise RuntimeError('metadata_coverage_incomplete')
@@ -155,7 +157,7 @@ def options_get(request, user, *, run_source=None, deps=None):
     try:
         if not isinstance(request, dict) or set(request) - {'progress', 'game_ids'}:
             raise ValueError()
-        progress, games = request.get('progress', ''), request.get('game_ids', [])
+        progress, games = request.get('progress', '1'), request.get('game_ids', [])
         if not isinstance(progress, str) or (progress and (not progress.isascii() or not progress.isdigit() or len(progress) > 20)):
             raise ValueError()
         if not isinstance(games, list) or len(games) > 100 or any(not isinstance(g, str) or not g.isascii() or not g.isdigit() or not 1 <= len(g) <= 20 for g in games) or len(games) != len(set(games)):
@@ -182,23 +184,39 @@ def options_get(request, user, *, run_source=None, deps=None):
             return result
         result = dict(sites=options([r for r in read('sites') if deps['authorize'](user, {'scope': 'site', 'scope_id': str(r.get('id'))}, True) is True], label='full_title'),
                       games=options(read('games')),
-                      progress=options(read('progress')), status=[], cid=options(read('types')),
-                      aid=[], admin_id=options(read('admins', {'gid': '8,11'}), label='nickname'),
+                      progress=[dict(value='1', label='1 | 已支付')], status=[], cid=[],
+                      aid=[], admin_id=[],
                       country=options(read('countries'), key='country', label='country'))
         if progress:
             if progress not in {o['value'] for o in result['progress']}:
                 raise ValueError()
-            result['status'] = options(read('status', {'id': progress}), key='status')
+            result['status'] = [dict(value='11', label='11 | 已支付')]
         if any(g not in {o['value'] for o in result['games']} for g in games):
             raise PermissionError()
-        servers = {}
-        for game in games:
-            for option in options(read('servers', {'gid': game})):
-                servers[option['value']] = option
-        result['aid'] = list(servers.values())
+        # Admin UI evidence: getProType is global, but selection is enabled after games.
+        if games:
+            result['cid'] = [dict(value=value, label=label) for value, label in (
+                ('1', '货币(Gold)'), ('0', '物品(Items)'), ('3', '账号(Account)'),
+                ('2', '代练(Powerleveling)'), ('5', '代练包(Package)'),
+                ('7', '礼品卡(Gift Cards)'), ('8', '充值(Top Up)'), ('9', '陪玩(Coach)'))]
+        servers, unavailable = {}, {}
+        try:
+            for game in games:
+                for option in options(read('servers', {'gid': game})):
+                    servers[option['value']] = option
+        except RuntimeError as error:
+            # Only source refusal is optional; schema/coverage failures stay fail closed.
+            if str(error) != 'metadata_source_unavailable':
+                raise
+            unavailable['aid'] = 'metadata_source_unavailable'
+        if not unavailable:
+            result['aid'] = list(servers.values())
         if check() != epoch:
             raise PermissionError()
-        return 200, {'options': result, 'semantics': 'live_non_snapshot'}
+        payload = {'options': result, 'semantics': 'live_non_snapshot'}
+        if unavailable:
+            payload['unavailable'] = unavailable
+        return 200, payload
     except PermissionError:
         return 403, {'error': 'scope_denied'}
     except (ValueError, TypeError, KeyError):
