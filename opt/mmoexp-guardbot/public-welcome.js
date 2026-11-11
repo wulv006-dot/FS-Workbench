@@ -76,5 +76,3 @@ function install(client,{canWelcome}={}) {
   return welcome;
 }
 module.exports={welcomePayload,createWelcome,install};
-
-

@@ -1159,7 +1159,3 @@ module.exports = {
   buildReport, handleSelfCheck, operatorCheck, fmtDur, persistConfig,
   baseReasonFor, reasonWithHit,
 };
-
-
-
-
