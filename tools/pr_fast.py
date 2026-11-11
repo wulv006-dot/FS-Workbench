@@ -465,6 +465,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name in ('tools/release_channel.py', 'tools/test_release_channel.py'):
+            groups.add('release-channel');continue
         if name.startswith('docs/planning/fc27-weekly-console-20261109/deploy/') or name in ('tools/campaign_weekly_readonly_acceptance.mjs', 'tools/campaign_weekly_model_receipt_readonly.py', 'tools/test_campaign_weekly_acceptance.py'):
             groups.add('fc27-weekly-acceptance');continue
         if name.startswith('docs/planning/fs-data-connector-20261109/deploy/'):
@@ -912,6 +914,9 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group == 'release-channel':
+            units('tools', ['test_release_channel'])
+            continue
         if group == 'fc27-weekly-acceptance':
             # CLI fixtures spawn only the local Node/Python read-only helpers.
             subprocess.run([sys.executable, '-B', 'tools/test_campaign_weekly_acceptance.py'], cwd=ROOT, check=True, timeout=90)

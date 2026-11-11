@@ -1,12 +1,14 @@
 name: PR fast
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
 permissions:
   contents: read
 concurrency:
-  group: pr-fast-${{ github.event.pull_request.number }}
+  group: pr-fast-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
   pr-fast:
@@ -28,8 +30,8 @@ jobs:
       - name: Prepare existing Players image dependency
         shell: bash
         env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^(fc27_players_cloud/(player_web/|tests_cloud/)|releases/fc-players/direct-json-20261029/)'; then
@@ -41,8 +43,8 @@ jobs:
       - name: Prepare FC community runtime dependency
         shell: bash
         env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^opt/(mmoexp-fc-community/|mmoexp-fc-quotes/|fc27-news-fetch/|bot-console/(server.py|test_fc_console.py|static/fc27.html)$)'; then
@@ -51,8 +53,8 @@ jobs:
       - name: Prepare affected browser check
         shell: bash
         env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -E '^releases/fs-dashboard/(campaign-analytics-20261023|dashboard-refresh-20261025|actual-profit-20261024|shipping-profit-20261024|rs-adapter-20261024|business-procurement-20261022|channel-effects-20261021|game-boards-all-20261012|on-demand-20261012|hermes-report-theme-20261017|hermes-data-workspace-20261018|hermes-generic-data-20261018|hermes-customer-tracking-20261018|hermes-report-repair-20261019)/|^releases/registration/iam-modules-20261031/|^opt/fs-access-policy/web/|^tests/test_fs_iam_registration.cjs$' > /dev/null; then
@@ -66,8 +68,8 @@ jobs:
       - name: Prepare existing channel parser dependency
         shell: bash
         env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^releases/fs-dashboard/(channel-effects-20261021|dashboard-refresh-20261025|actual-profit-20261024|campaign-analytics-20261023)/'; then
@@ -76,8 +78,8 @@ jobs:
       - name: Prepare fixed Hermes runtime dependencies
         shell: bash
         env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -q '^releases/fs-dashboard/hermes-fc-pilot-20261013/'; then
@@ -90,8 +92,8 @@ jobs:
         id: connector
         shell: bash
         env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^(fs_mcp_connector/|docs/planning/fs-data-connector-20261109/deploy/)'; then
@@ -110,8 +112,8 @@ jobs:
       - name: Diff and isolated affected checks
         shell: bash
         env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           git diff --no-renames --name-only -z "$PR_BASE" "$PR_HEAD" > "$RUNNER_TEMP/pr-paths"
