@@ -556,7 +556,7 @@ def select(paths):
             groups.add('pricing-recovery');continue
         if name in ('tools/test_fc_dashboard_rules.py', 'docs/planning/fc-dashboard-category-20261106/CONTRACT.md'):
             groups.add('knowledge-layering');continue
-        if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py','tools/export_fs_space.py'):
+        if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/prepare_order_email_knowledge.py','tests/test_prepare_order_email_knowledge.py','tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py','tools/export_fs_space.py'):
             groups.add('knowledge-layering')
             if name=='releases/fs-dashboard/knowledge-layering-20261023/source/controller.py':groups.add('nightly-reschedule')
             continue
@@ -1073,6 +1073,7 @@ def main():
             units('releases/ops/pricing-recovery-20261023/order',['test_service'])
             continue
         if group=='knowledge-layering':
+            units('tests',['test_prepare_order_email_knowledge'])
             subprocess.run([sys.executable, '-I', '-B', str(ROOT/'tools/test_fc_dashboard_rules.py')], check=True, timeout=30, cwd=ROOT)
             units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release','test_knowledge_reader_fence','test_native_plan','test_native_release','test_native_prepare','test_native_registration_guard','test_task_selection','test_learning_catalog','test_space_export'])
             continue
