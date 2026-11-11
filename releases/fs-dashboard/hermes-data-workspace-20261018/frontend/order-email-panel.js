@@ -136,7 +136,8 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       row.setAttribute('style', 'display:flex;align-items:center;gap:8px;padding:6px 0;overflow-wrap:anywhere');
       const check = el('input'); check.type = 'checkbox'; check.value = option.value;
       check.setAttribute('style', 'flex:none;width:auto');
-      const text = `${option.value} | ${option.textContent}`;
+      const prefix = `${option.value} | `;
+      const text = option.textContent.startsWith(prefix) ? option.textContent : prefix + option.textContent;
       row.append(check, el('span', text)); gameList.append(row);
       return { row, check, option, text };
     });
@@ -161,12 +162,13 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     if (tag === 'select') { const option = el('option', '不限'); option.value = ''; control.append(option); }
     filters[name] = control;
   }
-  for (const [name, value] of [['progress', '1'], ['status', '11']]) {
-    // The live FS panel owns the paid default; explicit-directory legacy callers
-    // retain their existing unfiltered API unless they choose these options.
-    const option = el('option', '已支付'); option.value = value; option.defaultSelected = remoteOptions;
-    filters[name].append(option); filters[name].value = remoteOptions ? value : '';
+  // Legacy explicit-directory callers retain their optional paid choices.
+  // Live choices and defaults are applied only after the real directory arrives.
+  if (!remoteOptions) for (const [name, value] of [['progress', '1'], ['status', '11']]) {
+    const option = el('option', '已支付'); option.value = value;
+    filters[name].append(option);
   }
+  filters.progress.disabled = filters.status.disabled = remoteOptions;
   filters.cid.disabled = filters.aid.disabled = true;
   const serverNotice = el('p', ''); panel.append(serverNotice);
   const start = field('下单时间开始（paytime）', 'input', 'start'); start.type = 'date';
@@ -218,11 +220,15 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     serverNotice.textContent = '';
     status.textContent = '正在读取 Admin 筛选选项。';
     const selectedGames = Array.from(game.selectedOptions, option => option.value);
+    const selectedProgress = dependent ? filters.progress.value : '1';
+    const selectedStatus = dependent ? filters.status.value : '11';
+    const selectedType = filters.cid.value, selectedServer = filters.aid.value;
+    filters.status.disabled = true;
     try {
       const response = await fetcher(url.href, { method: 'POST', credentials: 'same-origin', redirect: 'error',
         cache: 'no-store', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ kind: 'order_email_export_options',
-          ...(filters.progress.value ? { progress: filters.progress.value } : {}),
+          progress: selectedProgress,
           ...(selectedGames.length ? { game_ids: selectedGames } : {}) }) });
       if (disposed || current !== metadataSequence) return;
       if (!response.ok || response.redirected) throw new Error();
@@ -232,19 +238,25 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       if (!dependent) {
         sites = directory(data.options.sites); games = directory(data.options.games);
         fill(site, sites); fill(game, games);
-        for (const [name, value] of [['progress', '1'], ['status', '11']]) {
-          if (!data.options[name]?.some(entry => entry.value === value)) throw new Error();
-          fill(filters[name], data.options[name]); filters[name].value = value;
-          for (const option of filters[name].children) option.defaultSelected = option.value === value;
-        }
         if (!data.options.country?.length) throw new Error();
         fill(filters.country, data.options.country);
       }
+      fill(filters.progress, data.options.progress);
+      if (selectedProgress && !data.options.progress.some(entry => entry.value === selectedProgress)) throw new Error();
+      filters.progress.value = selectedProgress;
+      fill(filters.status, data.options.status);
+      if (!selectedProgress && data.options.status.length) throw new Error();
+      const validStatus = data.options.status.some(entry => entry.value === selectedStatus);
+      if (!dependent && !validStatus) throw new Error();
+      filters.status.value = validStatus ? selectedStatus : '';
+      filters.progress.disabled = false; filters.status.disabled = !selectedProgress;
       const hasGame = selectedGames.length > 0;
       fill(filters.cid, hasGame ? data.options.cid : []);
+      if (data.options.cid.some(entry => entry.value === selectedType)) filters.cid.value = selectedType;
       const serverUnavailable = data.unavailable?.aid === 'metadata_source_unavailable';
       if (serverUnavailable && (!Array.isArray(data.options.aid) || data.options.aid.length)) throw new Error();
       fill(filters.aid, hasGame && !serverUnavailable ? data.options.aid : []);
+      if (!serverUnavailable && data.options.aid.some(entry => entry.value === selectedServer)) filters.aid.value = selectedServer;
       filters.cid.disabled = !hasGame;
       filters.aid.disabled = !hasGame || serverUnavailable;
       serverNotice.textContent = serverUnavailable ? '服务区目录暂不可用，可按其他条件查询' : '';
@@ -252,6 +264,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     } catch {
       if (disposed || current !== metadataSequence) return;
       clear(); metadataReady = false; query.disabled = true;
+      filters.progress.disabled = filters.status.disabled = true;
       status.textContent = 'Admin 筛选选项读取失败，请重新打开面板重试。';
     }
   };
@@ -260,6 +273,10 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     const item = gameRows.find(item => item.check === event.target);
     if (item) item.option.selected = item.check.checked;
     invalidate();
+    if (event.target === filters.progress && remoteOptions) {
+      filters.status.value = ''; filters.status.disabled = true;
+      return loadOptions(true);
+    }
     if (event.target === game || item) {
       syncGames();
       filters.cid.value = ''; filters.aid.value = '';

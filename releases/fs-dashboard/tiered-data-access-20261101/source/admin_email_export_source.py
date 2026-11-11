@@ -163,7 +163,7 @@ def options_get(request, user, *, run_source=None, deps=None):
     try:
         if not isinstance(request, dict) or set(request) - {'progress', 'game_ids'}:
             raise ValueError()
-        progress, games = request.get('progress', '1'), request.get('game_ids', [])
+        progress, games = request.get('progress', ''), request.get('game_ids', [])
         if not isinstance(progress, str) or (progress and (not progress.isascii() or not progress.isdigit() or len(progress) > 20)):
             raise ValueError()
         if not isinstance(games, list) or len(games) > 100 or any(not isinstance(g, str) or not g.isascii() or not g.isdigit() or not 1 <= len(g) <= 20 for g in games) or len(games) != len(set(games)):
@@ -180,35 +180,33 @@ def options_get(request, user, *, run_source=None, deps=None):
         epoch = check()
         def read(name, args=None):
             return directory_read(name, args or {}, deps=deps, run_source=run_source, check=check, epoch=epoch)
-        def options(rows, key='id', label='title'):
+        def options(rows, key='id', label='title', prefix=None):
             result = []
             for row in rows:
                 value, text = row.get(key), row.get(label)
-                if type(value) not in (str, int) or not str(value) or not isinstance(text, str) or not text:
+                code = row.get(prefix or key)
+                if type(value) not in (str, int) or not str(value) or not isinstance(text, str) or not text or type(code) not in (str, int) or not str(code):
                     raise RuntimeError('metadata_source_schema_changed')
-                result.append(dict(value=str(value), label=text))
+                result.append(dict(value=str(value), label=text if prefix is False else str(code) + ' | ' + text))
             return result
         result = dict(sites=options([r for r in read('sites') if deps['authorize'](user, {'scope': 'site', 'scope_id': str(r.get('id'))}, True) is True], label='full_title'),
                       games=options(read('games')),
-                      progress=[dict(value='1', label='1 | 已支付')], status=[], cid=[],
+                      progress=options(read('progress')), status=[], cid=[],
                       aid=[], admin_id=[],
-                      country=list({o['value']: o for o in options(read('countries'), key='country', label='country')}.values()))
+                      country=list({o['value']: o for o in options(read('countries'), key='country', label='country', prefix='code')}.values()))
         if progress:
             if progress not in {o['value'] for o in result['progress']}:
                 raise ValueError()
-            result['status'] = [dict(value='11', label='11 | 已支付')]
+            result['status'] = options(read('status', {'id': progress}), key='status')
         if any(g not in {o['value'] for o in result['games']} for g in games):
             raise PermissionError()
         # Admin UI evidence: getProType is global, but selection is enabled after games.
         if games:
-            result['cid'] = [dict(value=value, label=label) for value, label in (
-                ('1', '货币(Gold)'), ('0', '物品(Items)'), ('3', '账号(Account)'),
-                ('2', '代练(Powerleveling)'), ('5', '代练包(Package)'),
-                ('7', '礼品卡(Gift Cards)'), ('8', '充值(Top Up)'), ('9', '陪玩(Coach)'))]
+            result['cid'] = options(read('types'))
         servers, unavailable = {}, {}
         try:
             for game in games:
-                for option in options(read('servers', {'gid': game})):
+                for option in options(read('servers', {'gid': game}), prefix=False):
                     servers[option['value']] = option
         except RuntimeError as error:
             # Only source refusal is optional; schema/coverage failures stay fail closed.
