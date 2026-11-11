@@ -2,6 +2,10 @@
 
 Read-only shipped-code evidence, not a claim of completed implementation or live acceptance.
 
+## 19:31 user-selected temporary scope (candidate, not yet deployed)
+
+The user now accepts disabling progress/status/product-type/server controls and not adding those four query conditions. The export panel must keep those controls disabled/empty, omit progress/status/cid/aid even if stale control values exist, and stop reading their refused directories. Only real sites/games/countries remain required metadata. Other filters, dates, multi-game traversal, coverage validation and XLSX remain. Source-default results are not advertised as a paid/completed audience; the upstream default is not an invented local enum. Permission changes and the full-native-directory rollout below are paused. Generic page/metadata contracts for other callers are not broadened or blocked by this UI restriction.
+
 Router https://admin.p2pah.cn/assets/router-752569ae.js maps `/src/views/backend/order/order/index.vue` to https://admin.p2pah.cn/assets/index-cac49fc8.js (12,861 decoded characters observed). The latter defines `new baTable(new baTableApi('/admin/order.Order/'),...)` and the following common-search columns:
 
 | Label | field | operator | directory path | key / label |

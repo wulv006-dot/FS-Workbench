@@ -191,36 +191,17 @@ def options_get(request, user, *, run_source=None, deps=None):
             return result
         result = dict(sites=options([r for r in read('sites') if deps['authorize'](user, {'scope': 'site', 'scope_id': str(r.get('id'))}, True) is True], label='full_title'),
                       games=options(read('games')),
-                      progress=options(read('progress')), status=[], cid=[],
+                      progress=[], status=[], cid=[],
                       aid=[], admin_id=[],
                       country=list({o['value']: o for o in options(read('countries'), key='country', label='country', prefix='code')}.values()))
-        if progress:
-            if progress not in {o['value'] for o in result['progress']}:
-                raise ValueError()
-            result['status'] = options(read('status', {'id': progress}), key='status')
         if any(g not in {o['value'] for o in result['games']} for g in games):
             raise PermissionError()
-        # Admin UI evidence: getProType is global, but selection is enabled after games.
-        if games:
-            result['cid'] = options(read('types'))
-        servers, unavailable = {}, {}
-        try:
-            for game in games:
-                for option in options(read('servers', {'gid': game}), prefix=False):
-                    servers[option['value']] = option
-        except RuntimeError as error:
-            # Only source refusal is optional; schema/coverage failures stay fail closed.
-            if str(error) != 'metadata_source_unavailable':
-                raise
-            unavailable['aid'] = 'metadata_source_unavailable'
-        if not unavailable:
-            result['aid'] = list(servers.values())
+        # These Admin controls are unavailable; queries must use the server defaults.
+        unavailable = {key: 'admin_control_unavailable_use_server_default'
+                       for key in ('progress', 'status', 'cid', 'aid')}
         if check() != epoch:
             raise PermissionError()
-        payload = {'options': result, 'semantics': 'live_non_snapshot'}
-        if unavailable:
-            payload['unavailable'] = unavailable
-        return 200, payload
+        return 200, {'options': result, 'semantics': 'live_non_snapshot', 'unavailable': unavailable}
     except PermissionError:
         return 403, {'error': 'scope_denied'}
     except (ValueError, TypeError, KeyError):

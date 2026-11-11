@@ -76,7 +76,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   };
   const panel = el('article', null, 'fc-card');
   panel.append(el('h3', '订单用户邮箱导出'));
-  panel.append(el('p', '默认订单进度、订单状态均为已支付；选择游戏后可选产品类型和服务区；下单时间使用 Admin 实际字段 paytime（Asia/Shanghai），不改为 create_time。'));
+  panel.append(el('p', '订单进度、订单状态、产品类型和服务区目录暂不可用，已置灰；查询不传这四项条件，使用 Admin API 源默认范围，不代表已支付或已完成。下单时间使用 Admin 实际字段 paytime（Asia/Shanghai），不改为 create_time。'));
   panel.append(el('p', paged
     ? '逐页串行读取，全部计划窗口遍历结束后才能导出。暂停仅在当前页面内存中续跑，刷新页面丢失进度；服务端进程重启后游标失效，须重新查询。付款日期按 Asia/Shanghai，受服务端滚动近 365 天及权限限制。实时分页非快照。'
     : '当前源限时 45 秒、最多 1000 页、约 1 MiB 响应，无续跑；全年导出尚未验收。实时分页非快照，失败或超限不提供部分名单。日期仍受服务端近 365 天及权限限制。'));
@@ -162,15 +162,11 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     if (tag === 'select') { const option = el('option', '不限'); option.value = ''; control.append(option); }
     filters[name] = control;
   }
-  // Legacy explicit-directory callers retain their optional paid choices.
-  // Live choices and defaults are applied only after the real directory arrives.
-  if (!remoteOptions) for (const [name, value] of [['progress', '1'], ['status', '11']]) {
-    const option = el('option', '已支付'); option.value = value;
-    filters[name].append(option);
+  const unavailableFilters = new Set(['progress', 'status', 'cid', 'aid']);
+  for (const name of unavailableFilters) {
+    filters[name].disabled = true;
+    filters[name].children[0].textContent = '目录暂不可用（使用源默认）';
   }
-  filters.progress.disabled = filters.status.disabled = remoteOptions;
-  filters.cid.disabled = filters.aid.disabled = true;
-  const serverNotice = el('p', ''); panel.append(serverNotice);
   const start = field('下单时间开始（paytime）', 'input', 'start'); start.type = 'date';
   const end = field('下单时间结束（含当天）', 'input', 'end'); end.type = 'date';
   const button = (text, type) => { const node = el('button', text, 'ghostbtn'); node.type = type; return node; };
@@ -214,52 +210,24 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     select.append(...options); select.value = '';
     if (select === game) renderGames();
   };
-  const loadOptions = async (dependent = false) => {
+  const loadOptions = async () => {
     const current = ++metadataSequence; metadataReady = false; query.disabled = true;
-    filters.cid.disabled = filters.aid.disabled = true;
-    serverNotice.textContent = '';
+
     status.textContent = '正在读取 Admin 筛选选项。';
-    const selectedGames = Array.from(game.selectedOptions, option => option.value);
-    const selectedProgress = dependent ? filters.progress.value : '1';
-    const selectedStatus = dependent ? filters.status.value : '11';
-    const selectedType = filters.cid.value, selectedServer = filters.aid.value;
-    filters.status.disabled = true;
+
     try {
       const response = await fetcher(url.href, { method: 'POST', credentials: 'same-origin', redirect: 'error',
         cache: 'no-store', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ kind: 'order_email_export_options',
-          progress: selectedProgress,
-          ...(selectedGames.length ? { game_ids: selectedGames } : {}) }) });
+        body: JSON.stringify({ kind: 'order_email_export_options' }) });
       if (disposed || current !== metadataSequence) return;
       if (!response.ok || response.redirected) throw new Error();
       const data = await response.json();
       if (disposed || current !== metadataSequence) return;
       if (!data.options || data.error) throw new Error();
-      if (!dependent) {
-        sites = directory(data.options.sites); games = directory(data.options.games);
-        fill(site, sites); fill(game, games);
-        if (!data.options.country?.length) throw new Error();
-        fill(filters.country, data.options.country);
-      }
-      fill(filters.progress, data.options.progress);
-      if (selectedProgress && !data.options.progress.some(entry => entry.value === selectedProgress)) throw new Error();
-      filters.progress.value = selectedProgress;
-      fill(filters.status, data.options.status);
-      if (!selectedProgress && data.options.status.length) throw new Error();
-      const validStatus = data.options.status.some(entry => entry.value === selectedStatus);
-      if (!dependent && !validStatus) throw new Error();
-      filters.status.value = validStatus ? selectedStatus : '';
-      filters.progress.disabled = false; filters.status.disabled = !selectedProgress;
-      const hasGame = selectedGames.length > 0;
-      fill(filters.cid, hasGame ? data.options.cid : []);
-      if (data.options.cid.some(entry => entry.value === selectedType)) filters.cid.value = selectedType;
-      const serverUnavailable = data.unavailable?.aid === 'metadata_source_unavailable';
-      if (serverUnavailable && (!Array.isArray(data.options.aid) || data.options.aid.length)) throw new Error();
-      fill(filters.aid, hasGame && !serverUnavailable ? data.options.aid : []);
-      if (!serverUnavailable && data.options.aid.some(entry => entry.value === selectedServer)) filters.aid.value = selectedServer;
-      filters.cid.disabled = !hasGame;
-      filters.aid.disabled = !hasGame || serverUnavailable;
-      serverNotice.textContent = serverUnavailable ? '服务区目录暂不可用，可按其他条件查询' : '';
+      sites = directory(data.options.sites); games = directory(data.options.games);
+      fill(site, sites); fill(game, games);
+      if (!data.options.country?.length) throw new Error();
+      fill(filters.country, data.options.country);
       metadataReady = true; query.disabled = false; status.textContent = '请选择范围后查询。';
     } catch {
       if (disposed || current !== metadataSequence) return;
@@ -273,15 +241,8 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     const item = gameRows.find(item => item.check === event.target);
     if (item) item.option.selected = item.check.checked;
     invalidate();
-    if (event.target === filters.progress && remoteOptions) {
-      filters.status.value = ''; filters.status.disabled = true;
-      return loadOptions(true);
-    }
     if (event.target === game || item) {
       syncGames();
-      filters.cid.value = ''; filters.aid.value = '';
-      filters.cid.disabled = filters.aid.disabled = true;
-      if (remoteOptions) return loadOptions(true);
     }
   };
   const progress = () => {
@@ -383,7 +344,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     let request;
     try { request = orderEmailRequest({ site_id: site.value,
       game_ids: Array.from(game.selectedOptions, option => option.value), start: start.value, end: end.value,
-      filters: Object.fromEntries(Object.entries(filters).filter(([, control]) => !control.disabled && control.value !== '').map(([name, control]) => [name, control.value])) }, sites, games); }
+      filters: Object.fromEntries(Object.entries(filters).filter(([name, control]) => !unavailableFilters.has(name) && !control.disabled && control.value !== '').map(([name, control]) => [name, control.value])) }, sites, games); }
     catch { status.textContent = '请选择有效站点、游戏及付款日期（含结束日，最多 366 天）。'; return; }
     const current = sequence;
     if (paged) {
