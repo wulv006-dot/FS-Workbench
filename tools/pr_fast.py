@@ -1173,6 +1173,7 @@ def main():
         elif group=="mmoexp-privacy":
             node("opt/mmoexp-guardbot/test-privacy.cjs")
             node("docs/ops/mmoexp-privacy-20261111/test-journal-archive.cjs")
+            node("docs/ops/mmoexp-privacy-20261111/test-text-archive.cjs")
         elif group=="fc-community":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"opt/mmoexp-fc-community/ci_check.py")],
                            cwd=ROOT,check=True,timeout=180)

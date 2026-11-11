@@ -28,10 +28,12 @@ The other-service archive is at `/var/lib/mmoexp-privacy-archive/20261111/other-
 
 The old host runs systemd 219. Rotation therefore uses the documented SIGUSR2 mechanism and verifies that `system.journal` was replaced; it does not restart journald. No global logging settings, firewall, pricing process or unrelated service configuration was changed. Archive verification and cleanup have fixture tests for source mutation, ciphertext tampering and out-of-root paths. Never rerun the one-time cleanup against a new file set without a fresh reviewed archive plan.
 
+The host also retained a second copy in traditional `/var/log/messages*` text logs. Under the same explicit authorization, `archive-text-logs.cjs` rotated the active file and sent the existing rsyslog process SIGHUP, confirming its new file and closed old descriptor without stopping it. Five immutable old files contained 2,953,615 records: 13 identified bot records were added to encrypted `legacy-system-events.jsonl`; 2,953,602 other records were compressed and authenticated-encrypted into 66,732,385 bytes at `/var/lib/mmoexp-privacy-archive/20261111/text-logs/other-services.jsonl.gz.enc`, using the separate archive key above. Each line's original bytes, source name and byte offset are preserved, including invalid UTF-8 and a possible final unterminated line. Reconstructing every source and comparing its SHA-256, byte size and record counts succeeded before deleting only unchanged originals. The current file was retained and old bot patterns matched zero. Original timestamps govern bot retention; no new retention period starts at migration.
+
 ## Validation and deployment
 
 - 19 privacy assertions passed: encryption, nonce freshness, tamper/wrong-key rejection, retention, deletion of the correct account and operational copies, cross-account/replay/expiry protection, and honest failure reporting.
-- 6 journal protection assertions passed using fabricated journal records.
+- 7 journal protection assertions and 8 traditional-log archive assertions passed using fabricated records, including verification after legitimate bot deletion.
 - 79 existing multibrand assertions and 27 existing self-check routing assertions passed.
 - Legacy matching and self-check suites retained the identical 4 and 5 failures present in the unmodified baseline. They were not presented as green.
 - 5 additional latest-DM-welcome integration checks passed with fabricated members and a stub send function: deduplication, encrypted delivery state, disk/memory deletion and no repeated or public fallback when DMs are blocked.
