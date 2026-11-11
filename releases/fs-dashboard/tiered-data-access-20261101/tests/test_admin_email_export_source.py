@@ -227,6 +227,12 @@ class ExportSourceTests(unittest.TestCase):
                 return original(path, query, timeout, cap)
             self.deps['fetch'] = fail_server
             self.assertEqual(call()[0], 403 if isinstance(failure, PermissionError) else 200 if str(failure) == 'metadata_source_unavailable' else 503)
+        def app_refusal(path, query, timeout, cap):
+            if query['metadata'] == 'servers':
+                return 200, b'{"code":401}'
+            return original(path, query, timeout, cap)
+        self.deps['fetch'] = app_refusal
+        self.assertEqual(call()[1]['unavailable'], {'aid': 'metadata_source_unavailable'})
         for malformed in ((200, {}), (200, b'not json'),
                           (200, b'{"code":1,"data":{"options":[]}}'),
                           (200, b'{"code":1,"data":{"list":[{"id":1}],"total":1}}')):
@@ -265,6 +271,30 @@ class ExportSourceTests(unittest.TestCase):
             return op()
         self.allowed = True
         self.assertEqual(source.options_get({}, 'actor', deps=self.deps, run_source=revoke)[0], 403)
+
+    def test_country_phone_variants_preserve_coverage_and_deduplicate_options(self):
+        countries = [{'country': 'Dominican Republic', 'code': code, 'iso_code': 'DO / DOM'}
+                     for code in ('1-809', '1-829', '1-849')]
+        countries += [{'country': 'Puerto Rico', 'code': code, 'iso_code': 'PR / PRI'}
+                      for code in ('1-787', '1-939')]
+        rows = {'sites': [{'id': 266, 'full_title': 'Site'}],
+                'games': [{'id': 2, 'title': 'Game'}], 'countries': countries}
+        for with_total in (False, True):
+            def fetch(path, query, timeout, cap):
+                batch = rows[query['metadata']]
+                data = {'list': batch}
+                if with_total:
+                    data['total'] = len(batch)
+                return 200, json.dumps({'code': 1, 'data': data}).encode()
+            self.deps['fetch'] = fetch
+            status, payload = source.options_get({}, 'actor', deps=self.deps, run_source=lambda op,t: op())
+            self.assertEqual(status, 200)
+            self.assertEqual([o['value'] for o in payload['options']['country']], ['Dominican Republic', 'Puerto Rico'])
+        countries.append(dict(countries[0]))
+        self.assertEqual(source.options_get({}, 'actor', deps=self.deps, run_source=lambda op,t: op())[0], 503)
+        countries.pop()
+        rows['games'].append(dict(rows['games'][0]))
+        self.assertEqual(source.options_get({}, 'actor', deps=self.deps, run_source=lambda op,t: op())[0], 503)
 
     def test_directory_list_pagination_stability_and_budget(self):
         def read(fetch):
