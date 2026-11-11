@@ -83,7 +83,7 @@ async function prepare(){
 }
 async function verify(m){
  const bot=storage.readFileSync(m.botFile);
- if(crypto.createHash('sha256').update(bot).digest('hex')!==m.botSha256)throw Error('Bot archive verification failed');
+ if(m.status==='prepared' && crypto.createHash('sha256').update(bot).digest('hex')!==m.botSha256)throw Error('Bot archive verification failed');
  const key=fs.readFileSync(KEY),stat=fs.statSync(m.otherFile),fd=fs.openSync(m.otherFile,'r');
  const head=Buffer.alloc(MAGIC.length+12),tag=Buffer.alloc(16);fs.readSync(fd,head,0,head.length,0);fs.readSync(fd,tag,0,16,stat.size-16);fs.closeSync(fd);
  if(!head.subarray(0,MAGIC.length).equals(MAGIC))throw Error('Invalid archive header');
@@ -100,6 +100,7 @@ async function cleanup(){
  const m=JSON.parse(fs.readFileSync(MANIFEST,'utf8'));
  if(m.status!=='prepared')throw Error('Archive is not in prepared state');
  await verify(m);
+ for(const file of [KEY,path.dirname(KEY),DEST]){const fd=fs.openSync(file,'r');fs.fsyncSync(fd);fs.closeSync(fd);}
  // Check every source before any removal. Only exact immutable, rotated files are eligible.
  for(const source of m.sources){
   const f=path.resolve(source.file),rel=path.relative(ROOT,f),name=path.basename(f),s=fs.lstatSync(f);

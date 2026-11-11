@@ -20,5 +20,7 @@ try{
  const ciphertext=fs.readFileSync(m.otherFile),damaged=Buffer.from(ciphertext);damaged[damaged.length-1]^=1;fs.writeFileSync(m.otherFile,damaged);r=run('cleanup');check('tampered archive blocks cleanup',r.status!==0&&fs.existsSync(source));fs.writeFileSync(m.otherFile,ciphertext);
  const outside=path.join(root,'outside@fixture.journal');fs.writeFileSync(outside,'outside file');m.sources.push({file:outside,size:12,ino:fs.statSync(outside).ino,sha256:crypto.createHash('sha256').update('outside file').digest('hex')});fs.writeFileSync(manifestPath,JSON.stringify(m));r=run('cleanup');check('outside-root source is never removed',r.status!==0&&fs.existsSync(outside)&&fs.existsSync(source));fs.writeFileSync(manifestPath,original);
  r=run('cleanup');check('only verified rotated files are removed',r.status===0&&!fs.existsSync(source)&&fs.existsSync(active));
- console.log(JSON.stringify({suite:'journal-archive',assertions:6,status:'passed',fixture:'fabricated journal records only'}));
+ require(path.join(bot,'secure-storage')).eraseSubject('111111111111111111');
+ r=run('verify');check('later bot deletion preserves unrelated archive verification',r.status===0);
+ console.log(JSON.stringify({suite:'journal-archive',assertions:7,status:'passed',fixture:'fabricated journal records only'}));
 }finally{fs.rmSync(root,{recursive:true,force:true});}

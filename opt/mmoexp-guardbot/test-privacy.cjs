@@ -1,7 +1,16 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('fs'),os=require('os'),path=require('path'),crypto=require('crypto');
 const {createStorage,MAGIC,DAY}=require('./secure-storage');
-const {createPrivacy,commands,privacyPayload}=require('./privacy');
+// CI exercises pure privacy decisions offline. Live/host tests use the installed Discord SDK.
+let sdkPresent=true;try{require.resolve('discord.js');}catch(e){if(e.code!=='MODULE_NOT_FOUND')throw e;sdkPresent=false;}
+let controls;
+if(sdkPresent)controls=require('./privacy');else{
+ const Module=require('module'),load=Module._load;
+ class CommandFixture{setName(name){this.name=name;return this;}setDescription(description){this.description=description;return this;}toJSON(){return{name:this.name,description:this.description};}}
+ Module._load=function(name,...args){if(name==='discord.js')return{Events:{InteractionCreate:'interactionCreate',MessageCreate:'messageCreate'},MessageFlags:{Ephemeral:64},SlashCommandBuilder:CommandFixture};return load.call(this,name,...args);};
+ try{controls=require('./privacy');}finally{Module._load=load;}
+}
+const {createPrivacy,commands,privacyPayload}=controls;
 let assertions=0;
 function check(name,fn){fn();assertions++;console.log('PASS '+name);}
 async function main(){
