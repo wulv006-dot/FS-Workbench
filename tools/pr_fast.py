@@ -1134,7 +1134,7 @@ def main():
             units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context","test_missing_store","test_revision_range","test_member_keyset","test_archive_publication"])
             node("releases/fs-dashboard/user-analytics-20261022/tests/test_weekly_dates.cjs")
         elif group=="tiered-data-access":
-            units("releases/fs-dashboard/tiered-data-access-20261101/tests",["test_backup_inventory","test_date_policy","test_query_planner","test_daily_facts","test_range_jobs","test_query_checkpoint","test_eviction_policy","test_admin_orders_adapter","test_admin_live_page","test_admin_site_authorizer","test_admin_supervised_transport","test_admin_live_worker","test_admin_live_dispatch","test_admin_live_host","test_admin_live_admission","test_admin_live_session","test_live_global_authorization","test_admin_live_nginx","test_secure_live_route","test_live_order_pagination","test_live_order_consumer","test_live_customer_lookup"])
+            units("releases/fs-dashboard/tiered-data-access-20261101/tests",["test_backup_inventory","test_date_policy","test_query_planner","test_daily_facts","test_range_jobs","test_query_checkpoint","test_eviction_policy","test_admin_orders_adapter","test_admin_live_page","test_admin_site_authorizer","test_admin_supervised_transport","test_admin_live_worker","test_admin_live_dispatch","test_admin_live_host","test_admin_live_admission","test_admin_live_session","test_live_global_authorization","test_admin_live_nginx","test_secure_live_route","test_live_order_pagination","test_live_order_consumer","test_live_customer_lookup","test_admin_order_email_export"])
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui","test_pmax_es_projection","test_mapping_reclassification"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")
@@ -1431,6 +1431,8 @@ def main():
             node(release+"/tests/test_brain_handoff.cjs")
             node(release+"/tests/test_cohort_prompt.cjs")
             node(release+"/frontend/test-workspace.cjs")
+            node(release+"/frontend/test_order_email_csv.cjs")
+            node(release+"/frontend/test_order_email_panel.cjs")
         elif group=="hermes-conversation":
             release="releases/fs-dashboard/hermes-conversation-20261018"
             # Class partitions require the complete two-class module, without a loader hook.
