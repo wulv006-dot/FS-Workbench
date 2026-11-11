@@ -74,12 +74,19 @@ async function setup(endpoint = '/test-only-export', remote = false) {
   return { root, doc, widget, requests, blobs, revoked, form, fields, buttons, respond };
 }
 
-test('all 14 Admin filters serialize and filter changes revoke downloaded data', async () => {
+// Shared fixture extraction boundary: test('all 14 Admin
+ test('available Admin filters serialize and filter changes revoke downloaded data', async () => {
   const h = await setup();
   const names = ['progress','status','cid','content','aid','recommend_uid','discount_code','promotion_id','pid','country'];
   for (const name of [...names, 'site_id', 'game_ids', 'start', 'end']) assert.ok(h.fields[name]);
-  const filters = Object.fromEntries(names.map(name => [name, name === 'content' ? 'game / server' : '1']));
-  for (const name of names) { h.fields[name].disabled = false; h.fields[name].value = filters[name]; }
+  const unavailable = ['progress', 'status', 'cid', 'aid'];
+  const filters = Object.fromEntries(names.filter(name => !unavailable.includes(name)).map(name => [name, name === 'content' ? 'game / server' : '1']));
+  for (const name of names) h.fields[name].value = filters[name] || 'stale';
+  for (const name of unavailable) {
+    assert.equal(h.fields[name].disabled, true);
+    assert.equal(h.fields[name].children.length, 1);
+    h.fields[name].disabled = false; // Even DOM tampering must not add unavailable conditions.
+  }
   assert.equal(h.fields.admin_id, undefined);
   const pending = h.form.fire('submit');
   assert.deepEqual(JSON.parse(h.requests[0].options.body).filters, filters);
@@ -89,86 +96,42 @@ test('all 14 Admin filters serialize and filter changes revoke downloaded data',
   assert.equal(h.blobs.size, 0); assert.equal(h.buttons[2].disabled, true);
   h.fields.status.value = '2'; h.fields.aid.value = '3';
   h.form.fire('change', h.fields.game_ids);
-  assert.equal(h.fields.status.value, '2'); assert.equal(h.fields.aid.value, '');
+  assert.equal(h.fields.status.value, '2'); assert.equal(h.fields.aid.value, '3');
   h.widget.dispose();
 });
 
-test('authenticated same-endpoint metadata and dependent refresh use real options', async () => {
-  const h = await setup('/test-only-export', true);
-  assert.deepEqual(JSON.parse(h.requests[0].options.body), { kind: 'order_email_export_options', progress: '1' });
-  assert.equal(h.requests[0].options.credentials, 'same-origin');
-  const options = { sites, games };
-  for (const name of ['progress','status','cid','aid','admin_id','country']) options[name] = [{value:'1',label:'Real option'}];
-  options.status = [{value:'11',label:'已支付'}];
-  h.respond(0, {options}); await new Promise(resolve => setImmediate(resolve));
-  assert.equal(h.fields.progress.children[1].textContent, 'Real option');
-  assert.equal(h.fields.progress.value, '1'); assert.equal(h.fields.status.value, '11');
-  assert.equal(h.fields.cid.disabled, true); assert.equal(h.fields.aid.disabled, true);
-  h.fields.site_id.value = '266';
-  h.fields.game_ids.children[0].selected = true;
-  const refresh = h.form.fire('change', h.fields.game_ids);
-  assert.equal(h.fields.status.value, '11');
-  assert.equal(JSON.parse(h.requests[1].options.body).progress, '1');
-  h.respond(1, {options: {...options, aid: []}, unavailable: {aid:'metadata_source_unavailable'}}); await refresh;
-  assert.equal(h.fields.cid.disabled, false); assert.equal(h.fields.aid.disabled, true);
-  assert.equal(h.buttons[0].disabled, false);
-  assert.equal(h.fields.site_id.value, '266'); assert.equal(h.fields.status.value, '11');
-  assert.match(text(h.root), /服务区目录暂不可用，可按其他条件查询/);
-  h.fields.start.value = input.start; h.fields.end.value = input.end;
-  h.fields.aid.value = 'stale';
-  const query = h.form.fire('submit');
-  assert.deepEqual(JSON.parse(h.requests[2].options.body).filters, {progress:'1',status:'11'});
-  h.respond(2, {...success(), filters: {progress:'1',status:'11'}, scope: {site_id:'266',game_ids:['26']}}); await query;
-  assert.equal(h.buttons[2].disabled, false);
-  h.widget.dispose();
-});
-
-const metadata = () => ({options: {sites, games, progress:[{value:'1',label:'已支付'}],
-  status:[{value:'11',label:'已支付'}], cid:[{value:'1',label:'金币'}],
-  aid:[{value:'9',label:'服务器'}], admin_id:[], country:[{value:'US',label:'美国'}]}});
+const metadata = () => ({options: {sites, games, progress:[], status:[], cid:[], aid:[],
+  country:[{value:'US',label:'美国'}]}});
 const tick = () => new Promise(resolve => setImmediate(resolve));
-test('native progress reloads status, clears invalid selections and sends explicit unlimited progress', async () => {
-  const h = await setup('/test-only-export', true);
-  assert.equal(h.fields.progress.disabled, true);
-  assert.equal(h.fields.progress.children.length, 1);
-  const options = {...metadata().options, progress:[{value:'1',label:'1 | 已支付'}, {value:'2',label:'2 | 原生进度'}]};
-  h.respond(0, {options}); await tick();
-  h.fields.progress.value = '2';
-  const refresh = h.form.fire('change', h.fields.progress);
-  assert.equal(h.fields.status.value, ''); assert.equal(h.fields.status.disabled, true);
-  assert.equal(h.buttons[2].disabled, true);
-  assert.deepEqual(JSON.parse(h.requests[1].options.body), {kind:'order_email_export_options',progress:'2'});
-  await h.form.fire('submit'); assert.equal(h.requests.length, 2);
-  const next = {...options, status:[{value:'21',label:'21 | 原生状态'}, {value:'22',label:'22 | 另一个状态'}]};
-  h.respond(1, {options:next}); await refresh;
-  assert.equal(h.fields.status.value, ''); assert.equal(h.fields.status.disabled, false);
-  assert.equal(h.fields.status.children[2].textContent, '22 | 另一个状态');
-  h.fields.status.value = '22'; h.fields.game_ids.children[0].selected = true;
-  const gameRefresh = h.form.fire('change', h.fields.game_ids);
-  h.respond(2, {options:next}); await gameRefresh;
-  assert.equal(h.fields.status.value, '22');
-  h.fields.cid.value = '1';
-  h.fields.progress.value = '';
-  const unlimited = h.form.fire('change', h.fields.progress);
-  assert.deepEqual(JSON.parse(h.requests[3].options.body), {kind:'order_email_export_options',progress:'',game_ids:['26']});
-  h.respond(3, {options:{...options,status:[]}}); await unlimited;
-  assert.equal(h.fields.status.children.length, 1); assert.equal(h.fields.status.disabled, true);
-  assert.equal(h.fields.cid.value, '1'); assert.equal(h.buttons[0].disabled, false);
-  h.widget.dispose();
-});
-
-test('out-of-order native status loads cannot restore old progress or old statuses', async () => {
-  const h = await setup('/test-only-export', true);
-  const options = {...metadata().options, progress:[{value:'1',label:'1 | 已支付'}, {value:'2',label:'2 | 其他'}]};
-  h.respond(0, {options}); await tick();
-  h.fields.progress.value = '2'; const old = h.form.fire('change', h.fields.progress);
-  h.fields.progress.value = '1'; const newer = h.form.fire('change', h.fields.progress);
-  h.respond(2, {options}); await newer;
-  h.respond(1, {options:{...options,status:[{value:'21',label:'21 | 其他状态'}]}}); await old;
-  assert.equal(h.fields.progress.value, '1');
-  assert.equal(h.fields.status.children[1].value, '11');
-  assert.equal(h.fields.status.value, '');
-  h.widget.dispose();
+test('authenticated metadata loads actual three directories only; unavailable filters stay gray and omitted', async () => {
+  for (const legacyChoices of [false, true]) {
+    const h = await setup('/test-only-export', true);
+    assert.deepEqual(JSON.parse(h.requests[0].options.body), {kind:'order_email_export_options'});
+    assert.equal(h.requests[0].options.credentials, 'same-origin');
+    const data = metadata();
+    if (legacyChoices) for (const name of ['progress','status','cid','aid'])
+      data.options[name] = [{value:'99',label:'Legacy choice'}];
+    h.respond(0, data); await tick();
+    assert.equal(h.fields.country.children[1].value, 'US');
+    for (const name of ['progress','status','cid','aid']) {
+      assert.equal(h.fields[name].disabled, true);
+      assert.equal(h.fields[name].value, '');
+      assert.equal(h.fields[name].children.length, 1);
+      h.fields[name].value = 'stale';
+      await h.form.fire('change', h.fields[name]);
+    }
+    h.fields.site_id.value = '266'; h.fields.game_ids.children[0].selected = true;
+    await h.form.fire('change', h.fields.game_ids);
+    assert.equal(h.requests.length, 1);
+    assert.match(text(h.root), /查询不传这四项条件，使用 Admin API 源默认范围/);
+    assert.doesNotMatch(text(h.root), /默认为已支付|均为已支付|默认为已完成/);
+    h.fields.country.value = 'US';
+    const pending = h.form.fire('submit');
+    assert.deepEqual(JSON.parse(h.requests[1].options.body).filters, {country:'US'});
+    h.respond(1, {...success(), filters:{country:'US'}, scope:{site_id:'266',game_ids:['26']}}); await pending;
+    assert.equal(h.buttons[2].disabled, false);
+    h.widget.dispose();
+  }
 });
 
 test('native id-prefixed game labels are not prefixed twice', async () => {
@@ -178,23 +141,16 @@ test('native id-prefixed game labels are not prefixed twice', async () => {
   assert.equal(text(checkbox.parent).trim(), '1327 | FC 27');
   h.widget.dispose();
 });
-test('metadata failures stay closed; stale game directories and disposed responses cannot revive controls', async () => {
+test('metadata failures stay closed and disposed responses cannot revive controls', async () => {
   const broken = await setup('/test-only-export', true);
   broken.respond(0, {options:{...metadata().options, country:[]}}); await tick();
   assert.equal(broken.buttons[0].disabled, true);
   await broken.form.fire('submit'); assert.equal(broken.requests.length, 1); broken.widget.dispose();
   const h = await setup('/test-only-export', true);
+  h.widget.dispose();
   h.respond(0, metadata()); await tick();
-  h.fields.site_id.value = '266'; h.fields.game_ids.children[0].selected = true;
-  const older = h.form.fire('change', h.fields.game_ids);
-  h.fields.game_ids.children[0].selected = false; h.fields.game_ids.children[1].selected = true;
-  const newer = h.form.fire('change', h.fields.game_ids);
-  h.respond(2, {options:{...metadata().options, aid:[]}, unavailable:{aid:'metadata_source_unavailable'}}); await newer;
-  h.respond(1, metadata()); await older;
-  assert.equal(h.fields.aid.disabled, true); assert.equal(h.fields.aid.children.length, 1);
-  assert.equal(h.fields.status.value, '11'); assert.equal(h.fields.site_id.value, '266');
-  const late = h.form.fire('change', h.fields.game_ids); h.widget.dispose();
-  h.respond(3, metadata()); await late; assert.equal(h.root.children.length, 0);
+  assert.equal(h.root.children.length, 0);
+  for (const name of ['progress','status','cid','aid']) assert.equal(h.fields[name].disabled, true);
 });
 
 test('clickable game dropdown searches by name/ID and preserves multi-selection across searches', async () => {
@@ -242,7 +198,7 @@ test('clickable game dropdown searches by name/ID and preserves multi-selection 
   assert.equal(search.listeners.size, 0);
 });
 
-test('full remote game directory is searchable without truncation and checkbox changes load dependencies', async () => {
+test('full remote game directory is searchable without truncation or dependent fetches', async () => {
   const h = await setup('/test-only-export', true);
   const allGames = Array.from({length:583}, (_, i) => ({value:String(1000+i), label:`Fixture game ${i}`}));
   h.respond(0, {options:{...metadata().options, games:allGames}}); await tick();
@@ -252,17 +208,17 @@ test('full remote game directory is searchable without truncation and checkbox c
   search.value = '1582'; search.fire('input');
   assert.equal(checks.filter(check => !check.parent.hidden).length, 1);
   assert.equal(text(checks[582].parent).trim(), '1582 | Fixture game 582');
-  const refresh = checks[582].click();
-  assert.deepEqual(JSON.parse(h.requests[1].options.body), {kind:'order_email_export_options', progress:'1',game_ids:['1582']});
-  assert.equal(h.fields.cid.disabled, true); assert.equal(h.buttons[0].disabled, true);
-  h.respond(1, metadata()); await refresh;
-  assert.equal(h.fields.cid.disabled, false); assert.equal(h.fields.aid.disabled, false);
-  assert.equal(h.fields.progress.value, '1'); assert.equal(h.fields.status.value, '11');
+  await checks[582].click();
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.fields.cid.disabled, true); assert.equal(h.fields.aid.disabled, true);
+  assert.equal(h.buttons[0].disabled, false);
+  assert.equal(h.fields.progress.value, ''); assert.equal(h.fields.status.value, '');
   assert.equal(checks[582].checked, true);
   search.value = 'Fixture game 0'; search.fire('input');
-  const next = checks[0].click();
-  assert.deepEqual(JSON.parse(h.requests[2].options.body).game_ids, ['1000', '1582']);
-  h.widget.dispose(); h.respond(2, metadata()); await next;
+  await checks[0].click();
+  assert.deepEqual(h.fields.game_ids.selectedOptions.map(option => option.value), ['1000', '1582']);
+  assert.equal(h.requests.length, 1);
+  h.widget.dispose();
   assert.equal(h.root.children.length, 0);
 });
 
@@ -271,12 +227,12 @@ test('game picker enforces existing 100-game request limit without losing select
   const allGames = Array.from({length:101}, (_, i) => ({value:String(i+1),label:`Fixture ${i}`}));
   h.respond(0, {options:{...metadata().options,games:allGames}}); await tick();
   h.fields.game_ids.children.forEach((option, i) => { option.selected = i < 100; });
-  const refresh = h.form.fire('change', h.fields.game_ids); h.respond(1, metadata()); await refresh;
+  await h.form.fire('change', h.fields.game_ids);
   const checks = walk(h.root).filter(node => node.type === 'checkbox');
-  assert.equal(checks[100].disabled, true); checks[100].click(); assert.equal(h.requests.length, 2);
-  const next = checks[0].click(); h.respond(2, metadata()); await next;
+  assert.equal(checks[100].disabled, true); checks[100].click(); assert.equal(h.requests.length, 1);
+  await checks[0].click();
   assert.equal(checks[100].disabled, false);
-  const final = checks[100].click(); h.respond(3, metadata()); await final;
+  await checks[100].click();
   assert.equal(h.fields.game_ids.selectedOptions.length, 100);
   assert.equal(checks[0].disabled, true); assert.equal(checks[100].checked, true);
   h.widget.dispose();
