@@ -42,7 +42,13 @@ export function orderEmailRequest({ site_id, game_ids, start, end }, sites, game
  * paged:true lazily loads OrderEmailRun and requires an explicit HTTP 206 page
  * endpoint; the public mapping of /users/order-email-export-page is caller-owned.
  */
-export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fetcher, paged = false } = {}) {
+/** Excel entry point; legacy CSV callers retain their existing API. */
+export function mountOrderEmailExcelExport(root, options = {}) {
+  return mountOrderEmailExport(root, { ...options, format: 'xlsx' });
+}
+
+export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fetcher, paged = false, format = 'csv' } = {}) {
+  if (!['csv', 'xlsx'].includes(format)) throw new TypeError('Invalid export format');
   const doc = root.ownerDocument;
   const win = doc.defaultView;
   let url;
@@ -66,7 +72,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   panel.append(el('p', paged
     ? '逐页串行读取，全部计划窗口遍历结束后才能导出。暂停仅在当前页面内存中续跑，刷新页面丢失进度；服务端进程重启后游标失效，须重新查询。付款日期按 Asia/Shanghai，受服务端滚动近 365 天及权限限制。实时分页非快照。'
     : '当前源限时 45 秒、最多 1000 页、约 1 MiB 响应，无续跑；全年导出尚未验收。实时分页非快照，失败或超限不提供部分名单。日期仍受服务端近 365 天及权限限制。'));
-  panel.append(el('p', '订单邮箱不代表营销订阅；发送前请应用退订与拒收名单。本工具仅导出，不发送邮件。CSV 对公式前缀添加安全单引号，导入营销系统前请核对这些地址。'));
+  panel.append(el('p', '订单邮箱不代表营销订阅；发送前请应用退订与拒收名单。本工具仅导出，不发送邮件。Excel 导出将地址保存为文本，保留原地址；旧 CSV 导出对公式前缀添加安全单引号。'));
   const form = el('form', null, 'fc-actions');
   const field = (text, tag, name) => {
     const label = el('label', text);
@@ -87,7 +93,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   const button = (text, type) => { const node = el('button', text, 'ghostbtn'); node.type = type; return node; };
   const query = button('查询完整名单', 'submit');
   const cancel = button('取消并清除', 'button');
-  const download = button('下载 CSV', 'button'); download.disabled = true;
+  const download = button(format === 'xlsx' ? '下载 Excel（.xlsx）' : '下载 CSV', 'button'); download.disabled = true;
   form.append(query, cancel, download); panel.append(form);
   const pause = paged ? button('暂停', 'button') : null;
   const resume = paged ? button('继续 / 重试', 'button') : null;
@@ -249,16 +255,31 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       }
     }
   };
-  const onDownload = () => {
+  const onDownload = async () => {
     if (disposed || !payload || download.disabled) return;
+    const current = sequence, selected = payload;
     let link;
     try {
+      let bytes, type, extension;
+      if (format === 'xlsx') {
+        download.disabled = true;
+        const writer = await import('./order-email-xlsx.js');
+        if (disposed || current !== sequence || payload !== selected) return;
+        bytes = (paged ? writer.orderEmailTraversalXlsx : writer.orderEmailXlsx)(selected);
+        type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; extension = 'xlsx';
+      } else {
+        bytes = csv(selected); type = 'text/csv;charset=utf-8'; extension = 'csv';
+      }
       revoke();
-      blobUrl = win.URL.createObjectURL(new win.Blob([csv(payload)], { type: 'text/csv;charset=utf-8' }));
-      link = el('a'); link.href = blobUrl; link.download = 'order-user-emails.csv';
+      blobUrl = win.URL.createObjectURL(new win.Blob([bytes], { type }));
+      link = el('a'); link.href = blobUrl; link.download = 'order-user-emails.' + extension;
       panel.append(link); link.click();
-    } catch { clear(); status.textContent = '下载失败，名单已清除，请重新查询。'; }
-    finally { link?.remove(); }
+    } catch {
+      if (!disposed && current === sequence) { clear(); status.textContent = '下载失败，名单已清除，请重新查询。'; }
+    } finally {
+      link?.remove();
+      if (!disposed && current === sequence && payload === selected) download.disabled = false;
+    }
   };
   form.addEventListener('submit', onSubmit);
   form.addEventListener('input', invalidate); form.addEventListener('change', invalidate);

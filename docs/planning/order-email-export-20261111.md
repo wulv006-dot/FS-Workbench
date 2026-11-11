@@ -81,6 +81,14 @@ CodeGraph MCP已调用，本任务无索引，服务要求本会话使用源码�
 
 - 暂存区全量diff --check发现test_order_email_resume_panel.cjs:200末尾额外空行（此前未跟踪文件不在普通diff检查范围）；返回2，后续commit/push因&&未执行。这是格式警告而非业务测试失败。该文件曾明确METADATA_UNSUPPORTED/retry=never，未强写或切换工具绕过；保留警告交CI判断，不修改测试或CI规则。
 
+## Excel交付增量（2026-11-11，用户授权完成后合并部署）
+
+- 新增真正OOXML `.xlsx`：浏览器本地生成，无依赖/CDN、无上传名单、无邮件发送。单列email，地址为共享字符串文本单元格，不添加CSV单引号，不生成公式或外链；支持Unicode、原拼写、加号及XML转义，包含表头最多1,048,576行。
+- 新入口 `mountOrderEmailExcelExport(root, options)` 复用原筛选和分页生命周期，显式Excel下载；原 `mountOrderEmailExport` CSV调用兼容。Excel模块按点击懒加载，期间禁重复点击；改筛选/取消/销毁后晚到模块不会下载或重建名单。
+- 独立63项Node测试通过（原54+XLSX5+Excel面板4），含实际百万行边界；pr-fast dispatcher selfcheck及差异空白检查通过。后端未变，引用此前180项Python验证。
+- openpyxl独立回读普通大小写/加号、公式样式文本、中文、&及字面量 `_x0041_` 地址，精确一致且均为文本。首次inlineStr回读未自动解码OOXML转义，调整为标准sharedStrings。重叠字面量 `_x005F_x0041_` 的openpyxl 3.1.5读取仍丢片段；使用XlsxWriter 3.2.9生成对照得到完全相同读回现象，确认reader/strings.py的无条件replace行为。独立XML标准单次解码验证全部6地址原样保留，未删除样本或修改原邮箱来迎合读取库。营销APP该罕见字面量导入仍须真实验收。
+- 以上为本地候选，不代表页面已挂载、广筛选/下单日期已接通、全年名单实际验收或受限发布已完成。PR990保持draft；发布适配器仍只有business-html，不能以旧HTML发布器替代本数据工具部署。
+
 ## 业务及生产验收（均待执行，本地测试结果见上）
 
 1. 真实站点与多选游戏目录、截图筛选语义一致。
