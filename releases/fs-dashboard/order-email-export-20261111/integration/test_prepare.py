@@ -138,12 +138,13 @@ vm.createContext(sandbox); vm.runInContext(PAGE,sandbox);
  assert.equal(cfg.endpoint,'/dashboard/users/live-orders.json'); assert.equal(cfg.paged,true);
  assert.equal(JSON.stringify(cfg.games),JSON.stringify([{value:'833',label:'FC26'},{value:'1327',label:'FC27'}]));
  assert.equal(cfg.sites[0].value,'266');
- for(const [url,options] of [['/evil',{method:'POST',body:'{}'}],[cfg.endpoint,{method:'GET'}],[cfg.endpoint,{method:'POST',body:'[]'}],[cfg.endpoint,{method:'POST',body:'{"kind":"bad"}'}]]) {
+ for(const [url,options] of [['https://other.invalid/dashboard/users/live-orders.json',{method:'POST',body:'{}'}],[cfg.endpoint+'?x=1',{method:'POST',body:'{}'}],[cfg.endpoint+'#fragment',{method:'POST',body:'{}'}],['/evil',{method:'POST',body:'{}'}],[cfg.endpoint,{method:'GET'}],[cfg.endpoint,{method:'POST',body:'[]'}],[cfg.endpoint,{method:'POST',body:'{"kind":"bad"}'}]]) {
   assert.throws(()=>cfg.fetch(url,options));
  }
  assert.equal(requests.length,0);
  const signal=new AbortController().signal;
- await cfg.fetch(cfg.endpoint,{method:'POST',body:'{"game_id":"833"}',signal,credentials:'omit',redirect:'follow'});
+ // The real panel resolves its endpoint to an absolute same-origin URL.
+ await cfg.fetch(new URL(cfg.endpoint,sandbox.location.href).href,{method:'POST',body:'{"game_id":"833"}',signal,credentials:'omit',redirect:'follow'});
  const req=requests[0];assert.equal(req.options.credentials,'same-origin');assert.equal(req.options.redirect,'error');assert.equal(req.options.cache,'no-store');
  assert.equal(JSON.parse(req.options.body).kind,'order_email_export_page'); assert.equal(JSON.parse(req.options.body).game_id,'833');
  assert.notEqual(req.options.signal,signal);

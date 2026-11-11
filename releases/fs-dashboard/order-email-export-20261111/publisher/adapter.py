@@ -56,8 +56,6 @@ def contract(manifest):
             raise ValueError('invalid before CAS')
         if row['candidate'] in ('formal.locations.conf', 'range_api.py', 'page.js', 'data-workspace.js') and before is None:
             raise ValueError('existing source requires non-null CAS')
-        if row['candidate'] == 'admin_order_email_export.py' and before is not None:
-            raise ValueError('new module requires null CAS')
     protected = manifest.get('unchangedRequired', [])
     paths = [r.get('path') for r in protected]
     if len(paths) != len(set(paths)) or set(paths) != PROTECTED:

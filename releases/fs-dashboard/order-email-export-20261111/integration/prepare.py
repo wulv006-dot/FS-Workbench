@@ -41,7 +41,8 @@ PAGE_ANCHOR = """    widget = mountDataWorkspace(root, {
       fetch: read, writeFetch: write, start: yesterday, end: yesterday,
 """
 PAGE_REPLACEMENT = """    const orderEmailFetch = (url, options = {}) => {
-      if (url !== '/dashboard/users/live-orders.json' || options.method !== 'POST') throw Error('order_email_endpoint_only');
+      const target = new URL(url, location.href);
+      if (target.href !== new URL('/dashboard/users/live-orders.json', location.origin).href || options.method !== 'POST') throw Error('order_email_endpoint_only');
       const body = JSON.parse(options.body);
       if (!body || typeof body !== 'object' || Array.isArray(body) || Object.hasOwn(body, 'kind')) throw Error('invalid_export_request');
       return fetch(url, {...options, body: JSON.stringify({...body, kind: 'order_email_export_page'}),

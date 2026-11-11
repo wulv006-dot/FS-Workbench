@@ -34,7 +34,7 @@ class ContractTests(unittest.TestCase):
                        lambda m: m.update(runtimeRequired={}), lambda m: m.update(unchangedRequired=[]),
                        lambda m: m['files'][0].update(target='/tmp/arbitrary'),
                        lambda m: m['files'][0].update(beforeSha256=None),
-                       lambda m: next(r for r in m['files'] if r['candidate'] == 'admin_order_email_export.py').update(beforeSha256='a' * 64),
+                       lambda m: next(r for r in m['files'] if r['candidate'] == 'admin_order_email_export.py').update(beforeSha256='bad'),
                        lambda m: m['files'].append(dict(m['files'][0])),
                        lambda m: m['files'][0].update(sha256='bad'),
                        lambda m: m['unchangedRequired'].append({'path': '/tmp/arbitrary', 'sha256': 'b' * 64})):
@@ -119,6 +119,18 @@ class FrozenWriterTests(unittest.TestCase):
         target.write_bytes(b'preexisting')
         with self.assertRaisesRegex(ValueError, 'baseline drift'):
             self.base.inspect(self.m, self.stage, self.root)
+
+    def test_followup_apply_and_rollback_requires_exact_live_cas(self):
+        for row in self.m['files']:
+            target = self.base.rooted(self.root, row['target'])
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b'previous deployed payload')
+            row['beforeSha256'] = hashlib.sha256(target.read_bytes()).hexdigest()
+        self.raw_manifest = json.dumps(self.m).encode()
+        self.sha = hashlib.sha256(self.raw_manifest).hexdigest()
+        backup = Path(self.apply()['backup'])
+        self.base.rollback(backup, self.sha, self.root)
+        self.assert_restored()
 
     def test_apply_rollback_and_ledger(self):
         result = self.apply()
