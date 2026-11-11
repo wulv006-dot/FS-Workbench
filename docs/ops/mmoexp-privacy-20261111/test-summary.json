@@ -10,7 +10,7 @@
     },
     {
       "suite": "journal-archive protection",
-      "passed": 6,
+      "passed": 7,
       "failed": 0
     },
     {
@@ -21,6 +21,11 @@
     {
       "suite": "existing self-check event routing",
       "passed": 27,
+      "failed": 0
+    },
+    {
+      "suite": "latest DM welcome privacy",
+      "passed": 5,
       "failed": 0
     }
   ],
