@@ -17,6 +17,28 @@ function page(request, data = [], total = data.length, next_cursor = null) {
     source_reported_total: total, observed_page_rows: data.length, data, next_cursor };
 }
 
+test('ordinary filter strings, including literal escape text, are preserved', async () => {
+  const { buildOrderEmailRequests } = await modulePromise;
+  for (const key of ['country', 'discount_code']) {
+    for (const value of ['US', 'ExactCode', 'save10', 'u', 'f', '\\u0000', '中国']) {
+      const filters = { [key]: value };
+      for (const request of buildOrderEmailRequests({ ...input(), filters })) {
+        assert.deepEqual(request.filters, filters);
+      }
+    }
+  }
+});
+
+test('filter strings reject actual NUL, newline and DEL characters', async () => {
+  const { buildOrderEmailRequests } = await modulePromise;
+  for (const key of ['country', 'discount_code']) {
+    for (const control of ['\u0000', '\n', '\u007f']) {
+      assert.throws(() => buildOrderEmailRequests({ ...shortInput(),
+        filters: { [key]: 'x' + control + 'z' } }), TypeError);
+    }
+  }
+});
+
 test('filters bind every traversal page and altered response filters erase PII', async () => {
   const { OrderEmailRun } = await modulePromise;
   const filters = {progress:'1',status:'2',country:'US',discount_code:'ExactCode'};
