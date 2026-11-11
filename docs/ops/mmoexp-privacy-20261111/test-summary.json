@@ -1,0 +1,45 @@
+{
+  "application": "1559819072168796240",
+  "release": "2026-11-11.1",
+  "verified": "2026-11-11",
+  "results": [
+    {
+      "suite": "privacy",
+      "passed": 19,
+      "failed": 0
+    },
+    {
+      "suite": "journal-archive protection",
+      "passed": 6,
+      "failed": 0
+    },
+    {
+      "suite": "existing multibrand matching",
+      "passed": 79,
+      "failed": 0
+    },
+    {
+      "suite": "existing self-check event routing",
+      "passed": 27,
+      "failed": 0
+    }
+  ],
+  "baselineComparison": [
+    {
+      "suite": "legacy matching",
+      "baselineFailures": 4,
+      "afterFailures": 4
+    },
+    {
+      "suite": "legacy self-check fixtures",
+      "baselineFailures": 5,
+      "afterFailures": 5
+    }
+  ],
+  "liveChecks": [
+    "Privacy panel returned privately",
+    "Deletion confirmation returned privately and was cancelled",
+    "Read-only member check recognized the operator account allowlist"
+  ],
+  "testData": "Fabricated accounts and records for destructive and cryptographic tests; no real bans or record deletion in the live UI check"
+}
