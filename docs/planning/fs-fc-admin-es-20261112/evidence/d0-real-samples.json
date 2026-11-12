@@ -1,0 +1,206 @@
+{
+  "source_commit": "8a97fdfdfdc2d66974b1878fc28112d35f8dccca",
+  "mode": "existing files read only; candidate modules in memory; committed coupon mapping injected; no export or publication",
+  "samples": [
+    {
+      "width": 19,
+      "available": true,
+      "sha256": "01e61a63bfd9a440c42678893d83f56aa5c9affc4f24ead8b69d8627b3e1417b",
+      "rows": 8321,
+      "headers": [
+        "产品类型",
+        "游戏",
+        "订单号",
+        "订单金额（美元）",
+        "实付金额",
+        "实付币种",
+        "订单状态",
+        "支付大类",
+        "支付方式",
+        "支付账号",
+        "付款时间",
+        "是否新客户",
+        "订单来源",
+        "推广人ID",
+        "折扣码",
+        "国家代码",
+        "优惠类型",
+        "折扣比例",
+        "折扣金额"
+      ],
+      "readers_equal": true,
+      "exact_duplicate_rows": 0,
+      "readers": [
+        {
+          "name": "es_order_structure",
+          "parsed_rows": 8321,
+          "retention_checks_passed": true,
+          "channel_status_counts": {
+            "field_absent": 8321
+          },
+          "first_visit_status_counts": {
+            "field_absent": 8321
+          }
+        },
+        {
+          "name": "session_es_order_structure",
+          "parsed_rows": 8321,
+          "retention_checks_passed": true,
+          "channel_status_counts": {
+            "field_absent": 8321
+          },
+          "first_visit_status_counts": {
+            "field_absent": 8321
+          }
+        }
+      ],
+      "raw_hash_unchanged_after": true
+    },
+    {
+      "width": 21,
+      "available": true,
+      "sha256": "754cd9ac035fa861e92c4f7462479eff2da4fb9306c162965fded5f4388e6621",
+      "rows": 11247,
+      "headers": [
+        "产品类型",
+        "游戏",
+        "订单号",
+        "订单金额（美元）",
+        "实付金额",
+        "实付币种",
+        "订单状态",
+        "支付大类",
+        "支付方式",
+        "支付账号",
+        "付款时间",
+        "是否新客户",
+        "订单来源",
+        "推广人ID",
+        "折扣码",
+        "国家代码",
+        "优惠类型",
+        "折扣比例",
+        "折扣金额",
+        "uid",
+        "buyer_id"
+      ],
+      "readers_equal": true,
+      "exact_duplicate_rows": 0,
+      "readers": [
+        {
+          "name": "es_order_structure",
+          "parsed_rows": 11247,
+          "retention_checks_passed": true,
+          "channel_status_counts": {
+            "field_absent": 11247
+          },
+          "first_visit_status_counts": {
+            "field_absent": 11247
+          }
+        },
+        {
+          "name": "session_es_order_structure",
+          "parsed_rows": 11247,
+          "retention_checks_passed": true,
+          "channel_status_counts": {
+            "field_absent": 11247
+          },
+          "first_visit_status_counts": {
+            "field_absent": 11247
+          }
+        }
+      ],
+      "raw_hash_unchanged_after": true
+    },
+    {
+      "width": 24,
+      "available": true,
+      "sha256": "2f42a1937674668c0763efdcc3a8c54fb80a35574237d11c51ce7ab21c1f7899",
+      "rows": 11814,
+      "headers": [
+        "产品类型",
+        "游戏",
+        "订单号",
+        "订单金额（美元）",
+        "实付金额",
+        "实付币种",
+        "订单状态",
+        "支付大类",
+        "支付方式",
+        "支付账号",
+        "付款时间",
+        "是否新客户",
+        "订单来源",
+        "推广人ID",
+        "折扣码",
+        "国家代码",
+        "优惠类型",
+        "折扣比例",
+        "折扣金额",
+        "uid",
+        "buyer_id",
+        "归因渠道",
+        "归因来源明细",
+        "首访时间"
+      ],
+      "readers_equal": true,
+      "exact_duplicate_rows": 0,
+      "readers": [
+        {
+          "name": "es_order_structure",
+          "parsed_rows": 11814,
+          "retention_checks_passed": true,
+          "channel_status_counts": {
+            "empty": 11679,
+            "available": 135
+          },
+          "first_visit_status_counts": {
+            "empty": 11679,
+            "semantics_unverified": 135
+          }
+        },
+        {
+          "name": "session_es_order_structure",
+          "parsed_rows": 11814,
+          "retention_checks_passed": true,
+          "channel_status_counts": {
+            "empty": 11679,
+            "available": 135
+          },
+          "first_visit_status_counts": {
+            "empty": 11679,
+            "semantics_unverified": 135
+          }
+        }
+      ],
+      "raw_hash_unchanged_after": true
+    }
+  ],
+  "overlap": [
+    {
+      "old_width": 19,
+      "new_width": 21,
+      "shared_orders": 1187,
+      "all_common_fields_equal_orders": 1060,
+      "common_field_changed_orders": 127,
+      "meaning": "observed raw overlap only; not an authorized publication or correction priority"
+    },
+    {
+      "old_width": 21,
+      "new_width": 24,
+      "shared_orders": 11247,
+      "all_common_fields_equal_orders": 11232,
+      "common_field_changed_orders": 15,
+      "meaning": "observed raw overlap only; not an authorized publication or correction priority"
+    },
+    {
+      "old_width": 19,
+      "new_width": 24,
+      "shared_orders": 1187,
+      "all_common_fields_equal_orders": 1060,
+      "common_field_changed_orders": 127,
+      "meaning": "observed raw overlap only; not an authorized publication or correction priority"
+    }
+  ],
+  "checked_at_utc": "2026-11-12T15:32:00Z"
+}
