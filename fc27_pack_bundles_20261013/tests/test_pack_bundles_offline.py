@@ -48,6 +48,15 @@ RATES = {"PS": {"usd_per_k": "0.1257"}, "XBOX": {"usd_per_k": "0.1257"},
 
 
 class FormulaTests(unittest.TestCase):
+    def test_sale_factor_targets_one_percent_without_changing_display_ratio(self):
+        markups = {**MARKUPS, "bundle_sale_factor": Decimal("0.891")}
+        bundle = {"id": "mancity11", "players": [{"futbin_id": fid} for fid in FUTBIN_IDS]}
+        out = mod.compute_bundle(bundle, make_players(), RATES, markups)
+        for platform in ("ps", "xbox", "pc"):
+            price = out[platform]
+            self.assertEqual(price["discount_vs_actual_pct"], -1.0)
+            self.assertAlmostEqual(price["orig"] * 0.7, price["sale"], delta=0.01)
+
     def test_three_platform_rates_have_separate_quotes_and_shared_market_provenance(self):
         rates = json.loads(json.dumps(RATES))
         rates['XBOX']['usd_per_k'] = '0.0900'
