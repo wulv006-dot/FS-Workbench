@@ -1,0 +1,57 @@
+{
+  "base_commit": "b87034de65c068261c03ac6525c5ae7212a7ea4a",
+  "origin_main": "7042edaf90647cbd51ab7df3e35f7b4341f72b3f",
+  "source_sha256": {
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/order_facts.py": "d70dfd7e79492266eb52b208f2f36eaabdf00ef6f2cb8ab510f35c0a11e7c890",
+    "releases/fs-dashboard/dashboard-refresh-20261025/tests/test_order_facts.py": "a5b06b7a82a7c845b292912613c16c7b7e098c891dd5e0bd992d42ce24315a6b",
+    "tools/pr_fast.py": "dc9da41689eaa0d761290283a11235df0df7cbd907f7134f57814e9aef7d263c"
+  },
+  "red": "new test module initially failed import because order_facts did not exist",
+  "author_tests": {
+    "windows": {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    "linux": {
+      "host": "183",
+      "python": "3.9.18",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "exit_code": 0,
+      "isolation": "network none; rootfs read-only; nobody; 0.25 CPU; 256MiB; 128MiB tmpfs; no production mounts"
+    }
+  },
+  "checks": [
+    "Python3.9 AST",
+    "existing pr_fast dispatcher selfcheck",
+    "git diff --check"
+  ],
+  "test_inputs": "synthetic only; no archived or live business rows",
+  "bundle_sha256": "fc2d3957b95f22cbbe688e1e093930b3fe2275921e65cbbede2abe1450c49d22",
+  "log_sha256": {
+    "d2-red.log": "49afb57c73dd72d784af27f8827f4e57f3d481e1bc7f377879c388f839e8ec8d",
+    "d2-tests.log": "67505c79828cc372f894c910a36e429ee355fb8b71d205e8411946d193f1ae0e",
+    "d2-linux.log": "1cd9213339db06b5ba37d6f801feb9633220eb12ac6b5d557fc98e20e7821582",
+    "d2-dispatcher.log": "7454cee63d7d31d381e7d261998ef0eddfb3aca3cc5fcea70c7ac4fc240c5ffc"
+  },
+  "not_verified": [
+    "independent D2 review",
+    "real site/order attribution bridge",
+    "real complete procurement coverage",
+    "consumer integration",
+    "formal CI",
+    "production deployment"
+  ],
+  "unchanged": "D0/D1 code and valid evidence reused; no report/SEO/UI/pricing changes",
+  "knowledge_impact": {
+    "affected_ids": [],
+    "steps": [],
+    "blocking_conflicts": [],
+    "mode": "impact identification only; existing knowledge test evidence reused; no ledger registration or publication"
+  }
+}
