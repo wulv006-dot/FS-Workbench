@@ -38,7 +38,17 @@ No protections were relaxed and no unknown operation was reissued.
 - Windows Python 3.9: 33 Coins evidence tests passed, including closed ALL range,
   live TTL retained, FC27 exact bounds, missing/partial retained; diff check passed.
 - 183 Linux test: pending.
-- PR / required CI / merge: pending.
+- Reader fix PR #1017 merged as `648af714480268b6f3f4e569afef70e8593f83e2`; PR and main push CI passed.
+- Original V2 single-file adapter inspect refused `original_fc_execution_not_quiescent`
+  because its legacy guard reports `all_sync_unconfirmed`. No apply occurred.
+  Current V3 readiness already supports same-ID Order/Admin-closed evidence without
+  changing business reconciliation state. Add the exact existing reader target as
+  `fc-history-read-recovery-20261112` to that current adapter, keeping its queue,
+  UNKNOWN, release locks, reader admission fence, CAS and rollback checks.
+  Only the existing admission-fenced FS reader reload runs; FC sources use fresh
+  subprocesses. No FC restart or timer changes are required.
+- At 17:36 the current guard reported `job_running`: wait for the natural cycle;
+  do not stop it or bypass admission to publish.
 - Restricted original publisher / source readback / natural cycle: pending.
 - No production code modification, service restart or manual repricing performed.
 
