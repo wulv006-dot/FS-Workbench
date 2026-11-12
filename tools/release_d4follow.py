@@ -201,6 +201,28 @@ def repo_known_shas(rels):
     return {rel: {sha_by_oid[o] for o in oids if o in sha_by_oid} for rel, oids in rel_oids.items()}
 
 
+def fixed_commit(value, full=False):
+    """显式基线模式只接受提交 ID；先解析一次，后续读取固定完整 ID。"""
+    pattern = r"[0-9a-fA-F]{40}" if full else r"[0-9a-fA-F]{7,40}"
+    if not re.fullmatch(pattern, value or ""):
+        raise Refused("显式基线模式要求 %s提交 SHA：%r" % ("完整 " if full else "固定 ", value))
+    p = git("rev-parse", "--verify", "%s^{commit}" % value)
+    resolved = p.stdout.decode("ascii", "replace").strip()
+    if p.returncode != 0 or not re.fullmatch(r"[0-9a-fA-F]{40}", resolved):
+        raise Refused("无法解析固定提交：%s" % value)
+    return resolved.lower()
+
+
+def baseline_known_shas(commit, rels):
+    """只以指定提交的同路径内容作证明，不扫描其它 ref 或历史 blob。"""
+    known = {}
+    for rel in rels:
+        safe_rel(rel)
+        data = git_show(commit, UNIT_PREFIX + rel)
+        known[rel] = {sha256_bytes(data)} if data is not None else set()
+    return known
+
+
 # --------------------------------------------------------------------------
 # 远端 IO（ssh / scp）
 # --------------------------------------------------------------------------
@@ -446,11 +468,23 @@ def gather(args):
     if rid:
         check_release_id(rid)
     ref = args.ref
+    baseline = getattr(args, "baseline_ref", None)
+    if baseline:
+        if getattr(args, "allow_unmanaged", False):
+            raise Refused("显式基线模式禁止 --allow-unmanaged")
+        ref = fixed_commit(ref, full=True)
+        baseline = fixed_commit(baseline)
+        args._baseline_commit = baseline
+        print("固定基线证明：%s（只读取本次待变更路径，不扫描历史）" % baseline, flush=True)
     remote = Remote(args.host, args.user, args.key)
     only = _resolve_only(args, ref)
     targets = target_map(ref, only)
     remote_map = remote.hashes(args.remote_dir, list(targets))
-    known = repo_known_shas(list(targets))
+    if baseline:
+        changed_existing = [r for r in targets if remote_map.get(r) and remote_map[r] != targets[r]]
+        known = baseline_known_shas(baseline, changed_existing)
+    else:
+        known = repo_known_shas(list(targets))
     actions, refusals = plan_actions(remote_map, targets, known,
                                      allow_unmanaged=getattr(args, "allow_unmanaged", False))
     return remote, ref, targets, remote_map, known, actions, refusals
@@ -467,7 +501,7 @@ def print_plan(ref, actions, refusals):
                 "OVERRIDE": "⚠ 覆盖远端未纳管内容（人工已确认）"}[kind]
         print("%-34s %-10s %s" % (rel, kind, note))
     for rel, rem, tgt in refusals:
-        print("%-34s %-10s %s" % (rel, "UNMANAGED", "❌ 远端内容在仓库任何 ref 里都找不到：%s" % rem[:16]))
+        print("%-34s %-10s %s" % (rel, "UNMANAGED", "❌ 远端内容不在本次 Git 证明集合中：%s" % rem[:16]))
     print("-" * 88)
     change = [a for a in actions if a[1] != "SAME"]
     print("总计 %d 个文件；需变更 %d；拒发 %d" % (
@@ -478,7 +512,7 @@ def cmd_plan(args):
     _, ref, _, _, _, actions, refusals = gather(args)
     print_plan(ref, actions, refusals)
     if refusals:
-        print("\n结论：会拒发（存在未纳管文件）。如确认可覆盖，再跑 apply 并加 --allow-unmanaged。")
+        print("\n结论：会拒发（存在未纳管文件）。先核对并纳管当前现役版本。")
         return 1
     print("\n结论：可安全发布（无未纳管文件）。")
     return 0
@@ -534,7 +568,7 @@ def cmd_apply(args):
         remote, ref, targets, remote_map, known, actions, refusals = gather(args)
         if refusals:
             print_plan(ref, actions, refusals)
-            raise Refused("存在 %d 个未纳管文件；如确认覆盖请加 --allow-unmanaged" % len(refusals))
+            raise Refused("存在 %d 个未纳管文件；先核对并纳管当前现役版本" % len(refusals))
         change = [a for a in actions if a[1] != "SAME"]
         print_plan(ref, actions, refusals)
         if not change:
@@ -562,6 +596,7 @@ def cmd_apply(args):
             "host": args.host,
             "remoteDir": args.remote_dir,
             "sourceRef": ref,
+            "baselineCommit": getattr(args, "_baseline_commit", None),
             "sourceTree": git("rev-parse", "%s^{tree}" % ref).stdout.decode().strip(),
             "backupDir": backup_dir,
             "stagingDir": remote_tmp,
@@ -671,6 +706,7 @@ def main():
         p.add_argument("--key", default=os.environ.get("D4_RELEASE_KEY"))
         p.add_argument("--remote-dir", default=os.environ.get("D4_RELEASE_DIR", DEFAULT_REMOTE_DIR))
         p.add_argument("--ref", default="HEAD")
+        p.add_argument("--baseline-ref", help="仅用指定固定基线提交证明现役版本，避免扫描全部历史；--ref 须完整提交 SHA")
         p.add_argument("--files", default="", help="逗号分隔的相对路径；留空=整个发布单元")
         p.add_argument("--state-dir", default=os.environ.get("D4_RELEASE_STATE", str(Path.home() / ".d4follow-release")))
         p.add_argument("--apply", action="store_true", help="不加则 dry-run")
