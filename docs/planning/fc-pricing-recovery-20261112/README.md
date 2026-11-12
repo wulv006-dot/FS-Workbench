@@ -49,11 +49,12 @@ No protections were relaxed and no unknown operation was reissued.
   subprocesses. No FC restart or timer changes are required.
 - At 17:36 the current guard reported `job_running`: wait for the natural cycle;
   do not stop it or bypass admission to publish.
-- V3 single-reader scope PR #1019 is not merged. Its 56 release tests pass
-  (one Windows skip). The full 963-test run with Node has one failure and three
-  errors, all in knowledge stage transport (`runtime_baseline_patch_provenance_invalid`);
-  the current knowledge inventory also includes an email-export ID absent from
-  the adapter's older exact inventory. The inventory now includes that existing ID.
+- V3 single-reader scope PR #1019 merged as `f368552f898eda3dc42c7f379e39b0ee3849820f`.
+  PR CI `43196877894` and exact main push CI `43197249244` passed. Windows Python
+  3.9 with Node: all 964 tests passed (18 platform skips), plus 33 reader tests.
+  Its 56 release tests passed (one Windows skip). Earlier knowledge transport
+  failures were isolated without weakening the actual builder refusal;
+  the inventory now includes the already-current email-export ID.
   Transport tests use the last provenance-attested canonical snapshot; a separate
   unmocked CLI regression requires the actual HEAD build to refuse the real
   canonical/runtime mismatch without producing a bundle. No runtime baseline,
@@ -61,8 +62,32 @@ No protections were relaxed and no unknown operation was reissued.
   remains unavailable until its own attested migration. This release is reader-only.
 - At 17:43:13..17:44:08 Shanghai a further natural retry failed with the same
   history error; at 17:45:23 the live source still matched the original SHA above.
-- Restricted original publisher / source readback / natural cycle: pending.
-- No production code modification, service restart or manual repricing performed.
+- Applied the exact main reader bytes with the existing V3 publisher and manifest
+  `babe4d4ff50ebe9550fe16e0751a8370a60df9d8c264418ec5b656a8bc35ed4c`.
+  Receipt/rollback: `/var/backups/fs-navigation-20261006/nav-20261112T100730Z`;
+  status `applied-awaiting-actual-http-role-acceptance`, one target, zero business
+  worker/timer actions. Same-ID closed proofs were retained; no price POSTs.
+- At 18:08:50 Shanghai the live reader SHA is
+  `fc59f87f271f4c02e99d33c570f6e9fe29762bec1d83d198b8b4f7c1a33d7357`.
+  Fresh production `_period_population` calls returned complete for both windows,
+  missing identity 0, eligible 2159 / 2581. FC API/worker and FS reader/range active.
+- Latest pre-release cycle 18:06:28..18:07:17 failed with the original history error.
+  First post-release natural cycle `f1bbbb95-4245-52bc-afba-24c6c64381b6` ran
+  18:38:49..18:39:28 Shanghai and failed `storefront_incomplete` before reaching
+  the business-history consumer. Its competitor snapshot was ready (three valid
+  competitors, costs valid, FX valid), but all public storefront rows unavailable.
+  Therefore full automatic repricing is NOT recovered; this cycle alone does not
+  provide end-to-end acceptance of the history fix. No manual repricing/timer change.
+- At 18:41:33 a single request through the existing shared outbound reader, under
+  the actual `fc27api` identity, returned None (the configured fallback signal;
+  not enough evidence to distinguish upstream status/timeout). At 18:41:46 a single
+  read using the existing direct curl route returned HTTP 429. No retries, new
+  proxies, identity changes, risk-control bypass or degraded price validation were
+  performed. Site/outbound availability remains the live blocker.
+- At 18:11 Shanghai the read-only durable queue showed the failed cycle queued
+  for `2026-11-12T10:37:17.926173+00:00` (18:37:17 Shanghai), attempt 3, circuit
+  retry. An event-driven read-only job observer waits for completion; it neither
+  advances the due time nor dispatches an extra cycle.
 
 Publish only this existing reader through the original history reader release
 adapter and its CAS/locks/backup/rollback controls, using committed main bytes.
