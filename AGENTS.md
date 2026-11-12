@@ -161,3 +161,17 @@ UI 新建、修改与修复统一遵循项目全局 UI 规范，复用现有设�
 - 优先评估复用RPG现有隧道的传输和运维能力；先核对真实协议、端口、用途、负责人、隔离和容量。适合则复用；不适合则记录具体冲突，再设计最小独立通道。复用传输不等于共享业务会话、token、后台账号或writer；本规则不授予修改SSH、防火墙、安全组或隧道参数的权限。
 - 183是本项目Linux测试的默认环境：Linux单测、集成和兼容验证优先使用独立目录或容器并匹配目标Python、依赖及系统行为；Windows、T3等平台专属测试仍在对应环境进行。183的Debian 12通过不自动证明187旧环境兼容。普通已授权隔离测试不逐次重复审批；先确认资源与端口预算及既有RPG不受影响。重负载、破坏性操作、真实改价或订单写入、生产数据写入、凭据或网络变更仍须相应具体授权。183不可用时报告原因并使用已授权的隔离替代环境，不悄悄转到187生产环境。
 - 187保持FC调度、算价和唯一FC writer；183仅提供新增FC采集。故障接替遵守租约、来源总限频、报价TTL及现有原ID、CAS和UNKNOWN对账保护。既有RPG writer保持其独立职责；本规则不改变其他模块。FC P0常驻链路、依赖及每60分钟自然轮不因测试、分流或节省资源而降低能力。
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in this repo's GitHub Issues (`wulv006-dot/FS-Workbench`) and are driven with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles keep their default label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`); wayfinding uses `wayfinder:map` plus `wayfinder:research` / `wayfinder:prototype` / `wayfinder:grilling` / `wayfinder:task`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context layout: the root `GLOSSARY-MAP.md` points to per-context `GLOSSARY.md` files, with system-wide ADRs in `docs/adr/`. See `docs/agents/domain.md`.
