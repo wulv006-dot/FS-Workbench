@@ -2,9 +2,9 @@
 """WoW Forever (gid1364) cost collection and backend integration.
 
 2026-11-08: DD373 and Bijiaqi SELL offers collected in the same round.
-Only confirmed available cost batches >20G qualify. IGGM x1.03 is clamped
-to 15%-40% procurement gross margin. Unknown/no supply freezes the row.
-Hardcore remains untouched. Backend cost is synthetic: target price times
+All valid offers contribute inventory; 150G/50G bands use 25%/30%/35%.
+IGGM remains removed. Unknown freezes; zero supply keeps the prior fallback.
+Hardcore follows DD373 when the zone exists. Backend cost is synthetic: target price times
 FX times (1-backend row margin); true procurement costs live in the ledger.
 See core_wow_sources.py for availability, unit, stock and pricing rules.
 """
@@ -29,9 +29,8 @@ CFG_PATH = os.path.join(HERE, "wow_gold_config.json")
 
 DEFAULTS = {
     "目标金": 21.0, "跳过最低条数": 0,
-    "常规利润率": 0.30, "薄区利润率": 0.30, "兜底价USD": 7.99,
-    "毛利率下限": 0.15, "毛利率上限": 0.40,
-    "低价最小库存金": 20.0, "成本采样金": 21.0, "报价最长时效秒": 1200,
+    "常规利润率": 0.25, "薄区利润率": 0.30, "稀缺利润率": 0.35, "兜底价USD": 7.99,
+    "低价最小库存金": 20.0, "成本采样金": 150.0, "报价最长时效秒": 1200,
     "后台利润率": 0.20, "写入口径": "cost",
 }
 
@@ -167,7 +166,7 @@ def dd_api_tree(log=print):
     return tree
 
 
-def dd_api_items(type_id, zone_id):
+def dd_api_items(type_id, zone_id, target_gold=150):
     """取一个叶子区的订单簿（最多 30 条），转成与 HTML 解析一致的 items。
 
     ⚠ 字段口径（与 AION2 同一个坑，已踩过）：
@@ -205,8 +204,16 @@ def dd_api_items(type_id, zone_id):
                     "unit_rmb": price,
                     "stock": amount * number,
                     "min_qty": amount, "step_qty": amount,
-                    "offer_id": str(r.get("id") or r.get("Id") or ""),
+                    "offer_id": str(r.get("shopno") or (r.get("id") if str(r.get("id")) not in ("0", "None") else "") or ""),
                     "title": r.get("title") or ""})
+    if rows and not out:
+        raise RuntimeError('DD373 invalid offers; incomplete order book')
+    if len(rows) >= 30:
+        if sum(o['stock'] for o in out) < target_gold:
+            raise RuntimeError("DD373 endpoint cap reached; incomplete order book")
+        if any(a['unit_rmb'] > b['unit_rmb'] for a,b in zip(out,out[1:])):
+            raise RuntimeError("DD373 capped order book is not price-sorted; incomplete order book")
+    for o in out: o['book_truncated'] = len(rows) >= 30
     return out
 
 
@@ -262,8 +269,41 @@ def dd_parse_items(html):
                     "faction_raw": segs[2] if len(segs) > 2 else "",
                     "unit_rmb": float(up.group(1)),
                     "stock": float(st.group(1)) if st else 0.0,
-                    "min_qty": float(mn.group(1)) if mn else None})
+                    "min_qty": float(mn.group(1)) if mn else None,
+                    "offer_id": (re.search(r"shopNumber=([A-Za-z0-9-]+)", b).group(1) if re.search(r"shopNumber=([A-Za-z0-9-]+)", b) else None)})
     return out
+
+
+def dd_html_items_all(href):
+    """Read every public result page when the API hits its 30-offer cap."""
+    import html as html_lib
+    out, seen_urls, seen_ids = [], set(), set()
+    expected_pages = None
+    current = href
+    for page_no in range(1, 101):
+        if current in seen_urls: raise RuntimeError('DD373 repeated pagination URL')
+        seen_urls.add(current)
+        html = dd_fetch(current)
+        m = re.search(r'class="[^"]*max-number[^"]*">\s*(\d+)',html)
+        count = int(m.group(1)) if m else 1
+        if expected_pages is None: expected_pages=count
+        if count != expected_pages: raise RuntimeError('DD373 pagination total changed')
+        offers = dd_parse_items(html)
+        if not offers: raise RuntimeError('DD373 HTML contains no verified offers')
+        for offer in offers:
+            ident=offer.get('offer_id')
+            if not ident: raise RuntimeError('DD373 HTML missing offer identity')
+            if ident in seen_ids: raise RuntimeError('DD373 offers shifted across pages')
+            seen_ids.add(ident);out.append(offer)
+        links=[html_lib.unescape(url) for url,body in re.findall(r'<a\b[^>]*href="([^"]+)"[^>]*>(.*?)</a>',html,re.S) if '下一页' in re.sub(r'<[^>]+>','',body)]
+        if page_no==expected_pages:
+            if links: raise RuntimeError('DD373 unexpected extra page')
+            return out
+        if len(links)!=1: raise RuntimeError('DD373 incomplete pagination')
+        current=links[0]
+        if not current.startswith('/s-'): raise RuntimeError('DD373 unexpected page destination')
+        time.sleep(.35)
+    raise RuntimeError('DD373 pagination safety limit exceeded')
 
 
 TREE_CACHE = os.path.join(HERE, "data", "wow_dd_tree.json")
@@ -296,7 +336,7 @@ def _save_tree_cache(tree):
         pass
 
 
-def dd_crawl(log=print, skip_hc=True, refresh_tree=False, source="auto"):
+def dd_crawl(log=print, skip_hc=True, refresh_tree=False, source="auto", parameters=None):
     """抓全部叶子区。source: auto（接口优先、失败回落 HTML）/ api / html。
 
     返回 {(区,类型,阵营): {'href','label','items',...,'source','error'}}
@@ -326,10 +366,15 @@ def dd_crawl(log=print, skip_hc=True, refresh_tree=False, source="auto"):
         items, src, err = None, None, None
         if meta.get("type_id") and source in ("auto", "api") and not api_broken:
             try:
-                items = dd_api_items(meta["type_id"], meta["zone_id"])
+                items = dd_api_items(meta["type_id"], meta["zone_id"],
+                                     float((parameters or {}).get('成本采样金',150)))
                 src = "api"
                 api_ok += 1
             except Exception as e:                  # noqa: BLE001
+                if 'incomplete order book' in str(e):
+                    # Public pagination is currently gated by a human verification page.
+                    # Do not retry that challenge or treat truncated inventory as complete.
+                    items, src, err = [], 'api_incomplete', str(e)
                 api_fail += 1
                 log("  [DD373·接口] %-22s ✗ %r" % (meta["label"], e))
                 if api_ok == 0 and api_fail >= 5:
@@ -338,7 +383,7 @@ def dd_crawl(log=print, skip_hc=True, refresh_tree=False, source="auto"):
                         % api_fail)
         if items is None and source in ("auto", "html"):
             try:
-                items = dd_parse_items(dd_fetch(meta["href"]))
+                items = dd_html_items_all(meta["href"])
                 src = "html"
             except Exception as e:                  # noqa: BLE001
                 items, err = [], repr(e)
@@ -347,6 +392,7 @@ def dd_crawl(log=print, skip_hc=True, refresh_tree=False, source="auto"):
             items, src = [], (src or "none")
         items.sort(key=lambda x: x["unit_rmb"])
         pages[key] = dict(meta, items=items, source=src, captured_at=time.time(),
+                          inventory_complete=not any(o.get("book_truncated", False) for o in items),
                           error=(err if not items else None))
         log("  [DD373·%s] %-22s %2d 条 最低 %.4f 元/金 可买 %.0f 金"
             % (src, meta["label"], len(items),
@@ -359,179 +405,13 @@ def dd_crawl(log=print, skip_hc=True, refresh_tree=False, source="auto"):
     return pages
 
 
-# ---------------------------------------------------------------- IGGM 锚定
-IGGM_FILE = os.path.join(HERE, "data", "wow_iggm.json")
-IGGM_MAP = {("美服", "NORMAL", "A"): "US|Normal-Alliance",
-            ("美服", "NORMAL", "H"): "US|Normal-Horde",
-            ("美服", "PVP", "A"): "US|PVP-Alliance",
-            ("美服", "PVP", "H"): "US|PVP-Horde",
-            ("美服", "RP", "A"): "US|Roleplay-Alliance",
-            ("美服", "RP", "H"): "US|Roleplay-Horde",
-            ("美服", "RP_PVP", "A"): "US|RoleplayPvP-Alliance",
-            ("美服", "RP_PVP", "H"): "US|RoleplayPvP-Horde",
-            ("欧服", "NORMAL", "A"): "EU|Normal-Alliance",
-            ("欧服", "NORMAL", "H"): "EU|Normal-Horde",
-            ("欧服", "PVP", "A"): "EU|PVP-Alliance",
-            ("欧服", "PVP", "H"): "EU|PVP-Horde",
-            ("欧服", "RP", "A"): "EU|Roleplay-Alliance",
-            ("欧服", "RP", "H"): "EU|Roleplay-Horde",
-            ("欧服", "RP_PVP", "A"): "EU|RoleplayPvP-Alliance",
-            ("欧服", "RP_PVP", "H"): "EU|RoleplayPvP-Horde"}
-
-# ── IGGM 兜底通道：Decodo（原 Smartproxy）Web Data API（2026-11-07 接通）──────
-# 背景：IGGM / U4GM 在 183 出口被 Cloudflare managed challenge 拦（机房 IP 被拉黑，
-#   换 TLS 指纹无效，自建 CF Worker 反代也被 403）。实测 Decodo 免费档 /scrape
-#   对 IGGM 金币页与 goods_ajax 均返回 200，16 区单价与本机住宅 IP 采集**逐项一致**。
-# 触发：仅当 wow_iggm.json 缺失或超过 max_age_h 时才补采（每区 1 次请求），
-#   失败后 30 分钟内不再重试，避免白烧额度、也不拖慢 10 分钟主循环。
-IGGM_SID = {"US|Normal-Alliance": 29411, "US|Normal-Horde": 29413,
-            "US|PVP-Alliance": 29415, "US|PVP-Horde": 29417,
-            "US|Roleplay-Alliance": 29419, "US|Roleplay-Horde": 29421,
-            "US|RoleplayPvP-Alliance": 29423, "US|RoleplayPvP-Horde": 29425,
-            "EU|Normal-Alliance": 29427, "EU|Normal-Horde": 29429,
-            "EU|PVP-Alliance": 29431, "EU|PVP-Horde": 29433,
-            "EU|Roleplay-Alliance": 29435, "EU|Roleplay-Horde": 29437,
-            "EU|RoleplayPvP-Alliance": 29439, "EU|RoleplayPvP-Horde": 29441}
-DECODO_CONF = os.path.join(HERE, "data", "decodo.json")
-_DECODO_FAIL = os.path.join(HERE, "data", "_iggm_decodo_fail.json")
-IGGM_AJAX = ("https://www.iggm.com/goods/goods_ajax?template_type=golds"
-             "&server_id=%s&cate_id=0&game_sku=wowforever74")
-
-
-def _decodo_scrape(url, key, timeout=120):
-    """经 Decodo Web Data API 取一个 URL 的正文（HTML 或 JSON 文本）。"""
-    req = urllib.request.Request(
-        "https://data.decodo.com/v1/scrape",
-        data=json.dumps({"url": url, "headless": "html"}).encode("utf-8"),
-        headers={"Authorization": "Bearer " + key,
-                 "Content-Type": "application/json",
-                 "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout, context=_CTX) as r:
-        j = json.loads(r.read().decode("utf-8", "ignore"))
-    return ((j.get("results") or [{}])[0].get("content") or "")
-
-
-def fetch_iggm_decodo(path=None, log=print, sleep_s=0.4):
-    """用 Decodo 直采 IGGM 16 区金币单价并写回 wow_iggm.json。返回成功区数。
-
-    ⚠ 只在 load_iggm 判定「无数据 / 已过期」时调用；正常情况下本机每小时推送，
-      这条通道不消耗额度。账单口径：每区 1 次请求，16 区 ≈ 16 次。
-    """
-    import datetime as _dt
-    path = path or IGGM_FILE
-    try:
-        key = (json.load(open(DECODO_CONF, encoding="utf-8")) or {}).get("key")
-    except Exception:                               # noqa: BLE001
-        log("  [IGGM·Decodo] 未配置 data/decodo.json，跳过兜底")
-        return 0
-    if not key:
-        return 0
-    doc = {"_说明": "Decodo 直采（服务器侧兜底），单价 USD/G", "sku": "wowforever74",
-           "src": "decodo", "ts": _dt.datetime.now().isoformat(timespec="seconds")}
-    ok = 0
-    for label, sid in IGGM_SID.items():
-        try:
-            j = json.loads(_decodo_scrape(IGGM_AJAX % sid, key))
-            one = ((j.get("data") or {}).get("one_goods") or {})
-            p = float(one.get("price") or 0)
-            if p <= 0:
-                raise RuntimeError("无报价")
-            doc[label] = {"price_usd_per_g": p, "title": one.get("title"),
-                          "sid": sid, "src": "decodo"}
-            ok += 1
-        except Exception as e:                      # noqa: BLE001
-            log("  [IGGM·Decodo] %-26s ✗ %r" % (label, e))
-        time.sleep(sleep_s)
-    log("  [IGGM·Decodo] 补采成功 %d / %d 区" % (ok, len(IGGM_SID)))
-    if ok >= 8:                                     # 半数以上成功才落盘，避免残缺表覆盖好数据
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        json.dump(doc, open(path, "w", encoding="utf-8"),
-                  ensure_ascii=False, indent=1)
-        try:
-            os.remove(_DECODO_FAIL)
-        except OSError:
-            pass
-    else:
-        try:
-            json.dump({"ts": _dt.datetime.now().isoformat(timespec="seconds")},
-                      open(_DECODO_FAIL, "w", encoding="utf-8"))
-        except OSError:
-            pass
-    return ok
-
-
-def _decodo_cooldown(minutes=30):
-    """上次兜底失败且未过冷却期 ⇒ True（别每轮都去撞）。"""
-    import datetime as _dt
-    try:
-        ts = json.load(open(_DECODO_FAIL, encoding="utf-8")).get("ts")
-        age = (_dt.datetime.now() - _dt.datetime.fromisoformat(ts)).total_seconds()
-        return age < minutes * 60
-    except Exception:                               # noqa: BLE001
-        return False
-
-
-def load_iggm(path=None, max_age_h=12, log=print):
-    """读 IGGM 单价表；缺失或过期且开了兜底时，用 Decodo 补采一次再读。
-
-    为什么会过期：本机每小时推一次，本机长期关机/自动化停摆后文件就不动了。
-    过期数据不用（避免拿隔夜竞品价定今天的价），改由 Decodo 服务器侧直采。
-    """
-    import datetime as _dt
-    path = path or IGGM_FILE
-
-    def _age_of(doc):
-        try:
-            return (_dt.datetime.now()
-                    - _dt.datetime.fromisoformat(doc.get("ts"))).total_seconds() / 3600.0
-        except Exception:                           # noqa: BLE001
-            return None
-
-    doc, stale = None, False
-    try:
-        doc = json.load(open(path, encoding="utf-8"))
-    except Exception as e:                          # noqa: BLE001
-        log("  [IGGM] 无数据文件（%s）" % e.__class__.__name__)
-        stale = True
-    if doc is not None:
-        age = _age_of(doc)
-        if age is not None and age > max_age_h:
-            log("  [IGGM] 数据已 %.1f 小时（阈值 %.0f），先试兜底" % (age, max_age_h))
-            stale = True
-
-    if stale:
-        import net_util
-        if net_util.iggm_local_preferred():
-            log("  [IGGM] 本机在线优先本机，跳过 Decodo 兜底，本轮不锚定")
-            return {}, (doc or {}).get("ts")
-        mode = str((load_cfg().get("参数") or {}).get("IGGM兜底", "auto") or "auto")
-        if mode == "off":
-            log("  [IGGM] 兜底已关闭（参数.IGGM兜底=off），本轮不锚定")
-            return {}, (doc or {}).get("ts")
-        if _decodo_cooldown():
-            log("  [IGGM] 兜底刚失败过，冷却中，本轮不锚定")
-            return {}, (doc or {}).get("ts")
-        n = fetch_iggm_decodo(path=path, log=log)
-        if n:
-            doc = json.load(open(path, encoding="utf-8"))
-            stale = False
-
-    if not doc or stale:
-        return {}, (doc or {}).get("ts")
-
-    out = {k: v["price_usd_per_g"] for k, v in doc.items()
-           if isinstance(v, dict) and v.get("price_usd_per_g")}
-    src = doc.get("src") or "local-push"
-    log("  [IGGM] %d 个区可用（%s，采集于 %s，%.1f 小时前）"
-        % (len(out), src, doc.get("ts"), _age_of(doc) or 0))
-    return out, doc.get("ts")
+# 2026-11-10 老板定案：IGGM 抓取 / 锚定 / Decodo 兜底整段移除（168 行）。
 
 
 # ---------------------------------------------------------------- 定价
-def price_zone(items, p, fx, iggm_usd=None):
+def price_zone(items, p, fx):
     """Compatibility single-source calculator using the current margin contract."""
-    return WS.price_pair({'items': items, 'captured_at': time.time()}, None,
-                         p, fx, iggm_usd=iggm_usd)
+    return WS.price_pair({'items': items, 'captured_at': time.time()}, None, p, fx)
 
 
 def write_cost_for(b2c, p, fx):
@@ -541,9 +421,8 @@ def write_cost_for(b2c, p, fx):
     return round(b2c * fx * (1 - float(p["后台利润率"])), 6)
 
 
-def build_plan(backend_rows, pages, cfg, fx, iggm=None, log=print, bjq_pages=None):
+def build_plan(backend_rows, pages, cfg, fx, log=print, bjq_pages=None):
     p = cfg["参数"]
-    iggm = iggm or {}
     zone_meta = {(z["区"], z["类型"], z["阵营"]): z for z in cfg.get("区服", [])}
     hold_band = float(p.get("变动闸百分比", 0.5)) / 100.0
     plan = []
@@ -551,28 +430,31 @@ def build_plan(backend_rows, pages, cfg, fx, iggm=None, log=print, bjq_pages=Non
         key = (r["region"], r["type"], r["faction"])
         zmeta = zone_meta.get(key) or {}
         pg = pages.get(key)
-        ig_key = IGGM_MAP.get(key)
-        iggm_usd = iggm.get(ig_key) if ig_key else None
-        if r["type"] == "HC":
+        # 2026-11-10 WB：内测期「HC 一律跳过」的老逻辑作废。公测后韩服已开硬核，
+        #   DD373 有该叶子就正常跟价；DD373 没有该区（美/欧/亚 HC）才跳过。
+        if r["type"] == "HC" and not pg:
             res = {"mode": "Hardcore未开放(跳过)", "margin": None, "avg_rmb": None,
-                   "cost_usd": None, "iggm": iggm_usd, "b2c": r.get("b2c"),
+                   "cost_usd": None, "iggm": None, "b2c": r.get("b2c"),
                    "gold_used": 0.0, "n_items": 0, "n_used": 0, "avail_gold": 0.0,
                    "note": "", "base_price": None, "rule": ""}
         else:
-            res = WS.price_pair(pg, (bjq_pages or {}).get(key), p, fx, iggm_usd=iggm_usd)
+            res = WS.price_pair(pg, (bjq_pages or {}).get(key), p, fx)
+        price_cap = float(p.get('最高售价USD每G', 1.60))
+        res = WS.cap_price_result(res, r.get('b2c'), price_cap)
+        cap_required = (r.get('b2c') or 0) > price_cap and not res.get('cap_exempt')
         row_p = dict(p, 后台利润率=r.get("margin"))
-        writable = (zmeta.get("启用") is True and str(zmeta.get("后台行ID")) == str(r["id"])
+        writable = ((zmeta.get("启用") is True or cap_required) and str(zmeta.get("后台行ID")) == str(r["id"])
                     and WS.number(r.get("margin")) is not None and 0 <= r["margin"] < 1)
+        # 2026-11-10 WB：去掉「HC 永不出单」限制（DD373 有货才走到这里，无货 b2c 为空）。
         new_cost = (write_cost_for(res["b2c"], row_p, fx)
-                    if res["b2c"] and r["type"] != "HC" and writable else None)
+                    if res["b2c"] and writable else None)
         old_b2c = r.get("b2c")
         action = "hold"
         if res["mode"] not in ("Hardcore未开放(跳过)",) and new_cost is not None:
             current_margin = (1 - res["cost_usd"] / old_b2c
                               if old_b2c and res.get("cost_usd") else None)
-            outside_margin = (current_margin is not None and
-                              (current_margin < float(p["毛利率下限"]) - 1e-8 or
-                               current_margin > float(p["毛利率上限"]) + 1e-8))
+            # 2026-11-10：毛利统一 30%，不再有区间闸；要不要改只看变动闸 hold_band。
+            outside_margin = cap_required
             if old_b2c and abs(res["b2c"] / old_b2c - 1) < hold_band and not outside_margin:
                 action = "hold"
             elif old_b2c and res["b2c"] > old_b2c:
@@ -591,14 +473,15 @@ def build_plan(backend_rows, pages, cfg, fx, iggm=None, log=print, bjq_pages=Non
             "均价元每金": res["avg_rmb"], "可买金": res["avail_gold"],
             "用金": res["gold_used"], "挂单数": res["n_items"],
             "用单数": res["n_used"], "规则": res["mode"], "规则0": res.get("rule"),
-            "成本价USD": res.get("cost_usd"), "IGGM": res.get("iggm"),
-            "IGGM倍数": (round(res["b2c"] / res["iggm"], 4)
-                         if res.get("iggm") and res.get("b2c") else None),
+            "成本价USD": res.get("cost_usd"), "IGGM": None, "IGGM倍数": None,
             "备注": res.get("note") or "",
+            "双源价差": res.get("source_gap"), "双源差异告警": res.get("source_gap_alert", False),
             "成本来源": res.get("selected_source"), "双源报价": res.get("source_quotes", []),
             "毛利底价USD": res.get("floor_usd"), "毛利封顶价USD": res.get("ceiling_usd"),
             "后台计算利润率": r.get("margin"), "策略版本": WS.VERSION,
             "利润率": res["margin"], "目标b2c": res["b2c"],
+            "双源无货": res.get("both_empty", False), "上限例外": res.get("cap_exempt", False),
+            "售价上限": price_cap, "触发封顶": res.get("cap_applied", False), "封顶前目标": res.get("uncapped_b2c"), "原目标毛利": res.get("target_margin"),
             "建议采购成本": new_cost,
             "变动pct": (round((res["b2c"] / old_b2c - 1) * 100, 2)
                         if old_b2c and res["b2c"] else None),
@@ -663,3 +546,13 @@ def read_backend_rows(client, cfg, log=print):
                      "b2c": float(b2c.group(1)) if b2c else None})
     log("  [后台] gid=%s 共 %d 行" % (gid, len(rows)))
     return rows
+
+
+
+
+
+
+
+
+
+

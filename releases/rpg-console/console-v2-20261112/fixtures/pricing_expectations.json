@@ -1,0 +1,2241 @@
+{
+  "provenance": "Frozen pure-function output from the pre-console v5.4 source, using only synthetic inputs in settings.json; no runtime baseline dependency.",
+  "wow": [
+    {
+      "stock": [
+        0,
+        0
+      ],
+      "price": {
+        "b2c": 2.99,
+        "margin": null,
+        "gold_used": 0.0,
+        "n_used": 0,
+        "avail_gold": 0.0,
+        "margin_band": "park",
+        "both_empty": true,
+        "selected_source": null
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 2.99,
+            "margin": null,
+            "cap_applied": false,
+            "cap_exempt": true
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 2.99,
+            "margin": null,
+            "cap_applied": false,
+            "cap_exempt": true
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 2.99,
+            "margin": null,
+            "cap_applied": false,
+            "cap_exempt": true
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 2.99,
+            "margin": null,
+            "cap_applied": false,
+            "cap_exempt": true
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        0,
+        25
+      ],
+      "price": {
+        "b2c": 1.041065,
+        "margin": 0.35,
+        "gold_used": 25.0,
+        "n_used": 1,
+        "avail_gold": 25.0,
+        "margin_band": "scarce",
+        "both_empty": null,
+        "selected_source": "比价器"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 1.041065,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 1.041065,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 1.041065,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 1.041065,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        0,
+        75
+      ],
+      "price": {
+        "b2c": 0.966703,
+        "margin": 0.3,
+        "gold_used": 75.0,
+        "n_used": 1,
+        "avail_gold": 75.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "比价器"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.966703,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.966703,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.966703,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.966703,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        0,
+        150
+      ],
+      "price": {
+        "b2c": 0.902256,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 150.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "比价器"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        0,
+        400
+      ],
+      "price": {
+        "b2c": 0.902256,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 400.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "比价器"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1,
+        0
+      ],
+      "price": {
+        "b2c": 0.925391,
+        "margin": 0.35,
+        "gold_used": 1.0,
+        "n_used": 1,
+        "avail_gold": 1.0,
+        "margin_band": "scarce",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1,
+        25
+      ],
+      "price": {
+        "b2c": 0.925391,
+        "margin": 0.35,
+        "gold_used": 1.0,
+        "n_used": 1,
+        "avail_gold": 1.0,
+        "margin_band": "scarce",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1,
+        75
+      ],
+      "price": {
+        "b2c": 0.925391,
+        "margin": 0.35,
+        "gold_used": 1.0,
+        "n_used": 1,
+        "avail_gold": 1.0,
+        "margin_band": "scarce",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1,
+        150
+      ],
+      "price": {
+        "b2c": 0.902256,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 150.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "比价器"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1,
+        400
+      ],
+      "price": {
+        "b2c": 0.902256,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 400.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "比价器"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        49,
+        0
+      ],
+      "price": {
+        "b2c": 0.925391,
+        "margin": 0.35,
+        "gold_used": 49.0,
+        "n_used": 1,
+        "avail_gold": 49.0,
+        "margin_band": "scarce",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        49,
+        25
+      ],
+      "price": {
+        "b2c": 0.925391,
+        "margin": 0.35,
+        "gold_used": 49.0,
+        "n_used": 1,
+        "avail_gold": 49.0,
+        "margin_band": "scarce",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        49,
+        75
+      ],
+      "price": {
+        "b2c": 0.925391,
+        "margin": 0.35,
+        "gold_used": 49.0,
+        "n_used": 1,
+        "avail_gold": 49.0,
+        "margin_band": "scarce",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.925391,
+            "margin": 0.35,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        49,
+        150
+      ],
+      "price": {
+        "b2c": 0.902256,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 150.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "比价器"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        49,
+        400
+      ],
+      "price": {
+        "b2c": 0.902256,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 400.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "比价器"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.902256,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        50,
+        0
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 50.0,
+        "n_used": 1,
+        "avail_gold": 50.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        50,
+        25
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 50.0,
+        "n_used": 1,
+        "avail_gold": 50.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        50,
+        75
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 50.0,
+        "n_used": 1,
+        "avail_gold": 50.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        50,
+        150
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 50.0,
+        "n_used": 1,
+        "avail_gold": 50.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        50,
+        400
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 50.0,
+        "n_used": 1,
+        "avail_gold": 50.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        149,
+        0
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 149.0,
+        "n_used": 1,
+        "avail_gold": 149.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        149,
+        25
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 149.0,
+        "n_used": 1,
+        "avail_gold": 149.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        149,
+        75
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 149.0,
+        "n_used": 1,
+        "avail_gold": 149.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        149,
+        150
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 149.0,
+        "n_used": 1,
+        "avail_gold": 149.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        149,
+        400
+      ],
+      "price": {
+        "b2c": 0.859292,
+        "margin": 0.3,
+        "gold_used": 149.0,
+        "n_used": 1,
+        "avail_gold": 149.0,
+        "margin_band": "thin",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.859292,
+            "margin": 0.3,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        150,
+        0
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 150.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        150,
+        25
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 150.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        150,
+        75
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 150.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        150,
+        150
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 150.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        150,
+        400
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 150.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        151,
+        0
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 151.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        151,
+        25
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 151.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        151,
+        75
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 151.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        151,
+        150
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 151.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        151,
+        400
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 151.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1000,
+        0
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 1000.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1000,
+        25
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 1000.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1000,
+        75
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 1000.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1000,
+        150
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 1000.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    },
+    {
+      "stock": [
+        1000,
+        400
+      ],
+      "price": {
+        "b2c": 0.802006,
+        "margin": 0.25,
+        "gold_used": 150.0,
+        "n_used": 1,
+        "avail_gold": 1000.0,
+        "margin_band": "full",
+        "both_empty": null,
+        "selected_source": "DD373"
+      },
+      "caps": [
+        {
+          "current": 0.5,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 1.6,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 2.99,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        },
+        {
+          "current": 4,
+          "result": {
+            "b2c": 0.802006,
+            "margin": 0.25,
+            "cap_applied": false,
+            "cap_exempt": null
+          }
+        }
+      ]
+    }
+  ],
+  "engine": [
+    {
+      "key": "x",
+      "title": "X",
+      "iggm_title": null,
+      "iggm_no": "x",
+      "mode": "AUTO",
+      "装量": 1,
+      "iggm_old": 9.0,
+      "iggm_new": 10.0,
+      "ours_old": 8,
+      "ours_bid": 8.0,
+      "游戏": "暗黑破坏神4",
+      "计数": 1.0,
+      "_disc_pct": 100.0,
+      "ours_new": 9.8,
+      "target_usd": 9.8,
+      "target_front_usd": 9.8,
+      "cost_cny": null,
+      "cost_usd": null,
+      "margin_old": null,
+      "margin_new": null,
+      "_成本可信": true,
+      "_成本区服": null,
+      "qd_name": null,
+      "action": "follow_up",
+      "applied": 0,
+      "reason": "IGGM 涨价 11.11%($9.0000→$10.0000)，我方标价 $8.0000→$9.8000，预期毛利 0.0%",
+      "_ours_est": 0,
+      "_ours_est_unit": null,
+      "_ours_est_peers": 0,
+      "_ours_est_seen_pack": 1,
+      "跟价": true,
+      "仅展示": false,
+      "trigger": "iggm",
+      "suggest": "follow_up",
+      "floor_usd": null
+    },
+    {
+      "key": "y",
+      "title": "Y",
+      "iggm_title": null,
+      "iggm_no": "y",
+      "mode": "AUTO",
+      "装量": 1,
+      "iggm_old": 9.0,
+      "iggm_new": 10.0,
+      "ours_old": 8,
+      "ours_bid": 8.0,
+      "游戏": "流放之路2",
+      "计数": 1.0,
+      "_disc_pct": 100.0,
+      "ours_new": 9.8,
+      "target_usd": 9.8,
+      "target_front_usd": 9.8,
+      "cost_cny": null,
+      "cost_usd": null,
+      "margin_old": null,
+      "margin_new": null,
+      "_成本可信": true,
+      "_成本区服": null,
+      "qd_name": null,
+      "action": "follow_up",
+      "applied": 0,
+      "reason": "IGGM 涨价 11.11%($9.0000→$10.0000)，我方标价 $8.0000→$9.8000，预期毛利 0.0%",
+      "_ours_est": 0,
+      "_ours_est_unit": null,
+      "_ours_est_peers": 0,
+      "_ours_est_seen_pack": 1,
+      "跟价": true,
+      "仅展示": false,
+      "trigger": "iggm",
+      "suggest": "follow_up",
+      "floor_usd": null
+    }
+  ]
+}
