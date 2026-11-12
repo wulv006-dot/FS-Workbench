@@ -158,12 +158,12 @@
     const sbc=state.view==='sbc';$('sbc-controls').hidden=!sbc;$('sbc-lineup').hidden=!sbc;$('sbc-options').hidden=!sbc;$('product-grid').hidden=sbc;
     const preview=$('weekly-hero-preview');
     if(preview){
-      const picks=scoped(config.weekly.ids).map(key=>({key,item:offer(key)})).map(({key,item})=>({key,item,price:display(item)})).filter(({item,price})=>item&&price.amount!==null&&price.discountAmount>0&&(!standalone||item.native_offer?.checkout_ready)&&(!item.native_offer||item.native_offer.bindings.some(binding=>binding.page_id==='fc27-weekly'&&binding.off_percent===10)));
+      const picks=scoped(config.weekly.ids).map(offer).map(item=>({item,price:display(item)})).filter(({item,price})=>item&&price.amount!==null&&price.discountAmount>0&&(!standalone||item.native_offer?.checkout_ready)&&(!item.native_offer||item.native_offer.bindings.some(binding=>binding.page_id==='fc27-weekly'&&binding.off_percent===10)));
       preview.hidden=!picks.length;
       if(picks.length){
-        $('weekly-hero-picks').textContent=picks.map(({key})=>product(key).title).join(' · ');
         const cheapest=picks.reduce((lowest,pick)=>pick.price.amount<lowest.price.amount?pick:lowest);
-        $('weekly-hero-price').textContent='From '+money(cheapest.price.amount,cheapest.price.currency)+' on '+config.platforms[state.platform].label;
+        $('weekly-hero-price').textContent='From '+money(cheapest.price.amount,cheapest.price.currency);
+        $('weekly-hero-platform').textContent=config.platforms[state.platform].label;
       }
     }
     if(sbc){
