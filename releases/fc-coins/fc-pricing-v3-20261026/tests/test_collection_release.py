@@ -76,7 +76,7 @@ class CollectionRelease(unittest.TestCase):
         process=SimpleNamespace(run=Mock())
         ready=Mock()
         scope=dict(subprocess=process,base=SimpleNamespace(),original_restart=Mock(),restart_with_hermes_readiness=ready,
-            SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection')
+            SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection',HISTORY_READ_SCOPE='history-read')
         scope['LOOTBAR_CALLER_SCOPE']=target_map.LOOTBAR_CALLER_SCOPE
         exec(compile(ast.Module(body=[restart],type_ignores=[]),'collection-restart','exec'),scope)
         for _ in range(2):
