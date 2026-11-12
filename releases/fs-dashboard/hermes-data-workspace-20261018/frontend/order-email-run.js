@@ -21,8 +21,8 @@ function date(value) {
 
 /** Validate an annual request and return fresh game-major, <=28-day bodies. */
 export function buildOrderEmailRequests(input) {
-  requireValid(exactKeys(input, ['site_id', 'game_ids', 'start', 'end_exclusive']) ||
-    exactKeys(input, ['site_id', 'game_ids', 'start', 'end_exclusive', 'filters']));
+  requireValid(object(input) && ['site_id', 'game_ids', 'start', 'end_exclusive'].every(key => Object.hasOwn(input, key)) &&
+    Object.keys(input).every(key => ['site_id', 'game_ids', 'start', 'end_exclusive', 'filters', 'server_ids'].includes(key)));
   if (input.filters !== undefined) {
     const allowed = ['progress', 'status', 'cid', 'content', 'aid', 'recommend_uid', 'discount_code', 'promotion_id', 'pid', 'admin_id', 'country'];
     requireValid(object(input.filters) && Object.keys(input.filters).every(key => allowed.includes(key) &&
@@ -32,13 +32,17 @@ export function buildOrderEmailRequests(input) {
   requireValid(id(input.site_id) && Array.isArray(input.game_ids) &&
     input.game_ids.length > 0 && input.game_ids.length <= 100 &&
     Array.from(input.game_ids).every(id) && new Set(input.game_ids).size === input.game_ids.length);
+  if (input.server_ids !== undefined) requireValid(object(input.server_ids) &&
+    !Object.hasOwn(input.filters || {}, 'aid') && Object.entries(input.server_ids).every(([game, aid]) =>
+      input.game_ids.includes(game) && id(aid)));
   const start = date(input.start), end = date(input.end_exclusive);
   requireValid(end > start && end - start <= 366 * DAY);
   const requests = [];
   for (const game_id of input.game_ids) {
+    const filters = { ...input.filters, ...(Object.hasOwn(input.server_ids || {}, game_id) ? { aid: input.server_ids[game_id] } : {}) };
     for (let t = start; t < end; t += 28 * DAY) requests.push({
       site_id: input.site_id, game_id,
-      ...(input.filters === undefined ? {} : { filters: { ...input.filters } }),
+      ...(Object.keys(filters).length ? { filters: { ...filters } } : {}),
       start: new Date(t).toISOString().slice(0, 10),
       end_exclusive: new Date(Math.min(t + 28 * DAY, end)).toISOString().slice(0, 10),
     });
@@ -47,7 +51,7 @@ export function buildOrderEmailRequests(input) {
 }
 
 export class OrderEmailRun {
-  #requests; #scope; #period;
+  #requests; #scope; #period; #filters; #serverIds;
   #state = 'active'; #index = 0; #pending = false; #cursor = null;
   #cursors = new Set(); #ids = new Set(); #emails = new Map();
   #total = null; #rows = 0; #orders = 0; #missing = 0; #unique = 0; #pages = 0;
@@ -55,6 +59,8 @@ export class OrderEmailRun {
 
   constructor(input) {
     this.#requests = buildOrderEmailRequests(input);
+    this.#filters = input.filters === undefined ? undefined : { ...input.filters };
+    this.#serverIds = input.server_ids === undefined ? undefined : { ...input.server_ids };
     this.#scope = { site_id: input.site_id, game_ids: [...input.game_ids] };
     this.#period = { start: input.start, end_exclusive: input.end_exclusive };
   }
@@ -87,8 +93,9 @@ export class OrderEmailRun {
         payload.scope.site_id === request.site_id && payload.scope.game_id === request.game_id &&
         exactKeys(payload.period, ['start', 'end_exclusive']) &&
         payload.period.start === request.start && payload.period.end_exclusive === request.end_exclusive);
-      if (request.filters !== undefined) requireValid(exactKeys(payload.filters, Object.keys(request.filters)) &&
-        Object.keys(request.filters).every(key => payload.filters[key] === request.filters[key]));
+      requireValid(payload.filters === undefined ? request.filters === undefined :
+        exactKeys(payload.filters, Object.keys(request.filters || {})) &&
+        Object.keys(request.filters || {}).every(key => payload.filters[key] === request.filters[key]));
       const total = payload.source_reported_total, rows = payload.data;
       requireValid(count(total) && (this.#total === null || total === this.#total) &&
         Array.isArray(rows) && count(payload.observed_page_rows) &&
@@ -156,7 +163,8 @@ export class OrderEmailRun {
       limitation: 'live_pagination_not_snapshot', timezone: 'Asia/Shanghai',
       date_field: 'paytime', email_field: 'user_email', deduplication: 'trim_casefold',
       source_reported_total: this.#reported, emails: [...this.#emails.values()],
-      ...(this.#requests[0].filters === undefined ? {} : { filters: { ...this.#requests[0].filters } }),
+      ...(this.#filters === undefined ? {} : { filters: { ...this.#filters } }),
+      ...(this.#serverIds === undefined ? {} : { server_ids: { ...this.#serverIds } }),
       scope: { ...this.#scope, game_ids: [...this.#scope.game_ids] }, period: { ...this.#period } };
   }
 
