@@ -20,6 +20,8 @@ from target_map import (THREE_PLATFORM_NAMES, THREE_PLATFORM_SCOPE, THREE_PLATFO
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
+HISTORY_READ_SCOPE = 'fc-history-read-recovery-20261112'
+HISTORY_READ_TARGETS = {'source/coins_evidence.py': '/opt/fs-hermes-fc/coins_evidence.py'}
 # Exact Git LF normalization of the frozen original publisher (raw CRLF SHA 1d070ee8...).
 BASE_SHA = '57f4baf8db15fc791375b641fb618ef87a867901643bc0aa33f10804b8fcb840'
 FC_PUBLISHER = Path('/var/lib/fc27-cloud/maintenance/local-collection-20261017/publish.py')
@@ -211,7 +213,7 @@ def bundle_release_admission(base, root, manifest=None):
 def checked_manifest(value):
     rows = value.get('files', [])
     scope = value.get('scope')
-    expected = (LOOTBAR_CALLER_TARGETS if scope == LOOTBAR_CALLER_SCOPE else THREE_PLATFORM_TARGETS if scope == THREE_PLATFORM_SCOPE else COUPON_DISPLAY_TARGETS if scope == COUPON_DISPLAY_SCOPE else DAILY_SUMMARY_TARGETS if scope == DAILY_SUMMARY_SCOPE else DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else
+    expected = (HISTORY_READ_TARGETS if scope == HISTORY_READ_SCOPE else LOOTBAR_CALLER_TARGETS if scope == LOOTBAR_CALLER_SCOPE else THREE_PLATFORM_TARGETS if scope == THREE_PLATFORM_SCOPE else COUPON_DISPLAY_TARGETS if scope == COUPON_DISPLAY_SCOPE else DAILY_SUMMARY_TARGETS if scope == DAILY_SUMMARY_SCOPE else DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else
                 SHADOW_TARGETS if scope == SHADOW_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else {})
     if not expected or len(rows) != len(expected) or \
             {r['candidate']: r['target'] for r in rows} != expected:
@@ -253,7 +255,7 @@ def load_base():
         raise ValueError('frozen_publisher_drift')
     approved = checked_manifest(json.loads((HERE / 'approved-manifest.json').read_text('utf-8')))
     scope = approved['scope']
-    active_targets = LOOTBAR_CALLER_TARGETS if scope == LOOTBAR_CALLER_SCOPE else THREE_PLATFORM_TARGETS if scope == THREE_PLATFORM_SCOPE else COUPON_DISPLAY_TARGETS if scope == COUPON_DISPLAY_SCOPE else DAILY_SUMMARY_TARGETS if scope == DAILY_SUMMARY_SCOPE else DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else SHADOW_TARGETS
+    active_targets = HISTORY_READ_TARGETS if scope == HISTORY_READ_SCOPE else LOOTBAR_CALLER_TARGETS if scope == LOOTBAR_CALLER_SCOPE else THREE_PLATFORM_TARGETS if scope == THREE_PLATFORM_SCOPE else COUPON_DISPLAY_TARGETS if scope == COUPON_DISPLAY_SCOPE else DAILY_SUMMARY_TARGETS if scope == DAILY_SUMMARY_SCOPE else DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else SHADOW_TARGETS
     new = frozenset(r['candidate'] for r in approved['files'] if r['beforeSha256'] is None)
     source = raw.decode('utf-8')
     anchor = "r.get('beforeSha256') is None for r in files if not ("
@@ -371,6 +373,11 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
+        if manifest.get('scope') == HISTORY_READ_SCOPE:
+            # FC sources load this module in fresh subprocesses; only the shared
+            # FS reader needs its existing admission-fenced reload.
+            return restart_with_hermes_readiness(base, original_restart,
+                dict(manifest, scope=base.HERMES_UPDATE_SCOPE), admission_fence)
         if manifest.get('scope') == LOOTBAR_CALLER_SCOPE:
             for name in ('fc27-cloud-api.service','fc27-cloud-worker.service','fc-pricing-v3.service'):
                 subprocess.run(['systemctl','restart',name],check=True,timeout=30)

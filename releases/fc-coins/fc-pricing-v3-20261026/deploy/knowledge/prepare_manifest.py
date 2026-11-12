@@ -19,7 +19,7 @@ OLD_POLICY_SHA = '5dfeae7efd57b25b8f738f217f02ece9a06aabb0afc195924f8e3b2d7ba1db
 OLD_CATALOG = 'knowledge-releases/fc-pricing-v3-20261026-11/index.json'
 OLD_CATALOG_SHA = '41202a8f6adbd64cc628fcc3c981e4e4db250f530c5e4d1b8e7b010f79b7789b'
 
-CURRENT_IDS = {'fs.data.sources','fs.data.currency','fs.customer.identity','fs.finance.procurement',
+CURRENT_IDS = {'fs.orders.email_export','fs.data.sources','fs.data.currency','fs.customer.identity','fs.finance.procurement',
     'fc.pricing.constraints','fc.marketing.attribution','fs.procurement.inputs','fs.pricing.parameter-identity',
     'fs.product.identity','fs.customer.lifecycle','fs.learning.methods','fs.project.execution',
     'fs.dashboard.shipping-profit','fc.pricing.v3','fc.reporting.methods','fc.reporting.data',
