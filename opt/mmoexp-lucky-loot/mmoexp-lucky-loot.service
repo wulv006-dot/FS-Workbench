@@ -1,0 +1,30 @@
+[Unit]
+Description=MMOEXP Lucky Loot activity and coupon bot
+After=network-online.target dc-proxy.service
+Wants=network-online.target
+ConditionPathExists=/etc/mmoexp-lucky-loot/enabled
+
+[Service]
+Type=simple
+User=luckyloot
+Group=luckyloot
+WorkingDirectory=/opt/mmoexp-lucky-loot
+ExecStart=/usr/local/bin/node /opt/mmoexp-lucky-loot/app.cjs
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+RuntimeDirectory=mmoexp-lucky-loot
+RuntimeDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWriteDirectories=/var/lib/mmoexp-lucky-loot /etc/mmoexp-lucky-loot /run/mmoexp-lucky-loot
+MemoryLimit=320M
+CPUQuota=30%
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
