@@ -44,6 +44,8 @@ def closed(query, today=None):
 
 
 def full_period(query, period):
+    # Only whole-day queries can be published to the daily archive.
+    if query.get('grain', 'day') != 'day': return False
     return period == {'start': query['start'] + ' 00:00',
                       'end': (date.fromisoformat(query['end']) + timedelta(days=1)).isoformat() + ' 00:00'}
 

@@ -58,6 +58,44 @@ class FilterContract(unittest.TestCase):
   for name in ('primary','shipping'):
    self.assertEqual(result['profile'][name]['status'],'unsupported');self.assertEqual(result['profile'][name]['metrics'],{})
 
+class SummaryArchiveBoundary(unittest.TestCase):
+ def exercise_get(self, selection, should_archive):
+  cache=SummaryCache(Mock(),Mock(),P,shipping_read=Mock(),clock=lambda:100)
+  cache.close();cache.pools={name:Mock() for name in cache.readers}
+  with patch('daily_archive.read',return_value=None),patch('daily_archive.save') as save:
+   self.assertEqual(cache.get(selection)[0],202)
+   entry=cache.entries[key_of(selection)]
+   for name,slot in entry.items():
+    if slot['state']=='pending':
+     slot.update(state='available',at=100,valueAt=100,phase='available',value=dict(
+      status='available',period=copy.deepcopy(selection['period']),
+      capturedAt='2026-11-12T01:00:00+00:00',metrics={},dimensions={}))
+   calls={name:pool.submit.call_count for name,pool in cache.pools.items()}
+   for _ in range(2):
+    code,result=cache.get(selection)
+    self.assertEqual(code,200)
+    self.assertEqual(result['profile']['supplement']['period'],selection['period'])
+   self.assertEqual(save.call_count,2 if should_archive else 0)
+   self.assertEqual(calls,{name:pool.submit.call_count for name,pool in cache.pools.items()})
+   if selection.get('admin_only'):
+    for name in ('Order','Shipping'):
+     cache.pools[name].submit.assert_not_called()
+     self.assertEqual(entry[name]['state'],'not_requested')
+    self.assertEqual(result['profile']['primary']['status'],'unsupported')
+    self.assertEqual(result['profile']['shipping']['status'],'unsupported')
+ def test_cross_day_minute_and_hour_get_return_200_without_day_archive(self):
+  for grain,start,end in [('minute','2026-11-10 23:30','2026-11-11 00:30'),
+                          ('hour','2026-11-10 23:00','2026-11-11 00:00')]:
+   for country in ('','US'):
+    with self.subTest(grain=grain,country=country):
+     self.exercise_get(q(grain=grain,start=start,end=end,**({'country_code':country} if country else {})),False)
+ def test_complete_day_get_still_archives_with_and_without_country(self):
+  for country in ('','US'):
+   with self.subTest(country=country):
+    self.exercise_get(q(**({'country_code':country} if country else {})),True)
+ def test_partial_today_get_does_not_archive_as_complete_day(self):
+  self.exercise_get(q(start='2026-11-12',end='2026-11-12',country_code='US'),False)
+
 class Repurchase(unittest.TestCase):
  def test_native_and_local_repeat_not_silently_replaced(self):
   local={'repeat_rate':{'numerator':13,'denominator':280,'rate':13/280,'status':'available','basis':'at_least_two_distinct_valid_orders_within_selected_period'},'coverage':{'period_complete':True,'identity_deduplication_complete':True,'missing_identity_orders':0,'state_basis':'period_cohort'},'scope':{'site':'unverified-es-sample'}}
@@ -72,6 +110,24 @@ class Repurchase(unittest.TestCase):
  def test_native_valid_whitespace_and_zero_decimal_remain_compatible(self):
   v=repeat_metrics({'repeat_rete':' 0% ','paid_payments':'0.00'}, {})
   self.assertEqual(v['admin_repeat_rate_raw'],' 0% ');self.assertEqual(v['native_repeat_rate']['status'],'not_applicable')
+ def test_complete_replay_zero_denominator_is_not_applicable_only_for_known_empty(self):
+  local={'repeat_rate':{'numerator':0,'denominator':0,'rate':None,'status':'not_mature',
+         'basis':'at_least_two_distinct_valid_orders_within_selected_period'},
+         'coverage':{'period_complete':True,'identity_deduplication_complete':True,'state_basis':'period_cohort'}}
+  value=repeat_metrics({'repeat_rete':'0%','paid_payments':0},{},local)
+  self.assertEqual(value['admin_repeat_rate_raw'],'0%')
+  self.assertEqual(value['native_repeat_rate']['status'],'not_applicable')
+  self.assertEqual((value['local_repeat_rate']['numerator'],value['local_repeat_rate']['denominator']),(0,0))
+  self.assertIsNone(value['local_repeat_rate']['value'])
+  self.assertEqual(value['local_repeat_rate']['status'],'not_applicable')
+  for field in ('period_complete','identity_deduplication_complete'):
+   incomplete=copy.deepcopy(local);incomplete['coverage'][field]=False
+   self.assertEqual(repeat_metrics({}, {},incomplete)['local_repeat_rate']['status'],'unavailable')
+  for changes in ({'status':'pending'},{'status':'unavailable'},{'denominator':1},
+                  {'rate':0},{'basis':'unverified_formula'}):
+   unknown=copy.deepcopy(local);unknown['repeat_rate'].update(changes)
+   result=repeat_metrics({}, {},unknown)['local_repeat_rate']
+   self.assertEqual(result['status'],'unavailable');self.assertIsNone(result['denominator'])
  def test_missing_identity_or_partial_source_not_complete_local_rate(self):
   for coverage in ({'period_complete':False,'identity_deduplication_complete':True},{'period_complete':True,'identity_deduplication_complete':False}):
    v=repeat_metrics({'repeat_rete':'4.33%'},{},{'repeat_rate':{'numerator':13,'denominator':280,'rate':13/280,'status':'partial'},'coverage':coverage,'scope':{}})

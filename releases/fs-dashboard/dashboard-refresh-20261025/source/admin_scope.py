@@ -72,8 +72,10 @@ def repeat_metrics(raw, scope, local=None):
         rate = local.get('repeat_rate') or {}
         result.update(scope=deepcopy(local.get('scope',local.get('query'))),coverage=deepcopy(coverage),
                       data_revision=local.get('data_revision'),definition=rate.get('basis'))
+        known_empty = (rate.get('status') == 'not_mature' and rate.get('numerator') == 0
+                       and rate.get('denominator') == 0 and rate.get('rate') is None)
         complete = (coverage.get('period_complete') is True and coverage.get('identity_deduplication_complete') is True
-                    and coverage.get('state_basis') == 'period_cohort' and rate.get('status') == 'available'
+                    and coverage.get('state_basis') == 'period_cohort' and (rate.get('status') == 'available' or known_empty)
                     and rate.get('basis') == 'at_least_two_distinct_valid_orders_within_selected_period')
         if complete:
             n,d = rate.get('numerator'),rate.get('denominator')

@@ -1,0 +1,37 @@
+{
+  "base_commit": "8839b2f661502717071532f488011149d62bbbb6",
+  "source_sha256": {
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py": "df3a2a34510ac6dc8d5e4730e9308cfc7c5f98bb2bf5f93eece49e9520f814c2",
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/admin_scope.py": "c680d5d6e28bbe38d6fe0edecddbfaca5c4317b24997d6d63b0a5882fd61dc52",
+    "releases/fs-dashboard/dashboard-refresh-20261025/tests/test_filter_contract.py": "2240965b1c9460e9703df8f3aa3b5050c603e85720915267fa2fed271cd128e9"
+  },
+  "archive_fix": {
+    "evidence": "d1-minute-fix.json",
+    "linux_tests": 28,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "reused_after_unrelated_empty_mapping_fix": true
+  },
+  "empty_mapping_fix": {
+    "red_tests": 1,
+    "red_failures": 1,
+    "failure": "known 0/0 was mapped to None/None",
+    "windows_tests": 5,
+    "linux_tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "contract": "complete period + complete identity + period_cohort + known formula + not_mature + 0/0 + null => not_applicable"
+  },
+  "scope": "only the two reviewed D1 defects; existing replay unchanged; no full-suite rerun",
+  "overlay_sha256": "015b75b1a2f0fb4e2c0af739a4f13113e56c30e11dceb672b0c9d4ff1e818d5f",
+  "logs_sha256": {
+    "d1-empty-red.log": "79f624b6face7bcf6424eab05dca711f322ec0a1ad4bec3f74c7487a53ca3db7",
+    "d1-empty-green.log": "5b63e7ac8d6fc3a3c27c65a588bfa347366920f488d95bbbba10dbcff865e39d",
+    "d1-empty-linux.log": "3447f795d782555741976c8d63d5c0a2dd05243d011f6e6529876b9425bffe4f"
+  },
+  "unverified": "Original D1 CI, lxml-dependent test, production image/wiring/acceptance gaps unchanged",
+  "production_actions": false
+}
