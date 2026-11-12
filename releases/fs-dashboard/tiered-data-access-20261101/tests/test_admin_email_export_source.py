@@ -170,13 +170,16 @@ class ExportSourceTests(unittest.TestCase):
         status, result = call({'progress': '7', 'game_ids': ['2', '3']})
         self.assertEqual(status, 200)
         options = result['options']
-        self.assertEqual(set(options), {'sites', 'games', 'progress', 'status', 'cid', 'aid', 'admin_id', 'country'})
+        self.assertEqual(set(options), {'sites', 'games', 'progress', 'status', 'cid', 'aid', 'servers_by_game', 'admin_id', 'country'})
         self.assertEqual(options['sites'], [{'value': '267', 'label': '267 | Site'}])
         self.assertEqual([g['value'] for g in options['games']], ['2', '3', '99'])
         self.assertEqual([o['value'] for o in options['progress']], ['1', '7'])
         self.assertEqual([o['value'] for o in options['status']], ['71', '72'])
         self.assertEqual([o['value'] for o in options['cid']], ['0', '42'])
         self.assertEqual(options['aid'], [{'value': '10', 'label': 'Common'}])
+        self.assertEqual(options['servers_by_game'], {
+            '2': [{'value': '10', 'label': 'Common'}, {'value': '22', 'label': 'Server'}],
+            '3': [{'value': '10', 'label': 'Common'}, {'value': '23', 'label': 'Server'}]})
         self.assertNotIn('unavailable', result)
         self.assertTrue(all(q['arguments'] == {'id': '7'} for q in calls if q['metadata'] == 'status'))
         self.assertEqual({q['arguments']['gid'] for q in calls if q['metadata'] == 'servers'}, {'2', '3'})
@@ -185,7 +188,7 @@ class ExportSourceTests(unittest.TestCase):
         rows['servers'] = []
         self.assertEqual(call({'game_ids': ['2', '3']})[1]['options']['aid'], [])
         del rows['servers']
-        self.assertTrue(all(set(o) == {'value', 'label'} and all(isinstance(v, str) for v in o.values()) for items in options.values() for o in items))
+        self.assertTrue(all(set(o) == {'value', 'label'} and all(isinstance(v, str) for v in o.values()) for key, items in options.items() if key != 'servers_by_game' for o in items))
         self.assertTrue(any(q['page'] == 3 for q in calls))
         self.assertEqual(options['admin_id'], [])
         self.assertEqual(options['country'], [{'value': 'United States', 'label': 'US | United States'}])
@@ -197,6 +200,7 @@ class ExportSourceTests(unittest.TestCase):
         self.assertEqual(initial['options']['status'], [])
         self.assertEqual(initial['options']['cid'], [])
         self.assertEqual(initial['options']['aid'], [])
+        self.assertEqual(initial['options']['servers_by_game'], {})
         self.assertNotIn('unavailable', initial)
         self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries', 'progress'})
         calls.clear()

@@ -17,6 +17,43 @@ function page(request, data = [], total = data.length, next_cursor = null) {
     source_reported_total: total, observed_page_rows: data.length, data, next_cursor };
 }
 
+test('per-game servers expand locally without global leakage and preserve export metadata', async () => {
+  const { OrderEmailRun, buildOrderEmailRequests } = await modulePromise;
+  const selected = { ...input(), game_ids:['26','27','28'], filters:{country:'US'}, server_ids:{'26':'261','27':'271'} };
+  const requests = buildOrderEmailRequests(selected);
+  assert.deepEqual(requests.map(r => r.filters), [{country:'US',aid:'261'},{country:'US',aid:'261'},
+    {country:'US',aid:'271'},{country:'US',aid:'271'},{country:'US'},{country:'US'}]);
+  assert.ok(requests.every(r => !('server_ids' in r)));
+  const run = new OrderEmailRun(selected); selected.server_ids['26'] = '999';
+  let req = run.nextRequest();
+  run.acceptPage({...page(req,[row('a')],2,'cursor'), filters:req.filters});
+  req = run.nextRequest(); assert.equal(req.cursor,'cursor'); assert.equal(req.filters.aid,'261');
+  run.acceptPage({...page(req,[row('b')],2),filters:req.filters});
+  while (run.snapshot().state === 'active') {
+    req = run.nextRequest(); assert.equal(req.cursor,undefined);
+    run.acceptPage({...page(req),filters:req.filters});
+  }
+  const result = run.result();
+  const load = name => import('data:text/javascript;base64,' + readFileSync(join(__dirname,name)).toString('base64'));
+  const csvModule = await load('order-email-csv.js');
+  assert.ok(csvModule.orderEmailTraversalCsv(result).includes('First@example.com'));
+  const csvUrl = 'data:text/javascript;base64,' + readFileSync(join(__dirname,'order-email-csv.js')).toString('base64');
+  const xlsxModule = await import('data:text/javascript;base64,' + Buffer.from(readFileSync(join(__dirname,'order-email-xlsx.js'),'utf8')
+    .replace("'./order-email-csv.js'",JSON.stringify(csvUrl))).toString('base64'));
+  assert.ok(xlsxModule.orderEmailTraversalXlsx(result).byteLength > 0);
+  assert.deepEqual(result.filters,{country:'US'}); assert.deepEqual(result.server_ids,{'26':'261','27':'271'});
+  result.server_ids['26']='changed'; assert.equal(run.result().server_ids['26'],'261');
+  for (const server_ids of [null,[],{'99':'1'},{'26':''},{'26':1},{'26':'１'},{'26':'1'.repeat(21)}])
+    assert.throws(() => buildOrderEmailRequests({...shortInput(),server_ids}),TypeError);
+  assert.throws(() => buildOrderEmailRequests({...shortInput(),filters:{aid:'1'},server_ids:{}}),TypeError);
+  assert.equal(buildOrderEmailRequests({...shortInput(),server_ids:{}})[0].filters,undefined);
+  const invalid = new OrderEmailRun({...shortInput(),server_ids:{'26':'261'}});
+  req = invalid.nextRequest();
+  assert.throws(() => invalid.acceptPage({...page(req),filters:{aid:'271'}}),TypeError);
+  const unfiltered = new OrderEmailRun(shortInput()); req = unfiltered.nextRequest();
+  assert.throws(() => unfiltered.acceptPage({...page(req),filters:{aid:'261'}}),TypeError);
+});
+
 test('ordinary filter strings, including literal escape text, are preserved', async () => {
   const { buildOrderEmailRequests } = await modulePromise;
   for (const key of ['country', 'discount_code']) {
