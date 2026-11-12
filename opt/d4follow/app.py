@@ -3382,6 +3382,15 @@ def task_gold_apply(t, opts):
         t.log("  清缓存意图：%s" % ("清" if _want_cache else "不清（config 里已关）"))
         t.log("  执行方：%s"
               % ("服务器容器 p2pah-srv:1" if _exec_mode == "server" else "本机执行器"))
+        if not payload.get("items"):
+            # 2026-11-07：0 行待改（整单 hold / 全被闸门跳过）时**不派单**。
+            # 背景 J20261107085148：本轮所有区目标价=现价（hold），仍派了一张 0 行工单；
+            # 执行器零写入、无结果文件 ⇒ write_state 落 unknown ⇒ 看护报
+            # rpg_pricing_unknown，还发了「改价结果待核（禁止重复执行）」的噪声告警。
+            t.log("  ⏭ 本轮 0 行待改（全部 hold / 被闸门跳过）→ 不派单")
+            _tickets.append({"游戏": _gname, "工单": fp, "件数": 0,
+                             "任务": None, "跳过": "empty"})
+            continue
         _jid = None
         try:
             _jid = store.local_job_add(
@@ -3676,7 +3685,7 @@ def api_gold_cost():
     #     · 新区 → 取 config 金币.服务区（86 区全都有 g2g_服务区/中文名）
     #   前端第一列改用这三个字段，86 行格式统一。
     _REGION_CN = {"EU": "欧服", "NA West": "北美西", "NA East": "北美东",
-                  "Asia": "日服", "South America": "南美", "SAM": "南美", "Latin": "南美"}
+                  "Asia": "亚服", "South America": "南美", "SAM": "南美", "Latin": "南美"}
     _names = {}
     for _s in ((cfg.get("金币") or {}).get("服务区") or []):
         _k = _s.get("key")
