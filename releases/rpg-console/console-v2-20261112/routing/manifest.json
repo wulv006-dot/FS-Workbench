@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "scope": "rpg-console-route-20261112",
+  "releaseReady": true,
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "candidate": "iggm-web.conf",
+      "target": "/etc/nginx/conf.d/iggm-web.conf",
+      "beforeSha256": "359e1116ddbb5e3bb59be4b8c53065512173a2c2add49cd2ea27db7325644df7",
+      "sha256": "370492b9f23fa33d7edb0b049b1f17bc8997942d0a9fe71a4a77a9b3e1c523f8"
+    }
+  ],
+  "runtimeRequired": {
+    "nginx.service": {"ActiveState": "active"},
+    "auth-portal.service": {"ActiveState": "active"},
+    "rpg183-link.service": {"ActiveState": "active"}
+  },
+  "unchangedRequired": [
+    {"path": "/var/www/dashboard/index.html", "sha256": "5ec1ac5ca2204f913f27f9b68a414d72e764e9c9bb3d563ee5a4aabdf4091475"},
+    {"path": "/opt/auth-portal/auth_portal.py", "sha256": "9a89e86ee65c4c388f832ff142597b5f017f755e613d70f259e3a4fb5e6767e7"},
+    {"path": "/opt/fs-access-policy/access_policy.py", "sha256": "84e7a2f50868eb5764412d7b56e3a4ef2fc81681d0a07a478ad62819add7a95d"},
+    {"path": "/opt/fs-access-policy/rbac.py", "sha256": "171005227ca580f9f5ddf06f11e6cb1dd1ca55cd8bcbc7a341ea860cf2062be9"},
+    {"path": "/etc/systemd/system/rpg183-link.service", "sha256": "61df7481cb49e465f8b5ceb3e3889f7e832d1705ce362442df11a13619423e43"}
+  ]
+}

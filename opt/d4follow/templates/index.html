@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RPG 游戏改价系统</title>
+<base href="{{ console_base|default('/d4/') }}">
+<title>系统维护 · RPG 改价</title>
 <style>
 :root{
   --base:#f5f5f7; --mantle:#ffffff; --crust:#ffffff;
@@ -46,7 +47,7 @@ main{padding:16px 20px 60px;max-width:1680px;margin:0 auto}
 
 /* 开关：2026-09-23 第七轮。原来是一排两个按钮「跟价开关 OFF / AUTO 自动跟价」，
    语义混淆（OFF 关的是什么？AUTO 是"自动"还是"总开关"？），现在拆成语义独立的两张开关卡：
-     左「系统总开关」= 能不能改价；右「自动跟价」= 要不要自动改。开关本体是滑块，
+     左「队列执行开关」= 能不能改价；右「自动跟价」= 要不要自动改。开关本体是滑块，
    开=绿、关=灰，右侧再补一个「开启 / 关闭」文字，不用盯着颜色猜。 */
 .switchbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .master{display:flex;gap:10px;flex-wrap:wrap}
@@ -514,10 +515,10 @@ th{background:#fafafa}
 .actgrp.ticket{border-color:#f2ccd4;background:linear-gradient(180deg,#fffafa,#fdf0f3)}
 .actgrp.ticket>label{color:var(--red)}
 @media(max-width:640px){.actgrp>label{border-right:0;padding-right:0}}
-</style>
+#sec-follow, .toc a[data-to="sec-follow"]{display:none!important}</style>
 </head>
 <body>
-<header>
+<header><a href="{{ console_base|default('/d4/') }}" style="font-weight:600;margin-right:16px">← 返回游戏概览</a>
   <h1>RPG 游戏改价系统</h1>
   <div class="badges" id="badges"></div>
 </header>
@@ -538,9 +539,9 @@ th{background:#fafafa}
       <div class="ctl">
         <div class="master" id="masterBar">
           <div class="swcell" id="swMaster" onclick="setSwitch('master')"
-               title="系统总开关：关闭 = 拦截一切改价（手动放行、自动跟价都改不了）；开启 = 允许改价">
+               title="队列执行开关：关闭后拦截后续队列工单；不含上古直写或已开始执行的工单">
             <span class="swpill"></span>
-            <span class="swtxt"><b>系统总开关</b><span id="swMasterSub">…</span></span>
+            <span class="swtxt"><b>队列执行开关</b><span id="swMasterSub">…</span></span>
             <span class="swst" id="swMasterSt">关闭</span>
           </div>
           <div class="swcell" id="swAuto" onclick="setSwitch('auto')"
@@ -1067,7 +1068,7 @@ async function api(url,opt){
 /* ---------- 渲染 ---------- */
 function renderBadges(d){
   const s=d.switches||{}, b=[];
-  b.push('<span class="badge '+(s.master?'on':'off')+'"><span class="dot"></span>系统总开关：<b>'
+  b.push('<span class="badge '+(s.master?'on':'off')+'"><span class="dot"></span>队列执行开关：<b>'
     +(s.master?'开启':'关闭')+'</b></span>');
   b.push('<span class="badge '+(s.auto?'on':'off')+'"><span class="dot"></span>自动跟价：<b>'
     +(s.auto?'开启':'关闭')+'</b></span>');
@@ -1075,7 +1076,7 @@ function renderBadges(d){
   b.push('<span class="badge">汇率固定 <b>'+d.rate+'</b></span>');
   const qh=d.health&&d.health.qdStaleHours;
   b.push('<span class="badge '+(qh>24?'warn':'')+'">千岛成本 <b>'+(qh==null?'无':qh+'h前')+'</b></span>');
-  if(!s.master) b.push('<span class="badge warn">系统总开关关闭：改价一律拦截</span>');
+  if(!s.master) b.push('<span class="badge warn">队列执行开关关闭：后续队列工单暂停</span>');
   else if(!s.auto) b.push('<span class="badge warn">自动跟价关闭：只出计划，需人工放行</span>');
   $('#badges').innerHTML=b.join('');
 }
@@ -1088,20 +1089,20 @@ function renderSwitches(d){
   a.className='swcell '+(s.auto?'on':'off')+(s.master?'':' dis');
   $('#swMasterSt').textContent=s.master?'开启':'关闭';
   $('#swMasterSub').textContent=s.master
-    ?'允许改价：手动 / 自动都可以':'拦截一切改价，系统只看不改';
+    ?'允许后续队列工单执行':'拦截一切改价，系统只看不改';
   $('#swAutoSt').textContent=s.auto?'开启':'关闭';
   $('#swAutoSub').textContent = s.auto
-    ? (s.master?'采集后自动算并下发':'⚠ 需先打开系统总开关')
+    ? (s.master?'采集后自动算并下发':'⚠ 需先打开队列执行开关')
     : '只出计划，人工放行';
   const ab=$('#btnApply');
-  if(ab){ ab.disabled=!s.master; ab.title=s.master?'':'系统总开关关闭 —— 改价已被拦截'; }
+  if(ab){ ab.disabled=!s.master; ab.title=s.master?'':'队列执行开关关闭 —— 改价已被拦截'; }
 }
 async function setSwitch(name){
   const s=(STATE&&STATE.switches)||{};
   // 总开关关着的时候「自动跟价」是灰的：点它要给明确答复，别静默存一个不生效的值
-  if(name==='auto' && !s.master){ toast('请先打开「系统总开关」——自动跟价要先允许改价才有意义','err'); return; }
+  if(name==='auto' && !s.master){ toast('请先打开「队列执行开关」——自动跟价要先允许改价才有意义','err'); return; }
   const cur = (name==='master') ? !!s.master : !!s.auto;
-  const label = (name==='master') ? '系统总开关' : '自动跟价';
+  const label = (name==='master') ? '队列执行开关' : '自动跟价';
   try{
     await api('api/switch',{method:'POST',body:JSON.stringify({name:name,on:!cur})});
     toast(label+(cur?'已关闭':'已开启'), (!cur)?'ok':'');
@@ -1594,7 +1595,7 @@ function subscribe(tid,title){
 }
 function setBusy(b){
   document.querySelectorAll('main button.btn').forEach(x=>{ if(x.id!=='btnSave') x.disabled=b; });
-  // 任务结束后别把「执行改价」顺手解锁 —— 系统总开关关着就必须一直是禁的
+  // 任务结束后别把「执行改价」顺手解锁 —— 队列执行开关关着就必须一直是禁的
   if(!b && $('#btnApply')) $('#btnApply').disabled=!((STATE&&STATE.switches)||{}).master;
 }
 function simulate(){
@@ -1607,8 +1608,8 @@ function simulate(){
 /* ---------- 改价 ---------- */
 function openApply(){
   const p=(STATE&&STATE.p2pah)||{}, s=(STATE&&STATE.switches)||{};
-  if(!s.master){ toast('系统总开关是「关闭」，改价已被拦截','err'); return; }
-  $('#applyInfo').innerHTML = '系统总开关：<b style="color:var(--green)">开启</b> ｜ 自动跟价：<b>'
+  if(!s.master){ toast('队列执行开关是「关闭」，改价已被拦截','err'); return; }
+  $('#applyInfo').innerHTML = '队列执行开关：<b style="color:var(--green)">开启</b> ｜ 自动跟价：<b>'
     +((s.auto)?'开启':'关闭（本次为人工放行）')+'</b> ｜ '
     +'后台账号：'+(p.账号已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
     +' ｜ 写接口：'+(p.写接口已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
@@ -1639,13 +1640,16 @@ function goldOffRows(rows){
   /* ⚠ 列数必须与 THEAD_COST 对齐（2026-10-02 重排后共 11 列，
      其中 G2G/ELD 两列按 _MSH 可能不渲染 —— 这时用 10 个占位 td）。
      列序：服务区｜G2G｜ELD｜IGGM｜我方当前售价｜差距对比｜利润率｜目标采购成本｜最大档对照｜动作｜改价操作 */
-  const nSrc = (GOLD_DATA && (GOLD_DATA.items||[]).some(x=>x.src_g2g!=null||x.src_eld!=null||x.src_base!=null)) ? 2 : 0;
+  /* 2026-11-10：魔兽页只有 U4GM 一列源，灰行占位要跟着 1 列，否则整行错位。 */
+  const _wowPage = (GOLD_DATA && ((GOLD_DATA.items||[])[0]||{})['游戏']==='WoW Forever');
+  const nSrc = _wowPage ? 1
+    : ((GOLD_DATA && (GOLD_DATA.items||[]).some(x=>x.src_g2g!=null||x.src_eld!=null||x.src_base!=null)) ? 2 : 0);
   const td = '<td class="mono">--</td>';
   const blank = '<td style="color:var(--sub)">--</td>';
   return goldTiles().filter(t=>!t.on&&!have.has(t.key)).map(t=>
     '<tr style="opacity:.55"><td><b>'+esc(t.name)+'</b>'
     +'<div class="small" style="color:var(--sub)">已停跟 ｜ 不参与跟价计算</div></td>'
-    + (nSrc? td+td : '')          /* G2G / ELD */
+    + (nSrc===2 ? td+td : (nSrc===1 ? td : ''))   /* 魔兽=U4GM 单列；其他游戏=G2G/ELD 两列 */
     + td+td+td+td+td+td+td         /* IGGM / 我方 / 差距 / 利润率 / 目标成本 / 最大档 / 动作 */
     + blank                        /* 改价操作 */
     + '</tr>').join('');
@@ -1746,7 +1750,9 @@ async function renderGoldInner(pre){
       return '<td class="num" style="color:var(--sub)">—</td>';
     const n=Number(v);
     if(isNaN(n)) return '<td class="num" style="color:var(--sub)">—</td>';
-    const srcName = ({src_g2g:'G2G', src_eld:'ELD', src_igmm:'IGGM'})[field] || '';
+    /* 2026-11-10：魔兽那张表的 src_g2g 列已经装的是 U4GM 价，标签跟着改。 */
+    const srcName = (field==='src_g2g' && x['游戏']==='WoW Forever')
+      ? 'U4GM' : (({src_g2g:'G2G', src_eld:'ELD', src_igmm:'IGGM'})[field] || '');
     const pick = (x.src_base||'');
     /* 2026-10-02：只有旧 multisrc 模式才标「← 基准」；dd373_markup 下
        G2G/ELD/IGGM **不参与定价**，标基准会误导（只有第2级的 G2G 才是真依据）。 */
@@ -1815,8 +1821,13 @@ async function renderGoldInner(pre){
      只有「多源基准启用」的游戏（AION2）才有 src_g2g/src_eld 数据；
      暗黑4 这些列为空 → 整列隐藏，表格与旧版逐字一致（不影响 D4）。 */
   const _hasMulti = myCost.some(x=>x.src_g2g!=null||x.src_eld!=null||x.src_base!=null);
-  const _MSH = _hasMulti
-    ? ('<th class="num">G2G $/'+_ULX+'</th><th class="num">ELD $/'+_ULX+'</th>') : '';
+  /* 2026-11-10 老板定案：魔兽无限监控源 G2G → **U4GM**，ELD 整列移除；
+     IGGM 恢复但**只监控、不参与定价**。其他游戏（AION2 / 暗黑4）保持原 G2G/ELD 两列。 */
+  const _isWowPage = ((myCost[0]||{})['游戏']==='WoW Forever');
+  const _MSH = _isWowPage
+    ? ('<th class="num" title="U4GM 原始 unit price，仅监控、不参与定价">U4GM $/'+_ULX+'</th>')
+    : (_hasMulti
+        ? ('<th class="num">G2G $/'+_ULX+'</th><th class="num">ELD $/'+_ULX+'</th>') : '');
   /* ==================================================================
      2026-10-02 · 金币监控表头按老板口径重排（用户原话逐列对应）：
        服务区（保持不变）｜G2G价格（仅采集监控）｜ELD价格（同）｜IGGM价格（同）
@@ -1862,7 +1873,8 @@ async function renderGoldInner(pre){
            那个是**展示倍率**（MSCW=1 ⇒ goldUnitLabel 一律返回 'M'），
            用它会把 MSCW 的 ￥/K 误标成 ￥/M、换算 ×10 也就丢了。 */
         const _uK  = (String(x.unitLabel||'').toUpperCase()==='K');
-        const _wuN = _uK ? '万金' : '万基纳';        /* DD373 页面单位名 */
+        const _uG  = (String(x.unitLabel||'').toUpperCase()==='G');
+        const _wuN = _uG ? '金' : (_uK ? '万金' : '万基纳');        /* DD373 页面单位名 */
         const _pw  = _uK ? 10 : 1;                   /* ￥/K → 元/万金 要 ×10（1 万金 = 10 K） */
         const _ddc = (x.dd_ref_cny!=null && x.dd_ref_cny!=='') ? Number(x.dd_ref_cny) : null;
         const tgt = (function(){
@@ -1924,7 +1936,9 @@ async function renderGoldInner(pre){
           /* ⚠ G2G/ELD 两格必须与表头 _MSH 同步：有源才出格。
              原来这里无条件输出、表头却是条件注入 → 暗黑4（无三源）
              表头 9 列而数据行 11 格，整行错位两列。 */
-          + (_hasMulti ? (msCell(x,'src_g2g') + msCell(x,'src_eld')) : '')
+          + (_isWowPage
+              ? msCell(x,'src_g2g')
+              : (_hasMulti ? (msCell(x,'src_g2g') + msCell(x,'src_eld')) : ''))
           + '<td class="num mono">'+pm(x.iggm_per_m, U_COST)+'</td>'
           /* 2026-10-12（老板口径）：「DD373 成本是人民币、前台是美元，加一个前台的人民币价，
              别人就不容易误解、也能直观看到差异」——
@@ -1970,8 +1984,9 @@ async function renderGoldInner(pre){
                           return (v==null) ? null : Number(v);
                       }catch(e){ return null; }
                   })();
-                  _cell += '<div class="small" style="color:var(--sub)">进货 ≈ $'+_cst.toFixed(4)+'/'+_UL
-                         + '（$'+_perM.toFixed(2)+'/M）'
+                  const _ulr = x.unitLabel || _UL;
+                  _cell += '<div class="small" style="color:var(--sub)">进货 ≈ $'+_cst.toFixed(4)+'/'+_ulr
+                         + (String(x.unitLabel)==='G' ? '' : '（$'+_perM.toFixed(2)+'/M）')
                          + (_fl!=null ? ' ｜ 兜底 '+(_fl*100).toFixed(0)+'%' : '') + '</div>';
               }
               return _cell + '</td>';
@@ -2518,10 +2533,10 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
 }
 function openGoldApply(){
   const p=(STATE&&STATE.p2pah)||{}, s=(STATE&&STATE.switches)||{};
-  if(!s.master){ toast('系统总开关是「关闭」，改价已被拦截','err'); return; }
+  if(!s.master){ toast('队列执行开关是「关闭」，改价已被拦截','err'); return; }
   APPLY_KIND='gold_apply';
   $('#modalTitle').textContent='生成金币改价工单（服务器算 · 服务器执行）';
-  $('#applyInfo').innerHTML = '系统总开关：<b style="color:var(--green)">开启</b>'
+  $('#applyInfo').innerHTML = '队列执行开关：<b style="color:var(--green)">开启</b>'
     + ' ｜ 后台账号：'+(p.账号已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
     + '<br>金币改的是<b>采购成本</b>（￥/M），工单在执行时会自动：'
     + '① 写采购成本 → ② 点「更新b2c网站」(getweb=1) <b>不勾「所有区」</b> → ③ 清缓存。'
@@ -3143,7 +3158,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeHist(); jobH
 tocInit();
 setLogOpen(false); paintLogCount();
 loadState();
-setInterval(()=>{ if(!ES) loadState(); }, 60000);
+setInterval(()=>{ if(!ES && !Object.keys(D).length && !Object.keys(SCHED_DIRTY).length) loadState(); }, 60000);
 setInterval(renderLocal, 5000);   // 执行器状态要比主状态刷得更勤
 
 /* 货架自检告警条：只读展示，不自动改配置（用户手动处理）。

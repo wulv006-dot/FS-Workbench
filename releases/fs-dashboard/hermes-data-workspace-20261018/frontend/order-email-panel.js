@@ -24,7 +24,7 @@ function date(value) {
 /** Inclusive calendar dates; UTC arithmetic avoids local DST and timezone shifts.
  * Server remains authoritative for permissions and the rolling date boundary.
  */
-export function orderEmailRequest({ site_id, game_ids, start, end, filters }, sites, games) {
+export function orderEmailRequest({ site_id, game_ids, start, end, filters, server_ids }, sites, games) {
   const siteIds = new Set(directory(sites).map(entry => entry.value));
   const gameIds = new Set(directory(games).map(entry => entry.value));
   if (!siteIds.has(site_id) || !Array.isArray(game_ids) || !game_ids.length ||
@@ -36,12 +36,16 @@ export function orderEmailRequest({ site_id, game_ids, start, end, filters }, si
         Object.keys(filters).some(key => !allowed.includes(key) || typeof filters[key] !== 'string' ||
           !filters[key].length || filters[key].length > 320 || /[\u0000-\u001f\u007f]/.test(filters[key]))) throw new TypeError('Invalid filters');
   }
+  if (server_ids !== undefined && (!server_ids || typeof server_ids !== 'object' || Array.isArray(server_ids) ||
+      Object.hasOwn(filters || {}, 'aid') || Object.entries(server_ids).some(([game, aid]) => !game_ids.includes(game) || !id(aid))))
+    throw new TypeError('Invalid servers');
   const first = date(start), last = date(end);
   const days = (last - first) / 86400000 + 1;
   if (days < 1 || days > 366 || end === '9999-12-31') throw new TypeError('Invalid range');
   last.setUTCDate(last.getUTCDate() + 1);
   return { site_id, game_ids: [...game_ids], start, end_exclusive: last.toISOString().slice(0, 10),
-    ...(filters && Object.keys(filters).length ? { filters: { ...filters } } : {}) };
+    ...(filters && Object.keys(filters).length ? { filters: { ...filters } } : {}),
+    ...(server_ids && Object.keys(server_ids).length ? { server_ids: { ...server_ids } } : {}) };
 }
 
 /** Standalone only: caller supplies a verified endpoint and real directories.
@@ -83,12 +87,12 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   panel.append(el('p', '订单邮箱不代表营销订阅；发送前请应用退订与拒收名单。本工具仅导出，不发送邮件。Excel 导出将地址保存为文本，保留原地址；旧 CSV 导出对公式前缀添加安全单引号。'));
   const form = el('form', null, 'fc-actions');
   form.setAttribute('style', 'align-items:flex-start');
-  const field = (text, tag, name) => {
+  const field = (text, tag, name, container = form) => {
     const label = el('label', text);
     label.setAttribute('style', 'display:flex;flex-direction:column;gap:6px;flex:1 1 200px;min-width:0;max-width:100%');
     const input = el(tag, null, tag === 'select' ? 'hsel' : 'dinput'); input.name = name; input.required = true;
     input.setAttribute('style', 'width:100%;min-width:0;box-sizing:border-box');
-    label.append(input); form.append(label); return input;
+    label.append(input); container.append(label); return input;
   };
   const site = field('站点', 'select', 'site_id');
   // Keep the native select as the single source of request/legacy selection state.
@@ -163,6 +167,10 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     filters[name] = control;
   }
   for (const name of ['progress', 'status', 'cid', 'aid']) filters[name].disabled = true;
+  const serverGroup = el('div'); serverGroup.setAttribute('style', 'display:contents'); form.append(serverGroup);
+  const serverControls = new Map();
+  const resetServers = () => { while (serverGroup.children.length) serverGroup.children[0].remove(); serverControls.clear(); };
+  if (remoteOptions) (filters.aid.parentNode || filters.aid.parent).hidden = true;
   const start = field('下单时间开始（paytime）', 'input', 'start'); start.type = 'date';
   const end = field('下单时间结束（含当天）', 'input', 'end'); end.type = 'date';
   const button = (text, type) => { const node = el('button', text, 'ghostbtn'); node.type = type; return node; };
@@ -178,7 +186,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   status.setAttribute('aria-atomic', 'true'); panel.append(status); root.append(panel);
   let sequence = 0, controller = null, payload = null, blobUrl = null, disposed = false;
   let run = null, paused = false, retryAt = 0;
-  const csv = paged ? orderEmailTraversalCsv : orderEmailCsv;
+  const csv = result => result.traversal_exhausted ? orderEmailTraversalCsv(result) : orderEmailCsv(result);
   const revoke = () => { if (blobUrl !== null) win.URL.revokeObjectURL(blobUrl); blobUrl = null; };
   const clear = () => {
     sequence++; controller?.abort(); controller = null; payload = null; revoke();
@@ -230,16 +238,30 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
         filters.progress.disabled = false;
       }
       // Do not replace independent directories or resurrect a cleared selection.
-      for (const name of ['status', 'cid', 'aid']) {
+      for (const name of (remoteOptions ? ['status', 'cid'] : ['status', 'cid', 'aid'])) {
         const selected = filters[name].value;
         fill(filters[name], data.options[name]);
         if (Array.from(filters[name].children).some(option => option.value === selected)) filters[name].value = selected;
         filters[name].disabled = name === 'status' ? !filters.progress.value : !game.selectedOptions.length;
       }
+      const selectedGames = Array.from(game.selectedOptions, option => option.value);
+      const directories = data.options.servers_by_game || {};
+      if (!directories || typeof directories !== 'object' || Array.isArray(directories) ||
+          Object.keys(directories).some(key => !selectedGames.includes(key))) throw new Error();
+      const previous = new Map(Array.from(serverControls, ([key, control]) => [key, control.value]));
+      resetServers();
+      for (const gameId of selectedGames) {
+        const entries = directories[gameId] === undefined && data.unavailable?.aid ? [] : directories[gameId];
+        if (!Array.isArray(entries) || entries.some(entry => !id(entry.value))) throw new Error();
+        const control = field(`服务区 · ${games.find(entry => entry.value === gameId).label}`, 'select', `aid_${gameId}`, serverGroup);
+        control.required = false; fill(control, entries); control.disabled = !!data.unavailable?.aid;
+        if (entries.some(entry => entry.value === previous.get(gameId))) control.value = previous.get(gameId);
+        serverControls.set(gameId, control);
+      }
       metadataReady = true; query.disabled = false; status.textContent = '请选择范围后查询。';
     } catch {
       if (disposed || current !== metadataSequence) return;
-      clear(); metadataReady = false; query.disabled = true;
+      clear(); resetServers(); metadataReady = false; query.disabled = true;
       filters.status.disabled = filters.cid.disabled = filters.aid.disabled = true;
       status.textContent = 'Admin 筛选选项读取失败，请重新打开面板重试。';
     }
@@ -252,7 +274,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     if (event.target === game || item) {
       syncGames();
       if (remoteOptions) {
-        fill(filters.cid, []); fill(filters.aid, []);
+        resetServers(); fill(filters.cid, []); fill(filters.aid, []);
         filters.cid.disabled = filters.aid.disabled = true;
         return loadOptions();
       }
@@ -268,6 +290,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   };
   const onPause = () => {
     if (disposed || !run || paused || run.snapshot().state !== 'active') return;
+    if (!paged) throw new Error('Traversal interrupted');
     sequence++; controller?.abort(); controller = null; paused = true;
     pause.disabled = true; resume.disabled = false; query.disabled = false;
     panel.removeAttribute('aria-busy');
@@ -281,7 +304,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       status.textContent = `${progress()} 冷却中，请等待 ${Math.ceil((retryAt - Date.now()) / 1000)} 秒后手动重试。`;
       return;
     }
-    paused = false; resume.disabled = true; pause.disabled = false; query.disabled = true;
+    paused = false; if (paged) { resume.disabled = true; pause.disabled = false; } query.disabled = true;
     const current = ++sequence;
     const activeRun = run;
     controller = new win.AbortController();
@@ -341,7 +364,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       }
       const result = activeRun.result();
       csv(result);
-      payload = result; download.disabled = false; pause.disabled = resume.disabled = true;
+      payload = result; download.disabled = false; if (paged) pause.disabled = resume.disabled = true;
       status.textContent = `${progress()} 全部计划窗口遍历结束，可下载 ${format === 'xlsx' ? 'Excel' : 'CSV'}；实时非快照。`;
     } catch {
       if (stale()) return;
@@ -361,10 +384,11 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     let request;
     try { request = orderEmailRequest({ site_id: site.value,
       game_ids: Array.from(game.selectedOptions, option => option.value), start: start.value, end: end.value,
+      ...(remoteOptions ? { server_ids: Object.fromEntries(Array.from(serverControls).filter(([, control]) => control.value !== '').map(([key, control]) => [key, control.value])) } : {}),
       filters: Object.fromEntries(Object.entries(filters).filter(([name, control]) => !control.disabled && control.value !== '').map(([name, control]) => [name, control.value])) }, sites, games); }
     catch { status.textContent = '请选择有效站点、游戏及付款日期（含结束日，最多 366 天）。'; return; }
     const current = sequence;
-    if (paged) {
+    if (paged || request.server_ids) {
       query.disabled = true;
       status.textContent = '正在准备分页查询，尚不可导出。';
       try {
@@ -417,7 +441,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
         download.disabled = true;
         const writer = await import('./order-email-xlsx.js');
         if (disposed || current !== sequence || payload !== selected) return;
-        bytes = (paged ? writer.orderEmailTraversalXlsx : writer.orderEmailXlsx)(selected);
+        bytes = (selected.traversal_exhausted ? writer.orderEmailTraversalXlsx : writer.orderEmailXlsx)(selected);
         type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; extension = 'xlsx';
       } else {
         bytes = csv(selected); type = 'text/csv;charset=utf-8'; extension = 'csv';

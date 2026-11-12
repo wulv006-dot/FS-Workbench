@@ -5,7 +5,8 @@ const { join } = require('node:path');
 const dataUrl = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
 const serializer = dataUrl(readFileSync(join(__dirname, 'order-email-csv.js')));
 const modulePromise = import(dataUrl(readFileSync(join(__dirname, 'order-email-panel.js'), 'utf8')
-  .replace("'./order-email-csv.js'", JSON.stringify(serializer))));
+  .replace("'./order-email-csv.js'", JSON.stringify(serializer))
+  .replace("'./order-email-run.js'", JSON.stringify(dataUrl(readFileSync(join(__dirname, 'order-email-run.js')))))));
 // Fixture directories only; the production module contains no directory defaults.
 const sites = [{ value: '266', label: 'Fixture site' }];
 const games = [{ value: '26', label: 'Fixture A' }, { value: '27', label: 'Fixture B' }];
@@ -100,7 +101,7 @@ async function setup(endpoint = '/test-only-export', remote = false) {
   h.widget.dispose();
 });
 
-const metadata = () => ({options: {sites, games, progress:[], status:[], cid:[], aid:[],
+const metadata = () => ({options: {sites, games, progress:[], status:[], cid:[], aid:[], servers_by_game:{},
   country:[{value:'US',label:'美国'}]}});
 const tick = () => new Promise(resolve => setImmediate(resolve));
 test('progress/status and game dependencies refresh without restoring stale selections', async () => {
@@ -121,12 +122,13 @@ test('progress/status and game dependencies refresh without restoring stale sele
   h.fields.status.value = '11';
   h.fields.game_ids.children[0].selected = true; h.form.fire('change', h.fields.game_ids);
   assert.deepEqual(JSON.parse(h.requests[2].options.body).game_ids, ['26']);
+  data.options.servers_by_game = {'26': [{value:'5',label:'All Server'}]};
   h.respond(2, data); await tick();
-  assert.equal(h.fields.cid.disabled, false); assert.equal(h.fields.aid.disabled, false);
+  assert.equal(h.fields.cid.disabled, false); assert.equal(h.fields.aid.disabled, true);
   assert.equal(h.fields.site_id.value, '266'); assert.equal(h.fields.country.value, 'US');
-  h.fields.cid.value = '4'; h.fields.aid.value = '5';
+  h.fields.cid.value = '4';
   const query = h.form.fire('submit');
-  const selected = {progress:'paid1',status:'11',cid:'4',aid:'5',country:'US'};
+  const selected = {progress:'paid1',status:'11',cid:'4',country:'US'};
   assert.deepEqual(JSON.parse(h.requests[3].options.body).filters, selected);
   h.respond(3, {...success(),scope:{site_id:'266',game_ids:['26']},filters:selected}); await query;
   assert.equal(h.buttons[2].disabled, false);
@@ -134,13 +136,53 @@ test('progress/status and game dependencies refresh without restoring stale sele
   assert.equal(JSON.parse(h.requests[4].options.body).progress, '');
   assert.equal(h.fields.status.value, ''); assert.equal(h.fields.status.disabled, true);
   h.fields.game_ids.children[0].selected = false; h.form.fire('change', h.fields.game_ids);
-  h.respond(5, {...data,options:{...data.options,status:[],cid:[],aid:[]}}); await tick();
+  h.respond(5, {...data,options:{...data.options,status:[],cid:[],aid:[],servers_by_game:{}}}); await tick();
   h.respond(4, data); await tick();
   assert.equal(h.fields.status.value, ''); assert.equal(h.fields.cid.value, ''); assert.equal(h.fields.aid.value, '');
   assert.equal(h.fields.status.disabled, true); assert.equal(h.fields.cid.disabled, true);
   assert.equal(h.fields.country.value, 'US');
   h.widget.dispose();
 });
+test('remote same-label servers stay per-game, reset on parents and expand before page API', async () => {
+  const h = await setup('/test-only-export',true);
+  h.respond(0,metadata()); await tick();
+  h.fields.site_id.value='266'; h.fields.end.value=h.fields.start.value;
+  h.fields.game_ids.children.forEach(o => { o.selected=true; });
+  h.form.fire('change',h.fields.game_ids);
+  const options={...metadata().options,servers_by_game:{'26':[{value:'261',label:'All Server'}],'27':[{value:'271',label:'All Server'}]}};
+  h.respond(1,{options}); await tick();
+  const control = id => walk(h.root).find(node => node.name === 'aid_'+id);
+  assert.ok(text(control('26').parent).includes('Fixture A'));
+  assert.ok(text(control('27').parent).includes('Fixture B'));
+  assert.equal(control('26').value,''); assert.equal(control('27').value,'');
+  control('26').value='261'; control('27').value='271';
+  const pending=h.form.fire('submit'); await tick();
+  for (const [index,aid] of [[2,'261'],[3,'271']]) {
+    const req=JSON.parse(h.requests[index].options.body);
+    assert.deepEqual(req.filters,{aid}); assert.equal(req.server_ids,undefined);
+    h.requests[index].resolve({ok:true,status:206,json:async()=>({status:'partial',complete:false,semantics:'live_non_snapshot',
+      limitation:'live_pagination_not_snapshot',scope:{site_id:req.site_id,game_id:req.game_id},
+      period:{start:req.start,end_exclusive:req.end_exclusive},filters:{aid},timezone:'Asia/Shanghai',date_field:'paytime',
+      email_field:'user_email',deduplication:'trim_casefold',observed_at:'fixture',source_reported_total:0,
+      observed_page_rows:0,data:[],next_cursor:null})}); await tick();
+  }
+  await pending; assert.equal(h.buttons[2].disabled,false);
+  h.buttons[2].click(); assert.equal(h.blobs.size,1);
+  h.form.fire('change',h.fields.game_ids); assert.equal(control('26'),undefined); assert.equal(h.blobs.size,0);
+  h.fields.game_ids.children.forEach(o => { o.selected=false; }); h.form.fire('change',h.fields.game_ids);
+  h.respond(5,metadata()); await tick(); h.respond(4,{options}); await tick();
+  assert.equal(control('26'),undefined); assert.equal(control('27'),undefined);
+  h.widget.dispose();
+});
+
+test('optional server mapping rejects unknown games, invalid IDs and ambiguous global aid', async () => {
+  const {orderEmailRequest}=await modulePromise;
+  for (const server_ids of [null,[],{'99':'1'},{'26':''},{'26':2},{'26':'bad'}])
+    assert.throws(()=>orderEmailRequest({...input,server_ids},sites,games),TypeError);
+  assert.throws(()=>orderEmailRequest({...input,filters:{aid:'1'},server_ids:{}},sites,games),TypeError);
+  assert.equal(orderEmailRequest({...input,server_ids:{}},sites,games).server_ids,undefined);
+});
+
 test('filter echo mismatch never enables a download', async () => {
   const h = await setup(); h.fields.content.value = 'exact';
   const pending = h.form.fire('submit');
@@ -162,7 +204,7 @@ test('authenticated metadata starts with empty optional filters and native progr
     assert.equal(h.fields.status.disabled, true);
     h.fields.site_id.value = '266'; h.fields.game_ids.children[0].selected = true;
     h.form.fire('change', h.fields.game_ids);
-    h.respond(1, data); await tick();
+    h.respond(1, {...data, options:{...data.options, servers_by_game:{'26':[]}}}); await tick();
     assert.equal(h.requests.length, 2);
     assert.match(text(h.root), /未指定的条件不传/);
     assert.doesNotMatch(text(h.root), /默认为已支付|均为已支付|默认为已完成/);
