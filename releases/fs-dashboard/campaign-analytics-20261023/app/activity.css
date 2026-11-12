@@ -387,3 +387,12 @@
 #review-savings .fca-price-breakdown{max-width:none}
 #review-savings .fca-saving-row{color:#075bc0}
 @media(max-width:700px){.fca-platforms{padding:18px 12px;margin:12px 0 20px}.fca-selection-summary{gap:18px;padding:22px 18px}.fca-summary-checkout{border-left:0;border-top:1px solid #ffffff30;padding:18px 0 0}.fca-summary-checkout>strong{font-size:30px}.fca-summary-total-label{font-size:12px}.fca-price-breakdown{font-size:13px}.fca-price-origin{gap:6px}.fca-price-origin del{font-size:13px}.fca-price-origin span{font-size:11px}.fca-review-total{gap:12px}.fca-review-total>strong{font-size:26px}}
+
+.fca-hero-preview[hidden]{display:none}
+.fca-hero-preview{max-width:540px;margin:0 0 20px;padding:14px 17px;background:#06152cdd;border-left:4px solid var(--fca-blue);border-radius:7px}
+.fca-hero-discount{display:inline-block;padding:5px 9px;border-radius:4px;background:#0865d7;color:#fff;font-size:14px;line-height:1.2}
+.fca-hero-picks{margin:10px 0 6px;color:#fff;font-size:14px;font-weight:700;line-height:1.45;overflow-wrap:anywhere}
+.fca-hero-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 12px;margin:0;color:#cee1fa}
+.fca-hero-price strong{color:#fff;font-size:19px}
+.fca-hero-price small{font-size:11px;line-height:1.4}
+@media(max-width:700px){.fc-activity[data-view="weekly"] .fca-hero-content{padding-top:18px;padding-bottom:18px}.fc-activity[data-view="weekly"] .fca-hero-kicker{margin-bottom:8px}.fc-activity[data-view="weekly"] .fca-hero h1{font-size:clamp(27px,7vw,34px);margin-bottom:12px}.fc-activity[data-view="weekly"] .fca-hero-preview{margin-bottom:12px;padding:11px 13px}.fc-activity[data-view="weekly"] .fca-hero-picks{font-size:13px;margin:7px 0 4px}.fc-activity[data-view="weekly"] .fca-hero-price strong{font-size:17px}.fc-activity[data-view="weekly"] .fca-hero-body{margin-bottom:12px}.fc-activity[data-view="weekly"] .fca-hero-art{height:120px}}
