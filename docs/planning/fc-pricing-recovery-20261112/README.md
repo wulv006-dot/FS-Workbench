@@ -49,6 +49,18 @@ No protections were relaxed and no unknown operation was reissued.
   subprocesses. No FC restart or timer changes are required.
 - At 17:36 the current guard reported `job_running`: wait for the natural cycle;
   do not stop it or bypass admission to publish.
+- V3 single-reader scope PR #1019 is not merged. Its 56 release tests pass
+  (one Windows skip). The full 963-test run with Node has one failure and three
+  errors, all in knowledge stage transport (`runtime_baseline_patch_provenance_invalid`);
+  the current knowledge inventory also includes an email-export ID absent from
+  the adapter's older exact inventory. The inventory now includes that existing ID.
+  Transport tests use the last provenance-attested canonical snapshot; a separate
+  unmocked CLI regression requires the actual HEAD build to refuse the real
+  canonical/runtime mismatch without producing a bundle. No runtime baseline,
+  provenance, builder protection or business rule was changed; knowledge publishing
+  remains unavailable until its own attested migration. This release is reader-only.
+- At 17:43:13..17:44:08 Shanghai a further natural retry failed with the same
+  history error; at 17:45:23 the live source still matched the original SHA above.
 - Restricted original publisher / source readback / natural cycle: pending.
 - No production code modification, service restart or manual repricing performed.
 

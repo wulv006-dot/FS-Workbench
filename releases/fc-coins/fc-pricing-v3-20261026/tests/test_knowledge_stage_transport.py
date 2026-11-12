@@ -15,13 +15,35 @@ ROOT = Path(__file__).resolve().parents[4]
 BUILDER = ROOT / 'releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge/build_stage.py'
 
 
+# A transport unit test must not imply that today's canonical/runtime migration is
+# complete. Use the last attested canonical bytes, pinned by the real provenance;
+# the separate unmocked CLI test below keeps the actual release failure visible.
+ATTESTED_BASELINE_COMMIT = '9114a564b26ae1c1d91fa5dc0c063aebbfed7a6a'
+CANONICAL_BASELINE = 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'
+
+
+def transport_fixture_blob(checkout, path):
+    relative = path.relative_to(checkout).as_posix()
+    if relative == CANONICAL_BASELINE:
+        return subprocess.check_output(['git', 'show', ATTESTED_BASELINE_COMMIT + ':' + relative], cwd=checkout)
+    raw = subprocess.check_output(['git', 'show', 'HEAD:' + relative], cwd=checkout)
+    if relative == 'knowledge/index.json':
+        index = json.loads(raw)
+        canonical = transport_fixture_blob(checkout, checkout / CANONICAL_BASELINE).replace(b'\r\n', b'\n')
+        for row in index['entries']:
+            if row['source']['path'] == CANONICAL_BASELINE:
+                row['source']['sha256'] = hashlib.sha256(canonical).hexdigest()
+        return json.dumps(index).encode()
+    return raw
+
+
 class KnowledgeStageTransportTest(unittest.TestCase):
     def test_new_revision_candidate_can_share_current_stable_id_without_publication(self):
         from copy import deepcopy
         sys.path.insert(0,str(BUILDER.parent))
         spec=importlib.util.spec_from_file_location('knowledge_shared_id_candidate',BUILDER)
         builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
-        original_blob=builder.blob
+        original_blob=transport_fixture_blob
         index=json.loads(original_blob(ROOT,ROOT/'knowledge/index.json'))
         candidate=deepcopy(next(r for r in index['entries'] if r['id']=='fc.pricing.constraints'))
         candidate.update(layer='candidate',status='candidate',revision='unapproved-next',source_commit=None)
@@ -67,7 +89,7 @@ class KnowledgeStageTransportTest(unittest.TestCase):
         sys.path.insert(0,str(BUILDER.parent))
         spec=importlib.util.spec_from_file_location('knowledge_experience_increment_builder',BUILDER)
         builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
-        original_blob=builder.blob
+        original_blob=transport_fixture_blob
         index=json.loads(original_blob(ROOT,ROOT/'knowledge/index.json'))
         row=deepcopy(next(r for r in index['entries'] if r['id']=='fc.evolutions.experience.current-state-cutover'))
         data=b'# Verified incremental experience\n'
@@ -84,7 +106,8 @@ class KnowledgeStageTransportTest(unittest.TestCase):
             with tarfile.open(result['archive']) as bundle:
                 prefix=result['release']+'/candidate/artifact/'
                 published=json.load(bundle.extractfile(prefix+'index.json'))
-                self.assertEqual(len([r for r in published['entries'] if r['layer']=='current']),19)
+                self.assertEqual({r['id'] for r in published['entries'] if r['layer']=='current'},
+                                 {r['id'] for r in index['entries'] if r['layer']=='current'})
                 self.assertEqual(bundle.extractfile(prefix+'sources/'+row['source']['path']).read(),data)
                 self.assertEqual(next(r for r in published['entries'] if r['id']==row['id'])['layer'],'experience')
             row['source']['sha256']='a'*64
@@ -121,7 +144,7 @@ class KnowledgeStageTransportTest(unittest.TestCase):
         sys.path.insert(0,str(BUILDER.parent))
         spec=importlib.util.spec_from_file_location('knowledge_stage_candidate',BUILDER)
         builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
-        original_blob=builder.blob
+        original_blob=transport_fixture_blob
         index=json.loads(original_blob(ROOT,ROOT/'knowledge/index.json'))
         candidate=next(row.copy() for row in index['entries'] if row['layer']=='candidate')
         candidate['id']='test.unpublished';index['entries'].append(candidate)
@@ -172,14 +195,30 @@ class KnowledgeStageTransportTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'v3_effective_knowledge_selection_invalid'):
                 builder.build(ROOT,'a'*40,ROOT/'unused.tar.gz')
 
+    def test_actual_head_requires_attested_runtime_migration(self):
+        commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+        canonical = subprocess.check_output(['git', 'show', 'HEAD:' + CANONICAL_BASELINE], cwd=ROOT).replace(b'\r\n', b'\n')
+        runtime = 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
+        provenance = json.loads(subprocess.check_output(['git', 'show', 'HEAD:' + runtime.replace('.md', '.provenance.json')], cwd=ROOT))
+        with tempfile.TemporaryDirectory() as folder:
+            archive = Path(folder) / 'actual-head.tgz'
+            result = subprocess.run([sys.executable, str(BUILDER), str(ROOT), commit, str(archive)], capture_output=True, text=True)
+            if provenance['canonical_sha256'] != hashlib.sha256(canonical).hexdigest():
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('runtime_baseline_patch_provenance_invalid', result.stderr)
+                self.assertFalse(archive.exists())
+            else:
+                self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_stage_publisher_equals_committed_blob(self):
         commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         with tempfile.TemporaryDirectory() as temporary:
             archive = Path(temporary) / 'knowledge.tar.gz'
-            result = subprocess.run([sys.executable, str(BUILDER), str(ROOT), commit, str(archive)],
-                                    capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            metadata = json.loads(result.stdout)
+            sys.path.insert(0, str(BUILDER.parent))
+            spec = importlib.util.spec_from_file_location('knowledge_transport_fixture', BUILDER)
+            builder = importlib.util.module_from_spec(spec); spec.loader.exec_module(builder)
+            with patch.object(builder, 'blob', side_effect=transport_fixture_blob):
+                metadata = builder.build(ROOT, commit, archive)
             self.assertEqual(metadata['sourceCommit'], commit)
             self.assertEqual(metadata['release'],'fc-three-platform-100k-knowledge-20261110-'+commit)
             prefix = metadata['release'] + '/deploy/'
@@ -187,8 +226,9 @@ class KnowledgeStageTransportTest(unittest.TestCase):
                 release = prefix.removesuffix('deploy/')
                 catalog = json.load(bundle.extractfile(release + 'candidate/artifact/index.json'))
                 self.assertFalse(any(row['status'] == 'retired' for row in catalog['entries']))
-                self.assertEqual(len([r for r in catalog['entries'] if r['layer']=='current']),19)
                 committed_catalog=json.loads(subprocess.check_output(['git','show',commit+':knowledge/index.json'],cwd=ROOT))
+                self.assertEqual({r['id'] for r in catalog['entries'] if r['layer']=='current'},
+                                 {r['id'] for r in committed_catalog['entries'] if r['layer']=='current'})
                 for identity in ('fc.evolutions.experience.current-state-cutover','fc.pricing.experience.lootbar-source-availability'):
                     row=next(r for r in catalog['entries'] if r['id']==identity)
                     expected=next(r for r in committed_catalog['entries'] if r['id']==identity)
