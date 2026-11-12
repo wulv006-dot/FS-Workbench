@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""WoW Forever public SELL offers and stock-backed 15%-40% pricing.
+"""WoW Forever public SELL offers and stock-backed pricing.
 
 No demand/buy-order endpoint is used. Public published offers are availability
 evidence, not an executed purchase. Only this round's source observations count.
+
+2026-11-12: 150G/50G inventory bands; 25/30/35% margins; compare final sale prices.
 """
 import concurrent.futures
 import datetime as dt
@@ -14,7 +16,7 @@ import urllib.request
 
 BASE = 'https://www.bijiaqi.com'
 REGIONS = {10109: '美服', 10110: '欧服', 10111: '亚服', 10116: '韩服'}
-VERSION = 'wow-dual-stock-v3-20261108'
+VERSION = 'wow-dual-stock-v5.4-20261112'
 
 
 def number(value):
@@ -54,9 +56,6 @@ def parse_offers(rows, game_id, region, expected_key):
         if row.get('unit') != 'G':
             raise ValueError('unexpected sell unit')
         merchant = row.get('merchant') or {}
-        # Never coerce "false" or missing online state to True.
-        if merchant.get('online') is not True:
-            continue
         price, stock, minimum = (number(row.get(x)) for x in
                                   ('price', 'effectiveQuantity', 'warnQuantity'))
         if price is None or stock is None or minimum is None:
@@ -66,14 +65,14 @@ def parse_offers(rows, game_id, region, expected_key):
         seller = str(merchant.get('userId') or '')
         if not seller:
             raise ValueError('missing seller identity')
-        # Repeated listings from one seller may represent shared inventory.
-        # Keep one cheapest quote rather than adding their stock together.
-        if seller in seen:
+        # De-duplicate identical offer IDs, retaining distinct supplier listings.
+        # Each distinct published offer contributes its displayed inventory.
+        if str(row.get('id') or '') in seen:
             continue
-        seen.add(seller)
+        seen.add(str(row.get('id') or ''))
         result.append({'unit_rmb': price, 'stock': stock, 'min_qty': minimum,
                        'seller_id': seller, 'offer_id': str(row.get('id') or ''),
-                       'online': True, 'title': row.get('title') or ''})
+                       'online': merchant.get('online'), 'title': row.get('title') or ''})
     return sorted(result, key=lambda x: x['unit_rmb'])
 
 
@@ -128,7 +127,7 @@ def bjq_crawl(log=print):
                                   'items': offers, 'error': None, 'source': 'bijiaqi_public_sell',
                                   'captured_at': time.time(), 'started_at': started,
                                   'raw_count': total}
-                    log('[比价器·出货] %s %s/%s 总%d 在线可买%d条' % (*key, total, len(offers)))
+                    log('[比价器·出货] %s %s/%s 总%d 有效出货%d条' % (*key, total, len(offers)))
                 except Exception as error:
                     pages[key] = {'items': [], 'error': repr(error), 'href': url,
                                   'source': 'bijiaqi_public_sell', 'captured_at': time.time()}
@@ -162,94 +161,129 @@ def collect_pair(dd_crawl, log=print):
 
 
 def source_cost(page, source, parameters, now=None):
-    minimum_stock = float(parameters.get('低价最小库存金', 20))
-    target = float(parameters.get('成本采样金', 21))
-    if target <= minimum_stock:
-        raise ValueError('cost sample must exceed inventory threshold')
+    """Ascending executable order book, weighted by purchasable gold."""
+    target = float(parameters.get('成本采样金', 150))
+    boundary = float(parameters.get('薄区阈值金',50))
+    if not number(target) or not number(boundary) or not 0 < boundary < target:
+        raise ValueError('invalid sample target')
     if not page or page.get('error'):
         return None
     captured = page.get('captured_at')
-    if captured is not None and (not math.isfinite(captured) or
-            (now or time.time()) - captured > float(parameters.get('报价最长时效秒', 1200)) or
-            captured > (now or time.time()) + 5):
+    now = time.time() if now is None else now
+    if captured is None or number(captured) is None or now-captured > float(parameters.get('报价最长时效秒',1200)) or captured > now+5:
         return None
-    valid = []
+    valid, seen = [], set()
     for offer in page.get('items') or []:
-        price, stock, lot_min = (number(offer.get(x)) for x in ('unit_rmb', 'stock', 'min_qty'))
-        if (price is None or stock is None or lot_min is None or price <= 0 or
-                stock <= 0 or lot_min <= 0 or stock < lot_min):
+        price, stock, minimum = (number(offer.get(k)) for k in ('unit_rmb','stock','min_qty'))
+        if price is None or stock is None or minimum is None or min(price, stock, minimum) <= 0 or stock < minimum:
             continue
-        valid.append(offer)
-    valid.sort(key=lambda x: x['unit_rmb'])
-    # A cheap 20G quote cannot borrow the stock of a dearer quote to pass >20G.
-    # Pick the lowest PRICE LEVEL whose own independently listed stock qualifies.
-    levels = {}
-    for offer in valid:
-        levels.setdefault(Decimal(str(offer['unit_rmb'])), []).append(offer)
-    qualified = [offers for _, offers in sorted(levels.items())
-                 if sum(x['stock'] for x in offers) > minimum_stock]
-    if not qualified:
+        ident = offer.get('offer_id')
+        if ident and ident in seen:
+            continue
+        if ident: seen.add(ident)
+        valid.append(dict(offer,unit_rmb=price,stock=stock,min_qty=minimum))
+    valid.sort(key=lambda o:o['unit_rmb'])
+    total = sum(o['stock'] for o in valid)
+    result = dict(source=source,avg_rmb=None,gold_used=0.,avail_gold=total,avail_total=total,
+                  inventory_complete=page.get('inventory_complete',True),
+                  n_items=len(valid),n_used=0,url=page.get('href',''),legs=[],captured_at=captured)
+    if not result['inventory_complete'] and total < target:
         return None
-    valid = qualified[0]
-    available = sum(x['stock'] for x in valid)
-    amount, cost, legs = 0., 0., []
-    for offer in valid:
-        if amount >= target:
-            break
-        take = min(offer['stock'], max(offer['min_qty'], target - amount))
-        if offer.get('step_qty'):
-            take = min(offer['stock'], math.ceil(take / offer['step_qty'] - 1e-9) * offer['step_qty'])
-        if take < offer['min_qty']:
-            continue
+    if not valid:
+        if page.get('items') or page.get('raw_count',0):
+            return None  # Existing but invalid offers are not a confirmed empty market.
+        return dict(result,insufficient=True,short_reason='本轮无报价挂单')
+    amount, cost = 0., 0.
+    for o in valid:
+        if total < target:
+            take=o['stock']
+        else:
+            if amount >= target: break
+            take=min(o['stock'],max(o['min_qty'],target-amount))
+            step=number(o.get('step_qty'))
+            if step and step>0:
+                take=min(o['stock'],math.ceil(take/step-1e-9)*step)
         amount += take
-        cost += take * offer['unit_rmb']
-        legs.append({'price': offer['unit_rmb'], 'gold': take,
-                     'minimum': offer['min_qty'], 'stock': offer['stock'],
-                     'offer_id': offer.get('offer_id'), 'seller_id': offer.get('seller_id')})
-    if amount <= minimum_stock:
-        return None
-    return {'source': source, 'avg_rmb': cost / amount, 'gold_used': amount,
-            'avail_gold': available, 'n_items': len(valid), 'n_used': len(legs),
-            'url': page.get('href') or '', 'legs': legs, 'captured_at': captured}
+        cost += take*o['unit_rmb']
+        result['legs'].append(dict(price=o['unit_rmb'],gold=take,stock=o['stock'],minimum=o['min_qty'],offer_id=o.get('offer_id'),seller_id=o.get('seller_id')))
+    result.update(avg_rmb=cost/amount,gold_used=amount,n_used=len(result['legs']),all_stock_avg_rmb=sum(o['unit_rmb']*o['stock'] for o in valid)/total,
+                  offers=valid)
+    if not result['inventory_complete']:
+        result['observed_stock_avg_rmb']=result.pop('all_stock_avg_rmb')
+    return result
 
 
-def price_pair(dd_page, bjq_page, parameters, fx, iggm_usd=None):
-    if not number(fx) or fx <= 0:
-        raise ValueError('invalid FX')
-    quotes = [q for q in (source_cost(dd_page, 'DD373', parameters),
-                         source_cost(bjq_page, '比价器', parameters)) if q]
-    if not quotes:
-        return {'mode': '无已确认>20G货源·冻结', 'margin': None, 'avg_rmb': None,
-                'cost_usd': None, 'iggm': iggm_usd, 'b2c': None, 'gold_used': 0.,
-                'n_items': 0, 'n_used': 0, 'avail_gold': 0.,
-                'note': '不跟IGGM，不把采集失败当无货，不写旧兜底价',
-                'source_quotes': [], 'selected_source': None, 'rule': VERSION}
-    chosen = min(quotes, key=lambda q: q['avg_rmb'])
-    cost = Decimal(str(chosen['avg_rmb'])) / Decimal(str(fx))
-    lo = Decimal(str(parameters.get('毛利率下限', .15)))
-    hi = Decimal(str(parameters.get('毛利率上限', .40)))
-    if not Decimal('0') <= lo <= hi < Decimal('1'):
-        raise ValueError('invalid margin bounds')
-    quantum = Decimal('.000001')
-    floor = (cost / (1 - lo)).quantize(quantum, rounding=ROUND_CEILING)
-    ceiling = (cost / (1 - hi)).quantize(quantum, rounding=ROUND_FLOOR)
-    if floor > ceiling:
-        raise ValueError('no price within margin bounds at write precision')
-    if number(iggm_usd) and iggm_usd > 0:
-        target = Decimal(str(iggm_usd)) * Decimal(str(parameters.get('IGGM锚定倍数', 1.03)))
-        mode = ('15%毛利兜底·不跟IGGM' if target < floor else
-                '%d%%毛利封顶·不跟IGGM' % round(float(hi)*100) if target > ceiling else '有货·IGGM×1.03')
-    else:
-        margin = Decimal(str(parameters.get('常规利润率', .30)))
-        margin = max(lo, min(hi, margin))
-        target = cost / (1 - margin)
-        mode = '有货·成本定价(无有效IGGM)'
-    price = min(ceiling, max(floor, target.quantize(quantum)))
-    margin = 1 - cost / price
-    return {'mode': mode, 'margin': float(margin), 'avg_rmb': chosen['avg_rmb'],
-            'cost_usd': float(cost), 'iggm': iggm_usd, 'b2c': float(price),
-            'gold_used': chosen['gold_used'], 'n_items': chosen['n_items'],
-            'n_used': chosen['n_used'], 'avail_gold': chosen['avail_gold'],
-            'note': '以本轮可买报价为成本；来源%s；同一价位库存严格>20G；未下单锁货' % chosen['source'],
-            'selected_source': chosen['source'], 'source_quotes': quotes,
-            'floor_usd': float(floor), 'ceiling_usd': float(ceiling), 'rule': VERSION}
+def price_pair(dd_page,bjq_page,parameters,fx):
+    if not number(fx) or fx<=0: raise ValueError('invalid FX')
+    results=[source_cost(dd_page,'DD373',parameters),source_cost(bjq_page,'比价器',parameters)]
+    quotes=[q for q in results if q and not q.get('insufficient')]
+    target=float(parameters.get('成本采样金',150))
+    boundary=float(parameters.get('薄区阈值金',50))
+    for q in quotes:
+        band = 'full' if q['avail_total']>=target else 'thin' if q['avail_total']>=boundary else 'scarce'
+        key, default={'full':('常规利润率',.25),'thin':('薄区利润率',.30),'scarce':('稀缺利润率',.35)}[band]
+        margin=Decimal(str(parameters.get(key,default)))
+        if not 0<=margin<1: raise ValueError('invalid margin')
+        cost=Decimal(str(q['avg_rmb']))/Decimal(str(fx))
+        q.update(margin=float(margin),margin_band=band,cost_usd=float(cost),
+                 b2c=float((cost/(1-margin)).quantize(Decimal('.000001'),rounding=ROUND_CEILING)))
+    if quotes:
+        chosen=min(quotes,key=lambda q:q['b2c'])
+        gap=max(q['b2c'] for q in quotes)/min(q['b2c'] for q in quotes)-1 if len(quotes)==2 else None
+        return dict(mode='库存分档·%d%%毛利'%round(chosen['margin']*100),
+            margin=chosen['margin'],avg_rmb=chosen['avg_rmb'],cost_usd=chosen['cost_usd'],iggm=None,b2c=chosen['b2c'],
+            gold_used=chosen['gold_used'],n_items=chosen['n_items'],n_used=chosen['n_used'],avail_gold=chosen['avail_total'],
+            note=policy_description(parameters)+'；未下单锁货',
+            margin_band=chosen['margin_band'],selected_source=chosen['source'],source_quotes=[q for q in results if q],
+            source_gap=gap,source_gap_alert=gap is not None and gap>.5,
+            floor_usd=chosen['b2c'],ceiling_usd=chosen['b2c'],rule=VERSION)
+    short=[q for q in results if q and q.get('insufficient')]
+    # Preserve the existing zero-stock fallback only; nonzero scarce stocks now price at 35%.
+    both_empty = len(short) == 2
+    park=2.99 if both_empty else None
+    if park is not None and park<=0: raise ValueError('invalid zero-stock fallback')
+    return dict(mode=('双源无货·$%g/G'%park) if both_empty else '货源未确认·冻结',margin=None,avg_rmb=None,cost_usd=None,
+        iggm=None,b2c=park,gold_used=0.,n_items=0,n_used=0,avail_gold=0.,
+        note=('双方均确认无报价挂单，按用户要求$%g/G'%park) if both_empty else '缺少双源无货确认，保持现价',
+        both_empty=both_empty,margin_band='park' if both_empty else 'frozen',source_quotes=[q for q in results if q],selected_source=None,
+        floor_usd=park,ceiling_usd=park,source_gap=None,source_gap_alert=False,rule=VERSION)
+
+
+
+
+def cap_price_result(result, current_price, cap=1.60):
+    """The user ceiling applies even to zero-stock/frozen/Hardcore prices."""
+    if number(cap) is None or cap <= 0: raise ValueError('invalid price cap')
+    result=dict(result)
+    proposed=result.get('b2c')
+    if proposed is None: proposed=current_price
+    result['uncapped_b2c']=proposed
+    result['target_margin']=result.get('margin')
+    if result.get('both_empty'):
+        result.update(b2c=2.99,cap_applied=False,cap_exempt=True,floor_usd=2.99,ceiling_usd=2.99)
+        return result
+    # A failed collection keeps the previous 2.99 exception until new evidence arrives.
+    if result.get('margin_band')=='frozen' and current_price is not None and abs(current_price-2.99)<1e-6:
+        result.update(cap_applied=False,cap_exempt=True)
+        return result
+    result['cap_applied']=proposed is not None and proposed>cap
+    if result['cap_applied']:
+        result['b2c']=cap
+        result['margin']=1-result['cost_usd']/cap if result.get('cost_usd') is not None else None
+        result['mode']='售价封顶$%.2f/G'%cap
+        result['note']=(result.get('note') or '')+'；用户统一售价上限优先，封顶前$%s/G；利润按封顶价重算'%proposed
+        result['floor_usd']=result['ceiling_usd']=cap
+    return result
+
+
+def policy_description(parameters):
+    target=float(parameters.get('成本采样金',150))
+    boundary=float(parameters.get('薄区阈值金',50))
+    full=float(parameters.get('常规利润率',.25))*100
+    thin=float(parameters.get('薄区利润率',.30))*100
+    scarce=float(parameters.get('稀缺利润率',.35))*100
+    return ('双源库存加权：≥%gG采样%gG/%g%%，%g至不足%gG全量/%g%%，'
+            '不足%gG全量/%g%%；起购整件可略超；分别算售价择低'
+            %(target,target,full,boundary,target,thin,boundary,scarce))
+
+

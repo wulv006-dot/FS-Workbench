@@ -60,6 +60,16 @@ jobs:
           if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^opt/(mmoexp-fc-community/|mmoexp-fc-quotes/|fc27-news-fetch/|bot-console/(server.py|test_fc_console.py|static/fc27.html)$)'; then
             python -m pip install --disable-pip-version-check -r opt/mmoexp-fc-community/requirements.txt
           fi
+      - name: Prepare RPG console runtime dependency
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^(opt/d4follow/|releases/rpg-console/console-v2-20261112/|tools/release_d4follow.py$)'; then
+            python -m pip install --disable-pip-version-check -r releases/rpg-console/console-v2-20261112/tests/requirements.txt
+          fi
       - name: Prepare affected browser check
         shell: bash
         env:

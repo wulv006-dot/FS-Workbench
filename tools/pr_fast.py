@@ -467,6 +467,15 @@ def select(paths):
     for name in paths:
         if name.startswith('opt/mmoexp-lucky-loot/') or name == 'opt/bot-console/lucky_proxy.py':
             groups.add('lucky-loot');continue
+        if name.startswith('releases/rpg-console/console-v2-20261112/'):
+            groups.add('rpg-console');continue
+        if name in ('opt/d4follow/app.py', 'opt/d4follow/console_web.py',
+                    'opt/d4follow/console_config.py', 'opt/d4follow/game_parameters.py',
+                    'opt/d4follow/engine.py', 'opt/d4follow/core_gold.py',
+                    'opt/d4follow/core_dd373_cost.py', 'opt/d4follow/core_wow_sources.py',
+                    'opt/d4follow/core_wow_gold.py', 'opt/d4follow/wow_gold_apply.py',
+                    'opt/d4follow/templates/console.html', 'tools/release_d4follow.py'):
+            groups.add('rpg-console')
         if name.startswith('releases/fs-dashboard/order-email-export-20261111/'):
             groups.add('order-email-deployment');continue
         if name in ('tools/release_channel.py', 'tools/test_release_channel.py'):
@@ -1176,6 +1185,10 @@ def main():
         elif group=="rpg":
             units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
             units("opt/d4follow",["test_wow_sources","test_iggm_local_first"])
+        elif group=="rpg-console":
+            units("releases/rpg-console/console-v2-20261112/tests",
+                  ["test_game_parameters", "test_console_config", "test_integration",
+                   "test_safety_review", "test_release_safety"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
         elif group=="lucky-loot":

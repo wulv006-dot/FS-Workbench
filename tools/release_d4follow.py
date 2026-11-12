@@ -14,9 +14,9 @@
   ① plan（只读）：远端 sha256 vs 仓库目标 sha256，逐文件给出处置判定；
   ② 旧版 / 未纳管守卫：远端内容若在仓库任何 ref 里都找不到对应版本 ⇒ 判定
      UNMANAGED 并拒发。这是防「覆盖掉服务器上直接改过的活代码」的唯一闸门；
-  ③ apply（受控发布）：发布锁 → 远端整目录备份 → 逐文件上传(.tmp → 原子 mv)
+  ③ apply（受控发布）：本地/远端发布锁 → 变更文件备份 → 逐文件上传与哈希条件替换
      → 逐文件 sha256 复核 → 复核失败自动从备份还原 → 写台账（本地 + 远端）；
-  ④ rollback：按 releaseId 从远端备份目录还原。
+  ④ rollback：校验当前 after 后按 releaseId 还原旧文件；新增文件保留，不删除。
 
 明确不做：不整树 rsync、不删除远端文件、不改权限/认证、不碰 config.json、
 不重启服务（config 变更后由人工按既定流程重启）。
@@ -27,7 +27,7 @@
         --release-id 20261008T1100Z --apply
     python tools/release_d4follow.py rollback --host 47.85.224.112 --key D:/k/No1.pem \
         --release-id 20261008T1100Z --apply
-环境变量兜底：D4_RELEASE_HOST / _USER / _KEY / _DIR / _STATE / _SSH / _SCP
+环境变量兜底：D4_RELEASE_HOST / _USER / _KEY / _DIR / _STATE / _SSH / _SCP / _KNOWN_HOSTS
 """
 import argparse
 import base64
@@ -38,6 +38,7 @@ import os
 import re
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,7 +53,7 @@ NEVER_PUBLISH = frozenset(["set_dingtalk_secret.sh"])
 
 
 class Refused(RuntimeError):
-    """守卫拒绝 —— 任何一处 Refused 都必须在写远端之前抛出。"""
+    """守卫拒绝或发布失败；写入后的失败必须报告恢复结果。"""
 
 
 # --------------------------------------------------------------------------
@@ -200,6 +201,28 @@ def repo_known_shas(rels):
     return {rel: {sha_by_oid[o] for o in oids if o in sha_by_oid} for rel, oids in rel_oids.items()}
 
 
+def fixed_commit(value, full=False):
+    """显式基线模式只接受提交 ID；先解析一次，后续读取固定完整 ID。"""
+    pattern = r"[0-9a-fA-F]{40}" if full else r"[0-9a-fA-F]{7,40}"
+    if not re.fullmatch(pattern, value or ""):
+        raise Refused("显式基线模式要求 %s提交 SHA：%r" % ("完整 " if full else "固定 ", value))
+    p = git("rev-parse", "--verify", "%s^{commit}" % value)
+    resolved = p.stdout.decode("ascii", "replace").strip()
+    if p.returncode != 0 or not re.fullmatch(r"[0-9a-fA-F]{40}", resolved):
+        raise Refused("无法解析固定提交：%s" % value)
+    return resolved.lower()
+
+
+def baseline_known_shas(commit, rels):
+    """只以指定提交的同路径内容作证明，不扫描其它 ref 或历史 blob。"""
+    known = {}
+    for rel in rels:
+        safe_rel(rel)
+        data = git_show(commit, UNIT_PREFIX + rel)
+        known[rel] = {sha256_bytes(data)} if data is not None else set()
+    return known
+
+
 # --------------------------------------------------------------------------
 # 远端 IO（ssh / scp）
 # --------------------------------------------------------------------------
@@ -218,6 +241,30 @@ for rel in json.loads(sys.argv[2]):
 sys.stdout.write(json.dumps(out))
 """
 
+# 在同一远端进程内检查来源和目标，再替换。调用者持有远端发布锁。
+REMOTE_REPLACE_SCRIPT = """
+import hashlib, json, os, shutil, sys, uuid
+src, dst, expected_before, expected_after, restore = json.loads(sys.argv[1])
+def digest(path):
+    if not os.path.lexists(path):
+        return None
+    if os.path.islink(path) or not os.path.isfile(path):
+        raise RuntimeError('refuse non-regular path: ' + path)
+    with open(path, 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()
+if digest(src) != expected_after:
+    raise RuntimeError('source hash changed: ' + src)
+if digest(dst) != expected_before:
+    raise RuntimeError('destination CAS mismatch: ' + dst)
+if restore:
+    staged = src + '.restore.' + uuid.uuid4().hex
+    shutil.copy2(src, staged)
+    if digest(staged) != expected_after or digest(dst) != expected_before:
+        raise RuntimeError('restore CAS mismatch: ' + dst)
+    src = staged
+os.replace(src, dst)
+"""
+
 
 class Remote(object):
     def __init__(self, host, user, key):
@@ -231,12 +278,19 @@ class Remote(object):
                 raise Refused("找不到 OpenSSH 可执行文件：%s" % exe)
 
     def opts(self):
-        return ["-i", self.key,
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
+        opts = ["-i", self.key,
+                "-o", "StrictHostKeyChecking=yes",
+                "-o", "BatchMode=yes",
+                "-o", "KexAlgorithms=curve25519-sha256,curve25519-sha256@libssh.org",
                 "-o", "LogLevel=ERROR",
                 "-o", "ConnectTimeout=15",
                 "-o", "ServerAliveInterval=20"]
+        known_hosts = os.environ.get("D4_RELEASE_KNOWN_HOSTS")
+        if known_hosts:
+            if not Path(known_hosts).is_file():
+                raise Refused("找不到已核验的 known_hosts 文件：%s" % known_hosts)
+            opts += ["-o", 'UserKnownHostsFile="%s"' % known_hosts.replace("\\", "/")]
+        return opts
 
     def target(self):
         return "%s@%s" % (self.user, self.host)
@@ -266,13 +320,16 @@ class Remote(object):
     def mkdir(self, path):
         self.must("mkdir -p %s" % _shq(path), what="远端 mkdir")
 
+    def mkdir_exclusive(self, path):
+        self.must("mkdir %s" % _shq(path), what="远端独占目录（已存在则拒绝）")
+
     def upload_tree(self, local_dir, remote_tmp):
-        self.must("rm -rf %s && mkdir -p %s" % (_shq(remote_tmp), _shq(remote_tmp)), what="远端准备临时目录")
         parts = sorted(Path(local_dir).iterdir())
         if not parts:
             raise Refused("staging 目录为空")
+        self.mkdir_exclusive(remote_tmp)
         dst = "%s:%s/" % (self.target(), remote_tmp)
-        cmd = [self.scp, "-r", "-q"] + self.opts() + [str(x) for x in parts] + [dst]
+        cmd = [self.scp, "-O", "-r", "-q"] + self.opts() + [str(x) for x in parts] + [dst]
         p = subprocess.run(cmd, capture_output=True, timeout=900)
         if p.returncode != 0:
             raise Refused("scp 上传失败：%s" % p.stderr.decode("utf-8", "replace").strip()[:400])
@@ -283,11 +340,46 @@ class Remote(object):
     def mv(self, src, dst):
         self.must("mv -f %s %s" % (_shq(src), _shq(dst)), what="远端原子 mv")
 
+    def replace_checked(self, src, dst, expected_before, expected_after, restore=False):
+        payload = base64.b64encode(REMOTE_REPLACE_SCRIPT.encode("utf-8")).decode("ascii")
+        values = json.dumps([src, dst, expected_before, expected_after, restore])
+        self.must("python3 -c %s %s" % (
+            _shq("import base64,sys;exec(base64.b64decode('%s'))" % payload), _shq(values)),
+            what="远端哈希条件替换")
+
     def write_text(self, path, text):
         payload = base64.b64encode(text.encode("utf-8")).decode("ascii")
-        self.must("python3 -c %s %s" % (
-            _shq("import base64,sys;open(sys.argv[1],'wb').write(base64.b64decode(sys.argv[2]))"),
+        self.must("python3 -c %s %s %s" % (
+            _shq("import base64,os,sys,uuid;"
+                 "p=sys.argv[1];os.makedirs(os.path.dirname(p),exist_ok=True);"
+                 "t=p+'.writing.'+uuid.uuid4().hex;"
+                 "f=open(t,'xb');f.write(base64.b64decode(sys.argv[2]));"
+                 "f.flush();os.fsync(f.fileno());f.close();os.replace(t,p)"),
             _shq(path), _shq(payload)), what="远端写台账")
+
+
+class RemoteLock(object):
+    """跨机器发布互斥；不抢占旧锁，只释放含本次 token 的空目录。"""
+
+    def __init__(self, remote, remote_dir):
+        self.remote = remote
+        self.path = remote_dir.rstrip("/") + "/.release.lock"
+        self.owner = self.path + "/" + uuid.uuid4().hex
+
+    def __enter__(self):
+        self.remote.mkdir_exclusive(self.path)
+        # 若连接中断，保留锁供人工核查，绝不强制抢锁。
+        self.remote.mkdir_exclusive(self.owner)
+        return self
+
+    def __exit__(self, kind, value, traceback):
+        try:
+            self.remote.must("rmdir %s && rmdir %s" % (_shq(self.owner), _shq(self.path)),
+                             what="释放本次远端空锁")
+        except Exception as error:
+            if kind is None:
+                raise
+            print("远端锁未释放，须核查 %s：%s" % (self.path, error))
 
 
 def _shq(value):
@@ -376,11 +468,23 @@ def gather(args):
     if rid:
         check_release_id(rid)
     ref = args.ref
+    baseline = getattr(args, "baseline_ref", None)
+    if baseline:
+        if getattr(args, "allow_unmanaged", False):
+            raise Refused("显式基线模式禁止 --allow-unmanaged")
+        ref = fixed_commit(ref, full=True)
+        baseline = fixed_commit(baseline)
+        args._baseline_commit = baseline
+        print("固定基线证明：%s（只读取本次待变更路径，不扫描历史）" % baseline, flush=True)
     remote = Remote(args.host, args.user, args.key)
     only = _resolve_only(args, ref)
     targets = target_map(ref, only)
     remote_map = remote.hashes(args.remote_dir, list(targets))
-    known = repo_known_shas(list(targets))
+    if baseline:
+        changed_existing = [r for r in targets if remote_map.get(r) and remote_map[r] != targets[r]]
+        known = baseline_known_shas(baseline, changed_existing)
+    else:
+        known = repo_known_shas(list(targets))
     actions, refusals = plan_actions(remote_map, targets, known,
                                      allow_unmanaged=getattr(args, "allow_unmanaged", False))
     return remote, ref, targets, remote_map, known, actions, refusals
@@ -397,7 +501,7 @@ def print_plan(ref, actions, refusals):
                 "OVERRIDE": "⚠ 覆盖远端未纳管内容（人工已确认）"}[kind]
         print("%-34s %-10s %s" % (rel, kind, note))
     for rel, rem, tgt in refusals:
-        print("%-34s %-10s %s" % (rel, "UNMANAGED", "❌ 远端内容在仓库任何 ref 里都找不到：%s" % rem[:16]))
+        print("%-34s %-10s %s" % (rel, "UNMANAGED", "❌ 远端内容不在本次 Git 证明集合中：%s" % rem[:16]))
     print("-" * 88)
     change = [a for a in actions if a[1] != "SAME"]
     print("总计 %d 个文件；需变更 %d；拒发 %d" % (
@@ -408,10 +512,50 @@ def cmd_plan(args):
     _, ref, _, _, _, actions, refusals = gather(args)
     print_plan(ref, actions, refusals)
     if refusals:
-        print("\n结论：会拒发（存在未纳管文件）。如确认可覆盖，再跑 apply 并加 --allow-unmanaged。")
+        print("\n结论：会拒发（存在未纳管文件）。先核对并纳管当前现役版本。")
         return 1
     print("\n结论：可安全发布（无未纳管文件）。")
     return 0
+
+
+def check_hashes(remote, directory, expected, label):
+    actual = remote.hashes(directory, list(expected))
+    bad = [r for r, value in expected.items() if actual.get(r) != value]
+    if bad:
+        raise Refused("%s哈希不一致：%s" % (label, ", ".join(bad)))
+
+
+def backup_name(rel):
+    return rel.replace("/", "__") + ".before"
+
+
+def save_record(args, remote, record):
+    write_json_atomic(state_path(args.state_dir, args.release_id), record)
+    remote.write_text("%s/_release_ledger/%s.json" % (args.remote_dir.rstrip("/"), args.release_id),
+                      json.dumps(record, ensure_ascii=False, indent=2))
+
+
+def recover_replaced(remote, remote_dir, backup_dir, attempted):
+    """连回执不明的替换也核对；只还原本次 after，绝不覆盖第三方后续变更。"""
+    restored, retained, unrestored = [], [], []
+    for item in reversed(attempted):
+        rel, before, after = item["rel"], item["before"], item["after"]
+        try:
+            current = remote.hashes(remote_dir, [rel]).get(rel)
+            if current == before:
+                restored.append(rel)
+            elif current != after:
+                unrestored.append(rel + "（现态已变化，未覆盖）")
+            elif before is None:
+                retained.append(rel)
+            else:
+                remote.replace_checked(backup_dir + "/" + backup_name(rel),
+                                       remote_dir.rstrip("/") + "/" + rel, after, before, restore=True)
+                check_hashes(remote, remote_dir, {rel: before}, "恢复后")
+                restored.append(rel)
+        except Exception as error:
+            unrestored.append("%s（%s）" % (rel, error))
+    return {"restored": restored, "retainedNew": retained, "unrestored": unrestored}
 
 
 def cmd_apply(args):
@@ -424,19 +568,20 @@ def cmd_apply(args):
         remote, ref, targets, remote_map, known, actions, refusals = gather(args)
         if refusals:
             print_plan(ref, actions, refusals)
-            raise Refused("存在 %d 个未纳管文件；如确认覆盖请加 --allow-unmanaged" % len(refusals))
+            raise Refused("存在 %d 个未纳管文件；先核对并纳管当前现役版本" % len(refusals))
         change = [a for a in actions if a[1] != "SAME"]
         print_plan(ref, actions, refusals)
         if not change:
             print("\n远端已与发布源一致，无需发布。")
             return 0
 
+        if state_path(args.state_dir, args.release_id).exists():
+            raise Refused("releaseId 已有本地台账，必须使用新的 releaseId")
         backup_dir = "%s/_bak_release_%s" % (args.remote_dir.rstrip("/"), args.release_id)
         staging_parent = tempfile.mkdtemp(prefix="d4follow-release-")
         staging = Path(staging_parent) / args.release_id
         staging.mkdir(parents=True)
         for rel, kind, rem, tgt in change:
-            src = ROOT / UNIT_PREFIX / rel
             data = git_show(ref, UNIT_PREFIX + rel)
             if data is None:
                 raise Refused("无法从 %s 读取 %s" % (ref, rel))
@@ -445,55 +590,62 @@ def cmd_apply(args):
             dst.write_bytes(data)
 
         remote_tmp = "%s/.release_%s.tmp" % (args.remote_dir.rstrip("/"), args.release_id)
-        remote.mkdir(backup_dir)
-        print("\n[1/5] 远端备份 → %s" % backup_dir)
-        for rel, kind, rem, tgt in change:
-            if rem:
-                remote.copy("%s/%s" % (args.remote_dir.rstrip("/"), rel),
-                            "%s/%s.before" % (backup_dir, rel.replace("/", "__")))
-
-        print("[2/5] 上传 staging → %s" % remote_tmp)
-        remote.upload_tree(str(staging), remote_tmp)
-
-        rels = [str(p.relative_to(staging)).replace(os.sep, "/") for p in staging.rglob("*") if p.is_file()]
-        got = remote.hashes(remote_tmp, rels)
-        bad = [r for r in rels if got.get(r) != targets[r]]
-        if bad:
-            raise Refused("上传后校验失败（未写入任何生产文件）：%s" % ", ".join(bad))
-
-        print("[3/5] 逐文件原子替换")
-        for rel in rels:
-            remote.mv("%s/%s" % (remote_tmp, rel), "%s/%s" % (args.remote_dir.rstrip("/"), rel))
-
-        print("[4/5] 复核线上")
-        after = remote.hashes(args.remote_dir, list(targets))
-        mismatch = [r for r in targets if after.get(r) != targets[r]]
-        if mismatch:
-            print("    复核失败，自动从备份还原：%s" % ", ".join(mismatch))
-            for rel in mismatch:
-                before = "%s/%s.before" % (backup_dir, rel.replace("/", "__"))
-                remote.must("test -f %s && cp -p %s %s/%s" % (_shq(before), _shq(before),
-                                                              _shq(args.remote_dir.rstrip("/")), _shq(rel)),
-                            what="远端还原")
-            raise Refused("发布复核失败，已还原；请排查后再试")
-
-        print("[5/5] 写台账")
         record = {
             "releaseId": args.release_id,
             "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "host": args.host,
             "remoteDir": args.remote_dir,
             "sourceRef": ref,
+            "baselineCommit": getattr(args, "_baseline_commit", None),
             "sourceTree": git("rev-parse", "%s^{tree}" % ref).stdout.decode().strip(),
             "backupDir": backup_dir,
-            "status": "applied",
+            "stagingDir": remote_tmp,
+            "status": "prepared",
             "files": [{"rel": rel, "before": rem, "after": tgt} for rel, kind, rem, tgt in change],
         }
-        write_json_atomic(state_path(args.state_dir, args.release_id), record)
-        remote.write_text("%s/_release_ledger/%s.json" % (args.remote_dir.rstrip("/"), args.release_id),
-                          json.dumps(record, ensure_ascii=False, indent=2))
-        remote.must("rm -rf %s" % _shq(remote_tmp), what="远端清理临时目录")
+        with RemoteLock(remote, args.remote_dir):
+            baseline = {r: remote_map.get(r) for r in targets}
+            check_hashes(remote, args.remote_dir, baseline, "加锁后现态")
+            remote.mkdir_exclusive(backup_dir)
+            print("\n[1/5] 远端备份 → %s" % backup_dir)
+            for item in record["files"]:
+                if item["before"]:
+                    remote.copy(args.remote_dir.rstrip("/") + "/" + item["rel"],
+                                backup_dir + "/" + backup_name(item["rel"]))
+            check_hashes(remote, backup_dir,
+                         {backup_name(i["rel"]): i["before"] for i in record["files"] if i["before"]},
+                         "备份")
+
+            print("[2/5] 上传 staging → %s" % remote_tmp)
+            remote.upload_tree(str(staging), remote_tmp)
+            check_hashes(remote, remote_tmp, {i["rel"]: i["after"] for i in record["files"]}, "上传后")
+            check_hashes(remote, args.remote_dir, baseline, "替换前最终现态")
+            # 先留可恢复台账，再做首个替换；断线时仍能查到准确 before/after。
+            save_record(args, remote, record)
+            attempted = []
+            try:
+                print("[3/5] 逐文件哈希条件替换")
+                for item in record["files"]:
+                    attempted.append(item)  # SSH 回执不明也必须检查是否已替换。
+                    remote.replace_checked(remote_tmp + "/" + item["rel"],
+                                           args.remote_dir.rstrip("/") + "/" + item["rel"],
+                                           item["before"], item["after"])
+                print("[4/5] 复核线上")
+                check_hashes(remote, args.remote_dir, targets, "发布后")
+                print("[5/5] 写台账")
+                record["status"] = "applied"
+                save_record(args, remote, record)
+            except BaseException as error:
+                recovery = recover_replaced(remote, args.remote_dir, backup_dir, attempted)
+                record.update(status="apply-failed", failure=str(error), recovery=recovery)
+                try:
+                    save_record(args, remote, record)
+                except Exception as ledger_error:
+                    print("失败台账未完整写入：%s" % ledger_error)
+                raise Refused("发布失败：%s；已恢复=%s；保留新增=%s；未恢复=%s" % (
+                    error, recovery["restored"], recovery["retainedNew"], recovery["unrestored"])) from error
         print("\n发布完成：%s（%d 个文件）" % (args.release_id, len(change)))
+        print("备份和暂存目录均保留；本工具不重启服务。")
         print("回滚命令：python tools/release_d4follow.py rollback --host %s --key <KEY> --release-id %s --apply"
               % (args.host, args.release_id))
         return 0
@@ -507,29 +659,40 @@ def cmd_rollback(args):
     if not record.exists():
         raise Refused("本地台账里没有 releaseId=%s" % args.release_id)
     rec = json.loads(record.read_text(encoding="utf-8"))
+    if rec.get("host") != args.host or rec.get("remoteDir", "").rstrip("/") != args.remote_dir.rstrip("/"):
+        raise Refused("回滚主机/目录与发布台账不一致")
+    expected_backup = "%s/_bak_release_%s" % (args.remote_dir.rstrip("/"), args.release_id)
+    if rec.get("backupDir") != expected_backup or rec.get("releaseId") != args.release_id:
+        raise Refused("回滚备份位置与 releaseId 不一致")
+    if rec.get("status") != "applied":
+        raise Refused("台账状态不是已发布；请先核查记录，不得盲目重放：%s" % rec.get("status"))
     print("将回滚 %s（发布于 %s，%d 个文件）" % (rec["releaseId"], rec["at"], len(rec["files"])))
     for item in rec["files"]:
-        print("   %-34s %s -> %s" % (item["rel"], (item["after"] or "-")[:12], (item["before"] or "删除")[:12]))
+        safe_rel(item["rel"])
+        print("   %-34s %s -> %s" % (item["rel"], (item["after"] or "-")[:12], (item["before"] or "新增文件保留、不删除")[:20]))
     if not args.apply:
         return 0
     lock_path = Path(args.state_dir) / "release.lock"
     with Lock(lock_path):
         remote = Remote(args.host, args.user, args.key)
-        for item in rec["files"]:
-            rel = safe_rel(item["rel"])
-            before = "%s/%s.before" % (rec["backupDir"], rel.replace("/", "__"))
-            remote.must("test -f %s" % _shq(before), what="检查备份存在（%s）" % rel)
-            remote.copy(before, "%s/%s" % (args.remote_dir.rstrip("/"), rel))
-        after = remote.hashes(args.remote_dir, [i["rel"] for i in rec["files"]])
-        bad = [i["rel"] for i in rec["files"] if after.get(i["rel"]) != i["before"]]
-        if bad:
-            raise Refused("回滚复核失败：%s" % ", ".join(bad))
-        rec["status"] = "rolled-back"
-        rec["rolledBackAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        write_json_atomic(record, rec)
-        remote.write_text("%s/_release_ledger/%s.json" % (args.remote_dir.rstrip("/"), args.release_id),
-                          json.dumps(rec, ensure_ascii=False, indent=2))
+        with RemoteLock(remote, args.remote_dir):
+            check_hashes(remote, args.remote_dir, {i["rel"]: i["after"] for i in rec["files"]}, "回滚前现态")
+            existing = [i for i in rec["files"] if i["before"] is not None]
+            check_hashes(remote, rec["backupDir"],
+                         {backup_name(i["rel"]): i["before"] for i in existing}, "回滚备份")
+            recovery = recover_replaced(remote, args.remote_dir, rec["backupDir"], rec["files"])
+            rec["recovery"] = recovery
+            rec["status"] = "rollback-failed" if recovery["unrestored"] else "rolled-back"
+            rec["rolledBackAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            try:
+                save_record(args, remote, rec)
+            except Exception as error:
+                raise Refused("回滚文件核对结果=%s；台账写入失败=%s" % (recovery, error)) from error
+            if recovery["unrestored"]:
+                raise Refused("回滚部分失败；已恢复=%s；未恢复=%s；保留新增=%s" % (
+                    recovery["restored"], recovery["unrestored"], recovery["retainedNew"]))
         print("回滚完成：%s" % args.release_id)
+        print("新增文件保留（旧代码恢复后不再引用）：%s" % recovery["retainedNew"])
     return 0
 
 
@@ -543,6 +706,7 @@ def main():
         p.add_argument("--key", default=os.environ.get("D4_RELEASE_KEY"))
         p.add_argument("--remote-dir", default=os.environ.get("D4_RELEASE_DIR", DEFAULT_REMOTE_DIR))
         p.add_argument("--ref", default="HEAD")
+        p.add_argument("--baseline-ref", help="仅用指定固定基线提交证明现役版本，避免扫描全部历史；--ref 须完整提交 SHA")
         p.add_argument("--files", default="", help="逗号分隔的相对路径；留空=整个发布单元")
         p.add_argument("--state-dir", default=os.environ.get("D4_RELEASE_STATE", str(Path.home() / ".d4follow-release")))
         p.add_argument("--apply", action="store_true", help="不加则 dry-run")

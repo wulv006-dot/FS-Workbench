@@ -150,15 +150,24 @@ def disc_of(cfg, item_cfg):
             continue
     return 1.0
 
-def allowance(cfg):
+def strategy_of(cfg, game=None):
+    """One game's item strategy, inheriting existing shared defaults."""
+    follow=(cfg.get('跟价') or {})
+    result=dict(follow.get('跟随策略') or {})
+    override=((follow.get('按游戏') or {}).get(game) or {}).get('跟随策略') or {}
+    result.update({k:v for k,v in override.items()
+                   if k in ('让价百分比','最低毛利率')})
+    return result
+
+
+def allowance(cfg, game=None):
     """让价系数 = 1 − 让价百分比/100（我方前端价 = IGGM 真价 × 该系数）。
 
     **统一从这里取** —— 首次对齐工具（poe2_align / 首次对齐脚本）与引擎共用同一个字段，
     避免两边各算一套、口径悄悄漂移。
     """
     try:
-        g = float(((cfg.get("跟价") or {}).get("跟随策略") or {})
-                  .get("让价百分比", 0.0) or 0.0)
+        g = float(strategy_of(cfg, game).get("让价百分比", 0.0) or 0.0)
     except (TypeError, ValueError):
         g = 0.0
     g = max(0.0, min(g, 90.0))
@@ -871,6 +880,8 @@ def evaluate(cfg, items, iggm_now, iggm_prev, ours_now, qd_map, ts,
     ctx = {}          # key -> 决策（供同族联动取基准）
     for it in items:
         key = it["key"]
+        sc = strategy_of(cfg, it.get('游戏') or game_of(cfg,key))
+        floor_m = float(sc.get('最低毛利率',-9.9))
         if key in gate_hold:      # 闸一/闸二 命中 ⇒ 只登记一条 blocked，不出目标价
             out.append({"key": key,
                         "title": it.get("中文名") or key,
@@ -1078,7 +1089,7 @@ def evaluate(cfg, items, iggm_now, iggm_prev, ours_now, qd_map, ts,
                 log("  ⇩ [%s] 批量优惠 ×%.4f：$%.6f → $%.6f"
                     % (key, _tk, _tgt_pre, tgt))
         # 目标**前端价**（验收不变式：我方前端价 ≤ 该值 = IGGM真价 ×(1−让价)）
-        _lim = (ig_new * allowance(cfg)) if ig_new is not None else None
+        _lim = (ig_new * allowance(cfg, it.get('游戏') or game_of(cfg,key))) if ig_new is not None else None
         _tick_short = False        # True = 连一个 tick 都放不下（见 fit_under_tick）
         if tgt is not None:
             if step >= 0.01:
@@ -1190,8 +1201,8 @@ def evaluate(cfg, items, iggm_now, iggm_prev, ours_now, qd_map, ts,
                 _fam, _u_this, _ig_this, _pz_this = _fu
                 _u_min = fam_min_unit.get(_fam)
                 if _u_min and _u_this > _u_min * (1.0 + an_inv_tol):
-                    _lim_f = ig_new * allowance(cfg)              # 现口径的目标前端价
-                    _ref_front = _u_min * _pz_this * allowance(cfg)  # 按族内最低单位价推
+                    _lim_f = ig_new * allowance(cfg, it.get('游戏') or game_of(cfg,key))
+                    _ref_front = _u_min * _pz_this * allowance(cfg, it.get('游戏') or game_of(cfg,key))
                     _ref_bid = _ref_front / disc if disc else None
                     d["action"] = "blocked"
                     d["_anom"] = "同族倒挂"
@@ -1438,6 +1449,8 @@ def evaluate(cfg, items, iggm_now, iggm_prev, ours_now, qd_map, ts,
             base = by_key.get(grp.get("基准"))
             if not base:
                 continue
+            sc = strategy_of(cfg, base.get('游戏') or game_of(cfg,base['key']))
+            floor_m = float(sc.get('最低毛利率',-9.9))
             if base.get("跟价") is False:
                 # 基准没勾选跟价 → 整组不联动，成员保持原状并说明原因
                 for _mk in grp.get("成员", []):
