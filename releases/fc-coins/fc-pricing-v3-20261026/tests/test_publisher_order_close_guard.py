@@ -181,7 +181,7 @@ class PausedCodePublish(unittest.TestCase):
         import fcntl
         text=(SOURCE.parent/'deploy/fc_v3_release_adapter.py').read_text('utf-8');tree=ast.parse(text)
         load=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
-        selected=[n for n in load.body if (isinstance(n,ast.Assign) and isinstance(n.targets[0],ast.Name) and n.targets[0].id=='holding_fc_locks') or isinstance(n,ast.FunctionDef) and n.name in ('combined_locks','guards')]
+        selected=[n for n in load.body if (isinstance(n,ast.Assign) and isinstance(n.targets[0],ast.Name) and n.targets[0].id in ('holding_fc_locks','bundle_release_state')) or isinstance(n,ast.FunctionDef) and n.name in ('combined_locks','guards')]
         selected.append(ast.parse('return combined_locks,guards').body[0])
         factory=ast.FunctionDef(name='factory',args=ast.arguments(posonlyargs=[],args=[],kwonlyargs=[],kw_defaults=[],defaults=[]),body=selected,decorator_list=[])
         module=ast.fix_missing_locations(ast.Module(body=[factory],type_ignores=[]))
@@ -192,7 +192,8 @@ class PausedCodePublish(unittest.TestCase):
             if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('fixture_target_link')
         base=SimpleNamespace(no_target_link=no_target_link,rooted=lambda _root,path:self.root/path.lstrip('/'))
         scope=dict(contextmanager=contextmanager,ExitStack=ExitStack,Path=Path,fc=fc,original_locks=lambda _:self.queue_mutation(),
-                   original_guards=lambda *a:None,fc_release_quiescent=ready,base=base)
+                   original_guards=lambda *a:None,fc_release_quiescent=ready,base=base,
+                   scope='legacy-fixture',THREE_PLATFORM_SCOPE='three-platform')
         exec(compile(module,'original-adapter-lock-scope','exec'),scope)
         locks,guards=scope['factory']()
         manifest={'files':[]};guards(manifest,Path('/'))
@@ -206,18 +207,28 @@ class PausedCodePublish(unittest.TestCase):
 class SupersededAllCodePublish(unittest.TestCase):
     def test_code_publisher_restarts_the_scheduler_that_imports_runtime_and_engine(self):
         from unittest.mock import Mock
+        sys.path.insert(0,str(SOURCE.parent/'deploy'))
+        from target_map import LOOTBAR_CALLER_SCOPE
         path=SOURCE.parent/'deploy/fc_v3_release_adapter.py'
         load=next(n for n in ast.parse(path.read_text('utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
         restart=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='restart')
         process=SimpleNamespace(run=Mock())
-        scope=dict(subprocess=process,base=SimpleNamespace(),original_restart=Mock(),restart_with_hermes_readiness=Mock(),
-                   SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection',BIDIRECTIONAL_SCOPE='bidirectional',REPAIR_SCOPE='repair',QUOTE_FRAGMENT_SCOPE='quote-fragment',QUOTE_PREVIEW_SCOPE='quote-preview',DAILY_REPAIR_SCOPE='daily-repair',DAILY_SUMMARY_SCOPE='daily-summary',COUPON_DISPLAY_SCOPE='coupon-display')
+        scope=dict(subprocess=process,base=SimpleNamespace(HERMES_UPDATE_SCOPE='reader-update'),HISTORY_READ_SCOPE='history-read',original_restart=Mock(),restart_with_hermes_readiness=Mock(),LOOTBAR_CALLER_SCOPE=LOOTBAR_CALLER_SCOPE,
+                   SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection',BIDIRECTIONAL_SCOPE='bidirectional',REPAIR_SCOPE='repair',QUOTE_FRAGMENT_SCOPE='quote-fragment',QUOTE_PREVIEW_SCOPE='quote-preview',DAILY_REPAIR_SCOPE='daily-repair',DAILY_SUMMARY_SCOPE='daily-summary',COUPON_DISPLAY_SCOPE='coupon-display',THREE_PLATFORM_SCOPE='three-platform',bundle_readiness=Mock())
         exec(compile(ast.Module(body=[restart],type_ignores=[]),str(path),'exec'),scope)
-        for kind in ('full','delta','shadow','operating','bidirectional','repair','quote-fragment','quote-preview','daily-repair','daily-summary','coupon-display'):
+        for kind in ('full','delta','shadow','operating','bidirectional','repair','quote-fragment','quote-preview','daily-repair','daily-summary','coupon-display','three-platform'):
             process.run.reset_mock();scope['restart_with_hermes_readiness'].reset_mock();scope['restart']({'scope':kind})
             restarts=[c.args[0] for c in process.run.call_args_list if c.args[0][:2]==['systemctl','restart']]
-            self.assertEqual(restarts,[['systemctl','restart',name] for name in ('fc27-cloud-api.service','fc27-cloud-worker.service','fc-pricing-v3.service')])
+            expected=('fc27-cloud-api.service','fc27-cloud-worker.service','fc-pricing-v3.service')
+            if kind=='three-platform':expected+=('fc27-pack-bundles.service',)
+            self.assertEqual(restarts,[['systemctl','restart',name] for name in expected])
             scope['restart_with_hermes_readiness'].assert_called_once()
+        process.run.reset_mock();scope['restart_with_hermes_readiness'].reset_mock()
+        scope['restart']({'scope':'history-read'}, 'fence')
+        process.run.assert_not_called()
+        call=scope['restart_with_hermes_readiness'].call_args
+        self.assertEqual(call.args[2], {'scope':'reader-update'})
+        self.assertEqual(call.args[3], 'fence')
 
     def setUp(self):
         from test_reconcile_original import all_step

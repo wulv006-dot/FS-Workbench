@@ -219,10 +219,14 @@ def controls(value, previous=None, at=None):
             reasons[platform].append('user_disabled_or_not_auto')
     publication = value.get('publication', {})
     publication_rows = {row.get('platform'):row for row in publication.get('platforms', [])}
+    v3_enabled=(value.get('v3') or {}).get('enabled') is True
     for platform in PLATFORMS:
-        if publication_rows.get(platform, {}).get('status') != 'matched':
+        observed=publication_rows.get(platform, {}).get('status')
+        # V3 completion is Order success plus Admin same-unit verification.
+        # Missing PUBLIC evidence is independent; an observed mismatch still blocks.
+        if observed=='mismatch' or not v3_enabled and observed!='matched':
             reasons[platform].append('published_price_unverified')
-    if 'three_platform_publication_unverified' in codes and not publication.get('platforms'):
+    if not v3_enabled and 'three_platform_publication_unverified' in codes and not publication.get('platforms'):
         for platform in PLATFORMS:
             reasons[platform].append('published_price_unverified')
     for operation in value.get('unknown_operations') or []:

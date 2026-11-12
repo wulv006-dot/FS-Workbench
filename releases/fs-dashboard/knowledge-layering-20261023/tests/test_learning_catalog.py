@@ -24,7 +24,7 @@ import business_context as bc
 BASE = '0e2d02efd7c894199ab0f62ca69a9c75ed7c2578'
 BASELINE = 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'
 HISTORY = 'knowledge/history/fc-business-baseline-before-aion2-20261023.md'
-CURRENT_IDS = {'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'fc.marketing.attribution',
+CURRENT_IDS = {'fs.orders.email_export', 'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'fc.marketing.attribution',
                'fs.finance.procurement', 'fc.pricing.constraints', 'fs.procurement.inputs',
                'fs.pricing.parameter-identity', 'fs.product.identity', 'fs.customer.lifecycle',
                'fs.learning.methods', 'fs.project.execution', 'fc.pricing.v3',
@@ -249,9 +249,20 @@ class LearningCatalog(unittest.TestCase):
 
     def test_current_entries_cover_rules_and_reporting_and_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 25)
+        self.assertEqual(len(entries), 30)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 25)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 30)
+        experience = next(r for r in entries if r['id'] == 'fc.evolutions.experience.current-state-cutover')
+        self.assertEqual(experience['layer'], 'experience')
+        self.assertEqual(experience['status'], 'verified')
+        self.assertNotIn(experience['id'], CURRENT_IDS)
+        source_case = next(r for r in entries if r['id'] == 'fc.pricing.experience.lootbar-source-availability')
+        self.assertEqual((source_case['layer'], source_case['status']), ('experience', 'verified'))
+        self.assertNotIn(source_case['id'], CURRENT_IDS)
+        data = lf(ROOT / source_case['source']['path']).decode('utf-8')
+        self.assertIn('不据此认定自动补采已上线', data)
+        self.assertIn('browser_connection_timeout', data)
+        self.assertIn('不据此选A/B/C赢家', data)
 
     def test_retired_rules_are_removed_without_changing_current_margin_constraints(self):
         entries = catalog()['entries']
@@ -259,7 +270,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'fc27_dual20_d9_d2_v2')
+        self.assertEqual(margin['revision'], 'fc27_dual20_d9_d2_platform_100k_v4')
         self.assertEqual(margin['source']['path'],'docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md')
 
     def test_current_dashboard_uses_native_summary_and_shipping_without_loading_retired_rules(self):
@@ -294,8 +305,16 @@ class LearningCatalog(unittest.TestCase):
             'fs.customer.lifecycle', 'fs.learning.methods', 'fs.project.execution'}]
         self.assertEqual(len(rows), 6)
         for row in rows:
-            self.assertEqual(row['effective_at'], '2026-10-23')
-            self.assertEqual(row['effective_at_basis'], '本知识修订截至日')
+            if row['id']=='fs.customer.lifecycle':
+                self.assertEqual(row['effective_at'], '2026-11-10')
+                self.assertEqual(row['effective_at_basis'], '2026-11-10 用户确认 ES 候选金额口径')
+            elif row['id'] in {'fs.learning.methods','fs.pricing.parameter-identity'}:
+                self.assertEqual(row['effective_at'],'2026-11-10')
+                self.assertEqual(row['revision'],'20261110-three-platform-100k')
+                self.assertEqual(row['effective_at_basis'],'2026-11-10 用户确认三平台独立及100K实交基准')
+            else:
+                self.assertEqual(row['effective_at'], '2026-10-23')
+                self.assertEqual(row['effective_at_basis'], '本知识修订截至日')
             self.assertIsNone(row['original_effective_at'])
 
     def test_aion2_correction_is_current_and_prior_attribution_remains_explicit_history(self):
@@ -320,7 +339,7 @@ class LearningCatalog(unittest.TestCase):
             self.assertLess(len(knowledge['text'].encode()), bc.MAX_TOTAL)
             loaded = bc.loaded_learning(root, knowledge['version'])
             receipt = bc.effective_learning(loaded, [dict(role='system', content=loaded['text'])])
-            self.assertEqual(len(receipt['knowledge_entries']), 19)
+            self.assertEqual({row['id'] for row in receipt['knowledge_entries']}, CURRENT_IDS)
             sections = read_all_sections(root, loaded)
             for row in selection['entries']:
                 path = 'knowledge/'+row['id']+'@'+row['revision']

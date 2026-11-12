@@ -1,11 +1,13 @@
-"""Dual20 on the actual 100K package and gifts; other sizes are outside the hard pricing floor."""
+"""Dual20 on 100K purchased and delivered; larger-tier gifts are voluntary concessions."""
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_DOWN, ROUND_HALF_UP
 import hashlib
 import json
-MARGIN_BASIS = 'undiscounted_and_historical_average_v2'
+MARGIN_BASIS = 'undiscounted_and_platform_historical_average_v3'
 LEGACY_FINANCIAL_CONTRACT_VERSION = 'fc27_dual20_v1'
-FINANCIAL_CONTRACT_VERSION = 'fc27_dual20_d9_d2_v2'
+FINANCIAL_CONTRACT_VERSION = 'fc27_dual20_d9_d2_platform_100k_v4'
+PACKAGE_SCOPE = '100k_purchased_delivered_100k'
+HISTORY_PLATFORM_CONTRACT = 'fc27_history_platform_v1'
 HISTORY_WINDOW_CONTRACT = 'd9_d2_eight_closed_days_v1'
 HARD_MARGIN = Decimal('20')
 CENT = Decimal('.01')
@@ -154,6 +156,8 @@ def package_100k(rules):
     tiers=[tier for tier in rules['tiers'] if number(tier['base_k'])==100]
     if len(tiers)!=1:raise ValueError('pricing_100k_package_required')
     tier=tiers[0]
+    if number(tier['bonus_k'],zero=True)!=0:
+        raise ValueError('pricing_100k_bonus_retired_requires_current_catalog')
     if number(tier['retained_ratio'])>1 or number(tier['bonus_k'],zero=True)>100:
         raise ValueError('pricing_package_invalid')
     return tier
@@ -198,7 +202,7 @@ def average_margin(public_usd, delivered_cost_usd, mix):
                 estimated_procurement_gross_usd=str(net-cost),
                 procurement_margin_pct=str((net-cost)/net*100) if net else None,
                 historical_mix_sha256=mix['sha256'],source_times=mix.get('source_times'),
-                scope='100K package; shared all-Coins historical discount distribution, not platform-specific or portfolio forecast',
+                platform=mix['platform'],scope='100K package; same-platform actual amount-weighted historical discount distribution, not portfolio forecast',
                 assumptions='same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement')
 
 
@@ -207,17 +211,39 @@ def history_period(now):
     return dict(start=(today-timedelta(days=9)).isoformat(),end=(today-timedelta(days=2)).isoformat())
 
 
-def required_history_ratio(evidence,now,*,require_current=False):
-    mix=evidence.get('historical_discount_mix')
-    if not isinstance(mix,dict) or mix.get('status') not in ('available','partial'):
+def required_history_mix(evidence,now,*,platform,require_current=False):
+    root=evidence.get('historical_discount_mix')
+    if not isinstance(root,dict) or root.get('status') not in ('available','partial'):
         raise ValueError('pricing_average_history_required')
+    if root.get('sha256')!=fingerprint({k:v for k,v in root.items() if k!='sha256'}):raise ValueError('pricing_historical_mix_hash_changed')
+    if platform not in ('PS','XBOX','PC') or root.get('platform_contract')!=HISTORY_PLATFORM_CONTRACT:
+        raise ValueError('pricing_average_history_platform_migration_required')
+    mixes=root.get('by_platform')
+    if not isinstance(mixes,dict) or set(mixes)!=set(('PS','XBOX','PC')):
+        raise ValueError('pricing_average_history_platform_missing')
+    if root.get('source_coverage',{}).get('unknown_platform_orders')!=0:
+        raise ValueError('pricing_average_history_platform_coverage')
+    aggregate=root.get('aggregate') or {}
+    for field in ('observed_orders','eligible_orders'):
+        values=[row.get(field) for row in mixes.values()]
+        if any(type(v) is not int or v<0 for v in values) or aggregate.get(field)!=sum(values):
+            raise ValueError('pricing_average_history_platform_coverage')
+    for field in ('net_order_usd','actual_discount_usd','undiscounted_order_usd'):
+        values=[Decimal(0) if row.get(field) is None and row.get('status')=='unavailable' and row.get('observed_orders')==row.get('eligible_orders')==0
+                else number(row.get(field),zero=True) for row in mixes.values()]
+        if number(aggregate.get(field),zero=True)!=sum(values,Decimal(0)):
+            raise ValueError('pricing_average_history_platform_amounts')
+    if root.get('history_window_contract')!=HISTORY_WINDOW_CONTRACT:
+        raise ValueError('pricing_average_history_window_migration_required')
+    if root.get('period')!=history_period(now):
+        raise ValueError('pricing_average_history_period')
+    mix=mixes[platform]
+    if not isinstance(mix,dict) or mix.get('platform')!=platform:
+        raise ValueError('pricing_average_history_platform_mismatch')
     if mix.get('sha256')!=fingerprint({k:v for k,v in mix.items() if k!='sha256'}):raise ValueError('pricing_historical_mix_hash_changed')
-    today=now.astimezone(timezone(timedelta(hours=8))).date()
-    window=mix.get('history_window_contract')
-    if require_current and window!=HISTORY_WINDOW_CONTRACT:raise ValueError('pricing_average_history_window_migration_required')
-    if window not in (None,HISTORY_WINDOW_CONTRACT):raise ValueError('pricing_average_history_window_invalid')
-    expected=history_period(now) if window==HISTORY_WINDOW_CONTRACT else {'start':(today-timedelta(days=7)).isoformat(),'end':(today-timedelta(days=1)).isoformat()}
-    if mix.get('period')!=expected:
+    if mix.get('status') not in ('available','partial'):
+        raise ValueError('pricing_average_history_required')
+    if mix.get('period')!=root['period'] or mix.get('history_window_contract')!=HISTORY_WINDOW_CONTRACT:
         raise ValueError('pricing_average_history_period')
     observed,eligible=mix.get('observed_orders'),mix.get('eligible_orders')
     if type(observed) is not int or type(eligible) is not int or observed<=0 or observed!=eligible:
@@ -225,5 +251,10 @@ def required_history_ratio(evidence,now,*,require_current=False):
     net=number(mix.get('net_order_usd'));discount=number(mix.get('actual_discount_usd'),zero=True)
     if number(mix.get('undiscounted_order_usd'))!=net+discount or number(mix.get('retained_ratio'))!=net/(net+discount):
         raise ValueError('pricing_historical_mix_ratio_invalid')
-    return net/(net+discount)
+    return mix
+
+
+def required_history_ratio(evidence,now,*,platform,require_current=False):
+    mix=required_history_mix(evidence,now,platform=platform,require_current=require_current)
+    return number(mix['retained_ratio'])
 

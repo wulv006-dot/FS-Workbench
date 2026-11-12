@@ -46,12 +46,25 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'fc27_dual20_d9_d2_v2')
+        self.assertEqual(v['entries'][0]['revision'], 'fc27_dual20_d9_d2_platform_100k_v4')
         self.assertIn('合法单笔优惠仍可低毛利或亏损', v['entries'][0]['content'])
-        for value in ('D-9至D-2的8个完整日','d9_d2_eight_closed_days_v1','不按每日率等权','未优惠实际采购毛利≥20%'):
+        for value in ('D-9至D-2的8个完整日','d9_d2_eight_closed_days_v1','不按每日率等权','八日平均20%'):
             self.assertIn(value,v['entries'][0]['content'])
+        for value in ('PS、Xbox、PC','100K购买、实交100K','Lootbar','Arab-UT','ItemD2R辅助'):
+            self.assertIn(value,v['entries'][0]['content'])
+        self.assertNotIn('105K',v['entries'][0]['content'])
         self.assertNotIn('18:21最新自然验收', v['entries'][0]['content'])
         self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'])['status'], 'not_published')
+
+    def test_email_export_current_scope_not_old_paid_defaults(self):
+        path = ROOT / 'knowledge/index.json'
+        sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
+        result = kc.select(ROOT, 'knowledge/index.json', sha, ['FS'], ['fs.orders.email_export'], preview=True)
+        self.assertEqual(result['status'], 'available_preview')
+        text = result['entries'][0]['content']
+        for value in ('progress', 'status', 'cid', 'aid', '不提交四条件', '没有注册', '725'):
+            self.assertIn(value, text)
+        self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FS'], ['fs.orders.email_export'])['status'], 'not_published')
 
     def test_old_report_never_overrides_current_and_history_is_explicit(self):
         old = dict(self.row, revision='v1', layer='archive', status='archived', effective_at='2026-10-21',

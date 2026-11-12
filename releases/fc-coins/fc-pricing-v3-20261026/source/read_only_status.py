@@ -72,7 +72,7 @@ def assess(value):
         coverage_ok=(v3.get('source_coverage') or {}).get('status') in ('verified','not_required_without_active_plan')
     if not coverage_ok:
         issues.append({'level':'critical','code':'source_coverage_unverified'})
-    else:
+    elif not v3.get('enabled'):
         for site in sites[1:]:
             if any((site,p) not in keys for p in platforms):
                 issues.append({'level':'warning','code':'noncore_source_unavailable:'+site})
@@ -92,7 +92,14 @@ def assess(value):
     if (publication.get('status') != 'matched' or len(publication.get('platforms',[])) != 3 or
         {r.get('platform') for r in publication.get('platforms',[])} != {'PS','XBOX','PC'} or
         any(r.get('status') != 'matched' for r in publication.get('platforms',[]))):
-        issues.append({'level':'critical','code':'three_platform_publication_unverified'})
+        mismatch=(publication.get('status')=='mismatch' or
+                  any(r.get('status')=='mismatch' for r in publication.get('platforms',[])))
+        if v3.get('enabled') and not mismatch:
+            # Order success plus Admin verification closes a V3 operation.
+            # Public observation stays independent; UNKNOWN remains critical above.
+            issues.append({'level':'warning','code':'coin_v3_public_observation_pending'})
+        else:
+            issues.append({'level':'critical','code':'three_platform_publication_unverified'})
     player = value.get('player_sync', {})
     last = player.get('last_job') or {}
     if player.get('enabled') is None:

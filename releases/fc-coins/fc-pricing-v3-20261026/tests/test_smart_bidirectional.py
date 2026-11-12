@@ -87,18 +87,18 @@ class BidirectionalTest(unittest.TestCase):
             next_at=scheduler.next_cycle_at(db,db.get('pricing_plans','p'),{'interval_minutes':60})
             self.assertLessEqual(next_at,START+timedelta(hours=4))
 
-    def test_v2_real_candidate_proves_both_directions_and_floor(self):
+    def test_v3_real_candidate_proves_both_directions_and_floor(self):
         from test_dual20_sprint import source, NOW
         from fc_pricing_v3 import engine
-        data=source(loot='10',item='11',cost='.1',bonus='5')
-        p=dict(plan(),mode='revenue_sprint',price_anchor=engine.current_action(data),parameters={})
+        data=source(loot='10',item='11',cost='.1',bonus='0')
+        p=dict(plan(),smart_strategy_version=smart.STRATEGY_VERSION,resources=['base:PS','base:XBOX','base:PC'],mode='revenue_sprint',price_anchor=engine.current_action(data),parameters={})
         evaluated=engine.evaluate(data,'revenue_sprint',plan=p,now=NOW)
         baseline=evaluated['selected']
-        candidate=smart.candidate_or_baseline(data,p,evaluated['current'],baseline,{'console':'B','pc':'C'},NOW)
-        self.assertLess(float(candidate['action']['base_prices']['console']),float(baseline['action']['base_prices']['console']))
-        self.assertGreater(float(candidate['action']['base_prices']['pc']),float(baseline['action']['base_prices']['pc']))
+        candidate=smart.candidate_or_baseline(data,p,evaluated['current'],baseline,{'PS':'B','XBOX':'A','PC':'C'},NOW)
+        self.assertLess(float(candidate['action']['base_prices']['PS']),float(baseline['action']['base_prices']['PS']))
+        self.assertGreater(float(candidate['action']['base_prices']['PC']),float(baseline['action']['base_prices']['PC']))
         self.assertTrue(candidate['financial_proof']['pass_all'])
-        data=source(loot='1',item='2',cost='.35',bonus='5')
+        data=source(loot='1',item='2',cost='.35',bonus='0')
         evaluated=engine.evaluate(data,'revenue_sprint',plan=p,now=NOW)
         baseline=evaluated['selected']
         candidate=smart.candidate_or_baseline(data,p,evaluated['current'],baseline,'B',NOW)

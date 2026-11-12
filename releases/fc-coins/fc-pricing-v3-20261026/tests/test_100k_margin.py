@@ -8,7 +8,7 @@ import sys
 import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
-from fc_pricing_v3 import engine,financial
+from fc_pricing_v3.legacy_simulation import platform_v2_engine as engine, platform_v2_financial as financial
 from test_dual20_sprint import source,NOW
 
 SAVED=json.loads(Path(__file__).with_name('100k-78a225e7-aggregate.json').read_text('utf-8'))
@@ -131,6 +131,8 @@ class HundredKMargin(unittest.TestCase):
 
     def test_daily_and_sprint_use_same_scope(self):
         data=source(cost='.35',loot='4',item='4',bonus='5')
+        from fixtures import fixture
+        data['historical_discount_mix']=fixture(legacy=True)[0]['historical_discount_mix']
         for mode in ('daily','revenue_sprint'):
             result=engine.evaluate(data,mode,now=NOW)
             self.assertIsNotNone(result['selected'],result['failures'])

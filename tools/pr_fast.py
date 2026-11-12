@@ -282,6 +282,8 @@ def selfcheck():
         raise RuntimeError("order_global_affected_tests_missing")
     if select(["shared_backend_session/shared_admin.py"]) != ["admin-single-owner"]:
         raise RuntimeError("shared_admin_affected_tests_missing")
+    if select(['releases/fc-evolutions/admin-session-20261110/source/evolutions.py']) != ['fc-evo-admin-session']:
+        raise RuntimeError('evolutions_admin_session_checks_missing')
     if select(['releases/fc-sbc/security-20261015/source/webapp.py'])!=['fc-sbc-security']:
         raise RuntimeError('SBC security checks missing')
     if select(['releases/fs-dashboard/hermes-report-tracks-20261015/source/pricing_report.py'])!=['hermes-report-tracks']:
@@ -463,6 +465,21 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('opt/mmoexp-lucky-loot/') or name == 'opt/bot-console/lucky_proxy.py':
+            groups.add('lucky-loot');continue
+        if name.startswith('releases/rpg-console/console-v2-20261112/'):
+            groups.add('rpg-console');continue
+        if name in ('opt/d4follow/app.py', 'opt/d4follow/console_web.py',
+                    'opt/d4follow/console_config.py', 'opt/d4follow/game_parameters.py',
+                    'opt/d4follow/engine.py', 'opt/d4follow/core_gold.py',
+                    'opt/d4follow/core_dd373_cost.py', 'opt/d4follow/core_wow_sources.py',
+                    'opt/d4follow/core_wow_gold.py', 'opt/d4follow/wow_gold_apply.py',
+                    'opt/d4follow/templates/console.html', 'tools/release_d4follow.py'):
+            groups.add('rpg-console')
+        if name.startswith('releases/fs-dashboard/order-email-export-20261111/'):
+            groups.add('order-email-deployment');continue
+        if name in ('tools/release_channel.py', 'tools/test_release_channel.py'):
+            groups.add('release-channel');continue
         if name.startswith('docs/planning/fc27-weekly-console-20261109/deploy/') or name in ('tools/campaign_weekly_readonly_acceptance.mjs', 'tools/campaign_weekly_model_receipt_readonly.py', 'tools/test_campaign_weekly_acceptance.py'):
             groups.add('fc27-weekly-acceptance');continue
         if name.startswith('docs/planning/fs-data-connector-20261109/deploy/'):
@@ -550,7 +567,7 @@ def select(paths):
             groups.add('pricing-recovery');continue
         if name in ('tools/test_fc_dashboard_rules.py', 'docs/planning/fc-dashboard-category-20261106/CONTRACT.md'):
             groups.add('knowledge-layering');continue
-        if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py','tools/export_fs_space.py'):
+        if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/prepare_order_email_knowledge.py','tests/test_prepare_order_email_knowledge.py','tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py','tools/export_fs_space.py'):
             groups.add('knowledge-layering')
             if name=='releases/fs-dashboard/knowledge-layering-20261023/source/controller.py':groups.add('nightly-reschedule')
             continue
@@ -742,6 +759,8 @@ def select(paths):
             groups.add("fc-lock-gate-hardening");continue
         if name.startswith("releases/fc-coins/fc-pricing-v3-20261026/"):
             groups.add("fc-pricing-v3");continue
+        if name.startswith("releases/fc-evolutions/admin-session-20261110/"):
+            groups.add("fc-evo-admin-session");continue
         if name.startswith("releases/fc-coins/gate-cycle-20261014/"):
             groups.add("fc-cycle-gate");continue
         if name.startswith("releases/fc-coins/order-public-acceptance-20261013/"):
@@ -908,6 +927,16 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group == 'order-email-deployment':
+            integration='releases/fs-dashboard/order-email-export-20261111/integration'
+            units(integration, ['test_prepare.Backend', 'test_workspace_patch', 'test_nginx_patch', 'test_package'])
+            # The page test spawns Node locally; the CI job supplies the network namespace.
+            subprocess.run([sys.executable, '-B', '-m', 'unittest', 'discover', '-s', integration, '-p', 'test_prepare.py', '-k', 'Frontend'], cwd=ROOT, check=True, timeout=45)
+            units('releases/fs-dashboard/order-email-export-20261111/publisher', ['test_adapter'])
+            continue
+        if group == 'release-channel':
+            units('tools', ['test_release_channel'])
+            continue
         if group == 'fc27-weekly-acceptance':
             # CLI fixtures spawn only the local Node/Python read-only helpers.
             subprocess.run([sys.executable, '-B', 'tools/test_campaign_weekly_acceptance.py'], cwd=ROOT, check=True, timeout=90)
@@ -1055,6 +1084,7 @@ def main():
             units('releases/ops/pricing-recovery-20261023/order',['test_service'])
             continue
         if group=='knowledge-layering':
+            units('tests',['test_prepare_order_email_knowledge'])
             subprocess.run([sys.executable, '-I', '-B', str(ROOT/'tools/test_fc_dashboard_rules.py')], check=True, timeout=30, cwd=ROOT)
             units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release','test_knowledge_reader_fence','test_native_plan','test_native_release','test_native_prepare','test_native_registration_guard','test_task_selection','test_learning_catalog','test_space_export'])
             continue
@@ -1130,7 +1160,7 @@ def main():
             units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context","test_missing_store","test_revision_range","test_member_keyset","test_archive_publication"])
             node("releases/fs-dashboard/user-analytics-20261022/tests/test_weekly_dates.cjs")
         elif group=="tiered-data-access":
-            units("releases/fs-dashboard/tiered-data-access-20261101/tests",["test_backup_inventory","test_date_policy","test_query_planner","test_daily_facts","test_range_jobs","test_query_checkpoint","test_eviction_policy","test_admin_orders_adapter","test_admin_live_page","test_admin_site_authorizer","test_admin_supervised_transport","test_admin_live_worker","test_admin_live_dispatch","test_admin_live_host","test_admin_live_admission","test_admin_live_session","test_live_global_authorization","test_admin_live_nginx","test_secure_live_route","test_live_order_pagination","test_live_order_consumer","test_live_customer_lookup"])
+            units("releases/fs-dashboard/tiered-data-access-20261101/tests",["test_backup_inventory","test_date_policy","test_query_planner","test_daily_facts","test_range_jobs","test_query_checkpoint","test_eviction_policy","test_admin_orders_adapter","test_admin_live_page","test_admin_site_authorizer","test_admin_supervised_transport","test_admin_live_worker","test_admin_live_dispatch","test_admin_live_host","test_admin_live_admission","test_admin_live_session","test_live_global_authorization","test_admin_live_nginx","test_secure_live_route","test_live_order_pagination","test_live_order_consumer","test_live_customer_lookup","test_admin_order_email_export","test_admin_email_export_source"])
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui","test_pmax_es_projection","test_mapping_reclassification"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")
@@ -1155,8 +1185,17 @@ def main():
         elif group=="rpg":
             units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
             units("opt/d4follow",["test_wow_sources","test_iggm_local_first"])
+        elif group=="rpg-console":
+            units("releases/rpg-console/console-v2-20261112/tests",
+                  ["test_game_parameters", "test_console_config", "test_integration",
+                   "test_safety_review", "test_release_safety"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
+        elif group=="lucky-loot":
+            node("opt/mmoexp-lucky-loot/test/core.test.cjs")
+            node("opt/mmoexp-lucky-loot/test/cards.test.cjs")
+            node("opt/mmoexp-lucky-loot/test/integration.test.cjs")
+            units("opt/mmoexp-lucky-loot/test",["test_proxy","test_release_ui"])
         elif group=="fc-community":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"opt/mmoexp-fc-community/ci_check.py")],
                            cwd=ROOT,check=True,timeout=180)
@@ -1191,9 +1230,11 @@ def main():
         elif group=="fc-players-cloud10":
             units("fc27_players_cloud",["tests_cloud.test_manual_existing_recommend","tests_cloud.test_model_images"])
             node("fc27_players_cloud/tests_cloud/check_manual_recommend_button.cjs")
+        elif group=="fc-evo-admin-session":
+            units("releases/fc-evolutions/admin-session-20261110/tests",["test_evolutions"])
         elif group=="fc-prewrite":
             release="releases/fc-coins/prewrite-recovery-20261012"
-            for name in ("test_monitor","test_publishers"):
+            for name in ("test_monitor","test_publishers","test_monitor_runtime"):
                 units(release+"/tests",[name])
         elif group=="fc-noncore":
             release="releases/fc-coins/noncore-emergency-20261009"
@@ -1425,6 +1466,15 @@ def main():
             node(release+"/tests/test_brain_handoff.cjs")
             node(release+"/tests/test_cohort_prompt.cjs")
             node(release+"/frontend/test-workspace.cjs")
+            node(release+"/frontend/test_order_email_csv.cjs")
+            node(release+"/frontend/test_order_email_panel.cjs")
+            node(release+"/frontend/test_order_email_run.cjs")
+            node(release+"/frontend/test_order_email_resume_panel.cjs")
+            node(release+"/frontend/test_order_email_traversal_csv.cjs")
+            node(release+"/frontend/test_order_email_retry.cjs")
+            node(release+"/frontend/test_order_email_xlsx.cjs")
+            node(release+"/frontend/test_order_email_excel_panel.cjs")
+            node(release+"/frontend/test_order_email_workspace.cjs")
         elif group=="hermes-conversation":
             release="releases/fs-dashboard/hermes-conversation-20261018"
             # Class partitions require the complete two-class module, without a loader hook.
@@ -1557,6 +1607,11 @@ def main():
             # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
             # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。
             units("fc27_pack_bundles_20261013/tests",["test_pack_bundles_offline","test_write_flow"])
+            # These fixed tests exercise actual Node rendering and a second local lock holder.
+            subprocess.run([sys.executable,"-I","-B","-c",
+                "import sys,unittest;sys.path[:0]=sys.argv[1:3];import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in sys.argv[3:]));pr_fast.require_success(r)",
+                str(ROOT/"tools"),str(ROOT/"fc27_pack_bundles_20261013/tests"),"test_bundle_ui","test_write_admission"],
+                check=True,timeout=90,cwd=ROOT)
         elif group=="mlb-shelf-tool":
             # 离线用例：bat 规范化闸门 / SQLite 3.7.17 兼容 / 认证通路 / 模板发现。
             units("共享资源/MLB新卡上架/tests",["test_shelf_tool_offline"])

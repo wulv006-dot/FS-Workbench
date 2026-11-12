@@ -716,14 +716,16 @@ def rate_of(cfg):
     return _f(((cfg or {}).get("汇率") or {}).get("USDCNY")) or 6.65
 
 
-def allowance_of(cfg):
+def allowance_of(cfg, game=None):
     """金币让价系数 = 1 − 金币.让价百分比/100。
 
     与物品同一口径：**我方前端每M价 = IGGM 每M价 × 该系数**（默认 5% ⇒ 低 5%）。
     单独一个配置字段（`金币.让价百分比`），改金币不动物品、反之亦然。
     """
     try:
-        g = float(cfg_gold(cfg).get("让价百分比", 0.0) or 0.0)
+        root = cfg_gold(cfg)
+        over = (root.get('游戏参数') or {}).get(game) or {}
+        g = float(over.get("让价百分比", root.get("让价百分比", 0.0)) or 0.0)
     except (TypeError, ValueError):
         g = 0.0
     g = max(0.0, min(g, 90.0))
@@ -1260,6 +1262,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             log("  [金币] %s 未勾选跟价，跳过" % sv.get("中文名"))
             continue
         gm = server_game(cfg, sv)                  # 该服务区属于哪个游戏（多游戏接入）
+        apo = allowance_of(cfg, gm)
         gp = game_param(cfg, gm)
         tier = tier_of(cfg, gm)                    # ⭐ 对标档位按游戏取（MSCW = 1000K）
         _k_row = factor_of(cfg, gm)                # ⭐ 折算系数**按游戏**（MSCW = 1.0）
@@ -2661,8 +2664,8 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         time.sleep(float(cfg_gold(cfg).get("请求延迟秒", 0.8) or 0.8))
     _games = sorted({server_game(cfg, s) for s in svs})
     return {"ts": dt.datetime.now().isoformat(timespec="seconds"), "tier": tier,
-            "rate": rate, "折算系数": k, "让价系数": apo,
-            "让价百分比": round((1.0 - apo) * 100.0, 4),
+            "rate": rate, "折算系数": k, "让价系数": allowance_of(cfg),
+            "让价百分比": round((1.0 - allowance_of(cfg)) * 100.0, 4),
             "前台系数": front_factor_of(cfg),
             # 2026-10-27：cost_divisor_for_game 写价利润率恒 0.20（后台字段全游戏 20%），
             # 只按游戏取前台系数。无 game ⇒ DEFAULT_GAME（暗黑4）⇒ 仍 5.0540，与旧值一致。
@@ -2671,6 +2674,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             # 多游戏（2026-10-01）：展示层按**每个游戏各自的**前台系数/成本除数/展示倍率取值，
             # 不要再用上面那三个「全局值」去套所有游戏（那是 D4 的口径）。
             "游戏参数": {g: {"前台系数": front_factor_of(cfg, g),
+                             "让价百分比": round((1.0-allowance_of(cfg,g))*100,4),
                              "成本除数": cost_divisor_for_game(cfg, g),
                              "展示倍率": display_mult_of(cfg, g),
                              "展示单位": unit_label(display_mult_of(cfg, g),

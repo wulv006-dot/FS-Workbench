@@ -12,7 +12,7 @@
 | 用户分析（user-analytics） | `/dashboard/users/` | 待接口及权限核验 |
 | FC27 SBC 上架工具（fc27-sbc） | `/dashboard/fc27-sbc/` | 待接口及权限核验 |
 | 渠道效果看板（channel-effects） | `/dashboard/channel-effects/` | 待接口及权限核验 |
-| 数据分析工具（data-analysis-tools） | `/dashboard/data-tools/` | 待接口及权限核验 |
+| 数据分析工具（data-analysis-tools） | `/dashboard/data-tools/` | 原`analytics.user_section`合同保持；订单用户邮箱导出专用UI/API已发布，未暴露为MCP/Hermes导出操作，见下文 |
 | 数据看板（unified-business） | `/dashboard/analytics/?mode=business` | 待接口及权限核验 |
 | 项目工作任务台（tasks） | `/dashboard/tasks/` | 待接口及权限核验 |
 | FC27 金币控制台（coins） | `/dashboard/fc27-coins.html` | 待接口及权限核验 |
@@ -41,6 +41,12 @@
 | 商品编辑与预览（campaign-products） | `/dashboard/analytics/campaigns/analytics/products.html` | 待接口及权限核验 |
 | 营销系统（marketing） | `/dashboard/modules/marketing/` | 待接口及权限核验 |
 | SEO监控台（seo） | `/dashboard/analytics/seo/` | 待接口及权限核验 |
+
+## 订单用户邮箱导出增量边界（2026-11-11）
+
+[现行合同](../../../knowledge/order-email-export.md)及[真实验收记录](../order-email-export-20261111.md)确认专用UI/API源码`158ddab93103695ef13917bbd5368bbbe5c7b179`、生产`nav-20261111T113950Z`。真实站点、多游戏、日期与其余可用筛选下只提`user_email`；`progress/status/cid/aid`四项固定置灰空值、不请求目录/不提交条件，沿Admin默认行为，操作人已移除。不称固定已支付/已完成或已证明的全部状态，不以旧付费投影覆盖新导出。
+
+每页20条、最多28日窗口、滚动近365日边界、原生`paytime`和逐游戏串行游标/完整覆盖保持；全部计划成功才交去重真XLSX，不交部分名单。此为页面链路的发布/验收证据，不是新MCP/Hermes工具注册或全量连接器验收。当前catalog数量保持，调用只用实际operation/schema；普通订单主站范围不替代专用多站点来源。默认全年全量等未验范围仍见专项记录。
 
 ## 不能遗漏的非导航数据
 

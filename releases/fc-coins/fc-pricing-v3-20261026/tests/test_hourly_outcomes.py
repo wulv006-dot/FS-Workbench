@@ -102,7 +102,7 @@ class HourlyOutcomesTest(unittest.TestCase):
     def test_daily_profit_uses_independent_platform_label(self):
         import test_daily_profit
         fixture=test_daily_profit.DailyProfit();fixture.setUp()
-        fixture.ops[0]['bundle']['smart_assignment']={'label':'MIXED','group_labels':{'console':'B','pc':'C'}}
+        fixture.ops[0]['bundle']['smart_assignment']={'label':'MIXED','group_labels':{'PS':'B','XBOX':'A','PC':'C'}}
         console=daily.profit_summary(fixture.online,fixture.windows,fixture.ops,'2026-11-06','p')
         pc=daily.profit_summary(fixture.online,fixture.windows,fixture.ops,'2026-11-07','p')
         self.assertEqual(console['review_day']['groups'][0]['label'],'B')

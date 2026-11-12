@@ -22,7 +22,7 @@ def evidence():
     data['regional_controls']=[]
     data['region_rules']=[dict(id=1,region_id=39,platforms=['PS','XBOX','PC'],factor='.9100',verified=True,
         price_semantics='regional_regular_multiplicative',rounding='half_up_cent',
-        history=dict(basis='pooled_other_promotions_excluding_region_verified'))]
+        history=dict(by_platform={p:dict(basis='platform_other_promotions_excluding_region_verified') for p in ('PS','XBOX','PC')}))]
     data['region_contract']=dict(rules=[dict(uk.SCOPE,id=1,factor='.9100',status=1)])
     return data
 
@@ -31,7 +31,7 @@ class UKRetirement(unittest.TestCase):
     def setup_plan(self,folder):
         db=Ledger(Path(folder)/'control.sqlite3');db.activate_generation('g',[])
         with patch('fc_pricing_v3.ledger.clock',return_value=NOW):
-            plan=db.create_plan('daily',['base:console','base:pc'],dict(base_prices=dict(console='20',pc='20'),region_coefficients={}))
+            plan=db.create_plan('daily',['base:PS','base:XBOX','base:PC'],dict(base_prices=dict(PS='20',XBOX='20',PC='20'),region_coefficients={}))
             db.activate_plan(plan['plan_id'])
         return db,db.get('pricing_plans',plan['plan_id'])
 
@@ -60,7 +60,7 @@ class UKRetirement(unittest.TestCase):
             claimed=db.claim_dispatch(OP,bundle['steps'][0]['step_id'],now=NOW)
             self.assertEqual(claimed['target_status'],0)
             self.assertEqual(operation['bundle']['mutable_resources'],uk.RESOURCES)
-            tampered=deepcopy(bundle);tampered['action']['base_prices']['console']='21'
+            tampered=deepcopy(bundle);tampered['action']['base_prices']['PS']='21'
             with self.assertRaisesRegex(ValueError,'base_changed'):uk.authority_resources(tampered)
             tampered=deepcopy(bundle);tampered['steps'][0]['scope']['lang_region_id']=21
             with self.assertRaisesRegex(ValueError,'scope_changed'):uk.authority_resources(tampered)

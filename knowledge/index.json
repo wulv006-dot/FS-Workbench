@@ -1,12 +1,31 @@
 {
   "contract": "fs-knowledge-index-v1",
-  "release": "dashboard-archive-cleanup-20261107",
+  "release": "fc-three-platform-100k-20261110",
   "release_state": "candidate",
   "source_commit": null,
   "entries": [
     {
+      "id": "fs.orders.email_export",
+      "revision": "order-email-defaults-20261111",
+      "layer": "current",
+      "status": "effective",
+      "modules": ["FS", "marketing"],
+      "effective_at": "2026-11-11",
+      "owner": "吴律；订单邮箱功能负责人",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/order-email-export.md",
+        "sha256": "c98f7900d4e2b0b690e29ae48ca1a0de91f599bacfdb46481b72b48581a61bd3",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [{"kind": "direct_user", "date": "2026-11-11", "decision": "四条件置灰省略及知识同步", "runtime_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/999", "acceptance_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/1000"}],
+      "consumers": ["Hermes selected knowledge candidate", "DSH", "FS connector method guidance"]
+    },
+    {
       "id": "fs.data.sources",
-      "revision": "activity-traffic-20261031",
+      "revision": "order-email-sources-20261111",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -19,7 +38,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -27,6 +46,7 @@
         }
       },
       "supersedes": [
+        "fs.data.sources@activity-traffic-20261031",
         "fs.data.sources@baseline-v15",
         "fs.data.sources@baseline-v15-dashboard-refresh-20261025",
         "fs.data.sources@baseline-v15-management-all-sites-20261025",
@@ -77,6 +97,12 @@
           "kind": "direct_user_activity_traffic",
           "date": "2026-10-31",
           "scope": "Halloween existing logs, Google, FS, PR merge and Markdown baseline"
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
       "consumers": [
@@ -100,11 +126,11 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
-          "end": "- 无码不等于"
+          "end": "- 无码不等于无优惠"
         }
       },
       "supersedes": [
@@ -144,6 +170,12 @@
               "end": "- 无码不等于"
             }
           }
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
       "consumers": [
@@ -167,11 +199,11 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
-          "end": "- 新客订单数不等于"
+          "end": "- 新客订单数不等于去重客户数"
         }
       },
       "supersedes": [
@@ -211,6 +243,12 @@
               "end": "- 新客订单数不等于"
             }
           }
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
       "consumers": [
@@ -234,10 +272,10 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
-          "start": "## 采购毛利逐单核算更正（v10，2026-10-22）",
+          "start": "## 采购毛利逐单核算更正",
           "end": "## FC Coins受控自动决策与执行"
         }
       },
@@ -278,6 +316,12 @@
               "end": "## FC Coins受控自动决策与执行"
             }
           }
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
       "consumers": [
@@ -288,19 +332,19 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc27_dual20_d9_d2_v2",
+      "revision": "fc27_dual20_d9_d2_platform_100k_v4",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-06",
+      "effective_at": "2026-11-10",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "4f1a0f8041cb98dede14f14a68a5b87cb7f03be1558a9a818db18761f0575a65",
+        "sha256": "eb3ceac8cc9f40162da2608bdb59624f4738ec4c11aac470831076cb7e279b14",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -310,7 +354,8 @@
       "supersedes": [
         "fc.pricing.constraints@v13",
         "fc.pricing.constraints@v14",
-        "fc.pricing.constraints@v15"
+        "fc.pricing.constraints@v15",
+        "fc.pricing.constraints@fc27_dual20_d9_d2_v2"
       ],
       "provenance": [
         {
@@ -363,6 +408,12 @@
           "date": "2026-11-09",
           "decision": "docs/planning/fc-coupon-display-20261109/PLAN.md",
           "scope": "Separate anonymous display evidence from base price and actual redemption; isolate observed display regimes; financial and writer rules unchanged"
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
       "consumers": [
@@ -504,7 +555,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -547,6 +598,12 @@
               "end": "## 8. 产品身份和查询边界"
             }
           }
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
       "consumers": [
@@ -574,7 +631,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -607,6 +664,12 @@
               "end": "## 5. Order 统计的用途"
             }
           }
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
       "effective_at_basis": "本知识修订截至日",
@@ -614,21 +677,21 @@
     },
     {
       "id": "fs.pricing.parameter-identity",
-      "revision": "fc-v3-20261026",
+      "revision": "20261110-three-platform-100k",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-10-23",
+      "effective_at": "2026-11-10",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -661,9 +724,15 @@
               "end": "## 7. 折扣码、订单来源与流量归因"
             }
           }
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
-      "effective_at_basis": "本知识修订截至日",
+      "effective_at_basis": "2026-11-10 用户确认三平台独立及100K实交基准",
       "original_effective_at": null
     },
     {
@@ -682,7 +751,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -715,6 +784,12 @@
               "end": "## 9. 客户追踪与按需查证"
             }
           }
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
       "effective_at_basis": "本知识修订截至日",
@@ -722,30 +797,27 @@
     },
     {
       "id": "fs.customer.lifecycle",
-      "revision": "users-storage-20261029-v1",
+      "revision": "buyer-candidates-20261110-v1",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-10-23",
+      "effective_at": "2026-11-10",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
-        "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
-        "hash_basis": "utf8_lf",
-        "selector": {
-          "start": "## 9. 客户追踪与按需查证",
-          "end": "## 10. Hermes 的学习和决策方法"
-        }
+        "path": "knowledge/customer-tracking/BUYER-ID-CANDIDATES.md",
+        "sha256": "cfef599ccdaaeae09d49cfe1fdab35ac5203b1a204c8c6c4fbe4679ef5036890",
+        "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fs.customer.lifecycle@existing-contract-20261023",
-        "fs.customer.lifecycle@fc-v3-20261026"
+        "fs.customer.lifecycle@fc-v3-20261026",
+        "fs.customer.lifecycle@users-storage-20261029-v1"
       ],
       "provenance": [
         {
@@ -776,28 +848,34 @@
           "date": "2026-10-29",
           "runtime_pr": 653,
           "scope": "refresh/recovery/storage meaning; no lifecycle or finance rule change"
+        },
+        {
+          "kind": "direct_user_buyer_candidate_optimization",
+          "date": "2026-11-10",
+          "scope": "FC27 tracking candidate identity and ES amount threshold only",
+          "path": "docs/planning/customer-buyer-tracking-20261110/IMPLEMENTATION.md"
         }
       ],
-      "effective_at_basis": "本知识修订截至日",
+      "effective_at_basis": "2026-11-10 用户确认 ES 候选金额口径",
       "original_effective_at": null
     },
     {
       "id": "fs.learning.methods",
-      "revision": "fc-v3-20261026",
+      "revision": "20261110-three-platform-100k",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-10-23",
+      "effective_at": "2026-11-10",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
+        "sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -805,7 +883,8 @@
         }
       },
       "supersedes": [
-        "fs.learning.methods@existing-contract-20261023"
+        "fs.learning.methods@existing-contract-20261023",
+        "fs.learning.methods@fc-v3-20261026"
       ],
       "provenance": [
         {
@@ -830,9 +909,15 @@
               "end": "## 11. 废弃规则清单"
             }
           }
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
-      "effective_at_basis": "本知识修订截至日",
+      "effective_at_basis": "2026-11-10 用户确认三平台独立及100K实交基准",
       "original_effective_at": null
     },
     {
@@ -950,20 +1035,20 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "20261109-coupon-display",
+      "revision": "20261111-lootbar-no-coupon",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-09",
+      "effective_at": "2026-11-11",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "4f1a0f8041cb98dede14f14a68a5b87cb7f03be1558a9a818db18761f0575a65",
+        "sha256": "eb3ceac8cc9f40162da2608bdb59624f4738ec4c11aac470831076cb7e279b14",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -976,7 +1061,9 @@
         "fc.pricing.v3@20261106-clean",
         "fc.pricing.v3@20261107-profit-summary",
         "fc.pricing.v3@20261107-time-attribution",
-        "fc.pricing.v3@20261107-bidirectional-v2"
+        "fc.pricing.v3@20261107-bidirectional-v2",
+        "fc.pricing.v3@20261109-coupon-display",
+        "fc.pricing.v3@20261110-three-platform-100k"
       ],
       "provenance": [
         {
@@ -1040,6 +1127,18 @@
           "date": "2026-11-09",
           "decision": "docs/planning/fc-coupon-display-20261109/PLAN.md",
           "scope": "Separate anonymous display evidence from base price and actual redemption; isolate observed display regimes; financial and writer rules unchanged"
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
+        },
+        {
+          "kind": "direct_user_rpg_render_reuse_and_coupon_reverse",
+          "date": "2026-11-11",
+          "decision": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
+          "scope": "No-coupon quote reconstruction and existing renderer reuse; financial selected section unchanged"
         }
       ],
       "consumers": [
@@ -1204,26 +1303,27 @@
     },
     {
       "id": "fc.reporting.business",
-      "revision": "20261106-clean",
+      "revision": "20261110-three-platform-100k",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-06",
+      "effective_at": "2026-11-10",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/BUSINESS.md",
-        "sha256": "a697bf7a78cf50f590f44a9d0313c4eb5cf07f9d92b3b618b9ba43295cc62bc5",
+        "sha256": "47b8859dfec7de8490be5fe494f72ce8b70d4ee47ddf77a4c698f8038a993697",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fc.reporting.business@20261105-1",
-        "fc.reporting.business@20261106-current"
+        "fc.reporting.business@20261106-current",
+        "fc.reporting.business@20261106-clean"
       ],
       "provenance": [
         {
@@ -1244,6 +1344,12 @@
           "kind": "direct_user_pricing_knowledge_cleanup",
           "date": "2026-11-06",
           "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
+        },
+        {
+          "kind": "direct_user_three_platform_100k_no_bonus",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+          "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
       "consumers": [
@@ -1345,6 +1451,139 @@
       "consumers": [
         "Codex",
         "Hermes selected knowledge candidate"
+      ]
+    },
+    {
+      "id": "fc.pricing.decision.three-platform-100k",
+      "revision": "20261110-1",
+      "layer": "decision",
+      "status": "confirmed",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-11-10",
+      "owner": "吴律 / FC27",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
+        "sha256": "419877989e824681c832c20f1974a3445f4f7da7da0bf50f6ed7ba4f6a31a1e3",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_confirmed_decision",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes formal knowledge entry"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fc.pricing.experience.platform-discount",
+      "revision": "20261110-1",
+      "layer": "experience",
+      "status": "verified",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-11-10",
+      "owner": "吴律 / FC27",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "docs/planning/fc-three-platform-20261110/EXPERIENCE.md",
+        "sha256": "100960ef8e627181c6b35ab8ead210fe5ad1d0e52208d1c8ecbf8fc7093882db",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "verified_platform_amounts_and_direct_regressions",
+          "date": "2026-11-10",
+          "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes formal knowledge entry"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fc.evolutions.experience.current-state-cutover",
+      "revision": "20261111-1",
+      "layer": "experience",
+      "status": "verified",
+      "modules": [
+        "FC27",
+        "FS"
+      ],
+      "effective_at": "2026-11-11",
+      "owner": "吴律 / FC27",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/experience/fc27-live-cutover-20261111.md",
+        "sha256": "d31263361a716d3f7c200ef8c8f6c23894a607c49b12bf5b2d4b226cbff96b58",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "verified_formal_refresh_and_original_automatic_job",
+          "date": "2026-11-10",
+          "refresh_job_id": "27a7b255-5b3f-4fec-b827-7c0a4955e4c2",
+          "automatic_job_id": "89c61f6d-8abe-4a09-9d29-57df70a73aa8",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/9114a564b26ae1c1d91fa5dc0c063aebbfed7a6a/releases/fc-evolutions/admin-session-20261110/source/evolutions.py"
+        },
+        {
+          "kind": "verified_existing_knowledge_publisher_and_readers",
+          "date": "2026-11-11",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2940951deb1f4b2040f643a8fcf120087f180b59/releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge/release.py"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes explicit experience selection"
+      ],
+      "time_precision": "date_only"
+    },
+    {
+      "id": "fc.pricing.experience.lootbar-source-availability",
+      "revision": "20261111-3",
+      "layer": "experience",
+      "status": "verified",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-11-11",
+      "time_precision": "date_only",
+      "owner": "吴律 / FC27",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/experience/fc27-lootbar-source-availability-20261111.md",
+        "sha256": "5fa57cf958d224adeb2e31336aa03b1bbe110adaf2ae5a87e7fd4c8b7743f5e8",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "verified_original_trace_and_read_only_source_recovery",
+          "date": "2026-11-11",
+          "decision": "knowledge/experience/fc27-lootbar-source-availability-20261111.md",
+          "scope": "Original 187 recovery and natural cycles; 183 shadow probes show initial failure then valid PC-only quote; separate coupon-modal diagnosis; automatic fallback and business effects not established"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes formal knowledge entry"
       ]
     }
   ],

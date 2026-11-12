@@ -1,4 +1,5 @@
 """Only mechanical execution and readback; policy selection stays in the coordinator."""
+from .platforms import action_key
 import json
 import subprocess
 from pathlib import Path
@@ -129,10 +130,10 @@ def verify_known_partial(operation,actual_action):
         if step['state']!='CONFIRMED':continue
         if step['kind']=='base':platforms.update(operation['dispatch_context']['selected'])
         else:platforms.add(step['key'].split(':')[-1])
-    if platforms & {'PS','XBOX'}:platforms.update(('PS','XBOX'))
+    if 'console' in actual_action['base_prices'] and platforms & {'PS','XBOX'}:platforms.update(('PS','XBOX'))
     for platform in platforms:
         row=public.get('rows',{}).get(platform) or {}
-        expected=actual_action['base_prices']['pc' if platform=='PC' else 'console']
+        expected=actual_action['base_prices'][action_key(actual_action,platform)]
         if row.get('status')!='ok' or number(row['package_usd'])!=number(expected):
             return dict(status='PUBLIC_PENDING',reason='actual_partial_global_price_unconfirmed',platform=platform)
     clone=deepcopy(operation);proof=clone['bundle']['financial_proof']['prices']
@@ -141,7 +142,7 @@ def verify_known_partial(operation,actual_action):
         platform=key.split(':')[1]
         factor=actual_action.get('region_coefficients',{}).get(key,row['coefficient'])
         tier=next(t for t in operation['bundle']['catalog'][platform]['tiers'] if number(t['base_k'])==100)
-        row.update(price=render(number(actual_action['base_prices']['pc' if platform=='PC' else 'console'])/100,tier,factor),coefficient=factor)
+        row.update(price=render(number(actual_action['base_prices'][action_key(actual_action,platform)])/100,tier,factor),coefficient=factor)
     regional=verify_regions(clone)
     if regional['status']!='verified':return dict(status='PUBLIC_PENDING',regions=regional)
     return dict(status='PUBLIC_CONFIRMED',actual_action=actual_action,global_public={p:public['rows'][p] for p in platforms},

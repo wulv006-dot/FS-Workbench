@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""FC27 捆绑包定价工具（一期 · 只读定价，不写后台）
+"""FC27 捆绑包定价工具（独立三平台报价，写入沿原开关与读回）
 
 数据链路：
   1. Futbin 数据库（默认 http://139.28.18.234:8001，老大自建采集库）
      GET /api/export/players.json  → 全量球员快照（gzip），按 futbin_id 建 map
      字段：ps_price / pc_price / xbox_price（金币原值，非 K）
-     口径：PS/Xbox 共用 ps_price（库内 xbox 大多为空，与腾讯文档口径一致），PC 用 pc_price
+     口径：PS/Xbox可参考同一互通市场数量并标注实际观测来源；美元单价各自独立，PC独立
   2. 我方后台金币单价：/var/lib/fc27-cloud/monitor/storefront.json
      rows.<PS|XBOX|PC>.usd_per_k（USD/千币，FC27 云端采集自动产出）
   3. 计价公式（腾讯文档「捆绑包」prices 表，2026-10-13 逆向确认）：
@@ -26,11 +26,13 @@
 """
 
 import argparse
+import errno
 import gc
 import gzip
 import json
 import os
 import re
+import stat
 import sys
 import threading
 import time
@@ -48,6 +50,43 @@ HISTORY_CAP = 48
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 WRITE_LOCK = threading.Lock()
 DISCOVER_LOCK = threading.Lock()   # 自动发现：串行化（登录订单/商品后台有频控）
+
+
+class WriteAdmission:
+    """One cross-process dispatch lock, also held by the existing code publisher."""
+    def __init__(self, path):
+        self.path = Path(path)
+        self.fd = os.open(str(self.path), os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o640)
+        try:
+            info = os.fstat(self.fd)
+            if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                    or hasattr(os, 'geteuid') and info.st_uid != os.geteuid()):
+                raise ValueError('unsafe_bundle_write_admission')
+            try:
+                if os.name == 'posix':
+                    import fcntl
+                    fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                else:
+                    import msvcrt
+                    msvcrt.locking(self.fd, msvcrt.LK_NBLCK, 1)
+            except OSError as exc:
+                if exc.errno in (errno.EACCES, errno.EAGAIN):
+                    raise ValueError('write_in_progress_or_maintenance') from None
+                raise
+        except Exception:
+            self.close()
+            raise
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
 
 DEFAULT_SETTINGS = {
     "interval_hours": 1,
@@ -333,20 +372,21 @@ class Store:
             row = rows.get(plat) or {}
             # ⚠️ 口径（2026-10-13 老大纠正）：金币单价 = 页面标价 ÷ 标称金币量
             # （package_usd / base_k），**赠送的 bonus 金币不能摊进去**。
-            # storefront.json 自带的 usd_per_k 是 package_usd/(base_k+bonus_k)，
-            # 会把单价压低（12.57÷105=0.1197 ✗，应为 12.57÷100=0.1257 ✓）。
+            # 当前100K无赠；大档额外赠送不摊入购买基价，也不增加硬线档位。
+            # 旧usd_per_k可能按实际交付量计算，缺购买分母时仅留诊断。
             package = dec(row.get("package_usd"))
             base_k = dec(row.get("base_k"))
             if package and base_k:
                 usd_per_k = package / base_k  # 赠送不计入
                 basis = "package/base_k"
-            else:  # 字段缺失才退回文件自带值（含赠送，标注出来）
-                usd_per_k = dec(row.get("usd_per_k"))
-                basis = "storefront_usd_per_k(includes_bonus)"
+            else:
+                usd_per_k = None
+                basis = "purchase_base_unverified"
             rates[plat] = {
                 "usd_per_k": str(usd_per_k.quantize(Decimal("0.000001"),
                                 rounding=ROUND_HALF_UP)) if usd_per_k else None,
                 "basis": basis,
+                "observed_usd_per_k": row.get("usd_per_k"),
                 "package_usd": str(row.get("package_usd") or "") or None,
                 "base_k": str(row.get("base_k") or "") or None,
                 "bonus_k": str(row.get("bonus_k") or "") or None,
@@ -431,6 +471,11 @@ class Store:
         """上轮刷新产出的单价（含来源），无则现算 storefront。"""
         data = load_json(self.data_dir / "order_rates.json", None)
         if isinstance(data, dict) and data:
+            for row in data.values():
+                if isinstance(row, dict) and row.get('basis') == 'storefront_usd_per_k(includes_bonus)':
+                    row['observed_usd_per_k'] = row.get('usd_per_k')
+                    row['usd_per_k'] = None
+                    row['basis'] = 'purchase_base_unverified'
             return data
         rates, _ = self.get_rates()
         return rates
@@ -469,10 +514,15 @@ class Store:
         if (s.get("write_enabled") and s.get("write_auto")):
             # ★ 与手动写价互斥（Codex #11）：拿不到锁就跳过本轮（下轮再写），
             #   绝不并发操作同一批产品/审计日志。
-            if WRITE_LOCK.acquire(blocking=False):
+            try:
+                admission = WriteAdmission(self.data_dir / 'write-admission.lock')
+            except ValueError as exc:
+                if str(exc) != 'write_in_progress_or_maintenance': raise
+                admission = None
+            if admission is not None and WRITE_LOCK.acquire(blocking=False):
                 try:
                     entry = execute_write(self, actor="auto",
-                                          dry_run=bool(s.get("write_dry_run")))
+                                          dry_run=bool(s.get("write_dry_run")), _admission=admission)
                     summary["write"] = {
                         "dry_run": entry["dry_run"],
                         "count": len(entry["results"]),
@@ -484,8 +534,10 @@ class Store:
                                             "action": "error",
                                             "error": repr(exc)[:200]})
                 finally:
+                    admission.close()
                     WRITE_LOCK.release()
             else:
+                if admission is not None: admission.close()
                 summary["write"] = {"skipped": "write_in_progress"}
         self._write_refresh(summary)
         self._append_history(summary)
@@ -560,6 +612,8 @@ class Store:
                 "updated_at": fmt_ts(self.futbin_updated_at()),
             },
             "pricing_formula_ok": not bad,
+            "price_scope_contract": "fc27_three_platform_v1",
+            "write_admission_contract": "bundle_write_admission_v1",
             "bundles": bundles_out,
             "write": {
                 "enabled": bool(settings.get("write_enabled")),
@@ -584,106 +638,81 @@ def _num_or_none(v):
 
 
 def compute_bundle(bundle_cfg, players, rates, markups):
-    rate_ps = dec((rates.get("PS") or {}).get("usd_per_k")) or Decimal(0)
-    rate_pc = dec((rates.get("PC") or {}).get("usd_per_k")) or Decimal(0)
-    rate_xbox = dec((rates.get("XBOX") or {}).get("usd_per_k")) or rate_ps
+    platforms = (("PS", "ps"), ("XBOX", "xbox"), ("PC", "pc"))
+    # Console market coin quantities may be shared; each dollar rate is its own
+    # observed platform price and never falls back to another platform.
+    platform_rates = {p: dec((rates.get(p) or {}).get("usd_per_k")) or Decimal(0)
+                      for p, _ in platforms}
     mu = markups["markup_player_actual"]
     sd = markups["player_strike_divisor"]
     bf = markups["bundle_sale_factor"]
     od = markups["bundle_orig_divisor"]
-
-    players_out = []
-    warn = []
-    sum_strike_ps = sum_strike_pc = Decimal(0)
-    sum_actual_ps = sum_actual_pc = Decimal(0)
+    totals = {p: {"actual": Decimal(0), "strike": Decimal(0), "count": 0}
+              for p, _ in platforms}
+    players_out, warn = [], []
     count_ok = 0
-    cnt_ps = cnt_pc = 0   # ★ 参与各平台求和的球员数（完整性判据，Codex #2）
     for entry in bundle_cfg.get("players") or []:
         fid = entry.get("futbin_id")
         info = players.get(int(fid)) if isinstance(fid, int) else None
         row = {"futbin_id": fid, "position": entry.get("position") or
-               (info or {}).get("position") or ""}
+               (info or {}).get("position") or "", "market_references": {}}
         if info is None:
-            row.update({"name": None, "rating": None, "status": "not_found",
-                        "ps_coins": None, "pc_coins": None,
-                        "ps_actual": None, "ps_strike": None,
-                        "pc_actual": None, "pc_strike": None})
+            row.update({"name": None, "rating": None, "status": "not_found"})
             warn.append("futbin %s 未收录" % fid)
-            players_out.append(row)
-            continue
-        ps_coins = info.get("ps_price")
-        if ps_coins is None:
-            ps_coins = info.get("xbox_price")
-        pc_coins = info.get("pc_price")
-        row.update({
-            "name": info.get("name"), "rating": info.get("rating"),
-            "version": info.get("version"), "image": info.get("image"),
-            "ps_coins": ps_coins, "pc_coins": pc_coins,
-        })
-        if ps_coins and rate_ps and mu and sd:
-            actual_ps = Decimal(str(ps_coins)) / 1000 * rate_ps * mu
-            row["ps_actual"] = float(money2(actual_ps))
-            row["ps_strike"] = float(money2(actual_ps / sd))
-            sum_actual_ps += actual_ps
-            sum_strike_ps += actual_ps / sd
-            cnt_ps += 1
         else:
-            row.update({"ps_actual": None, "ps_strike": None})
-            warn.append("%s：PS 价缺失" % (info.get("name") or fid))
-        if pc_coins and rate_pc and mu and sd:
-            actual_pc = Decimal(str(pc_coins)) / 1000 * rate_pc * mu
-            row["pc_actual"] = float(money2(actual_pc))
-            row["pc_strike"] = float(money2(actual_pc / sd))
-            sum_actual_pc += actual_pc
-            sum_strike_pc += actual_pc / sd
-            cnt_pc += 1
-        else:
-            row.update({"pc_actual": None, "pc_strike": None})
-            warn.append("%s：PC 价缺失" % (info.get("name") or fid))
-        row["status"] = "ok" if (row.get("ps_strike") or row.get("pc_strike")) \
-            else "no_price"
-        if row["status"] == "ok":
-            count_ok += 1
+            row.update({"name": info.get("name"), "rating": info.get("rating"),
+                        "version": info.get("version"), "image": info.get("image")})
+        for platform, key in platforms:
+            field = key + "_price"
+            observed = platform
+            if info and platform in ("PS", "XBOX") and info.get(field) is None:
+                # The existing console market reference is common to PS/Xbox,
+                # not an independent Xbox observation or a shared dollar quote.
+                field = "ps_price" if platform == "XBOX" else "xbox_price"
+                observed = "PS" if platform == "XBOX" else "XBOX"
+            coins = (info or {}).get(field)
+            row[key + "_coins"] = coins
+            row["market_references"][platform] = {
+                "field": field, "observed_platform": observed,
+                "market": "shared_console" if platform in ("PS", "XBOX") else "PC",
+                "shared_reference": observed != platform}
+            rate = platform_rates[platform]
+            if coins and rate and mu and sd:
+                actual = Decimal(str(coins)) / 1000 * rate * mu
+                row[key + "_actual"] = float(money2(actual))
+                row[key + "_strike"] = float(money2(actual / sd))
+                totals[platform]["actual"] += actual
+                totals[platform]["strike"] += actual / sd
+                totals[platform]["count"] += 1
+            else:
+                row.update({key + "_actual": None, key + "_strike": None})
+                if info:
+                    warn.append("%s：%s 价缺失" % (info.get("name") or fid, platform))
+        if info:
+            row["status"] = "ok" if any(row[k + "_strike"] for _, k in platforms) else "no_price"
+            count_ok += row["status"] == "ok"
         players_out.append(row)
-
-    out = {
-        "id": bundle_cfg.get("id"),
-        "title": bundle_cfg.get("title"),
-        "players_count": len(players_out),
-        "players_ok": count_ok,
-        "players": players_out,
-        "warnings": warn,
-    }
-    if sum_strike_ps and bf and od:
-        sale_ps = sum_strike_ps * bf
-        out["ps"] = {
-            "sum_strike": float(money2(sum_strike_ps)),
-            "sum_actual": float(money2(sum_actual_ps)),
-            "sale": float(money2(sale_ps)),
-            "orig": float(money2(sale_ps / od)),
-            "players_counted": cnt_ps,          # ★ 完整性判据（Codex #2）
-            "players_expected": len(players_out),
-            "discount_vs_actual_pct": float(
-                ((sale_ps - sum_actual_ps) / sum_actual_ps * 100)
-                .quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
-        }
-    else:
-        out["ps"] = None
-    if sum_strike_pc and bf and od:
-        sale_pc = sum_strike_pc * bf
-        out["pc"] = {
-            "sum_strike": float(money2(sum_strike_pc)),
-            "sum_actual": float(money2(sum_actual_pc)),
-            "sale": float(money2(sale_pc)),
-            "orig": float(money2(sale_pc / od)),
-            "players_counted": cnt_pc,          # ★ 完整性判据（Codex #2）
-            "players_expected": len(players_out),
-            "discount_vs_actual_pct": float(
-                ((sale_pc - sum_actual_pc) / sum_actual_pc * 100)
-                .quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
-        }
-    else:
-        out["pc"] = None
+    out = {"id": bundle_cfg.get("id"), "title": bundle_cfg.get("title"),
+           "players_count": len(players_out), "players_ok": count_ok,
+           "players": players_out, "warnings": warn,
+           "price_scope_contract": "fc27_three_platform_v1"}
+    for platform, key in platforms:
+        total = totals[platform]
+        if total["strike"] and bf and od:
+            sale = total["strike"] * bf
+            out[key] = {
+                "sum_strike": float(money2(total["strike"])),
+                "sum_actual": float(money2(total["actual"])),
+                "sale": float(money2(sale)), "orig": float(money2(sale / od)),
+                "players_counted": total["count"], "players_expected": len(players_out),
+                "rate_platform": platform, "usd_per_k": str(platform_rates[platform]),
+                "rate_source": (rates.get(platform) or {}).get("basis"),
+                "discount_vs_actual_pct": float(
+                    ((sale - total["actual"]) / total["actual"] * 100)
+                    .quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+            }
+        else:
+            out[key] = None
     return out
 
 
@@ -913,7 +942,16 @@ class AdminWriter:
         return rec
 
 
-def execute_write(store: "Store", bundle_id=None, dry_run=None, actor="manual"):
+def execute_write(store: "Store", bundle_id=None, dry_run=None, actor="manual", *, _admission=None):
+    if _admission is None:
+        with WriteAdmission(store.data_dir / 'write-admission.lock') as admission:
+            return _execute_write_locked(store, bundle_id, dry_run, actor)
+    if _admission.fd is None or _admission.path != store.data_dir / 'write-admission.lock':
+        raise ValueError('bundle_write_admission_required')
+    return _execute_write_locked(store, bundle_id, dry_run, actor)
+
+
+def _execute_write_locked(store: "Store", bundle_id=None, dry_run=None, actor="manual"):
     """对绑定产品执行写价。四道闸门：enabled / dry_run / auto(手动触发豁免) / delta。
 
     ★ 并发互斥（Codex #5/#11）：**调用方**必须已持有 WRITE_LOCK；
@@ -943,10 +981,16 @@ def execute_write(store: "Store", bundle_id=None, dry_run=None, actor="manual"):
     results = []
     for b in bundles:
         computed = compute_bundle(b, players, rates, markups)
-        for plat, key in (("ps", "ps"), ("xbox", "ps"), ("pc", "pc")):
+        for plat in ("ps", "xbox", "pc"):
+            key = plat
             pid = ((b.get("products") or {}).get(plat))
             side = computed.get(key)
-            if not pid or not side:
+            if not pid:
+                continue
+            if not side:
+                results.append({"product_id": pid, "platform": plat, "bundle": b.get("id"),
+                                "action": "skipped_incomplete", "dry_run": eff_dry,
+                                "detail": "本平台美元单价或市场数量缺失，未使用其他平台售价"})
                 continue
             # ★ 完整性闸门（Codex #2）：配置里的球员**必须全部有价**才写，
             #   否则会按缺价球员的总和写进去（价格偏低 = 少收钱）。
@@ -970,6 +1014,12 @@ def execute_write(store: "Store", bundle_id=None, dry_run=None, actor="manual"):
                 rec = {"product_id": pid, "platform": plat,
                        "target": {"unit_price": str(unit)},
                        "action": "needs_review", "error": repr(exc)[:200]}
+            rec["pricing_basis"] = {
+                "price_scope_contract": computed["price_scope_contract"],
+                "rate_platform": side["rate_platform"], "usd_per_k": side["usd_per_k"],
+                "rate_source": side["rate_source"],
+                "market_references": [{"futbin_id": row["futbin_id"],
+                    **row["market_references"][plat.upper()]} for row in computed["players"]]}
             rec["platform"] = plat
             rec["bundle"] = b.get("id")
             rec["dry_run"] = eff_dry
@@ -1160,7 +1210,14 @@ class Handler(BaseHTTPRequestHandler):
                 # 手动写价（受 write_enabled / write_dry_run 闸门约束）
                 # ★ 锁由 worker 的 finally 释放（Codex #5）：
                 #   原实现在起线程后立刻释放，第二次请求可并发进入。
+                try:
+                    admission = WriteAdmission(self.store.data_dir / 'write-admission.lock')
+                except ValueError as exc:
+                    if str(exc) != 'write_in_progress_or_maintenance': raise
+                    self._json(409, {"error": str(exc)})
+                    return
                 if not WRITE_LOCK.acquire(blocking=False):
+                    admission.close()
                     self._json(409, {"error": "write_in_progress"})
                     return
                 try:
@@ -1168,9 +1225,10 @@ class Handler(BaseHTTPRequestHandler):
                         target=self._write_job,
                         args=(data.get("bundle_id"),
                               data.get("dry_run") if isinstance(data.get("dry_run"), bool)
-                              else None),
+                              else None, admission),
                         daemon=True).start()
                 except Exception as exc:
+                    admission.close()
                     WRITE_LOCK.release()
                     self._json(500, {"error": "write_start_failed",
                                      "detail": repr(exc)[:120]})
@@ -1194,15 +1252,16 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             self.state["refreshing"] = False
 
-    def _write_job(self, bundle_id, dry_run):
+    def _write_job(self, bundle_id, dry_run, admission):
         try:
             execute_write(self.store, bundle_id=bundle_id,
-                          dry_run=dry_run, actor="manual")
+                          dry_run=dry_run, actor="manual", _admission=admission)
         except Exception as exc:
             self.store._append_write_log({"time": fmt_ts(now8()),
                                           "actor": "manual", "action": "error",
                                           "error": repr(exc)[:200]})
         finally:
+            admission.close()
             WRITE_LOCK.release()   # ★ 与 do_POST 的 acquire 配对（Codex #5）
 
 

@@ -1,16 +1,19 @@
 """Read original pricing receipts; never collect prices, log in or replay writes."""
 from datetime import datetime, timezone
+from contextlib import closing
 import json
 from pathlib import Path
 import re
 import sqlite3
 import subprocess
 import sys
+import uuid
 
 STATE = Path('/var/lib/fs-pricing-alerts')
 PROFILE = Path('/var/lib/fs-hermes-fc/profile/ops-watchdog')
 DB = Path('/opt/d4follow/data/iggm_follow.db')
 CACHE_RECOVERY = Path('/var/lib/fs-order-session/rpg-cache-recovery-20261023.json')
+RPG_PHASES = Path('/opt/d4follow/_p2pah_srv/_jobs')
 
 
 def read(path, default=None):
@@ -20,6 +23,25 @@ def read(path, default=None):
         return json.loads(path.read_text('utf-8'))
     except FileNotFoundError:
         return default
+
+
+def confirmed_no_write(row, result):
+    """Only same-ID completed item receipts prove cache is unnecessary, never verified."""
+    jid = row['id']
+    phase = row.get('execution_phase')
+    jobs = result.get('jobs')
+    return (row.get('kind') == 'write' and row['status'] == 'done'
+            and result.get('write_state') == 'confirmed'
+            and result.get('operation_id') == jid and result.get('original_job_id') == jid
+            and isinstance(phase, dict) and phase.get('job_id') == jid and phase.get('finished') is True
+            and type(phase.get('write_attempts')) is int and phase['write_attempts'] == 0
+            and all(type(result.get(k)) is int and result[k] == 0 for k in ('write_attempts', 'ok', 'fail'))
+            and result.get('mismatch') == []
+            and result.get('clearcache_ok') is None
+            and isinstance(jobs, list) and bool(jobs)
+            and all(isinstance(job, dict) and isinstance(job.get('ids'), list) and bool(job['ids']) for job in jobs)
+            and result.get('noop', True) is True
+            and result.get('clearcache_required', False) is False)
 
 
 def classify_jobs(rows, baseline, retained):
@@ -37,6 +59,10 @@ def classify_jobs(rows, baseline, retained):
         reason = None
         if state in ('unknown', 'partial'):
             reason = state
+        elif confirmed_no_write(row, result):
+            if unresolved.get(jid) in ('cache_failed', 'cache_unconfirmed'):
+                unresolved.pop(jid)
+            continue
         elif jid in baseline and not state:
             if row['status'] == 'failed' or (result.get('clearcache_wanted') is True and result.get('clearcache_ok') is not True):
                 legacy.append(jid)
@@ -59,14 +85,35 @@ def classify_jobs(rows, baseline, retained):
     return unresolved, legacy
 
 
-def rpg_rows(db=DB):
-    with sqlite3.connect('file:'+str(db)+'?mode=ro', uri=True, timeout=2) as conn:
+def rpg_rows(db=DB, phases=RPG_PHASES):
+    # Production RPG receipts moved to 183. Preserve local arguments for offline tests.
+    if db == DB and phases == RPG_PHASES:
+        raw = subprocess.check_output([
+            '/usr/bin/ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
+            '-o', 'ConnectTimeout=8', '-o', 'UserKnownHostsFile=/opt/rpg-migration-20261102/known_hosts',
+            '-i', '/opt/rpg-migration-20261102/transfer_key', 'root@172.18.108.183',
+            '/opt/d4follow/venv/bin/python /opt/rpg-migration-20261102/export_rpg_rows.py'
+        ], timeout=20)
+        rows = json.loads(raw)
+        if not isinstance(rows, list) or len(rows) > 2000:
+            raise ValueError('remote_rpg_receipt_coverage_invalid')
+        return rows
+    return _local_rpg_rows(db, phases)
+
+def _local_rpg_rows(db=DB, phases=RPG_PHASES):
+    with closing(sqlite3.connect('file:'+str(db)+'?mode=ro', uri=True, timeout=2)) as conn:
         conn.execute('PRAGMA query_only=ON')
         conn.row_factory = sqlite3.Row
-        rows = conn.execute('SELECT id,status,result_json FROM local_job ORDER BY id DESC LIMIT 2001').fetchall()
+        rows = conn.execute('SELECT id,kind,status,result_json FROM local_job ORDER BY id DESC LIMIT 2001').fetchall()
     if len(rows) > 2000:
         raise ValueError('job_scan_coverage_limit')
-    return [dict(row) for row in rows]
+    output = [dict(row) for row in rows]
+    for row in output:
+        if not re.fullmatch(r'J[0-9]{14}(?:-[0-9]+)?', row['id']):
+            raise ValueError('original_job_id_required')
+        if row['kind'] == 'write':
+            row['execution_phase'] = read(phases/(row['id']+'.execution.json'))
+    return output
 
 
 def reconcile_cache(unresolved, receipt):
@@ -83,12 +130,12 @@ def reconcile_cache(unresolved, receipt):
     return unresolved
 
 
-def browser_memory():
+def browser_memory(container='fc27-cloud-browser'):
     template = ('{"id":{{json .Id}},"restart_count":{{.RestartCount}},'
                 '"started_at":{{json .State.StartedAt}},"running":{{.State.Running}},'
                 '"oom_killed":{{.State.OOMKilled}},"limit":{{.HostConfig.Memory}}}')
     value = json.loads(subprocess.check_output(
-        ['docker','inspect','--format',template,'fc27-cloud-browser'], text=True, timeout=5))
+        ['docker','inspect','--format',template,container], text=True, timeout=5))
     cid = value['id']
     if not re.fullmatch('[a-f0-9]{64}', cid):
         raise ValueError('container_identity')
@@ -97,6 +144,71 @@ def browser_memory():
     value.update(usage_bytes=int((root/'memory.usage_in_bytes').read_text()),
                  rss_bytes=int(stat['total_rss']), cache_bytes=int(stat['total_cache']))
     return value
+
+
+def add_order_memory(value, memory):
+    """Track the isolated browser in the original samples; alert before its next peak."""
+    value['order_memory'] = memory
+    issues = set(value['issues'])
+    if not memory['running']:
+        issues.add('fc_pricing_order_browser_stopped')
+    if memory['oom_killed']:
+        issues.add('fc_pricing_order_browser_oom')
+    # RSS excludes reclaimable cache; reserve headroom for the measured probe/Node peak.
+    if memory['limit'] > 0 and memory['rss_bytes'] * 10 >= memory['limit'] * 7:
+        issues.add('fc_pricing_order_browser_memory_high')
+    value['issues'] = sorted(issues)
+    return value
+
+
+def restart_acceptance_verified(lifecycle, memory, now):
+    """A prior startup's readback cannot acknowledge a later restart event."""
+    try:
+        event_id = lifecycle.get('event_id')
+        if str(uuid.UUID(event_id)) != event_id or lifecycle.get('action') != 'restart':
+            return False
+        if lifecycle.get('state') not in ('verified', 'verified_after_unknown', 'verified_after_readonly_reconciliation'):
+            return False
+        if memory.get('running') is not True:
+            return False
+        at = lifecycle['at']
+        if type(at) not in (int, float):
+            return False
+        def parse_time(value):
+            # Docker emits nanoseconds; the deployed Python ISO parser accepts microseconds.
+            value = re.sub(r'(\d{2}:\d{2}:\d{2}\.\d{6})\d+(?=Z|[+-]\d{2}:\d{2}$)', r'\1', value)
+            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+
+        started = parse_time(memory['started_at'])
+        lower = max(datetime.fromtimestamp(at, timezone.utc), started)
+
+        def current_time(value):
+            checked = parse_time(value)
+            return checked.utcoffset() is not None and lower <= checked <= now
+
+        release = lifecycle.get('idle_release') or {}
+        if (release.get('event_id') == event_id and release.get('container_id') == memory['id']
+                and release.get('started_at') == memory['started_at']
+                and current_time(lifecycle.get('idle_release_verified_at', ''))):
+            return True
+        container = lifecycle.get('reconciled_container', {})
+        if (container.get('id') != memory['id'] or container.get('started_at') != memory['started_at']
+                or container.get('running') is not True):
+            return False
+        sha = lifecycle.get('startup_source_sha256', '')
+        if not re.fullmatch('[a-f0-9]{64}', sha):
+            return False
+        readback = lifecycle.get('readback') or {}
+        cookies = lifecycle.get('after_cookies') or {}
+        startup_readback = (readback.get('startup_sha256') == sha and readback.get('owned_idle') is True
+                            and type(readback.get('global_workers')) is int and readback['global_workers'] == 0)
+        startup_cookies = (cookies.get('logged_in') is True
+                           and type(cookies.get('lootbar_blob_workers')) is int and cookies['lootbar_blob_workers'] == 0
+                           and type(cookies.get('cookie_count')) is int and cookies['cookie_count'] > 0)
+        return ((startup_readback and current_time(lifecycle.get('reconciled_at', '')))
+                or (startup_cookies and current_time(lifecycle.get('verified_at', ''))))
+    except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
+        return False
 
 
 def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, lifecycle=None, extra_issues=()):
@@ -123,6 +235,12 @@ def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, life
         issues.append('fc_pricing_unresolved:'+operation['operation_id'])
     unresolved, legacy = classify_jobs(rows, baseline, previous.get('rpg_unresolved', {}))
     reconcile_cache(unresolved, cache_receipt or {})
+    receipt_details = {}
+    for row in rows:
+        if row['id'] in unresolved:
+            result = json.loads(row['result_json'] or '{}')
+            receipt_details[row['id']] = {key: result.get(key) for key in ('write_state', 'write_attempts')}
+            receipt_details[row['id']]['status'] = row['status']
     issues += ['rpg_pricing_'+reason+':'+jid for jid,reason in sorted(unresolved.items())]
     if not memory['running']:
         issues.append('fc_pricing_browser_stopped')
@@ -133,9 +251,7 @@ def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, life
         issues.append('fc_pricing_actual_browser_connection_failed')
     if lifecycle.get('state') == 'unknown':
         issues.append('fc_pricing_browser_recovery_unknown:'+str(lifecycle.get('event_id')))
-    planned_verified = (lifecycle.get('startup_source_sha256') is not None
-                        and lifecycle.get('state') in ('verified', 'verified_after_unknown', 'verified_after_readonly_reconciliation')
-                        and lifecycle.get('reconciled_container', {}).get('started_at') == memory['started_at'])
+    planned_verified = restart_acceptance_verified(lifecycle, memory, now)
     old_memory = previous.get('memory', {})
     restart = old_memory and (memory['restart_count'] > old_memory.get('restart_count', 0)
                              or memory['started_at'] != old_memory.get('started_at'))
@@ -144,16 +260,31 @@ def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, life
     if restart:
         recovery_event = {'started_at':memory['started_at'], 'restart_count':memory['restart_count'],
                           'oom_killed':memory['oom_killed'], 'observed_at':now.isoformat()}
-    if recovery_event and planned_verified and recovery_event['started_at'] == memory['started_at']:
-        recovery_event = dict(recovery_event, planned_startup_acceptance_verified=True)
+    if recovery_event:
+        recovery_event = dict(recovery_event, planned_startup_acceptance_verified=bool(
+            planned_verified and recovery_event['started_at'] == memory['started_at']))
     if recovery_event and not recovery_event.get('planned_startup_acceptance_verified') and (now-datetime.fromisoformat(recovery_event['observed_at'])).total_seconds() < 600:
         issues.append('fc_pricing_browser_restarted:'+recovery_event['started_at'])
     return dict(exported_at=now.isoformat(), issues=sorted(set(issues)),
                 legacy_issue_codes=sorted(legacy_codes),
-                rpg_unresolved=unresolved, legacy_unclassified=legacy,
+                rpg_unresolved=unresolved, rpg_receipt_details=receipt_details, legacy_unclassified=legacy,
                 memory=memory, browser_restart_event=recovery_event,
                 fc_job=raw.get('coin', {}).get('job', {}),
                 source_scope='original_jobs_and_receipts_only')
+
+
+def owner_price_review(root=Path('/var/lib/fc27-cloud')):
+    paths=list((root/'quotes').glob('*.json'))
+    if not paths:return [],{}
+    value=json.loads(max(paths,key=lambda p:p.stat().st_mtime).read_text('utf-8'))
+    if value.get('result',{}).get('decision_receipt',{}).get('position_policy_version')!='fc-owner-position-20261026-v1':return [],{}
+    codes=[];details={}
+    for row in value['result']['rows']:
+        platform=row['platform'];review=row.get('margin_review') or {};details[platform]=review
+        if review.get('level') in ('warning','urgent'):codes.append('coin_margin_review_'+review['level']+'_'+platform)
+        if row.get('auto_blocked_reason') in ('pricing_position_floor_conflict','pricing_position_peer_missing'):
+            codes.append('coin_'+row['auto_blocked_reason']+'_'+platform)
+    return codes,dict(run_id=value['run_id'],quote_created_at=value['created_at'],basis='current_100k_estimate_not_actual_cohort_profit',platforms=details)
 
 
 def main():
@@ -178,8 +309,16 @@ def main():
             raw_codes = {item['code'] for item in raw.get('issues', [])}
             extras = [code for code in assess(raw, now) if code not in raw_codes
                       and (code.startswith('coin_') or code == 'business_write_unresolved')]
+            review_codes,review_details=owner_price_review()
+            extras+=review_codes
             value = collect(now, previous, baseline['job_ids'], raw, rpg_rows(), browser_memory(), read(CACHE_RECOVERY, {}),
                             read(Path('/var/lib/fc27-cloud/state/browser-lifecycle.json'), {}), extras)
+            value['owner_price_review']=review_details
+            try:
+                add_order_memory(value, browser_memory('fs-order-browser'))
+            except Exception as error:
+                value['order_memory'] = {'status': 'unverified', 'reason': type(error).__name__}
+                value['issues'] = sorted(set(value['issues'] + ['pricing_monitor_order_memory_unverified']))
         except Exception as error:
             value = dict(previous, exported_at=now.isoformat(),
                          issues=sorted(set(previous.get('issues', []) + ['pricing_monitor_read_failed:'+type(error).__name__])))

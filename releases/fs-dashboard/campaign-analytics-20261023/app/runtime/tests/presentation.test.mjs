@@ -93,3 +93,23 @@ test('SBC projection distinguishes cores, retains only chosen original routes an
   assert.deepEqual(result.sbc.ids,[core]);assert.equal(result.sbc.defaultId,core);assert.deepEqual(Object.keys(result.sbc.routes),[core]);assert.deepEqual(result.sbc.routes[core].picks,picks);assert.deepEqual(result.sbc.routes[core].alternatives,[]);assert.deepEqual(result.sbc.routes[core].label,original.label);assert.deepEqual(result.sbc.fallbackPicks,picks);assert.deepEqual(result.sbc.allListedIds,[core]);
   const empty=projectFcCatalog(catalog,selection());assert.deepEqual(empty.weekly.ids,[]);assert.deepEqual(empty.trio.ids,[]);assert.deepEqual(empty.sbc.routes,{});assert.equal(empty.sbc.defaultId,null);
 });
+
+
+test('SBC and Weekly fixed bundles project from their own page bindings when Trio is inactive',()=>{
+ const s=selection(),bundle=catalog.bundles.ids[0];s.pages[2].active=false;s.pages[0].product_keys=keys([bundle]);s.pages[1].product_keys=keys([bundle]);const result=projectFcCatalog(catalog,s);
+ assert.deepEqual(result.bundles.ids,[]);assert.deepEqual(result.weekly.bundleIds,[bundle]);assert.deepEqual(result.sbc.bundleIds,[bundle]);assert(result.products[bundle]);
+ s.pages[1].product_keys=[];assert.deepEqual(projectFcCatalog(catalog,s).sbc.bundleIds,[],'explicit page removal never inherits a different page bundle pool');
+});
+
+test('private and published SBC projection honors layout order only among eligible page cores',()=>{
+ const [first,second]=catalog.sbc.ids,s=selection();s.pages[1].product_keys=keys([first,second]);
+ s.fc_layout={sbc:[second,'not-selected',first],defaultCore:second,routes:catalog.sbc.routes};
+ const before=structuredClone(s);
+ for(const publication_status of ['preview','published']){
+  const result=projectFcCatalog(catalog,{...s,publication_status});assert.deepEqual(result.sbc.ids,[second,first]);assert.equal(result.sbc.defaultId,second);assert.deepEqual(result.sbc.allListedIds,[second,first]);
+ }
+ assert.deepEqual(s,before);
+ s.fc_layout.sbc=[second];assert.deepEqual(projectFcCatalog(catalog,s).sbc.ids,[second,first],'unranked eligible members remain');
+ s.pages[1].product_roles=Object.fromEntries(keys([second]).map(key=>[key,'companion']));assert.deepEqual(projectFcCatalog(catalog,s).sbc.ids,[first],'configured order cannot bypass role filtering');
+ delete s.pages[1].product_roles;s.pages[1].product_keys=[...keys([first]),'fc-'+second+'-invalid'];assert.deepEqual(projectFcCatalog(catalog,s).sbc.ids,[first],'configured order cannot bypass platform filtering');
+});

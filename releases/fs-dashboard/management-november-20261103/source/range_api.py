@@ -512,6 +512,33 @@ class Handler(BaseHTTPRequestHandler):
    if CAMPAIGN_RECOMMENDATIONS is None:campaign_unavailable(self,'POST',uri)
    else:campaign_recommendations_handle(self,'POST',uri,CAMPAIGN_RECOMMENDATIONS)
    return
+  if uri.path in ('/users/order-email-export','/users/order-email-export-page'):
+   if LIVE_ADMIN is None or not callable(verify_live_session):self.reply(503,{'error':'live_admission_unavailable','complete':False});return
+   if uri.query or self.headers.get('Sec-Fetch-Site')!='same-origin':self.reply(403,{'error':'same_origin_required','complete':False});return
+   if self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type','').split(';')[0].strip().lower()!='application/json':self.reply(415,{'error':'json_required','complete':False});return
+   length=self.headers.get('Content-Length','')
+   if not re.fullmatch(r'[0-9]{1,4}',length) or not 1<=int(length)<=4096:self.reply(413,{'error':'body_too_large','complete':False});return
+   cookie=self.headers.get('Cookie')
+   try:
+    from admin_order_email_export import parse_body,get as export_emails
+    if uri.path=='/users/order-email-export-page':
+     from admin_order_email_export import parse_page_body as parse_body,page_get as export_emails
+    auth_status,actor=verify_live_session(cookie)
+    if auth_status!=200 or not actor:self.reply(auth_status if auth_status in (401,403,429,503) else 503,{'error':'session_denied','complete':False});return
+    self.connection.settimeout(10)
+    raw=self.rfile.read(int(length))
+    if len(raw)!=int(length):raise ValueError('invalid_body')
+    export_request=parse_body(raw)
+    def run_export_scoped(operation,timeout):
+     def checked():
+      next_status,next_actor=verify_live_session(cookie)
+      if next_status!=200 or next_actor!=actor:raise PermissionError('session_changed')
+      return operation()
+     return LIVE_ADMIN.run(checked,timeout)
+    status,data=export_emails(export_request,actor,run_source=run_export_scoped);self.reply(status,data)
+   except (ValueError,TypeError,UnicodeError):self.reply(422,{'error':'invalid_export_request','complete':False})
+   except Exception:self.reply(503,{'error':'export_source_unavailable','complete':False})
+   return
   if uri.path=='/users/live-orders':
    if LIVE_ADMIN is None or not callable(verify_live_session) or not callable(private_live_body):self.reply(503,{'error':'live_admission_unavailable'});return
    if uri.query or self.headers.get('Sec-Fetch-Site')!='same-origin':self.reply(403,{'error':'same_origin_required'});return

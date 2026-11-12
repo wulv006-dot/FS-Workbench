@@ -564,7 +564,7 @@ class RuntimeContracts(unittest.TestCase):
 
     def test_simulation_bridge_pins_local_and_runtime_pure_versions(self):
         source=SOURCE/'fc_pricing_v3'
-        hashes={key:hashlib.sha256((source/name).read_bytes()).hexdigest() for key,name in [('engine_sha256','engine.py'),('financial_sha256','financial.py')]}
+        hashes={key:hashlib.sha256((source/name).read_bytes().replace(b'\r\n',b'\n')).hexdigest() for key,name in [('engine_sha256','engine.py'),('financial_sha256','financial.py')]}
         remote=dict(version='fc-pricing-v3-20261026',**hashes,legacy_sources=pricing_simulation.LEGACY_SHA)
         with tempfile.TemporaryDirectory() as folder:
             config=Path(folder)/'config'
@@ -646,7 +646,7 @@ class RuntimeContracts(unittest.TestCase):
 
     def test_restore_preview_only_reads_confirmed_original_before_prices(self):
         ident='00000000-0000-4000-8000-000000000020'
-        rows=[dict(platform=p,b2c=value) for p,value in [('PS','.105'),('XBOX','.105'),('PC','.12')]]
+        rows=[dict(platform=p,b2c=value) for p,value in [('PS','.105'),('XBOX','.108'),('PC','.12')]]
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
             (root/'executions').mkdir()
@@ -656,7 +656,7 @@ class RuntimeContracts(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'original_unconfirmed'):
                     api.original_restore_prices(ident)
                 path.write_text(json.dumps(dict(execution_id=ident,status='CONFIRMED',sync_confirmed=True,before=dict(rows=rows))),encoding='utf-8')
-                self.assertEqual(api.original_restore_prices(ident),dict(console='10.500',pc='12.00'))
+                self.assertEqual(api.original_restore_prices(ident),dict(PS='10.500',XBOX='10.800',PC='12.00'))
 
     def test_plan_request_reuses_id_and_original_anchor_after_snapshot_changes(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -666,23 +666,23 @@ class RuntimeContracts(unittest.TestCase):
                 return dict(snapshot_id=ident,created_at=ident,evidence=dict(storefront=dict(rows={p:dict(package_usd=price) for p in ('PS','XBOX','PC')}),
                     region_rules=[dict(id=1,region_id=39,platforms=['PS','XBOX','PC'],factor='.91')],regional_controls=[]))
             db.put('pricing_snapshots','1',snapshot('1','10'))
-            data=dict(request_key='same-plan',mode='daily',resources=['base:console'],parameters=dict(offsets_pct=['-8','0','8']))
+            data=dict(request_key='same-plan',mode='daily',resources=['base:PS'],parameters=dict(offsets_pct=['-8','0','8']))
             with patch.object(api,'ledger',return_value=db):
                 with self.assertRaisesRegex(ValueError,'pricing_plan_fields_invalid'):
                     api.post('plans',dict(data,daily_budget='0'),'wulv')
                 first=api.post('plans',data,'wulv')
                 db.put('pricing_snapshots','2',snapshot('2','11'))
                 second=api.post('plans',data,'wulv')
-                pc=api.post('plans',dict(data,request_key='pc-plan',resources=['base:pc']),'wulv')
+                pc=api.post('plans',dict(data,request_key='pc-plan',resources=['base:PC']),'wulv')
                 with self.assertRaisesRegex(ValueError,'pricing_plan_payload_conflict'):
                     api.post('plans',dict(data,parameters=dict(offsets_pct=['-4','0','4'])),'wulv')
                 with db.transaction() as conn:
                     conn.execute('DELETE FROM pricing_snapshots')
                 self.assertEqual(api.post('plans',data,'wulv')['plan_id'],first['plan_id'])
             self.assertEqual(first['plan_id'],second['plan_id'])
-            self.assertEqual(first['price_anchor']['base_prices']['console'],'10')
-            self.assertEqual(first['resources'],['base:console'])
-            self.assertEqual(pc['resources'],['base:pc'])
+            self.assertEqual(first['price_anchor']['base_prices']['PS'],'10')
+            self.assertEqual(first['resources'],['base:PS'])
+            self.assertEqual(pc['resources'],['base:PC'])
             db.activate_plan(first['plan_id'])
             db.activate_plan(pc['plan_id'])
             self.assertEqual(len(db.active_plans()),2)
@@ -692,10 +692,10 @@ class RuntimeContracts(unittest.TestCase):
             db=Ledger(Path(folder) / 'control.db')
             db.activate_generation('v3',[])
             db.put('pricing_snapshots','s',dict(snapshot_id='s',created_at='1',evidence=dict(storefront=dict(rows={p:dict(package_usd='10') for p in ('PS','XBOX','PC')}),region_rules=[],regional_controls=[])))
-            plan=db.create_plan('daily',['base:console'],dict(base_prices=dict(console='10',pc='10'),region_coefficients={}),plan_id='00000000-0000-4000-8000-000000000010')
+            plan=db.create_plan('daily',['base:PS'],dict(base_prices=dict(PS='10',XBOX='10',PC='10'),region_coefficients={}),plan_id='00000000-0000-4000-8000-000000000010')
             db.activate_plan(plan['plan_id'])
-            preview=dict(request_key='preview-one',plan_id=plan['plan_id'],reason='manual trial',explicit_prices=dict(console='10.50'))
-            proof=dict(selected=dict(action=dict(base_prices=dict(console='10.50',pc='10'))),current={},valid_until=(datetime.now(timezone.utc)+timedelta(minutes=10)).isoformat(),plan_id=plan['plan_id'],revision=1)
+            preview=dict(request_key='preview-one',plan_id=plan['plan_id'],reason='manual trial',explicit_prices=dict(PS='10.50'))
+            proof=dict(selected=dict(action=dict(base_prices=dict(PS='10.50',XBOX='10',PC='10'))),current={},valid_until=(datetime.now(timezone.utc)+timedelta(minutes=10)).isoformat(),plan_id=plan['plan_id'],revision=1)
             with patch.object(api,'ledger',return_value=db),patch.object(runtime,'override_quote',return_value=proof) as override:
                 first=api.post('manual-previews',preview,'wulv')
                 second=api.post('manual-previews',preview,'wulv')

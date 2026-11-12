@@ -22,7 +22,7 @@
 | fc27-automation-tick.timer/service | 唯一fc-pricing-v3.service | 04:10:02已移出/etc/systemd/system并归档；均not-found/inactive |
 | fc27-price-observer.path/service | 原耐久事件/游标及每日影子 | 同次归档原单元，均not-found/inactive，无第二套触发器 |
 | /opt/fc27-price-observer四个py及缓存 | 当前必要来源及独立ItemD2R reader | 整目录移入可恢复备份，旧代码无当前消费者；原数据只读视图保留 |
-| ELD/U4GM/IGGM/U7Buy的FC自动采集与旧观察UI | Lootbar无券、冲额ItemD2R、沙特Arab-UT普通 | 当前按策略采必要来源；旧页面脚本不再加载。历史与其他游戏保留 |
+| ELD/U4GM/IGGM/U7Buy的FC自动采集与旧观察UI | Lootbar同平台无券主锚、Arab-UT同平台次锚（主机Normal/PC Standard）、ItemD2R辅助 | 当前按策略采必要来源，三平台独立报价、地区统一全球；旧页面脚本不再加载。历史与其他游戏保留 |
 | 英国临时ID1/0.9100有效规则 | 三平台继承全球 | status1→0，04:07:37后台/缓存/公开确认；原行保留审计，其他英国规则不删 |
 | 旧quote/迟到任务/旧generation | revision/epoch、资源所有权及原ID对账 | 旧代际新dispatch被拒绝；失败/UNKNOWN不清除。多自然周期无回摆待验 |
 | 旧监控schedule/job语义 | V3薄投影及统一故障分类 | 共享监控读取当前V3状态，RPG/宿主/夜间/通知职责保留 |

@@ -17,12 +17,12 @@ POLICY = 'lootbar_primary_arabut_secondary_v1'
 
 
 def plan(mode='revenue_sprint'):
-    return dict(mode=mode, resources=['base:console', 'base:pc', 'region:21:PS'],
+    return dict(mode=mode, resources=['base:PS','base:XBOX', 'base:PC', 'region:21:PS'],
                 parameters=dict(competitor_policy=POLICY, region_pricing='global'))
 
 
 def evidence():
-    data = source(loot='10', item='1', cost='.10', bonus='5')
+    data = source(loot='10', item='1', cost='.10', bonus='0')
     data['arab_ut_quotes'] = [dict(source='ArabUT', platform=p, region_id=21,
         source_region_id=21, reference_scope='global', total_usd='9.47' if p=='PC' else '8.61',
         purchase_k='100', bonus_k='0', currency='USD', captured_at=NOW.isoformat(),
@@ -74,7 +74,7 @@ class BidirectionalMarkets(unittest.TestCase):
         market=engine.competition(data, engine.PLATFORMS, NOW, plan=plan())
         self.assertEqual({a['source'] for a in market['anchors'].values()}, {'Lootbar'})
         self.assertEqual({q['source'] for q in market['quotes']}, {'Lootbar', 'ArabUT'})
-        self.assertEqual(engine.competition(data, ['PS'], NOW)['anchors']['PS']['source'], 'ItemD2R')
+        self.assertEqual(engine.competition(data, ['PS'], NOW)['anchors']['PS']['source'], 'Lootbar')
 
     def test_missing_loot_uses_independent_pc_standard_arab_with_source_region(self):
         data=evidence();missing(data, 'Lootbar')
@@ -132,10 +132,10 @@ class BidirectionalMarkets(unittest.TestCase):
         selected=engine.evaluate(data, 'daily', plan=plan('daily'), now=NOW)['selected']
         self.assertIsNotNone(selected)
         self.assertEqual(selected['daily_reference']['PC']['source'], 'ArabUT')
-        self.assertEqual(selected['daily_pricing']['pc']['basis'], 'arabut_actual_delivery_target')
-        self.assertEqual(selected['daily_pricing']['pc']['driver_source'], 'ArabUT')
+        self.assertEqual(selected['daily_pricing']['PC']['basis'], 'arabut_actual_delivery_target')
+        self.assertEqual(selected['daily_pricing']['PC']['driver_source'], 'ArabUT')
         self.assertIn('ARABUT', selected['decision_reason'])
-        self.assertEqual(engine.daily_reference(data, ['PC'], NOW)['PC']['source'], 'ItemD2R')
+        self.assertEqual(engine.daily_reference(data, ['PC'], NOW)['PC']['source'], 'ArabUT')
 
     def test_new_daily_both_missing_uses_average30_not_item(self):
         data=evidence();missing(data, 'Lootbar');data['arab_ut_quotes']=[]
@@ -149,7 +149,7 @@ class BidirectionalMarkets(unittest.TestCase):
         data=evidence();data['arab_ut_quotes']=[]
         control=dict(id=3, region_id=21, platforms=['PS'], factor='1', resource='region:21:PS',
             verified=True, rounding='half_up_cent', price_semantics='regional_regular_multiplicative',
-            history=dict(basis='pooled_other_promotions_excluding_region_verified'))
+            history=dict(by_platform={p:dict(basis='platform_other_promotions_excluding_region_verified') for p in engine.PLATFORMS}))
         data['region_rules']=[control];data['regional_controls']=[control]
         global_market=engine.competition(data, ['PS', 'XBOX'], NOW, plan=plan())
         regional=engine.competition(data, ['PS'], NOW, region=21, plan=plan(),

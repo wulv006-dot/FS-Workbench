@@ -9,8 +9,8 @@ from pricing_operations import native
 
 
 V3_VERSION = 'fc-pricing-v3-20261026'
-ENGINE_SHA = '0cd1c5a12842cec8c092fda406715efe89d25141fccd072597d22ccb30cef186'
-FINANCIAL_SHA = '9644665af48a69bfc07b8b39059a03694e6e96250bc1e40a54ba5583cfb63e65'
+ENGINE_SHA = 'ecb0b23d47142f695caae68b59e68f2d7d0d60fa65ab5e50dffaa27d18fa83bc'
+FINANCIAL_SHA = 'fe6de2126a8da920e4994895dd68bcddff51c65bd10f4b521d3830b104193729'
 LEGACY_SHA = {
     'legacy_80_15_5': '91f8d143e21e05544b17442bd8a20d3735f62caa4aa5b182584a4fd4c4ec993a',
     'legacy_itemd2r_parity': 'f68459feb07ff59690a4a6b716e9760a7c556e74b92b7e02dfa4c57d23eb0a42',
@@ -26,13 +26,13 @@ class SimulationBridge:
 
     def versions(self):
         local = {
-            'engine_sha256': hashlib.sha256((self.code / 'engine.py').read_bytes()).hexdigest(),
-            'financial_sha256': hashlib.sha256((self.code / 'financial.py').read_bytes()).hexdigest(),
+            'engine_sha256': hashlib.sha256((self.code / 'engine.py').read_bytes().replace(b'\r\n',b'\n')).hexdigest(),
+            'financial_sha256': hashlib.sha256((self.code / 'financial.py').read_bytes().replace(b'\r\n',b'\n')).hexdigest(),
         }
         if local != {'engine_sha256': ENGINE_SHA, 'financial_sha256': FINANCIAL_SHA}:
             raise ValueError('simulation_v3_code_changed')
         for name, (filename, expected) in self.legacy_sources().items():
-            if expected != LEGACY_SHA[name] or hashlib.sha256((self.code / 'legacy_simulation' / filename).read_bytes()).hexdigest() != expected:
+            if expected != LEGACY_SHA[name] or hashlib.sha256((self.code / 'legacy_simulation' / filename).read_bytes().replace(b'\r\n',b'\n')).hexdigest() != expected:
                 raise ValueError('simulation_legacy_code_changed')
         remote = self.request('/pricing/v3/versions', 'wulv')
         if remote.get('version') != V3_VERSION or any(remote.get(key) != value for key, value in local.items()) or remote.get('legacy_sources') != LEGACY_SHA:
@@ -59,7 +59,7 @@ class SimulationBridge:
                     engine_sha256=versions['engine_sha256'], financial_sha256=versions['financial_sha256'],
                     legacy_sources=versions['legacy_sources'], snapshot_id=state.get('snapshot_id'),
                     pricing_rules=None, pricing_rules_status='legacy_bands_retired_for_v3_decisions', minimum_gross_margin_pct='20',
-                    granularity='global_console_and_pc_plus_verified_regional_rules',
+                    granularity='three_independent_platforms_global_uniform_price',
                     rule_ideas_supported=False, candidate_evaluator='v3_two_strategy_current_evaluate',
                     candidate_evaluator_sha256=versions['engine_sha256'],
                     platforms=['PS', 'XBOX', 'PC'],

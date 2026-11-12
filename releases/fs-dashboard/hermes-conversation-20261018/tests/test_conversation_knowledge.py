@@ -108,10 +108,11 @@ class KnowledgeWiring(unittest.TestCase):
             proxy_path = SOURCE.parents[2] / 'fc-coins/fc-review-channel-20261026/source/proxy_gateway.py'
             tree = ast.parse(proxy_path.read_text('utf-8'))
             nodes = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
-                     and n.name in {'native_scope', 'confirm_native_compaction'}]
+                     and n.name in {'native_scope', 'structured_scope', 'confirm_native_compaction'}]
             namespace = dict(re=__import__('re'))
             exec(compile(ast.Module(body=nodes, type_ignores=[]), str(proxy_path), 'exec'), namespace)
             modules['proxy_gateway'].native_scope = namespace['native_scope']
+            modules['proxy_gateway'].structured_scope = namespace['structured_scope']
             bound = item['native_chat']['binding']
             gateway = service.hermes.gateways[bound['turn_id']]
             gateway._compaction_lock = threading.Lock()

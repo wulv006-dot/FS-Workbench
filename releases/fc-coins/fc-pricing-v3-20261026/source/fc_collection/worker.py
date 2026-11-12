@@ -20,7 +20,11 @@ class BudgetedTransport:
         self.guard = guard
         self.end = monotonic() + max(0, (instant(task['deadline_at']) - instant(clock())).total_seconds())
 
-    def get(self, template_id):
+    def get(self, template_id, *, count=1):
+        if count != 1:
+            from .lootbar import REQUEST_BUDGET
+            if self.task['source_id'] != 'Lootbar' or template_id != 'lootbar_capture' or count != REQUEST_BUDGET:
+                raise ValueError('request_group_invalid')
         if self.guard is not None:
             self.guard()
         if self.monotonic() >= self.end:
@@ -29,8 +33,8 @@ class BudgetedTransport:
         request_started = self.monotonic()
         task = self.endpoint.renew_lease(self.identity, self.task['job_id'], self.task['attempt_id'],
                                          self.task['lease_epoch'], now)
-        permit = self.endpoint.reserve_request(self.identity, task['job_id'], task['lease_epoch'], dict(count=1), now)
-        self.used += 1
+        permit = self.endpoint.reserve_request(self.identity, task['job_id'], task['lease_epoch'], dict(count=count), now)
+        self.used += count
         margin = permit['clock_margin_seconds']
         if abs((instant(permit['issued_at']) - instant(self.clock())).total_seconds()) > margin:
             raise SourceUnavailable('clock_unverified')
@@ -68,8 +72,11 @@ def collect_job(task, adapter, transport, clock):
     body = {key: task[key] for key in BINDING}
     body.update(schema_version=1, observation_id=uuid.uuid4().hex, request_budget_used=transport.used,
                 capture_started_at=instant(started).isoformat(), capture_finished_at=instant(clock()).isoformat())
-    if not isinstance(result, dict) or set(result) - {'status', 'reason_code', 'offers', 'evidence_hash', 'retry_after_seconds', 'platform_errors'}:
+    if not isinstance(result, dict) or set(result) - {'status', 'reason_code', 'offers', 'evidence_hash', 'retry_after_seconds', 'platform_errors','request_accounting'}:
         raise ValueError('adapter_result_invalid')
+    if task['source_id'] == 'Lootbar' and task['adapter_version'] == 'lootbar-public-browser-v1':
+        result.setdefault('request_accounting', dict(basis='reserved_browser_group', charged=transport.used,
+            browser_requests_allowed=None))
     body.update(result)
     validate_observation(body, task, clock())
     return body

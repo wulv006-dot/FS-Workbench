@@ -17,6 +17,7 @@
 """
 
 from .admin_readback import matches_targets
+from .platforms import action_key
 
 # §6.3 条件 1：只有 clickSync 真正返回的反馈才算 Order 成功。
 # price_writer.py 只在 `feedback['success'] and feedback['message']` 成立时写这个字段。
@@ -120,7 +121,7 @@ def admin_targets(operation):
     base_prices = action.get('base_prices') or {}
     targets = []
     for platform in target_platforms(operation):
-        key = BASE_PRICE_KEY.get(platform)
+        key = action_key(action, platform)
         if key is None or key not in base_prices:
             continue
         targets.append({'platform': platform, 'quote': str(base_prices[key])})

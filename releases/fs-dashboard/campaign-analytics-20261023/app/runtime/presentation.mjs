@@ -179,7 +179,10 @@ export function projectFcCatalog(originalCatalog,snapshot) {
   catalog.trio.series=trioVersions.length===1?trioVersions[0]:'Player Picks';
   catalog.bundles.ids=trioKeys.filter(key=>products[key].kind==='bundle');
   catalog.weekly.bundleIds=keys('Weekly-Scout.html').filter(key=>products[key].kind==='bundle');
+  catalog.sbc.bundleIds=sbcKeys.filter(key=>products[key].kind==='bundle');
   catalog.sbc.ids=sbcKeys.filter(key=>products[key].kind==='sbc');
+  const coreOrder=snapshot?.fc_layout?.sbc||[],eligibleCores=new Set(catalog.sbc.ids);
+  catalog.sbc.ids=[...new Set([...coreOrder.filter(key=>eligibleCores.has(key)),...catalog.sbc.ids])];
   const publishedRoutes=snapshot?.fc_layout?.routes??originalCatalog.sbc.routes;
   catalog.sbc.routes=Object.fromEntries(catalog.sbc.ids.filter(key=>publishedRoutes[key]).map(key=>{
     const original=publishedRoutes[key],selected=ids=>(ids||[]).filter(id=>sbcSet.has(id)&&products[id]?.kind==='player');
@@ -189,7 +192,7 @@ export function projectFcCatalog(originalCatalog,snapshot) {
   catalog.sbc.defaultId=catalog.sbc.ids.includes(defaultCore)?defaultCore:catalog.sbc.ids[0]??null;
   catalog.sbc.fallbackPicks=[...(catalog.sbc.routes[catalog.sbc.defaultId]?.picks||[])];
   catalog.sbc.allListedIds=[...catalog.sbc.ids];
-  const selected=new Set([...weekly,...catalog.weekly.bundleIds,...catalog.trio.ids,...catalog.bundles.ids,...catalog.sbc.ids,...Object.values(catalog.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]);
+  const selected=new Set([...weekly,...catalog.weekly.bundleIds,...catalog.trio.ids,...catalog.bundles.ids,...catalog.sbc.bundleIds,...catalog.sbc.ids,...Object.values(catalog.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]);
   catalog.products=Object.fromEntries(Object.entries(catalog.products).filter(([key])=>selected.has(key)));
   // Imported items stay outside the original priced/SBC/trio algorithms until their
   // page-specific structure is actually verified. They are visible metadata previews.

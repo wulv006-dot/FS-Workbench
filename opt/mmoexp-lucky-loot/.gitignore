@@ -1,0 +1,10 @@
+node_modules/
+state/
+secrets/
+*.enc
+*.key
+token
+instance.lock
+*.sock
+*.log
+__pycache__/

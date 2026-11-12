@@ -239,7 +239,7 @@ class ServiceTests(unittest.TestCase):
                          "8e4b799340957d5e03b92f8b9d2c6d32407fcd0e02592b3525687a77ab825dfd")
         skill = (skills / "data-storytelling/SKILL.md").read_bytes()
         self.assertEqual(hashlib.sha256(skill.replace(b"\r\n", b"\n")).hexdigest(),
-                         "a9e8e61e9d90be4417039983b6b9560119c363063ce5f5cc052865fb95ee1acd")
+                         "ffdb68fd0f9550a661728562c999bd86e7ad8a25adfb0feb1f9cdf4e0633fcd2")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             root.chmod(0o700)
@@ -280,7 +280,9 @@ class ServiceTests(unittest.TestCase):
                 index = book.call("fc.read_skill", {"topic": "governance"})
                 row = next(row for row in index["sections"] if row["path"] == "skills/data-storytelling/SKILL.md")
                 policy = book.call("fc.read_skill", {"topic": "governance", "section_id": row["section_id"]})
-            self.assertIn("新客首单30%", policy["text"])
+            for current_rule in ("version: 1.1.3", "购买100K、赠0、实交100K", "PS、Xbox、PC独立定价",
+                                 "各用自身订单的D-9至D-2金额加权优惠", "Lootbar为主锚、ArabUT为同轮全球第二参考", "ItemD2R仅辅助观察"):
+                self.assertIn(current_rule, policy["text"])
             self.assertLess(len(json.dumps(index, ensure_ascii=False).encode("utf-8")), 8000)
             self.assertLess(len(json.dumps(policy, ensure_ascii=False).encode("utf-8")), 8000)
 

@@ -111,9 +111,20 @@ def build_job(parent_run, source_id, context, deadline_at):
 
 
 def validate_observation(body, task, now):
-    if (not isinstance(body, dict) or set(body) - {'retry_after_seconds', 'platform_errors'} != OBSERVATION
+    if (not isinstance(body, dict) or set(body) - {'retry_after_seconds', 'platform_errors','request_accounting'} != OBSERVATION
             or type(body['schema_version']) is not int or body['schema_version'] != 1):
         raise ValueError('observation_schema_invalid')
+    if 'request_accounting' in body:
+        item = body['request_accounting']
+        if (task['source_id'] != 'Lootbar' or not isinstance(item, dict)
+                or set(item) != {'basis','charged','browser_requests_allowed'}
+                or item['basis'] != 'reserved_browser_group' or type(item['charged']) is not int
+                or item['charged'] != body['request_budget_used']
+                or item['browser_requests_allowed'] is not None and
+                    (type(item['browser_requests_allowed']) is not int or not 0 <= item['browser_requests_allowed'] <= item['charged'])):
+            raise ValueError('request_accounting_invalid')
+    elif task['source_id'] == 'Lootbar' and task['adapter_version'] == 'lootbar-public-browser-v1':
+        raise ValueError('request_accounting_required')
     if 'retry_after_seconds' in body:
         integer(body['retry_after_seconds'], 0, 31536000)
     if len(encoded(body).encode('utf-8')) > 65536:
@@ -125,7 +136,7 @@ def validate_observation(body, task, now):
         raise ValueError('observation_status_invalid')
     if 'platform_errors' in body:
         errors = body['platform_errors']
-        if (task['source_id'] != 'ArabUT' or not isinstance(errors, dict) or not errors
+        if (task['source_id'] not in ('ArabUT', 'Lootbar') or not isinstance(errors, dict) or not errors
                 or set(errors) - set(task['requested_platforms'])):
             raise ValueError('platform_errors_invalid')
         for reason in errors.values():
@@ -153,7 +164,26 @@ def validate_observation(body, task, now):
     for row in body['offers']:
         if not isinstance(row, dict) or set(row) - {'source_metadata'} != OFFER:
             raise ValueError('offer_schema_invalid')
-        if 'source_metadata' in row:
+        if 'source_metadata' in row and task['source_id'] == 'Lootbar':
+            meta = row['source_metadata']
+            fields = {'coupon_state','raw_coupon_excluded','logged_in','observed_coupon_price',
+                      'excluded_coupon_discount','stable_reads','raw_usd_price','coupon_evidence','reconstruction','parser_reconstruction'}
+            if not isinstance(meta, dict) or set(meta) != fields:
+                raise ValueError('source_metadata_invalid')
+            from .lootbar import snapshot_offer
+            raw = dict(selected=[{'PS':'PS4/5','XBOX':'Xbox','PC':'PC'}[row['platform']]],
+                loggedIn=meta['logged_in'], currencyState='ready', tierState='ready', baseK=100,
+                priceState='ready', usdPrice=meta['raw_usd_price'], giftState='ready', bonusK=row['bonus_quantity'],
+                couponState=meta['coupon_state'], observedCouponPrice=meta['observed_coupon_price'],
+                excludedCouponDiscount=meta['excluded_coupon_discount'], stable_reads=meta['stable_reads'], couponEvidence=meta['coupon_evidence'],
+                reconstruction=meta['parser_reconstruction'], observed_at=row['observed_at'])
+            expected = snapshot_offer(raw, row['platform'], row['observed_at'])
+            if (type(meta['raw_coupon_excluded']) is not bool
+                    or meta['raw_coupon_excluded'] != (meta['coupon_state'] == 'excluded')
+                    or meta['reconstruction'] != expected['source_metadata']['reconstruction']
+                    or any(row[k] != expected[k] for k in ('amount','price_basis','discount_source','coupon_excluded','auth_state','conditional','comparable'))):
+                raise ValueError('source_metadata_invalid')
+        elif 'source_metadata' in row:
             meta = row['source_metadata']
             if (task['source_id'] != 'ArabUT' or not isinstance(meta, dict)
                     or set(meta) not in ({'original_currency', 'original_amount_minor', 'price_version', 'priced_at'},
@@ -175,6 +205,8 @@ def validate_observation(body, task, now):
                         or row['delivery_method'] != ('standard' if pc else 'normal')):
                     raise ValueError('source_metadata_invalid')
                 fresh(meta['priced_at'], now)
+        elif task['source_id'] == 'Lootbar' and task['adapter_version'] == 'lootbar-public-browser-v1':
+            raise ValueError('lootbar_source_metadata_required')
         key = row['platform'], row['region_id']
         if (row['platform'] not in task['requested_platforms'] or type(row['region_id']) is not int
                 or row['region_id'] not in task['region_scope'] or key in seen):
@@ -240,6 +272,11 @@ def to_fc_quote_rows(accepted, expected_context, now):
                 if offer['delivery_method'] != expected_delivery:
                     continue
                 row.update(arab_quote_details(offer))
+            elif body['source_id'] == 'Lootbar':
+                if 'source_metadata' in offer:
+                    row['source_metadata'] = deepcopy(offer['source_metadata'])
+                row['request_accounting'] = deepcopy(body.get('request_accounting'))
+                row['url'] = 'https://www.lootbar.com/game-coins/fc27'
             rows.append(row)
     if times and (max(times) - min(times)).total_seconds() > 300:
         raise ValueError('observation_span_invalid')

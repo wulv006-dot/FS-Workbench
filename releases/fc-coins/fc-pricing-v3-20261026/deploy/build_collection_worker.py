@@ -8,8 +8,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 LOOTBAR = {
-    'lootbar_server_collector.py': '4d19dcf18bf6705bbf6aa6590ca660a974f8e1d006b7b9bbd4bb0673f4f52103',
-    'background.js': '4f36ad8a9723039912727f64bb6a3f20da0c657dc2a57105c4fb4d8faa6cf67b'}
+    'lootbar_server_collector.py': 'a950c08208df92a40183cbcbe0ea73b7c22e8d79f386336239f6d27079642384',
+    'background.js': 'e0e1946f607ae37df8547788d3252d05e02f5251ffae9c744ed9e941712e298e'}
 LOOTBAR_SOURCE = 'releases/ops/pricing-recovery-20261023/fc_residency/source/'
 
 
@@ -18,7 +18,7 @@ def build(output):
     for name in ('__init__.py', 'contracts.py', 'worker.py', 'adapters.py'):
         files['fc_collection/' + name] = (ROOT / 'source/fc_collection' / name).read_bytes().replace(b'\r\n', b'\n')
     for name, expected in LOOTBAR.items():
-        body = subprocess.check_output(['git', '-C', str(ROOT), 'show', 'HEAD:' + LOOTBAR_SOURCE + name])
+        body = (ROOT.parents[2] / LOOTBAR_SOURCE / name).read_bytes().replace(b'\r\n', b'\n')
         if hashlib.sha256(body).hexdigest() != expected:
             raise ValueError('lootbar_activity_source_changed')
         files['lootbar/' + name] = body

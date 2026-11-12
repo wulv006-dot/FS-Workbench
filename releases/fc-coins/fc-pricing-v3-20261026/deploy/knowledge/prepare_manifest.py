@@ -5,9 +5,10 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 
-from release import PREFIX, RELEASE, RUNTIME, SCOPE, load_base, targets
+from release import release_identity, RUNTIME, SCOPE, load_base, targets
 
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
@@ -17,6 +18,87 @@ NEW_BASELINE_SHA = 'b5bebb95c77628be725dc7f4aea4e3079e5c67bc3e19e6f08804d0e7c7e1
 OLD_POLICY_SHA = '5dfeae7efd57b25b8f738f217f02ece9a06aabb0afc195924f8e3b2d7ba1dbbe'
 OLD_CATALOG = 'knowledge-releases/fc-pricing-v3-20261026-11/index.json'
 OLD_CATALOG_SHA = '41202a8f6adbd64cc628fcc3c981e4e4db250f530c5e4d1b8e7b010f79b7789b'
+
+CURRENT_IDS = {'fs.orders.email_export','fs.data.sources','fs.data.currency','fs.customer.identity','fs.finance.procurement',
+    'fc.pricing.constraints','fc.marketing.attribution','fs.procurement.inputs','fs.pricing.parameter-identity',
+    'fs.product.identity','fs.customer.lifecycle','fs.learning.methods','fs.project.execution',
+    'fs.dashboard.shipping-profit','fc.pricing.v3','fc.reporting.methods','fc.reporting.data',
+    'fc.reporting.report','fc.reporting.business','fc.reporting.maintenance'}
+REQUIRED_OTHER = {'fs.experience.archive-cycle':('experience','verified'),
+    'fc.history.natural-1821':('archive','archived'),
+    'fs.decision.pmax-authority-20261023':('decision','confirmed'),
+    'fs.decision.aion2-distribution-20261023':('decision','confirmed'),
+    'fc.pricing.decision.three-platform-100k':('decision','confirmed'),
+    'fc.pricing.experience.platform-discount':('experience','verified')}
+BUSINESS_REVISIONS = {'fc.pricing.constraints':'fc27_dual20_d9_d2_platform_100k_v4',
+    'fc.pricing.v3':'20261111-lootbar-no-coupon','fs.pricing.parameter-identity':'20261110-three-platform-100k',
+    'fs.learning.methods':'20261110-three-platform-100k','fc.reporting.business':'20261110-three-platform-100k',
+    'fc.pricing.decision.three-platform-100k':'20261110-1','fc.pricing.experience.platform-discount':'20261110-1'}
+
+
+def source_relative(row):
+    relative = row.get('source',{}).get('path')
+    if (not isinstance(relative,str) or not relative or Path(relative).is_absolute()
+            or '..' in Path(relative).parts or '\\' in relative):
+        raise ValueError('source_path_escaped_git_root')
+    if not re.fullmatch('[a-f0-9]{64}',str(row['source'].get('sha256',''))):
+        raise ValueError('catalog_source_sha_invalid')
+    return relative
+
+
+def checked_catalog_inventory(index, *, source_commit=None, release=None):
+    if source_commit is None:
+        valid = (index.get('release_state')=='candidate' and index.get('source_commit') is None
+            and index.get('release')=='fc-three-platform-100k-20261110' and index.get('source_root') is None)
+    else:
+        valid = (index.get('release_state')=='published' and index.get('source_commit')==source_commit
+            and index.get('release')==release and index.get('source_root')=='knowledge-releases/'+release+'/sources')
+    entries=index.get('entries')
+    if (index.get('contract')!='fs-knowledge-index-v1' or not valid or not isinstance(entries,list)
+            or not all(isinstance(r,dict) for r in entries)):
+        raise ValueError('published_v3_catalog_identity_invalid' if source_commit else 'exact_v3_candidate_index_required')
+    current=[r.get('id') for r in entries if r.get('layer')=='current' and r.get('status')=='effective']
+    if len(current)!=len(CURRENT_IDS) or set(current)!=CURRENT_IDS or any(
+            r.get('layer')=='current' and r.get('status')!='effective' for r in entries):
+        raise ValueError('v3_current_knowledge_selection_invalid')
+    identities=[r.get('id') for r in entries if r.get('layer')!='candidate']
+    pairs=[(r.get('id'),r.get('revision')) for r in entries]
+    if (any(not isinstance(i,str) or not isinstance(v,str) for i,v in pairs)
+            or len(identities)!=len(set(identities)) or len(pairs)!=len(set(pairs))):
+        raise ValueError('v3_effective_knowledge_selection_invalid')
+    effective={r['id']:r for r in entries if r.get('layer')!='candidate'}
+    if not (CURRENT_IDS|set(REQUIRED_OTHER))<=set(effective):
+        raise ValueError('v3_effective_knowledge_selection_invalid')
+    for identity,row in effective.items():
+        source_relative(row)
+        if identity in REQUIRED_OTHER and (row.get('layer'),row.get('status'))!=REQUIRED_OTHER[identity]:
+            raise ValueError('v3_effective_knowledge_selection_invalid')
+        if identity not in CURRENT_IDS|set(REQUIRED_OTHER):
+            provenance=row.get('provenance')
+            if (row.get('layer')!='experience' or row.get('status')!='verified' or row.get('authority')!='git'
+                    or not re.fullmatch(r'(?:fc|fs)\.[a-z0-9][a-z0-9_.-]{0,118}',identity)
+                    or not isinstance(row.get('revision'),str) or not row['revision']
+                    or row['source'].get('hash_basis')!='utf8_lf'
+                    or not isinstance(provenance,list) or not provenance
+                    or not all(isinstance(p,dict) and isinstance(p.get('kind'),str) and p['kind'] for p in provenance)
+                    or not any(isinstance(p.get(k),str) and p[k] for p in provenance
+                               for k in ('url','decision','path','journal','evidence'))):
+                raise ValueError('v3_effective_knowledge_selection_invalid')
+    if any(effective[i].get('revision')!=revision for i,revision in BUSINESS_REVISIONS.items()):
+        raise ValueError('v3_current_knowledge_revision_invalid')
+    if any(r.get('status') not in ('candidate','pending') for r in entries if r.get('layer')=='candidate'):
+        raise ValueError('unpublished_candidate_state_invalid')
+    return index
+
+
+def catalog_payload_names(index):
+    return {'artifact/index.json','runtime/business-baseline.md'}|{
+        'artifact/sources/'+source_relative(row) for row in index['entries'] if row.get('layer')!='candidate'}
+
+
+def checked_payload_names(index, payloads):
+    if set(payloads)!=catalog_payload_names(index):
+        raise ValueError('git_payload_inventory_invalid')
 
 
 def sha(path):
@@ -44,10 +126,16 @@ def base_module():
 
 
 def prepare():
+    manifest_source = json.loads((STAGE / 'source-manifest.json').read_text(encoding='utf-8'))
+    RELEASE,PREFIX=release_identity(manifest_source['sourceCommit'])
     if Path(PREFIX).exists():
         raise ValueError('immutable_v3_release_already_exists_reconcile')
-    manifest_source = json.loads((STAGE / 'source-manifest.json').read_text(encoding='utf-8'))
     source_commit = manifest_source['sourceCommit']
+    index_path = STAGE / 'candidate/artifact/index.json'
+    safe(index_path)
+    staged_index=json.loads(index_path.read_text(encoding='utf-8'))
+    checked_catalog_inventory(staged_index,source_commit=manifest_source['sourceCommit'],release=RELEASE)
+    checked_payload_names(staged_index,manifest_source['payloadSha256'])
     for name, expected in manifest_source['payloadSha256'].items():
         path = STAGE / 'candidate' / name
         safe(path)
@@ -61,9 +149,10 @@ def prepare():
     catalog = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(catalog)
     index = catalog.validate(json.loads(index_path.read_text(encoding='utf-8')))
-    if index['release_state'] != 'published' or index['release'] != RELEASE or \
-            index['source_commit'] != source_commit or len(index['entries']) != 25:
-        raise ValueError('published_v3_catalog_identity_invalid')
+    checked_catalog_inventory(index,source_commit=source_commit,release=RELEASE)
+    for row in index['entries']:
+        if row['layer']!='candidate' and sha(STAGE/'candidate/artifact/sources'/source_relative(row))!=row['source']['sha256']:
+            raise ValueError('catalog_payload_source_sha_mismatch:'+row['id'])
     policy_path = Path(RUNTIME['runtime/knowledge-load-policy.json'])
     safe(policy_path)
     raw = policy_path.read_bytes()
@@ -145,6 +234,7 @@ def prepare():
             raise ValueError('required_Hermes_unit_not_active:' + unit)
         runtime[unit] = {'ActiveState': 'active'}
     manifest = dict(schemaVersion=1, scope=SCOPE, releaseReady=True, sourceCommit=source_commit,
+        knowledgeRelease=RELEASE,
         businessWrites=False, timersChanged=False,
         imageId='sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544',
         runtimeRequired=runtime, unchangedRequired=guarded, files=rows)

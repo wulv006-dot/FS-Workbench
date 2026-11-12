@@ -1,4 +1,5 @@
 """Single durable FC due scheduler; recovery/deadlines never wait for collection."""
+from .platforms import SMART_VERSIONS, action_key
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import timedelta
@@ -52,8 +53,9 @@ def next_cycle_at(db,plan,policy=None):
     if policy.get('updated_at'):anchors.append(instant(policy['updated_at']))
     interval=cycle_interval(policy)
     from .smart import STRATEGY_VERSION, strategy_start
-    if plan.get('smart_strategy_version')==STRATEGY_VERSION:
+    if plan.get('smart_strategy_version') in SMART_VERSIONS:
         start=strategy_start(plan)
+        if max(anchors)<start:return start
         last=max(anchors+[start])
         return start+(max(0,(last-start)//interval)+1)*interval
     return max(anchors)+interval
@@ -64,7 +66,7 @@ def finish_cycle(db,conn,body,result,at):
     plan=db.get('pricing_plans',body.get('plan_id'),conn) if body.get('plan_id') else None
     if plan:
         from .smart import STRATEGY_VERSION
-        plan['last_cycle_at']=body['scheduled_at'] if body.get('scheduled_at') and plan.get('smart_strategy_version')==STRATEGY_VERSION else at
+        plan['last_cycle_at']=body['scheduled_at'] if body.get('scheduled_at') and plan.get('smart_strategy_version') in SMART_VERSIONS else at
         db.put('pricing_plans',plan['plan_id'],plan,conn)
 
 
@@ -369,7 +371,7 @@ def tick(executors, running):
     for plan in plans:
       if plan and plan['state']=='ACTIVE':
         from .smart import STRATEGY_VERSION,policy_suffix
-        if plan.get('smart_strategy_version')==STRATEGY_VERSION:
+        if plan.get('smart_strategy_version') in SMART_VERSIONS:
             with db.connect() as conn:
                 pending_outcomes=any(json.loads(row[0]).get('plan_id')==plan['plan_id'] and json.loads(row[0]).get('revision')==plan['revision'] for row in
                     conn.execute("SELECT body FROM durable_jobs WHERE kind='outcomes' AND state IN ('queued','running')"))
@@ -383,7 +385,7 @@ def tick(executors, running):
         if not pending and now>=due_at:
             from .smart import STRATEGY_VERSION, strategy_start
             scheduled={}
-            if plan.get('smart_strategy_version')==STRATEGY_VERSION:
+            if plan.get('smart_strategy_version') in SMART_VERSIONS:
                 interval=cycle_interval()
                 start=strategy_start(plan)
                 due_at=start+((now-start)//interval)*interval

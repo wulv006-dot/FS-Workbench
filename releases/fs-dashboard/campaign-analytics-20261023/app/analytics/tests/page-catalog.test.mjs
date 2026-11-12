@@ -131,3 +131,9 @@ test('known former Trio default title becomes neutral while custom titles surviv
  for(const title of ['Star Performer Trio','Star Performer 三人组'])assert.equal(publicEnglishRelease({pages:[{page_id:'fc27-trio',path:'Player-Trio.html',title}],products:[]}).pages[0].title,'Player Trio');
  assert.equal(publicEnglishRelease({pages:[{page_id:'fc27-trio',path:'Player-Trio.html',title:'My custom lineup'}],products:[]}).pages[0].title,'My custom lineup');
 });
+
+
+test('inherited FC page seeds share the same real fixed bundle keys and permit explicit bundle roles',()=>{
+ const seed=centerSeed(original,{products:[]});for(const page_id of ['fc27-weekly','fc27-trio','fc27-sbc'])for(const bundle of original.bundles.ids)for(const code of ['ps','xbox','pc'])assert(seed.pageProductKeys[page_id].includes('fc-'+bundle+'-'+code));
+ const draft=initialCenterDraft();for(const page of draft.pages.filter(p=>p.page_id.startsWith('fc27-'))){const key='fc-'+original.bundles.ids[0]+'-ps';page.product_keys=[key];page.product_roles={[key]:'bundle'};}assert.doesNotThrow(()=>validateDraft(draft));
+});

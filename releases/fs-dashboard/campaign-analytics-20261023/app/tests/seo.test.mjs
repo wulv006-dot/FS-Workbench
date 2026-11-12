@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {buildOutputs,loadConfig} from '../build-seo.mjs';
+import content from '../activity-content.js';
 const config=loadConfig();
 function extract(html){return JSON.parse(html.match(/<script id="fc-seo-jsonld" type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);}
 test('three independent static pages have absolute self-canonicals, one H1, crawlable links and matching visible cards',()=>{
@@ -30,7 +31,7 @@ test('a future configured series and player change updates SSR, metadata, ItemLi
  const out=buildOutputs(next),html=out[next.seo.pages.trio.path.split('/').at(-1)],schema=extract(html);
  assert(html.includes('FC 27 '+next.trio.series+' Players'));assert(html.includes('Configuration Update Test'));assert(!html.includes(oldSeries));
  assert.equal(schema['@graph'][2].itemListElement[0].item.name,next.products[first].title);
- assert(out['structured-data-trio.json'].includes(next.products[first].title));assert(out['activity-fragment-trio.html'].includes('Meet the '+next.trio.series));
+ assert(out['structured-data-trio.json'].includes(next.products[first].title));assert(out['activity-fragment-trio.html'].includes('Your three player cards'));assert(out['activity-fragment-trio.html'].includes('<strong title="'+next.products[first].title+'">Configuration Update Test</strong>'));
 });
 test('invalid player identities, duplicate cards and invalid routes fail generation',()=>{
  for(const alter of [c=>c.trio.ids[0]='missing-player',c=>c.products[c.trio.ids[0]].kind='sbc',c=>c.trio.ids[1]=c.trio.ids[0],c=>c.seo.pages.trio.path=c.seo.pages.weekly.path,c=>c.seo.pages.trio.path='/../Cart.html']){
@@ -51,3 +52,14 @@ test('SBC selection and activity-source eligibility follow the configuration, wi
  const policy=JSON.parse(out['promotion-policy.json']);assert.equal(policy.discountPercent,10);assert.equal(policy.strategy,'native_discount_code');assert.equal(policy.enabled,true);assert.equal(policy.status,'configured');assert.equal(policy.promoterUid,'0');assert.deepEqual(policy.stackWith,[]);assert.deepEqual(policy.mutuallyExclusiveWith,['coupon','points']);
  assert(policy.eligible.some(x=>x.id===next.products[next.sbc.defaultId].platforms.ps.id));assert(policy.eligible.every(x=>x.aid!==undefined));
 });
+
+test('guide uses configured short player names with separate metadata and preserves item facts',()=>{
+ const next=structuredClone(config),id=next.weekly.ids[0];Object.assign(next.products[id],{name:'Alessandro Bastoni/88/CB++/UCL RTTK/Signature',title:'Alessandro Bastoni/88/CB++/UCL RTTK/Signature'});
+ const guide=content.create(next).page('weekly').guide;
+ assert(guide.includes('>Alessandro Bastoni</strong><span>88 · CB++ · UCL RTTK · Signature'));
+ for(const paragraph of guide.matchAll(/<p>(.*?)<\/p>/g))assert(!paragraph[1].includes('Signature'),'metadata belongs to individual player rows, not prose');
+ assert(guide.includes('not chance-based packs'));assert(guide.includes('chemistry'));
+ const card=content.create(next).card({...next.products[id],preview_only:true,key:id});assert(!card.includes('data-preview-platform'));assert(content.previewCard({...next.products[id],key:id}).includes('data-preview-platform'),'original editor preview keeps its own controls');
+});
+
+test('static recommendations never start with items selected for purchase',()=>{for(const name of ['Weekly-Scout.html','Player-Trio.html','Sbc-Companions.html']){const html=buildOutputs(config)[name];assert.match(html,/<span id="summary-count">0<\/span>/);assert.match(html,/<button[^>]*id="review-selection"[^>]*disabled/);assert.doesNotMatch(html,/>Selected · Remove</);assert.match(html,/data-toggle-product/);}});

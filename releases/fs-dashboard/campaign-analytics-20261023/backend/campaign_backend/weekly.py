@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from .adapters import search
 from .core import ContractError
 from .models import KINDS, resolve_model, player_type
+from .catalog import positive_id
 from .provider import project_source
 
 
@@ -17,7 +18,30 @@ def _rows(data, limit):
     return rows, total
 
 
-def weekly_selection(reader):
+def weekly_selection(reader, bundle_refs=()):
+    # The management host derives this bounded selection from its current FS draft.
+    # Legacy accepted cards identify their real PS goods; newly selected cards carry model IDs.
+    if not isinstance(bundle_refs, (list, tuple)) or len(bundle_refs) > 8:
+        raise ContractError('WEEKLY_BUNDLE_SELECTION_INVALID')
+    configured_bundles, bundle_rows, bundle_excluded = [], [], []
+    for ref in bundle_refs:
+        if not isinstance(ref, dict) or len(ref) != 1 or next(iter(ref), None) not in ('model_id', 'goods_id'):
+            raise ContractError('WEEKLY_BUNDLE_SELECTION_INVALID')
+        if 'model_id' in ref:
+            mid = positive_id(ref['model_id'])
+        else:
+            reader.begin_catalog_read(); goods = reader.catalog_goods(positive_id(ref['goods_id']))
+            if (str(goods.get('id')) != ref['goods_id'] or str(goods.get('site_id')) != '266'
+                    or str(goods.get('gid')) != '1327' or str(goods.get('cid')) != KINDS['bundle']):
+                raise ContractError('WEEKLY_BUNDLE_SCOPE_MISMATCH')
+            mid = positive_id(goods.get('mid'))
+        if mid in configured_bundles:raise ContractError('WEEKLY_BUNDLE_SELECTION_DUPLICATE')
+        configured_bundles.append(mid)
+        reader.begin_catalog_read(); row = reader.catalog_model(mid)
+        if str(row.get('id')) != mid or str(row.get('gid')) != '1327' or str(row.get('cid')) != KINDS['bundle']:
+            raise ContractError('WEEKLY_BUNDLE_SCOPE_MISMATCH')
+        if str(row.get('status')) == '1' and str(row.get('auto_off')) == '0' and str(row.get('is_put')) == '1':bundle_rows.append(row)
+        else:bundle_excluded.append(dict(model_id=mid, reason='not_currently_listed'))
     def get(route, **params):
         reader.begin_catalog_read()
         return reader._get_catalog_once(route, **params)
@@ -119,6 +143,7 @@ def weekly_selection(reader):
     if len(players) < 3 or not cores: raise ContractError('WEEKLY_SOURCE_POOL_EMPTY')
     chosen = {str(r['id']): (r, 'player') for r in players + popular + newest}
     chosen.update({str(r['id']): (r, 'sbc') for r in cores})
+    chosen.update({str(r['id']): (r, 'bundle') for r in bundle_rows})
     resolved, observations, provider_observations = [], [], []
     for mid, (row, kind) in chosen.items():
         reader.begin_catalog_read()
@@ -148,6 +173,7 @@ def weekly_selection(reader):
         if any(str(r['id']) == mid for r in players): source_roles.append(dict(role='latest_player', order='id,desc'))
         if any(str(r['id']) == mid for r in newest): source_roles.append(dict(role='trio_newest', tag_id=newest_tag_id, order='id,desc', selection='model_market_judgment_not_rank'))
         if any(str(r['id']) == mid for r in cores): source_roles.append(dict(role='latest_sbc', order='id,desc'))
+        if kind == 'bundle':source_roles.append(dict(role='configured_fixed_bundle', order='current_fs_selection'))
         observations.append(dict(model_id=mid, source_roles=source_roles, shelf_time=row.get('shelf_time'),
             created_at=None, player_type=player_type(row) if kind == 'player' else None, goods_complete=goods['total'] == len(goods['rows']),
             platforms=[dict(goods_id=str(g['id']), attribute_id=str(g.get('aid')), region_id=str(g.get('sid')),
@@ -157,8 +183,8 @@ def weekly_selection(reader):
     return dict(observed_at=datetime.now(timezone.utc).isoformat(), rules_version='fc27_weekly_selection_v1',
         models=resolved, latest_player_ids=[str(r['id']) for r in players],
         trio_player_ids=[str(r['id']) for r in newest], scout_model_ids=[str(r['id']) for r in popular],
-        sbc_model_ids=[str(r['id']) for r in cores], observations=observations, provider_observations=provider_observations,
-        evidence=dict(categories=found, popular_tag_id=tag_id, tag_count=len(tags), tags_complete=True,
+        bundle_model_ids=[str(r['id']) for r in bundle_rows], sbc_model_ids=[str(r['id']) for r in cores], observations=observations, provider_observations=provider_observations,
+        evidence=dict(configured_bundle_model_ids=configured_bundles,bundles_complete=True,bundle_excluded=bundle_excluded,bundle_selection='current_fs_configured_bundles_not_all_packs',categories=found, popular_tag_id=tag_id, tag_count=len(tags), tags_complete=True,
             newest_tag_id=newest_tag_id,newest_tagged_count=len(newest_tagged),newest_normal_count=len(newest),
             newest_scanned=len(latest),newest_total=player_total,newest_complete=True,newest_order='id,desc',
             trio_selection='model_market_judgment_from_complete_newest_normal_pool',

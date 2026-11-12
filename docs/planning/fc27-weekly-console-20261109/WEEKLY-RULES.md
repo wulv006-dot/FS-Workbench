@@ -21,6 +21,14 @@
 
 沿原商品编辑器修改三页球员、素材和文案，复用已有核心与两位搭档下拉，不另建消费者。新导入模型只有预览身份时，先完成真实goods映射和报价校验，不能删除保护当作可售。
 
+## 三页共享固定组合（2026-11-09用户最新选择）
+
+Weekly Scout、SBC和Player Trio下方共用FS当前已选的固定组合。用户本轮选择先同步现有4个Player Bundle，不扩大到Packs类目下全部15个当前在架模型，也不按名称猜组合类型。当前范围由活动中心 `fc_layout.bundles` 派生；今后人工改选后，下一轮跟随新配置，不把本次四个模型ID写成永久白名单。
+
+每次周更prepare从当前已存模型身份或原已接受卡的真实PS goods引用出发，沿Admin精确核对goods→model、FC27及Bundle类目，再刷新这批已选组合的三平台映射与在架状态。下架记录明确保留排除原因，不虚构可售或替换成其它Pack。选中组合在三页保存相同平台引用与bundle角色；不会混入Scout前三、Trio三名或SBC9核心/18名搭档的模型推荐计数。
+
+真实价格和购买仍由当前报价及逐页、逐平台原生绑定决定。新导入Bundle复用原固定组合的独立审阅与加购流程，不加入球员选择集合，也不因有参考价就启用购买。三页绑定差异先进入原商业提案与草稿预览，人工确认发布时才能安装；不自动发布或写优惠码。旧历史回执不改写。
+
 ## 图片与卡片展示
 
 - 优先使用原Admin详情 `_format.icon_format` 的真实上传图片；保留来源标记 `admin_model_uploaded_asset`。Player没有上传图时，沿主站原方式使用真实 `more.extend.player_id` 对应的 `https://assets.mmoexp.com/player/fc27/{player_id}.png`，标记 `storefront_player_id_asset`；不能把数字icon字段拼成图片地址。

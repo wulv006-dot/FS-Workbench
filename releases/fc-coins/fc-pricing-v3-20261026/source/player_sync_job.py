@@ -432,6 +432,20 @@ def current_automatic_basis(request,execution,policy,manager=None):
     if manager is not None:validate_basis_prices(manager,current,ledger,backend_only=operational)
 
 
+def receipt_platform_prices(receipt, prices):
+    """Only explicit native receipts use independent keys; old receipts retain their meaning."""
+    scope = receipt.get('price_scope_contract')
+    if scope == 'fc27_three_platform_v1':
+        if (receipt.get('financial_contract_version') != 'fc27_dual20_d9_d2_platform_100k_v4'
+                or set(prices) != set(PUBLIC_AREAS)):
+            raise ValueError('player_three_platform_receipt_invalid')
+        return {p: decimal(prices[p], 'coin_sale_price') for p in PUBLIC_AREAS}
+    if scope is not None or receipt.get('financial_contract_version') != 'fc27_dual20_v1':
+        raise ValueError('player_receipt_contract_invalid')
+    return {p: decimal(prices['pc' if p == 'PC' else 'console'], 'coin_sale_price')
+            for p in PUBLIC_AREAS}
+
+
 def verified_closed_coin(execution,completion):
     """Accept the same bound Order/Admin proof and terminal ledger snapshot supplied by the worker."""
     try:
@@ -448,8 +462,9 @@ def verified_closed_coin(execution,completion):
         prices=readback['admin_unit_prices'];saved=close['admin_unit_prices'];targets={r['platform']:r['quote'] for r in readback['targets']}
         rates={r['platform']:decimal(r['b2c'],'coin_sale_price') for r in execution['after']['rows']}
         if set(rates)!=set(prices) or set(rates)!=set(saved) or set(rates)!=set(targets) or set(rates)!={'PS','XBOX','PC'}:return False
+        quoted = receipt_platform_prices(original, proof['base_prices'])
         return all(decimal(prices[p],'admin_price')==decimal(saved[p],'admin_price')==rates[p] and
-                   decimal(targets[p],'target')==rates[p]*100==decimal(proof['base_prices']['pc' if p=='PC' else 'console'],'base') for p in rates)
+                   decimal(targets[p],'target')==rates[p]*100==quoted[p] for p in rates)
     except (KeyError,ValueError,TypeError,OverflowError):return False
 
 
@@ -460,12 +475,12 @@ def verified_v3_coin_execution(execution,completion=None):
             receipt.get('decision_bundle_id')==execution.get('execution_id') and
             receipt.get('review_contract')=='program_pricing_with_daily_hermes_review_v3' and
             receipt.get('decision_source')=='program_current_strategy' and receipt.get('execution_authorized') is True and
-            receipt.get('financial_contract_version')=='fc27_dual20_v1' and proof.get('pass_all') is True and
+            proof.get('pass_all') is True and
             proof.get('execution_eligible') is True and execution.get('sync_confirmed') is True):return False
     try:
-        rows=execution['after']['rows'];prices=receipt['action']['base_prices']
+        rows=execution['after']['rows'];prices=receipt_platform_prices(receipt, receipt['action']['base_prices'])
         return len(rows)==3 and {r['platform'] for r in rows}=={'PS','XBOX','PC'} and all(
-            decimal(r['b2c'],'coin_sale_price')*100==decimal(prices['pc' if r['platform']=='PC' else 'console'],'coin_sale_price') for r in rows)
+            decimal(r['b2c'],'coin_sale_price')*100==prices[r['platform']] for r in rows)
     except (KeyError,ValueError,TypeError):return False
 
 

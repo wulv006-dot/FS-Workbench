@@ -21,7 +21,17 @@ export function makeWeeklyWorkflow({dir,center,weekly,pipeline,prepareCommerce,v
  function readRun(run,owner){plan(run,owner);const latest=read('run',run),review=latest?.review_hash?read('review',latest.review_hash):null;
   const operation=latest?.publication_id?read('publish',latest.publication_id):null;
   if(operation?.result&&operation.result.revision===center.read().revision)return {...operation.result,work_orders:orders(run)};
-  return review?{...publicReview(review),can_publish:false,requires_review:true}:{operation_id:run,revision:center.read().revision,work_orders:orders(run),publication:null,can_publish:false,requires_review:true};
+  if(review){
+   if(review.owner!==owner||review.run_operation_id!==run)fail('WEEKLY_REVIEW_NOT_FOUND',409);
+   const current=center.read(),stale={...publicReview(review),can_publish:false,requires_review:true};
+   if(!review.can_publish||review.revision!==current.revision||review.draft_hash!==digest(canonical(current.draft))||!(Date.parse(review.expires_at)>now()))return stale;
+   let prepared;
+   try{prepared=validateCommerce(review.prepared,{revision:current.revision,draft:current.draft},owner);}
+   catch(error){if(['WEEKLY_COMMERCE_PROPOSAL_EXPIRED','WEEKLY_COMMERCE_DRAFT_CHANGED','WEEKLY_COMMERCE_POLICY_CHANGED'].includes(error.code))return stale;throw error;}
+   // Preview tokens are process-local; recreate them after restart without changing the frozen review.
+   return {...publicReview(review),previews:makePreviews(current,prepared,owner),requires_review:false};
+  }
+  return {operation_id:run,revision:center.read().revision,work_orders:orders(run),publication:null,can_publish:false,requires_review:true};
  }
  async function review(body,owner){
   if(flights.size)fail('WEEKLY_PUBLICATION_IN_PROGRESS',409);

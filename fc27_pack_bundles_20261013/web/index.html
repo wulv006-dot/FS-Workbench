@@ -66,7 +66,7 @@ dialog::backdrop{background:rgba(15,25,45,.45)}
 .toast.show{opacity:1}
 .empty-tip{color:var(--muted);padding:30px;text-align:center}
 @media(max-width:900px){.shell{margin-left:0}}
-</style></head><body data-fs-shell data-page="sports"><a class="skip" href="#main">跳到主内容</a><aside class="sidebar" id="sidebar" aria-label="主导航"><a class="brand" href="/dashboard/"><span class="brand-mark">F</span><span>FS Operations<small>MMOEXP 工作空间</small></span></a><div class="nav-label">工作空间</div><nav id="navigation"></nav><div class="sidebar-bottom"><a href="/dashboard/modules/about/">ⓘ 平台介绍</a><a href="/__auth/status" id="profile-name">当前账号</a><small>沿用原有访问范围</small></div></aside><div class="scrim" id="scrim" hidden></div><div class="shell"><header class="topbar"><button class="icon-button" id="menu" aria-label="展开导航" aria-expanded="false" aria-controls="sidebar">☰</button><nav class="breadcrumb" aria-label="面包屑"><a href="/dashboard/">首页</a><span>/</span><a href="/dashboard/modules/sports/">球类工作区</a><span>/</span><span aria-current="page">FC27 捆绑包定价</span></nav><div class="top-actions"><button id="theme" class="icon-button" aria-label="切换显示主题">◐</button><button id="copy-url" class="button">复制链接</button></div></header><main id="main"><div class="page-heading"><div><div class="eyebrow">MMOEXP OPERATIONS</div><h1>FC27 捆绑包定价</h1><p>Futbin 球员金币价 × 后台金币单价 → 自动算捆绑包页面原价与折扣售价（一期：只读定价，不写后台）</p></div><a class="back-link" href="/dashboard/modules/sports/">← 返回球类工作区</a></div>
+</style></head><body data-fs-shell data-page="sports"><a class="skip" href="#main">跳到主内容</a><aside class="sidebar" id="sidebar" aria-label="主导航"><a class="brand" href="/dashboard/"><span class="brand-mark">F</span><span>FS Operations<small>MMOEXP 工作空间</small></span></a><div class="nav-label">工作空间</div><nav id="navigation"></nav><div class="sidebar-bottom"><a href="/dashboard/modules/about/">ⓘ 平台介绍</a><a href="/__auth/status" id="profile-name">当前账号</a><small>沿用原有访问范围</small></div></aside><div class="scrim" id="scrim" hidden></div><div class="shell"><header class="topbar"><button class="icon-button" id="menu" aria-label="展开导航" aria-expanded="false" aria-controls="sidebar">☰</button><nav class="breadcrumb" aria-label="面包屑"><a href="/dashboard/">首页</a><span>/</span><a href="/dashboard/modules/sports/">球类工作区</a><span>/</span><span aria-current="page">FC27 捆绑包定价</span></nav><div class="top-actions"><button id="theme" class="icon-button" aria-label="切换显示主题">◐</button><button id="copy-url" class="button">复制链接</button></div></header><main id="main"><div class="page-heading"><div><div class="eyebrow">MMOEXP OPERATIONS</div><h1>FC27 捆绑包定价</h1><p>Futbin 球员金币价 × 后台金币单价 → 自动算捆绑包页面原价与折扣售价（后台同步由写价开关控制）</p></div><a class="back-link" href="/dashboard/modules/sports/">← 返回球类工作区</a></div>
 <div class="tool-wrap">
   <div class="status-chips" id="chips"></div>
   <div class="toolbar">
@@ -75,6 +75,12 @@ dialog::backdrop{background:rgba(15,25,45,.45)}
     <span id="refresh-state" class="meta" style="color:var(--muted);font-size:12px"></span>
     <button class="button" id="refresh-now">立即刷新</button>
     <button class="button" id="add-bundle">＋ 新建捆绑包</button>
+  </div>
+  <div class="toolbar">
+    <label for="bundle-sale-factor">捆绑包售价系数</label>
+    <input type="number" id="bundle-sale-factor" min="0.000001" max="100" step="any" inputmode="decimal">
+    <button class="button" id="save-sale-factor">保存系数</button>
+    <span class="meta" style="color:var(--muted);font-size:12px">售价＝球员划线价合计 × 系数；捆绑包划线价按原比例随售价更新。保存后影响后续算价及自动写价。</span>
   </div>
   <div class="toolbar" style="flex-direction:column;align-items:stretch">
     <div class="swbar" id="swbar">
@@ -124,7 +130,8 @@ function paintSw(){
 async function api(path,opt){var r=await fetch(API+path,opt);var d=await r.json().catch(function(){return {}});
   if(!r.ok){var e=new Error(d.error||("HTTP "+r.status));e.status=r.status;throw e}return d}
 function apiErrMsg(e){if(e.message==="refresh_in_progress")return "已有刷新在进行中（未启动新任务）";
-  if(e.message==="write_in_progress")return "已有写价在进行中（未启动新任务）";return e.message}
+  if(e.message==="write_in_progress")return "已有写价在进行中（未启动新任务）";
+  if(e.message==="write_in_progress_or_maintenance")return "已有写价或维护发布正在进行（未启动新任务）";return e.message}
 async function load(){try{STATE=await api("/api/state");render()}catch(e){$("#bundles").innerHTML='<div class="empty-tip">加载失败：'+esc(e.message)+"</div>"}}
 function render(){
   var s=STATE;
@@ -136,6 +143,7 @@ function render(){
     '<div class="chip"><small>Futbin 球员缓存</small><b>'+(s.futbin.players_cached||0)+' 名</b><small>更新 '+esc(fmtTime(s.futbin.updated_at))+'</small></div>'+
     '<div class="chip"><small>上次刷新</small><b>'+esc(s.last_refresh?s.last_refresh.status:"—")+'</b><small>'+esc(fmtTime(s.last_refresh&&s.last_refresh.finished_at))+'</small></div>';
   $("#interval").value=s.settings.interval_hours;
+  $("#bundle-sale-factor").value=s.settings.bundle_sale_factor;
   SWSTATE={enabled:!!s.write.enabled,dry:!!s.write.dry_run,auto:!!s.write.auto};paintSw();
   $("#refresh-state").textContent=s.last_refresh&&s.last_refresh.status==="running"?"采集中…":"";
   var wl=$("#writelog");
@@ -153,16 +161,16 @@ function bundleCard(b){
   var el=document.createElement("div");el.className="bundle-card";el.setAttribute("data-bid",b.id);
   var warn=b.warnings&&b.warnings.length?'<span class="badge bad">'+b.warnings.length+" 项待补</span>":'';
   var rows=b.players.map(function(p){
-    if(p.status==="not_found"){return '<tr class="warn-row"><td class="l">'+esc(p.position||"—")+'</td><td class="l" colspan="6">Futbin '+esc(p.futbin_id)+' · 未收录</td><td></td></tr>'}
-    return '<tr'+(p.status==="no_price"?' class="warn-row"':'')+'><td class="l">'+esc(p.position||"—")+'</td><td class="l">'+esc(p.name)+(p.rating?' <span class="num-k">'+p.rating+"</span>":"")+'</td><td>'+esc(p.futbin_id)+'</td><td class="num-k">'+coinsK(p.ps_coins)+'</td><td class="num-k">'+coinsK(p.pc_coins)+'</td><td>'+money(p.ps_strike)+' <span class="num-k">/ '+money(p.ps_actual)+"</span></td><td>"+money(p.pc_strike)+' <span class="num-k">/ '+money(p.pc_actual)+"</span></td></tr>"}).join("");
+    if(p.status==="not_found"){return '<tr class="warn-row"><td class="l">'+esc(p.position||"—")+'</td><td class="l" colspan="8">Futbin '+esc(p.futbin_id)+' · 未收录</td><td></td></tr>'}
+    return '<tr'+(p.status==="no_price"?' class="warn-row"':'')+'><td class="l">'+esc(p.position||"—")+'</td><td class="l">'+esc(p.name)+(p.rating?' <span class="num-k">'+p.rating+"</span>":"")+'</td><td>'+esc(p.futbin_id)+'</td><td class="num-k">'+coinsK(p.ps_coins)+'</td><td class="num-k" title="'+esc(p.market_references&&p.market_references.XBOX&&p.market_references.XBOX.shared_reference?'互通市场参考：'+p.market_references.XBOX.observed_platform+'观测；美元单价独立':'Xbox市场观测')+'">'+coinsK(p.xbox_coins)+'</td><td class="num-k">'+coinsK(p.pc_coins)+'</td><td>'+money(p.ps_strike)+' <span class="num-k">/ '+money(p.ps_actual)+"</span></td><td>"+money(p.xbox_strike)+' <span class="num-k">/ '+money(p.xbox_actual)+"</span></td><td>"+money(p.pc_strike)+' <span class="num-k">/ '+money(p.pc_actual)+"</span></td></tr>"}).join("");
   function sumBlk(tag,d){if(!d)return '<div class="blk"><small>'+tag+'</small><b>—</b></div>';
     return '<div class="blk"><small>'+tag+' · 页面原价</small><b><span class="price-orig">'+money(d.orig)+'</span></b><br><small>页面售价 <span class="price-main">'+money(d.sale)+'</span> · 对比实际让利 '+d.discount_vs_actual_pct+"%</small></div>"}
   el.innerHTML='<div class="bundle-head"><h2>'+esc(b.title)+'</h2>'+warn+'<span class="meta">'+b.players_count+" 名球员 · 有效 "+b.players_ok+'</span><span class="actions"><button class="button" data-act="edit">编辑</button><button class="button danger" data-act="del">删除</button></span></div>'+
-   '<table class="pl"><thead><tr><th class="l">位置</th><th class="l">球员</th><th>Futbin ID</th><th>PS/Xbox 金币</th><th>PC 金币</th><th>PS 划线/实际</th><th>PC 划线/实际</th></tr></thead><tbody>'+rows+"</tbody></table>"+
-   '<div class="sum-row">'+sumBlk("PS/Xbox",b.ps)+sumBlk("PC",b.pc)+"</div>";
+   '<div style="overflow-x:auto"><table class="pl"><thead><tr><th class="l">位置</th><th class="l">球员</th><th>Futbin ID</th><th>PS 金币</th><th>Xbox 金币参考</th><th>PC 金币</th><th>PS 划线/实际</th><th>Xbox 划线/实际</th><th>PC 划线/实际</th></tr></thead><tbody>'+rows+"</tbody></table></div>"+
+   '<div class="sum-row">'+sumBlk("PS",b.ps)+sumBlk("Xbox",b.xbox)+sumBlk("PC",b.pc)+"</div>";
   var prods=b.products||{};
   var pline=["ps","xbox","pc"].map(function(p){
-    var pid=prods[p];var tgt=p==="pc"?b.pc:b.ps;
+    var pid=prods[p];var tgt=b[p];
     var tgtTxt=tgt?("→ 原价 "+money(tgt.orig)+" / 售价 "+money(tgt.sale)):"";
     return '<span class="badge" style="background:var(--bg)">'+p.toUpperCase()+' <input type="text" class="prod-id" data-plat="'+p+'" value="'+(pid||"")+'" style="width:110px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:var(--bg);color:var(--ink)"></span> '+tgtTxt}
   ).join("");
@@ -170,9 +178,10 @@ function bundleCard(b){
   var ready=[],blocked=[],unbound=[];
   ["ps","xbox","pc"].forEach(function(p){
     if(!prods[p]){unbound.push(p.toUpperCase());return}
-    var d=(p==="pc")?b.pc:b.ps;
+    var d=b[p];
     if(d&&d.players_counted===d.players_expected)ready.push(p.toUpperCase());
     else if(d)blocked.push(p.toUpperCase()+"("+(d.players_expected-d.players_counted)+"人无价)");
+    else blocked.push(p.toUpperCase()+"(本平台报价缺失)");
   });
   var statTxt='',statColor="var(--muted)";
   if(!Object.keys(prods).length){statTxt="未绑定产品：点「自动发现」按标题自动匹配";statColor="#b25000"}
@@ -355,6 +364,19 @@ $("#save-interval").onclick=async function(){
       body:JSON.stringify({expected_revision:STATE.revision,settings:Object.assign({},STATE.settings,{interval_hours:v})})});
     toast("采集间隔已保存："+v+" 小时");load();
   }catch(e){toast("保存失败："+e.message)}
+};
+$("#save-sale-factor").onclick=async function(){
+  var value=$("#bundle-sale-factor").value.trim(),factor=Number(value);
+  if(!value||!Number.isFinite(factor)||factor<=0||factor>100){toast("售价系数需大于 0 且不超过 100");return}
+  this.disabled=true;
+  try{
+    var saved=await api("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({expected_revision:STATE.revision,settings:Object.assign({},STATE.settings,{bundle_sale_factor:value})})});
+    var current=await api("/api/state");
+    if(current.revision!==saved.revision||current.settings.bundle_sale_factor!==value)throw Error("保存回读不一致");
+    STATE=current;render();toast("捆绑包售价系数已保存："+value);
+  }catch(e){await load();toast(e.status===409?"配置已更新，请重新输入后保存":"保存结果未确认，请核对当前系数："+e.message)}
+  finally{this.disabled=false}
 };
 $("#refresh-now").onclick=async function(){
   try{await api("/api/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});

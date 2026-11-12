@@ -10,6 +10,7 @@ import tempfile
 from . import VERSION
 from .engine import evaluate as evaluate_current, POLICIES, render, replay_promotion, demand
 from .financial import fingerprint, instant
+from .platforms import PLATFORMS, PRICE_SCOPE_CONTRACT, action_key
 
 LOCAL = timezone(timedelta(hours=8))
 ZERO = Decimal(0)
@@ -19,6 +20,9 @@ def evaluate(evidence,mode,**kwargs):
     if evidence.get('_historical_financial_contract')=='dual10':
         from .legacy_simulation import evaluate_dual10
         return evaluate_dual10(evidence,mode,**kwargs)
+    if 'by_platform' not in evidence.get('historical_discount_mix',{}):
+        from .legacy_simulation import evaluate_platform_v2
+        return evaluate_platform_v2(evidence,mode,**kwargs)
     return evaluate_current(evidence,mode,**kwargs)
 
 
@@ -70,7 +74,7 @@ def plan_end(mode, started):
 
 def action_now(evidence):
     rows = evidence['storefront']['rows']
-    return dict(base_prices={'console':str(max(dec(rows[p]['package_usd']) for p in ('PS','XBOX'))),'pc':str(rows['PC']['package_usd'])},
+    return dict(base_prices=({p:str(rows[p]['package_usd']) for p in PLATFORMS} if 'by_platform' in evidence['historical_discount_mix'] else {'console':str(max(dec(rows[p]['package_usd']) for p in ('PS','XBOX'))),'pc':str(rows['PC']['package_usd'])}),
         region_coefficients={str(r['region_id'])+':'+p:str(r['factor']) for r in evidence.get('region_rules',[]) for p in r['platforms']})
 
 
@@ -80,7 +84,7 @@ def reference_prices(evidence, action):
         for platform in rule['platforms']:
             key = str(rule['region_id'])+':'+platform
             tier = next(t for t in evidence['promotion_envelope']['packages'][platform]['tiers'] if dec(t['base_k'])==100)
-            prices[key] = render(dec(action['base_prices']['pc' if platform=='PC' else 'console'])/100,tier,
+            prices[key] = render(dec(action['base_prices'][action_key(action,platform)])/100,tier,
                 action['region_coefficients'][key])['regular_usd']
     return prices
 
@@ -89,7 +93,13 @@ def initial_path(mode, evidence, now):
     action = action_now(evidence)
     mix = evidence['historical_discount_mix']
     daily = evidence.get('discount_mix_daily')
-    buckets = [dict(day=r['day'],net_usd=str(r['net_usd']),list_usd=str(r['list_usd']),origin='actual_seed') for r in daily] if daily else [
+    if 'by_platform' in mix:
+        buckets=[]
+        for platform,child in mix['by_platform'].items():
+            observed=(daily or {}).get('by_platform',{}).get(platform) if isinstance(daily,dict) else None
+            buckets.extend([dict(r,platform=platform,origin='actual_seed') for r in observed] if observed else [dict(day=(day(now)-timedelta(days=i)).isoformat(),platform=platform,net_usd=str(dec(child['net_order_usd'])/8),list_usd=str(dec(child['undiscounted_order_usd'])/8),origin='equal_daily_seed_scenario') for i in range(2,10)])
+    else:
+        buckets = [dict(day=r['day'],net_usd=str(r['net_usd']),list_usd=str(r['list_usd']),origin='actual_seed') for r in daily] if daily else [
         dict(day=(day(now)-timedelta(days=i)).isoformat(),net_usd=str(dec(mix['net_order_usd'])/7),
              list_usd=str(dec(mix['undiscounted_order_usd'])/7),origin='equal_daily_seed_scenario') for i in range(1,8)]
     end = plan_end(mode,now)
@@ -99,7 +109,7 @@ def initial_path(mode, evidence, now):
         finite_total_budget={},
         revenue='0',contribution='0',paid_orders='0',new_customers='0',delivered_k='0',backlog_k=evidence.get('backlog_k'),
         monthly_revenue={month(now):str(evidence['monthly_target']['mtd']) if (evidence.get('monthly_target') or {}).get('mtd') is not None else None},
-        discount_net_usd='0',discount_list_usd='0',discount_days=buckets,
+        discount_net_usd='0',discount_list_usd='0',discount_days=buckets,price_scope_contract=PRICE_SCOPE_CONTRACT if 'by_platform' in mix else None,
         discount_seed_basis='observed_daily_seed' if daily else 'equal_daily_seed_scenario_not_observed_daily_distribution',
         simulated_customer_cohorts=[],order_batches=[],commitments=deepcopy(evidence.get('quote_commitments',[])),applied_adjustments=[],
         sequence=0,gaps=[],origin='simulation',mode='shadow',training_eligible=False,active_deadline=end.isoformat() if end else None,
@@ -108,6 +118,15 @@ def initial_path(mode, evidence, now):
 
 
 def context_for(path, now):
+    if path.get('price_scope_contract')==PRICE_SCOPE_CONTRACT:
+        first,last=day(now)-timedelta(days=9),day(now)-timedelta(days=2)
+        values={}
+        for platform in PLATFORMS:
+            rows=[r for r in path['discount_days'] if r.get('platform')==platform and first.isoformat()<=r['day']<=last.isoformat()]
+            net=sum((dec(r['net_usd']) for r in rows),ZERO);gross=sum((dec(r['list_usd']) for r in rows),ZERO)
+            values[platform]=dict(retained_ratio=str(net/gross) if gross else None,bucket_count=len(rows))
+        return dict(mode='shadow',training_eligible=False,by_platform=values,origin='simulated_path',verified_actual=False,
+                    source_scope='path_D_minus_9_through_D_minus_2',seed_basis=path['discount_seed_basis'])
     first,last = day(now)-timedelta(days=7),day(now)-timedelta(days=1)
     rows = [r for r in path['discount_days'] if first.isoformat()<=r['day']<=last.isoformat()]
     net = sum((dec(r['net_usd']) for r in rows),ZERO)
@@ -121,7 +140,7 @@ def own_evidence(path, evidence, now):
     own['origin'] = own['mode'] = 'shadow'
     action = path['action'] or path['price_anchor']
     for platform,row in own['storefront']['rows'].items():
-        row['package_usd'] = action['base_prices']['pc' if platform=='PC' else 'console']
+        row['package_usd'] = action['base_prices'][action_key(action,platform)]
     own['region_rules'] = [dict(rule,platforms=[p],factor=action['region_coefficients'].get(str(rule['region_id'])+':'+p,rule['factor']))
                            for rule in own.get('region_rules',[]) for p in rule['platforms']]
     own['backlog_k'] = path['backlog_k']
@@ -130,7 +149,7 @@ def own_evidence(path, evidence, now):
     own['budget_reference'] = deepcopy(path['price_anchor'])
     for group,model in (own.get('demand_model') or {}).get('groups',{}).items():
         if model.get('orders_per_block') is not None:
-            p = 'PC' if group=='pc' else 'PS'
+            p = group if group in PLATFORMS else 'PC' if group=='pc' else 'PS'
             ref = model.get('reference_regular_usd',evidence['storefront']['rows'][p]['package_usd'])
             anchor = path['price_anchor']['base_prices'][group]
             model['orders_per_block'] = str(demand(anchor,ref,model['orders_per_block'],model.get('elasticity','2')))
@@ -145,7 +164,7 @@ def components(candidate, evidence, reference):
     result = []
     regional_concession = {}
     for row in rating.get('regional_predictions',[]):
-        group = 'pc' if row['key'].endswith(':PC') else 'console'
+        group = row['key'].rsplit(':',1)[-1] if 'by_platform' in evidence['historical_discount_mix'] else 'pc' if row['key'].endswith(':PC') else 'console'
         regional_concession[group] = regional_concession.get(group,ZERO)+dec(row['concession'])
     for group,row in rating['groups'].items():
         model = (evidence.get('demand_model') or {}).get('groups',{}).get(group,{})
@@ -155,14 +174,14 @@ def components(candidate, evidence, reference):
     models = {str(r['region_id'])+':'+r['platform']:r for r in (evidence.get('demand_model') or {}).get('segments',[])}
     for row in rating.get('regional_predictions',[]):
         model = models[row['key']]
-        result.append(dict(row,group='pc' if model['platform']=='PC' else 'console',
+        result.append(dict(row,group=model['platform'] if 'by_platform' in evidence['historical_discount_mix'] else 'pc' if model['platform']=='PC' else 'console',
             regular_usd=candidate['financial_proof']['prices'][row['key']]['price']['regular_usd'],
             new_customers=str(dec(row['orders'])*dec(model['new_customer_ratio'])) if model.get('new_customer_ratio') is not None else None,
             delivered_k_per_order=model.get('delivered_k_per_order')))
     for row in result:
         if row.get('revenue') is None or row.get('contribution') is None or row.get('concession') is None:
             raise ValueError('simulation_absolute_component_missing')
-        retained = dec(evidence.get('shadow_retained_ratio') or evidence['historical_discount_mix']['retained_ratio'])
+        retained = dec((evidence.get('shadow_retained_ratios') or {}).get(row['group']) or evidence['historical_discount_mix']['by_platform'][row['group']]['retained_ratio']) if 'by_platform' in evidence['historical_discount_mix'] else dec(evidence.get('shadow_retained_ratio') or evidence['historical_discount_mix']['retained_ratio'])
         if retained<=ZERO:
             raise ValueError('simulation_retained_ratio_invalid')
         row['list_usd'] = str(dec(row['revenue'])/retained)
@@ -175,10 +194,11 @@ def decide(path, evidence, now):
     own = own_evidence(path,evidence,now)
     mode = calendar_mode(path['policy'],now,instant(path['started_at']))
     context = context_for(path,now)
-    if context['retained_ratio'] is None:
+    if any(v.get('retained_ratio') is None for v in context['by_platform'].values()) if 'by_platform' in context else context['retained_ratio'] is None:
         return dict(status='DATA_PENDING',selected=None,candidates=[],failures=[dict(code='simulated_history_empty')]),own
-    own['shadow_retained_ratio'] = context['retained_ratio']
-    plan = dict(price_anchor=path['price_anchor'],resources=['base:console','base:pc'],ends_at=path['active_deadline'] if mode==path['policy'] else None)
+    if 'by_platform' in context:own['shadow_retained_ratios']={p:v['retained_ratio'] for p,v in context['by_platform'].items()}
+    else:own['shadow_retained_ratio'] = context['retained_ratio']
+    plan = dict(price_anchor=path['price_anchor'],resources=['base:'+g for g in path['price_anchor']['base_prices']],ends_at=path['active_deadline'] if mode==path['policy'] else None)
     result = evaluate(own,mode,plan=plan,now=now,evaluation_context=context)
     candidates=result['candidates']
     result.update(candidates=candidates,selected=candidates[0] if candidates else None,simulation_context=context,execution_authorized=False)
@@ -233,7 +253,7 @@ def advance(path, now):
         fraction = dec((stop-start).total_seconds())/21600
         batch = fingerprint([path['policy'],start.isoformat(),stop.isoformat(),path['action']])
         revenue = profit = orders = new_customers = incoming = gross = ZERO
-        group_revenue = {}
+        group_revenue = {};group_gross = {}
         quantity_known = identity_known = True
         for row in path['last_components']:
             count = dec(row['orders'])*fraction
@@ -243,6 +263,7 @@ def advance(path, now):
             group_revenue[row['group']] = group_revenue.get(row['group'],ZERO)+dec(row['revenue'])*fraction
             profit += dec(row['contribution'])*fraction
             gross += dec(row['list_usd'])*fraction
+            group_gross[row['group']]=group_gross.get(row['group'],ZERO)+dec(row['list_usd'])*fraction
             orders += count
             new_customers += new or ZERO
             cohort_orders(path,row,count,new,stop,batch)
@@ -268,11 +289,14 @@ def advance(path, now):
             path['monthly_revenue'][period] = '0' if day(start).day==1 and start.astimezone(LOCAL).hour==0 and start.astimezone(LOCAL).minute==0 else None
         if path['monthly_revenue'].get(period) is not None:
             path['monthly_revenue'][period] = str(dec(path['monthly_revenue'][period])+revenue)
-        bucket = next((r for r in path['discount_days'] if r['day']==day(start).isoformat()),None)
-        if bucket is None:
-            bucket = dict(day=day(start).isoformat(),net_usd='0',list_usd='0',origin='simulated_path')
-            path['discount_days'].append(bucket)
-        bucket['net_usd'],bucket['list_usd'] = str(dec(bucket['net_usd'])+revenue),str(dec(bucket['list_usd'])+gross)
+        values=[(p,group_revenue.get(p,ZERO),group_gross.get(p,ZERO)) for p in PLATFORMS] if path.get('price_scope_contract')==PRICE_SCOPE_CONTRACT else [(None,revenue,gross)]
+        for platform,net_value,list_value in values:
+            bucket=next((r for r in path['discount_days'] if r['day']==day(start).isoformat() and r.get('platform')==platform),None)
+            if bucket is None:
+                bucket=dict(day=day(start).isoformat(),net_usd='0',list_usd='0',origin='simulated_path')
+                if platform:bucket['platform']=platform
+                path['discount_days'].append(bucket)
+            bucket['net_usd'],bucket['list_usd']=str(dec(bucket['net_usd'])+net_value),str(dec(bucket['list_usd'])+list_value)
         path['discount_net_usd'],path['discount_list_usd'] = str(dec(path['discount_net_usd'])+revenue),str(dec(path['discount_list_usd'])+gross)
         path['order_batches'].append(dict(batch_id=batch,opened_at=start.isoformat(),closed_at=stop.isoformat(),action=deepcopy(path['action']),
             orders=str(orders),new_customers=str(new_customers) if identity_known else None,net_usd=str(revenue),contribution_usd=str(profit),
@@ -338,14 +362,14 @@ class Shadow:
             for mode in POLICIES:
                 key = fingerprint([ident,VERSION,version,'same_real_snapshot',mode])
                 if not db.execute('SELECT 1 FROM runs WHERE id=?',(key,)).fetchone():
-                    comparison = evaluate(evidence,mode,now=now,evaluation_context=dict(mode='shadow',training_eligible=False,
-                        retained_ratio=evidence['historical_discount_mix']['retained_ratio'],origin='same_real_snapshot'))
+                    comparison = evaluate(evidence,mode,now=now,evaluation_context=historical_context(evidence,'same_real_snapshot'))
                     row = dict(mode='shadow',origin='simulation',simulation_kind='same_real_snapshot',policy=mode,as_of=now.isoformat(),
                         model_version=version,policy_version=VERSION,snapshot_id=ident,result=comparison,training_eligible=False,
                         assumptions='same real state; do not sum these comparisons into continuous earnings')
                     db.execute('INSERT INTO runs VALUES (?,?)',(key,json.dumps(row)))
                     records.append(row)
-                old = db.execute('SELECT body FROM paths WHERE id=?',(mode,)).fetchone()
+                path_key=mode+':'+PRICE_SCOPE_CONTRACT if 'by_platform' in evidence['historical_discount_mix'] else mode
+                old = db.execute('SELECT body FROM paths WHERE id=?',(path_key,)).fetchone()
                 path = json.loads(old[0]) if old else initial_path(mode,evidence,now)
                 path['active_deadline']=None
                 if path['last_as_of'] and now<=instant(path['last_as_of']):
@@ -367,8 +391,8 @@ class Shadow:
                     last_result=calculation,external_snapshot_id=ident,
                     assumptions='previous action and previous known rates advance elapsed exposure; independent expected cohorts and state; never production labels')
                 encoded=json.dumps(path)
-                if db.execute('UPDATE paths SET body=? WHERE id=?',(encoded,mode)).rowcount==0:
-                    db.execute('INSERT INTO paths VALUES (?,?)',(mode,encoded))
+                if db.execute('UPDATE paths SET body=? WHERE id=?',(encoded,path_key)).rowcount==0:
+                    db.execute('INSERT INTO paths VALUES (?,?)',(path_key,encoded))
                 key = fingerprint([ident,VERSION,version,'independent_state_rollforward',mode])
                 db.execute('INSERT OR IGNORE INTO runs VALUES (?,?)',(key,json.dumps(path)))
             if cursor is not None:
@@ -560,7 +584,7 @@ class Shadow:
                     as_of=asof.isoformat(),order_window='incremental_unique_across_snapshots_with_later_revisions'))
             elif kind=='fixed_orders_reprice':
                 alternatives = {}
-                context = dict(mode='shadow',training_eligible=False,retained_ratio=snapshot['evidence']['historical_discount_mix']['retained_ratio'],origin='fixed_historical_actual_mix')
+                context = historical_context(snapshot['evidence'],'fixed_historical_actual_mix')
                 for mode in POLICIES:
                     candidate = evaluate(snapshot['evidence'],mode,now=asof,evaluation_context=context)['selected']
                     alternatives[mode] = reprice_orders(orders,candidate,snapshot['evidence']) if candidate else dict(status='no_feasible_price',orders=[])
@@ -628,11 +652,11 @@ class Shadow:
                         returned = sum((dec(r['customers']) for c in cohorts for r in c['returns'] if instant(r['at'])<=instant(c['first_paid_at'])+timedelta(days=horizon)),ZERO)
                         matured[str(horizon)] = dict(matured_customers=str(count),repeat_customers=str(returned),repeat_rate=str(returned/count) if count else None)
                     row = dict(mode='shadow',origin='simulation',policy=path['policy'],period=label,as_of=now.isoformat(),
-                        model_version=path['model_version'],policy_version=path['policy_version'],
+                        model_version=path['model_version'],policy_version=path['policy_version'],price_scope_contract=path.get('price_scope_contract'),
                         revenue=str(sum((dec(b['net_usd']) for b in batches),ZERO)),contribution=str(sum((dec(b['contribution_usd']) for b in batches),ZERO)),
                         orders=str(sum((dec(b['orders']) for b in batches),ZERO)),new_customers=str(sum((dec(b['new_customers']) for b in batches),ZERO)) if all(b['new_customers'] is not None for b in batches) else None,
                         backlog_k=path['backlog_k'],estimated_concession_usd=path['budget_used'],budget_policy='none',matured_repurchase=matured,gaps=path['gaps'],training_eligible=False,assumptions=path['assumptions'])
-                    db.execute('INSERT OR REPLACE INTO summaries VALUES (?,?)',(fingerprint([path['policy'],label,now.isoformat()]),json.dumps(row)))
+                    db.execute('INSERT OR REPLACE INTO summaries VALUES (?,?)',(fingerprint([path['policy'],path.get('price_scope_contract'),label,now.isoformat()]),json.dumps(row)))
                     results.append(row)
         return results
 
@@ -645,13 +669,18 @@ class Shadow:
         removed = 0
         with self.connect() as db:
             for table in ('runs','history','summaries'):
-                for key,raw in db.execute('SELECT id,body FROM '+table).fetchall():
-                    row = json.loads(raw)
-                    stamp = row.get('as_of') or row.get('created_at') or row.get('last_as_of')
-                    after = monthly if table=='summaries' and row.get('period')=='monthly' else cutoff
-                    if stamp and instant(stamp)<after:
-                        db.execute('DELETE FROM '+table+' WHERE id=?',(key,))
-                        removed += 1
+                cursor = ''
+                while True:
+                    batch = db.execute('SELECT id,body FROM '+table+' WHERE id>? ORDER BY id LIMIT 100',(cursor,)).fetchall()
+                    if not batch:break
+                    for key,raw in batch:
+                        row = json.loads(raw)
+                        stamp = row.get('as_of') or row.get('created_at') or row.get('last_as_of')
+                        after = monthly if table=='summaries' and row.get('period')=='monthly' else cutoff
+                        if stamp and instant(stamp)<after:
+                            db.execute('DELETE FROM '+table+' WHERE id=?',(key,))
+                            removed += 1
+                    cursor = batch[-1][0]
         return dict(removed=removed,detail_retention_days=180,monthly_retention_months=24,active_paths_preserved=True)
 
 
@@ -762,7 +791,7 @@ def reprice_orders(orders, candidate, evidence):
                 gaps.append(dict(order_key=order['order_key'],reason='historical_region_rule_missing'))
                 continue
             coefficient = action.get('region_coefficients',{}).get(key,rule['factor'])
-        price = render(dec(action['base_prices']['pc' if p=='PC' else 'console'])/100,
+        price = render(dec(action['base_prices'][action_key(action,p)])/100,
             dict(base_k=order['base_k'],bonus_k=order['bonus_k'],retained_ratio=retained),coefficient)
         paid = replay_promotion(price['regular_usd'],order['promotion_path'])
         rows.append(dict(order,regular_usd=price['regular_usd'],paid_usd=str(paid),revenue_cny=None,
@@ -804,3 +833,9 @@ def causal_estimate(snapshots):
         method='Horvitz_Thompson_difference',propensity_basis='treatment_probability_for_both_arms',effect_usd=str((treated-control)/len(rows)),
         uncertainty='point_estimate_only_cluster_uncertainty_not_estimated',
         assumptions='verified random assignment, complete failure/exit ledger, mature comparable outcomes; no interference assumed')
+
+
+def historical_context(evidence, origin):
+    mix=evidence['historical_discount_mix']
+    values=dict(by_platform={p:dict(retained_ratio=mix['by_platform'][p]['retained_ratio']) for p in PLATFORMS}) if 'by_platform' in mix else dict(retained_ratio=mix['retained_ratio'])
+    return dict(values,mode='shadow',training_eligible=False,origin=origin)

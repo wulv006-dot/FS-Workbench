@@ -521,7 +521,7 @@ class NativeCouponTests(unittest.TestCase):
         transport=declarations(core/'transport.py',('Grant','Grants','Proxy'),
             dict(dataclass=dataclass,deepcopy=deepcopy,hashlib=hashlib,secrets=secrets,threading=threading,time=time,json=json))
         proxy_module=types.ModuleType('proxy_gateway')
-        declarations(channel/'proxy_gateway.py',('native_scope',),proxy_module.__dict__)
+        declarations(channel/'proxy_gateway.py',('native_scope','structured_scope'),proxy_module.__dict__)
         scope=NativeChatScope(self.binding,lambda:self.conversation.native.authorized(self.binding),
             model_schemas=lambda:[],call_tool=lambda name,args:self.conversation.native.host_tool(self.binding,name,args))
         grants=transport['Grants']();token=grants.mint(self.binding['owner'],self.binding['turn_id'],self.binding['lease'])

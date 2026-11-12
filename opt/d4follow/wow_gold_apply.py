@@ -56,17 +56,75 @@ def write_cost(client, row_id, value):
         return False, (r or "")[:120]
 
 
-IGGMSID = {("美服","NORMAL","A"):29411,("美服","NORMAL","H"):29413,
-           ("美服","PVP","A"):29415,("美服","PVP","H"):29417,
-           ("美服","RP","A"):29419,("美服","RP","H"):29421,
-           ("美服","RP_PVP","A"):29423,("美服","RP_PVP","H"):29425,
-           ("欧服","NORMAL","A"):29427,("欧服","NORMAL","H"):29429,
-           ("欧服","PVP","A"):29431,("欧服","PVP","H"):29433,
-           ("欧服","RP","A"):29435,("欧服","RP","H"):29437,
-           ("欧服","RP_PVP","A"):29439,("欧服","RP_PVP","H"):29441}
+# 2026-11-10 老板定案：IGGMSID 映射表随 IGGM 链路一并移除。
+
+# 2026-11-10 老板定案：看板监控源改造 —— G2G → U4GM，去掉 ELD，IGGM 恢复但**只监控不跟价**。
+#   数据全部来自本机推送（183 出口打 u4gm.com / iggm.com 都是 HTTP 403 Cloudflare）。
+#   U4GM 只有 us/eu/asia 三个大区（**无韩服**），asia 只有 normal/pvp/hardcore（无 RP/RP-PVP）。
+MON_U4GM_KEY = {"美服": "us", "欧服": "eu", "亚服": "asia"}
+MON_U4GM_STYPE = {"A": "alliance", "H": "horde"}
+MON_U4GM_GTYPE = {"NORMAL": "normal", "PVP": "pvp", "RP": "roleplay",
+                  "RP_PVP": "rp_pvp", "HC": "hardcore"}
+MON_IGGM_KEY = {("美服", "NORMAL", "A"): "US|Normal-Alliance",
+                ("美服", "NORMAL", "H"): "US|Normal-Horde",
+                ("美服", "PVP", "A"): "US|PVP-Alliance",
+                ("美服", "PVP", "H"): "US|PVP-Horde",
+                ("美服", "RP", "A"): "US|Roleplay-Alliance",
+                ("美服", "RP", "H"): "US|Roleplay-Horde",
+                ("美服", "RP_PVP", "A"): "US|RoleplayPvP-Alliance",
+                ("美服", "RP_PVP", "H"): "US|RoleplayPvP-Horde",
+                ("欧服", "NORMAL", "A"): "EU|Normal-Alliance",
+                ("欧服", "NORMAL", "H"): "EU|Normal-Horde",
+                ("欧服", "PVP", "A"): "EU|PVP-Alliance",
+                ("欧服", "PVP", "H"): "EU|PVP-Horde",
+                ("欧服", "RP", "A"): "EU|Roleplay-Alliance",
+                ("欧服", "RP", "H"): "EU|Roleplay-Horde",
+                ("欧服", "RP_PVP", "A"): "EU|RoleplayPvP-Alliance",
+                ("欧服", "RP_PVP", "H"): "EU|RoleplayPvP-Horde"}
 
 
-def publish_console(plan):
+def read_monitors(log=print):
+    """读本机推送的 U4GM / IGGM 监控价（缺失或 >12h 视为不可用，只影响展示）。"""
+    import datetime as _dt
+
+    def _load(path):
+        try:
+            doc = json.load(open(os.path.join(ROOT, "data", path), encoding="utf-8"))
+        except Exception:                                    # noqa: BLE001
+            log("  [监控] 缺 %s，本轮该源留空" % path)
+            return {}, None
+        ts = doc.get("ts")
+        try:
+            age = (_dt.datetime.now() - _dt.datetime.fromisoformat(ts)).total_seconds() / 3600.0
+            if age > 12:
+                log("  [监控] %s 已 %.1f 小时，过期不用" % (path, age))
+                return {}, ts
+        except Exception:                                    # noqa: BLE001
+            pass
+        if path.startswith("wow_u4gm"):
+            return dict(doc.get("by_key") or {}), ts
+        out = {k: v["price_usd_per_g"] for k, v in doc.items()
+               if isinstance(v, dict) and v.get("price_usd_per_g")}
+        return out, ts
+
+    u4, u4_ts = _load("wow_u4gm.json")
+    ig, ig_ts = _load("wow_iggm.json")
+    log("  [监控] U4GM %d 个组合（%s）｜IGGM %d 个区（%s）"
+        % (len(u4), u4_ts or "-", len(ig), ig_ts or "-"))
+    return {"u4gm": u4, "iggm": ig, "u4gm_ts": u4_ts, "iggm_ts": ig_ts}
+
+
+def mon_of(row, mon):
+    """取该行的 U4GM / IGGM 监控价（拿不到 → None）。"""
+    region, typ, fac = row.get("区"), row.get("类"), row.get("阵")
+    key_u = (MON_U4GM_KEY.get(region), MON_U4GM_STYPE.get(fac), MON_U4GM_GTYPE.get(typ))
+    u = (mon.get("u4gm") or {}).get("%s|%s|%s" % key_u) if all(key_u) else None
+    igk = MON_IGGM_KEY.get((region, typ, fac))
+    ig = (mon.get("iggm") or {}).get(igk) if igk else None
+    return u, ig
+
+
+def publish_console(plan, mon=None):
     """把本轮算价结果写进 RPG 看板的 gold_price（沿用最新一轮的 ts，和 AION2 同快照）"""
     import sqlite3
     con = sqlite3.connect(os.path.join(ROOT, "data", "iggm_follow.db"), timeout=10)
@@ -75,26 +133,31 @@ def publish_console(plan):
         if not ts:
             return 0
         n = 0
+        mon = mon or {}
         for p in plan:
+            _u4, _ig = mon_of({"区": p.get("区"), "类": p.get("类型"), "阵": p.get("阵营")}, mon)
             con.execute(
                 "INSERT OR REPLACE INTO gold_price(ts,key,title,row_id,aid,iggm_sid,"
                 "iggm_raw,iggm_per_m,our_per_m,our_tier,our_tiers,margin_rate,"
                 "cost_old,cost_target,ratio,action,reason,divisor,ok,price_mode,price_tier,"
                 "src_base,src_base_v,comp_min,comp_min_src,gap_comp,gap_comp_pct,"
-                "dd_ref_usd,dd_ref_cny,dd_items) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "dd_ref_usd,dd_ref_cny,dd_items,"
+                "src_g2g,src_eld,src_igmm)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (ts, p["key"], p["后台名"], p["后台行ID"], None,
-                 IGGMSID.get((p["区"], p["类型"], p["阵营"])),
-                 None, p.get("IGGM"), p.get("目标b2c"), 1, None,
+                 None,
+                 None, None, p.get("目标b2c"), 1, None,
                  p.get("利润率"), p.get("现采购成本"), p.get("建议采购成本"),
-                 (round(p["目标b2c"] / p["IGGM"], 6) if p.get("IGGM") and p.get("目标b2c") else None),
+                 None,
                  p.get("动作"), "%s｜%s" % (p.get("规则"), p.get("备注") or ""),
                  5.32, 0,
-                 ("igmm_anchor" if p.get("IGGM") else "dd373_only"), 1,
+                 "dd373_only", 1,
                  p.get("规则"), p.get("成本价USD"),
-                 p.get("IGGM"), ("IGGM" if p.get("IGGM") else "DD373"),
-                 (round(p["目标b2c"] - p["IGGM"], 6) if p.get("IGGM") and p.get("目标b2c") else None),
-                 (round((p["目标b2c"] / p["IGGM"] - 1) * 100, 3) if p.get("IGGM") and p.get("目标b2c") else None),
-                 p.get("成本价USD"), p.get("均价元每金"), p.get("挂单数")))
+                 None, "DD373",
+                 None,
+                 None,
+                 p.get("成本价USD"), p.get("均价元每金"), p.get("挂单数"),
+                 _u4, None, _ig))
             n += 1
         con.commit()
         return n
@@ -125,17 +188,19 @@ def main(argv):
         return 2
 
     log("同轮采集 DD373 与比价器出货（不读取收货需求）…")
-    pages, bjq_pages, collected_at = WS.collect_pair(W.dd_crawl, log=log)
-    iggm, iggm_ts = W.load_iggm(path=os.path.join(ROOT, p.get("IGGM数据文件") or "data/wow_iggm.json"),
-                                max_age_h=float(p.get("IGGM最长时效小时") or 12), log=log)
-    plan = W.build_plan(rows, pages, cfg, fx, iggm=iggm, log=log, bjq_pages=bjq_pages)
+    # 2026-11-10 WB：公测后 HC 有货，dd_crawl 不再跳过 HC（老逻辑 skip_hc=True）
+    pages, bjq_pages, collected_at = WS.collect_pair(
+        lambda log=print: W.dd_crawl(log=log, skip_hc=False, parameters=p), log=log)
+    # 2026-11-10 老板定案：IGGM 抓取整条移除，不再读 data/wow_iggm.json
+    mon = read_monitors(log=log)
+    plan = W.build_plan(rows, pages, cfg, fx, log=log, bjq_pages=bjq_pages)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     led = os.path.join(OUT_DIR, "魔兽金币台账_%s.json" % ts)
     json.dump({"ts": dt.datetime.now().isoformat(timespec="seconds"),
                "gid": cfg.get("gid"), "汇率": fx, "参数": p,
-               "启用": bool(cfg.get("启用")), "IGGM采集时间": iggm_ts,
-               "IGGM锚定": {"倍数": p.get("IGGM锚定倍数"), "上限": p.get("IGGM上限倍数")},
+               "启用": bool(cfg.get("启用")), "IGGM采集时间": None,
+               "IGGM锚定": None,
                "策略版本": WS.VERSION, "双源轮次开始": collected_at,
                "plan": plan},
               open(led, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
@@ -147,7 +212,7 @@ def main(argv):
               "gid": cfg.get("gid"), "ts": dt.datetime.now().isoformat(timespec="seconds"),
               "汇率": fx, "count": len(todo),
               "系统总开关": bool(cfg.get("启用")), "clearcache": True,
-              "口径": "同轮DD373/比价器出货；同价位库存>20G；有货才跟IGGM×1.03；毛利率15%-40%",
+              "口径": WS.policy_description(p),
               "策略版本": WS.VERSION,
               "items": [{"key": r["key"], "中文名": r["后台名"], "游戏": "WoW Forever",
                          "后台行ID": r["后台行ID"],
@@ -158,7 +223,7 @@ def main(argv):
                          "规则": r["规则"], "动作": r["动作"]}
                         for r in todo]}
     try:
-        _np = publish_console(plan)
+        _np = publish_console(plan, mon)
         log("  控制台台账已刷新：%d 行写入 gold_price" % _np)
     except Exception as _e:
         log("  ⚠ 控制台台账写入失败（不影响改价）：%r" % _e)
@@ -182,6 +247,12 @@ def main(argv):
         log("✗ 闸未开：启用=%s / --confirm=%s / WOW_GOLD_APPLY=%s"
             % (cfg.get("启用"), do_confirm, os.environ.get("WOW_GOLD_APPLY")))
         return 3
+
+    try:
+        from wow_notify import notify
+        notify(plan, ROOT, log=log)
+    except Exception as error:
+        log('[魔兽钉钉] 通报失败（不影响原改价工单）：%s' % type(error).__name__)
 
     if not todo:
         log("本轮无需改价（全部 hold / 与后台一致），不派单")
@@ -220,3 +291,4 @@ if __name__ == "__main__":
             log('已有魔兽轮次运行，本次不重叠执行')
             sys.exit(0)
         sys.exit(main(sys.argv[1:]))
+

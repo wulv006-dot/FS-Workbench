@@ -29,8 +29,8 @@ class PreviewOptionalMarkets(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);db=Ledger(root/'control.db');db.activate_generation('g',[])
             with patch('fc_pricing_v3.ledger.clock',return_value=NOW):
-                base=db.create_plan('revenue_sprint',['base:console','base:pc'],engine.current_action(data));db.activate_plan(base['plan_id'],now=NOW)
-                plan=db.create_plan('smart',['base:console','base:pc'],engine.current_action(data),starts_at=(NOW-timedelta(days=2)).isoformat())
+                base=db.create_plan('revenue_sprint',['base:PS','base:XBOX','base:PC'],engine.current_action(data));db.activate_plan(base['plan_id'],now=NOW)
+                plan=db.create_plan('smart',['base:PS','base:XBOX','base:PC'],engine.current_action(data),starts_at=(NOW-timedelta(days=2)).isoformat())
                 db.activate_plan(plan['plan_id'],now=NOW);db.migrate_smart_strategy(plan['plan_id'],1,'wulv')
             with patch.object(runtime,'ledger',return_value=db),patch.object(runtime,'ROOT',root),patch.object(runtime,'clock',return_value=NOW):
                 result=runtime.calculate(data)

@@ -48,6 +48,46 @@ RATES = {"PS": {"usd_per_k": "0.1257"}, "XBOX": {"usd_per_k": "0.1257"},
 
 
 class FormulaTests(unittest.TestCase):
+    def test_sale_factor_targets_one_percent_without_changing_display_ratio(self):
+        markups = {**MARKUPS, "bundle_sale_factor": Decimal("0.891")}
+        bundle = {"id": "mancity11", "players": [{"futbin_id": fid} for fid in FUTBIN_IDS]}
+        out = mod.compute_bundle(bundle, make_players(), RATES, markups)
+        for platform in ("ps", "xbox", "pc"):
+            price = out[platform]
+            self.assertEqual(price["discount_vs_actual_pct"], -1.0)
+            self.assertAlmostEqual(price["orig"] * 0.7, price["sale"], delta=0.01)
+
+    def test_three_platform_rates_have_separate_quotes_and_shared_market_provenance(self):
+        rates = json.loads(json.dumps(RATES))
+        rates['XBOX']['usd_per_k'] = '0.0900'
+        bundle = {'id': 'split', 'players': [{'futbin_id': 1}]}
+        out = mod.compute_bundle(bundle, make_players(), rates, MARKUPS)
+        self.assertIn('xbox', out)
+        self.assertNotEqual(out['ps']['orig'], out['xbox']['orig'])
+        row = out['players'][0]
+        self.assertEqual(row['xbox_coins'], row['ps_coins'])
+        self.assertEqual(row['market_references']['XBOX'], {
+            'field': 'ps_price', 'observed_platform': 'PS',
+            'market': 'shared_console', 'shared_reference': True})
+        self.assertEqual(out['xbox']['rate_platform'], 'XBOX')
+        self.assertEqual(out['xbox']['usd_per_k'], '0.0900')
+
+    def test_missing_xbox_dollar_rate_never_inherits_ps(self):
+        rates = json.loads(json.dumps(RATES)); rates.pop('XBOX')
+        out = mod.compute_bundle({'players': [{'futbin_id': 1}]}, make_players(), rates, MARKUPS)
+        self.assertIsNotNone(out['ps'])
+        self.assertIn('xbox', out)
+        self.assertIsNone(out['xbox'])
+        self.assertTrue(any('XBOX' in item for item in out['warnings']))
+
+    def test_explicit_xbox_market_observation_retains_its_own_quantity(self):
+        players = make_players(); players[1]['xbox_price'] = 90000
+        out = mod.compute_bundle({'players': [{'futbin_id': 1}]}, players, RATES, MARKUPS)
+        self.assertIn('xbox_coins', out['players'][0])
+        self.assertEqual(out['players'][0]['xbox_coins'], 90000)
+        self.assertEqual(out['players'][0]['market_references']['XBOX']['observed_platform'], 'XBOX')
+        self.assertFalse(out['players'][0]['market_references']['XBOX']['shared_reference'])
+
     def test_player_ps_price_matches_sheet(self):
         """Haaland：70K × 0.1257 × 1.1 = 9.68；划线 10.75（表格 L2=10.75 / M2=9.68）"""
         d = mod.Decimal
@@ -144,28 +184,32 @@ class ValidationTests(unittest.TestCase):
 
 
 class StoreTests(unittest.TestCase):
-    def test_rates_exclude_bonus_k(self):
-        """口径纠正（2026-10-13 老大）：单价=package/base_k，赠送不摊入。
-        12.57÷100=0.1257 ✓；storefront 自带 usd_per_k 12.57÷105=0.1197 ✗"""
+    def test_state_identifies_loaded_three_platform_contract_without_triggering_a_write(self):
+        with tempfile.TemporaryDirectory() as td:
+            store = mod.Store(Path(td))
+            self.assertEqual(store.compute_state().get('price_scope_contract'), 'fc27_three_platform_v1')
+
+    def test_large_package_gifts_are_not_spread_into_purchase_base_reference(self):
+        """大档赠送是让利，引用购买基价时不能拿交付量摊薄；不增加硬线档位。"""
         with tempfile.TemporaryDirectory() as td:
             sf = Path(td) / "storefront.json"
             sf.write_text(json.dumps({"rows": {
-                "PS": {"package_usd": "12.57", "base_k": "100", "bonus_k": "5",
-                       "usd_per_k": "0.119714", "status": "ok"},
-                "XBOX": {"package_usd": "12.57", "base_k": "100", "bonus_k": "5",
-                         "usd_per_k": "0.119714", "status": "ok"},
-                "PC": {"package_usd": "9.79", "base_k": "100", "bonus_k": "5",
-                       "usd_per_k": "0.093238", "status": "ok"}}}), "utf-8")
+                "PS": {"package_usd": "125.70", "base_k": "1000", "bonus_k": "30",
+                       "usd_per_k": "0.122039", "status": "ok"},
+                "XBOX": {"package_usd": "125.70", "base_k": "1000", "bonus_k": "30",
+                         "usd_per_k": "0.122039", "status": "ok"},
+                "PC": {"package_usd": "97.90", "base_k": "1000", "bonus_k": "30",
+                       "usd_per_k": "0.095049", "status": "ok"}}}), "utf-8")
             store = mod.Store(Path(td))
             store.config["settings"]["storefront_path"] = str(sf)
             rates, _ = store.get_rates()
             self.assertEqual(rates["PS"]["usd_per_k"], "0.125700")
             self.assertEqual(rates["PC"]["usd_per_k"], "0.097900")
             self.assertEqual(rates["PS"]["basis"], "package/base_k")
-            self.assertNotEqual(rates["PS"]["usd_per_k"], "0.119714")
+            self.assertNotEqual(rates["PS"]["usd_per_k"], "0.122039")
 
-    def test_rates_fallback_keeps_legacy_field(self):
-        """package/base 缺失时退回自带 usd_per_k，并标明含赠送口径"""
+    def test_legacy_delivered_unit_without_purchase_base_is_diagnostic_only(self):
+        """缺购买数量证明的旧含赠单价不能冒充当前购买基价。"""
         with tempfile.TemporaryDirectory() as td:
             sf = Path(td) / "storefront.json"
             sf.write_text(json.dumps({"rows": {
@@ -173,8 +217,14 @@ class StoreTests(unittest.TestCase):
             store = mod.Store(Path(td))
             store.config["settings"]["storefront_path"] = str(sf)
             rates, _ = store.get_rates()
-            self.assertEqual(rates["PS"]["usd_per_k"], "0.119714")
-            self.assertTrue("includes_bonus" in rates["PS"]["basis"])
+            self.assertIsNone(rates["PS"]["usd_per_k"])
+            self.assertEqual(rates["PS"]["observed_usd_per_k"], "0.119714")
+            self.assertEqual(rates["PS"]["basis"], "purchase_base_unverified")
+            (Path(td)/'order_rates.json').write_text(json.dumps({'XBOX':{
+                'usd_per_k':'0.119714','basis':'storefront_usd_per_k(includes_bonus)'}}))
+            cached=store.cached_rates()
+            self.assertIsNone(cached['XBOX']['usd_per_k'])
+            self.assertEqual(cached['XBOX']['observed_usd_per_k'],'0.119714')
 
     def test_store_roundtrip_and_revision(self):
         with tempfile.TemporaryDirectory() as td:

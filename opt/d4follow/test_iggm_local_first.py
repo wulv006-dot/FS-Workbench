@@ -84,15 +84,24 @@ class LocalFirstTests(unittest.TestCase):
         self.assertEqual(run()['unit_price'],2)
         get.assert_called_once()
 
-    def test_wow_missing_snapshot_never_spends_when_online(self):
+    def test_wow_dual_source_plan_never_fetches_missing_iggm(self):
+        # v5.4 removed IGGM from pricing; local monitor snapshots are display-only.
+        import core_wow_gold as wow
         paid=Mock(side_effect=AssertionError('paid request'))
-        ns={'json':json,'IGGM_FILE':str(self.root/'missing.json'),
-            'load_cfg':lambda:{},'_decodo_cooldown':lambda:False,
-            'fetch_iggm_decodo':paid}
-        run=extract('core_wow_gold.py','load_iggm',ns)
-        with patch.dict('sys.modules',{'net_util':self.net}):
-            result=run(log=lambda *a:None)
-        self.assertEqual(result,({},None))
+        tree=ast.parse((HERE/'core_wow_gold.py').read_text(encoding='utf-8'))
+        plan=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='build_plan')
+        self.assertNotIn('iggm',[a.arg for a in plan.args.args])
+        self.assertFalse(any(isinstance(n,ast.Name) and n.id in
+                              ('load_iggm','fetch_iggm_decodo') for n in ast.walk(plan)))
+        row={'id':'synthetic','name':'test','region':'美服','type':'PVP','faction':'A',
+             'cost':1,'margin':.2,'b2c':1.2}
+        cfg={'参数':{},'区服':[{'区':'美服','类型':'PVP','阵营':'A',
+                               '后台行ID':'synthetic','启用':True}]}
+        with patch('urllib.request.urlopen',paid):
+            result=wow.build_plan([row],{},cfg,6.65,log=lambda *a:None,bjq_pages={})[0]
+        self.assertEqual(result['动作'],'hold')
+        self.assertIsNone(result['目标b2c'])
+        self.assertIsNone(result['IGGM'])
         paid.assert_not_called()
 
 if __name__ == '__main__':

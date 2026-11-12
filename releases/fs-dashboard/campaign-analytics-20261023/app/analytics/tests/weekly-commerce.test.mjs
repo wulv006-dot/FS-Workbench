@@ -8,6 +8,15 @@ import vm from 'node:vm';
 import {createSnapshot} from '../../runtime/snapshot.mjs';
 import {makeWeeklyCommerce} from '../weekly-commerce.mjs';
 import {weeklyNativeCandidates} from '../weekly-native-candidates.mjs';
+import {makeCenterStore,initialCenterDraft} from '../center-store.mjs';
+import {centerSeed} from '../center-seed.mjs';
+import {previewCatalog,validateLayout} from '../store.mjs';
+import {effectiveFcCatalog} from '../../runtime/model-cards.mjs';
+import {mergeNativeCatalog,readNativeLaunchPolicy} from '../native-catalog.mjs';
+import {projectFcCatalog} from '../../runtime/presentation.mjs';
+import {makeAdminPriceProvider} from '../admin-price-provider.mjs';
+import {applyPublicPriceCache} from '../../runtime/admin-price-cache.mjs';
+import core from '../../activity-core.js';
 const at=Date.parse('2026-11-09T10:00:00Z'),platforms={ps:'21587',xbox:'21585',pc:'21589'};
 function facts(mid,kind='player'){
  const ref={site_id:'266',game_id:'1327',model_id:mid};
@@ -106,4 +115,73 @@ test('preview selects newest valid exact proposal and invalid draft shapes do no
  assert.deepEqual(f.service.previewCatalog(f.body,'alice'),latest.preview_catalog);
  const file=path.join(f.dir,latest.proposal_id+'.json'),expired=JSON.parse(fs.readFileSync(file));expired.valid_until=new Date(at).toISOString();fs.writeFileSync(file,JSON.stringify(expired));
  assert.deepEqual(f.service.previewCatalog(f.body,'alice'),first.preview_catalog);
+});
+
+
+test('one real fixed bundle creates priced native bindings on all three FC pages without installing',async t=>{
+ const f=fixture(t),bundle=facts('60','bundle');f.values.push(bundle);f.draft.fc_models[bundle.model.key]=bundle.model;f.draft.fc_layout.bundles=[bundle.model.key];
+ const before=Buffer.from(f.getPolicy()),p=await f.service.prepare(f.body,'alice');assert.equal(p.can_publish,true);assert.equal(p.models_count,5);assert(p.preview_catalog.model_contracts['60']);
+ const candidate=JSON.parse(fs.readFileSync(p.candidate_path));for(const page_id of ['fc27-weekly','fc27-trio','fc27-sbc']){const bindings=candidate.native_checkout.bindings.filter(b=>b.page_id===page_id&&bundle.observation.products.some(p=>p.product_ref.goods_id===b.native.id));assert.equal(bindings.length,3);assert(bindings.every(b=>b.code==='FCSCOUT10'));}
+ assert.deepEqual(f.getPolicy(),before);assert.equal(f.installs.length,0);
+});
+
+
+test('current legacy four-bundle draft needs one trusted import save before review can project approved public quotes',async t=>{
+ const f=fixture(t),legacy=JSON.parse(fs.readFileSync(new URL('../../catalog.json',import.meta.url))),selected=[['185752835','44839987'],['185752943','44839989'],['185753051','44839991'],['185753159','44839993']],players=Array.from({length:24},(_,i)=>String(11+i)),cores=Array.from({length:9},(_,i)=>String(101+i)),key=id=>'model-266-1327-'+id;
+ Object.assign(f.catalog,legacy);for(const p of Object.values(f.catalog.products))for(const platform of Object.values(p.platforms||{}))delete platform.price;
+ const card=value=>({...value.model,version_label:null,image_url:null,image_provenance:null,site_association:'observed',verification_scope:'catalog_identity_only',available:false,authoritative:false,checkout_enabled:false});
+ f.values.splice(0,f.values.length,...players.map(id=>facts(id)),...cores.map(id=>facts(id,'sbc')));
+ const originalModels=Object.fromEntries(f.values.map(value=>[value.model.key,card(value)])),bundleFacts=selected.map(([legacyKey,mid])=>{
+  const value=facts(mid,'bundle');for(const [code,slot] of Object.entries(value.model.platforms)){const goods=String(legacy.products[legacyKey].platforms[code].id);slot.product_ref.goods_id=goods;value.observation.products.find(p=>p.platform_attribute_id===platforms[code]).product_ref.goods_id=goods;}return value;
+ });f.values.push(...bundleFacts);
+ const pool=players.slice(0,18).map(key),layout={weekly:players.slice(21,24).map(key),trio:players.slice(18,21).map(key),sbc:cores.map(key),bundles:selected.map(([old])=>old),defaultCore:key(cores[0]),routes:Object.fromEntries(cores.map((id,i)=>{const picks=pool.slice(i*2,i*2+2);return [key(id),{picks,alternatives:pool.filter(k=>!picks.includes(k))}];}))};
+ const draft={...initialCenterDraft(),fc_models:structuredClone(originalModels),fc_layout:layout};for(const page of draft.pages.filter(p=>p.page_id.startsWith('fc27-')))page.benefit_refs=[{kind:'discount',native_id:'6049'}];assert(draft.pages.every(p=>!Object.hasOwn(p,'product_keys')));assert.equal(Object.keys(draft.fc_models).length,33);
+ // Existing production shape: legacy cards, with native Trio bindings already installed.
+ const installed=weeklyNativeCandidates({source:{observed_at:new Date(at).toISOString(),models:bundleFacts.map(v=>v.model),provider_observations:bundleFacts.map(v=>v.observation)},pricePolicy:f.policy.admin_reference_prices,now:at}).native_catalog_candidate;
+ f.policy.native_catalog.products.push(...installed.products);Object.assign(f.policy.native_catalog.model_contracts,installed.model_contracts);for(const c of Object.values(f.policy.native_catalog.model_contracts))for(const row of c.combinations)delete row.price;
+ for(const product of installed.products)f.policy.native_checkout.bindings.push({activity_id:'fc27-season2',page_id:'fc27-trio',product_key:product.key,quantity:{value:'1',unit:'item'},attributes:[],off_percent:10,code:'FCSCOUT10',native:{category:'new_items',id:product.product_ref.goods_id,group:'1',num:'1',attr:'',aid:product.platform.attribute_id}});
+ const originalTrio=structuredClone(f.policy.native_checkout.bindings.filter(b=>b.page_id==='fc27-trio'));
+ const stateDir=path.join(f.dir,'backend'),publicDir=path.join(f.dir,'public'),centerDir=path.join(f.dir,'center');for(const dir of [stateDir,centerDir,publicDir])fs.mkdirSync(dir,{mode:0o700});const policyFile=path.join(stateDir,'policy.json'),writePolicy=policy=>{const raw=JSON.stringify(policy);f.setPolicy(raw);fs.writeFileSync(policyFile,raw,{mode:0o600});};writePolicy(f.policy);fs.writeFileSync(path.join(centerDir,'state.json'),JSON.stringify({revision:27,draft,published:null}));
+ const center=makeCenterStore({dir:centerDir,publicDir,sourceRevision:'legacy-shape-fixture',validateFcLayout:(layout,models)=>validateLayout(layout,effectiveFcCatalog(f.catalog,models)),seedProvider:(layout,models)=>mergeNativeCatalog(centerSeed(previewCatalog(effectiveFcCatalog(f.catalog,models),layout),{products:[]}),readNativeLaunchPolicy(stateDir,{now:at}).catalog),nativeCheckoutProvider:()=>readNativeLaunchPolicy(stateDir,{now:at}).checkout});
+ const seedFor=(current,proposal)=>{const seed=mergeNativeCatalog(centerSeed(previewCatalog(effectiveFcCatalog(f.catalog,current.draft.fc_models),current.draft.fc_layout),{products:[]}),proposal.preview_catalog);Object.assign(seed.seasonal_model_contracts,structuredClone(proposal.preview_catalog.model_contracts));return seed;};
+ const beforePolicy=Buffer.from(f.getPolicy()),old=await f.service.prepare({operation_id:randomUUID(),revision:27,draft},'alice');assert.equal(old.can_publish,true);assert.equal(old.models_count,37);
+ const legacyPreview=center.preview({revision:27,draft},[],[],{seed:seedFor(center.read(),old)});for(const [,mid] of selected)for(const page of legacyPreview.pages.filter(p=>p.page_id.startsWith('fc27-')))assert(!page.product_keys.some(k=>old.preview_catalog.products.some(p=>p.product_ref.model_id===mid&&p.key===k)),'prepare alone cannot turn the legacy card into a native alias');
+ assert.deepEqual(f.getPolicy(),beforePolicy);assert.equal(f.installs.length,0);
+ // One trusted server save appends four resolved models; the request cannot contain details.
+ const next=structuredClone(draft);next.fc_layout.bundles=selected.map(([,mid])=>key(mid));const operation_id=randomUUID(),imports=selected.map(([,model_id])=>({page_id:'fc27-trio',kind:'bundle',model_id})),details=bundleFacts.map(card),body={operation_id,revision:27,draft:next,model_imports:imports};
+ const bridge=path.join(f.dir,'trusted-model-read.py'),bridgeLog=path.join(f.dir,'model-reads.jsonl');fs.writeFileSync(bridge,'import json,sys\nr=json.load(sys.stdin)\nmodels=json.loads('+JSON.stringify(JSON.stringify(details))+')\nif r.get("action")!="model_resolve": print(json.dumps({"status":"error","error":"FIXTURE_READ_ONLY"}));sys.exit(0)\nwith open('+JSON.stringify(bridgeLog.replaceAll('\\','/'))+',"a") as log: log.write(json.dumps(r)+"\\n")\nm=next(m for m in models if m["model_id"]==r["model_id"] and m["kind"]==r["kind"])\nprint(json.dumps({"status":"ok","data":{"model":m,"resolution_complete":True}}))\n');
+ const envKeys=['CAMPAIGN_DATA','CAMPAIGN_PUBLIC_RELEASE_DIR','CAMPAIGN_ORIGIN','CAMPAIGN_PYTHON','CAMPAIGN_BACKEND_BRIDGE'],previous=Object.fromEntries(envKeys.map(k=>[k,process.env[k]])),originalFetch=globalThis.fetch;let management,saved;
+ Object.assign(process.env,{CAMPAIGN_DATA:f.dir,CAMPAIGN_PUBLIC_RELEASE_DIR:publicDir,CAMPAIGN_ORIGIN:'http://127.0.0.1',CAMPAIGN_PYTHON:process.platform==='win32'?'python':'python3',CAMPAIGN_BACKEND_BRIDGE:bridge});globalThis.fetch=async(url,options)=>String(url).includes(':8895/verify')?new Response('',{status:200,headers:{'x-auth-user':'alice','x-auth-role':'admin'}}):originalFetch(url,options);
+ try{
+  ({server:management}=await import('../production-server.mjs'));await new Promise(resolve=>management.listen(0,'127.0.0.1',resolve));const endpoint='http://127.0.0.1:'+management.address().port+'/dashboard/analytics/campaigns/analytics/api/center',current=await(await originalFetch(endpoint)).json();assert.equal(current.revision,27);
+  const response=await originalFetch(endpoint,{method:'POST',headers:{Origin:'http://127.0.0.1','Content-Type':'application/json','X-CSRF-Token':current.csrf},body:JSON.stringify(body)});assert.equal(response.status,200);saved=center.read();assert.deepEqual(JSON.parse(fs.readFileSync(path.join(centerDir,'operations',operation_id+'.json'))).result.draft,saved.draft);
+  const calls=fs.readFileSync(bridgeLog,'utf8').trim().split('\n').map(JSON.parse);assert.deepEqual(calls.map(r=>[r.action,r.kind,r.model_id]),selected.map(([,mid])=>['model_resolve','bundle',mid]));assert.equal(Object.hasOwn(body,'details'),false);
+  const replay=await originalFetch(endpoint,{method:'POST',headers:{Origin:'http://127.0.0.1','Content-Type':'application/json','X-CSRF-Token':current.csrf},body:JSON.stringify(body)});assert.equal(replay.status,200);assert.equal(fs.readFileSync(bridgeLog,'utf8').trim().split('\n').length,4,'original-ID readback does not reread models or save again');
+ }finally{if(management)await new Promise(resolve=>management.close(resolve));globalThis.fetch=originalFetch;for(const k of envKeys){if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];}}
+
+ assert.equal(saved.revision,28);assert.equal(Object.keys(saved.draft.fc_models).length,37);for(const [id,model] of Object.entries(originalModels))assert.deepEqual(saved.draft.fc_models[id],model);for(const field of ['weekly','trio','sbc','routes'])assert.deepEqual(saved.draft.fc_layout[field],layout[field]);assert(saved.draft.pages.every(p=>!Object.hasOwn(p,'product_keys')));assert.equal(saved.published,null);
+ for(const [,mid] of selected)for(const [code,slot] of Object.entries(saved.draft.fc_models[key(mid)].platforms))assert.equal(slot.product_ref.goods_id,bundleFacts.find(v=>v.model.model_id===mid).model.platforms[code].product_ref.goods_id);
+ // Align other selected native bindings with the installed policy, leaving exactly the 24 bundle gaps.
+ const expectedSelected=await f.service.prepare({operation_id:randomUUID(),revision:28,draft:saved.draft},'alice');assert.equal(expectedSelected.can_publish,true);const allCandidate=JSON.parse(fs.readFileSync(expectedSelected.candidate_path)),mids=new Set(selected.map(([,mid])=>mid)),bundleGoods=new Set(bundleFacts.flatMap(v=>v.observation.products.map(p=>p.product_ref.goods_id)));
+ const baseline=JSON.parse(f.getPolicy());baseline.native_checkout.bindings=allCandidate.native_checkout.bindings.filter(b=>!bundleGoods.has(b.native.id)||b.page_id==='fc27-trio');baseline.native_catalog=allCandidate.native_catalog;baseline.admin_reference_prices=allCandidate.admin_reference_prices;writePolicy(baseline);const alignedBefore=Buffer.from(f.getPolicy());
+ const proposal=await f.service.prepare({operation_id:randomUUID(),revision:28,draft:saved.draft},'alice');assert.equal(proposal.can_publish,true);assert.equal(proposal.models_count,37);assert.equal(proposal.diff.added.bindings,24);const candidate=JSON.parse(fs.readFileSync(proposal.candidate_path)),bundleKeys=new Set(proposal.preview_catalog.products.filter(p=>mids.has(p.product_ref.model_id)).map(p=>p.key)),bindings=candidate.native_checkout.bindings.filter(b=>bundleKeys.has(b.product_key)&&b.page_id.startsWith('fc27-'));assert.equal(bindings.length,36);assert.equal(bindings.filter(b=>b.page_id!=='fc27-trio').length,24);assert.deepEqual(candidate.native_checkout.bindings.filter(b=>bundleKeys.has(b.product_key)&&b.page_id==='fc27-trio'),originalTrio);
+ const preview=center.preview({revision:28,draft:saved.draft},[],[],{seed:seedFor(saved,proposal)}),privateCatalog=projectFcCatalog(f.catalog,preview);for(const page of preview.pages.filter(p=>p.page_id.startsWith('fc27-')))for(const [,mid] of selected)for(const platform of ['ps','xbox','pc']){const offer=core.nativeModelOffer(privateCatalog.products[key(mid)],platform,preview,page.page_id,at);assert(offer?.price.base_minor>0);assert.equal(offer.checkout_ready,false,'private preview never grants checkout');}assert.deepEqual(f.getPolicy(),alignedBefore);
+ // Isolated explicit-confirmation simulation. Prices come only from observation fixtures.
+ writePolicy(candidate);center.publish({operation_id:randomUUID(),revision:28},'alice');const snapshot=JSON.parse(fs.readFileSync(path.join(publicDir,'current.json')));assert.equal(snapshot.native_checkout.bindings.filter(b=>bundleKeys.has(b.product_key)&&b.page_id.startsWith('fc27-')).length,36);
+ // Model 99 is the fixture's original installed policy, retained through the Seasonal seed.
+ // It is not one of the current 33+4 FC cards and is never a generic missing-model fallback.
+ const selectedObservations=new Map(f.values.map(v=>[v.model.model_id,v.observation])),retained99=facts('99').observation;
+ assert.equal(selectedObservations.size,37);assert(candidate.admin_reference_prices.entries.some(p=>p.model_ref.model_id==='99'));
+ const fcKeys=new Set(snapshot.pages.filter(p=>p.page_id.startsWith('fc27-')).flatMap(p=>p.product_keys));assert(!snapshot.products.some(p=>p.product_ref.model_id==='99'&&fcKeys.has(p.key)));
+ const seasonalKeys=new Set(snapshot.pages.find(p=>p.page_id==='seasonal-vault').product_keys);assert(snapshot.products.some(p=>p.product_ref.model_id==='99'&&seasonalKeys.has(p.key)));
+ const prices=makeAdminPriceProvider({publicDir,readPolicy:()=>candidate.admin_reference_prices,now:()=>at,call:async request=>{
+  assert.equal(request.action,'model_provider_batch');return {readings:Object.fromEntries(request.items.map(item=>{
+   assert(item.model_id==='99'||selectedObservations.has(item.model_id),'unexpected model requested by price producer: '+item.model_id);
+   const observation=item.model_id==='99'?retained99:selectedObservations.get(item.model_id);assert.equal(observation.model.model_id,item.model_id);assert.equal(observation.model.category_id,item.category_id);
+   return [item.key,{status:'ok',data:observation}];
+  }))};
+ }});await prices.refresh();const cache=JSON.parse(fs.readFileSync(path.join(publicDir,'admin-reference-prices.json'))),publicSnapshot=applyPublicPriceCache(snapshot,cache,{now:at}),publicCatalog=projectFcCatalog(f.catalog,publicSnapshot);
+ assert.equal(cache.status,'ready');
+ for(const page of publicSnapshot.pages.filter(p=>p.page_id.startsWith('fc27-')))for(const [,mid] of selected)for(const platform of ['ps','xbox','pc']){const quote=core.nativeModelOffer(publicCatalog.products[key(mid)],platform,publicSnapshot,page.page_id,at);assert.equal(quote.price.source,'admin_current');assert.equal(quote.price.currency,'USD');assert.equal(quote.price.base_minor,1013);assert.equal(quote.checkout_ready,true);assert.equal(quote.bindings.length,1);}
+ assert.equal(f.installs.length,0,'no real installer, model or business service is invoked');
 });

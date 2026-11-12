@@ -34,8 +34,12 @@ class Collector:
             serve_replay(self.identity, self.spool, reader, writer)
         elif set(message) == {'method', 'task'} and message['method'] == 'run':
             transport = RestrictedHTTP(REGISTRY)
-            serve_task(message['task'], self.identity, {'ArabUT': arab_adapter}, VERSIONS,
-                       self.spool, transport.fetch, reader, writer)
+            from .lootbar import lootbar_adapter, render_fetch
+            task = message['task']
+            def fetch(source, template, timeout):
+                return render_fetch(task, template, timeout) if source == 'Lootbar' else transport.fetch(source, template, timeout)
+            serve_task(task, self.identity, {'ArabUT': arab_adapter, 'Lootbar': lootbar_adapter}, VERSIONS,
+                       self.spool, fetch, reader, writer)
         else:
             raise ValueError('method_not_allowed')
 
@@ -44,7 +48,7 @@ def verified_manifest(root):
     raw = (root / 'manifest.json').read_bytes()
     manifest = json.loads(raw)
     expected = {'fc_collection/' + name for name in ('__init__.py', 'contracts.py', 'worker.py',
-        'adapters.py', 'protocol.py', 'public_sources.py', 'server.py')} | {'entry.py'}
+        'adapters.py', 'protocol.py', 'public_sources.py', 'server.py', 'lootbar.py')} | {'entry.py'}
     if set(manifest.get('sha256', {})) != expected:
         raise ValueError('worker_manifest_invalid')
     for relative, digest in manifest['sha256'].items():

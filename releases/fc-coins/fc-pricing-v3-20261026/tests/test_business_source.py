@@ -41,7 +41,7 @@ class BusinessSourceTest(unittest.TestCase):
         self.assertNotEqual(row['available_at'],row['paid_at'])
         self.assertNotIn('private-order',json.dumps(rows))
         self.assertNotIn('private-code',json.dumps(rows))
-        self.assertEqual(coverage['original_mix_sha256'],source.historical_mix(selected,provenance)['sha256'])
+        self.assertEqual(coverage['original_mix_sha256'],source.historical_mix(selected,provenance,orders=orders)['sha256'])
 
     def test_historical_actual_coupon_deduction_does_not_invent_fixed_counterfactual_terms(self):
         selected, orders, provenance=fixture()
@@ -101,13 +101,17 @@ class BusinessSourceTest(unittest.TestCase):
     def test_same_population_mix_and_identity_free_replay(self):
         selected, orders, provenance = fixture()
         replay = source.build_replay(selected, orders, {}, {}, provenance)
-        mix = source.historical_mix(selected, provenance)
-        self.assertEqual(replay['eligible_count'], mix['eligible_orders'])
-        self.assertEqual(replay['original_amount_weight_usd'], mix['undiscounted_order_usd'])
+        orders['private-order']['aid']=21587
+        mix = source.historical_mix(selected, provenance,orders=orders)
+        self.assertEqual(replay['eligible_count'], mix['by_platform']['PS']['eligible_orders'])
+        self.assertEqual(replay['original_amount_weight_usd'], mix['by_platform']['PS']['undiscounted_order_usd'])
         self.assertEqual(replay['status'], 'verified')
         self.assertNotIn('private-order', json.dumps(replay))
         self.assertNotIn('private-code', json.dumps(replay))
-        self.assertEqual(str(required_history_ratio(dict(historical_discount_mix=mix), datetime(2026, 10, 26, tzinfo=timezone.utc))), '0.95')
+        # This seven-day historical source remains readable data, not a current
+        # eight-day platform proof. The current helper must reject it.
+        with self.assertRaises(ValueError):
+            required_history_ratio(dict(historical_discount_mix=mix), datetime(2026,10,26,tzinfo=timezone.utc),platform='PS')
 
     def test_unknown_path_is_visible_and_does_not_claim_complete(self):
         selected, orders, provenance = fixture()
@@ -117,9 +121,11 @@ class BusinessSourceTest(unittest.TestCase):
         self.assertEqual(result['failures']['history_discount_layer_mismatch'], 1)
 
     def test_closed_day_mtd_and_no_quantity_fabrication(self):
+        from test_selective_sources import cache_fixture
+        financial_cache=cache_fixture()[0]
         selected, orders, provenance = fixture()
         storefront = dict(rows={p: dict(package_usd='10') for p in ('PS', 'XBOX', 'PC')})
-        with patch.object(source, '_period_population', return_value=(selected, provenance)), patch.object(source, '_live_traces', return_value=(orders, {}, {})), patch.object(source, '_today_summary', return_value=dict(status='unavailable', net_paid_usd=None)), patch.dict(sys.modules, {'pricing_sources': SimpleNamespace(active=lambda *a, **k: True)}):
+        with patch.object(source,'build_shared_history_cache',return_value=(financial_cache,{})), patch.object(source, '_period_population', return_value=(selected, provenance)), patch.object(source, '_live_traces', return_value=(orders, {}, {})), patch.object(source, '_today_summary', return_value=dict(status='unavailable', net_paid_usd=None)), patch.dict(sys.modules, {'pricing_sources': SimpleNamespace(active=lambda *a, **k: True)}):
             result = source.collect(None, None, storefront, [])
         self.assertEqual(result['monthly_target']['mtd_status'], 'closed_days_only')
         self.assertIsNone(result['monthly_target']['today']['net_paid_usd'])
@@ -163,10 +169,12 @@ class BusinessSourceTest(unittest.TestCase):
         self.assertEqual(layer['source_scope'], 'actual_region_39')
 
     def test_partial_closed_day_mtd_is_a_bounded_interval_not_zero_or_unavailable(self):
+        from test_selective_sources import cache_fixture
+        financial_cache=cache_fixture()[0]
         selected, orders, provenance = fixture()
         month_source = dict(provenance, status='partial', missing_product_identity=8, unclassified_paid_FC_usd='10.34')
         storefront = dict(rows={p: dict(package_usd='10') for p in ('PS', 'XBOX', 'PC')})
-        with patch.object(source, '_period_population', side_effect=[(selected, provenance), (selected, month_source)]), patch.object(source, '_live_traces', return_value=(orders, {}, {})), patch.object(source, '_today_summary', return_value=dict(status='unavailable', net_paid_usd=None)), patch.dict(sys.modules, {'pricing_sources': SimpleNamespace(active=lambda *a, **k: True)}):
+        with patch.object(source,'build_shared_history_cache',return_value=(financial_cache,{})), patch.object(source, '_period_population', side_effect=[(selected, provenance), (selected, month_source)]), patch.object(source, '_live_traces', return_value=(orders, {}, {})), patch.object(source, '_today_summary', return_value=dict(status='unavailable', net_paid_usd=None)), patch.dict(sys.modules, {'pricing_sources': SimpleNamespace(active=lambda *a, **k: True)}):
             monthly = source.collect(None, None, storefront, [])['monthly_target']
         self.assertEqual(monthly['mtd_status'], 'partial_closed_day_interval')
         self.assertEqual(monthly['mtd_lower_bound'], '9.50')
@@ -183,7 +191,7 @@ class BusinessSourceTest(unittest.TestCase):
         model = source.demand_snapshot(selected, orders, storefront, provenance)
         self.assertEqual(model['rate_window_hours'], 6)
         self.assertEqual(model['observed_window_hours'], '168.0')
-        self.assertEqual(model['groups']['console']['observed_orders_per_block'], '6')
+        self.assertEqual(model['groups']['PS']['observed_orders_per_block'], '6')
 
     def test_native_quantity_includes_historical_gift_and_line_multipliers(self):
         value = source._quantity(dict(content='<span class="item">&#12288;☑500 K coins+25K Free x 2 = $89.50, </span><span class="item">☑200 K coins x 3 = $62.64, </span>'))
