@@ -20,7 +20,7 @@ function render(){const online=state.connected;$('#connection').textContent=onli
 async function refresh(){state=await api('status');render();if(state.connected&&!meta.channels){meta=await api('meta');for(const k of ['channel_id','chat_channel_id','announcement_channel_id']){$('#'+k).innerHTML=meta.channels.map(c=>`<option value="${c.id}"># ${esc(c.name)}</option>`).join('');$('#'+k).value=state.test_channel_id;}for(const k of ['eligible_roles','excluded_roles','mention_roles'])$('#'+k).innerHTML=meta.roles.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');}if(!state.connected&&!$('#channel_id').options.length){for(const k of ['channel_id','chat_channel_id','announcement_channel_id'])$('#'+k).innerHTML=`<option value="${state.test_channel_id}">🧪・lucky-loot-test</option>`;}}
 async function run(fn){try{await fn();}catch(e){notice(e.message,true);}}
 $('#connect').onclick=()=>run(async()=>{const value=$('#token').value;$('#token').value='';await api('connect',{token:value});notice('令牌已保存，正在连接 Discord');await refresh();});
-$('#refresh').onclick=()=>run(refresh);$('#addPrize').onclick=()=>{addPrize();livePreview();};$('#new').onclick=()=>{document.querySelector('#editor').reset();$('#id').value='';editing=null;$('#editorTitle').textContent='新建活动';$('#prizes').innerHTML='';addPrize();defaults();modeUI();showWorkspace('compose');goStep(0);livePreview();};
+$('#refresh').onclick=()=>run(refresh);$('#addPrize').onclick=()=>{addPrize();livePreview();};$('#new').onclick=()=>{document.querySelector('#editor').reset();for(const k of ['channel_id','chat_channel_id','announcement_channel_id'])if(state.test_channel_id)$('#'+k).value=state.test_channel_id;$('#id').value='';editing=null;$('#editorTitle').textContent='新建活动';$('#prizes').innerHTML='';addPrize();defaults();modeUI();showWorkspace('compose');goStep(0);livePreview();};
 $('#test_only').onchange=()=>{if($('#test_only').checked)for(const k of ['channel_id','chat_channel_id','announcement_channel_id'])$('#'+k).value=state.test_channel_id;};
 $('#editor').onsubmit=e=>{e.preventDefault();if(!validateAll())return;run(async()=>{const {campaign}=await api('save',config());$('#id').value=campaign.id;editing=campaign.id;notice('草稿已保存。可在活动记录中定时发布。');await refresh();showWorkspace('history');});};
 function previewText(value){return esc(value).replace(/&lt;@preview&gt;/g,'@中奖成员').replace(/&lt;#(\d+)&gt;/g,(_,id)=>'#'+esc(meta.channels?.find(c=>c.id===id)?.name||'活动频道')).replace(/&lt;t:(\d+):[A-Za-z]&gt;/g,(_,sec)=>esc(new Date(Number(sec)*1000).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}))).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');}
@@ -32,11 +32,11 @@ $('#mode').onchange=modeUI;$('#announce_join').onchange=modeUI;
 let currentStep=0;
 const panels=[...document.querySelectorAll('.wizard-panel')];
 function showWorkspace(view){
- const compose=view==='compose';$('#composeView').hidden=!compose;$('#historyView').hidden=compose;
+ window.scrollTo({top:0,behavior:'instant'});const compose=view==='compose';$('#composeView').hidden=!compose;$('#historyView').hidden=compose;
  $('#composeTab').setAttribute('aria-selected',String(compose));$('#historyTab').setAttribute('aria-selected',String(!compose));
 }
 function goStep(index){
- currentStep=Math.max(0,Math.min(panels.length-1,index));
+ currentStep=Math.max(0,Math.min(panels.length-1,index));panels[currentStep].scrollTop=0;
  panels.forEach((p,i)=>p.hidden=i!==currentStep);
  document.querySelectorAll('[data-go-step]').forEach((b,i)=>{b.setAttribute('aria-current',i===currentStep?'step':'false');b.classList.toggle('visited',i<currentStep);});
  $('#prevStep').hidden=currentStep===0;$('#nextStep').hidden=currentStep===panels.length-1;$('#saveDraft').hidden=currentStep!==panels.length-1;
