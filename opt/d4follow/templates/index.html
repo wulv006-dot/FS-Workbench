@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RPG 游戏改价系统</title>
+<base href="{{ console_base|default('/d4/') }}">
+<title>系统维护 · RPG 改价</title>
 <style>
 :root{
   --base:#f5f5f7; --mantle:#ffffff; --crust:#ffffff;
@@ -46,7 +47,7 @@ main{padding:16px 20px 60px;max-width:1680px;margin:0 auto}
 
 /* 开关：2026-09-23 第七轮。原来是一排两个按钮「跟价开关 OFF / AUTO 自动跟价」，
    语义混淆（OFF 关的是什么？AUTO 是"自动"还是"总开关"？），现在拆成语义独立的两张开关卡：
-     左「系统总开关」= 能不能改价；右「自动跟价」= 要不要自动改。开关本体是滑块，
+     左「队列执行开关」= 能不能改价；右「自动跟价」= 要不要自动改。开关本体是滑块，
    开=绿、关=灰，右侧再补一个「开启 / 关闭」文字，不用盯着颜色猜。 */
 .switchbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .master{display:flex;gap:10px;flex-wrap:wrap}
@@ -514,10 +515,10 @@ th{background:#fafafa}
 .actgrp.ticket{border-color:#f2ccd4;background:linear-gradient(180deg,#fffafa,#fdf0f3)}
 .actgrp.ticket>label{color:var(--red)}
 @media(max-width:640px){.actgrp>label{border-right:0;padding-right:0}}
-</style>
+#sec-follow, .toc a[data-to="sec-follow"]{display:none!important}</style>
 </head>
 <body>
-<header>
+<header><a href="{{ console_base|default('/d4/') }}" style="font-weight:600;margin-right:16px">← 返回游戏概览</a>
   <h1>RPG 游戏改价系统</h1>
   <div class="badges" id="badges"></div>
 </header>
@@ -538,9 +539,9 @@ th{background:#fafafa}
       <div class="ctl">
         <div class="master" id="masterBar">
           <div class="swcell" id="swMaster" onclick="setSwitch('master')"
-               title="系统总开关：关闭 = 拦截一切改价（手动放行、自动跟价都改不了）；开启 = 允许改价">
+               title="队列执行开关：关闭后拦截后续队列工单；不含上古直写或已开始执行的工单">
             <span class="swpill"></span>
-            <span class="swtxt"><b>系统总开关</b><span id="swMasterSub">…</span></span>
+            <span class="swtxt"><b>队列执行开关</b><span id="swMasterSub">…</span></span>
             <span class="swst" id="swMasterSt">关闭</span>
           </div>
           <div class="swcell" id="swAuto" onclick="setSwitch('auto')"
@@ -1067,7 +1068,7 @@ async function api(url,opt){
 /* ---------- 渲染 ---------- */
 function renderBadges(d){
   const s=d.switches||{}, b=[];
-  b.push('<span class="badge '+(s.master?'on':'off')+'"><span class="dot"></span>系统总开关：<b>'
+  b.push('<span class="badge '+(s.master?'on':'off')+'"><span class="dot"></span>队列执行开关：<b>'
     +(s.master?'开启':'关闭')+'</b></span>');
   b.push('<span class="badge '+(s.auto?'on':'off')+'"><span class="dot"></span>自动跟价：<b>'
     +(s.auto?'开启':'关闭')+'</b></span>');
@@ -1075,7 +1076,7 @@ function renderBadges(d){
   b.push('<span class="badge">汇率固定 <b>'+d.rate+'</b></span>');
   const qh=d.health&&d.health.qdStaleHours;
   b.push('<span class="badge '+(qh>24?'warn':'')+'">千岛成本 <b>'+(qh==null?'无':qh+'h前')+'</b></span>');
-  if(!s.master) b.push('<span class="badge warn">系统总开关关闭：改价一律拦截</span>');
+  if(!s.master) b.push('<span class="badge warn">队列执行开关关闭：后续队列工单暂停</span>');
   else if(!s.auto) b.push('<span class="badge warn">自动跟价关闭：只出计划，需人工放行</span>');
   $('#badges').innerHTML=b.join('');
 }
@@ -1088,20 +1089,20 @@ function renderSwitches(d){
   a.className='swcell '+(s.auto?'on':'off')+(s.master?'':' dis');
   $('#swMasterSt').textContent=s.master?'开启':'关闭';
   $('#swMasterSub').textContent=s.master
-    ?'允许改价：手动 / 自动都可以':'拦截一切改价，系统只看不改';
+    ?'允许后续队列工单执行':'拦截一切改价，系统只看不改';
   $('#swAutoSt').textContent=s.auto?'开启':'关闭';
   $('#swAutoSub').textContent = s.auto
-    ? (s.master?'采集后自动算并下发':'⚠ 需先打开系统总开关')
+    ? (s.master?'采集后自动算并下发':'⚠ 需先打开队列执行开关')
     : '只出计划，人工放行';
   const ab=$('#btnApply');
-  if(ab){ ab.disabled=!s.master; ab.title=s.master?'':'系统总开关关闭 —— 改价已被拦截'; }
+  if(ab){ ab.disabled=!s.master; ab.title=s.master?'':'队列执行开关关闭 —— 改价已被拦截'; }
 }
 async function setSwitch(name){
   const s=(STATE&&STATE.switches)||{};
   // 总开关关着的时候「自动跟价」是灰的：点它要给明确答复，别静默存一个不生效的值
-  if(name==='auto' && !s.master){ toast('请先打开「系统总开关」——自动跟价要先允许改价才有意义','err'); return; }
+  if(name==='auto' && !s.master){ toast('请先打开「队列执行开关」——自动跟价要先允许改价才有意义','err'); return; }
   const cur = (name==='master') ? !!s.master : !!s.auto;
-  const label = (name==='master') ? '系统总开关' : '自动跟价';
+  const label = (name==='master') ? '队列执行开关' : '自动跟价';
   try{
     await api('api/switch',{method:'POST',body:JSON.stringify({name:name,on:!cur})});
     toast(label+(cur?'已关闭':'已开启'), (!cur)?'ok':'');
@@ -1594,7 +1595,7 @@ function subscribe(tid,title){
 }
 function setBusy(b){
   document.querySelectorAll('main button.btn').forEach(x=>{ if(x.id!=='btnSave') x.disabled=b; });
-  // 任务结束后别把「执行改价」顺手解锁 —— 系统总开关关着就必须一直是禁的
+  // 任务结束后别把「执行改价」顺手解锁 —— 队列执行开关关着就必须一直是禁的
   if(!b && $('#btnApply')) $('#btnApply').disabled=!((STATE&&STATE.switches)||{}).master;
 }
 function simulate(){
@@ -1607,8 +1608,8 @@ function simulate(){
 /* ---------- 改价 ---------- */
 function openApply(){
   const p=(STATE&&STATE.p2pah)||{}, s=(STATE&&STATE.switches)||{};
-  if(!s.master){ toast('系统总开关是「关闭」，改价已被拦截','err'); return; }
-  $('#applyInfo').innerHTML = '系统总开关：<b style="color:var(--green)">开启</b> ｜ 自动跟价：<b>'
+  if(!s.master){ toast('队列执行开关是「关闭」，改价已被拦截','err'); return; }
+  $('#applyInfo').innerHTML = '队列执行开关：<b style="color:var(--green)">开启</b> ｜ 自动跟价：<b>'
     +((s.auto)?'开启':'关闭（本次为人工放行）')+'</b> ｜ '
     +'后台账号：'+(p.账号已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
     +' ｜ 写接口：'+(p.写接口已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
@@ -2532,10 +2533,10 @@ async function renderGoldCostSum(){  const box = $('#goldCostSum');
 }
 function openGoldApply(){
   const p=(STATE&&STATE.p2pah)||{}, s=(STATE&&STATE.switches)||{};
-  if(!s.master){ toast('系统总开关是「关闭」，改价已被拦截','err'); return; }
+  if(!s.master){ toast('队列执行开关是「关闭」，改价已被拦截','err'); return; }
   APPLY_KIND='gold_apply';
   $('#modalTitle').textContent='生成金币改价工单（服务器算 · 服务器执行）';
-  $('#applyInfo').innerHTML = '系统总开关：<b style="color:var(--green)">开启</b>'
+  $('#applyInfo').innerHTML = '队列执行开关：<b style="color:var(--green)">开启</b>'
     + ' ｜ 后台账号：'+(p.账号已配?'<b style="color:var(--green)">已配</b>':'<b style="color:var(--yellow)">未配</b>')
     + '<br>金币改的是<b>采购成本</b>（￥/M），工单在执行时会自动：'
     + '① 写采购成本 → ② 点「更新b2c网站」(getweb=1) <b>不勾「所有区」</b> → ③ 清缓存。'
@@ -3157,7 +3158,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeHist(); jobH
 tocInit();
 setLogOpen(false); paintLogCount();
 loadState();
-setInterval(()=>{ if(!ES) loadState(); }, 60000);
+setInterval(()=>{ if(!ES && !Object.keys(D).length && !Object.keys(SCHED_DIRTY).length) loadState(); }, 60000);
 setInterval(renderLocal, 5000);   // 执行器状态要比主状态刷得更勤
 
 /* 货架自检告警条：只读展示，不自动改配置（用户手动处理）。

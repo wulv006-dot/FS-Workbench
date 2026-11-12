@@ -1250,7 +1250,7 @@ def _flat_url(z, sub_seg, page=1):
         BASE, z["sid"], z["cate_seg"], sub_seg, z["type_seg"], max(1, int(page)))
 
 
-def _collect_flat_game(game, rate, log=None, gap=1.3):
+def _collect_flat_game(game, rate, log=None, gap=1.3, parameters=None):
     """把扁平专区的**全部子区合并**成一本订单簿，「吃」满目标量后返回成本记录。
 
     返回 (记录 dict, {子区名: 站点统计})。记录结构对 AION2 的记录**保持同名兼容**
@@ -1259,7 +1259,12 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
 
     ⚠ 字段名里的「基纳」在本专区实为「金」（沿用旧字段名是为了不改下游）。
     """
-    z = FLAT_ZONES[game]
+    z = dict(FLAT_ZONES[game])
+    parameters = parameters or {}
+    if '目标万量' in parameters:
+        z['target_wan'] = float(parameters['目标万量'])
+    if '最低条数' in parameters:
+        z['min_quotes'] = int(parameters['最低条数'])
     subs = list(z.get("sub_segs") or list((z.get("sub") or {}).values()))
     tgt = float(z.get("target_wan") or 500.0)
     # 2026-11-03 老板定案：订单簿**最低条数**（MSCW = 10）。够量但不够条数 ⇒ 继续翻页补。
@@ -1393,7 +1398,7 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
     return (rec, site)
 
 
-def _fetch_costs_flat(servers, rate, log=None, gap=1.3, game=None):
+def _fetch_costs_flat(servers, rate, log=None, gap=1.3, game=None, parameters=None):
     """扁平专区（MSCW）：整个游戏**共用一本订单簿**，结果写给该游戏全部服务区。"""
     g = game or (servers[0].get("游戏") if servers else None)
     if g not in FLAT_ZONES:
@@ -1403,14 +1408,14 @@ def _fetch_costs_flat(servers, rate, log=None, gap=1.3, game=None):
     svs = [s for s in (servers or []) if s.get("key")]
     if not svs:
         return {}
-    rec, _site = _collect_flat_game(g, rate, log=log, gap=gap)
+    rec, _site = _collect_flat_game(g, rate, log=log, gap=gap, parameters=parameters)
     return {s.get("key"): dict(rec) for s in svs}
 
 
 # ---------------------------------------------------------------------------
 # 主入口（按游戏分发：AION2 三层树+首屏；MSCW 扁平子区+合并翻页）
 # ---------------------------------------------------------------------------
-def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False, game=None):
+def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False, game=None, parameters=None):
     """给一批服务区取 DD373 成本 —— **按游戏分发**。
 
     · 游戏 ∈ FLAT_ZONES（MSCW）⇒ `_fetch_costs_flat`（扁平子区 + 合并 + 翻页到够量）；
@@ -1424,11 +1429,12 @@ def fetch_costs(servers, rate, log=None, gap=1.3, refresh_tree=False, game=None)
         return {}
     g = game or svs[0].get("游戏") or ""
     if g in FLAT_ZONES:
-        return _fetch_costs_flat(svs, rate, log=log, gap=gap, game=g)
-    return _fetch_costs_aion2(svs, rate, log=log, gap=gap, refresh_tree=refresh_tree)
+        return _fetch_costs_flat(svs, rate, log=log, gap=gap, game=g, parameters=parameters)
+    return _fetch_costs_aion2(svs, rate, log=log, gap=gap, refresh_tree=refresh_tree,
+                             parameters=parameters)
 
 
-def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False):
+def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False, parameters=None):
     """给一批服务区取 DD373 成本。
 
     servers : [{key, 大区, 名称或 g2g_服务区}] —— 直接传 config.金币.服务区 里的条目
@@ -1449,6 +1455,11 @@ def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False):
                依据/备注/URL
     ⚠ 本函数仍**只读**；但 2026-10-06 起它的产物是定价输入（成本兜底 + 利润率下限）。
     """
+    parameters = parameters or {}
+    target_wan = float(parameters.get('目标万量', TARGET_WAN))
+    gate_wan = float(parameters.get('薄区万量', GATE_WAN))
+    if target_wan <= 0 or gate_wan < 0:
+        raise ValueError('invalid DD373 sampling parameters')
     if refresh_tree:
         _TREE_CACHE["ts"] = 0
     tree = zone_tree(log=log)
@@ -1564,7 +1575,8 @@ def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False):
         _pages = 1                     # 只读第 1 页（取消翻页）；字段「翻页数」兼容保留
         # 2026-10-22：新增 `outlier_filter=True` —— 吃单之前先剔掉天价单/超低价单
         #   （老板：「滤过那些天价单，过高过低的都移除」）。MSCW 不传，行为不变。
-        ob = orderbook_avg(_q1, consume_all_below_target=True, outlier_filter=True)
+        ob = orderbook_avg(_q1, target_wan=target_wan,
+                          consume_all_below_target=True, outlier_filter=True)
         if not ob:
             _n0 = _site["总数"] if _site["总数"] is not None else 0
             if SKIP_LOWEST_QUOTES > 0 and _q1:
@@ -1602,7 +1614,7 @@ def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False):
         #    在这里熔断只会把成本变成「无报价」，进而让售价被误判成 $19.9，与老板口径冲突。
         #    ⇒ 薄区直接用 ob["均价"]（未触发熔断时 = 全量加权均价；
         #      触发熔断时 = 熔断前已吃部分的加权均价，宁可偏低也不判无货）。
-        _thin_zone = ob["可供量"] < GATE_WAN - 1e-6
+        _thin_zone = ob["可供量"] < gate_wan - 1e-6
         if not ob.get("可用", True) and not _thin_zone:
             _bk = ob.get("熔断") or {}
             out[key] = {
@@ -1631,11 +1643,11 @@ def _fetch_costs_aion2(servers, rate, log=None, gap=1.3, refresh_tree=False):
         # 2026-10-22 起：不足 5 亿不再「按条数吃 10 条」，改为**按全部可买量全量加权**
         _short_note = (None if ob["够量"] else
                        "该区可买挂单仅 %.0f 万基纳（< %g 亿），成本按**全部可买量**加权"
-                       % (ob["可供量"], float(TARGET_WAN) / 10000.0))
+                       % (ob["可供量"], target_wan / 10000.0))
         if _thin_zone:
             _short_note = ((_short_note or "") +
                            "；薄区（< %g 亿）跳过离群熔断%s"
-                           % (GATE_WAN / 10000.0,
+                           % (gate_wan / 10000.0,
                               "，采用熔断前已吃部分均价" if not ob.get("可用", True) else ""))
         # 2026-10-09：把「跳过了哪 2 条」写进备注 —— 老板要看的就是这两条是不是超低价
         _skip_note = (None if not ob["跳过条数"] else

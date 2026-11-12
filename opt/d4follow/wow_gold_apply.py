@@ -190,7 +190,7 @@ def main(argv):
     log("同轮采集 DD373 与比价器出货（不读取收货需求）…")
     # 2026-11-10 WB：公测后 HC 有货，dd_crawl 不再跳过 HC（老逻辑 skip_hc=True）
     pages, bjq_pages, collected_at = WS.collect_pair(
-        lambda log=print: W.dd_crawl(log=log, skip_hc=False), log=log)
+        lambda log=print: W.dd_crawl(log=log, skip_hc=False, parameters=p), log=log)
     # 2026-11-10 老板定案：IGGM 抓取整条移除，不再读 data/wow_iggm.json
     mon = read_monitors(log=log)
     plan = W.build_plan(rows, pages, cfg, fx, log=log, bjq_pages=bjq_pages)
@@ -212,7 +212,7 @@ def main(argv):
               "gid": cfg.get("gid"), "ts": dt.datetime.now().isoformat(timespec="seconds"),
               "汇率": fx, "count": len(todo),
               "系统总开关": bool(cfg.get("启用")), "clearcache": True,
-              "口径": "双源库存加权：150G/25%，50至不足150G全量/30%，不足50G全量/35%；分别算售价择低",
+              "口径": WS.policy_description(p),
               "策略版本": WS.VERSION,
               "items": [{"key": r["key"], "中文名": r["后台名"], "游戏": "WoW Forever",
                          "后台行ID": r["后台行ID"],

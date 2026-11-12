@@ -33,6 +33,7 @@ import core_gold
 import core_iggm
 import core_qd
 import engine
+import game_parameters
 import msg_alert
 import store
 import shelf_check
@@ -1187,7 +1188,8 @@ class Task(object):
                 % (game, len(svs), rate, gap))
             try:
                 costs = core_dd373_cost.fetch_costs(
-                    svs, rate, log=log, gap=gap, refresh_tree=bool(force), game=game)
+                    svs, rate, log=log, gap=gap, refresh_tree=bool(force), game=game,
+                    parameters=game_parameters.cost_parameters(cfg, game))
             except Exception:
                 log("  [成本] ✘ %s 采集异常（不影响别的游戏）：%s"
                     % (game, traceback.format_exc()[-300:]))
@@ -4702,6 +4704,10 @@ def api_shelf_patch():
 def api_health():
     return jsonify({"ok": True, "version": VERSION,
                     "time": dt.datetime.now().isoformat(timespec="seconds")})
+
+
+from console_web import register_console
+register_console(app, ROOT, globals())
 
 
 if __name__ == "__main__":

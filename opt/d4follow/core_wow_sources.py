@@ -163,7 +163,8 @@ def collect_pair(dd_crawl, log=print):
 def source_cost(page, source, parameters, now=None):
     """Ascending executable order book, weighted by purchasable gold."""
     target = float(parameters.get('成本采样金', 150))
-    if target <= 50:
+    boundary = float(parameters.get('薄区阈值金',50))
+    if not number(target) or not number(boundary) or not 0 < boundary < target:
         raise ValueError('invalid sample target')
     if not page or page.get('error'):
         return None
@@ -217,8 +218,9 @@ def price_pair(dd_page,bjq_page,parameters,fx):
     results=[source_cost(dd_page,'DD373',parameters),source_cost(bjq_page,'比价器',parameters)]
     quotes=[q for q in results if q and not q.get('insufficient')]
     target=float(parameters.get('成本采样金',150))
+    boundary=float(parameters.get('薄区阈值金',50))
     for q in quotes:
-        band = 'full' if q['avail_total']>=target else 'thin' if q['avail_total']>=50 else 'scarce'
+        band = 'full' if q['avail_total']>=target else 'thin' if q['avail_total']>=boundary else 'scarce'
         key, default={'full':('常规利润率',.25),'thin':('薄区利润率',.30),'scarce':('稀缺利润率',.35)}[band]
         margin=Decimal(str(parameters.get(key,default)))
         if not 0<=margin<1: raise ValueError('invalid margin')
@@ -231,7 +233,7 @@ def price_pair(dd_page,bjq_page,parameters,fx):
         return dict(mode='库存分档·%d%%毛利'%round(chosen['margin']*100),
             margin=chosen['margin'],avg_rmb=chosen['avg_rmb'],cost_usd=chosen['cost_usd'],iggm=None,b2c=chosen['b2c'],
             gold_used=chosen['gold_used'],n_items=chosen['n_items'],n_used=chosen['n_used'],avail_gold=chosen['avail_total'],
-            note='库存加权成本；≥150G采样150G(按起购/整件可略超)，50至不足150G全量30%，不足50G全量35%；按双方最终售价择低；未下单锁货',
+            note=policy_description(parameters)+'；未下单锁货',
             margin_band=chosen['margin_band'],selected_source=chosen['source'],source_quotes=[q for q in results if q],
             source_gap=gap,source_gap_alert=gap is not None and gap>.5,
             floor_usd=chosen['b2c'],ceiling_usd=chosen['b2c'],rule=VERSION)
@@ -240,9 +242,9 @@ def price_pair(dd_page,bjq_page,parameters,fx):
     both_empty = len(short) == 2
     park=2.99 if both_empty else None
     if park is not None and park<=0: raise ValueError('invalid zero-stock fallback')
-    return dict(mode='双源无货·.99/G' if both_empty else '货源未确认·冻结',margin=None,avg_rmb=None,cost_usd=None,
+    return dict(mode=('双源无货·$%g/G'%park) if both_empty else '货源未确认·冻结',margin=None,avg_rmb=None,cost_usd=None,
         iggm=None,b2c=park,gold_used=0.,n_items=0,n_used=0,avail_gold=0.,
-        note='双方均确认无报价挂单，按用户要求.99/G' if both_empty else '缺少双源无货确认，保持现价',
+        note=('双方均确认无报价挂单，按用户要求$%g/G'%park) if both_empty else '缺少双源无货确认，保持现价',
         both_empty=both_empty,margin_band='park' if both_empty else 'frozen',source_quotes=[q for q in results if q],selected_source=None,
         floor_usd=park,ceiling_usd=park,source_gap=None,source_gap_alert=False,rule=VERSION)
 
@@ -272,5 +274,16 @@ def cap_price_result(result, current_price, cap=1.60):
         result['note']=(result.get('note') or '')+'；用户统一售价上限优先，封顶前$%s/G；利润按封顶价重算'%proposed
         result['floor_usd']=result['ceiling_usd']=cap
     return result
+
+
+def policy_description(parameters):
+    target=float(parameters.get('成本采样金',150))
+    boundary=float(parameters.get('薄区阈值金',50))
+    full=float(parameters.get('常规利润率',.25))*100
+    thin=float(parameters.get('薄区利润率',.30))*100
+    scarce=float(parameters.get('稀缺利润率',.35))*100
+    return ('双源库存加权：≥%gG采样%gG/%g%%，%g至不足%gG全量/%g%%，'
+            '不足%gG全量/%g%%；起购整件可略超；分别算售价择低'
+            %(target,target,full,boundary,target,thin,boundary,scarce))
 
 

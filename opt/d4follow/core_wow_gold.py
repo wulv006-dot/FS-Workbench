@@ -166,7 +166,7 @@ def dd_api_tree(log=print):
     return tree
 
 
-def dd_api_items(type_id, zone_id):
+def dd_api_items(type_id, zone_id, target_gold=150):
     """取一个叶子区的订单簿（最多 30 条），转成与 HTML 解析一致的 items。
 
     ⚠ 字段口径（与 AION2 同一个坑，已踩过）：
@@ -209,7 +209,7 @@ def dd_api_items(type_id, zone_id):
     if rows and not out:
         raise RuntimeError('DD373 invalid offers; incomplete order book')
     if len(rows) >= 30:
-        if sum(o['stock'] for o in out) < 150:
+        if sum(o['stock'] for o in out) < target_gold:
             raise RuntimeError("DD373 endpoint cap reached; incomplete order book")
         if any(a['unit_rmb'] > b['unit_rmb'] for a,b in zip(out,out[1:])):
             raise RuntimeError("DD373 capped order book is not price-sorted; incomplete order book")
@@ -336,7 +336,7 @@ def _save_tree_cache(tree):
         pass
 
 
-def dd_crawl(log=print, skip_hc=True, refresh_tree=False, source="auto"):
+def dd_crawl(log=print, skip_hc=True, refresh_tree=False, source="auto", parameters=None):
     """抓全部叶子区。source: auto（接口优先、失败回落 HTML）/ api / html。
 
     返回 {(区,类型,阵营): {'href','label','items',...,'source','error'}}
@@ -366,7 +366,8 @@ def dd_crawl(log=print, skip_hc=True, refresh_tree=False, source="auto"):
         items, src, err = None, None, None
         if meta.get("type_id") and source in ("auto", "api") and not api_broken:
             try:
-                items = dd_api_items(meta["type_id"], meta["zone_id"])
+                items = dd_api_items(meta["type_id"], meta["zone_id"],
+                                     float((parameters or {}).get('成本采样金',150)))
                 src = "api"
                 api_ok += 1
             except Exception as e:                  # noqa: BLE001
