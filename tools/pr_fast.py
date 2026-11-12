@@ -1119,7 +1119,7 @@ def main():
             units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="cache-archive-retention":
-            units("releases/fs-dashboard/cache-archive-retention-20261025/tests",["test_retention","test_admin_sharing","test_direct_es_api","test_monthly_archive"])
+            units("releases/fs-dashboard/cache-archive-retention-20261025/tests",["test_retention","test_admin_sharing","test_direct_es_api","test_monthly_archive","test_order_attribution"])
         elif group=="fc-coins-evidence":
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="daily-archive":

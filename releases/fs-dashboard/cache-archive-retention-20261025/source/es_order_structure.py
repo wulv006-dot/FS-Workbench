@@ -351,21 +351,29 @@ SESSION_POOL=ThreadPoolExecutor(max_workers=2,thread_name_prefix='admin-es-expor
 
 
 def make_dataset(rows,hashes,parse_failures,declared_files,failed_files):
+    from order_attribution import HEADERS, VERSION, normalize_order_attribution
     safe=[]
     for row in rows:
         signature=hashlib.sha256(json.dumps(row,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
         item={column:row.get(column,'') for column in COLUMNS.values()}
         item.update({column:row[column] for column in DISCOUNT_FIELDS if column in row})
+        item.update({column:row[column] for column in ('uid','buyer_id','推广人ID','折扣码') if column in row})
+        item['marketing_attribution']=normalize_order_attribution(row,set(row),{'fields':HEADERS})
         item['_has_discount_code']=bool(row.get('折扣码','').strip())
         item.update(retained(row))
         item[COLUMNS['order']]=hashlib.sha256(item[COLUMNS['order']].encode()).hexdigest() if item[COLUMNS['order']] else ''
         item['_signature']=signature;safe.append(item)
-    return {'status':'available','_private_dataset':True,'rows':safe,'hashes':hashes,'parse_failures':parse_failures,'declared_files':declared_files,'failed_files':failed_files,'captured_at':datetime.now(timezone.utc).isoformat(),'origin':'existing_export'}
+    return {'status':'available','_private_dataset':True,'attribution_version':VERSION,'rows':safe,'hashes':hashes,'parse_failures':parse_failures,'declared_files':declared_files,'failed_files':failed_files,'captured_at':datetime.now(timezone.utc).isoformat(),'origin':'existing_export'}
 
 
-def archived_dataset(args,root=Path('/var/lib/fc27-es-exports')):
-    if not root.exists():return None
+def archived_dataset(args,root=Path('/var/lib/fc27-es-exports'),*,publication=None):
+    if not root.exists():
+        if publication is not None:raise ValueError('es_publication_archive_missing')
+        return None
     with SERVER_LOCK,archive_access(root):
+        if publication is not None:
+            from order_attribution import published_dataset
+            return published_dataset(checked_query(args),publication,root,parse_files,make_dataset,excel_path,_excel_private)
         return _archived_dataset(args,root)
 
 
@@ -407,7 +415,10 @@ def _archived_dataset(args,root):
         rows=[r for r in rows if not re.fullmatch(r'\d{4}[-/]\d{2}[-/]\d{2}.*',str(r.get(COLUMNS['time']) or ''))
               or args['start']<=str(r[COLUMNS['time']]).replace('/','-')[:10]<=args['end']]
     dataset=make_dataset(rows,hashes,failures,integrity.get('declared_files'),integrity.get('failed_files'))
-    dataset.update(captured_at=value.get('captured_at'),origin='private_archive_reuse')
+    dataset.update(captured_at=value.get('captured_at'),origin='private_archive_reuse',
+                   archive_profile=value['query'].get('profile'),revision_selection='legacy_capture_unverified',
+                   effective_scope={'start':args['start'],'end':args['end'],'site_verified':False,
+                                    'game_filter_applied':False,'status_filter_applied':False})
     return dataset
 
 
