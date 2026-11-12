@@ -160,11 +160,6 @@
     if(preview){
       const picks=scoped(config.weekly.ids).map(offer).map(item=>({item,price:display(item)})).filter(({item,price})=>item&&price.amount!==null&&price.discountAmount>0&&(!standalone||item.native_offer?.checkout_ready)&&(!item.native_offer||item.native_offer.bindings.some(binding=>binding.page_id==='fc27-weekly'&&binding.off_percent===10)));
       preview.hidden=!picks.length;
-      if(picks.length){
-        const cheapest=picks.reduce((lowest,pick)=>pick.price.amount<lowest.price.amount?pick:lowest);
-        $('weekly-hero-price').textContent='From '+money(cheapest.price.amount,cheapest.price.currency);
-        $('weekly-hero-platform').textContent=config.platforms[state.platform].label;
-      }
     }
     if(sbc){
       $('product-grid').innerHTML='';
