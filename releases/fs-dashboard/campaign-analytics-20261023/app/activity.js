@@ -31,6 +31,7 @@
     if(blocked){$('review-selection').disabled=true;$('mobile-review').disabled=true;$('submit-selection').disabled=true;}
   }
   function neutral(){
+    if($('weekly-hero-preview'))$('weekly-hero-preview').hidden=true;
     for(const id of ['product-grid','sbc-lineup','sbc-options','bundle-grid','activity-guide'])$(id).innerHTML='';
     for(const id of ['sbc-controls','sbc-lineup','sbc-options'])$(id).hidden=true;
     $('summary-count').textContent='0';$('summary-total').textContent='—';$('mobile-summary-total').textContent='0';$('summary-savings').textContent='';$('summary-note').textContent=pageMessage();
@@ -155,6 +156,11 @@
     $('hero-kicker').textContent=h.kicker;$('hero-title').innerHTML=`<span>${escape(h.title[state.lang==='zh'?0:2])}</span><strong>${escape(h.title[state.lang==='zh'?1:3])}</strong>`;$('hero-body').textContent=t(...h.body);$('hero-cta').textContent=t(...h.cta);$('view-heading').textContent=t(...h.heading);$('view-intro').textContent=t(...h.intro);
     const media=currentMedia(),image=$('hero-image');image.src=media.hero_desktop?.url||(state.view==='trio'?config.trio.hero:'assets/'+h.image+'-hero.webp');if(media.hero_desktop?.alt)image.alt=window.FCActivityContent.englishText(media.hero_desktop.alt,'Campaign artwork');let source=image.parentElement.querySelector('source');if(!source){source=document.createElement('source');source.media='(max-width: 700px)';image.before(source);}source.srcset=media.hero_mobile?.url||(state.view==='trio'?(config.trio.heroMobile||config.trio.hero):'assets/'+h.image+'-hero-mobile.webp');
     const sbc=state.view==='sbc';$('sbc-controls').hidden=!sbc;$('sbc-lineup').hidden=!sbc;$('sbc-options').hidden=!sbc;$('product-grid').hidden=sbc;
+    const preview=$('weekly-hero-preview');
+    if(preview){
+      const picks=scoped(config.weekly.ids).map(offer).map(item=>({item,price:display(item)})).filter(({item,price})=>item&&price.amount!==null&&price.discountAmount>0&&(!standalone||item.native_offer?.checkout_ready)&&(!item.native_offer||item.native_offer.bindings.some(binding=>binding.page_id==='fc27-weekly'&&binding.off_percent===10)));
+      preview.hidden=!picks.length;
+    }
     if(sbc){
       $('product-grid').innerHTML='';
       const select=$('core-select');select.innerHTML=scoped(config.sbc.ids,'sbc').map(key=>`<option value="${escape(key)}" ${key===state.core?'selected':''}>${escape(product(key).title)}</option>`).join('');
