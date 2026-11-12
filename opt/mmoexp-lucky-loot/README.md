@@ -29,4 +29,4 @@ v1.1改版回退：`/opt/python39/bin/python3.9 /opt/mmoexp-lucky-loot-release-2
 
 置顶权限变更回执：v1.1发布目录 `pin-permission.json`。需要撤回时仅恢复其中指定bot/member overwrite的before值；不覆盖整个频道权限，不移除管理员可见限制。
 
-离线检查：`npm ci --ignore-scripts && npm test`；`python3 -m unittest discover -s test -p test_proxy.py`。31个Node行为用例＋6个权限用例通过。Git的pr-fast沿用现有workflow，只为此模块准备已锁定依赖与映射，不建立新workflow。
+离线检查：`npm ci --ignore-scripts && npm test`；`python3 -m unittest discover -s test -p test_proxy.py`。33个Node行为用例＋6个权限用例通过。Git的pr-fast沿用现有workflow，只为此模块准备已锁定依赖与映射，不建立新workflow。

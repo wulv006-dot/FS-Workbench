@@ -31,12 +31,13 @@ function buttons(c,drawn=false){
  const primary=drawn?{label:'🎁 Claim reward',custom_id:'ll:claim:'+c.id,style:3,disabled:!(c.winners||[]).length}:{label:closed?'🔒 Entry closed':'🎟️ Join giveaway',custom_id:'ll:join:'+c.id,style:1,disabled:closed||c.mode==='chat'||c.mode==='keyword'};
  return [{type:1,components:[{type:2,...primary},{type:2,style:2,label:drawn?'📬 My status':'✅ My entry',custom_id:'ll:progress:'+c.id},{type:2,style:2,label:'📋 Rules',custom_id:'ll:rules:'+c.id},{type:2,style:5,label:'🔒 Privacy',url:POLICY}]}];
 }
-function footer(c,drawn){return 'Lucky Loot · '+c.id+(drawn?' · Results':' · Seed '+c.commitment.slice(0,16));}
+function footer(c,drawn){return drawn?'MMOEXP · Thanks for playing! 🍀':'MMOEXP · One entry, one chance 🍀';}
 function card(c,drawn=false){
  const empty=drawn&&!(c.winners||[]).length;
  const fields=[];let description;
  if(drawn){
-  description=empty?'🌙 No eligible entries this time. Catch the next drop!':(c.result_content||'GG, winners! Your loot is ready.').slice(0,700)+'\n\n🎁 Click **Claim reward** below to collect privately.';
+  const copy=c.result_content==='Congratulations to our winners! Click Claim reward to enter your email privately.'?'GG, winners! Your loot is ready. 🍀':c.result_content;
+  description=empty?'🌙 No eligible entries this time. Catch the next drop!':(copy||'GG, winners! Your loot is ready.').slice(0,700)+'\n\n🎁 Click **Claim reward** below to collect privately.';
   for(let p=0;p<c.prizes.length;p++){const users=c.winners.filter(w=>w.prize_index===p).map(w=>'<@'+w.user_id+'>');for(let j=0;j<users.length;j+=30)fields.push({name:'🏆 '+c.prizes[p].label,value:users.slice(j,j+30).join(' ')});}
   if(!empty)fields.push({name:'⏳ Claim deadline',value:stamp(c.claim_deadline)});
  }else{
