@@ -10,6 +10,33 @@ HTML = Path(__file__).resolve().parents[1] / 'web/index.html'
 
 
 class BundleUI(unittest.TestCase):
+    def test_sale_factor_save_preserves_other_settings_and_rejects_invalid_input(self):
+        source = HTML.read_text(encoding='utf-8')
+        self.assertIn('for="bundle-sale-factor"', source)
+        handler = source[source.index('$("#save-sale-factor").onclick='):
+                         source.index('$("#refresh-now").onclick=')]
+        script = """
+const nodes={'#save-sale-factor':{},'#bundle-sale-factor':{value:'0.891'}};
+const $=id=>nodes[id];let STATE={revision:21,settings:{bundle_sale_factor:'0.8',bundle_orig_divisor:'0.7'}};
+const calls=[],toasts=[];const api=async(path,opt)=>{if(path==='/api/config'){
+calls.push({path,body:JSON.parse(opt.body)});return {revision:22}}
+return {revision:22,settings:{bundle_sale_factor:'0.891',bundle_orig_divisor:'0.7'}}};
+const toast=msg=>toasts.push(msg),load=async()=>{},render=()=>{};
+""" + handler + """
+(async()=>{await nodes['#save-sale-factor'].onclick();
+nodes['#bundle-sale-factor'].value='101';await nodes['#save-sale-factor'].onclick();
+process.stdout.write(JSON.stringify({calls,toasts,disabled:nodes['#save-sale-factor'].disabled}));})()
+.catch(e=>{console.error(e);process.exit(1)});
+"""
+        result = subprocess.run([shutil.which('node') or 'node', '-e', script],
+                                check=True, capture_output=True, text=True, encoding='utf-8')
+        output = json.loads(result.stdout)
+        self.assertEqual(output['calls'], [{
+            'path': '/api/config', 'body': {'expected_revision': 21, 'settings': {
+                'bundle_sale_factor': '0.891', 'bundle_orig_divisor': '0.7'}}}])
+        self.assertFalse(output['disabled'])
+        self.assertIn('捆绑包售价系数已保存：0.891', output['toasts'])
+
     def render(self, xbox):
         source = HTML.read_text(encoding='utf-8')
         card = source[source.index('function bundleCard('):source.index('function configPayload(')]
