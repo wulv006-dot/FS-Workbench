@@ -67,7 +67,13 @@ def es_metadata(start,end,archive):
         cursor=(date.fromisoformat(cursor)+timedelta(days=1)).isoformat()
     rows=defaultdict(set);discounts=defaultdict(set);hashes=set();captures=[];complete=cursor>end
     for manifest,selected_days in selected.values():
-        d=archived_dataset(manifest['query'],root=archive)
+        query=dict(manifest['query'])
+        # ALL exports support exact-range projection. Do not apply today's TTL
+        # to closed days merely because their covering export includes today.
+        # FC27 exports still require their original exact query.
+        if query.get('profile')=='ALL':
+            query.update(start=min(selected_days),end=max(selected_days))
+        d=archived_dataset(query,root=archive)
         if d is None:complete=False;continue
         complete &= d['parse_failures']==0 and d['failed_files']==0 and d['declared_files']==len(d['hashes'])
         hashes.update(d['hashes']);captures.append(d.get('captured_at'))
