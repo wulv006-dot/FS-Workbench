@@ -14,15 +14,18 @@ def main(action):
   d=json.loads(MANIFEST.read_text())
   for x in d['files']:
    if sha(x['target'])!=x['after']:raise RuntimeError('File drift: '+x['target'])
-  run('systemctl','stop','mmoexp-lucky-loot')
+  if not d.get('static_only'):run('systemctl','stop','mmoexp-lucky-loot')
   for x in d['files']:
    if x.get('backup'):write(x['target'],Path(x['backup']).read_bytes())
-  run('systemctl','restart','mmoexp-lucky-loot','bot-console');print('rolled back code only; current state preserved');return
+  if not d.get('static_only'):run('systemctl','restart','mmoexp-lucky-loot','bot-console')
+  print('rolled back code only; current state preserved');return
  if MANIFEST.exists():raise RuntimeError('Already applied')
  expected=json.loads((ROOT/'expected.json').read_text())
  for name,digest in expected.items():
   if sha(name)!=digest:raise RuntimeError('Baseline changed: '+name)
  files=[];backup=ROOT/'backup';backup.mkdir(exist_ok=True)
+ static_only='--static-only' in sys.argv
+ if static_only and {p.name for p in (ROOT/'src').iterdir()}!={'giveaway.html','giveaway.css','giveaway.js'}:raise RuntimeError('Static release requires exact UI payload')
  for p in (ROOT/'src').iterdir():
   if not p.is_file():continue
   targets=[Path('/opt/mmoexp-lucky-loot')/p.name]
@@ -34,15 +37,16 @@ def main(action):
     dest=backup/(str(len(files))+'-'+target.name);shutil.copy2(target,dest);item.update(backup=str(dest),before=sha(target))
    files.append(item)
  try:
-  run('systemctl','stop','mmoexp-lucky-loot')
+  if not static_only:run('systemctl','stop','mmoexp-lucky-loot')
   for x in files:write(x['target'],(ROOT/'src'/x['source']).read_bytes())
   for name in ['app.cjs','cards.cjs','core.cjs','giveaway.js']:run('/usr/local/bin/node','--check','/opt/mmoexp-lucky-loot/'+name)
   run('/opt/bot-console/venv/bin/python','-m','py_compile','/opt/bot-console/lucky_proxy.py')
-  run('systemctl','restart','mmoexp-lucky-loot','bot-console')
-  write(MANIFEST,json.dumps({'version':'1.1.0','files':files,'state_restored':False},indent=2).encode())
-  print(json.dumps({'deployed':'1.1.0','service':run('systemctl','is-active','mmoexp-lucky-loot'),'console':run('systemctl','is-active','bot-console')}))
+  if not static_only:run('systemctl','restart','mmoexp-lucky-loot','bot-console')
+  write(MANIFEST,json.dumps({'version':'wizard-ui' if static_only else '1.1.0','static_only':static_only,'files':files,'state_restored':False},indent=2).encode())
+  print(json.dumps({'deployed':'wizard-ui' if static_only else '1.1.0','service':run('systemctl','is-active','mmoexp-lucky-loot'),'console':run('systemctl','is-active','bot-console')}))
  except Exception:
   for x in files:
    if x.get('backup'):write(x['target'],Path(x['backup']).read_bytes())
-  subprocess.run(['systemctl','restart','mmoexp-lucky-loot','bot-console']);raise
+  if not static_only:subprocess.run(['systemctl','restart','mmoexp-lucky-loot','bot-console'])
+  raise
 if __name__=='__main__':main(sys.argv[1])
