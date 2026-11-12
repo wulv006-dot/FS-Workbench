@@ -209,7 +209,7 @@ def options_get(request, user, *, run_source=None, deps=None):
         result = dict(sites=options([r for r in read('sites') if deps['authorize'](user, {'scope': 'site', 'scope_id': str(r.get('id'))}, True) is True], label='full_title'),
                       games=options(read('games')),
                       progress=options(read('progress')), status=[], cid=[],
-                      aid=[], admin_id=[],
+                      aid=[], servers_by_game={}, admin_id=[],
                       country=list({o['value']: o for o in options(read('countries'), key='country', label='country', prefix='code')}.values()))
         if progress:
             if progress not in {o['value'] for o in result['progress']}:
@@ -225,11 +225,13 @@ def options_get(request, user, *, run_source=None, deps=None):
                 current = {o['value']: o for o in options(read('servers', {'gid': game}), prefix=False)}
                 if any(not value.isascii() or not value.isdigit() or len(value) > 20 for value in current):
                     raise RuntimeError('metadata_source_schema_changed')
-                # A single aid filter must be valid for every selected game.
+                result['servers_by_game'][game] = list(current.values())
+                # Legacy callers still receive the common-ID directory.
                 servers = current if servers is None else {k: v for k, v in servers.items() if k in current}
         except RuntimeError as error:
             if str(error) != 'metadata_source_unavailable':
                 raise
+            result['servers_by_game'] = {}
             unavailable['aid'] = 'metadata_source_unavailable'
         if not unavailable:
             result['aid'] = list((servers or {}).values())
