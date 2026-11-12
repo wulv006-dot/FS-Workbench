@@ -1195,7 +1195,7 @@ def main():
             node("opt/mmoexp-lucky-loot/test/core.test.cjs")
             node("opt/mmoexp-lucky-loot/test/cards.test.cjs")
             node("opt/mmoexp-lucky-loot/test/integration.test.cjs")
-            units("opt/mmoexp-lucky-loot/test",["test_proxy"])
+            units("opt/mmoexp-lucky-loot/test",["test_proxy","test_release_ui"])
         elif group=="fc-community":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"opt/mmoexp-fc-community/ci_check.py")],
                            cwd=ROOT,check=True,timeout=180)
