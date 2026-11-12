@@ -1,0 +1,99 @@
+{
+  "base_commit": "27d0a2b864376aaab41664cd518ca031aa1e81ea",
+  "origin_main": "7042edaf90647cbd51ab7df3e35f7b4341f72b3f",
+  "source_sha256": {
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/admin_summary.py": "d6c10c4d0e1c63a6b19e86a01428a1430f1d5ad82da6b3628c7b8d4a268ed2b4",
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py": "1d7828be399f35298d68b9c9f936bde6ca61661279a474c8486041df69035542",
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/live_summary.py": "f9c78be08f1a4a6851c4bf13c5b84ec4d5b01fb083efee51cb1f4347a2ea22b2",
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py": "37d9a1b401f5f7cc556bd98329889cac0a944556d480e148fc538be5f48e0e8c",
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/site_summary.py": "9349412a3e3982336545e399d8a21a7004c4806486e45203d1f4e342b5c55f56",
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/summary_bridge.py": "5df02b80567857e751ecc99a88e8e47bc7fcecddde48a8a4a82f5e276e084142",
+    "releases/fs-dashboard/dashboard-refresh-20261025/tests/test_existing_archive.py": "d25ac8d0b6c7e87beb2775c01d2a05d2cc4bf84c8115bda160ef4360860e2a8e",
+    "tools/pr_fast.py": "549533191945a0f69360215d38f01981fee4967b0e73075e66c20e5903b4b3aa",
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/admin_scope.py": "83923cbb0e4413fbeaf65fe56b309d23e965ea0878396c9b8c5489ccd0b2c95c",
+    "releases/fs-dashboard/dashboard-refresh-20261025/tests/test_filter_contract.py": "45f95e2fdbd1a59464b62c2ea998d654f805a89c697ed84a01418e957180adb4"
+  },
+  "linux": {
+    "host": "183",
+    "python": "3.9.18",
+    "tests": 92,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "modules": [
+      "test_filter_contract",
+      "test_site_filters",
+      "test_direct_admin",
+      "test_summary_fast",
+      "test_existing_archive",
+      "test_existing_refresh",
+      "test_concurrent_ranges",
+      "test_admission_fairness",
+      "test_shipping_readiness"
+    ],
+    "isolation": "network none; readonly root; nobody; 0.25 CPU; 256MiB; 128MiB tmpfs; no production mounts"
+  },
+  "existing_fc_native_ui": {
+    "checks": 28,
+    "exit_code": 0,
+    "input": "synthetic local responses only; no frontend source changed"
+  },
+  "initial_failures": [
+    {
+      "environment": "Windows",
+      "tests": 100,
+      "errors": 2,
+      "skipped": 31,
+      "causes": [
+        "fcntl unavailable",
+        "existing handler mock incompatible with initially unconditional summary_actor keyword; code corrected to summary requests only"
+      ],
+      "duplicate_module": "test_summary_fast was inadvertently listed twice; not counted as independent coverage"
+    },
+    {
+      "environment": "183 initial broader group",
+      "tests": 126,
+      "errors": 3,
+      "skipped": 0,
+      "causes": [
+        "two missing existing controller fixture files; added to bundle, related tests passed in final core group",
+        "unchanged test_actual_profit native cost parser needs lxml, absent in existing Python3.9 image and host; not installed, not claimed passed"
+      ]
+    }
+  ],
+  "not_done": [
+    "full business-dashboard-refresh pr-fast group / GitHub CI",
+    "unchanged lxml-dependent native cost-parser test",
+    "real upstream new filter requests and boundary/enum validation",
+    "production composite-source three-way diff and session image build",
+    "trusted real local-repeat consumer wiring",
+    "deployment and production acceptance"
+  ],
+  "payload_sha256": {
+    "d1-tests.tar.gz": "7eda42298c3f20ab10e4efae3e1f1c6a42c4be3abd1b8c3cdebc7e4f8a65ec3f",
+    "d1-extra.tar.gz": "6775473950583c6fb09d96d72caf76c442064333e48fe245951667a123d0ce16",
+    "d1-final-delta.tar.gz": "a06ad113b22253bf7f80e89cc249b55c0f57d1822da638b36f02193d752c7245"
+  },
+  "log_sha256": {
+    "d1-red.log": "06903a9672d5c452355534345fe3c8a4a4e64820204c9d03a11e9f06124201df",
+    "d1-regression.log": "2e63bb90bb6e20b1037cd46de70f0307bda0cfe225338549e4006023bb539e38",
+    "d1-linux.log": "e787ce4dc3b974d307d8757cf8643c0f4748dbe9b5b77a7bac978527f81d917d",
+    "d1-linux-final.log": "a9fc297e87dd4407e4bb9202098fa2d4b97ca89e2ddaa80447cd5c4b99682230",
+    "d1-native-ui.log": "84ed77cb6bfa540dd5cd561512292d595bd1462f7f55ace15110105956f36624"
+  },
+  "remote_candidate_readback": {
+    "files": 10,
+    "all_hashes_match": true
+  },
+  "knowledge_closeout": {
+    "tests": 105,
+    "passed": 98,
+    "skipped": 7,
+    "cli_exit": 0,
+    "affected_ids": [],
+    "steps": [],
+    "blocking_conflicts": [],
+    "change_id": "KL-0d395b29f0158f88f2d813b7"
+  }
+}

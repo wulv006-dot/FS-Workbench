@@ -1,6 +1,6 @@
 {
   "source_commit": "8a97fdfdfdc2d66974b1878fc28112d35f8dccca",
-  "mode": "existing files read only; candidate modules in memory; committed coupon mapping injected; no export or publication",
+  "mode": "existing files read only; candidate modules in memory; committed coupon JSON content injected after newline normalization (same JSON semantics, different byte hash); no export or publication",
   "samples": [
     {
       "width": 19,

@@ -187,12 +187,15 @@ RS_BACKLOG=RSBacklog(SUMMARY.pools['Admin'])
 from fc_daily import DailyReports
 FC_DAILY=DailyReports(FC_DETAIL,CACHE/'fc-daily')
 
-def get_range(params):
+def get_range(params, *, summary_actor=None):
  if params.get('mode')==['archive-catalog']:
   if set(params)!={'mode'}:raise ValueError('invalid_archive_catalog_parameters')
   from daily_archive import Archive
   return 200,{'status':'available','datasets':Archive().catalog(),'coverage':'bounds may contain gaps; validate exact requested coverage'}
  from daily_archive import read,save,native_key,complete_native,rebind_native
+ if params.get('mode')==['summary']:
+  scope='actor:'+hashlib.sha256(summary_actor.encode()).hexdigest() if summary_actor else 'internal-service'
+  return SUMMARY.get(summary_query(params,PROFILE_MAP,authorization_scope=scope))
  if 'mode' in params:return get_range_live(params)
  force=params.get('refresh')==['true']
  if 'refresh' in params and not force:raise ValueError('invalid_archive_refresh')
@@ -217,6 +220,7 @@ def get_range_live(params,force=False):
  if params.get('mode')==['summary']:return SUMMARY.get(summary_query(params,PROFILE_MAP))
  if params.get('mode')==['profit-history']:
   q=summary_query({**params,'mode':['summary']},PROFILE_MAP)
+  if q.get('country_code') or q.get('unsupported_filters'):raise ValueError('unsupported_profit_filters')
   if q['grain']!='day':raise ValueError('complete_daily_history_required')
   profit=PROFIT
   if q['profile']=='RS':
@@ -422,7 +426,7 @@ class Handler(BaseHTTPRequestHandler):
    try:status,data=FC_DAILY.get(params,self.headers.get('X-Auth-User'),self.headers);self.reply(status,data)
    except Exception:self.reply(503,{'error':'daily_report_unavailable'})
    return
-  try:status,data=get_range(parse_qs(uri.query,keep_blank_values=True));self.reply(status,data)
+  try:status,data=get_range(params,**({'summary_actor':self.headers.get('X-Auth-User')} if params.get('mode')==['summary'] else {}));self.reply(status,data)
   except LookupError:self.reply(409,{'error':'catalog_changed'})
   except (ValueError,KeyError,AssertionError):self.reply(422,{'error':'invalid_or_uncovered_range'})
   except Exception:self.reply(503,{'error':'query_unavailable'})

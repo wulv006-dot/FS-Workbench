@@ -10,7 +10,7 @@ GAMES = {'': '', '552': '', '456': '', '891': '',
          '506': '', '1333': '', '925': '', '589': '', '1367': '',
          '897': '', '859': ''}
 
-def collect(request, game, start, end):
+def collect(request, game, start, end, *, country_code="", local_repeat=None):
     if str(game) not in GAMES:
         raise ValueError('invalid_game')
     for value in (start, end):
@@ -18,8 +18,10 @@ def collect(request, game, start, end):
             raise ValueError('invalid_period')
     if start >= end:
         raise ValueError('invalid_period')
+    if country_code and (len(country_code)!=2 or not country_code.isascii() or not country_code.isalpha() or country_code!=country_code.upper()):
+        raise ValueError('invalid_country_code')
     payload = {'order_status': GAMES[str(game)], 'pay_status': 1, 'game': game, 'site': '',
-               'country_code': '', 'client': '', 'date': [start, end], 'pay_type': '',
+               'country_code': country_code, 'client': '', 'date': [start, end], 'pay_type': '',
                'time_unit': 1, 'cid': '', 'discount_code': '', 'product_type': ''}
     status, raw = request(ENDPOINT, data=payload)
     if status in (401, 403):
@@ -40,9 +42,12 @@ def collect(request, game, start, end):
     except ValueError:
         rows, labels_verified = [], False
     # Site ranks are aggregates. No customer/order records are returned or stored.
-    return {'system': 'admin.p2pah.cn', 'endpoint': ENDPOINT, 'status': 'available',
+    from admin_scope import enrich
+    result = {'system': 'admin.p2pah.cn', 'endpoint': ENDPOINT, 'status': 'available',
             'normalisedScope': 'all-websites', 'period': period, 'currency': 'USD',
             'rows': rows, 'seriesGranularity': 'day-or-hour' if labels_verified else 'upstream-undated', 'labelsVerified': labels_verified,
             'filters': payload, 'capturedAt': datetime.now(timezone.utc).isoformat(),
             'sourceDataAsOf': None, 'asOfStatus': 'not_provided_by_upstream',
             'newCustomers': mapped['metrics']['newCustomers']['value'], **mapped}
+
+    return enrich(result, value, local_repeat)
