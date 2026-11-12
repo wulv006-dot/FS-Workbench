@@ -173,33 +173,41 @@ class ExportSourceTests(unittest.TestCase):
         self.assertEqual(set(options), {'sites', 'games', 'progress', 'status', 'cid', 'aid', 'admin_id', 'country'})
         self.assertEqual(options['sites'], [{'value': '267', 'label': '267 | Site'}])
         self.assertEqual([g['value'] for g in options['games']], ['2', '3', '99'])
-        for key in ('progress', 'status', 'cid', 'aid'):
-            self.assertEqual(options[key], [])
-        self.assertEqual(result['unavailable'], {key: 'admin_control_unavailable_use_server_default'
-                                               for key in ('progress', 'status', 'cid', 'aid')})
+        self.assertEqual([o['value'] for o in options['progress']], ['1', '7'])
+        self.assertEqual([o['value'] for o in options['status']], ['71', '72'])
+        self.assertEqual([o['value'] for o in options['cid']], ['0', '42'])
+        self.assertEqual(options['aid'], [{'value': '10', 'label': 'Common'}])
+        self.assertNotIn('unavailable', result)
+        self.assertTrue(all(q['arguments'] == {'id': '7'} for q in calls if q['metadata'] == 'status'))
+        self.assertEqual({q['arguments']['gid'] for q in calls if q['metadata'] == 'servers'}, {'2', '3'})
+        self.assertTrue(all(q['arguments'] == {} for q in calls if q['metadata'] == 'types'))
+        self.assertEqual([o['value'] for o in call({'game_ids': ['2']})[1]['options']['aid']], ['10', '22'])
+        rows['servers'] = []
+        self.assertEqual(call({'game_ids': ['2', '3']})[1]['options']['aid'], [])
+        del rows['servers']
         self.assertTrue(all(set(o) == {'value', 'label'} and all(isinstance(v, str) for v in o.values()) for items in options.values() for o in items))
         self.assertTrue(any(q['page'] == 3 for q in calls))
         self.assertEqual(options['admin_id'], [])
         self.assertEqual(options['country'], [{'value': 'United States', 'label': 'US | United States'}])
         self.assertEqual(options['games'][0], {'value': '2', 'label': '2 | Game'})
-        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries'})
+        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries', 'progress', 'status', 'types', 'servers'})
         calls.clear()
         status, initial = call({})
         self.assertEqual(status, 200)
         self.assertEqual(initial['options']['status'], [])
         self.assertEqual(initial['options']['cid'], [])
         self.assertEqual(initial['options']['aid'], [])
-        self.assertEqual(initial['unavailable'], result['unavailable'])
-        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries'})
+        self.assertNotIn('unavailable', initial)
+        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries', 'progress'})
         calls.clear()
         self.assertEqual(call({'progress': ''})[1]['options']['status'], [])
         self.assertFalse(any(q['metadata'] == 'status' for q in calls))
         calls.clear()
-        self.assertEqual(call({'progress': '2'})[0], 200)
+        self.assertEqual(call({'progress': '2'})[0], 422)
         self.assertFalse(any(q['metadata'] == 'status' for q in calls))
         calls.clear()
         self.assertEqual(call({'progress': '1'})[0], 200)
-        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries'})
+        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries', 'progress', 'status'})
         for invalid in ({'progress': 1}, {'progress': '1' * 21}, {'progress': '１'},
                         {'game_ids': '2'}, {'game_ids': ['2', '2']}, {'game_ids': ['bad']},
                         {'game_ids': ['2'] * 101}, {'unknown': ''}):
@@ -215,36 +223,72 @@ class ExportSourceTests(unittest.TestCase):
         self.assertEqual(call({})[0], 403)
         self.assertEqual(calls, [])
 
-    def test_options_never_reads_unavailable_directories(self):
+    def test_native_progress_dict_and_optional_server_refusal(self):
+        rows = {'sites': [{'id': 267, 'full_title': 'Site'}],
+                'games': [{'id': 1327, 'title': 'Game'}],
+                'progress': {'0': {'title': '未支付', 'status': [0, 0], 'id': 0},
+                             '1': {'title': '已支付', 'status': [10, 19], 'id': 1}},
+                'status': [{'status': 11, 'progress': 1, 'title': 'Paid', 'color': '', 'en': '', 'logo': ''}],
+                'types': [{'id': 0, 'title': 'Items', 'code': 'items'}],
+                'servers': [{'id': 10, 'gid': 1327, 'title': 'Server', 'code': 's', 'sort': 0}],
+                'countries': [{'country': 'US', 'code': 1}]}
         calls = []
         def fetch(path, query, timeout, cap):
-            name = query['metadata']
-            calls.append(name)
-            self.assertIn(name, ('sites', 'games', 'countries'))
-            rows = {'sites': [{'id': 267, 'full_title': 'Site'}],
-                    'games': [{'id': 2, 'title': 'Game'}, {'id': 3, 'title': 'Other'}],
-                    'countries': [{'country': 'US', 'code': 1}]}[name]
-            return 200, json.dumps({'code': 1, 'data': {'list': rows, 'total': len(rows)}}).encode()
+            calls.append(query)
+            return 200, json.dumps({'code': 1, 'data': {'list': rows[query['metadata']]}}).encode()
         self.deps['fetch'] = fetch
-        def call():
-            return source.options_get({'progress': '7', 'game_ids': ['2', '3']}, 'actor', deps=self.deps, run_source=lambda op,t: op())
-        status, result = call()
+        def call(request=None):
+            return source.options_get(request or {}, 'actor', deps=self.deps, run_source=lambda op,t: op())
+        status, initial = call()
         self.assertEqual(status, 200)
-        self.assertEqual(calls, ['sites', 'games', 'countries'])
-        self.assertEqual(result['unavailable'], {key: 'admin_control_unavailable_use_server_default'
-                                               for key in ('progress', 'status', 'cid', 'aid')})
-        for key in result['unavailable']:
-            self.assertEqual(result['options'][key], [])
-        self.assertEqual(result['options']['country'], [{'value': 'US', 'label': '1 | US'}])
-        for mandatory in ('sites', 'games', 'countries'):
+        self.assertEqual(initial['options']['progress'][0], {'value': '0', 'label': '0 | 未支付'})
+        for key in ('status', 'cid', 'aid', 'admin_id'):
+            self.assertEqual(initial['options'][key], [])
+        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'progress', 'countries'})
+        status, result = call({'progress': '1', 'game_ids': ['1327']})
+        self.assertEqual(status, 200)
+        self.assertEqual(result['options']['status'], [{'value': '11', 'label': '11 | Paid'}])
+        self.assertEqual(result['options']['aid'], [{'value': '10', 'label': 'Server'}])
+        self.assertIn({'id': '1'}, [q['arguments'] for q in calls if q['metadata'] == 'status'])
+        calls.clear()
+        self.assertEqual(call({'progress': '0'})[0], 200)
+        self.assertEqual([q['arguments'] for q in calls if q['metadata'] == 'status'], [{'id': '0'}])
+        for mandatory in ('sites', 'games', 'countries', 'progress', 'status', 'types', 'servers'):
             for refusal in ((401, b'{}'), (200, b'{"code":401,"msg":"You have no permission"}')):
                 def fail_required(path, query, timeout, cap):
                     if query['metadata'] == mandatory:
                         return refusal
                     return fetch(path, query, timeout, cap)
                 self.deps['fetch'] = fail_required
+                status, payload = call({'progress': '1', 'game_ids': ['1327']})
                 with self.subTest(directory=mandatory, refusal=refusal):
-                    self.assertEqual(call(), (503, {'error': 'metadata_source_unavailable', 'complete': False}))
+                    if mandatory == 'servers':
+                        self.assertEqual(status, 200)
+                        self.assertEqual(payload['options']['aid'], [])
+                        self.assertEqual(payload['unavailable'], {'aid': 'metadata_source_unavailable'})
+                    else:
+                        self.assertEqual((status, payload), (503, {'error': 'metadata_source_unavailable', 'complete': False}))
+
+    def test_progress_dict_rejects_invalid_keys_rows_duplicates_and_totals(self):
+        good = {'0': {'title': '未支付', 'status': [0, 0], 'id': 0}}
+        def read(raw):
+            return source.directory_read('progress', {}, deps=dict(self.deps, fetch=lambda *a: (200, raw)),
+                run_source=lambda op,t: op(), check=lambda: 'epoch', epoch='epoch')
+        self.assertEqual(read(json.dumps({'code': 1, 'data': {'list': good, 'total': 1}}).encode()), list(good.values()))
+        invalid = [{'x': good['0']}, {'00': good['0']}, {'１': good['0']},
+                   {'1': good['0']}, {'0': None}, {'0': dict(good['0'], id=True)},
+                   {'0': dict(good['0'], id='0')}, {'0': dict(good['0'], title='')},
+                   {'0': dict(good['0'], status=[0])}, {'0': dict(good['0'], status=[False, 0])}]
+        for batch in invalid:
+            with self.subTest(batch=batch), self.assertRaises(RuntimeError):
+                read(json.dumps({'code': 1, 'data': {'list': batch}}).encode())
+        for total in (0, 2, True):
+            with self.subTest(total=total), self.assertRaises(RuntimeError):
+                read(json.dumps({'code': 1, 'data': {'list': good, 'total': total}}).encode())
+        with self.assertRaises(RuntimeError):
+            read(b'{"code":1,"data":{"options":[{"id":0},{"id":0}],"total":2}}')
+        with self.assertRaises(RuntimeError):
+            read(b'{"code":1,"data":{"list":{"0":{"id":0},"0":{"id":0}}}}')
 
     def test_options_fail_closed_on_partial_schema_and_revocation(self):
         for data in ({'options': []}, {'options': [], 'total': 1}, {'options': [{'id': 267, 'full_title': 'Site'}], 'total': 2}):
@@ -305,16 +349,19 @@ class ExportSourceTests(unittest.TestCase):
         status, result = call()
         self.assertEqual(status, 200)
         self.assertEqual(result['options']['country'], [{'value': 'China', 'label': '86 | China'}])
-        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries'})
+        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries', 'progress', 'status', 'types', 'servers'})
+        rows['servers'] = [{'id': 10, 'title': 'Server'}]
         for name, field, invalid in (('sites', 'full_title', None), ('games', 'title', ''),
                                      ('games', 'title', 42), ('countries', 'code', None),
-                                     ('countries', 'code', True)):
+                                     ('countries', 'code', True), ('progress', 'title', ''),
+                                     ('status', 'title', None), ('types', 'title', ''),
+                                     ('servers', 'id', 'not-a-number'), ('servers', 'title', '')):
             original = rows[name][0].copy()
             rows[name][0][field] = invalid
             with self.subTest(directory=name, field=field, invalid=invalid):
                 self.assertEqual(call()[0], 503)
             rows[name][0] = original
-        for directory in ('sites', 'games', 'countries'):
+        for directory in ('sites', 'games', 'countries', 'progress', 'status', 'types', 'servers'):
             def revoke(path, query, timeout, cap):
                 result = fetch(path, query, timeout, cap)
                 if query['metadata'] == directory:
