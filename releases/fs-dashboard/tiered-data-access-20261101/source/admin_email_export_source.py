@@ -103,6 +103,13 @@ def directory_read(name, args, *, deps, run_source, check, epoch):
         raise ValueError('invalid_metadata_request')
     rows, seen, total, byte_count = [], set(), None, 0
     key = {'status': 'status', 'countries': 'country'}.get(name, 'id')
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError('duplicate_metadata_key')
+            result[key] = value
+        return result
     for page in range(1, 101):
         def operation():
             if check() != epoch:
@@ -119,7 +126,7 @@ def directory_read(name, args, *, deps, run_source, check, epoch):
         if len(raw) > 1048576 or byte_count > 4194304:
             raise RuntimeError('metadata_coverage_incomplete')
         try:
-            result = json.loads(raw)
+            result = json.loads(raw, object_pairs_hook=unique_object)
         except (ValueError, UnicodeError):
             raise RuntimeError('metadata_source_schema_changed')
         if isinstance(result, dict) and type(result.get('code')) is int and result['code'] == 401:
@@ -131,6 +138,16 @@ def directory_read(name, args, *, deps, run_source, check, epoch):
             raise RuntimeError('metadata_coverage_incomplete')
         batch = data.get('options', data.get('list'))
         reported = data.get('total')
+        # getOrderProgress alone returns a numeric-keyed object, not a list.
+        if name == 'progress' and 'list' in data and 'options' not in data and isinstance(batch, dict):
+            for identity, row in batch.items():
+                if (not identity.isascii() or not identity.isdigit() or len(identity) > 20
+                        or not isinstance(row, dict) or type(row.get('id')) is not int
+                        or identity != str(row['id']) or not isinstance(row.get('title'), str)
+                        or not row['title'] or not isinstance(row.get('status'), list)
+                        or len(row['status']) != 2 or any(type(v) is not int for v in row['status'])):
+                    raise RuntimeError('metadata_source_schema_changed')
+            batch = list(batch.values())
         # Admin's fixed list directories omit total; its own remote select uses that full list.
         if 'total' not in data and 'list' in data and 'options' not in data and isinstance(batch, list):
             reported = len(batch)
@@ -191,17 +208,37 @@ def options_get(request, user, *, run_source=None, deps=None):
             return result
         result = dict(sites=options([r for r in read('sites') if deps['authorize'](user, {'scope': 'site', 'scope_id': str(r.get('id'))}, True) is True], label='full_title'),
                       games=options(read('games')),
-                      progress=[], status=[], cid=[],
+                      progress=options(read('progress')), status=[], cid=[],
                       aid=[], admin_id=[],
                       country=list({o['value']: o for o in options(read('countries'), key='country', label='country', prefix='code')}.values()))
+        if progress:
+            if progress not in {o['value'] for o in result['progress']}:
+                raise ValueError()
+            result['status'] = options(read('status', {'id': progress}), key='status')
         if any(g not in {o['value'] for o in result['games']} for g in games):
             raise PermissionError()
-        # These Admin controls are unavailable; queries must use the server defaults.
-        unavailable = {key: 'admin_control_unavailable_use_server_default'
-                       for key in ('progress', 'status', 'cid', 'aid')}
+        if games:
+            result['cid'] = options(read('types'))
+        servers, unavailable = None, {}
+        try:
+            for game in games:
+                current = {o['value']: o for o in options(read('servers', {'gid': game}), prefix=False)}
+                if any(not value.isascii() or not value.isdigit() or len(value) > 20 for value in current):
+                    raise RuntimeError('metadata_source_schema_changed')
+                # A single aid filter must be valid for every selected game.
+                servers = current if servers is None else {k: v for k, v in servers.items() if k in current}
+        except RuntimeError as error:
+            if str(error) != 'metadata_source_unavailable':
+                raise
+            unavailable['aid'] = 'metadata_source_unavailable'
+        if not unavailable:
+            result['aid'] = list((servers or {}).values())
         if check() != epoch:
             raise PermissionError()
-        return 200, {'options': result, 'semantics': 'live_non_snapshot', 'unavailable': unavailable}
+        payload = {'options': result, 'semantics': 'live_non_snapshot'}
+        if unavailable:
+            payload['unavailable'] = unavailable
+        return 200, payload
     except PermissionError:
         return 403, {'error': 'scope_denied'}
     except (ValueError, TypeError, KeyError):
