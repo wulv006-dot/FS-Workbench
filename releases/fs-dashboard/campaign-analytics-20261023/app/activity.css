@@ -389,11 +389,12 @@
 @media(max-width:700px){.fca-platforms{padding:18px 12px;margin:12px 0 20px}.fca-selection-summary{gap:18px;padding:22px 18px}.fca-summary-checkout{border-left:0;border-top:1px solid #ffffff30;padding:18px 0 0}.fca-summary-checkout>strong{font-size:30px}.fca-summary-total-label{font-size:12px}.fca-price-breakdown{font-size:13px}.fca-price-origin{gap:6px}.fca-price-origin del{font-size:13px}.fca-price-origin span{font-size:11px}.fca-review-total{gap:12px}.fca-review-total>strong{font-size:26px}}
 
 .fca-hero-preview[hidden]{display:none}
-.fca-hero-preview{max-width:540px;margin:0 0 20px;padding:14px 17px;background:#06152cdd;border-left:4px solid var(--fca-blue);border-radius:7px}
-.fca-hero-discount{display:inline-block;padding:5px 9px;border-radius:4px;background:#0865d7;color:#fff;font-size:14px;line-height:1.2}
-.fca-hero-picks{margin:10px 0 6px;color:#fff;font-size:14px;font-weight:700;line-height:1.45;overflow-wrap:anywhere}
-.fca-hero-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 12px;margin:0;color:#cee1fa}
-.fca-hero-price strong{color:#fff;font-size:19px}
-.fca-hero-price small{font-size:11px;line-height:1.4}
+.fca-hero-preview{position:relative;display:grid;grid-template-columns:46% 54%;align-items:center;width:min(100%,390px);min-height:104px;margin:0 0 20px;padding:15px 18px;background:linear-gradient(120deg,#087df5,#0754b3);border:2px solid #a3d4ff;border-radius:12px;outline:1px dashed #c8e5ff;outline-offset:-8px;box-shadow:0 14px 28px #00142e99}
+.fca-hero-preview::after{content:"";position:absolute;left:46%;top:13px;bottom:13px;border-left:2px dashed #ffffff9c}
+.fca-hero-discount{color:#fff;font-size:36px;font-weight:900;line-height:1;white-space:nowrap}
+.fca-hero-discount span{font-size:16px;vertical-align:baseline}
+.fca-hero-price{display:grid;gap:5px;margin:0 0 0 16px;color:#fff}
+.fca-hero-price strong{font-size:19px;white-space:nowrap}
+.fca-hero-price small{font-size:12px;color:#e3f1ff}
 @media(min-width:701px){.fc-activity[data-view="weekly"] .fca-hero-content{padding-top:38px;padding-bottom:36px}.fc-activity[data-view="weekly"] .fca-hero h1{font-size:clamp(39px,4vw,56px);margin-bottom:16px}.fc-activity[data-view="weekly"] .fca-hero-preview{margin-bottom:16px}.fc-activity[data-view="weekly"] .fca-hero-body{margin-bottom:18px}}
-@media(max-width:700px){.fc-activity[data-view="weekly"] .fca-hero-content{padding-top:18px;padding-bottom:18px}.fc-activity[data-view="weekly"] .fca-hero-kicker{margin-bottom:8px}.fc-activity[data-view="weekly"] .fca-hero h1{font-size:clamp(27px,7vw,34px);margin-bottom:12px}.fc-activity[data-view="weekly"] .fca-hero-preview{margin-bottom:12px;padding:11px 13px}.fc-activity[data-view="weekly"] .fca-hero-picks{font-size:13px;margin:7px 0 4px}.fc-activity[data-view="weekly"] .fca-hero-price strong{font-size:17px}.fc-activity[data-view="weekly"] .fca-hero-body{margin-bottom:12px}.fc-activity[data-view="weekly"] .fca-hero-art{height:120px}}
+@media(max-width:700px){.fc-activity[data-view="weekly"] .fca-hero-content{padding-top:18px;padding-bottom:18px}.fc-activity[data-view="weekly"] .fca-hero-kicker{margin-bottom:8px}.fc-activity[data-view="weekly"] .fca-hero h1{font-size:clamp(27px,7vw,34px);margin-bottom:12px}.fc-activity[data-view="weekly"] .fca-hero-preview{margin-bottom:12px;padding:12px 14px;min-height:92px}.fc-activity[data-view="weekly"] .fca-hero-discount{font-size:31px}.fc-activity[data-view="weekly"] .fca-hero-discount span{font-size:14px}.fc-activity[data-view="weekly"] .fca-hero-price strong{font-size:16px}.fc-activity[data-view="weekly"] .fca-hero-body{margin-bottom:12px}.fc-activity[data-view="weekly"] .fca-hero-art{height:120px}}
