@@ -1101,6 +1101,10 @@ class Handler(BaseHTTPRequestHandler):
         path = urllib.parse.unquote(parsed.path)
         query = urllib.parse.parse_qs(parsed.query)
 
+        from lucky_proxy import handle as lucky_handle
+        if lucky_handle(self, method, path, query):
+            return
+
         # --- 静态资源与健康检查（不需要登录，nginx 已挡） ---
         if path in ("/", "/index.html"):
             return self._serve_static("index.html")

@@ -1,0 +1,1 @@
+{"name":"mmoexp-lucky-loot","version":"1.1.0","private":true,"description":"Discord community activity and targeted coupon delivery","scripts":{"start":"node app.cjs","test":"node --test test/*.test.cjs"},"dependencies":{"discord.js":"14.19.3"},"engines":{"node":">=18.17"}}

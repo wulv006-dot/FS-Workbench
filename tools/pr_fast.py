@@ -465,6 +465,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('opt/mmoexp-lucky-loot/') or name == 'opt/bot-console/lucky_proxy.py':
+            groups.add('lucky-loot');continue
         if name.startswith('releases/rpg-console/console-v2-20261112/'):
             groups.add('rpg-console');continue
         if name in ('opt/d4follow/app.py', 'opt/d4follow/console_web.py',
@@ -1189,6 +1191,11 @@ def main():
                    "test_safety_review", "test_release_safety"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
+        elif group=="lucky-loot":
+            node("opt/mmoexp-lucky-loot/test/core.test.cjs")
+            node("opt/mmoexp-lucky-loot/test/cards.test.cjs")
+            node("opt/mmoexp-lucky-loot/test/integration.test.cjs")
+            units("opt/mmoexp-lucky-loot/test",["test_proxy"])
         elif group=="fc-community":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"opt/mmoexp-fc-community/ci_check.py")],
                            cwd=ROOT,check=True,timeout=180)
