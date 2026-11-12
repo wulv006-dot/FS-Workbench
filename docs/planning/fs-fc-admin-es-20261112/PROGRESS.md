@@ -93,3 +93,14 @@
 已执行但不作为成功检查：`pr_fast.py --help` 返回 FileNotFoundError（该脚本将首参当 paths 文件）；后续按实际入口传 NUL 分隔路径。系统 PATH 无 gh，开放 PR 改由 GitHub 只读连接器核对。普通 fetch 初次因 Git 元数据只读失败，获工具审批后成功；没有自动审核拒绝或绕过。
 
 下一位从本工作树、本文件和 MASTER 附录 A 接续。优先完成 D0；U1 的同单事实实现与 F0 quote 仍未完成。原 15:36 cycle 终态、线上组合字节、原工作簿、183 与模型消费分别待验；这些缺项不阻止 D0 离线工作，但不允许把设计冻结写成全链路已交付。
+
+## D0 补验收最终交接
+
+- 源码版本：`8a97fdfdfdc2d66974b1878fc28112d35f8dccca`；验证／导航主记录版本：`0658e3acb723b572b9b16f8a85c84299a7ca3b9f`。最终交付版本为本节所在提交，回复给出固定 SHA；本次只追加文档与脱敏证据，未再修改 D0 源码。
+- 新 worktree 发现性验收通过，见 [独立工作树检查结果](evidence/access-navigation-check.json)：普通 `rg --files` 发现导航、根 README 链接存在、四个相对链接均有效，两份本机封装存在。首次检查脚本因 Windows 默认 GBK 解码 UTF-8 文件名失败，明确使用 UTF-8 后通过；不更改搜索范围或忽略规则。临时 worktree 干净并已移除；没有因此执行 SSH 或认证。
+- 导航后的知识收尾：`python tools/knowledge_closeout.py plan --base 8a97fdfdfdc2d66974b1878fc28112d35f8dccca`，复用既有时区数据；105 项中 98 通过、7 项 Linux 专属跳过，CLI 0，affected_ids=[]、steps=[]、blocking_conflicts=[]。没有发布知识／Notion，没有恢复或新增任务。日志 `.agent_runtime/d0-validation-closeout.log`；最终记录补入后用同一范围更新候选清单，不扩大执行。
+- 已通过：Linux 80 项零跳过、指定真实三代归档字段核对、两种运行目录装配和调用、导航可发现性、文档／JSON 读回与 diff 检查。老D的独立 8/8 合成验证按转交证据保留。
+- 剩余差异／风险：183 缺生产 session 基础镜像；隔离验证镜像不能替代原基础镜像构建。未运行正式 CI、未证明生产已加载代码、未接入真实可信 publication；原不传 publication 的消费者仍使用 legacy_capture_unverified 选择。真实归档存在共同字段变化，不能自行按新旧文件时间覆盖；首访语义、归因模型和窗口仍未知。其他电脑访问路径尚待逐机映射。
+- 续工仍从 D0 复核开始：先核当前分支与后续差异；在已有原基础镜像的授权隔离环境验证完整 session 构建，再按实际授权决定 CI／消费者接线。不重新全量盘点、不重新导出、不切换 P0／FC 计划。任何部署、激活或线上价格写入均未执行。
+
+本轮在此停止，保留原自动化和并行工作。
