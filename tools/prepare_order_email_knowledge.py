@@ -1,4 +1,4 @@
-"""Offline knowledgeOnly overlay for order email or the D5 shared Admin/ES definitions.
+"""Offline knowledgeOnly overlay for order email, shared Admin/ES or FC V6.1.
 
 Input: snapshot/policy.json (raw deployed policy) and its complete catalog and
 source_root trees mirrored relative to /var/lib/fs-hermes-fc/fs. Every referenced
@@ -9,6 +9,8 @@ always remains releaseReady=false until the lead's original-publisher preflight.
 --shared-admin-es additionally takes the retained business-baseline.md and
 preflight.json with captured_at, protected file hashes, service states and
 existing immutable D5 release names. It performs no publish or service action.
+--fc-v61 uses the same retained-baseline preflight, replaces only the two FC
+pricing IDs already present in each catalog and preserves all route selections.
 """
 import argparse
 import copy
@@ -30,6 +32,8 @@ SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r3'
 SHARED_BASE_RELEASE = 'fs-fc-admin-es-shared-20261113-r2'
 SHARED_BASE_COMMIT = '3110c1530ebc56a8cc51bcf56e3c2cb7d219ec49'
 SHARED_OVERLAYS = ('fc.marketing.attribution', 'fc.reporting.data')
+FC_V61 = 'fc-v61-average-discount-20261113-r1'
+FC_V61_OVERLAYS = ('fc.pricing.constraints', 'fc.pricing.v3')
 FS_RUNTIME_ROOT = '/var/lib/fs-hermes-fc/fs/'
 BASELINE_TARGET = '/opt/fs-hermes-fc/business-baseline.md'
 BASELINE_SOURCE = 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
@@ -177,7 +181,10 @@ def write_payloads(root, payloads):
         path.write_bytes(data)
 
 
-def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
+def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=False):
+    if shared_admin_es and fc_v61:
+        raise ValueError('one_knowledge_overlay_scope_required')
+    preserve_routes = shared_admin_es or fc_v61
     root, snapshot, output = Path(root).absolute(), Path(snapshot).absolute(), Path(output).absolute()
     if not re.fullmatch('[a-f0-9]{40}', commit):
         raise ValueError('full_source_commit_required')
@@ -188,13 +195,17 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
     catalog = pinned_module(root, commit, MODULE + '/source/knowledge_catalog.py')
     publisher = pinned_module(root, commit, MODULE + '/deploy/release.py')
     canonical = json.loads(git_bytes(root, commit, 'knowledge/index.json'))
+    if fc_v61 and (canonical.get('release') != FC_V61 or canonical.get('release_state') != 'candidate'):
+        raise ValueError('exact_fc_v61_candidate_required')
     current = {}
-    for identity in SHARED_OVERLAYS if shared_admin_es else OVERLAYS:
+    for identity in FC_V61_OVERLAYS if fc_v61 else SHARED_OVERLAYS if shared_admin_es else OVERLAYS:
         found = [r for r in canonical['entries'] if r['id'] == identity
                  and r['layer'] == 'current' and r['status'] == 'effective']
         if len(found) != 1:
             raise ValueError('canonical_current_required:' + identity)
         current[identity] = found[0]
+    if fc_v61 and any(row['revision'] != 'fc_v6_d8_d2_amount_weighted_discount_v1' for row in current.values()):
+        raise ValueError('exact_fc_v61_revision_required')
     policy_raw = bound(snapshot, 'policy.json').read_bytes()
     policy = json.loads(policy_raw)
     if policy.get('contract') != 'fs-knowledge-load-policy-v1':
@@ -202,9 +213,11 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
     all_routes = list(routes(policy))
     if not all_routes:
         raise ValueError('snapshot_routes_required')
-    release = SHARED_ADMIN_ES + '-' + commit if shared_admin_es else 'fc-reporting-knowledge-20261105-' + commit[:8]
+    release = (FC_V61 + '-' + commit if fc_v61 else SHARED_ADMIN_ES + '-' + commit
+               if shared_admin_es else 'fc-reporting-knowledge-20261105-' + commit[:8])
     if shared_admin_es:
         changes = shared_changes(root, commit, catalog, canonical, current)
+    if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release)
         compatibility = {'mode': 'retain_full_baseline', 'sha256': baseline_proof['after_sha256']}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
@@ -225,7 +238,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
         if sha(raw) != route['sha256']:
             raise ValueError('snapshot_catalog_changed:' + old_name)
         index = catalog.validate(json.loads(raw))
-        if shared_admin_es and (index['release_state'] != 'published'
+        if preserve_routes and (index['release_state'] != 'published'
                 or preflight['protected'].get(FS_RUNTIME_ROOT + old_name) != sha(raw)):
             raise ValueError('shared_admin_es_catalog_cas_invalid:' + old_name)
         source_root = index.get('source_root', '')
@@ -246,7 +259,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
                 safe = bound(snapshot, rel)
                 if safe.is_file():
                     data = safe.read_bytes()
-                    if shared_admin_es and preflight['protected'].get(FS_RUNTIME_ROOT + rel) != sha(data):
+                    if preserve_routes and preflight['protected'].get(FS_RUNTIME_ROOT + rel) != sha(data):
                         raise ValueError('shared_admin_es_source_cas_invalid:' + rel)
                     payloads['artifact/' + sources + item.relative_to(old_tree).as_posix()] = data
         for row in index['entries']:
@@ -264,6 +277,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
             existing = [r for r in index['entries'] if r['id'] == identity and r['layer'] == 'current']
             if len(existing) > 1 or any(r['status'] != 'effective' for r in existing):
                 raise ValueError('snapshot_current_conflict:' + identity)
+            if fc_v61 and not existing:
+                continue
             if shared_admin_es:
                 if not existing:
                     continue
@@ -288,6 +303,10 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
                     raise ValueError('canonical_source_changed:' + identity)
                 catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
                 source.update(path='overlay/' + canonical_path, canonical_path=canonical_path)
+                if fc_v61:
+                    shared_rows.append(dict(catalog=old_name, id=identity, previous_revision=existing[0]['revision'],
+                                            previous_source_sha256=existing[0]['source']['sha256'],
+                                            revision=row['revision'], source_sha256=row['source']['sha256']))
             key = 'artifact/' + sources + row['source']['path']
             if key in payloads and payloads[key] != data:
                 raise ValueError('overlay_path_collision')
@@ -307,7 +326,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
     for route in all_routes:
         before = copy.deepcopy(route)
         route['catalog'], route['sha256'], _ = remap[route['catalog']]
-        if not shared_admin_es and 'entry_ids' in route and EMAIL not in route['entry_ids']:
+        if not preserve_routes and 'entry_ids' in route and EMAIL not in route['entry_ids']:
             route['entry_ids'].append(EMAIL)
         checks.append((before, copy.deepcopy(route)))
     payloads['runtime/knowledge-load-policy.json'] = encoded(policy)
@@ -320,9 +339,11 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
                            if name.startswith('runtime/') else prefix + name[len('artifact/'):]),
                            sha256=sha(data), beforeSha256=None, owner='0:0', mode='0o644')
                            for name, data in sorted(payloads.items())])
-    if shared_admin_es:
-        if {row['id'] for row in shared_rows} != set(SHARED_OVERLAYS):
+    if preserve_routes:
+        if shared_admin_es and {row['id'] for row in shared_rows} != set(SHARED_OVERLAYS):
             raise ValueError('shared_admin_es_overlay_inventory_invalid')
+        if fc_v61 and {row['id'] for row in shared_rows} != set(FC_V61_OVERLAYS):
+            raise ValueError('fc_v61_existing_overlay_inventory_required')
         policy_row = next(row for row in manifest['files'] if row['candidate'] == 'runtime/knowledge-load-policy.json')
         policy_row['beforeSha256'] = sha(policy_raw)
         manifest.update(imageId=PUBLISHER_IMAGE, runtimeRequired=preflight['runtime'],
@@ -340,15 +361,15 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
     with tempfile.TemporaryDirectory(prefix='kl-') as folder:
         mirror = Path(folder)
         write_payloads(mirror, mirror_payloads)
-        verify_routes(catalog, mirror, snapshot, checks, shared_admin_es, current)
+        verify_routes(catalog, mirror, snapshot, checks, preserve_routes, current)
     output.mkdir(parents=True)
     write_payloads(output / 'candidate', payloads)
-    if not shared_admin_es:
+    if not preserve_routes:
         write_payloads(output / 'validation-fs-root', mirror_payloads)
     for name, data in copies.items():
         (output / name).write_bytes(data)
     (output / 'candidate-manifest.json').write_bytes(encoded(manifest))
-    if shared_admin_es:
+    if preserve_routes:
         (output / 'retained-baseline-provenance.json').write_bytes(encoded(dict(
             observed_at=preflight['captured_at'], target=BASELINE_TARGET,
             retained_sha256=preflight['protected'][BASELINE_TARGET], existing_provenance=baseline_proof,
@@ -363,6 +384,8 @@ if __name__ == '__main__':
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--commit', required=True)
     parser.add_argument('--shared-admin-es', action='store_true')
+    parser.add_argument('--fc-v61', action='store_true')
     args = parser.parse_args()
-    print(json.dumps(prepare(ROOT, args.snapshot, args.output, args.commit, shared_admin_es=args.shared_admin_es),
+    print(json.dumps(prepare(ROOT, args.snapshot, args.output, args.commit,
+                             shared_admin_es=args.shared_admin_es, fc_v61=args.fc_v61),
                      ensure_ascii=False, indent=2))

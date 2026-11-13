@@ -248,6 +248,43 @@ class SharedAdminESOverlayTest(unittest.TestCase):
     def prepare(self):
         return builder.prepare(ROOT, self.snapshot, self.output, COMMIT, shared_admin_es=True)
 
+    def test_fc_v61_replaces_only_existing_ids_and_preserves_route_scope(self):
+        templates=[]
+        for identity in builder.FC_V61_OVERLAYS:
+            path='canonical/'+identity+'.md'
+            data=b'V6 average discount and native ALL propagation.\n'
+            self.git[COMMIT,path]=data
+            templates.append(row(identity,'fc_v6_d8_d2_amount_weighted_discount_v1',path,data))
+        self.git[COMMIT,'knowledge/index.json']=builder.encoded(dict(
+            contract='fs-knowledge-index-v1',release=builder.FC_V61,release_state='candidate',
+            source_commit=None,entries=templates))
+        first=self.policy['requests']['first']
+        index=json.loads((self.snapshot/first['catalog']).read_bytes())
+        data=b'Legacy margin scope.\n'
+        item=row('fc.pricing.constraints','legacy-v4','entries/margin.md',data)
+        index['entries'].append(item)
+        self.put_snapshot(index['source_root']+'/entries/margin.md',data)
+        self.put_snapshot(first['catalog'],builder.encoded(index))
+        first['sha256']=self.info['protected'][builder.FS_RUNTIME_ROOT+first['catalog']]
+        first['entry_ids'].append(item['id'])
+        self.write_preflight()
+        before=copy.deepcopy(list(builder.routes(self.policy)))
+        result=builder.prepare(ROOT,self.snapshot,self.output,COMMIT,fc_v61=True)
+        after=list(builder.routes(json.loads((self.output/'candidate/runtime/knowledge-load-policy.json').read_bytes())))
+        self.assertEqual(result['release'],builder.FC_V61+'-'+COMMIT)
+        for old,new in zip(before,after):
+            self.assertEqual(old['entry_ids'],new['entry_ids'])
+            self.assertEqual(old['owner'],new['owner'])
+            slot=new['catalog'].split(result['release']+'/',1)[1]
+            published=json.loads((self.output/'candidate/artifact'/slot).read_bytes())
+            entries={r['id']:r for r in published['entries']}
+            self.assertEqual(set(entries),set(old['entry_ids']))
+            self.assertEqual(entries['fc.pricing.v3']['revision'],'fc_v6_d8_d2_amount_weighted_discount_v1')
+            self.assertEqual(entries['fs.learning.methods']['unrelated_metadata'],
+                             0 if old is before[0] else 1)
+        self.assertEqual((self.output/'candidate/artifact/originals/policy.json').read_bytes(),
+                         (self.snapshot/'policy.json').read_bytes())
+
     def test_only_existing_shared_sections_overlay_and_live_baseline_stays_bound(self):
         value = self.prepare()
         manifest = value['manifest']
