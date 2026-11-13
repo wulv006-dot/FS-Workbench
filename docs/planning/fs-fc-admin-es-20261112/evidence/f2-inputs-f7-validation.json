@@ -19,10 +19,16 @@
     "skipped": 0
   },
   "publisher_linux_remaining": [
-    "3 real-Git dependent cases unavailable in slim container",
-    "Lootbar stage fixture missing historical collector file; Windows evidence retained"
+    "3 real-Git dependent cases unavailable in slim container; Windows actual Git evidence retained"
   ],
   "production_prepare": false,
   "deployed": false,
-  "activated": false
+  "activated": false,
+  "lootbar_linux_fixed_increment": {
+    "run": 1,
+    "passed": 1,
+    "errors": 0,
+    "skipped": 0,
+    "bundle_sha256": "5ba8caf239545ff5b96a40f919fdd2318c60b35bf774a8778d5af303b4f0bcfa"
+  }
 }
