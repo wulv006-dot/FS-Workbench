@@ -698,6 +698,13 @@ class CurveRuntime(unittest.TestCase):
                                     readback_ref='fixture-same-platform')
         evidence = dict(run_id='run', checked_at=(now - timedelta(seconds=5)).isoformat(),
                         storefront={'rows': {PLATFORM: {'sku_id': primary_id}}})
+        plan = dict(self.db.get('pricing_plans', 'plan'), mode='smart')
+        self.db.put('pricing_plans', 'plan', plan)
+        self.db.put('metadata', 'curve-online-context:plan', {'smart_plan_id': 'plan'})
+        self.db.put('actual_price_windows', 'window', {'operation_id': 'window'})
+        job = runtime.ROOT / 'jobs' / 'run.json'
+        job.parent.mkdir(parents=True, exist_ok=True)
+        job.write_text(json.dumps({'request': {'v3_plan_id': 'plan', 'v3_operation_id': 'op'}}))
         def read(_, platform, site, observer):
             self.assertEqual(platform, PLATFORM)
             observer({'response_sha256': 'fixture-' + str(site)})
@@ -705,8 +712,12 @@ class CurveRuntime(unittest.TestCase):
 
         with patch.object(writer, 'read_row', side_effect=read) as get, \
                 patch.object(writer, 'read_curve_routes', return_value={}), \
+                patch('fc_pricing_v3.smart.curve_learning', return_value={'large': {'blocks': []}}) as learning, \
                 patch('fc_shared_admin.SessionManager'):
             found = runtime.collect_curve_catalogues(evidence, [PLATFORM])[PLATFORM]
+        learning.assert_called_once()
+        self.assertEqual(learning.call_args.args[0], plan)
+        self.assertEqual(found['learning'], {'large': {'blocks': []}})
         self.assertEqual(get.call_count, 2)
         curve = found['primary_curve']
         proof_input = found['primary_inputs'][curve_key(curve)]

@@ -312,7 +312,6 @@ def _preview_curve_candidates(curve, key, platform, strategy_state, segment, clo
                               snapshot_at, catalogue_at, evidence_as_of, frozen_candidates, *, editor=None, repair=None):
     from .admin_readback import SITE_MAIN
     from .curve_strategy_v6 import ANCHORS, build_candidates
-    from .smart import curve_learning
     from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, curve_key, quote_native
 
     candidate_gaps = {}
@@ -783,6 +782,7 @@ def collect_curve_catalogues(evidence, platforms):
     from .average_discount_v6 import MODEL, average_discount
     from .business_source import collect_recent_curve_population
     from .curve_strategy_v6 import ANCHORS, build_candidates
+    from .smart import curve_learning
     from .price_curve import (EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, TWO_BAND_PRICE_EDIT,
                               IDENTITY_FIELDS, curve_key, read_curve)
 
