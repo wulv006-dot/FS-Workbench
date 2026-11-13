@@ -841,6 +841,7 @@ def collect_curve_catalogues(evidence, platforms):
     from .average_discount_v6 import MODEL, average_discount
     from .business_source import collect_recent_curve_population
     from .curve_strategy_v6 import ANCHORS, build_candidates
+    from .pricing_proof_v6 import PROVEN
     from .smart import curve_learning
     from .price_curve import (EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, TWO_BAND_PRICE_EDIT,
                               IDENTITY_FIELDS, curve_key, read_curve)
@@ -947,7 +948,86 @@ def collect_curve_catalogues(evidence, platforms):
                                               current_proof, proof)
             if repair:
                 entry['repair'] = repair
+        elif current_proof['status'] == PROVEN and plan and state:
+            _freeze_intermediate_trial(platform, entry, proof, state, plan, evidence, now)
     return collected
+
+
+def _freeze_intermediate_trial(platform, entry, inputs_for, state, plan, evidence, now):
+    """Keep the first valid intermediate step for this round's selected band and direction."""
+    from coin_all_sync_job import curve_route_ready, curve_writer_capabilities
+    from .curve_strategy_v6 import INTERMEDIATE_TRIAL_STEPS, build_candidates, intermediate_candidates
+    from .price_curve import curve_key
+    from .pricing_proof_v6 import PROVEN
+
+    current, editor, route = entry['primary_curve'], entry['editor_contract'], entry['native_route']
+    if not route:
+        return
+    capability = curve_writer_capabilities({platform: route}).get(platform) or {}
+    if not curve_route_ready(capability):
+        return
+    preferred = _curve_preference(platform, current, evidence, entry, now, plan=plan, state=state)
+    label = preferred['label']
+    if label not in ('B', 'C'):
+        return
+    factors_verified = capability.get('tier_price_factors') is True
+    comparison = build_candidates(current, state['reference'], state['episode'], preferred['segment'],
+                                  editor_contract=editor, check_saved_discount_terms=True,
+                                  tier_price_factors_verified=factors_verified)
+    for candidate in comparison['candidates']:
+        if label not in candidate['labels']:
+            continue
+        key = candidate['curve_key']
+        frozen = entry['primary_inputs'].get(key)
+        if not frozen or _validated_curve(candidate['curve'], frozen)['status'] != PROVEN:
+            continue
+        if key == comparison['confirmed_current_curve_key']:
+            return
+        after = entry['all_targets'].get(key)
+        all_frozen = entry['all_inputs'].get(curve_key(after)) if after else None
+        if _writable_curve_trial(platform, entry, current, candidate, after, all_frozen, capability):
+            return
+
+    for candidate in intermediate_candidates(comparison, label, editor, tier_price_factors_verified=factors_verified,
+                                             step_sizes=INTERMEDIATE_TRIAL_STEPS):
+        key, curve = candidate['curve_key'], candidate['curve']
+        if candidate['write_gaps']:
+            continue
+        frozen = entry['primary_inputs'].get(key) or inputs_for(curve)
+        if _validated_curve(curve, frozen)['status'] != PROVEN:
+            continue
+        after = _all_curve_target(entry['all_before'], curve)
+        all_key = curve_key(after)
+        all_frozen = entry['all_inputs'].get(all_key) or inputs_for(after)
+        if _writable_curve_trial(platform, entry, current, candidate, after, all_frozen, capability):
+            entry['primary_inputs'][key] = frozen
+            entry['all_targets'][key] = after
+            entry['all_inputs'][all_key] = all_frozen
+            entry['bounded_intermediate_trial'] = key
+            return
+
+
+def _writable_curve_trial(platform, inputs, current, candidate, after, all_frozen, capability):
+    from coin_all_sync_job import curve_catalog_plan, editable
+    from .pricing_proof_v6 import PROVEN
+
+    if candidate['write_gaps'] or not after or not all_frozen:
+        return False
+    before, target = inputs['all_before'], candidate['curve']
+    if ((before['tiers'], before['unit_price_usd_per_k']) != (current['tiers'], current['unit_price_usd_per_k'])
+            or (after['tiers'], after['unit_price_usd_per_k']) != (target['tiers'], target['unit_price_usd_per_k'])):
+        return False
+    proof = _validated_curve(after, all_frozen)
+    if proof['status'] != PROVEN:
+        return False
+    before_hash = fingerprint(editable(current['native_payload'])) if inputs.get('native_route') else None
+    bundle = dict(before_action={'curves': {platform: before}}, action={'curves': {platform: after}},
+                  curve_proofs={platform: proof}, curve_primary_before_hashes={platform: before_hash})
+    try:
+        curve_catalog_plan(bundle, platform, capability)
+    except ValueError:
+        return False
+    return True
 
 
 def store_curve_proof_inputs(db, evidence, platforms):
@@ -1125,7 +1205,8 @@ def _curve_repair(current, current_proof, repair):
 def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, plan=None, decision_at=None,
                         paired_bands=True):
     from coin_all_sync_job import curve_catalog_plan, curve_route_ready, curve_writer_capabilities, editable
-    from .curve_strategy_v6 import build_candidates, choose_action, intermediate_candidates, primary_reference_curve
+    from .curve_strategy_v6 import (INTERMEDIATE_TRIAL_STEPS, build_candidates, choose_action,
+                                    intermediate_candidates, primary_reference_curve)
     from .price_curve import curve_key
     from .pricing_proof_v6 import FAILED, PROVEN
 
@@ -1176,10 +1257,18 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
         target, gaps = decision['selected'], decision['gaps']
         outer_keys = {row['curve_key'] for row in comparison['candidates']}
         available_steps = set(inputs.get('all_targets') or {}) - outer_keys
-        if not target and preference['label'] in ('B', 'C') and available_steps:
+        bounded = inputs.get('bounded_intermediate_trial')
+        search_intermediate = not target
+        if bounded and target and target['curve_key'] != comparison['confirmed_current_curve_key']:
+            outer = (inputs.get('all_targets') or {}).get(target['curve_key'])
+            outer_proof = (inputs.get('all_inputs') or {}).get(curve_key(outer)) if outer else None
+            search_intermediate = not _writable_curve_trial(platform, inputs, current, target, outer,
+                                                            outer_proof, capability)
+        if search_intermediate and preference['label'] in ('B', 'C') and available_steps:
+            step_sizes = INTERMEDIATE_TRIAL_STEPS if bounded else None
             for candidate in intermediate_candidates(comparison, preference['label'],
                                                       inputs.get('editor_contract') or current['native_contract'],
-                                                      tier_price_factors_verified=factors_verified):
+                                                      tier_price_factors_verified=factors_verified, step_sizes=step_sizes):
                 key = candidate['curve_key']
                 if key not in available_steps:
                     continue

@@ -13,6 +13,7 @@ from .admin_readback import GID_FC27, MID_FC27_COINS, PLATFORM_AID, SITE_MAIN
 ANCHORS = COIN_BAND_ANCHORS
 STEP = Decimal('.03')
 CENT = Decimal('.01')
+INTERMEDIATE_TRIAL_STEPS = (Decimal('.02'), Decimal('.01'))
 
 
 def market_preference(current, platform, offers, performance, now):
@@ -242,7 +243,8 @@ def _compiled_step(adopted, selected_segment, anchor, target, direction, editor_
     return compiled, []
 
 
-def intermediate_candidates(comparison, preferred_label, editor_contract, *, tier_price_factors_verified=False):
+def intermediate_candidates(comparison, preferred_label, editor_contract, *, tier_price_factors_verified=False,
+                            step_sizes=None):
     """Yield distinct bounded native price steps from the outer bound toward fixed A."""
     if preferred_label not in ('B', 'C') or comparison['gaps'].get(preferred_label) == ['current_reference_catalogue_terms_differ']:
         return
@@ -256,8 +258,14 @@ def intermediate_candidates(comparison, preferred_label, editor_contract, *, tie
     direction, rounding = (-1, ROUND_CEILING) if preferred_label == 'B' else (1, ROUND_FLOOR)
     outer = (basis * (1 + direction * STEP)).quantize(CENT, rounding=rounding)
     seen = {candidate['curve_key'] for candidate in comparison['candidates'] if preferred_label in candidate['labels']}
-    target = outer - direction * CENT
-    while direction * (target - basis) > 0:
+    if step_sizes is None:
+        count = int(abs(outer - basis) / CENT)
+        targets = (outer - direction * CENT * index for index in range(1, count + 1))
+    else:
+        targets = ((basis * (1 + direction * step)).quantize(CENT, rounding=rounding) for step in step_sizes)
+    for target in targets:
+        if not 0 < direction * (target - basis) < direction * (outer - basis):
+            continue
         compiled, _ = _compiled_step(adopted, segment, anchor, target, direction, editor_contract, None, current=current)
         if compiled is not None:
             candidate = _candidate(compiled, [preferred_label], current,
@@ -265,7 +273,6 @@ def intermediate_candidates(comparison, preferred_label, editor_contract, *, tie
             if candidate['curve_key'] not in seen:
                 seen.add(candidate['curve_key'])
                 yield candidate
-        target -= direction * CENT
 
 
 def build_candidates(confirmed_current_curve, reference, episode, selected_segment,
