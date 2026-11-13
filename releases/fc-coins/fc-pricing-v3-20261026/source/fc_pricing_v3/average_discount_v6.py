@@ -19,9 +19,13 @@ def _decimal(value, *, zero=False):
         return None
 
 
-def average_discount(closed, platform, paid_cutoff):
+def average_discount_window(paid_cutoff):
     today = instant(paid_cutoff).astimezone(TZ).replace(hour=0, minute=0, second=0, microsecond=0)
-    start, end = today - timedelta(days=8), today - timedelta(days=1)
+    return today - timedelta(days=8), today - timedelta(days=1)
+
+
+def average_discount(closed, platform, paid_cutoff):
+    start, end = average_discount_window(paid_cutoff)
     proof = (closed or {}).get('historical_orders_coverage') or {}
     gaps = Counter()
     if not (proof.get('window_complete') and proof.get('population_status') == 'complete'

@@ -434,24 +434,35 @@ def ordinary_delivery_archives(scope, shared, *, root=None):
 
 def _shared_curve_inputs(paid_cutoff, as_of, *, code_names):
     import sys
+    from .average_discount_v6 import average_discount_window
     from .business_source import shared_curve_attachment
 
     sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
     from shared_es_facts import read
 
-    from .business_source import TZ
-    day = instant(paid_cutoff).astimezone(TZ).date()
-    period = dict(start=(day - timedelta(days=8)).isoformat(), end=(day - timedelta(days=1)).isoformat())
-    scope = dict(site_id='266', gid='1327', **period)
+    start, discount_end = average_discount_window(paid_cutoff)
+    scope = dict(site_id='266', gid='1327', start=start.date().isoformat(), end=discount_end.date().isoformat())
     shared = read(scope)
     closed = shared_curve_attachment(shared, scope, as_of=as_of, code_names=code_names)
+    publication_id = shared['coverage'].get('publication_id')
+    discount_source = None
+    if publication_id:
+        # The D-1 basket archive can still be publishing after midnight.
+        # Check discount coverage on its own dates within the same publication.
+        discount_scope = dict(scope, end=(discount_end.date() - timedelta(days=1)).isoformat())
+        try:
+            discount_data = read(discount_scope, publication_id=publication_id)
+            discount_source = shared_curve_attachment(discount_data, discount_scope, as_of=as_of,
+                                                      code_names=code_names)
+        except (ImportError, OSError, ValueError, TypeError, KeyError):
+            pass
     if closed is None:
-        return None, None
+        return None, None, discount_source
     try:
         facts = ordinary_delivery_archives(scope, shared)
     except (ImportError, OSError, ValueError, TypeError, KeyError):
         facts = None
-    return closed, facts
+    return closed, facts, discount_source
 
 
 def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now, *,
@@ -911,9 +922,9 @@ def collect_curve_catalogues(evidence, platforms):
     if not collected:
         return {}
     try:
-        shared_closed, facts = _shared_curve_inputs(paid_cutoff, clock(), code_names=None)
+        shared_closed, facts, discount_source = _shared_curve_inputs(paid_cutoff, clock(), code_names=None)
     except (ImportError, OSError, ValueError, TypeError, KeyError):
-        shared_closed, facts = None, None
+        shared_closed, facts, discount_source = None, None, None
     if shared_closed is not None:
         closed = shared_closed
     try:
@@ -925,7 +936,7 @@ def collect_curve_catalogues(evidence, platforms):
 
     learning_windows = db.all('actual_price_windows') if plan and online and plan['mode'] == 'smart' else []
     for platform, entry in collected.items():
-        average = average_discount(shared_closed, platform, paid_cutoff)
+        average = average_discount(discount_source, platform, paid_cutoff)
 
         def proof(curve):
             return _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now,
