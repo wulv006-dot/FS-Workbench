@@ -20,6 +20,48 @@ from test_price_curve_v6 import EDITOR_CONTRACT
 
 
 class CurveRuntime(unittest.TestCase):
+    def test_midnight_discount_window_is_independent_of_yesterdays_basket_archive(self):
+        from fc_pricing_v3.average_discount_v6 import average_discount
+        from fc_pricing_v3.financial import instant
+
+        cutoff = instant('2026-11-13T16:38:48+00:00')
+        pin = 'fixed-shared-publication'
+
+        def read(scope, *, publication_id=None):
+            if publication_id is not None:
+                self.assertEqual(publication_id, pin)
+            complete = scope['end'] == '2026-11-12'
+            return {'scope': scope, 'coverage': {'publication_id': pin, 'complete': complete}}
+
+        def attachment(shared, scope, **kwargs):
+            complete = shared['coverage']['complete']
+            return dict(historical_orders=[
+                dict(order_key=platform, platform=platform, paid_at='2026-11-12T23:59:59+08:00',
+                     merchandise_before_discount_usd='20', actual_es_discount_usd='2')
+                for platform in ('PS', 'XBOX', 'PC')
+            ], historical_orders_coverage=dict(
+                window_complete=complete, population_status='complete' if complete else 'partial',
+                paid_window_start=scope['start'] + ' 00:00:00',
+                paid_window_end_exclusive=(instant(scope['end'] + ' 00:00:00') + timedelta(days=1)).isoformat(),
+                shared_publication_id=pin, shared_source_revision=scope['end']))
+
+        reader = Mock(side_effect=read)
+        with patch.dict(sys.modules, {'shared_es_facts': SimpleNamespace(read=reader)}), \
+                patch('fc_pricing_v3.business_source.shared_curve_attachment', side_effect=attachment), \
+                patch.object(runtime, 'ordinary_delivery_archives', return_value='structure-costs') as costs:
+            closed, facts, discount_source = runtime._shared_curve_inputs(cutoff, cutoff, code_names=None)
+
+        for platform in ('PS', 'XBOX', 'PC'):
+            result = average_discount(discount_source, platform, cutoff)
+            self.assertEqual(result['status'], 'complete', result)
+            self.assertEqual(result['retained_ratio'], '0.9')
+        self.assertFalse(closed['historical_orders_coverage']['window_complete'])
+        self.assertEqual(facts, 'structure-costs')
+        self.assertEqual(costs.call_args.args[0]['end'], '2026-11-13')
+        self.assertEqual(reader.call_args.kwargs, {'publication_id': pin})
+        self.assertEqual(reader.call_args.args[0], dict(start='2026-11-06', end='2026-11-12',
+                                                       site_id='266', gid='1327'))
+
     def test_large_band_smart_trial_uses_own_orders_without_competitor_quotes(self):
         from test_curve_strategy_v6 import fixture
 
@@ -866,7 +908,7 @@ class CurveRuntime(unittest.TestCase):
                 patch.object(writer, 'read_row', side_effect=lambda _, p, site, observer: rows[site]) as read, \
                 patch.object(writer, 'read_curve_routes', return_value={PLATFORM: route}) as routes, \
                 patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities), \
-                patch.object(runtime, '_shared_curve_inputs', return_value=(None, None)) as shared, \
+                patch.object(runtime, '_shared_curve_inputs', return_value=(None, None, None)) as shared, \
                 patch('fc_pricing_v3.business_source.collect_recent_curve_population', return_value=None) as recent, \
                 patch('fc_shared_admin.SessionManager'), \
                 patch.object(runtime, '_same_hour_curve_performance', return_value=performance), \
