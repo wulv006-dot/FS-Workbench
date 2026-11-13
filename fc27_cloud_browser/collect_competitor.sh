@@ -14,9 +14,13 @@ mkdir -p -m 0700 "$evidence" "$state"
 exec 9>"$state/${site}.lock"
 flock -n 9 || { printf '%s\n' '{"status":"busy"}'; exit 75; }
 trace=$(mktemp "$evidence/${site}-XXXXXXXX.tmp")
-if timeout 95s docker exec -u fc27chrome \
-  -e FC27_CDP_ENDPOINT=http://127.0.0.1:9225 \
-  fc27-cloud-browser python3 /opt/fc27-collector/collect_competitor_browser.py "$site" ${quantities:+"$quantities"} > "$trace"; then
+if [ "$site" = U4GM ]; then
+  set -- timeout 95s /opt/d4follow/venv/bin/python /opt/fs-sports-outbound/collect_fc_u4gm.py
+else
+  set -- timeout 95s docker exec -u fc27chrome -e FC27_CDP_ENDPOINT=http://127.0.0.1:9225 \
+    fc27-cloud-browser python3 /opt/fc27-collector/collect_competitor_browser.py "$site" ${quantities:+"$quantities"}
+fi
+if "$@" > "$trace"; then
   if python3 - "$trace" "$site" "$quantities" <<'PY'
 import json,sys
 rows=json.load(open(sys.argv[1],encoding='utf-8'))

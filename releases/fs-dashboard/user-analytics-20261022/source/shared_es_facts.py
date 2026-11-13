@@ -2,9 +2,11 @@
 from collections import defaultdict
 from contextlib import closing
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 import hashlib
 import json
 from pathlib import Path
+import re
 import sqlite3
 
 from user_contract import canonical, digest, money, stamp
@@ -13,6 +15,12 @@ DB = Path('/var/lib/fs-user-analytics/customers.sqlite3')
 CONTRACT = 'shared-es-order-facts-v1'
 META = 'shared_es_publication'
 PENDING = 'shared_es_pending:'
+FC27_SITE, FC27_GID = '266', '1327'
+FC27_PROJECTION_FIELDS = frozenset(('platform', 'purchase_k', 'bonus_k', 'delivered_k',
+    'single_line_unit_purchase', 'region_id', 'regular_usd', 'retained_percent', 'points',
+    'source_sha256', 'observed_at'))
+FC27_PROJECTION_PIN = 'shared_es_fc27_projection:'
+DEVICE_PIN = 'shared_es_device_projection:'
 HISTORICAL_CHANNEL_SITE = '266'
 HISTORICAL_CHANNEL_ROOT = Path('/var/lib/fs-channel-effects/days')
 DISCOUNT_OWNER_PROJECTS = {
@@ -149,6 +157,193 @@ def _order_hash(order_no):
     return hashlib.sha256(order_no.encode()).hexdigest()
 
 
+def _checked_fc27_projection(value):
+    if (not isinstance(value,dict) or value.keys()!=FC27_PROJECTION_FIELDS
+            or value['platform'] not in ('PS','XBOX','PC') or type(value['single_line_unit_purchase']) is not bool
+            or value['region_id'] is not None and (type(value['region_id']) is not int or value['region_id'] < 0)
+            or not isinstance(value['source_sha256'],str) or not re.fullmatch('[a-f0-9]{64}',value['source_sha256'])):
+        raise ValueError('shared_es_fc27_projection')
+    amounts = {key:money(value[key]) for key in ('purchase_k','bonus_k','delivered_k','regular_usd','retained_percent','points')}
+    purchase, bonus, delivered = (amounts[key] for key in ('purchase_k','bonus_k','delivered_k'))
+    if (None in (purchase,bonus,delivered) or Decimal(purchase)<=0 or Decimal(bonus)<0
+            or Decimal(purchase)+Decimal(bonus)!=Decimal(delivered)):
+        raise ValueError('shared_es_fc27_quantity')
+    return {**value, **amounts, 'observed_at':stamp(value['observed_at']).isoformat()}
+
+
+def _fc27_projection_pin(db, publication_id):
+    row = db.execute('SELECT value FROM meta WHERE key=?',(FC27_PROJECTION_PIN+publication_id,)).fetchone()
+    return row[0] if row else None
+
+
+def _supplement_fc27(db, rows, days, pin):
+    revision = _fc27_projection_pin(db,pin)
+    if not revision:
+        return
+    by_key = {(raw['paytime'][:10],_order_hash(raw['order_no'])):raw for raw in rows if 'fc27_coins' not in raw}
+    for day, day_revision in days.items():
+        for order_hash, body in db.execute('''SELECT order_hash,body FROM shared_es_fc27_projection
+                WHERE revision=? AND day=? AND day_revision=?''',(revision,day,day_revision)):
+            raw = by_key.get((day,order_hash))
+            if raw is not None:
+                raw['fc27_coins'] = json.loads(body)
+
+
+def store_fc27_projection(store, *, publication_id, source_revision, scope, rows):
+    """Bind one exact Admin-ID supplement to a new shared pin without copying native rows."""
+    if (scope['site_id'],scope['gid'])!=(FC27_SITE,FC27_GID):
+        raise ValueError('shared_es_fc27_scope')
+    wanted = set(_days(scope['start'],scope['end']))
+    submitted = {}
+    for row in rows:
+        paid = row['paid_at']
+        order_no, ident = row['order_no'], str(row['id'])
+        day = stamp(paid).date().isoformat()
+        if day not in wanted or not ident.isdecimal() or not isinstance(order_no,str) or not order_no:
+            raise ValueError('shared_es_fc27_scope')
+        key = (day,_order_hash(order_no))
+        if key in submitted:
+            raise ValueError('shared_es_fc27_duplicate_identity')
+        projection = _checked_fc27_projection(row['fc27_coins'])
+        if stamp(projection['observed_at']) < stamp(paid):
+            raise ValueError('shared_es_fc27_observation_time')
+        submitted[key] = (ident,order_no,paid,projection)
+    revision = digest([publication_id,source_revision,sorted(wanted),sorted(submitted.items())])
+    next_pin = 'se_'+digest([publication_id,revision])[:32]
+    with store.db() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('''SELECT p.publication_id,p.data_revision,p.captured_at,p.cutoff
+            FROM shared_es_publications p JOIN meta m ON m.value=p.publication_id WHERE m.key=?''',(META,)).fetchone()
+        if row is not None and row[0]==next_pin and _fc27_projection_pin(db,next_pin)==revision:
+            return dict(status='reused',publication_id=next_pin,supplement_revision=revision)
+        if row is None or row[0]!=publication_id:
+            raise ValueError('shared_es_fc27_publication_changed')
+        _,version,captured_at,cutoff = row
+        slices = db.execute('''SELECT p.day,p.revision,s.body FROM shared_es_publication_days p
+            JOIN shared_es_slices s ON s.day=p.day AND s.revision=p.revision
+            WHERE p.publication_id=? AND p.day BETWEEN ? AND ?''',(publication_id,scope['start'],scope['end']))
+        days = {day:day_revision for day,day_revision,body in slices
+                if day < cutoff and 'archive_site' not in json.loads(body)}
+        if set(days)!=wanted or digest(days)!=source_revision:
+            raise ValueError('shared_es_fc27_source_changed')
+        values = {}
+        for (day,order_hash),(ident,order_no,paid,projection) in submitted.items():
+            native = db.execute('''SELECT body FROM shared_es_native
+                WHERE day=? AND revision=? AND site=? AND gid=? AND order_hash=?''',
+                (day,days[day],FC27_SITE,FC27_GID,order_hash)).fetchone()
+            raw = json.loads(native[0]) if native else {}
+            if (str(raw.get('id')),raw.get('order_no'),raw.get('paytime'))!=(ident,order_no,paid):
+                raise ValueError('shared_es_fc27_identity_mismatch')
+            if 'fc27_coins' not in raw:
+                values[(day,days[day],order_hash)] = canonical(projection)
+        if not values:
+            return dict(status='unchanged',publication_id=publication_id,supplement_revision=None,rows=0)
+        db.execute('''CREATE TABLE IF NOT EXISTS shared_es_fc27_projection (
+            revision TEXT NOT NULL, day TEXT NOT NULL, day_revision TEXT NOT NULL, order_hash TEXT NOT NULL, body TEXT NOT NULL,
+            PRIMARY KEY(revision,day,day_revision,order_hash))''')
+        prior_revision = _fc27_projection_pin(db,publication_id)
+        if prior_revision:
+            db.execute('''INSERT INTO shared_es_fc27_projection
+                SELECT ?,s.day,s.day_revision,s.order_hash,s.body FROM shared_es_fc27_projection s
+                JOIN shared_es_publication_days p ON p.day=s.day AND p.revision=s.day_revision
+                WHERE s.revision=? AND p.publication_id=?''',(revision,prior_revision,publication_id))
+        db.executemany('INSERT OR REPLACE INTO shared_es_fc27_projection VALUES(?,?,?,?,?)',
+                       ((revision,*key,body) for key,body in values.items()))
+        available_at = max(stamp(captured_at),*(stamp(projection['observed_at'])
+                                               for _,_,_,projection in submitted.values()))
+        value = dict(publication_id=next_pin,data_version=version,published_at=available_at.isoformat(),cutoff=cutoff)
+        bind_publication(db,value,publication_id,{})
+        db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)',(FC27_PROJECTION_PIN+next_pin,revision))
+    return dict(status='available',publication_id=next_pin,supplement_revision=revision,rows=len(values))
+
+
+def _device_projection_pin(db, publication_id):
+    row = db.execute('SELECT value FROM meta WHERE key=?',(DEVICE_PIN+publication_id,)).fetchone()
+    return row[0] if row else None
+
+
+def _supplement_device(db, rows, days, publication_id):
+    revision = _device_projection_pin(db,publication_id)
+    if not revision:
+        return
+    by_key = {(raw['paytime'][:10],_order_hash(raw['order_no'])):raw for raw in rows
+              if str(raw['site_id'])==HISTORICAL_CHANNEL_SITE and 'device' not in raw}
+    if not by_key:
+        return
+    for day, day_revision in days.items():
+        for order_hash, device in db.execute(
+                'SELECT order_hash,device FROM shared_es_device_projection WHERE revision=? AND day=? AND day_revision=?',
+                (revision,day,day_revision)):
+            if (raw := by_key.get((day,order_hash))) is not None:
+                raw['device'] = device
+
+
+def store_device_projection(store, *, publication_id, source_revision, scope, rows, observed_at):
+    """Publish checked device fields for exact main-site IDs under a new immutable pin."""
+    if (scope['site_id'],scope['gid'])!=(HISTORICAL_CHANNEL_SITE,'all'):
+        raise ValueError('shared_es_device_scope')
+    wanted = set(_days(scope['start'],scope['end']))
+    observed = stamp(observed_at)
+    submitted = {}
+    for row in rows:
+        paid, order_no = row['paid_at'], row['order_no']
+        ident, gid, pay_status, device = str(row['id']), str(row['gid']), str(row['pay_status']), row['device']
+        day = stamp(paid).date().isoformat()
+        if (day not in wanted or not ident.isdecimal() or not gid.isdecimal() or not isinstance(order_no,str)
+                or not order_no or pay_status not in ('1','2') or type(device) is not int or device not in (0,1)
+                or stamp(paid) > observed):
+            raise ValueError('shared_es_device_projection')
+        key = (day,_order_hash(order_no))
+        if key in submitted:
+            raise ValueError('shared_es_device_duplicate_identity')
+        submitted[key] = (ident,order_no,paid,gid,pay_status,device)
+    revision = digest([publication_id,source_revision,observed.isoformat(),sorted(submitted.items())])
+    next_pin = 'se_'+digest([publication_id,revision])[:32]
+    with store.db() as db:
+        db.execute('BEGIN IMMEDIATE')
+        active = db.execute("SELECT p.publication_id,p.data_revision,p.captured_at,p.cutoff "
+            "FROM shared_es_publications p JOIN meta m ON m.value=p.publication_id WHERE m.key=?",(META,)).fetchone()
+        if active is not None and active[0]==next_pin and _device_projection_pin(db,next_pin)==revision:
+            return dict(status='reused',publication_id=next_pin,supplement_revision=revision)
+        if active is None or active[0]!=publication_id:
+            raise ValueError('shared_es_device_publication_changed')
+        _,version,captured_at,cutoff = active
+        slices = db.execute("SELECT p.day,p.revision,s.body FROM shared_es_publication_days p "
+            "JOIN shared_es_slices s ON s.day=p.day AND s.revision=p.revision "
+            "WHERE p.publication_id=? AND p.day BETWEEN ? AND ?",(publication_id,scope['start'],scope['end']))
+        days = {day:day_revision for day,day_revision,body in slices
+                if day < cutoff and 'archive_site' not in json.loads(body)}
+        if set(days)!=wanted or digest(days)!=source_revision:
+            raise ValueError('shared_es_device_source_changed')
+        values = {}
+        for (day,order_hash),(ident,order_no,paid,gid,pay_status,device) in submitted.items():
+            native = db.execute("SELECT body FROM shared_es_native "
+                "WHERE day=? AND revision=? AND site=? AND gid=? AND order_hash=?",
+                (day,days[day],HISTORICAL_CHANNEL_SITE,gid,order_hash)).fetchone()
+            raw = json.loads(native[0]) if native else {}
+            if (str(raw.get('id')),raw.get('order_no'),raw.get('paytime'),str(raw.get('pay_status')))!=(ident,order_no,paid,pay_status):
+                raise ValueError('shared_es_device_identity_mismatch')
+            if 'device' not in raw:
+                values[(day,days[day],order_hash)] = device
+        if not values:
+            return dict(status='unchanged',publication_id=publication_id,supplement_revision=None,rows=0)
+        db.execute("CREATE TABLE IF NOT EXISTS shared_es_device_projection "
+            "(revision TEXT NOT NULL, day TEXT NOT NULL, day_revision TEXT NOT NULL, order_hash TEXT NOT NULL,"
+            "device INTEGER NOT NULL, PRIMARY KEY(revision,day,day_revision,order_hash))")
+        if prior_revision := _device_projection_pin(db,publication_id):
+            db.execute("INSERT INTO shared_es_device_projection "
+                "SELECT ?,s.day,s.day_revision,s.order_hash,s.device FROM shared_es_device_projection s "
+                "JOIN shared_es_publication_days p ON p.day=s.day AND p.revision=s.day_revision "
+                "WHERE s.revision=? AND p.publication_id=?",(revision,prior_revision,publication_id))
+        db.executemany('INSERT OR REPLACE INTO shared_es_device_projection VALUES(?,?,?,?,?)',
+                       ((revision,*key,device) for key,device in values.items()))
+        value = dict(publication_id=next_pin,data_version=version,
+                     published_at=max(stamp(captured_at),observed).isoformat(),cutoff=cutoff)
+        bind_publication(db,value,publication_id,{})
+        db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)',(DEVICE_PIN+next_pin,revision))
+    return dict(status='available',publication_id=next_pin,supplement_revision=revision,rows=len(values))
+
+
 def coupon_tracking(rows, logs, clean, gaps=()):
     out = {}
     for row in rows:
@@ -178,6 +373,10 @@ def _native(rows, day, tracking):
             raise ValueError('shared_es_native_identity')
         identities.add((site, order_no))
         body = {field: raw[field] for field in FIELDS if field in raw}
+        if (site,gid)==(FC27_SITE,FC27_GID) and 'fc27_coins' in raw:
+            body['fc27_coins'] = _checked_fc27_projection(raw['fc27_coins'])
+        if type(raw.get('device')) is int and raw['device'] in (0,1):
+            body['device'] = raw['device']
         body['site'] = {'full_title': title}
         if (site, order_no) in tracking:
             body['tracking'] = tracking[site, order_no]
@@ -385,6 +584,10 @@ def bind_publication(db, value, previous, revisions, *, source_at=None, discount
     discount_revision = discount_revision or (_discount_revision(db,prior) if prior else None)
     if discount_revision:
         db.execute('INSERT INTO shared_es_discount_pins VALUES(?,?)',(ident,discount_revision))
+    if prior and (projection_revision := _fc27_projection_pin(db,prior)):
+        db.execute('INSERT INTO meta VALUES(?,?)',(FC27_PROJECTION_PIN+ident,projection_revision))
+    if prior and (device_revision := _device_projection_pin(db,prior)):
+        db.execute('INSERT INTO meta VALUES(?,?)',(DEVICE_PIN+ident,device_revision))
     for day, revision in revisions.items():
         if (day >= cutoff or not db.execute(
                 'SELECT 1 FROM shared_es_slices WHERE day=? AND revision=?', (day, revision)).fetchone()):
@@ -713,6 +916,13 @@ def read(scope, *, db=DB, publication_id=None):
         if not day_revisions:
             return _unavailable(missing, publication_id)
         rows, lines, identities = _scoped_rows(connection, day_revisions, site, gid, publication_id)
+        if site in (HISTORICAL_CHANNEL_SITE,'all'):
+            _supplement_device(connection,rows,day_revisions,publication_id)
+        if (site,gid)==(FC27_SITE,FC27_GID):
+            _supplement_fc27(connection,rows,day_revisions,publication_id)
+        else:
+            for raw in rows:
+                raw.pop('fc27_coins',None)
         discount_revision = _discount_revision(connection,publication_id)
         _scoped_discount_projects(connection,rows,discount_revision)
     metadata = [info for _, _, info in visible]
@@ -733,6 +943,10 @@ def read(scope, *, db=DB, publication_id=None):
                     historical_channel_days=historical,
                     discount_mapping_revision=discount_revision,
                     admin_payment_membership='pay_status_1_or_2', attribution_availability='published_pins')
+    if (site,gid)==(FC27_SITE,FC27_GID):
+        projected = sorted((_order_hash(raw['order_no']),raw['fc27_coins'])
+                           for raw in rows if 'fc27_coins' in raw)
+        coverage['fc27_projection_revision'] = digest(projected) if projected else None
     dataset = dict(_private_dataset=True, status='available' if full_attribution else 'partial',
                    origin='shared_es_facts', rows=lines, hashes=hashes, source_revision=publication_id,
                    publication_id=publication_id, data_revision=version, available_at=captured_at,

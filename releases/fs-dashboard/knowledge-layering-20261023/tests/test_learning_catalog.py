@@ -322,7 +322,7 @@ class LearningCatalog(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(lf(path)).hexdigest()
         current = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.marketing.attribution'], preview=True)
-        self.assertEqual(current['entries'][0]['revision'], 'fs-fc-admin-es-shared-20261113-r3')
+        self.assertEqual(current['entries'][0]['revision'], 'fs-fc-admin-es-shared-20261113-r4')
         self.assertIn('fc.marketing.attribution@fs-fc-admin-es-shared-20261113-r2', current['entries'][0]['supersedes'])
         self.assertIn('fc.marketing.attribution@fc-v3-20261026', current['entries'][0]['supersedes'])
         self.assertIn('优惠码 `Aion2` 由 TikTok 改归**分销**', current['entries'][0]['content'])
@@ -339,7 +339,7 @@ class LearningCatalog(unittest.TestCase):
         updated = {'fs.data.sources'}
         new = {'fc.marketing.attribution','fc.reporting.data'}
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r2'},updated)
-        self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r3'},new)
+        self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r4'},new)
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated-new)
         for ident in expected:
             self.assertEqual(rows[ident]['knowledge_updated_at'],'2026-11-13')

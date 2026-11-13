@@ -91,10 +91,11 @@ class CurvePreviewV6(unittest.TestCase):
         self.assertFalse(response['execution_authorized'])
         self.assertFalse(response['write_performed'])
         self.assertIsNone(response['decision']['selected'])
-        self.assertTrue({'customer_checkout_unverified', 'necessary_fee_unverified',
-                         'validation_domain_unverified', 'procurement_time_unverified',
-                         'adopted_reference_curve_unavailable', 'comparison_episode_unavailable'}
-                        <= set(response['decision']['gaps']))
+        self.assertCountEqual(response['decision']['gaps'], [
+            'customer_checkout_unverified', 'offer_path_unverified', 'necessary_fee_unverified',
+            'validation_domain_unverified', 'ordinary_delivery_cost_unverified', 'planning_baskets_unverified',
+            'adopted_reference_curve_unavailable', 'comparison_episode_unavailable',
+        ])
         current = response['current_catalogue']
         self.assertEqual(current['status'], 'saved_tier')
         self.assertEqual(current['captured_at'], READ_TIME.isoformat())

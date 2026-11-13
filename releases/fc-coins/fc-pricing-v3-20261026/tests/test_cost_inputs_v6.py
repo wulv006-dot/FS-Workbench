@@ -5,6 +5,7 @@ from decimal import Decimal
 import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -14,7 +15,8 @@ DASHBOARD = ROOT.parents[1] / 'fs-dashboard'
 sys.path[:0] = [str(ROOT / 'source'), str(DASHBOARD / 'dashboard-refresh-20261025/source'),
                 str(DASHBOARD / 'cache-archive-retention-20261025/source')]
 from fc_pricing_v3 import business_source
-from fc_pricing_v3.cost_inputs_v6 import BOC_URL, estimate_historical_cost, project_admin_loss_statistics
+from fc_pricing_v3 import runtime
+from fc_pricing_v3.cost_inputs_v6 import BOC_URL, ORDINARY_COST_BASIS, estimate_historical_cost, project_admin_loss_statistics
 from order_facts_source import project_order_facts
 
 
@@ -100,16 +102,100 @@ def fx(at=AS_OF, **overrides):
                      published_at=at.strftime('%Y/%m/%d'), url=BOC_URL), **overrides)
 
 
-def run(attachments, *, revisions=(), rate=None, as_of=AS_OF, basis='PURCHASE_K', matches=None):
+def run(attachments, *, revisions=(), rate=None, as_of=AS_OF, basis='PURCHASE_K', matches=None,
+        ordinary_forecast=False, current_cost=None):
     if matches is None:
         matches = {row['order_key']: dict(layer=LAYER, order_revision=row['source_sha256'],
                     available_at=row['available_at'], evidence_ref='verified-layer')
                    for item in reversed(attachments) for row in item['historical_orders']}
     return estimate_historical_cost(attachments, LAYER, basis, as_of=as_of, paid_cutoff=CUT,
-                                    layer_matches=matches, fact_revisions=revisions, fx=rate)
+                                    layer_matches=matches, fact_revisions=revisions, fx=rate,
+                                    ordinary_forecast=ordinary_forecast, current_cost=current_cost)
 
 
 class CostInputs(unittest.TestCase):
+    def test_reads_complete_original_delivery_days_and_applies_only_newer_covered_rows(self):
+        scope = dict(site_id='266', gid='1327', start='2026-11-06', end='2026-11-08')
+        raw = dict(site_id='266', gid='1327', order_no='fixture-order', paytime='2026-11-06 10:00:00',
+                   pay_status='1', status_format='已完成', site={'full_title':'www.mmoexp.com'})
+        shared = dict(rows=[raw], dataset=None, identity_catalog=None,
+                      coverage=dict(admin_complete=True, source_revision='shared-revision',
+                                    captured_at='2026-11-09T10:00:00+08:00'))
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root/'delivery-days').mkdir()
+            for day, rows in (('2026-11-06', [('1','20')]), ('2026-11-07', [('2','30'),('3','40')])):
+                path = root/'delivery-days'/(day+'.json')
+                data = dict(contract='channel-order-deliveries-v1', complete=True,
+                    generatedAt=day+'T23:59:59+08:00', period=dict(start=day,end=day), rows=[
+                        dict(source='www.mmoexp.com', sn='fixture-order', delivery_id=ident, genre='1',
+                             cost_total=cost, trade_at=day+' 11:00:00') for ident,cost in rows])
+                path.write_text(json.dumps(data), encoding='utf-8')
+            latest = dict(data, generatedAt='2026-11-09T12:00:00+08:00',
+                period=dict(start='2026-11-07',end='2026-11-08',until='2026-11-08 08:00'),
+                rows=[dict(data['rows'][0], cost_total='50')])
+            (root/'order-deliveries.json').write_text(json.dumps(latest), encoding='utf-8')
+            result = runtime.ordinary_delivery_archives(scope, shared, root=root)
+        proof = result['source_coverage']['cost']
+        self.assertEqual(len(proof['shipment_windows']), 3)
+        self.assertFalse(proof['order_cost_complete'])
+        self.assertEqual(result['orders'][0]['observed_cost_cny'], '70')
+        self.assertEqual({item['cost_record_id'] for item in result['orders'][0]['cost_records']}, {'1','2'})
+
+    def test_complete_ordinary_delivery_supports_forecast_without_relabeling_historical_cost(self):
+        orders = list(rows_for([2] * 10, quantity='2500K Coins + 60K Free x1 = $200'))
+        original = attachment(orders)
+        fields = dict(qty='2560', gift='0', cost_unit='0.390000', quantity_unit=None)
+        fact = facts(orders, cost='998.40', delivery_fields=fields)
+        before = deepcopy(fact)
+        result = run([original], revisions=[fact], rate=fx(), basis='PROMISED_DELIVERED_K',
+                     ordinary_forecast=True)
+        self.assertEqual(result['status'], 'calculated')
+        self.assertEqual(result['cost_basis'], ORDINARY_COST_BASIS)
+        self.assertEqual(result['selected_window']['ordinary_delivery_orders'], 10)
+        self.assertFalse(result['order_cost_source']['order_cost_complete'])
+        expected = result['diagnostic_estimate']['expected_unit_usd']
+        self.assertAlmostEqual(expected, Decimal('.39') / 7)
+        self.assertEqual(result['diagnostic_estimate']['safe_unit_usd'], expected)
+        self.assertAlmostEqual(result['diagnostic_estimate']['stress_unit_usd'], expected)
+        self.assertEqual(fact, before)
+        for kwargs, expected_gap in (
+                (dict(shipment_complete=False), 'ordinary_delivery_window_unverified'),
+                (dict(delivery_fields=dict(fields, qty='2559')), 'ordinary_delivery_cost_sample_missing'),
+                (dict(delivery_fields=dict(fields, trade_at=(CUT + timedelta(hours=1)).isoformat())),
+                 'ordinary_delivery_cost_sample_missing')):
+            options = dict(cost='998.40', delivery_fields=fields) | kwargs
+            failed = run([original], revisions=[facts(orders, **options)], rate=fx(), ordinary_forecast=True)
+            self.assertEqual(failed['status'], 'PROOF_INCOMPLETE')
+            self.assertIn(expected_gap, failed['gaps'])
+
+    def test_same_layer_upper_covers_missing_cost_and_never_understates_observed_partial(self):
+        orders = list(rows_for([2, 3, 4], quantity='2500K Coins + 60K Free x1 = $200'))
+        fields = dict(qty='2560', gift='0', cost_unit='0.390000', quantity_unit=None)
+        source = attachment(orders)
+        fixed = dict(rate=fx(), basis='PROMISED_DELIVERED_K', ordinary_forecast=True)
+        subset = facts(orders[:2], cost='998.40', delivery_fields=fields)
+        result = run([source], revisions=[subset], **fixed)
+        self.assertEqual(result['status'], 'calculated')
+        self.assertEqual(result['cost_upper_source']['source'], 'up_to_six_latest_same_layer_ordinary_delivery_cost_max')
+        self.assertEqual(result['diagnostic_estimate']['incomplete_cost_orders'], 1)
+        all_orders = facts(orders, cost='998.40', delivery_fields=fields)
+        partial = all_orders['orders'][-1]
+        partial['observed_cost_cny'] = '1280'
+        partial['cost_records'][0].update(quantity='2559', cost_cny='1280')
+        blocked = run([source], revisions=[all_orders], **fixed)
+        self.assertIn('upper_below_known_partial', blocked['gaps'])
+        current = dict(platform='PS', status='valid', game='FC27', product='Game Coins', unit='CNY/K',
+                       genre='1', record_id='7', cny_per_1k='.55', checked_at=AS_OF.isoformat(),
+                       trade_at=(AS_OF-timedelta(hours=1)).isoformat())
+        supported = run([source], revisions=[all_orders], current_cost=current, **fixed)
+        self.assertEqual(supported['status'], 'calculated')
+        self.assertEqual(supported['cost_upper_source']['record_id'], '7')
+        self.assertAlmostEqual(supported['diagnostic_estimate']['safe_unit_usd'], Decimal('.55')/7)
+        other = run([source], revisions=[all_orders], current_cost=dict(current, platform='PC'), **fixed)
+        self.assertIn('upper_below_known_partial', other['gaps'])
+        self.assertIsNone(other['current_cost_source'])
+
     def test_attachment_amount_is_cny_observation_and_never_rewrites_actuals(self):
         orders = list(rows_for([1]))
         original = attachment(orders, cost='70')

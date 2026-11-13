@@ -194,7 +194,8 @@ class AdminDcTests(unittest.TestCase):
         current = targets.three_platform_targets(SOURCE)
         candidate = targets.curve_v6_targets(SOURCE)
         modules = {'competitor_offers.py', 'cost_inputs_v6.py', 'cost_model.py', 'price_curve.py',
-                   'pricing_proof_v6.py', 'planning_baskets_v6.py', 'curve_strategy_v6.py', 'order_projection_v6.py'}
+                   'pricing_proof_v6.py', 'planning_baskets_v6.py', 'curve_strategy_v6.py', 'order_projection_v6.py',
+                   'native_checkout_evidence.py'}
         added = {prefix + 'fc_pricing_v3/' + name for prefix in ('', 'hermes-copy/') for name in modules}
         self.assertEqual(set(targets.CURVE_V6_MODULES), modules)
         self.assertEqual(set(candidate) - set(current), added | {
@@ -202,7 +203,7 @@ class AdminDcTests(unittest.TestCase):
             'lootbar-collector/background.js', 'collect_competitor.sh',
             'collector/collect_competitor_browser.py',
         })
-        self.assertEqual(targets.CURVE_V6_TARGET_COUNT, 58)
+        self.assertEqual(targets.CURVE_V6_TARGET_COUNT, 60)
         self.assertEqual(len(candidate), targets.CURVE_V6_TARGET_COUNT)
         self.assertEqual({key: path for key, path in candidate.items() if key in current},
                          {key: current[key] for key in candidate.keys() & current.keys()})

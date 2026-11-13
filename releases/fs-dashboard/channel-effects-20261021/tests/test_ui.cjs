@@ -31,7 +31,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname.startsWith('/__hub/')) {res.setHeader('Content-Type','text/javascript');res.end('');return;}
   const name = url.pathname === '/dashboard/channel-effects/' ? 'index.html' : url.pathname.split('/').pop();
-  if (!['index.html','channel.js','channel.css'].includes(name)) {res.writeHead(404);res.end();return;}
+  if (!['index.html','channel.js','channel.css','world-map.js'].includes(name)) {res.writeHead(404);res.end();return;}
   res.setHeader('Content-Type', {'.js':'text/javascript','.css':'text/css','.html':'text/html'}[path.extname(name)]);
   res.end(fs.readFileSync(path.join(root,'ui',name)));
 });

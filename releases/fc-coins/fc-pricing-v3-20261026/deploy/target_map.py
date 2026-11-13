@@ -9,7 +9,7 @@ CURVE_V6_SCOPE = 'fc-pricing-owned-curve-v6-20261113'
 CURVE_V6_BASE = '7042edaf90647cbd51ab7df3e35f7b4341f72b3f'
 CURVE_V6_MODULES = ('competitor_offers.py', 'cost_inputs_v6.py', 'cost_model.py', 'price_curve.py',
                     'pricing_proof_v6.py', 'planning_baskets_v6.py', 'curve_strategy_v6.py',
-                    'order_projection_v6.py')
+                    'order_projection_v6.py', 'native_checkout_evidence.py')
 CURVE_V6_CHANGED_MODULES = (
     'adapters.py', 'api.py', 'business_source.py', 'daily.py', 'dispatch.py', 'engine.py',
     'ledger.py', 'market_registry.py', 'monitoring.py', 'observations.py', 'runtime.py', 'scheduler.py', 'selective_sources.py',
@@ -64,6 +64,14 @@ CURVE_V6_REPOSITORY_SOURCES = {
     'source/collector/collect_competitor_browser.py': 'fc27_cloud_browser/collect_competitor_browser.py',
 }
 CURVE_V6_EXECUTABLES = ('source/collect_lootbar.sh', 'source/collect_competitor.sh')
+CURVE_V6_PROTECTED = (
+    '/opt/fs-sports-outbound/collect_fc_u4gm.py',
+    '/opt/fs-exact-range-20261001/order_facts_runtime.py',
+    '/opt/fs-exact-range-20261001/order_facts_source.py',
+    '/opt/fs-exact-range-20261001/order_facts.py',
+    '/opt/fs-hermes-fc/shared_es_facts.py',
+    '/opt/fs-hermes-fc/order_attribution.py',
+)
 
 THREE_PLATFORM_SCOPE='fc-pricing-three-platform-20261110'
 THREE_PLATFORM_MODULES=('platforms.py','legacy_simulation/platform_v2_engine.py',

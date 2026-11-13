@@ -47,10 +47,26 @@
     <p id="status" class="status" role="status" aria-live="polite">正在确认当前账号…</p>
     <div id="results" hidden>
       <p id="scope" class="scope"></p>
-      <section class="panel attribution-panel" aria-labelledby="source-attribution-title"><h2 id="source-attribution-title">渠道订单占比</h2><p id="source-attribution-note" class="hint"></p><div id="source-attribution-chart"></div><div id="source-attribution"></div><div id="source-attribution-associations"></div></section>
       <section id="kpis" class="kpis" aria-label="渠道核心指标"></section>
-      <details class="panel definitions"><summary>统计范围与成本覆盖 <span id="coverage"></span></summary><div id="definitions"></div></details>
       <section class="panel trend-panel" aria-labelledby="trend-title"><div class="section-header"><h2 id="trend-title">每日销售与毛利趋势</h2><button id="export-facts" type="button" disabled hidden>导出当前汇总 CSV</button></div><p id="trend-hint" class="hint"></p><div id="trend"></div><details><summary>查看每日数据表</summary><div id="trend-table"></div></details></section>
+      <section class="panel attribution-panel" aria-labelledby="source-attribution-title"><h2 id="source-attribution-title">渠道订单占比</h2><p id="source-attribution-note" class="hint"></p><div id="distribution-charts" class="two-columns distribution-charts">
+          <div><h3>订单占比</h3><div id="source-attribution-chart"></div></div>
+          <div><h3>销售额占比（USD）</h3><div id="source-sales-chart"></div></div>
+        </div><div id="source-attribution"></div><div id="source-attribution-associations"></div></section>
+      <div id="fact-dimensions" hidden>
+        <section class="panel" aria-labelledby="fact-country-title">
+          <h2 id="fact-country-title">国家 / 地区</h2>
+          <div class="country-layout">
+            <section aria-labelledby="fact-country-rank-title"><h3 id="fact-country-rank-title">销售额排名 · 前 8 名</h3><div id="fact-country-rank"></div></section>
+            <section aria-labelledby="fact-country-map-title"><h3 id="fact-country-map-title">订单地理分布</h3><div id="fact-country-map"></div></section>
+          </div>
+          <details class="dimension-details"><summary>查看全部国家 / 地区</summary><div id="fact-countries"></div></details>
+        </section>
+        <section class="panel" aria-labelledby="fact-device-title">
+          <h2 id="fact-device-title">支付设备</h2><div id="fact-device-chart"></div><div id="fact-devices"></div>
+        </section>
+      </div>
+      <details class="panel definitions"><summary><span id="definitions-title">统计范围</span> <span id="coverage"></span></summary><div id="definitions"></div></details>
       <details id="facts-detail" class="panel definitions" hidden>
         <summary>查看同一范围的订单、推广人、折扣码和优惠券</summary>
         <p id="facts-detail-status" class="hint" role="status"></p>

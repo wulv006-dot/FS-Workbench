@@ -558,6 +558,88 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(runtime._validated_curve(target, found['all_inputs'][curve_key(target)])['status'],
                              'PROOF_INCOMPLETE')
 
+    def test_same_round_native_path_preserves_checkout_scope_and_ordinary_cost(self):
+        from decimal import Decimal
+        from fc_pricing_v3.price_curve import curve_key
+        from test_cost_inputs_v6 import AS_OF, CUT, attachment, facts, fx, rows_for
+        from test_curve_strategy_v6 import fixture
+
+        curve, _, _ = fixture()
+        self.assertEqual(curve['identity']['aid'], '21587')
+        tier = next(row for row in curve['tiers'] if row['purchase_k'] == '1000')
+        purchase = tier['purchase_k']
+        bonus = tier['promised_bonus_k']
+        total = str(Decimal(purchase) + Decimal(bonus))
+        ordinary_orders = list(rows_for([48] * 10, quantity=f'{purchase}K Coins + {bonus}K Free x1 = $100'))
+        source = attachment(ordinary_orders)
+        for row in source['historical_orders']:
+            row['region_id'] = 0
+        source['historical_orders'][0]['promotion_path'] = dict(kind='coupon', template_id='1327',
+            evidence_ref='same-order-redemption', historical_regular_usd='10.22', historical_discount_usd='5.00')
+        source['historical_orders'][1]['promotion_path'] = dict(kind='code', code_ref='code-one-ref')
+        source['historical_orders'][2]['promotion_path'] = dict(kind='code', code_ref='code-two-ref')
+        recent = dict(source, historical_orders_coverage=dict(source['historical_orders_coverage'],
+                                                              paid_window_end_exclusive=CUT.isoformat()))
+        cost_facts = facts(ordinary_orders, cost=str(Decimal(total) * Decimal('.39')),
+                           delivery_fields={'qty':total, 'gift':'0', 'cost_unit':'.39'})
+        checkout = dict(curve_key=curve_key(curve), platform='PS', site_id='266',
+                        coverage_gaps=['member_and_discount_allocation_unverified'], lines=[
+            dict(purchase_k=purchase, gift_k=bonus, promised_delivered_k=total, regular_usd=tier['native_price_usd'],
+                 proof_status='verified', offer_path='anonymous_no_coupon', quote_basis='observed_native_cart',
+                 net_goods_usd=tier['native_price_usd'], quote_ref='checkout-ref', eligibility_ref='eligibility-ref',
+                 offer_version='current-guest-offer', fulfilment_contract='native-guest-cart',
+                 native_tier_or_rule='native-1000', rounding_contract='native-cent', path_id='catalogue:1000')])
+        def terms(identity, rule):
+            return dict(path=rule, eligibility='eligible-member', source_revision='template-' + identity)
+
+        coupons = dict(terms={
+            '1327': terms('1327', dict(kind='fixed', threshold_usd='10', discount_usd='5', cap_usd=None)),
+            '1323': terms('1323', dict(kind='ratio', threshold_usd='0', retained_ratio='.8', cap_usd='50')),
+            '1331': terms('1331', dict(kind='fixed', threshold_usd='999', discount_usd='20', cap_usd=None)),
+        })
+        code_rule = dict(kind='ratio', threshold_usd='0', retained_ratio='.92', cap_usd=None)
+        codes = {ref: dict(terms(ref, code_rule), aid='0') for ref in ('code-one-ref', 'code-two-ref')}
+        proof_input = runtime._catalogue_proof_input(curve, 'PS', source, CUT.isoformat(), AS_OF,
+            recent=recent, checkout=checkout, facts=cost_facts, fx=fx(), coupons=coupons, codes=codes)
+        path = next(row for row in proof_input['evidence']['paths'] if row['purchase_k'] == purchase)
+        self.assertEqual(path.get('cost_status'), 'verified', path)
+        self.assertEqual(path['quote_basis'], 'observed_native_cart')
+        self.assertAlmostEqual(Decimal(path['stress_cost_usd']), Decimal(total) * Decimal('.39') / 7)
+        self.assertEqual(proof_input['baskets']['main']['matched_orders'], 10, proof_input['baskets']['main'])
+        self.assertEqual(proof_input['baskets']['recent']['selection'], 'main_fallback')
+        result = runtime._validated_curve(curve, proof_input)
+        receipt_paths = {row.get('coupon_template_id'): row for row in result['paths'] if row.get('coupon_template_id')}
+        self.assertEqual(set(receipt_paths), {'1327', '1323', '1331'})
+        fixed = receipt_paths['1327']
+        self.assertEqual(Decimal(fixed['net_receipt_usd']), Decimal(path['regular_usd']) - 5)
+        self.assertEqual(fixed['cost_ref'], path['cost_ref'])
+        self.assertEqual(fixed['quote_basis'], 'derived_eligible_single_line_coupon_net_lower_bound')
+        self.assertEqual(receipt_paths['1331']['net_receipt_usd'], str(Decimal(path['regular_usd']).normalize()))
+        self.assertFalse(receipt_paths['1331']['coupon_subtotal_eligible'])
+        code_paths = [row for row in result['paths'] if row.get('discount_code_terms_revision')]
+        self.assertEqual(len(code_paths), 1)
+        self.assertEqual(code_paths[0]['discount_code_rule'], code_rule)
+        weights = {row['path_id']: row['weight'] for row in proof_input['baskets']['main']['members']}
+        self.assertEqual(weights, {'catalogue:1000': '7', 'catalogue:1000:coupon:1327': '1', code_paths[0]['path_id']: '2'})
+        self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
+        self.assertIn('member_and_discount_allocation_unverified', result['scope']['coverage_gaps'])
+        self.assertNotIn('procurement_time_unverified', result['gaps'])
+
+    def test_candidate_coupon_money_bounds_use_each_rule_and_candidate_subtotal(self):
+        path = dict(path_id='catalogue:100', curve_key='candidate', regular_usd='9.99')
+        native = dict(quote_ref='guest-quote', offer_version='guest-version')
+        terms = dict(source_revision='current-template', eligibility='eligible-voucher',
+                     path=dict(kind='fixed', threshold_usd='10', discount_usd='5', cap_usd=None))
+        below = runtime._coupon_quote_path(path, native, '1327', terms)
+        reached = runtime._coupon_quote_path(dict(path, regular_usd='10.00'), native, '1327', terms)
+        self.assertEqual((below['net_receipt_usd'], below['coupon_subtotal_eligible']), ('9.99', False))
+        self.assertEqual((reached['net_receipt_usd'], reached['coupon_subtotal_eligible']), ('5.00', True))
+        self.assertNotEqual(below['quote_ref'], reached['quote_ref'])
+        share = dict(terms, path=dict(kind='ratio', threshold_usd='0', retained_ratio='.8', cap_usd='50'))
+        cap = runtime._coupon_quote_path(dict(path, regular_usd='300.01'), native, '1323', share)
+        rounded = runtime._coupon_quote_path(dict(path, regular_usd='10.01'), native, '1323', share)
+        self.assertEqual((cap['net_receipt_usd'], rounded['net_receipt_usd']), ('250.01', '8.00'))
+
 
 if __name__ == '__main__':
     unittest.main()

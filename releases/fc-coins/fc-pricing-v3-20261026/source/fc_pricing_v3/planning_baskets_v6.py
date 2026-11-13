@@ -5,6 +5,7 @@ from datetime import timedelta
 from .business_source import historical_period
 from .financial import fingerprint, instant, number
 from .platforms import PLATFORMS
+from .pricing_proof_v6 import REFUND_RECOVERY_POLICY
 
 
 PAID_SCOPE = 'site266_fc27_coins_paid'
@@ -52,9 +53,8 @@ def _attachment(attachment, start, end, as_of):
         gaps['paid_source_window_uncovered'] += 1
     if proof.get('population_status') != 'complete' or proof.get('window_complete') is not True:
         gaps['paid_source_population_incomplete'] += 1
-    # The original attachment excludes refunds and explicitly lacks their revision chain.
-    if scope != PAID_SCOPE or proof.get('refund_revision_coverage') != 'complete':
-        gaps['paid_source_refund_revisions_unverified'] += 1
+    # Refund and recovery revisions remain historical diagnostics. Basket coverage
+    # uses the attached ordinary paid population under the V6 forecast policy.
     return rows, revision, available, gaps
 
 
@@ -135,7 +135,8 @@ def _window(attachment, start, end, as_of, platform, curve_key, repriced_orders,
         gaps['current_quote_path_revision_conflict'] += weights.pop(path)
     evidence_ref = fingerprint(dict(curve_key=curve_key, platform=platform, selection=selection,
                                     start=start.isoformat(), end=end.isoformat(),
-                                    source_sha256=revision, mappings=mappings, coverage=dict(gaps)))
+                                    source_sha256=revision, mappings=mappings, coverage=dict(gaps),
+                                    refund_recovery_policy=REFUND_RECOVERY_POLICY))
     return dict(selection=selection, evidence_ref=evidence_ref,
                 window=dict(start=start.isoformat(), end_exclusive=end.isoformat()),
                 source_sha256=revision, coverage_status='partial' if gaps else 'complete',

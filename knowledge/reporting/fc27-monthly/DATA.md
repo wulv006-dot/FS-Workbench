@@ -6,7 +6,9 @@
 
 统一定义见[业务基准第1、7节及财务补充](../../../docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md)与[总方案附录A](../../../docs/planning/fs-fc-admin-es-20261112/MASTER.md)。保留requested/effective_scope、unsupported、时区、publication/data revision与coverage；Admin国家／分钟能力不自动扩展Order毛利。原生复购raw与本地区间复购分子分母分开，区间复购不是留存。
 
-渠道按「归因渠道＞订单来源＞推广人及折扣码」，同级冲突待核。四项皆空为未知，有线索未映射为待归类。明确直接访问归Direct；渠道与来源均未知时，已映射折扣码也归Direct，类别只作细分，收入计一次。保留原字段及协助；首访不是首购，订单渠道、历史首购、价格窗口分开，后补回原窗。母订单收入去重，多次真实发货保留，actual_cost缺覆盖为null、费用unknown。SEO后台已记录订单及Admin已付金额附覆盖，金额非净收入；GSC／GA4与旧估算独立，无订单—会话连接不造CVR/CAC。
+渠道沿业务基准第7节：未映射码归Direct/运营，仅券且无更高归属归Direct/新人/活动，码券并用按码；其他未映射线索待核，全空未知。首访非首购；订单渠道、历史首购、价格窗口分开，后补回原窗。收入去重、多次真实发货保留；actual_cost缺覆盖=null、费用unknown。SEO用后台订单及Admin已付金额附覆盖，非净收入。GSC/GA4及旧估算独立，无订单—会话连接不造CVR/CAC。
+
+同筛选订单/美元销售占比：全渠道用全体分母，单选用渠道内来源分母。地区和设备同范围：0=PC、1=移动端、缺失=未知。
 
 候选知识／V6.1报价证明不冒充部署、写价、激活或模型消费；工具以当前schema为准，暂停报告不恢复。
 

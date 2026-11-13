@@ -142,13 +142,80 @@ class OrderFactsAPI(unittest.TestCase):
         rows = list(csv.reader(io.StringIO(result['aggregate_csv'].lstrip('\ufeff'))))
         self.assertEqual(rows[1][:5],[DAY,next_day,'266','1327','Direct'])
         self.assertEqual(rows[1][7],result['snapshot_id'])
-        self.assertEqual([row[:9] for row in rows[3:]], [['来源明细','未提供','partial','1','50','0','','','0'],
-                                   ['日期',DAY,'available','1','50','0','','','0'],
-                                   ['日期',next_day,'partial','0','','0','','','0']])
-        self.assertEqual(rows[3][9],'1.0')
+        self.assertEqual([row[:10] for row in rows[3:]], [['来源明细','未提供','partial','1','50','0','','','1.0','1.0'],
+                                   ['日期',DAY,'available','1','50','0','','','',''],
+                                   ['日期',next_day,'partial','0','','0','','','','']])
         value['source_coverage']['attribution'] = {'publication_id':'new-revision'}
         self.assertNotEqual(result['snapshot_id'],public(value,q)['snapshot_id'])
         self.assertNotIn('PRIVATE-ORDER',json.dumps(result))
+
+    def test_native_profit_weights_same_group_and_dates_by_delivery_and_keeps_unknown_device(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        next_day = (datetime.fromisoformat(DAY) + timedelta(days=1)).date().isoformat()
+        scope=dict(start=DAY,end=next_day,site_id='266',gid='1327')
+        base=dict(site_id='266',gid='1327',paytime=DAY+' 10:00:00',pay_status='1',amount_rmb_format='999')
+        rows=[dict(base,order_no=sn,amount_usd_format=usd,country_code=country,**extra)
+              for sn,usd,country,extra in (
+                  ('both','30','US',dict(device=0,discount_code='unmapped')),
+                  ('coupon','50','us',dict(device=1)),
+                  ('unknown','20','DE',{}))]
+        def delivery(sn,ident,day,sale,cost):
+            return dict(sn=sn,delivery_id=ident,source='www.mmoexp.com',genre='1',
+                        trade_at=day+' 09:00:00',sale_total=sale,cost_total=cost)
+        deliveries=[delivery('both','a',DAY,100,50),delivery('both','b',next_day,300,270),
+                    delivery('both','c','2020-01-01',1000,1),delivery('coupon','d',DAY,100,110),
+                    delivery('unknown','e',DAY,None,20),delivery('another-order','f',DAY,999,1)]
+        source=build_order_facts(rows,[],deliveries,sites={'266':'www.mmoexp.com'},scope=scope,
+                                 source_coverage={'admin_complete':True})
+        mapping=Attribution({'entries':[]},[],{})
+        for row,native in zip(source['orders'],rows):
+            evidence={'coupons':[{'title':'Launch'}]} if row['order_no']!='unknown' else None
+            row['effective_attribution']=effective_attribution(row,native,evidence,mapping)
+        all_rows=public(source,dict(scope,channel='all'))
+        self.assertEqual([(r['channel'],r['orders'],r['order_share'],r['sales_share'])
+                          for r in all_rows['breakdown']['rows']],[('Direct',2,2/3,.8),('unknown',1,1/3,.2)])
+        direct=public(source,dict(scope,channel='Direct'))
+        self.assertEqual([(r['label'],r['orders'],r['order_share'],r['sales_share']) for r in direct['breakdown']['rows']],
+                         [('新人/活动',1,.5,.625),('运营',1,.5,.375)])
+        self.assertEqual(direct['totals']['order_profit_cny'],'70')
+        self.assertAlmostEqual(direct['totals']['order_profit_rate'],.14)
+        self.assertEqual([(r['day'],r['order_profit_cny'],r['order_profit_rate']) for r in direct['trend']],
+                         [(DAY,'40',.2),(next_day,'30',.1)])
+        self.assertIsNone(direct['totals']['procurement_gross_cny'])
+        self.assertEqual(direct['dimensions']['country'],[dict(label='US',orders=2,order_share=1,sales_usd='80')])
+        self.assertEqual({r['label']:r['orders'] for r in all_rows['dimensions']['device']},
+                         {'PC':1,'移动端':1,None:1})
+        self.assertIn('Order原生利润率',direct['aggregate_csv'])
+
+    def test_incomplete_native_delivery_leaves_only_affected_profit_and_rate_blank(self):
+        next_day = (datetime.fromisoformat(DAY) + timedelta(days=1)).date().isoformat()
+        scope=dict(start=DAY,end=next_day,site_id='266',gid='1327')
+        rows=[dict(site_id='266',order_no=sn,gid='1327',paytime=DAY+' 10:00:00',
+                   pay_status='1',amount_usd_format='50')
+              for sn in ('incomplete','complete')]
+        attrs=[dict(site_id='266',order_no=sn,**{'归因渠道':channel})
+               for sn,channel in (('incomplete','Direct'),('complete','SEO'))]
+        deliveries=[dict(source='www.mmoexp.com',genre='1',sn=sn,delivery_id=ident,
+                         trade_at=day+' 13:00:00',sale_total=sale,cost_total=cost)
+                     for sn,ident,day,sale,cost in (
+                         ('incomplete','a',DAY,100,80),('incomplete','b',DAY,100,None),
+                         ('complete','c',next_day,100,80),('complete','d','2020-01-01',None,2))]
+        facts=build_order_facts(rows,attrs,deliveries,sites={'266':'www.mmoexp.com'},scope=scope,
+                                source_coverage={'admin_complete':True})
+        details=[]
+        result=public(facts,dict(scope,channel='all'),detail_rows=details)
+        def profit(row):
+            return row['order_profit_cny'],row['order_profit_rate']
+        self.assertEqual(profit(result['totals']),(None,None))
+        by_channel={row['channel']:profit(row) for row in result['channels']}
+        self.assertEqual(by_channel,{'Direct':(None,None),'SEO':('20',.2)})
+        self.assertEqual([profit(row) for row in result['trend']],[(None,None),('20',.2)])
+        self.assertEqual([(row['orderProfitCny'],row['orderProfitRate']) for row in details],
+                         [(None,None),('20',.2)])
+        entries=list(csv.reader(io.StringIO(result['aggregate_csv'].lstrip('\ufeff'))))
+        self.assertEqual(entries[3][6:8],['',''])
+        self.assertEqual(entries[4][6:8],['20','0.2'])
 
     def test_trend_keeps_complete_zero_and_does_not_fill_missing_amount(self):
         q = selection(params())

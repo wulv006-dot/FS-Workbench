@@ -1,4 +1,5 @@
 import {protectedRead, sessionIdentity} from '/dashboard/workspace-assets/workspace-native-20261006-ba0a83afd594/runtime.js';
+import {WORLD} from './world-map.js';
 
 const $ = id => document.getElementById(id);
 const form = $('filters');
@@ -172,9 +173,10 @@ function trend(rows, facts = false) {
   const x = i => left + (right - left) * (i + .5) / rows.length;
   const ySales = v => bottom - (bottom - top) * v / maxSales;
   const yProfit = v => bottom - (bottom - top) * (v - minProfit) / (maxProfit - minProfit);
+  const profitLabel = facts ? 'Order 原生利润' : '毛利';
   const chart = svgNode('svg', {viewBox:`0 0 ${width} ${height}`, class:'chart', role:'img', 'aria-labelledby':'daily-chart-title daily-chart-desc'});
-  chart.append(svgNode('title', {id:'daily-chart-title'}, '每日销售与毛利趋势'), svgNode('desc', {id:'daily-chart-desc'}, '柱形为美元销售，折线为人民币毛利。缺失成本保留断点；完整数值见下方每日数据表。'));
-  chart.append(svgNode('text', {x:left, y:17}, '销售额 USD'), svgNode('text', {x:right, y:17, 'text-anchor':'end'}, '毛利 CNY'));
+  chart.append(svgNode('title', {id:'daily-chart-title'},  `每日销售与${profitLabel}趋势`), svgNode('desc', {id:'daily-chart-desc'}, `柱形为美元销售，折线为人民币${profitLabel}。完整数值见下方每日数据表。`));
+  chart.append(svgNode('text', {x:left, y:17}, '销售额 USD'), svgNode('text', {x:right, y:17, 'text-anchor':'end'}, profitLabel+' CNY'));
   for (let i = 0; i <= 4; i++) {
     const y = top + (bottom - top) * i / 4;
     chart.append(svgNode('line', {x1:left,x2:right,y1:y,y2:y,class:'axis'}));
@@ -186,17 +188,17 @@ function trend(rows, facts = false) {
   rows.forEach((r, i) => {
     if (r.salesUsd != null) {
       const bar = svgNode('rect', {x:x(i) - Math.min(22, 270 / rows.length), y:ySales(r.salesUsd), width:Math.min(44, 540 / rows.length), height:Math.max(0, bottom - ySales(r.salesUsd)), rx:2, class:'sales'});
-      bar.append(svgNode('title', {}, `${r.key} · 销售 ${usd(r.salesUsd)} · 毛利 ${cny(r.profitCny)}`)); chart.append(bar);
+      bar.append(svgNode('title', {}, `${r.key} · 销售 ${usd(r.salesUsd)} · ${profitLabel} ${cny(r.profitCny)}`)); chart.append(bar);
     }
     if (r.profitCny == null) flush(); else segment.push(`${x(i)},${yProfit(r.profitCny)}`);
     if (i % Math.max(1, Math.ceil(rows.length / 9)) === 0 || i === rows.length - 1) chart.append(svgNode('text', {x:x(i),y:bottom + 24,'text-anchor':'middle'}, r.key.slice(5)));
   }); flush();
   if (rows.length <= 31) rows.forEach((r, i) => { if (r.profitCny != null) chart.append(svgNode('circle', {cx:x(i),cy:yProfit(r.profitCny),r:3,class:'point'})); });
-  const legend = text('div', null, 'chart-legend'); legend.append(text('span', '销售额（USD，左轴）'), text('span', '毛利（¥，右轴；已完成且已核算）'));
+  const legend = text('div', null, 'chart-legend'); legend.append(text('span', '销售额（USD，左轴）'), text('span', facts ? 'Order 原生利润（¥，右轴）' : '毛利（¥，右轴；已完成且已核算）'));
   $('trend').replaceChildren(chart, legend);
   if (facts) {
-    table('trend-table', ['日期','已知订单数','已知金额 USD','已读采购 ¥','已核同单毛利 ¥','完整成本覆盖','范围覆盖'], rows,
-      r => [r.key,count(r.orders),usd(r.salesUsd),cny(r.costCny),cny(r.profitCny),`${count(r.coveredOrders)} / ${count(r.orders)} 单`,r.status === 'available' ? '已读' : '部分'], '后台归因每日数值');
+    table('trend-table', ['日期','已知订单数','已知金额 USD','Order原生利润 ¥','Order原生利润率','范围覆盖'], rows,
+      r => [r.key,count(r.orders),usd(r.salesUsd),cny(r.profitCny),pct(r.margin),r.status === 'available' ? '已读' : '部分'], '后台归因每日数值');
   } else {
     table('trend-table', ['日期', '订单数', '销售额 $', '采购 ¥', '毛利 ¥', '利润率', '已完成核算'], rows, r => [r.key,count(r.orders),usd(r.salesUsd),cny(r.costCny),cny(r.profitCny),pct(r.margin),`${r.coveredOrders} / ${r.completedOrders}`], '每日销售与毛利数值');
   }
@@ -214,7 +216,9 @@ function orders() {
 }
 function sourceAttribution() {
   const source=data.sourceAttribution;
+  $('distribution-charts').hidden = true;
   $('source-attribution-chart').replaceChildren();
+  $('source-sales-chart').replaceChildren();
   $('source-attribution-associations').replaceChildren();
   $('source-attribution').replaceChildren();
   if(!source){$('source-attribution-note').textContent='旧快照尚未提供来源去重视图，未按零解释。';return;}
@@ -233,14 +237,14 @@ function modeControls() {
   const longRange = form.querySelector('[data-days="30"]');
   longRange.textContent = facts ? '近28天' : '近30天';
 }
-function attributionBars(rows, title) {
-  const host = $('source-attribution-chart');
+function attributionBars(rows, title, id = 'source-attribution-chart') {
+  const host = $(id);
   host.replaceChildren();
   if (!rows.length) return;
   const chart = svgNode('svg',{class:'attribution-bars',width:'100%',height:rows.length*37+36,
-    role:'img','aria-labelledby':'channel-distribution-title channel-distribution-description'});
-  chart.append(svgNode('title',{id:'channel-distribution-title'},title),
-    svgNode('desc',{id:'channel-distribution-description'},'横轴为订单占比，完整数值见下方表格。'+
+    role:'img','aria-labelledby':`${id}-title ${id}-description`});
+  chart.append(svgNode('title',{id:id+'-title'},title),
+    svgNode('desc',{id:id+'-description'},'横轴为订单占比，完整数值见下方表格。'+
       rows.map(row=>`${row.label} ${pct(row.order_share)} ${count(row.orders)} 单`).join('；')));
   for (const marker of [0,25,50,75,100]) {
     const x = `${35+marker*.48}%`;
@@ -259,6 +263,132 @@ function attributionBars(rows, title) {
     chart.append(group);
   });
   host.append(chart);
+}
+
+function salesPie(rows, title, complete) {
+  const host = $('source-sales-chart');
+  host.replaceChildren();
+  const segments = rows.filter(row=>row.sales_share>0).sort((a,b)=>b.sales_share-a.sales_share);
+  if (!segments.length) {
+    host.append(text('p','当前范围没有可绘制的销售额占比。','empty'));
+    return;
+  }
+  const displayed = segments.slice(0,6);
+  if (segments.length>6) displayed.push({label:'其余来源',sales_share:segments.slice(6).reduce((n,row)=>n+row.sales_share,0)});
+  const chart = svgNode('svg',{viewBox:'0 0 160 160',class:'sales-pie',role:'img','aria-label':title});
+  const legend = text('ul',null,'sales-pie-legend');
+  let offset = 0;
+  displayed.forEach((row,index)=>{
+    const segment = svgNode('circle',{cx:80,cy:80,r:59,pathLength:100,fill:'none',
+      'stroke-dasharray':`${row.sales_share*100} 100`,'stroke-dashoffset':-offset,
+      transform:'rotate(-90 80 80)',class:'sales-pie-segment'});
+    const label = `${row.label} · ${pct(row.sales_share)}`;
+    segment.append(svgNode('title',{},label)); chart.append(segment);
+    const item = text('li',label); item.dataset.segment = index; legend.append(item);
+    offset += row.sales_share*100;
+  });
+  host.append(chart,legend);
+  if (!complete) host.append(text('p','占比按已知销售额计算。','hint'));
+}
+
+function countryRanking(countries) {
+  const host = $('fact-country-rank');
+  const ranked = countries.filter(row=>row.label && row.sales_usd != null)
+    .sort((a,b)=>Number(b.sales_usd)-Number(a.sales_usd)).slice(0,8);
+  if (!ranked.length) {
+    host.replaceChildren(text('p','当前范围没有可排名的地区销售额。','empty'));
+    return;
+  }
+  const list = text('ol',null,'country-rank');
+  const maxSales = Math.max(Number(ranked[0].sales_usd),1);
+  ranked.forEach((row,index)=>{
+    const item = text('li');
+    const line = text('div',null,'country-rank-line');
+    const rank = text('span',String(index+1),'country-rank-number');
+    rank.setAttribute('aria-hidden','true');
+    const values = text('span',null,'country-rank-values');
+    values.append(text('strong',count(row.orders)+' 单'),text('span',usd(row.sales_usd)));
+    line.append(rank,text('span',countryLabel(row.label)),values);
+    const track = text('span',null,'bar-track'), fill = text('span',null,'bar-fill');
+    track.setAttribute('aria-hidden','true');
+    fill.style.width = Math.max(0,100*Number(row.sales_usd)/maxSales)+'%';
+    track.append(fill);item.append(line,track);list.append(item);
+  });
+  host.replaceChildren(list);
+}
+
+function deviceDistribution(devices) {
+  const chart = $('fact-device-chart'), host = $('fact-devices');
+  chart.replaceChildren();
+  host.replaceChildren();
+  if (!devices.length) {
+    host.append(text('p','当前范围没有设备记录。','empty'));
+    return;
+  }
+  const colors = new Map([['PC','pc'],['移动端','mobile']]);
+  const track = text('div',null,'device-distribution');
+  track.setAttribute('role','img');
+  track.setAttribute('aria-label','支付设备订单占比：'+devices.map(row=>
+    `${row.label || '未知'} ${pct(row.order_share)}`).join('；'));
+  const cards = text('ul',null,'device-cards');
+  for (const row of devices) {
+    const device = colors.get(row.label) || 'unknown';
+    const share = text('span',row.order_share>=.08 ? pct(row.order_share) : '');
+    share.dataset.device = device;
+    share.style.flexBasis = 100*row.order_share+'%';
+    share.setAttribute('aria-hidden','true');
+    track.append(share);
+    const card = text('li',null,'device-card');
+    card.dataset.device = device;
+    card.append(text('span',row.label || '未知','device-card-label'),text('strong',count(row.orders)+' 单'),
+      text('span',`${pct(row.order_share)} · ${usd(row.sales_usd)}`,'device-card-values'));
+    cards.append(card);
+  }
+  chart.append(track);
+  host.append(cards);
+}
+
+function renderFactDimensions(dimensions) {
+  const countries = dimensions?.country || [], devices = dimensions?.device || [];
+  const map = $('fact-country-map');
+  map.replaceChildren();
+  countryRanking(countries);
+  const visible = countries.filter(row=>row.label && Object.hasOwn(WORLD.cent,row.label));
+  if (visible.length) {
+    const countriesByCode = new Map(visible.map(row=>[row.label,row]));
+    const svg = svgNode('svg',{viewBox:`0 0 ${WORLD.w} ${WORLD.h}`,class:'fact-world-map',role:'img',
+      'aria-label':'订单国家 / 地区地图'});
+    const land = [], maxOrders = Math.max(...visible.map(row=>row.orders),1);
+    const maxSales = Math.max(...visible.map(row=>Number(row.sales_usd)||0),1);
+    const ramp = [1,.5,.18,.06,.015,.004,0];
+    for (const [code,path] of Object.entries(WORLD.paths)) {
+      const row = countriesByCode.get(code);
+      if (row) {
+        const level = row.sales_usd==null ? 'unknown' : ramp.findIndex(floor=>Math.max(0,row.sales_usd/maxSales)>=floor);
+        const region = svgNode('path',{d:path,class:'map-region','data-level':level});
+        region.append(svgNode('title',{},`${countryLabel(code)} · ${count(row.orders)} 单 · ${usd(row.sales_usd)}`));
+        svg.append(region);
+      } else land.push(path);
+    }
+    svg.prepend(svgNode('path',{d:land.join(''),class:'map-land'}));
+    for (const row of visible.slice(0,10)) {
+      const [cx,cy] = WORLD.cent[row.label];
+      svg.append(svgNode('circle',{cx,cy,r:4+17*Math.sqrt(row.orders/maxOrders),class:'map-order-dot'}));
+    }
+    const legend = text('div',null,'country-map-legend');
+    const scale = text('span',null,'country-map-scale');
+    scale.setAttribute('aria-hidden','true');
+    for (const level of [6,5,4,3,2,1]) {
+      const swatch = text('i',null,'map-region'); swatch.dataset.level=level; scale.append(swatch);
+    }
+    legend.append(text('span','销售额 低'),scale,text('span','高'),text('span','圆点大小表示订单量。','country-map-key'));
+    map.append(svg,legend);
+  } else {
+    map.append(text('p','当前范围没有可绘制的地区数据。','empty'));
+  }
+  table('fact-countries',['国家 / 地区','订单数','订单占比','销售额 USD'],countries,
+    row=>[row.label ? countryLabel(row.label) : '未知',count(row.orders),pct(row.order_share),usd(row.sales_usd)],'国家 / 地区订单排名');
+  deviceDistribution(devices);
 }
 
 function factAssociations(rows) {
@@ -298,7 +428,13 @@ function renderFacts() {
   const attributed = s.orders - s.unknown_channel_orders - pending;
   const sourceDetail = data.breakdown.dimension === 'source_detail';
   const title = sourceDetail ? `${channel} · 来源明细占比` : '各归因渠道订单占比';
-  $('source-attribution-title').textContent = title;
+  $('source-attribution-title').textContent = sourceDetail ? `${channel} · 来源明细占比` : '各归因渠道订单占比与销售额';
+  $('distribution-charts').hidden = false;
+  $('fact-dimensions').hidden = false;
+  $('kpis').dataset.mode = 'facts';
+  $('definitions-title').textContent = '统计范围与利润来源';
+  $('trend-title').textContent = '每日销售与 Order 原生利润';
+  renderFactDimensions(data.dimensions);
   const cohort = data.status==='unavailable' ? '订单覆盖未知' : `${sourceDetail ? '所选渠道' : '全部渠道'}共 ${count(data.breakdown.denominator_orders)} 单`;
   const missingFilter = data.coverage?.unverified_filter_orders;
   const missingDays = data.coverage?.missing_days?.length;
@@ -309,38 +445,38 @@ function renderFacts() {
     (data.status !== 'unavailable' && (data.status !== 'available' || !data.admin_complete) ? ' · 占比按已取得的订单计算' : '') +
     (data.breakdown.rows.length>10 ? ' · 图中显示前10项，完整数值见表' : '');
   attributionBars(data.breakdown.rows.slice(0,10),title);
+  salesPie(data.breakdown.rows,sourceDetail ? `${channel} · 来源销售额占比` : '各归因渠道销售额占比',
+    data.status==='available' && data.admin_complete && !s.missing_admin_usd_orders);
   const association = (row,key) => {
     const {known_orders:known,unknown_orders:unknown} = row.associations[key];
     return unknown === row.orders ? '未核' : `${count(known)}${unknown ? ` · ${count(unknown)} 未核` : ''}`;
   };
-  table('source-attribution',[sourceDetail?'来源明细':'归因渠道','订单数','订单占比','已知订单金额 USD','已读采购 ¥','已核同单毛利 ¥','完整成本覆盖','有折扣码','有推广人','有优惠券'],data.breakdown.rows,
+  table('source-attribution',[sourceDetail?'来源明细':'归因渠道','订单数','订单占比','已知订单金额 USD','销售额占比','Order原生利润 ¥','Order原生利润率','有折扣码','有推广人','有优惠券'],data.breakdown.rows,
     row => [row.label,count(row.orders),pct(row.order_share),usd(row.missing_admin_usd_orders===row.orders?null:row.admin_paid_usd),
-      cny(row.cost_records?row.observed_cost_cny:null),cny(row.procurement_gross_cny),`${count(row.cost_covered_orders)} / ${count(row.orders)} 单`,
+      pct(row.sales_share),cny(row.order_profit_cny),pct(row.order_profit_rate),
       ...['discount_code','promoter','coupon'].map(key=>association(row,key))],`${title}数据`);
   factAssociations(data.breakdown.rows);
   $('export-facts').hidden = false;
-  $('trend-hint').textContent = '按北京时间付款日汇总。金额只计已知记录，采购与毛利缺失留空，具体覆盖见每日数据表。';
+  $('trend-hint').textContent = '订单与销售按北京时间付款日，Order 原生利润按发货交易日。';
   if (data.trend_unallocated_orders) $('trend-hint').textContent += ` ${count(data.trend_unallocated_orders)} 单付款日期待核，已计入区间汇总。`;
   trend(data.trend.map(row => ({key:row.day,orders:row.orders,salesUsd:row.admin_paid_usd,
-    costCny:row.observed_cost_cny,profitCny:row.procurement_gross_cny,coveredOrders:row.cost_covered_orders,status:row.status})), true);
+    profitCny:row.order_profit_cny,margin:row.order_profit_rate,status:row.status})), true);
   const labels = [
     ['去重订单数', data.status==='unavailable'?'—':count(s.orders), '所选渠道的付款订单'],
     ['已知订单金额（USD）', usd(data.status==='unavailable'?null:s.admin_paid_usd), `缺美元金额 ${count(s.missing_admin_usd_orders)} 单`],
     ['已知订单金额（¥）', cny(data.status==='unavailable'?null:s.admin_paid_cny), `缺人民币金额 ${count(s.missing_admin_cny_orders)} 单`],
-    ['已读采购成本（¥）', cny(data.status==='unavailable'?null:s.observed_cost_cny), '观察小计，不等于整单成本齐全'],
-    ['已核同单毛利（¥）', cny(s.procurement_gross_cny), `已核毛利 ${count(s.gross_covered_orders)} 单；非净利润`],
-    ['完整成本覆盖', `${count(s.cost_covered_orders)} / ${count(s.orders)}`, '按去重订单，不以发货时间窗代替'],
-    ['已归因订单', `${count(attributed)} / ${count(s.orders)}`, '未知渠道继续保留订单金额'],
-    ['费用覆盖', '未知', '不将缺失费用当作0']
+    ['Order 原生利润（¥）', cny(s.order_profit_cny), '所选订单的 Order 发货记录'],
+    ['Order 原生利润率', pct(s.order_profit_rate), '以同组 Order 发货销售额计算'],
+    ['已归因订单', `${count(attributed)} / ${count(s.orders)}`, '所选付款订单']
   ];
   $('kpis').replaceChildren(...labels.map(([name,value,hint]) => {
     const card=text('article',null,'panel kpi');card.append(text('span',name,'name'),text('strong',value),text('small',hint));return card;
   }));
-  $('coverage').textContent = `完整成本 ${count(s.cost_covered_orders)} / ${count(s.orders)} 单 · 成本缺口 ${count(s.missing_cost_orders)} 单`;
-  const partial = data.status !== 'available' || !data.admin_complete || pending > 0 || s.unknown_channel_orders > 0 || s.missing_cost_orders > 0 || s.missing_admin_usd_orders > 0 || s.missing_admin_cny_orders > 0;
+  $('coverage').textContent = '';
+  const partial = data.status !== 'available' || !data.admin_complete || pending > 0 || s.unknown_channel_orders > 0 || s.missing_admin_usd_orders > 0 || s.missing_admin_cny_orders > 0;
   $('definitions').replaceChildren(...[
-    '范围按北京时间付款日期，最多28天。每单归属优先采用后台归因渠道，其次为可核订单来源，最后为已映射推广人或折扣码。券、码和推广人与渠道同单关联。',
-    `成本覆盖收入 ${cny(s.covered_revenue_cny)}；缺成本收入 ${cny(s.missing_cost_revenue_cny)}。已读采购小计0不证明实际成本0；同单毛利仅使用已完成、非退款且成本完整的同一群体。费用覆盖未知，不称净利润。`,
+    '每单优先采用后台归因渠道、可核订单来源。无明确上级时，折扣码归 Direct 并按历史映射或操作客服细分，未映射归运营。仅有优惠券归 Direct 的新人/活动。',
+    'Order 原生利润以选中订单在所选期间的同一发货记录销售额减采购额，利润率按发货销售额加权。',
     `未关联Admin记录 ${data.coverage?.unlinked_admin_rows == null ? '未核' : count(data.coverage.unlinked_admin_rows)}；未关联归因记录 ${data.coverage?.unlinked_attribution_rows == null ? '未核' : count(data.coverage.unlinked_attribution_rows)}。订单数与金额按去重订单统计，不将raw行非空率当客户或收入覆盖率。`,
     '多项优惠可能关联同一订单。渠道与来源占比使用各自去重订单分母；关联计数不与渠道订单数相加。'
   ].map(value => text('p',value)));
@@ -353,11 +489,15 @@ function renderFacts() {
     show(data.refresh_reason === 'shared_workers_busy' ? '共享查询正在执行，暂保留当前结果；稍后可再次刷新。' : `刚完成本范围读取，暂保留当前结果；${count(data.retryAfter)} 秒后可再次刷新。`, 'partial');
     return;
   }
-  show(!s.orders ? (partial ? '当前范围的来源覆盖仍不完整，零条已关联订单不代表完整空集合。' : '当前范围没有付款订单。') : partial ? '当前范围已读取，归因、金额或成本仍有缺口，详见覆盖说明。' : '当前范围已读取；费用未知，采购毛利不代表净利润。', partial ? 'partial' : 'available');
+  show(!s.orders ? (partial ? '当前范围的来源覆盖仍不完整，零条已关联订单不代表完整空集合。' : '当前范围没有付款订单。') : partial ? '当前范围已读取，部分归因或金额字段待补。' : '当前范围已读取。', partial ? 'partial' : 'available');
 }
 function render() {
   if (data.version === 'order-facts-api-20261113-v1') { renderFacts(); return; }
   $('facts-detail').hidden = true;
+  $('fact-dimensions').hidden = true;
+  delete $('kpis').dataset.mode;
+  $('definitions-title').textContent = '统计范围与成本覆盖';
+  $('trend-title').textContent = '每日销售与毛利趋势';
   $('legacy-details').hidden = false;
   $('export-facts').hidden = true;
   $('trend-hint').textContent = '销售额为 USD，采购毛利为同群体人民币收入减实际采购成本；来源及覆盖见统计范围，不按固定汇率互换。';
@@ -519,10 +659,10 @@ async function loadFactsDetail(target = 1, download = false) {
       saveCsv(next.detail_csv,`渠道订单明细_${start}_${end}_${snapshot}.csv`);
     } else {
       detailPage = next.page;
-      table('facts-detail-table',['付款时间','订单号','游戏','归因渠道','来源明细','推广项目','推广人','折扣码','优惠券','国家','支付方式','订单金额 USD','订单金额 ¥','已读采购 ¥','已核同单毛利 ¥','订单状态'],
+      table('facts-detail-table',['付款时间','订单号','游戏','归因渠道','来源明细','推广项目','推广人','折扣码','优惠券','国家','支付方式','订单金额 USD','订单金额 ¥','Order原生利润 ¥','Order原生利润率','订单状态'],
         next.orders,r=>[r.paidAt,r.orderNo,r.game,r.channel,r.source,r.project,r.promoter,r.code,
           r.coupons===null?'未核':r.coupons.join('；')||'未用券',r.country?countryLabel(r.country):null,r.payment,
-          usd(r.salesUsd),cny(r.saleCny),cny(r.costCny),cny(r.profitCny),r.status],'同一快照订单明细');
+          usd(r.salesUsd),cny(r.saleCny),cny(r.orderProfitCny),pct(r.orderProfitRate),r.status],'同一快照订单明细');
       $('facts-detail-page').textContent = `共 ${count(next.total)} 单 · 第 ${next.page} / ${next.pages} 页`;
     }
     pending.textContent = '';

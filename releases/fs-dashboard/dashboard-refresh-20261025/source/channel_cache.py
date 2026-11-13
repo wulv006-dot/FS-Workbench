@@ -97,8 +97,7 @@ def compose(period, root=ROOT):
     return dict(captures[-1], period=period, generatedAt=oldest, orders=rows, sources=sources)
 
 
-@lru_cache(maxsize=2)
-def cost_index(signature):
+def delivery_records(signature):
     rows, captures, removed, retired = {}, [], set(), set()
     for name, mtime, size, inode in signature:
         value = json.loads(Path(name).read_text('utf-8'))
@@ -126,7 +125,13 @@ def cost_index(signature):
             if period and not begin <= row['trade_at'] <= stop and (identity in retired or identity in rows):
                 continue
             rows[identity] = row
-    return delivery_index(list(rows.values())), captures[-1]['generatedAt'] if captures else None, removed
+    return tuple(rows.values()), captures[-1]['generatedAt'] if captures else None, removed
+
+
+@lru_cache(maxsize=2)
+def cost_index(signature):
+    rows, stamp, removed = delivery_records(signature)
+    return delivery_index(rows), stamp, removed
 
 
 def delivery_bounds(period):

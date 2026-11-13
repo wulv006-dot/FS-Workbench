@@ -15,6 +15,14 @@ POINTS_PER_USD = Decimal('100')
 POINTS_CAP = Decimal('.10')
 PLATFORMS = {'PS': 'PlayStation 4|5', 'XBOX': 'Xbox One|X|S', 'PC': 'PC Platform'}
 PLATFORM_AIDS = {'21587': 'PS', '21585': 'XBOX', '21589': 'PC'}
+CURVE_COUPON_ELIGIBILITY = {
+    '1343': (1, 'ordinary_new_registration'),
+    '1323': (3, 'welcome_event_eligible_member'),
+    '1327': (3, 'voucher_event_eligible_member'),
+    '1329': (3, 'voucher_event_eligible_member'),
+    '1331': (3, 'voucher_event_eligible_member'),
+    '1303': (4, 'directed_fc_event_recipient'),
+}
 
 
 def amount(value):
@@ -170,6 +178,122 @@ def read_used_templates(session,pages,identities):
     if set(result)!=set(wanted):
         raise ValueError('selective_current_coupon_template_missing')
     return result
+
+
+class _CurveAdminRead:
+    def __init__(self, manager):
+        self.manager = manager
+
+    def get_admin(self, path, **params):
+        from urllib.parse import urlencode
+        status, raw = self.manager.request(path + '?' + urlencode(params))
+        return status, json.loads(raw)
+
+
+def _offer_time(value):
+    from .financial import instant
+    if value in (None, '', 0, '0', '~'):
+        return None
+    return (datetime.fromtimestamp(int(value), timezone.utc) if str(value).isdigit() else instant(value))
+
+
+def collect_curve_coupon_terms(manager, *, clock):
+    """Read the current terms of the registration and observed Coins event templates once per run."""
+    from channel_source import pages
+    from pricing_sources import active
+
+    ids = ','.join(sorted(CURVE_COUPON_ELIGIBILITY))
+    rows = pages(_CurveAdminRead(manager), '/admin/market.Coupon/index', [('id', 'IN', ids)], 100)
+    now = clock()
+    by_id = {str(row['id']): row for row in rows}
+    if len(by_id) != len(rows) or by_id.keys() - CURVE_COUPON_ELIGIBILITY.keys():
+        raise ValueError('curve_coupon_query_scope_mismatch')
+    terms, gaps = {}, []
+    for identity, (scene, eligibility) in CURVE_COUPON_ELIGIBILITY.items():
+        row = by_id.get(identity)
+        if row is None:
+            gaps.append('current_coupon_template_missing:' + identity)
+            continue
+        if str(row.get('status')) == '0':
+            continue
+        try:
+            if (str(row['status']) != '1' or str(row['fetch_scene']) != str(scene)
+                    or str(row['site_id']) not in ('0', '266') or str(row['game_id']) not in ('0', '1327')
+                    or str(row['product_type']) not in ('0', '1') or str(row['goods_id']) != '0'
+                    or str(row['is_open']) != '0'):
+                raise ValueError('curve_coupon_scope_or_exclusivity_changed')
+            bindings = row.get('scope_bindings')
+            bindings = json.loads(bindings) if isinstance(bindings, str) else bindings
+            if bindings and not any(str(binding['game_id']) == '1327'
+                    and (not binding['category_ids'] or '9623' in map(str, binding['category_ids']))
+                    for binding in bindings):
+                raise ValueError('curve_coupon_goods_scope_unverified')
+            validity = str(row['time_effect'])
+            end = None
+            if validity == '1':
+                start, end = (_offer_time(row[field]) for field in ('start_time', 'end_time'))
+                if not start or not end or end <= start:
+                    raise ValueError('curve_coupon_absolute_window_missing')
+                if end <= now:
+                    continue
+            elif validity != '2' or not str(row['days']).isdigit() or int(row['days']) <= 0:
+                raise ValueError('curve_coupon_relative_window_missing')
+            if not active(row, now, coupon=True):
+                continue
+            path = _coupon_path(row)
+            if path['kind'] == 'ratio' and not 0 < Decimal(path['retained_ratio']) < 1:
+                raise ValueError('curve_coupon_ratio_invalid')
+            terms[identity] = dict(path=path, eligibility=eligibility,
+                                   source_revision=fingerprint(row), valid_until=end.isoformat() if end else None)
+        except (ArithmeticError, KeyError, TypeError, ValueError):
+            gaps.append('current_coupon_terms_unverified:' + identity)
+    return dict(terms=terms, coverage_gaps=gaps)
+
+
+def collect_curve_code_terms(manager, code_names, *, clock):
+    """Read each observed code's current rules with the original scoped Admin API."""
+    from channel_source import pages
+    from pricing_sources import active
+
+    names = sorted({name.casefold():name for name in sorted(code_names)
+                    if re.fullmatch(r'[A-Za-z0-9_-]{1,80}', name)}.values(), key=str.casefold)
+    source = _CurveAdminRead(manager)
+    by_code = defaultdict(list)
+    for offset in range(0, len(names), 75):
+        batch = names[offset:offset + 75]
+        wanted = {name.casefold() for name in batch}
+        filters = [('code', 'IN', ','.join(batch)), ('site_id', 'IN', '0,266')]
+        for row in pages(source, '/admin/market.Discount/index', filters, 100):
+            code = str(row['code']).casefold()
+            if code not in wanted or str(row.get('site_id')) not in ('0', '266'):
+                raise ValueError('curve_discount_code_query_scope_mismatch')
+            by_code[code].append(row)
+    now = clock()
+    output = {}
+    for name in names:
+        key = name.casefold()
+        current = [row for row in by_code[key] if active(row, now)]
+        if len(current) != 1:
+            continue
+        row = current[0]
+        categories = {part.strip() for part in str(row.get('cid') or '').split(',')}
+        aid = str(row.get('aid'))
+        if (str(row.get('type')) != '1' or not categories & {'-1', '0', '1', '9623'}
+                or aid not in {'0', *PLATFORM_AIDS}):
+            continue
+        retained, threshold = amount(row.get('discount')), amount(row.get('attain'))
+        if retained is None or not 0 < retained <= 100 or threshold is None or threshold < 0:
+            continue
+        end = _offer_time(row.get('timeend'))
+        if end and end <= now:
+            continue
+        path = dict(kind='ratio', retained_ratio=str(retained / 100), threshold_usd=str(threshold), cap_usd=None)
+        revision = fingerprint({field:row.get(field) for field in ('id', 'site_id', 'gid', 'exclude_gids',
+            'cid', 'aid', 'uid', 'type', 'discount', 'attain', 'status', 'timestart', 'timeend', 'repeat_qty')})
+        output[fingerprint(key)] = dict(path=path, aid=aid, source_revision=revision,
+                                        eligibility='same_observed_discount_code_eligible_order',
+                                        valid_until=end.isoformat() if end else None)
+    return output
 
 
 def _live_traces(session, pages, period, selected, *, reconcile_population=False, used_templates_only=False):
@@ -800,6 +924,8 @@ def historical_attachment(selected, orders, logs, provenance, observed_at):
         row = dict(order_key=hashlib.sha256(('site266:FC27:Coins:' + sn).encode()).hexdigest(),
             paid_at=paid_at, created_at=created_at, available_at=observed_at.isoformat(),
             base_k=quantity['purchase_k'] if quantity else None, bonus_k=quantity['bonus_k'] if quantity else None,
+            single_line_unit_purchase=bool(quantity and len(quantity['lines']) == 1
+                                           and quantity['lines'][0]['multiplier'] == 1),
             delivered_k=quantity['delivered_k'] if quantity else None, platform=platform, region_id=region_id,
             original_region_factor=str(factor) if factor is not None else None,
             regular_usd=str(before) if before is not None else None, paid_usd=str(paid) if paid is not None else None,
@@ -1758,6 +1884,202 @@ def historical_period(period, *, now=None):
     return dict(period_selector=selector, period=dict(start=start.isoformat(), end=(end_exclusive - timedelta(days=1)).isoformat()),
                 paid_window=dict(start=start.isoformat(), end_exclusive=end_exclusive.isoformat(), timezone='Asia/Shanghai'),
                 paid_window_start=lower.isoformat(), paid_window_end_exclusive=upper.isoformat(), timezone='Asia/Shanghai')
+
+
+def _curve_order_offer(retained, points, code, coupons, *, regular=None, discount=None, code_names=None):
+    """Use the native order and its shared same-order redemption record."""
+    if retained is None or points != 0 or not isinstance(coupons, list):
+        return None
+    if code and not coupons and 0 < retained < 100:
+        if re.fullmatch(r'[A-Za-z0-9_-]{1,80}', code):
+            if code_names is not None:
+                code_names.add(code)
+            return dict(kind='code', code_ref=fingerprint(code.casefold()))
+    elif not code and retained == 100 and len(coupons) == 1 and regular is not None and discount is not None:
+        redemption = coupons[0]
+        template = str(redemption.get('templateId'))
+        # The shared producer only includes original same-order logs with use_time.
+        # Older pins preserve the IDs and the ES cash discount without redundant log fields.
+        if (template in CURVE_COUPON_ELIGIBILITY and str(redemption.get('id', '')).isdigit()
+                and (redemption.get('status') in (None, '') or str(redemption['status']) == '1')
+                and 0 < discount <= regular):
+            return dict(kind='coupon', template_id=template, evidence_ref=fingerprint(redemption),
+                        historical_regular_usd=str(regular), historical_discount_usd=str(discount))
+    elif not code and retained == 100 and not coupons and discount == 0:
+        return {'kind':'none'}
+    return None
+
+
+def shared_curve_attachment(shared, scope, *, as_of, code_names=None):
+    """Convert one fixed shared ES/Admin snapshot into private FC pricing inputs."""
+    from .financial import instant
+    from .planning_baskets_v6 import PAID_SCOPE
+
+    coverage = shared['coverage']
+    dataset = shared.get('dataset') or {}
+    as_of = instant(as_of)
+    capture = instant(coverage['captured_at']) if coverage.get('captured_at') else None
+    if (not coverage.get('publication_id') or not coverage.get('source_revision')
+            or capture is None or capture > as_of or not dataset):
+        return None
+    labels, discounts, identities = defaultdict(set), defaultdict(set), defaultdict(set)
+    for row in dataset['rows']:
+        token = row['订单号']
+        labels[token].add(str(row.get('产品类型') or 'unknown'))
+        discounts[token].add(amount(row.get('折扣金额')))
+    for row in (shared.get('identity_catalog') or {}).get('rows', ()):
+        identities[hashlib.sha256(row['order_no'].encode()).hexdigest()].add(str(row['site_id']))
+    from channel_effects import fraud
+    from channel_source import apply_cost_overrides
+
+    settings = apply_cost_overrides(dict(sources={}))
+    tests = settings['testOrders']
+    projected = []
+    gaps = Counter()
+    for order in shared['rows']:
+        if str(order.get('site_id')) != '266' or str(order.get('gid')) != '1327':
+            raise ValueError('curve_shared_native_order_scope')
+        number = order['order_no']
+        hashed = hashlib.sha256(number.encode()).hexdigest()
+        if str(order.get('pay_status')) != '1':
+            continue
+        status = str(order.get('status_format') or '')
+        paid = amount(order.get('amount_usd_format'))
+        test = tests.get(number)
+        if (status.startswith('已退款') or fraud({'status':status}) or test
+                and str(test.get('gid')) == '1327' and amount(test.get('salesUsd')) == paid):
+            continue
+        types = labels.get(hashed, set())
+        if types != {'货币(Gold)'}:
+            if not types or 'unknown' in types or '货币(Gold)' in types:
+                gaps['shared_product_identity_unresolved'] += 1
+            continue
+        if identities.get(hashed) != {'266'}:
+            gaps['shared_order_identity_ambiguous'] += 1
+            continue
+        projection = order.get('fc27_coins')
+        if not projection or instant(projection['observed_at']) > as_of:
+            projection = {}
+            gaps['shared_native_coin_quantity_unavailable'] += 1
+        tracking = order.get('tracking') or {}
+        order_code = str(order.get('discount_code') or '').strip()
+        tracked_code = str(tracking.get('code') or '').strip()
+        promotion = None
+        if not order_code or not tracked_code or order_code.casefold() == tracked_code.casefold():
+            promotion = _curve_order_offer(amount(projection.get('retained_percent')), amount(projection.get('points')),
+                order_code or tracked_code, tracking.get('coupons'), regular=amount(projection.get('regular_usd')),
+                discount=next(iter(discounts[hashed])) if len(discounts[hashed]) == 1 else None, code_names=code_names)
+        if promotion and promotion['kind'] != 'none' and (projection.get('single_line_unit_purchase') is not True
+                or projection.get('region_id') != 0):
+            promotion = None
+        row = dict(order_key=hashlib.sha256(('site266:FC27:Coins:' + number).encode()).hexdigest(),
+                   paid_at=instant(order['paytime']).isoformat(),
+                   available_at=max(capture, instant(projection['observed_at'])).isoformat() if projection else capture.isoformat(),
+                   platform=projection.get('platform'), base_k=projection.get('purchase_k'),
+                   bonus_k=projection.get('bonus_k'), delivered_k=projection.get('delivered_k'),
+                   single_line_unit_purchase=projection.get('single_line_unit_purchase'),
+                   region_id=projection.get('region_id'), promotion_path=promotion,
+                   promotion_basis='Admin_ratio_points_code_same_order_coupon_log_and_ES_discount'
+                                   if promotion else None,
+                   cost_cny=None, status=status)
+        row['source_sha256'] = fingerprint(dict(row=row, shared_source_revision=coverage['source_revision'],
+                                               native_projection=projection.get('source_sha256')))
+        projected.append(row)
+    lower = instant(scope['start'] + ' 00:00:00')
+    upper = instant(scope['end'] + ' 00:00:00') + timedelta(days=1)
+    population_complete = bool(coverage.get('admin_complete') and not coverage.get('missing_days')
+        and (shared.get('identity_catalog') or {}).get('complete')
+        and settings['sources']['accounting']['status'] == 'available'
+        and not gaps['shared_product_identity_unresolved'] and not gaps['shared_order_identity_ambiguous'])
+    proof = dict(population_scope=PAID_SCOPE, population_status='complete' if population_complete else 'partial',
+                 window_complete=population_complete, paid_window_start=lower.isoformat(),
+                 paid_window_end_exclusive=upper.isoformat(), shared_publication_id=coverage['publication_id'],
+                 shared_source_revision=coverage['source_revision'],
+                 fc27_projection_revision=coverage.get('fc27_projection_revision'),
+                 coverage_gaps=dict(+gaps))
+    revision = fingerprint(dict(rows=projected, coverage=proof))
+    observed = max([capture] + [instant(row['available_at']) for row in projected])
+    return dict(period={k:scope[k] for k in ('start','end')}, historical_orders=projected,
+                historical_orders_coverage=dict(proof,source_sha256=revision),
+                available_at=observed.isoformat(), source_sha256=revision)
+
+
+def collect_recent_curve_population(manager, closed, paid_cutoff):
+    """Add only today's scoped native observations to the saved closed-day evidence."""
+    from channel_source import apply_cost_overrides, pages
+    from channel_effects import fraud
+    from .financial import instant
+    from .planning_baskets_v6 import HISTORICAL_SCOPE, PAID_SCOPE
+
+    cutoff = instant(paid_cutoff).astimezone(TZ)
+    midnight = cutoff.replace(hour=0, minute=0, second=0, microsecond=0)
+    proof = (closed or {}).get('historical_orders_coverage') or {}
+    closed_rows = (closed or {}).get('historical_orders') or []
+    lower, upper = (proof.get(key) for key in ('paid_window_start', 'paid_window_end_exclusive'))
+    start = instant(lower) if lower else midnight
+    archive_complete = bool(lower and upper and start <= cutoff - timedelta(days=3) and instant(upper) == midnight
+                            and proof.get('window_complete') is True and proof.get('population_status') == 'complete'
+                            and proof.get('population_scope') in (PAID_SCOPE, HISTORICAL_SCOPE)
+                            and proof.get('source_sha256') == closed.get('source_sha256'))
+    if not lower or not upper or instant(upper) != midnight:
+        closed_rows = []
+    else:
+        closed_rows = [row for row in closed_rows if row.get('paid_at')
+                       and start <= instant(row['paid_at']) < midnight]
+
+    settings = apply_cost_overrides(dict(sources={}))
+    tests = settings['testOrders']
+    rows, unknown, seen = [], 0, set()
+    latest = cutoff.strftime('%Y-%m-%d %H:%M:%S')
+    earliest = midnight.strftime('%Y-%m-%d %H:%M:%S')
+    batch = pages(_CurveAdminRead(manager), '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
+                  ('pay_status', '=', '1'), ('paytime', 'RANGE', earliest + ',' + latest),
+                  ('cid', '=', '1')], 100) if cutoff > midnight else []
+    observed = _historical_provider_now()
+    if observed < cutoff:
+        raise ValueError('recent_curve_observation_precedes_cutoff')
+    for raw in batch:
+        sn, paytime = raw.get('order_no'), raw.get('paytime')
+        if (not isinstance(sn, str) or not sn or sn in seen or str(raw.get('site_id')) != '266'
+                or str(raw.get('gid')) != '1327' or str(raw.get('pay_status')) != '1'
+                or not isinstance(paytime, str) or not earliest <= paytime <= latest):
+            raise ValueError('recent_curve_native_order_scope')
+        seen.add(sn)
+        status = str(raw.get('status_format') or '')
+        test = tests.get(sn)
+        paid = amount(raw.get('amount_usd_format'))
+        if (status.startswith('已退款') or fraud({'status': status}) or
+                test and str(test.get('gid')) == '1327' and amount(test.get('salesUsd')) == paid):
+            continue
+        paid_at = instant(paytime)
+        if not midnight <= paid_at < cutoff:
+            continue
+        quantity = _quantity(raw)
+        if quantity is None:
+            unknown += 1
+        regular = amount(raw.get('before_discount'))
+        no_deduction = (regular is not None and paid == regular and amount(raw.get('discount')) == 100
+                        and amount(raw.get('points')) == 0 and not raw.get('discount_code'))
+        order = dict(order_key=hashlib.sha256(('site266:FC27:Coins:' + sn).encode()).hexdigest(),
+                     paid_at=paid_at.isoformat(), available_at=observed.isoformat(), platform=_platform(raw),
+                     base_k=quantity['purchase_k'] if quantity else None,
+                     bonus_k=quantity['bonus_k'] if quantity else None,
+                     delivered_k=quantity['delivered_k'] if quantity else None,
+                     single_line_unit_purchase=bool(quantity and len(quantity['lines']) == 1
+                                                    and quantity['lines'][0]['multiplier'] == 1),
+                     region_id=0 if str(raw.get('is_region_price')) == '0' else None,
+                     promotion_path={'kind':'none'} if no_deduction else None, cost_cny=None, status=status)
+        order['source_sha256'] = fingerprint(order)
+        rows.append(order)
+    complete = archive_complete and settings['sources']['accounting']['status'] == 'available'
+    coverage = dict(population_scope=PAID_SCOPE, population_status='complete' if complete else 'partial',
+                    window_complete=complete, paid_window_start=start.isoformat(), paid_window_end_exclusive=cutoff.isoformat(),
+                    closed_archive_revision=(closed or {}).get('source_sha256'), native_rows=len(batch),
+                    native_quantity_unparsed=unknown, native_today_only=True)
+    rows = [*closed_rows, *rows]
+    source_revision = fingerprint(dict(rows=rows, coverage=coverage))
+    return dict(historical_orders=rows, source_sha256=source_revision, available_at=observed.isoformat(),
+                historical_orders_coverage=dict(coverage, source_sha256=source_revision))
 
 
 def _historical_existing_day_blocks(period):

@@ -1,7 +1,9 @@
 """Payment-window and quote-revision tests using the existing attachment schema."""
 from datetime import datetime, timedelta
+import hashlib
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -51,7 +53,131 @@ def recent_source(rows, days=3, **extra):
 
 
 class PlanningBaskets(unittest.TestCase):
-    def test_uses_existing_private_attachment_without_relabeling_its_refund_gap(self):
+    def test_shared_attachment_uses_pinned_projection_and_preserves_future_or_missing_fields(self):
+        names = ['old-order', 'future-order', 'discount-order', 'coupon-order', 'mixed-coupon-order', 'stacked-order']
+        hashes = [hashlib.sha256(name.encode()).hexdigest() for name in names]
+        observations = dict(platform='PS', purchase_k='100', bonus_k='0', delivered_k='100',
+                            single_line_unit_purchase=True, region_id=0, regular_usd='10',
+                            retained_percent='100', points='0', observed_at=AS_OF.isoformat(), source_sha256='quantity')
+        rows = [dict(site_id='266', gid='1327', order_no=name, paytime='2026-11-12 11:00:00',
+                     pay_status='1', amount_usd_format='9.99', status_format='已完成',
+                     tracking={'coupons': []}, fc27_coins=observations) for name in names]
+        rows[1]['fc27_coins'] = dict(observations, observed_at=(AS_OF+timedelta(minutes=1)).isoformat())
+        log = dict(id='42', templateId='1327', status='1', usedAt='2026-11-12 11:01:00')
+        for row in rows[3:]:
+            row.update(amount_usd_format='5.67', tracking={'coupons':[log]})
+        rows[3]['tracking'] = {'coupons':[dict(id='42', templateId='1327')]}
+        rows[4]['fc27_coins'] = dict(observations, single_line_unit_purchase=False)
+        rows[5]['discount_code'] = 'STACKED'
+        dataset = {'rows': [{'订单号': token, '产品类型': '货币(Gold)', '折扣金额': str(discount)}
+                            for token, discount in zip(hashes, (0, 0, 1, 5, 5, 5))]}
+        shared = dict(rows=rows, dataset=dataset, identity_catalog=dict(complete=True, rows=rows),
+                      coverage=dict(admin_complete=True, missing_days=[], publication_id='shared-original',
+                                    captured_at=CUTOFF.isoformat(), source_revision='shared-days',
+                                    fc27_projection_revision='shared-quantities'))
+        channel = SimpleNamespace(apply_cost_overrides=lambda data: {
+            'sources': {'accounting': {'status':'available'}}, 'testOrders': {}})
+        effects = SimpleNamespace(fraud=lambda row: False)
+        scope = dict(site_id='266', gid='1327', start='2026-11-06', end='2026-11-12')
+        with patch.dict(sys.modules, channel_source=channel, channel_effects=effects):
+            result = business_source.shared_curve_attachment(shared, scope, as_of=AS_OF)
+        proof = result['historical_orders_coverage']
+        self.assertEqual(proof['population_status'], 'complete')
+        self.assertEqual(proof['fc27_projection_revision'], 'shared-quantities')
+        self.assertEqual(proof['coverage_gaps'], {'shared_native_coin_quantity_unavailable':1})
+        self.assertEqual([row['base_k'] for row in result['historical_orders']], ['100', None, '100', '100', '100', '100'])
+        promotions = [row['promotion_path'] for row in result['historical_orders']]
+        self.assertEqual(promotions[:3], [{'kind':'none'},None,None])
+        self.assertEqual(promotions[3]['template_id'], '1327')
+        self.assertEqual(len(promotions[3]['evidence_ref']), 64)
+        self.assertEqual(promotions[3]['historical_discount_usd'], '5')
+        self.assertEqual(promotions[4:], [None, None])
+        self.assertTrue(all(name not in str(result) for name in names))
+
+    def test_curve_coupon_terms_read_once_and_respect_scope_exclusivity_and_expiry(self):
+        row = dict(status=1, site_id=0, game_id=0, product_type=0, goods_id=0, is_open=0, fetch_scene=3,
+                   mode_type=1, reduce='5', attain='10', max_reduce='0', time_effect=1,
+                   start_time='2026-11-01 00:00:00', end_time='2026-12-31 00:00:00')
+        rows = [dict(row, id=1327), dict(row, id=1329, end_time='2026-11-12 00:00:00'),
+                dict(row, id=1331, is_open=1), dict(row, id=1323, mode_type=2, reduce='80', max_reduce='50'),
+                dict(row, id=1343, fetch_scene=1, mode_type=2, reduce='85', max_reduce='50', time_effect=2, days=7,
+                     scope_bindings='[{"game_id":1327,"category_ids":[]}]'),
+                dict(row, id=1303, fetch_scene=4, mode_type=2, site_id=266, game_id=1327, reduce='80',
+                     max_reduce='0', time_effect=2, days=30)]
+        calls = []
+
+        def pages(session, path, filters, limit):
+            calls.append((path, filters, limit))
+            return rows
+
+        with patch.dict(sys.modules, channel_source=SimpleNamespace(pages=pages)):
+            result = business_source.collect_curve_coupon_terms(None, clock=lambda: AS_OF)
+        self.assertEqual(calls, [('/admin/market.Coupon/index', [('id', 'IN', '1303,1323,1327,1329,1331,1343')], 100)])
+        self.assertEqual(set(result['terms']), {'1327', '1323', '1343', '1303'})
+        self.assertEqual(result['terms']['1327']['path'],
+                         dict(kind='fixed', threshold_usd='10', cap_usd=None, discount_usd='5'))
+        self.assertEqual(result['terms']['1323']['path']['retained_ratio'], '0.8')
+        self.assertEqual(result['terms']['1343']['path']['cap_usd'], '50')
+        self.assertIsNone(result['terms']['1343']['valid_until'])
+        self.assertEqual(result['coverage_gaps'], ['current_coupon_terms_unverified:1331'])
+
+    def test_used_discount_codes_read_exact_current_scope_without_exposing_code(self):
+        row = dict(id=1, status=1, site_id=266, gid='725,833,1327', exclude_gids='', cid='-1', aid=0, type=1,
+                   discount='92', attain='0', timestart='2026-11-01 00:00:00', timeend='2026-12-31 00:00:00')
+        calls = []
+
+        def pages(session, path, filters, limit):
+            calls.append((path, filters, limit))
+            return [dict(row, code='sample-code'), dict(row, id=2, code='items-only', cid='2'),
+                    dict(row, id=3, code='expired', timeend='2026-11-12 00:00:00'),
+                    dict(row, id=4, code='other-game', gid='725,833'),
+                    dict(row, id=5, code='excludes-fc', exclude_gids='833,1327'),
+                    dict(row, id=6, code='future', timestart='2026-11-14 00:00:00')]
+
+        with patch.dict(sys.modules, channel_source=SimpleNamespace(pages=pages)):
+            result = business_source.collect_curve_code_terms(None,
+                {'sample-code', 'items-only', 'expired', 'other-game', 'excludes-fc', 'future'},
+                                                            clock=lambda: AS_OF)
+        self.assertEqual(calls, [('/admin/market.Discount/index',
+            [('code','IN','excludes-fc,expired,future,items-only,other-game,sample-code'), ('site_id','IN','0,266')], 100)])
+        self.assertEqual(len(result), 1)
+        code = business_source._curve_order_offer(business_source.amount('92'), business_source.amount('0'),
+                                                   'sample-code', [], discount=business_source.amount('2'))
+        self.assertEqual(result[code['code_ref']]['path']['retained_ratio'], '0.92')
+        self.assertNotIn('sample-code', str(result))
+
+    def test_recent_combines_saved_days_and_only_the_current_day_native_read(self):
+        historical = paid('closed-order', CUTOFF - timedelta(days=1))
+        native = dict(site_id='266', gid='1327', pay_status='1', status_format='已完成',
+                      order_no='today-order', aid='21587', paytime='2026-11-13 09:00:00',
+                      is_region_price='0', discount='100', points='0', amount_usd_format='10',
+                      before_discount='10', content='<span class="item">100K Coins x1 = $10</span>')
+        calls = []
+
+        def pages(session, path, filters, limit):
+            calls.append((path, dict((key, value) for key, _, value in filters), limit))
+            return [native]
+
+        channel = SimpleNamespace(pages=pages, apply_cost_overrides=lambda data: {
+            'sources': {'accounting': {'status':'available'}}, 'testOrders': {}})
+        effects = SimpleNamespace(fraud=lambda row: False)
+        with patch.dict(sys.modules, channel_source=channel, channel_effects=effects), \
+                patch.object(business_source, '_historical_provider_now', return_value=AS_OF):
+            recent = business_source.collect_recent_curve_population(None, closed_source([historical]), CUTOFF)
+            partial = business_source.collect_recent_curve_population(None, None, CUTOFF)
+        self.assertEqual(calls, [('/admin/order.Order/index', dict(site_id='266', gid='1327', pay_status='1',
+            paytime='2026-11-13 00:00:00,2026-11-13 10:00:00', cid='1'), 100)] * 2)
+        self.assertEqual(recent['historical_orders_coverage']['population_status'], 'complete')
+        self.assertEqual(recent['historical_orders_coverage']['closed_archive_revision'], 'original')
+        self.assertEqual(partial['historical_orders_coverage']['population_status'], 'partial')
+        first, today = recent['historical_orders']
+        self.assertEqual(first, historical)
+        self.assertEqual(today['base_k'], '100')
+        self.assertTrue(today['single_line_unit_purchase'])
+        self.assertEqual(today['promotion_path'], {'kind':'none'})
+        self.assertNotIn('today-order', str(recent))
+
+    def test_uses_complete_paid_population_while_preserving_original_refund_gap(self):
         key = 'private-order'
         period = business_source.historical_period('7d', now=CUTOFF)['period']
         row = dict(paidAt='2026-11-11 10:00:00', salesUsd='10', status='未发货', coupons=[])
@@ -68,7 +194,10 @@ class PlanningBaskets(unittest.TestCase):
         self.assertEqual(main['members'], [{'path_id': 'current-1000', 'weight': '1', 'quote_ref': 'native-quote'}])
         self.assertEqual(main['source_sha256'], historical['source_sha256'])
         self.assertEqual(main['orders_without_historical_cost'], 1)
-        self.assertEqual(main['coverage_gaps'], ['paid_source_refund_revisions_unverified'])
+        self.assertEqual(main['coverage_status'], 'complete')
+        self.assertEqual(main['coverage_gaps'], [])
+        self.assertIn('not_collected', historical['historical_orders_coverage']['refund_revision_coverage'])
+        self.assertEqual(historical['historical_orders_coverage']['gaps']['historical_refund_revision_chain_not_collected'], 1)
         self.assertNotIn(historical['historical_orders'][0]['order_key'], str(main))
 
     def test_beijing_closed_seven_days_and_same_platform_with_unknown_cost(self):
