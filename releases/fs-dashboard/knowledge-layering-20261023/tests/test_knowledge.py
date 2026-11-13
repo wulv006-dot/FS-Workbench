@@ -46,12 +46,17 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'fc_v6_d8_d2_amount_weighted_discount_v1')
+        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_native_all_two_band_20261113')
         self.assertIn('合法单笔优惠仍可低毛利或亏损', v['entries'][0]['content'])
-        for value in ('D-8 至 D-2','七个完整自然日','按金额加权','组合利润率 18%','25%','后续档位传导'):
+        for value in ('D-8 至 D-2','七个完整自然日','按金额加权','组合利润率 18%','25%'):
             self.assertIn(value,v['entries'][0]['content'])
         for value in ('PS、Xbox、PC','Lootbar','Arab-UT','ItemD2R辅助','保留缺口，不补零'):
             self.assertIn(value,v['entries'][0]['content'])
+        for value in ('低于 1000K 和 1000K 及以上两段', '1000K 售价／1000',
+                      '只改大段时低段原价不动', '不另设 2000K 控制段',
+                      '不从折扣字段反推目标价格', '明确成功回执',
+                      '重新读取 MMOEXP 主站完整价表', '沿原编号核对'):
+            self.assertIn(value, v['entries'][0]['content'])
         self.assertNotIn('105K',v['entries'][0]['content'])
         self.assertNotIn('八日平均20%',v['entries'][0]['content'])
         self.assertNotIn('18:21最新自然验收', v['entries'][0]['content'])
