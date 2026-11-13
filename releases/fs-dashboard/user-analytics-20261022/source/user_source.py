@@ -78,6 +78,66 @@ def shared_sync(store, site, start, end):
         session.close()
 
 
+
+
+def shared_es_native_day(day):
+    """One complete native payment-day mapping for all sites and games."""
+    from collections import defaultdict
+    from contextlib import closing
+    from datetime import date
+    from channel_effects import clean
+    from channel_source import COLLECTOR, pages
+
+    day = date.fromisoformat(day).isoformat()
+    sys.path.insert(0, COLLECTOR)
+    import p2pah_auth as auth
+
+    with closing(auth.Session()) as session:
+        token, _ = auth.admin_token_from_service()
+        if not token:
+            raise RuntimeError('admin_shared_source_unavailable')
+        session.bind_admin_token(token)
+        del token
+        start, end = day + ' 00:00:00', day + ' 23:59:59'
+        rows = pages(session, PATH, [('pay_status', '=', '1'), ('paytime', 'RANGE', start + ',' + end)], 1000)
+        ids = [int(row['id']) for row in rows]
+        if ids != sorted(ids, reverse=True) or len(set(ids)) != len(ids):
+            raise ValueError('shared_es_admin_order_sort')
+        by_site = defaultdict(list)
+        for row in rows:
+            site, number = str(row.get('site_id') or ''), row.get('order_no')
+            if (not site.isdecimal() or not isinstance(number, str) or not number
+                    or not start <= str(row.get('paytime') or '') <= end
+                    or str(row.get('pay_status')) not in ('1', '2')):
+                raise ValueError('shared_es_admin_scope')
+            by_site[site].append(number)
+
+        logs, seen, coupon_gaps = defaultdict(list), set(), set()
+        for site, numbers in by_site.items():
+            for offset in range(0, len(numbers), 100):
+                group = numbers[offset:offset + 100]
+                try:
+                    batch = pages(session, '/admin/user.MemberCouponLog/index',
+                                  [('site_id', '=', site), ('order_no', 'IN', ','.join(group))])
+                except (OSError, ValueError):
+                    coupon_gaps.update((site, number) for number in group)
+                    continue
+                accepted = set()
+                for log in batch:
+                    identity = str(log.get('id') or '')
+                    if (str(log.get('site_id')) != site or log.get('order_no') not in group
+                            or not identity or identity in seen or identity in accepted):
+                        raise ValueError('shared_es_coupon_scope')
+                    accepted.add(identity)
+                seen.update(accepted)
+                for log in batch:
+                    if log.get('use_time'):
+                        logs[(site, log['order_no'])].append(log)
+        from shared_es_facts import coupon_tracking
+
+        return rows, coupon_tracking(rows, logs, clean, coupon_gaps)
+
+
 def targeted_windows(store, site, requested):
     """Locate only selected primary keys, then group bounded payment-date slices."""
     days = {}
