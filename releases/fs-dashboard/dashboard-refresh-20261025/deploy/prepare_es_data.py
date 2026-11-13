@@ -11,6 +11,7 @@ import tempfile
 import es_data_release as release
 
 BASE = '7042edaf90647cbd51ab7df3e35f7b4341f72b3f'
+DEPLOYED = 'ca770903912651f430eeb2345dc82d7c9191fa10'
 REPO = Path(__file__).resolve().parents[4]
 ROOT = 'releases/fs-dashboard/'
 DASH = ROOT + 'dashboard-refresh-20261025/source/'
@@ -19,6 +20,10 @@ ES = ROOT + 'cache-archive-retention-20261025/source/'
 USERS = ROOT + 'user-analytics-20261022/source/'
 CHANNEL = ROOT + 'channel-effects-20261021/ui/'
 EMAIL_ADAPTER = ROOT + 'order-email-export-20261111/publisher/adapter.py'
+HOME_SHELL = 'ui-system/modules/native/shell.js'
+SUMMARY_V2_GUARD = b"data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'"
+SUMMARY_COMPAT_GUARD = (b"!['admin-paid-order-labelled-supplement-v2',"
+                        b"'admin-paid-order-labelled-supplement-v3-scope-repeat'].includes(data.scopeContractId)")
 STATIC_OLD = {
     **{n:release.STATIC+'summary-performance-20261107-7309593bc091/'+n for n in release.UI[:3]},
     **{n:release.STATIC+'pmax-fc-scope-20261022-v1/'+n for n in release.UI[3:]},
@@ -28,6 +33,16 @@ LOCATIONS = {
     'home-business.js':'/dashboard/workspace-assets/workspace-native-20261006-72d7ba0dbca8/business.js',
     'legacy-business.js':'/dashboard/workspace-assets/workspace-native-20261006-fd4cfd0a70aa/business.js',
     **{n:'/dashboard/channel-effects/'+n for n in release.UI[3:]},
+}
+DELTA_LOCATIONS = {
+    **{n:LOCATIONS[n] for n in release.UI[:3]},
+    **{shell:LOCATIONS[business].removesuffix('business.js')+'shell.js'
+       for business,shell in zip(release.UI[:3],release.DELTA_UI[3:6])},
+    'homepage-shell.js':'/dashboard/workspace-assets/workspace-native-20261006-37fe775358df/shell.js',
+}
+DELTA_STATIC_OLD = {
+    **{n:release.STATIC+release.DEPLOYED_ASSET_VERSION+'/'+n for n in release.UI[:3]},
+    **{n:release.STATIC+release.SUMMARY_ASSET_VERSION+'/'+n for n in release.DELTA_UI[3:]},
 }
 SOURCES = {
     **{'range/'+n:(DETAIL if n in ('fc_detail.py','fc_dashboard.py') else DASH)+n for n in release.RANGE_FILES},
@@ -95,16 +110,27 @@ def compose(name, before, desired, live):
     return conflict.sub(lambda _:replacement,text,count=1).encode('utf-8')
 
 
-def route_payload(raw, version):
-    for name, location in LOCATIONS.items():
+def route_payload(raw, version, *, locations=LOCATIONS, aliases=STATIC_OLD):
+    for name, location in locations.items():
         block = re.compile(rb'(?m)^location = '+re.escape(location.encode())+rb' \{\r?\n.*?^\}',re.S)
         matches = list(block.finditer(raw))
-        old = ('alias '+STATIC_OLD[name]+';').encode()
+        old = ('alias '+aliases[name]+';').encode()
         new = ('alias '+release.STATIC+version+'/'+name+';').encode()
         if len(matches)!=1 or matches[0].group().count(old)!=1:
             raise ValueError('unexpected ES route baseline: '+location)
         raw = block.sub(lambda match:match[0].replace(old,new,1),raw,count=1)
     return raw
+
+
+def compose_cost(base, desired, live):
+    # Port the parsing change while keeping the active service's lxml initialization.
+    start, end = b'def delivery_timestamp(', b'def main():'
+    region = lambda raw: raw.split(start,1)[1].split(end,1)[0]
+    old = start + region(base).replace(b'    from lxml import html\n',b'    html = _lxml_html()\n')
+    replacement = b'def delivery_timestamps(' + desired.split(b'def delivery_timestamps(',1)[1].split(end,1)[0]
+    if live.count(old) != 1:
+        raise ValueError('unresolved native delivery parser drift')
+    return live.replace(old,replacement,1)
 
 
 def build(source, source_commit, before_hashes, captured, output, *, ready=False, frozen_base=None):
@@ -145,13 +171,56 @@ def build(source, source_commit, before_hashes, captured, output, *, ready=False
     manifest = dict(schemaVersion=1,scope=release.SCOPE,releaseReady=ready,businessWrites=False,timersChanged=False,
         sourceCommit=source_commit,assetVersion=version,files=files,runtimeRequired=release.RUNTIME,
         unchangedRequired=[dict(path=n,sha256=before_hashes[n]) for n in sorted(release.PROTECTED)])
+    return write_stage(source, output, payloads, manifest, frozen_base)
+
+
+def build_delta(source, source_commit, before_hashes, captured, output, *, ready=False, frozen_base=None):
+    captured, output = Path(captured), Path(output)
+    if output.exists():
+        raise FileExistsError('new ES stage required')
+
+    def read_live(name, path):
+        raw = (captured/name).read_bytes()
+        if digest(raw) != before_hashes[path]:
+            raise ValueError('captured ES source hash differs: '+name)
+        return raw
+
+    assets = {}
+    for name, path in DELTA_STATIC_OLD.items():
+        live = read_live(name,path)
+        desired = source(source_commit, HOME_SHELL if name=='homepage-shell.js' else DASH+name)
+        if live.count(SUMMARY_V2_GUARD) != 1 or desired.count(SUMMARY_COMPAT_GUARD) != 1:
+            raise ValueError('unexpected summary consumer contract: '+name)
+        assets[name] = live.replace(SUMMARY_V2_GUARD,SUMMARY_COMPAT_GUARD,1)
+    version = 'admin-es-20261113-' + digest(b''.join(n.encode()+b'\0'+assets[n] for n in release.DELTA_UI))[:12]
+    payloads = {'ui/'+n:raw for n,raw in assets.items()}
+    payloads['routes.conf'] = route_payload(read_live('routes.conf',release.FORMAL),version,
+        locations=DELTA_LOCATIONS,aliases=DELTA_STATIC_OLD)
+    for name,target in release.DELTA_CODE.items():
+        leaf = Path(name).name
+        base = source(DEPLOYED,DASH+leaf)
+        desired = source(source_commit,DASH+leaf)
+        live = read_live(leaf,target)
+        payloads[name] = compose_cost(base,desired,live) if leaf=='channel_cost_source.py' else compose(leaf,base,desired,live)
+        ast.parse(payloads[name],filename=leaf,feature_version=(3,9))
+        if payloads[name] == live:
+            raise ValueError('missing ES source change: '+leaf)
+    files = [dict(candidate=name,target=target,sha256=digest(payloads[name]),beforeSha256=before_hashes.get(target))
+        for name,target in release.targets(version,delta=True).items()]
+    manifest = dict(schemaVersion=1,scope=release.DELTA_SCOPE,releaseReady=ready,businessWrites=False,timersChanged=False,
+        sourceCommit=source_commit,assetVersion=version,files=files,runtimeRequired=release.RUNTIME,
+        unchangedRequired=[dict(path=n,sha256=before_hashes[n]) for n in sorted(release.DELTA_PROTECTED)])
+    return write_stage(source,output,payloads,manifest,frozen_base)
+
+
+def write_stage(source, output, payloads, manifest, frozen_base):
     release.contract(manifest)
     output.mkdir(parents=True)
     for name,raw in payloads.items():
         path = output/'candidate'/name
         path.parent.mkdir(parents=True,exist_ok=True)
         path.write_bytes(raw)
-    (output/release.ADAPTER).write_bytes(source(source_commit,EMAIL_ADAPTER))
+    (output/release.ADAPTER).write_bytes(source(manifest['sourceCommit'],EMAIL_ADAPTER))
     (output/'es_data_release.py').write_bytes(Path(release.__file__).read_bytes())
     (output/'manifest.json').write_bytes((json.dumps(manifest,indent=2,sort_keys=True)+'\n').encode())
     if frozen_base is not None:
@@ -171,8 +240,11 @@ if __name__=='__main__':
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--frozen-base',type=Path,required=True)
     parser.add_argument('--release-ready',action='store_true')
+    parser.add_argument('--delta',action='store_true')
     args=parser.parse_args()
-    manifest=build(git_source,args.source_commit,json.loads(args.baseline.read_text('utf-8-sig')),args.captured,args.output,
+    build_stage=build_delta if args.delta else build
+    baseline=json.loads(args.baseline.read_text('utf-8-sig'))
+    manifest=build_stage(git_source,args.source_commit,baseline,args.captured,args.output,
                    ready=args.release_ready,frozen_base=args.frozen_base)
     print(json.dumps({'files':len(manifest['files']),'assetVersion':manifest['assetVersion'],
                       'manifestSha256':digest((args.output/'manifest.json').read_bytes())}))

@@ -12,7 +12,7 @@ const cases=[
  ['legacy-shell.js','legacy-business.js','f6c776a5ec169f5d77338a83d312e55185410ab56f224e694bb7c181edb07047']
 ];
 for(const [name,,baseline]of cases){
- const code=fs.readFileSync(path.join(source,name),'utf8');
+ const code=fs.readFileSync(path.join(source,name),'utf8').replace(/\r\n/g,'\n');
  assert.equal(code.split(added).length-1,1,name+' only adds the five state keys once');
  const beforeSummaryFix=code.replace(added,'')
   .replace("!['admin-paid-order-labelled-supplement-v2','admin-paid-order-labelled-supplement-v3-scope-repeat'].includes(data.scopeContractId)",name==='shell.js'?"data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'":"data.scopeContractId!=='admin-main-order-labelled-supplement-v1'")
