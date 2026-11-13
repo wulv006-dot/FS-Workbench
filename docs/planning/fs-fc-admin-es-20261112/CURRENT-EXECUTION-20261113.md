@@ -60,3 +60,12 @@
 - 后续审阅发现批次Admin捕获时间不能证明单行ES来源更新；已在 `8e50c84` 改用同单evidence_ref对应工作簿捕获时间，并与共享消费者接线通过D0 15项、dashboard99项、SEO19项及浏览器隔离验证。此增量尚未生产应用，当前现场来源更正时间边界仍待替换。
 - 用户明确一份ES数据库共用：候选 `cc370af` 复用customers.sqlite3和原归档、日更/周一入口，日补昨日、周复核当月，用户库与共享索引失败独立。`1e30755` 补同发布ID提交后重入幂等，另正在补跨日欠账保留；未seed或生产切换，不能声明共享库已全面生效。首批复用11/6–11/11已有ES文件，11/12缺完整文件需原任务续作。
 - FC `879f389`、`0abb5bc` 已完成原生曲线和独立Order投影、KEEP观察、逐美分合法中间步及返回状态接线；标价对标价保持。用户明确卫星站跟随MMOEXP、不需独立定价。生产财务证明仍缺退款/追回原单事件和完整结账/采购证据，旧自动模式保持，未激活新曲线或进行本轮价格写入。
+
+
+### 共享库补昨日与最新归因规则继续
+
+- PR #1026 正式 CI `43384076903` 成功，固定head `640c5f13b406469b0f0b169f6f24d9f984624e3e` 已合并 `cc59b4dfda0377a3ed25e9f529d614c0d0a82799`。后续Direct、共享补缺恢复及图表增量另走下一正式检查。
+- 11/12原日更停在flags，原因是旧档11/12 15:48的全站月中导出被误当完整日。两次旧读路径只得到`private_archive_reuse`，无真实导出attempt；聚合旧receipt SHA `4615ecb6da3268cfa5853d648598db71414866e7dce4c48b26cbacf5272b3cc5`保留。持原jobs/ES锁核对后，原 `server_bundle_after` 稳定闭日周期 `closed_03eb425993acebd0b5e965801d9bb42298cc7156c8ca0eec0d19cb55808f4b63` 成功捕获11/12完整日档，07:18:53Z，flags1文件complete、sourceVersion `cfaa9a22d70ff1b9ffe262da07f0165e7fe7d4ff5c5910a6c4dc0e397df6c941`；新review receipt SHA `be68721c5e307b1096b6c763e20197786ca5c9febd332fabeca6198fbf0371da`。未删除旧回执，未重放未知写入。
+- 新鲜11/12工作簿817行含新增归因列，211行明确Direct；旧11/6–11/11共5918行均无新增列、无明确Direct，4290行旧来源空。此为商品行而非去重订单。新Direct规则：明确Direct保持顶层，有码按已核映射作为内部细分；四类线索皆空才未知，有线索未分类单列待归类。新图表使用显式SVG柱与0–100%刻度，不将旧细排行条的数值验收当作新视觉验收。
+- 共享恢复增量 `eec2e16` 保留同库原pin待补记录、跨月欠账和完整多日追赶，原用户发布独立；闭日陈档由原受控fresh入口修正。待生产装配与首批seed，不能宣称共享数据库已经生效。原码券专项和两个channel任务仍需随消费者新包切换，避免缺缓存重扫全游戏。
+- 知识r2 fixed `3110c1530ebc56a8cc51bcf56e3c2cb7d219ec49` 69目标，manifest `322aefced0d19aae67a783fbab1abeac7114fe2aff947dbee5d6cd22edbccb8a`。原release `nav-20261113T071940Z` 首次在live_lock退出；只读证实未备份/未写、锁已空后沿同ID恢复成功，0业务worker/timer动作。policy候选 `711937b4aa11cc6ae75e52556bbcad35ba284d7d778d3cbb59970b1fc96da834`，真实选择及Notion读回由原closeout继续。
