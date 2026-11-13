@@ -63,10 +63,22 @@ class OrderFactsSource(unittest.TestCase):
 
     def test_pinned_order_source_carries_fixed_capture_revision(self):
         attr=es_row(channel=''); attr['订单来源']='google-FC27-PMAX-Coins-US'
+        attr['marketing_attribution']['source_captured_at']='2026-11-11T01:00:00+08:00'
         fact=project(data=dataset([attr]))['orders'][0]
         self.assertEqual(fact['pinned_order_source'],'google-FC27-PMAX-Coins-US')
         self.assertEqual(fact['pinned_order_source_revision'],'uw_pinned')
-        self.assertEqual(fact['pinned_order_source_at'],'2026-11-12T00:00:00+08:00')
+        self.assertEqual(fact['pinned_order_source_at'],'2026-11-11T01:00:00+08:00')
+
+    def test_later_admin_capture_cannot_override_newer_same_order_source_observation(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        attr=es_row(channel=''); attr['订单来源']='google-FC27-PMAX-Coins-US'
+        attr['marketing_attribution']['source_captured_at']='2026-11-11T01:00:00+08:00'
+        facts=project(data=dict(dataset([attr]),captured_at='2026-11-13T01:00:00+08:00'))
+        evidence=effective_attribution(facts['orders'][0],{},dict(sourceStatus='available',
+            sourceRaw='Google organic',sourceCapturedAt='2026-11-12T01:00:00+08:00'),Attribution({'entries':[]},[],{}))
+        self.assertEqual(evidence['channel'],'unknown')
+        self.assertTrue(evidence['conflict'])
 
     def test_scoped_identity_uniqueness_never_proves_global_uniqueness(self):
         partial=catalog(); partial['scope']['site']='266'

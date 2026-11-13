@@ -284,6 +284,17 @@ class OrderFactsAPI(unittest.TestCase):
         self.assertEqual(self.service.get(detail,'alice')[0],409)
         self.assertFalse(self.channels.pool.calls)
 
+    def test_shared_no_coverage_is_unavailable_and_has_no_daily_zero(self):
+        query = selection(params())
+        value=facts({k:query[k] for k in ('start','end','site_id','gid')})
+        value.update(status='unavailable',orders=[])
+        value['source_coverage'].update(admin_snapshot=True,admin_complete=False,missing_days=[DAY])
+        result=public(value,query)
+        self.assertEqual(result['status'],'unavailable')
+        self.assertTrue(result['source_snapshot'])
+        self.assertEqual(result['coverage']['missing_days'],[DAY])
+        self.assertIsNone(result['trend'][0]['admin_paid_usd'])
+
     def test_slow_source_failure_returns_terminal_status_before_retry(self):
         def timed_out(scope):
             self.now += 180

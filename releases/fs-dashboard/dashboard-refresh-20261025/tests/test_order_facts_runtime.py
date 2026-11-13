@@ -8,11 +8,11 @@ import sys
 import tempfile
 import unittest
 from urllib.parse import parse_qs, urlsplit
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'source'),str(ROOT.parent/'cache-archive-retention-20261025/source')]
-from order_facts_runtime import admin_orders, collect, collect_many, publication, existing_costs
+from order_facts_runtime import admin_orders, collect_live_diagnostic, publication, existing_costs
 
 SCOPE=dict(start='2026-11-10',end='2026-11-10',site_id='266',gid='1327')
 def row(i=2,site=266,**kw):
@@ -27,7 +27,7 @@ class Runtime(unittest.TestCase):
         d4 = row(1);d4['gid'] = 456
         request = Mock(return_value=response([row(), d4]))
         with tempfile.TemporaryDirectory() as root:
-            values = collect_many([SCOPE, dict(SCOPE,gid='456')], request=request,
+            values = collect_live_diagnostic([SCOPE, dict(SCOPE,gid='456')], request=request,
                 db=Path(root)/'absent.db', costs=Path(root)/'absent.json', dataset_reader=Mock())
         request.assert_called_once()
         self.assertEqual([v['totals']['orders'] for v in values], [1,1])
@@ -38,7 +38,7 @@ class Runtime(unittest.TestCase):
     def test_batch_rejects_mixed_dates_before_read(self):
         request = Mock()
         with self.assertRaisesRegex(ValueError,'batch_period'):
-            collect_many([SCOPE,dict(SCOPE,end='2026-11-11')],request=request)
+            collect_live_diagnostic([SCOPE,dict(SCOPE,end='2026-11-11')],request=request)
         request.assert_not_called()
 
     def test_all_site_pagination_keeps_identity_catalog(self):
@@ -83,7 +83,7 @@ class Runtime(unittest.TestCase):
                 dict(source='www.mmoexp.com',sn='O2',delivery_id='D',genre=1,cost_total='100'),
                 dict(source='www.rsorders.com',sn='O1',delivery_id='D-other',genre=1,cost_total='500') ])))
             reader=Mock()
-            data=collect(SCOPE,request=Mock(return_value=response([row(),row(1,320)])),
+            [data]=collect_live_diagnostic([SCOPE],request=Mock(return_value=response([row(),row(1,320)])),
                 db=db,costs=cost,dataset_reader=reader)
             self.assertEqual(data['totals']['orders'],1)
             self.assertEqual(data['totals']['observed_cost_cny'],'100')
@@ -92,7 +92,6 @@ class Runtime(unittest.TestCase):
             self.assertEqual(data['coverage']['unlinked_cost_records'],0)
             reader.assert_not_called()
     def test_dashboard_uses_same_order_pmax_and_coupon_without_new_admin_request(self):
-        from order_facts_runtime import collect_dashboard
         with tempfile.TemporaryDirectory() as root:
             root=Path(root); (root/'days').mkdir()
             day=SCOPE['start']; cache=root/'days'/f'{day}.json'
@@ -104,7 +103,7 @@ class Runtime(unittest.TestCase):
                 orders=[record])))
             request=Mock(return_value=response([row(discount_code='Known'),row(1,320)]))
             settings=dict(request=request,db=root/'absent.db',costs=root/'absent.json',dataset_reader=Mock())
-            result=collect_dashboard(dict(SCOPE,site_id='all'),channel_archive=root,**settings)
+            [result]=collect_live_diagnostic([dict(SCOPE,site_id='all')],channel_archive=root,**settings)
             request.assert_called_once()
             main, other=result['orders']
             self.assertEqual(main['channel'],'unknown')
@@ -114,7 +113,7 @@ class Runtime(unittest.TestCase):
             self.assertEqual(main['effective_attribution']['coupon_templates'],['Launch'])
             self.assertIsNone(other['effective_attribution']['coupon'])
             self.assertEqual(other['effective_attribution']['channel'],'unknown')
-            shared=collect(SCOPE,**settings)
+            [shared]=collect_live_diagnostic([SCOPE],**settings)
             self.assertNotIn('effective_attribution',shared['orders'][0])
             self.assertEqual(result['source_coverage']['source_revision'],shared['source_coverage']['source_revision'])
 
@@ -199,6 +198,45 @@ class Runtime(unittest.TestCase):
         facts=build_order_facts([row()],rows,[],sites={'266':'www.mmoexp.com'},scope=SCOPE,source_coverage={})
         self.assertEqual(facts['orders'][0]['marketing_attribution']['status'],'field_absent')
         self.assertTrue(facts['orders'][0]['pinned_order_source_conflict'])
+
+    def test_shared_reader_projects_only_scoped_rows_without_live_or_archive_calls(self):
+        from order_facts_runtime import collect, collect_dashboard, collect_many
+        response = dict(status='available',rows=[row(discount_code='Known', tracking=dict(
+            sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',coupons=[]))],dataset=None,
+            identity_catalog=None,coverage=dict(complete=True,admin_complete=True,admin_date_basis='paytime',
+                admin_snapshot=True,source_revision='revision-4',publication_id='uw_fixed',day_revisions={},missing_days=[]))
+        reader=Mock(return_value=response)
+        legacy_transport=Mock(side_effect=AssertionError('legacy transport must not run'))
+        with tempfile.TemporaryDirectory() as folder, patch('order_facts_runtime.admin_orders') as native, \
+                patch('order_facts_runtime.dashboard_evidence') as legacy:
+            kwargs=dict(reader=reader,db=Path(folder)/'shared.db',costs=Path(folder)/'absent.json',publication_id='uw_fixed')
+            value=collect_dashboard(SCOPE,**kwargs)
+            plain=collect(SCOPE,dataset_reader=legacy_transport,**kwargs)
+            [batch]=collect_many([SCOPE],request=legacy_transport,**kwargs)
+        native.assert_not_called();legacy.assert_not_called()
+        legacy_transport.assert_not_called()
+        self.assertEqual(reader.call_args.args,(SCOPE,))
+        self.assertEqual(reader.call_args.kwargs['publication_id'],'uw_fixed')
+        self.assertEqual(value['orders'][0]['channel'],'unknown')
+        self.assertEqual(value['orders'][0]['effective_attribution']['channel'],'PPC')
+        self.assertFalse(value['orders'][0]['effective_attribution']['coupon'])
+        self.assertTrue(value['source_coverage']['admin_snapshot'])
+        self.assertNotIn('effective_attribution',plain['orders'][0])
+        self.assertEqual(plain,batch)
+
+    def test_shared_reader_missing_coverage_and_batch_revision_drift_are_explicit(self):
+        from order_facts_runtime import collect_shared_many
+        unavailable=dict(status='unavailable',rows=[],dataset=None,identity_catalog=None,
+            coverage=dict(complete=False,admin_complete=False,admin_date_basis='paytime',admin_snapshot=True,
+                source_revision='revision-4',publication_id=None,day_revisions={},missing_days=[SCOPE['start']]))
+        drift=dict(unavailable,coverage=dict(unavailable['coverage'],source_revision='revision-5'))
+        with tempfile.TemporaryDirectory() as folder:
+            kwargs=dict(db=Path(folder)/'shared.db',costs=Path(folder)/'absent.json')
+            [value]=collect_shared_many([SCOPE],reader=Mock(return_value=unavailable),**kwargs)
+            self.assertEqual(value['status'],'unavailable')
+            self.assertEqual(value['source_coverage']['missing_days'],[SCOPE['start']])
+            with self.assertRaisesRegex(ValueError,'order_facts_shared_revision_changed'):
+                collect_shared_many([SCOPE,dict(SCOPE,gid='456')],reader=Mock(side_effect=[unavailable,drift]),**kwargs)
     def test_existing_http_route_dispatches_facts_without_changing_old_modes(self):
         tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'))
         handler=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Handler')

@@ -147,6 +147,18 @@ class PublishedRevisions(unittest.TestCase):
             self.assertEqual(revised['data_revision'], '2')
             self.assertEqual(revised['source_revision'], revised['publication_id'])
 
+    def test_capture_comes_from_fixed_workbook_evidence_not_admin_publication(self):
+        captured='2026-11-11T01:00:00+08:00'
+        query=dict(Q,end='2026-11-10')
+        original=archive(self.root,24,[order()],query,captured=captured)
+        duplicate=archive(self.root,24,[order()],query,captured='2026-11-12T01:00:00+08:00')
+        for module in READERS:
+            value=self.read(module,[original],query=query)
+            self.assertEqual(value['rows'][0]['marketing_attribution']['source_captured_at'],captured)
+            self.assertNotEqual(value['captured_at'],captured)
+            repeated=self.read(module,[original,duplicate],query=query)
+            self.assertIsNone(repeated['rows'][0]['marketing_attribution']['source_captured_at'])
+
     def test_schema_superset_is_whole_row_not_last_nonempty(self):
         old = archive(self.root, 21, [order()])
         new = archive(self.root, 24, [order()])

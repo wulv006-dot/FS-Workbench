@@ -297,7 +297,8 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
             cost_covered_orders=summary['cost_covered_orders'],
             gross_covered_orders=summary['gross_covered_orders']))
         day += timedelta(days=1)
-    status = 'partial' if any(row['status'] == 'partial' for row in trend) else data['status']
+    status = data['status']
+    if status == 'available' and any(row['status'] == 'partial' for row in trend):status = 'partial'
     channel_rows = breakdown_rows(groups,len(selected),'channel',status)
     breakdown = dict(dimension='channel' if q['channel']=='all' else 'source_detail',denominator_orders=len(selected),
                      rows=channel_rows if q['channel']=='all' else breakdown_rows(details,len(selected),'source_detail',status))
@@ -316,6 +317,10 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
                 readonly=True, private=True)
     for key, flag in (('q','keyword_applied'),('code','discount_code_applied'),('coupon_batch','coupon_batch_applied')):
         if key in q:result[flag]=True
+    if source.get('admin_snapshot') is True:
+        result['source_snapshot'] = True
+        coverage['missing_days'] = [day for day in source.get('missing_days',())
+            if isinstance(day,str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}',day)]
     revision_input = {k: v for k, v in result.items() if k not in ('options','captured_at')}
     if snapshot_binding:
         revision_input['authorization_and_scope'] = snapshot_binding

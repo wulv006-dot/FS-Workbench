@@ -90,7 +90,7 @@ def existing_costs(path=COSTS):
 
 
 def collect(scope, **kwargs):
-    return collect_many([scope], **kwargs)[0]
+    return collect_shared(scope, **kwargs)
 
 
 def dashboard_evidence(period, root):
@@ -218,13 +218,63 @@ def effective_attribution(order, native, archived, mapping):
             promoter=promoter_name, coupons=coupons))
 
 
-def collect_dashboard(scope, *, channel_archive=CHANNEL_ARCHIVE, **kwargs):
-    return collect_many([scope], channel_archive=channel_archive, **kwargs)[0]
+def collect_dashboard(scope, **kwargs):
+    return collect_shared_many([scope], dashboard=True, **kwargs)[0]
 
 
-def collect_many(scopes, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, dataset_reader=None,
+def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, reader=None, dashboard=False):
+    """Project a single shared publication without live acquisition or legacy cache reads."""
+    if not scopes or any((s['start'],s['end'])!=(scopes[0]['start'],scopes[0]['end']) for s in scopes):
+        raise ValueError('order_facts_batch_period')
+    if reader is None:
+        from shared_es_facts import read as reader
+    deliveries, cost_proof = existing_costs(costs)
+    if dashboard:
+        mapping, mapping_revision = dashboard_mapping()
+    results = []
+    revision = None
+    for scope in scopes:
+        shared = reader(scope, db=Path(db), publication_id=publication_id)
+        coverage = dict(shared['coverage'], cost=cost_proof)
+        current = coverage.get('publication_id'), coverage.get('source_revision')
+        if ((publication_id is not None and current[0]!=publication_id)
+                or (revision is not None and current!=revision)):
+            raise ValueError('order_facts_shared_revision_changed')
+        publication_id, _ = revision = current
+        status = shared['status']
+        if status not in ('available','partial','unavailable'):
+            raise ValueError('order_facts_shared_status')
+        if status=='unavailable':coverage['admin_complete'] = False
+        rows = shared['rows']
+        keys = {((r.get('site') or {}).get('full_title'),str(r['order_no'])) for r in rows}
+        selected_deliveries = [r for r in deliveries if (r.get('source'),str(r.get('sn') or '')) in keys]
+        value = project_order_facts(rows,shared['dataset'],selected_deliveries,scope=scope,
+            source_coverage=coverage,identity_catalog=shared['identity_catalog'])
+        if status!='available':value['status'] = status
+        if dashboard:
+            native = {(str(r['site_id']),str(r['order_no'])):r for r in rows}
+            for order in value['orders']:
+                raw = native[(order['site_id'],order['order_no'])]
+                order['effective_attribution'] = effective_attribution(order,raw,raw.get('tracking'),mapping)
+            value['source_coverage']['effective_attribution'] = dict(rule=ATTRIBUTION_RULE,
+                mapping_revision=mapping_revision,day_revisions=coverage.get('day_revisions',{}))
+        results.append(value)
+    return results
+
+
+def collect_shared(scope, *, dataset_reader=None, **kwargs):
+    """Accept the deprecated FC archive reader during rollout without invoking it."""
+    return collect_shared_many([scope], **kwargs)[0]
+
+
+def collect_many(scopes, *, request=None, **kwargs):
+    """The deprecated SEO transport argument is accepted during rollout and never called."""
+    return collect_shared_many(scopes, **kwargs)
+
+
+def collect_live_diagnostic(scopes, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, dataset_reader=None,
                  channel_archive=None):
-    """One source revision for same-period consumers; no persistent private cache."""
+    """Explicit legacy comparison. Production consumers use the shared publication."""
     if not scopes or any((s['start'], s['end']) != (scopes[0]['start'], scopes[0]['end']) for s in scopes):
         raise ValueError('order_facts_batch_period')
     scope = scopes[0]

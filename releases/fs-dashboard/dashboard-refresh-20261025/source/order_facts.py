@@ -135,7 +135,9 @@ def build_order_facts(admin_orders, attribution_rows, deliveries, *, sites, scop
         row['pinned_order_source_conflict'] = len(sources)>1
         if row['pinned_order_source']:
             row['pinned_order_source_revision'] = source_coverage.get('attribution',{}).get('source_revision')
-            row['pinned_order_source_at'] = source_coverage.get('attribution',{}).get('captured_at')
+            observed = {choice.get('source_captured_at') for choice,source in contexts
+                        if isinstance(source,str) and source.strip()==row['pinned_order_source']}
+            row['pinned_order_source_at'] = next(iter(observed)) if len(observed)==1 else None
         result.append(row)
     groups=defaultdict(list)
     for row in result:groups[row['channel']].append(row)

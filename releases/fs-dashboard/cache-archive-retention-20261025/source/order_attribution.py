@@ -156,8 +156,10 @@ def published_dataset(args, publication, root, parse_files, make_dataset, excel_
         if key:
             variants.setdefault(key, []).append(row)
         fact = row['marketing_attribution']
+        evidence = row_sources[row['_signature']]
+        captured = {datetime.fromisoformat(manifests[name]['captured_at']) for name in evidence}
         fact.update(source_revision=publication['publication_id'], available_at=publication['published_at'],
-                    evidence_ref=row_sources[row['_signature']])
+                    evidence_ref=evidence, source_captured_at=next(iter(captured)).isoformat() if len(captured)==1 else None)
     conflicts = [key for key, values in variants.items() if len(values) > 1]
     for key in conflicts:
         for row in variants[key]:

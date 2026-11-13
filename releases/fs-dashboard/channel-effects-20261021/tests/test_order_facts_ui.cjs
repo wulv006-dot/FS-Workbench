@@ -27,7 +27,7 @@ const server=http.createServer((req,res)=>{
       if(url.searchParams.has('detail_export')){res.end(JSON.stringify({snapshot_id,total:3,detail_csv:'channel,code,coupon\r\nReferral,synthetic-code,Launch\r\n'}));return;}
       res.end(JSON.stringify({snapshot_id,total:3,page:1,pages:1,orders:[{orderNo:'SYNTHETIC',channel:'Referral（引荐）',source:'YouTube',code:'synthetic-code',coupons:['Launch'],salesUsd:15}]}));return;
     }
-    const empty=state==='empty',zero=state==='zero',channel=url.searchParams.get('channel'),selected=channel==='unknown';
+    const missing=state==='shared-missing',empty=state==='empty'||missing,zero=state==='zero',channel=url.searchParams.get('channel'),selected=channel==='unknown';
     const referral=channel==='Referral', filtered=url.searchParams.has('coupon_template');
     const totals=summary(empty?0:selected||filtered?1:referral?3:4,empty||referral||filtered?0:1);
     if(zero)Object.assign(totals,{missing_cost_orders:0,cost_covered_orders:2,procurement_gross_cny:'0',gross_covered_orders:2,admin_paid_usd:'0'});
@@ -40,14 +40,14 @@ const server=http.createServer((req,res)=>{
       rows:empty?[]:selected?[sourceRow('未提供',1)]:referral?(filtered?[sourceRow('YouTube',1)]:[sourceRow('YouTube',2),sourceRow('未提供',1)]):
         [sourceRow('Referral（引荐）',3),sourceRow('未知',1)]};
     const snapshot=state==='revision'?'revision-2':'revision-1';
-    res.end(JSON.stringify({version:'order-facts-api-20261113-v1',status:'available',admin_complete:true,
+    res.end(JSON.stringify({version:'order-facts-api-20261113-v1',status:missing?'unavailable':'available',admin_complete:!missing,
       ...(state==='deferred'?{refresh_deferred:true,refresh_reason:'recent_capture',retryAfter:60}:{}),
       effective_scope:state==='mismatch'?{...scope,gid:'999'}:scope,
       snapshot_id:snapshot,aggregate_csv:`gid,channel,snapshot\r\n${scope.gid},${scope.channel},${snapshot}\r\n`,
       trend:[{day:scope.start,...totals,status:'available'},
         {day:scope.end,...summary(0),admin_paid_usd:null,observed_cost_cny:null,status:'partial'}],
       totals,breakdown,channels:[],keyword_applied:url.searchParams.has('q'),discount_code_applied:url.searchParams.has('code'),coupon_batch_applied:url.searchParams.has('coupon_batch'),
-      coverage:{unlinked_admin_rows:0,unlinked_attribution_rows:3,unverified_filter_orders:filtered?1:0},
+      coverage:{unlinked_admin_rows:0,unlinked_attribution_rows:3,unverified_filter_orders:filtered?1:0,missing_days:missing?[scope.end]:[]},
       options:{games:[['1327','FC27'],['456','Diablo 4'],['1329','AION2']],country:['US'],payment:['PayPal'],coupon_templates:[['7','Launch']]},
       revisions:{attribution:{publication_id:state==='revision'?'revision-2':'revision-1'}}}));return;
   }
@@ -179,6 +179,11 @@ const server=http.createServer((req,res)=>{
     await page.locator('#status').filter({hasText:'没有付款订单'}).waitFor();
     assert.match(await page.locator('#kpis').innerText(),/\$0.00/);
     assert.match(await page.locator('#source-attribution').innerText(),/没有记录/);
+    state='shared-missing';await page.locator('#refresh').click();
+    await page.locator('#status').filter({hasText:'共享订单库暂未覆盖当前范围'}).waitFor();
+    assert.match(await page.locator('#source-attribution-note').innerText(),/共享订单库缺 1 天/);
+    assert.doesNotMatch(await page.locator('#kpis').innerText(),/\$0\.00/);
+    assert.equal(await page.locator('#source-attribution-chart li').count(),0);
     state='zero';await page.locator('[name=channel]').selectOption('all');
     await page.waitForFunction(()=>document.querySelector('#coverage').textContent.includes('完整成本 2 / 4'));
     assert.doesNotMatch(await page.locator('#kpis').innerText(),/—/);

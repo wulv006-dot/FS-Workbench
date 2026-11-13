@@ -289,11 +289,13 @@ function renderFacts() {
   const sourceDetail = data.breakdown.dimension === 'source_detail';
   const title = sourceDetail ? `${channel} · 来源明细占比` : '各归因渠道订单占比';
   $('source-attribution-title').textContent = title;
-  const cohort = `${sourceDetail ? '所选渠道' : '全部渠道（含未知）'}共 ${count(data.breakdown.denominator_orders)} 单`;
+  const cohort = data.status==='unavailable' ? '订单覆盖未知' : `${sourceDetail ? '所选渠道' : '全部渠道（含未知）'}共 ${count(data.breakdown.denominator_orders)} 单`;
   const missingFilter = data.coverage?.unverified_filter_orders;
-  $('source-attribution-note').textContent = `${cohort} · 已归因 ${count(attributed)} / ${count(s.orders)} 单` +
+  const missingDays = data.coverage?.missing_days?.length;
+  $('source-attribution-note').textContent = cohort + (data.status==='unavailable' ? '' : ` · 已归因 ${count(attributed)} / ${count(s.orders)} 单`) +
     (missingFilter ? ` · ${count(missingFilter)} 单筛选字段未核` : '') +
-    (data.status !== 'available' || !data.admin_complete ? ' · 占比按已取得的订单计算' : '') +
+    (missingDays ? ` · 共享订单库缺 ${count(missingDays)} 天` : '') +
+    (data.status !== 'unavailable' && (data.status !== 'available' || !data.admin_complete) ? ' · 占比按已取得的订单计算' : '') +
     (data.breakdown.rows.length>10 ? ' · 图中显示前10项，完整数值见表' : '');
   attributionBars(data.breakdown.rows.slice(0,10),title);
   const association = (row,key) => {
@@ -311,10 +313,10 @@ function renderFacts() {
   trend(data.trend.map(row => ({key:row.day,orders:row.orders,salesUsd:row.admin_paid_usd,
     costCny:row.observed_cost_cny,profitCny:row.procurement_gross_cny,coveredOrders:row.cost_covered_orders,status:row.status})), true);
   const labels = [
-    ['去重订单数', count(s.orders), '所选渠道的付款订单'],
-    ['已知订单金额（USD）', usd(s.admin_paid_usd), `缺美元金额 ${count(s.missing_admin_usd_orders)} 单`],
-    ['已知订单金额（¥）', cny(s.admin_paid_cny), `缺人民币金额 ${count(s.missing_admin_cny_orders)} 单`],
-    ['已读采购成本（¥）', cny(s.observed_cost_cny), '观察小计，不等于整单成本齐全'],
+    ['去重订单数', data.status==='unavailable'?'—':count(s.orders), '所选渠道的付款订单'],
+    ['已知订单金额（USD）', usd(data.status==='unavailable'?null:s.admin_paid_usd), `缺美元金额 ${count(s.missing_admin_usd_orders)} 单`],
+    ['已知订单金额（¥）', cny(data.status==='unavailable'?null:s.admin_paid_cny), `缺人民币金额 ${count(s.missing_admin_cny_orders)} 单`],
+    ['已读采购成本（¥）', cny(data.status==='unavailable'?null:s.observed_cost_cny), '观察小计，不等于整单成本齐全'],
     ['已核同单毛利（¥）', cny(s.procurement_gross_cny), `已核毛利 ${count(s.gross_covered_orders)} 单；非净利润`],
     ['完整成本覆盖', `${count(s.cost_covered_orders)} / ${count(s.orders)}`, '按去重订单，不以发货时间窗代替'],
     ['已归因订单', `${count(attributed)} / ${count(s.orders)}`, '未知渠道继续保留订单金额'],
@@ -332,6 +334,10 @@ function renderFacts() {
     '多项优惠可能关联同一订单。渠道与来源占比使用各自去重订单分母；关联计数不与渠道订单数相加。'
   ].map(value => text('p',value)));
   $('results').hidden = false;
+  if (data.status==='unavailable') {
+    show('共享订单库暂未覆盖当前范围，订单数和金额未知。','partial');
+    return;
+  }
   if (data.refresh_deferred) {
     show(data.refresh_reason === 'shared_workers_busy' ? '共享查询正在执行，暂保留当前结果；稍后可再次刷新。' : `刚完成本范围读取，暂保留当前结果；${count(data.retryAfter)} 秒后可再次刷新。`, 'partial');
     return;
