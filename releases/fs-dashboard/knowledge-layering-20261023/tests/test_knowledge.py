@@ -102,6 +102,10 @@ class Knowledge(unittest.TestCase):
         self.assertIn('真实FC订单及USD计FC广告成交',selected['entries'][0]['content'])
         self.assertIn('无已核分摊不套FC',selected['entries'][0]['content'])
         self.assertIn('归因渠道 ＞ 订单来源 ＞ 推广人及折扣码',selected['entries'][0]['content'])
+        self.assertIn('四项皆空为未知，有线索未映射为待归类', selected['entries'][0]['content'])
+        self.assertIn('同级冲突待核', selected['entries'][0]['content'])
+        self.assertIn('Direct须有明确直接访问', selected['entries'][0]['content'])
+        self.assertIn('用码按已证KOL、TikTok、运营、分销细分，顶层仍Direct，收入计一次', selected['entries'][0]['content'])
         self.assertNotIn('属全局品牌广告',selected['entries'][0]['content'])
 
     def test_explicit_unresolved_conflict_is_reported(self):

@@ -53,7 +53,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
+        "sha256": "b1a6b0d34a7f054980e7e0adbef1b429ec7a0f2c97fbe3a901c2c5b360a7159c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -158,7 +158,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
+        "sha256": "b1a6b0d34a7f054980e7e0adbef1b429ec7a0f2c97fbe3a901c2c5b360a7159c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -239,7 +239,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
+        "sha256": "b1a6b0d34a7f054980e7e0adbef1b429ec7a0f2c97fbe3a901c2c5b360a7159c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -322,7 +322,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
+        "sha256": "b1a6b0d34a7f054980e7e0adbef1b429ec7a0f2c97fbe3a901c2c5b360a7159c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -615,7 +615,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
+        "sha256": "b1a6b0d34a7f054980e7e0adbef1b429ec7a0f2c97fbe3a901c2c5b360a7159c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -708,7 +708,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
+        "sha256": "b1a6b0d34a7f054980e7e0adbef1b429ec7a0f2c97fbe3a901c2c5b360a7159c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -776,7 +776,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
+        "sha256": "b1a6b0d34a7f054980e7e0adbef1b429ec7a0f2c97fbe3a901c2c5b360a7159c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -844,7 +844,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
+        "sha256": "b1a6b0d34a7f054980e7e0adbef1b429ec7a0f2c97fbe3a901c2c5b360a7159c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -976,7 +976,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
+        "sha256": "b1a6b0d34a7f054980e7e0adbef1b429ec7a0f2c97fbe3a901c2c5b360a7159c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1318,7 +1318,7 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "309de8fc4aad68f53bd4a402cfdbfd7dced44f0dc78a8c3569addcc1ab973d34",
+        "sha256": "fe4c38bd9fec1c13e6026ecd8db49914941150291d43d32ab8038eb4c236a5b4",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
