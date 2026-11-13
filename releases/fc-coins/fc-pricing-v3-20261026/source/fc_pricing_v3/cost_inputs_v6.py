@@ -477,6 +477,18 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
                         sample_ref=fingerprint(dict(order=floor['order_key'], records=[r['cost_record_id'] for r in records])),
                         latest_delivery_at=max(_instant(record['trade_at']) for record in records).isoformat(),
                         cny_per_basis_k=str(floor_rate))
+        if upper is not None and costs:
+            # A newer low-cost sample cannot cap the same cohort below its
+            # observed mean. Use an evidenced complete order as a higher bound.
+            totals = [normalize_cost(row, quantity_basis) for row in costs]
+            upper_rate = normalize_cost(upper, quantity_basis)['unit_usd']
+            if sum(row['total_usd'] for row in totals) > upper_rate * sum(
+                    row['basis_k'] for row in totals):
+                upper = max(costs, key=lambda row: normalize_cost(row, quantity_basis)['unit_usd'])
+                upper_basis = dict(source='same_layer_complete_delivery_cohort_max',
+                                   base_upper_source=upper_basis, basis=quantity_basis, layer=dict(layer),
+                                   order_cost_revision=(fact_evidence or {}).get('source_revision'),
+                                   sample_ref=fingerprint(upper['order_key']))
     estimate = estimate_layer(samples, layer, quantity_basis, upper=upper)
     if ordinary_forecast and not selected['ordinary_delivery_orders']:
         source_gaps.append('ordinary_delivery_cost_sample_missing')

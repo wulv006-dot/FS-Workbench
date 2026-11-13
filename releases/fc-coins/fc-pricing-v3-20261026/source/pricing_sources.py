@@ -228,7 +228,7 @@ def current_template_projection(cache,now):
 
 
 def recheck_curve_average(quote, receipt):
-    from fc_pricing_v3.average_discount_v6 import MODEL, average_discount
+    from fc_pricing_v3.average_discount_v6 import MODEL, average_discount, average_discount_window
     from fc_pricing_v3.business_source import TZ, shared_curve_attachment
 
     sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
@@ -238,9 +238,9 @@ def recheck_curve_average(quote, receipt):
     cutoff = instant(quote['evidence']['checked_at'])
     if cutoff.astimezone(TZ).date() != now.astimezone(TZ).date():
         raise ValueError('pricing_average_history_changed_since_quote')
-    day = cutoff.astimezone(TZ).date()
-    scope = dict(site_id='266', gid='1327', start=(day-timedelta(days=8)).isoformat(),
-                 end=(day-timedelta(days=1)).isoformat())
+    start, end = average_discount_window(cutoff)
+    scope = dict(site_id='266', gid='1327', start=start.date().isoformat(),
+                 end=(end.date()-timedelta(days=1)).isoformat())
     averages = {platform: proof.get('average_discount') or {} for platform, proof in receipt['curve_proofs'].items()}
     pins = {average.get('publication_id') for average in averages.values()}
     if len(pins) != 1 or not next(iter(pins)):
