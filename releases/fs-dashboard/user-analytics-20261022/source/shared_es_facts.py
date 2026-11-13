@@ -20,6 +20,7 @@ FC27_PROJECTION_FIELDS = frozenset(('platform', 'purchase_k', 'bonus_k', 'delive
     'single_line_unit_purchase', 'region_id', 'regular_usd', 'retained_percent', 'points',
     'source_sha256', 'observed_at'))
 FC27_PROJECTION_PIN = 'shared_es_fc27_projection:'
+DEVICE_PIN = 'shared_es_device_projection:'
 HISTORICAL_CHANNEL_SITE = '266'
 HISTORICAL_CHANNEL_ROOT = Path('/var/lib/fs-channel-effects/days')
 DISCOUNT_OWNER_PROJECTS = {
@@ -253,6 +254,93 @@ def store_fc27_projection(store, *, publication_id, source_revision, scope, rows
         value = dict(publication_id=next_pin,data_version=version,published_at=available_at.isoformat(),cutoff=cutoff)
         bind_publication(db,value,publication_id,{})
         db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)',(FC27_PROJECTION_PIN+next_pin,revision))
+    return dict(status='available',publication_id=next_pin,supplement_revision=revision,rows=len(values))
+
+
+def _device_projection_pin(db, publication_id):
+    row = db.execute('SELECT value FROM meta WHERE key=?',(DEVICE_PIN+publication_id,)).fetchone()
+    return row[0] if row else None
+
+
+def _supplement_device(db, rows, days, publication_id):
+    revision = _device_projection_pin(db,publication_id)
+    if not revision:
+        return
+    by_key = {(raw['paytime'][:10],_order_hash(raw['order_no'])):raw for raw in rows
+              if str(raw['site_id'])==HISTORICAL_CHANNEL_SITE and 'device' not in raw}
+    if not by_key:
+        return
+    for day, day_revision in days.items():
+        for order_hash, device in db.execute(
+                'SELECT order_hash,device FROM shared_es_device_projection WHERE revision=? AND day=? AND day_revision=?',
+                (revision,day,day_revision)):
+            if (raw := by_key.get((day,order_hash))) is not None:
+                raw['device'] = device
+
+
+def store_device_projection(store, *, publication_id, source_revision, scope, rows, observed_at):
+    """Publish checked device fields for exact main-site IDs under a new immutable pin."""
+    if (scope['site_id'],scope['gid'])!=(HISTORICAL_CHANNEL_SITE,'all'):
+        raise ValueError('shared_es_device_scope')
+    wanted = set(_days(scope['start'],scope['end']))
+    observed = stamp(observed_at)
+    submitted = {}
+    for row in rows:
+        paid, order_no = row['paid_at'], row['order_no']
+        ident, gid, pay_status, device = str(row['id']), str(row['gid']), str(row['pay_status']), row['device']
+        day = stamp(paid).date().isoformat()
+        if (day not in wanted or not ident.isdecimal() or not gid.isdecimal() or not isinstance(order_no,str)
+                or not order_no or pay_status not in ('1','2') or type(device) is not int or device not in (0,1)
+                or stamp(paid) > observed):
+            raise ValueError('shared_es_device_projection')
+        key = (day,_order_hash(order_no))
+        if key in submitted:
+            raise ValueError('shared_es_device_duplicate_identity')
+        submitted[key] = (ident,order_no,paid,gid,pay_status,device)
+    revision = digest([publication_id,source_revision,observed.isoformat(),sorted(submitted.items())])
+    next_pin = 'se_'+digest([publication_id,revision])[:32]
+    with store.db() as db:
+        db.execute('BEGIN IMMEDIATE')
+        active = db.execute("SELECT p.publication_id,p.data_revision,p.captured_at,p.cutoff "
+            "FROM shared_es_publications p JOIN meta m ON m.value=p.publication_id WHERE m.key=?",(META,)).fetchone()
+        if active is not None and active[0]==next_pin and _device_projection_pin(db,next_pin)==revision:
+            return dict(status='reused',publication_id=next_pin,supplement_revision=revision)
+        if active is None or active[0]!=publication_id:
+            raise ValueError('shared_es_device_publication_changed')
+        _,version,captured_at,cutoff = active
+        slices = db.execute("SELECT p.day,p.revision,s.body FROM shared_es_publication_days p "
+            "JOIN shared_es_slices s ON s.day=p.day AND s.revision=p.revision "
+            "WHERE p.publication_id=? AND p.day BETWEEN ? AND ?",(publication_id,scope['start'],scope['end']))
+        days = {day:day_revision for day,day_revision,body in slices
+                if day < cutoff and 'archive_site' not in json.loads(body)}
+        if set(days)!=wanted or digest(days)!=source_revision:
+            raise ValueError('shared_es_device_source_changed')
+        values = {}
+        for (day,order_hash),(ident,order_no,paid,gid,pay_status,device) in submitted.items():
+            native = db.execute("SELECT body FROM shared_es_native "
+                "WHERE day=? AND revision=? AND site=? AND gid=? AND order_hash=?",
+                (day,days[day],HISTORICAL_CHANNEL_SITE,gid,order_hash)).fetchone()
+            raw = json.loads(native[0]) if native else {}
+            if (str(raw.get('id')),raw.get('order_no'),raw.get('paytime'),str(raw.get('pay_status')))!=(ident,order_no,paid,pay_status):
+                raise ValueError('shared_es_device_identity_mismatch')
+            if 'device' not in raw:
+                values[(day,days[day],order_hash)] = device
+        if not values:
+            return dict(status='unchanged',publication_id=publication_id,supplement_revision=None,rows=0)
+        db.execute("CREATE TABLE IF NOT EXISTS shared_es_device_projection "
+            "(revision TEXT NOT NULL, day TEXT NOT NULL, day_revision TEXT NOT NULL, order_hash TEXT NOT NULL,"
+            "device INTEGER NOT NULL, PRIMARY KEY(revision,day,day_revision,order_hash))")
+        if prior_revision := _device_projection_pin(db,publication_id):
+            db.execute("INSERT INTO shared_es_device_projection "
+                "SELECT ?,s.day,s.day_revision,s.order_hash,s.device FROM shared_es_device_projection s "
+                "JOIN shared_es_publication_days p ON p.day=s.day AND p.revision=s.day_revision "
+                "WHERE s.revision=? AND p.publication_id=?",(revision,prior_revision,publication_id))
+        db.executemany('INSERT OR REPLACE INTO shared_es_device_projection VALUES(?,?,?,?,?)',
+                       ((revision,*key,device) for key,device in values.items()))
+        value = dict(publication_id=next_pin,data_version=version,
+                     published_at=max(stamp(captured_at),observed).isoformat(),cutoff=cutoff)
+        bind_publication(db,value,publication_id,{})
+        db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)',(DEVICE_PIN+next_pin,revision))
     return dict(status='available',publication_id=next_pin,supplement_revision=revision,rows=len(values))
 
 
@@ -498,6 +586,8 @@ def bind_publication(db, value, previous, revisions, *, source_at=None, discount
         db.execute('INSERT INTO shared_es_discount_pins VALUES(?,?)',(ident,discount_revision))
     if prior and (projection_revision := _fc27_projection_pin(db,prior)):
         db.execute('INSERT INTO meta VALUES(?,?)',(FC27_PROJECTION_PIN+ident,projection_revision))
+    if prior and (device_revision := _device_projection_pin(db,prior)):
+        db.execute('INSERT INTO meta VALUES(?,?)',(DEVICE_PIN+ident,device_revision))
     for day, revision in revisions.items():
         if (day >= cutoff or not db.execute(
                 'SELECT 1 FROM shared_es_slices WHERE day=? AND revision=?', (day, revision)).fetchone()):
@@ -826,6 +916,8 @@ def read(scope, *, db=DB, publication_id=None):
         if not day_revisions:
             return _unavailable(missing, publication_id)
         rows, lines, identities = _scoped_rows(connection, day_revisions, site, gid, publication_id)
+        if site in (HISTORICAL_CHANNEL_SITE,'all'):
+            _supplement_device(connection,rows,day_revisions,publication_id)
         if (site,gid)==(FC27_SITE,FC27_GID):
             _supplement_fc27(connection,rows,day_revisions,publication_id)
         else:

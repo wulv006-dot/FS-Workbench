@@ -78,6 +78,41 @@ class SharedFacts(unittest.TestCase):
         actual={row['order_no']:row.get('device') for row in self.read()['rows']}
         self.assertEqual(actual,{'pc':0,'mobile':1,'legacy':None,'unmapped':None,'invalid':None})
 
+    def test_device_supplement_new_pin_preserves_fc27_and_native_current_day_fields(self):
+        original=publication(D2)
+        rev=self.stage(D1,archive(),order('fc',D1),order('d4',D1,gid='1222'),
+                       dict(order('known',D1,gid='1222'),device=1),order('other-site',D1,site='300'))
+        weekly.write_publication(self.store,original,None,shared_revisions={D1:rev})
+        before=self.read()
+        fc=dict(platform='PS',purchase_k='1000',bonus_k='30',delivered_k='1030',
+                single_line_unit_purchase=True,region_id=None,regular_usd='50',retained_percent='100',points='0',
+                source_sha256='b'*64,observed_at=D2+'T12:00:00+08:00')
+        identity=dict(id=1,order_no='fc',paid_at=D1+' 13:15:14')
+        fc_pin=facts.store_fc27_projection(self.store,publication_id=before['coverage']['publication_id'],
+            source_revision=before['coverage']['source_revision'],scope=scope(),rows=[dict(identity,fc27_coins=fc)])
+        main=scope(gid='all')
+        args=dict(publication_id=fc_pin['publication_id'],source_revision=before['coverage']['source_revision'],
+                  scope=main,observed_at=D2+'T13:00:00+08:00')
+        submit=[dict(identity,gid='1327',pay_status=1,device=0),
+                dict(identity,order_no='known',gid='1222',pay_status=1,device=0)]
+        with self.assertRaisesRegex(ValueError,'device_identity_mismatch'):
+            facts.store_device_projection(self.store,**args,rows=[dict(submit[0],pay_status=2)])
+        current=facts.store_device_projection(self.store,**args,rows=submit)
+        self.assertEqual(current['rows'],1)
+        self.assertEqual(facts.store_device_projection(self.store,**args,rows=submit)['status'],'reused')
+        self.assertEqual(facts.latest_publication(db=self.store.path)['publication_id'],current['publication_id'])
+        readback=self.read(main)
+        self.assertEqual(readback['coverage']['source_revision'],before['coverage']['source_revision'])
+        self.assertEqual({r['order_no']:r.get('device') for r in readback['rows']},{'fc':0,'known':1,'d4':None})
+        old=self.read(ident=fc_pin['publication_id'])
+        new=self.read(ident=current['publication_id'])
+        self.assertNotIn('device',old['rows'][0])
+        self.assertEqual(old['coverage']['fc27_projection_revision'],new['coverage']['fc27_projection_revision'])
+        self.assertEqual(old['rows'][0]['fc27_coins'],new['rows'][0]['fc27_coins'])
+        with self.assertRaisesRegex(ValueError,'device_publication_changed'):
+            facts.store_device_projection(self.store,**args,rows=[])
+        self.assertIsNone(self.read(scope(site='300'))['rows'][0].get('device'))
+
     def test_fc27_quantity_supplement_keeps_original_pin_and_exact_source_members(self):
         from unittest.mock import patch
         from user_source import fc27_coins_projection
