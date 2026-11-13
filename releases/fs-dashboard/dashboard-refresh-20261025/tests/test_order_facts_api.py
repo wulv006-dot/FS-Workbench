@@ -224,6 +224,25 @@ class OrderFactsAPI(unittest.TestCase):
         self.assertNotIn('PRIVATE',json.dumps(result))
         self.assertNotIn('/watch',result['aggregate_csv'])
 
+    def test_native_referral_source_detail_survives_the_real_normalizer_and_projection(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        query=selection(params(channel='Referral'))
+        scope={k:query[k] for k in ('start','end','site_id','gid')}
+        source=dict(site_id='266',order_no='fixture-order',amount_usd_format='20',amount_rmb_format='140',
+                    status_format='已完成',pay_status='1',paytime=DAY+' 10:00:00',gid='1327')
+        attribution={'site_id':'266','order_no':'fixture-order','归因渠道':'Referral','归因来源明细':'YouTube'}
+        value=build_order_facts([source],[attribution],[],sites={'266':'www.mmoexp.com'},scope=scope,
+                                source_coverage={'admin_complete':True})
+        original=value['orders'][0]
+        self.assertEqual(original['marketing_attribution']['source_raw'],'YouTube')
+        self.assertEqual(public(value,query)['breakdown']['rows'][0]['label'],'YouTube')
+        original['effective_attribution']=effective_attribution(original,source,None,Attribution({'entries':[]},[],{}))
+        result=public(value,query)
+        self.assertEqual(result['breakdown']['rows'][0]['label'],'YouTube')
+        self.assertEqual(result['breakdown']['rows'][0]['order_share'],1)
+        self.assertIn('YouTube',result['aggregate_csv'])
+
     def test_original_tracking_filters_apply_before_channel_and_to_export(self):
         query = selection(params(channel='PPC',status='valid',country='US',payment='PayPal',
             code='PRIVATE-CODE',coupon_template='7',coupon_batch='PRIVATE-BATCH',q='PRIVATE-ORDER'))

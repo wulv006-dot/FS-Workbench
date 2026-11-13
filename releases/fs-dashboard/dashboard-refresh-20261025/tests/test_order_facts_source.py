@@ -29,6 +29,7 @@ def es_row(sn='O1', channel='PPC', day='2026-11-10'):
 def dataset(rows=None):
     return dict(_private_dataset=True, revision_selection='published_pins', publication_id='uw_pinned',
         source_revision='uw_pinned', data_revision='3', status='available', hashes=['file-sha'],
+        captured_at='2026-11-12T00:00:00+08:00',
         effective_scope={'start':'2026-11-01','end':'2026-11-11','site_verified':False,'game_filter_applied':False},
         rows=[es_row()] if rows is None else rows, revision_conflicts=[])
 
@@ -59,6 +60,13 @@ class OrderFactsSource(unittest.TestCase):
         self.assertEqual(proof['effective_scope']['start'],'2026-11-01')
         self.assertEqual(proof['selected_scope']['start'],'2026-11-10')
         self.assertEqual(proof['bridge_counts'],{'linked':1})
+
+    def test_pinned_order_source_carries_fixed_capture_revision(self):
+        attr=es_row(channel=''); attr['订单来源']='google-FC27-PMAX-Coins-US'
+        fact=project(data=dataset([attr]))['orders'][0]
+        self.assertEqual(fact['pinned_order_source'],'google-FC27-PMAX-Coins-US')
+        self.assertEqual(fact['pinned_order_source_revision'],'uw_pinned')
+        self.assertEqual(fact['pinned_order_source_at'],'2026-11-12T00:00:00+08:00')
 
     def test_scoped_identity_uniqueness_never_proves_global_uniqueness(self):
         partial=catalog(); partial['scope']['site']='266'

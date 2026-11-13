@@ -123,7 +123,7 @@ class Runtime(unittest.TestCase):
         from order_facts_runtime import effective_attribution
         mapping=Attribution({'entries':[dict(code='known',channel='KOL'),dict(code='seo',channel='SEO')]},[],{})
         base=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
-                  channel='SEO',marketing_attribution={'raw':{'source_raw':'Google organic'}})
+                  channel='SEO',marketing_attribution={'source_raw':'Google organic'})
         cached=dict(sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',coupons=[],project='KOL')
         evidence=effective_attribution(base,{'discount_code':'KNOWN'},cached,mapping)
         self.assertEqual((evidence['channel'],evidence['basis'],evidence['detail']),('SEO','native_channel','Google organic'))
@@ -138,6 +138,48 @@ class Runtime(unittest.TestCase):
         self.assertEqual((evidence['channel'],evidence['basis']),('Referral','promotion'))
         evidence=effective_attribution(base,{'discount_code':''},dict(cached,project='运营',code=''),mapping)
         self.assertEqual((evidence['channel'],evidence['promotion_project']),('unknown','运营'))
+
+    def test_mapped_code_owner_counts_as_promoter_with_native_zero_uid(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL')]},[],
+                            {'by_code':{'known':{'uid':'42','name':'Known promoter'}}})
+        native={'discount_code':'Known','recommend_uid':0}
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+                   channel='unknown',marketing_attribution={})
+        evidence=effective_attribution(order,native,None,mapping)
+        self.assertTrue(evidence['promoter'])
+        self.assertEqual(evidence['promoter_uid'],'42')
+        self.assertEqual(evidence['filter_row']['promoter'],'Known promoter')
+        self.assertEqual(evidence['promoter_basis'],'promoter_directory')
+        self.assertEqual(native['recommend_uid'],0)
+
+    def test_current_empty_promotion_does_not_restore_archived_project(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL')]},[],{})
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+                   channel='unknown',marketing_attribution={})
+        archived=dict(code='',promoterUid='42',promoter='Old promoter',project='KOL',coupons=[])
+        evidence=effective_attribution(order,{'discount_code':'','recommend_uid':'0'},archived,mapping)
+        self.assertEqual(evidence['channel'],'unknown')
+        self.assertFalse(evidence['promoter'])
+        self.assertIsNone(evidence['filter_row']['promoter'])
+        self.assertIsNone(evidence['promotion_project'])
+
+    def test_different_order_source_needs_comparable_revision_for_override(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[]},[],{})
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+            channel='unknown',marketing_attribution={},pinned_order_source='google-FC27-PMAX-Coins-US')
+        archived=dict(sourceStatus='available',sourceRaw='Google organic',coupons=[])
+        evidence=effective_attribution(order,{},archived,mapping)
+        self.assertEqual(evidence['channel'],'unknown')
+        self.assertTrue(evidence['conflict'])
+        corrected=dict(order,pinned_order_source_revision='uw_fixed',pinned_order_source_at='2026-11-12T00:00:00+08:00')
+        evidence=effective_attribution(corrected,{},dict(archived,sourceCapturedAt='2026-11-11T00:00:00+08:00'),mapping)
+        self.assertEqual((evidence['channel'],evidence['basis']),('PPC','order_source'))
 
     def test_conflicts_at_same_priority_cannot_fall_back_to_lower_evidence(self):
         from channel_effects import Attribution

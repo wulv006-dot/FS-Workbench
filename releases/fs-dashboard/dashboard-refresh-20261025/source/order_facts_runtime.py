@@ -110,7 +110,10 @@ def dashboard_evidence(period, root):
                     or sources['coupons']['status'] != 'complete'):
                 continue
             rows = value['orders']
-            index = {(day,r['orderNo'],r['gid'],r['paidAt']):r for r in rows
+            source = sources.get('orderSource') or {}
+            index = {(day,r['orderNo'],r['gid'],r['paidAt']):dict(r,
+                         sourceCapturedAt=source.get('generatedAt') if source.get('sourceVersion') else None)
+                     for r in rows
                      if r['day']==day and isinstance(r['coupons'],list)}
             if len(index) != len(rows):
                 continue
@@ -138,6 +141,17 @@ def tracked_channel(source):
     return None
 
 
+def pinned_source_correction(order, observed):
+    if not order.get('pinned_order_source_revision'):
+        return False
+    try:
+        pinned = datetime.fromisoformat(order['pinned_order_source_at'])
+        archive = datetime.fromisoformat(observed['sourceCapturedAt'])
+        return pinned.tzinfo is not None and archive.tzinfo is not None and pinned > archive
+    except (ValueError, TypeError, KeyError):
+        return False
+
+
 def effective_attribution(order, native, archived, mapping):
     from channel_effects import clean, positive_id
     fact = order['marketing_attribution']
@@ -147,21 +161,30 @@ def effective_attribution(order, native, archived, mapping):
     source = pinned_source or archive_source
     native_conflict = fact.get('status')=='conflict'
     source_conflict = order.get('pinned_order_source_conflict') is True or (not pinned_source and observed.get('sourceStatus')=='conflict')
+    if pinned_source and archive_source and pinned_source.strip().casefold()!=archive_source.strip().casefold():
+        source_conflict |= not pinned_source_correction(order,observed)
     native_code = native.get('discount_code')
     code = native_code if isinstance(native_code,str) else observed.get('code')
     native_uid = native.get('recommend_uid')
-    uid = positive_id(native_uid) or positive_id(observed.get('promoterUid'))
-    project, promoter_name = None, observed.get('promoter')
+    archived_uid = positive_id(observed.get('promoterUid'))
+    uid = positive_id(native_uid) if native_uid is not None else archived_uid
+    same_archived_promotion = ((not isinstance(native_code,str) or code==observed.get('code'))
+                               and (native_uid is None or uid==archived_uid))
+    promoter_basis = 'recommend_uid' if positive_id(native_uid) else 'tracked_order' if uid else None
+    project = None
+    promoter_name = observed.get('promoter') if uid and same_archived_promotion else None
     if order['site_id']=='266' and (isinstance(code,str) or uid or archived is not None):
         resolved = mapping.resolve(dict(discount_code=code,recommend_uid=uid,gid=order['gid']))
-        if resolved.get('promoterUid'):
+        if resolved.get('promoterUid') and not resolved['conflict']:
+            uid = resolved['promoterUid']
             promoter_name = resolved.get('promoter')
+            if resolved['attributionSource']!='none':promoter_basis = resolved['attributionSource']
         if not resolved['conflict']:
             project = resolved['project']
             # The existing same-order projection may include verified configuration owners.
             archived_project = observed.get('project')
             if (project in ('未归类','推荐人渠道待核','无推广归属') and archived_project
-                    and not observed.get('conflict') and (native_code is None or code==observed.get('code'))):
+                    and not observed.get('conflict') and same_archived_promotion):
                 project = archived_project
     promotion_channel = PROMOTION_CHANNELS.get((project or '').casefold())
     source_channel = tracked_channel(source)
@@ -169,7 +192,7 @@ def effective_attribution(order, native, archived, mapping):
     if native_conflict:
         channel, basis, detail = 'unknown', 'native_conflict', None
     elif native_channel:
-        channel, basis, detail = native_channel, 'native_channel', (fact.get('raw') or {}).get('source_raw')
+        channel, basis, detail = native_channel, 'native_channel', fact.get('source_raw')
     elif source_conflict:
         channel, basis, detail = 'unknown', 'order_source_conflict', None
     elif source_channel:
@@ -183,6 +206,7 @@ def effective_attribution(order, native, archived, mapping):
         conflict=native_conflict or source_conflict or len({c for c in (native_channel,source_channel,promotion_channel) if c})>1,
         discount_code=bool(code.strip()) if isinstance(code,str) else None,
         promoter=True if uid else False if native_uid is not None or archived is not None else None,
+        promoter_uid=uid or None, promoter_basis=promoter_basis,
         coupon=bool(coupons) if coupons is not None else None,
         coupon_templates=[item['title'] for item in coupons or () if isinstance(item,dict) and isinstance(item.get('title'),str)],
         promotion_project=project if project not in (None,'未归类','推荐人渠道待核','无推广归属') else None,

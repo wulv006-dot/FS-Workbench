@@ -196,7 +196,7 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
     for row in rows:
         effective = row.get('effective_attribution')
         if effective is None:
-            detail = (row['marketing_attribution'].get('raw') or {}).get('source_raw') if row['channel']!='unknown' else None
+            detail = row['marketing_attribution'].get('source_raw') if row['channel']!='unknown' else None
             effective = dict(channel=row['channel'],detail=detail)
         channel = effective['channel']
         row = dict(row,channel=channel,effective_attribution=effective)

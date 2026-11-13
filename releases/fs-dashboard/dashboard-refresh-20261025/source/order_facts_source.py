@@ -97,7 +97,7 @@ def project_order_facts(admin_orders, dataset, deliveries, *, scope,
         if not lo <= start <= end <= hi:
             raise ValueError('order_facts_attribution_period')
         attribution_source.update({k:deepcopy(dataset.get(k)) for k in (
-            'status','publication_id','source_revision','data_revision','available_at',
+            'status','publication_id','source_revision','data_revision','available_at','captured_at',
             'hashes','revision_selection','effective_scope','revision_conflicts')})
         for row in dataset['rows']:
             try:
