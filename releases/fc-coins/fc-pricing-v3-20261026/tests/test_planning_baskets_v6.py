@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -51,7 +52,38 @@ def recent_source(rows, days=3, **extra):
 
 
 class PlanningBaskets(unittest.TestCase):
-    def test_uses_existing_private_attachment_without_relabeling_its_refund_gap(self):
+    def test_recent_combines_saved_days_and_only_the_current_day_native_read(self):
+        historical = paid('closed-order', CUTOFF - timedelta(days=1))
+        native = dict(site_id='266', gid='1327', pay_status='1', status_format='已完成',
+                      order_no='today-order', aid='21587', paytime='2026-11-13 09:00:00',
+                      is_region_price='0', discount='100', points='0', amount_usd_format='10',
+                      before_discount='10', content='<span class="item">100K Coins x1 = $10</span>')
+        calls = []
+
+        def pages(session, path, filters, limit):
+            calls.append((path, dict((key, value) for key, _, value in filters), limit))
+            return [native]
+
+        channel = SimpleNamespace(pages=pages, apply_cost_overrides=lambda data: {
+            'sources': {'accounting': {'status':'available'}}, 'testOrders': {}})
+        effects = SimpleNamespace(fraud=lambda row: False)
+        with patch.dict(sys.modules, channel_source=channel, channel_effects=effects), \
+                patch.object(business_source, '_historical_provider_now', return_value=AS_OF):
+            recent = business_source.collect_recent_curve_population(None, closed_source([historical]), CUTOFF)
+            partial = business_source.collect_recent_curve_population(None, None, CUTOFF)
+        self.assertEqual(calls, [('/admin/order.Order/index', dict(site_id='266', gid='1327', pay_status='1',
+            paytime='2026-11-13 00:00:00,2026-11-13 10:00:00', cid='1'), 100)] * 2)
+        self.assertEqual(recent['historical_orders_coverage']['population_status'], 'complete')
+        self.assertEqual(recent['historical_orders_coverage']['closed_archive_revision'], 'original')
+        self.assertEqual(partial['historical_orders_coverage']['population_status'], 'partial')
+        first, today = recent['historical_orders']
+        self.assertEqual(first, historical)
+        self.assertEqual(today['base_k'], '100')
+        self.assertTrue(today['single_line_unit_purchase'])
+        self.assertEqual(today['promotion_path'], {'kind':'none'})
+        self.assertNotIn('today-order', str(recent))
+
+    def test_uses_complete_paid_population_while_preserving_original_refund_gap(self):
         key = 'private-order'
         period = business_source.historical_period('7d', now=CUTOFF)['period']
         row = dict(paidAt='2026-11-11 10:00:00', salesUsd='10', status='未发货', coupons=[])
@@ -68,7 +100,10 @@ class PlanningBaskets(unittest.TestCase):
         self.assertEqual(main['members'], [{'path_id': 'current-1000', 'weight': '1', 'quote_ref': 'native-quote'}])
         self.assertEqual(main['source_sha256'], historical['source_sha256'])
         self.assertEqual(main['orders_without_historical_cost'], 1)
-        self.assertEqual(main['coverage_gaps'], ['paid_source_refund_revisions_unverified'])
+        self.assertEqual(main['coverage_status'], 'complete')
+        self.assertEqual(main['coverage_gaps'], [])
+        self.assertIn('not_collected', historical['historical_orders_coverage']['refund_revision_coverage'])
+        self.assertEqual(historical['historical_orders_coverage']['gaps']['historical_refund_revision_chain_not_collected'], 1)
         self.assertNotIn(historical['historical_orders'][0]['order_key'], str(main))
 
     def test_beijing_closed_seven_days_and_same_platform_with_unknown_cost(self):

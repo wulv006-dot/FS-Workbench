@@ -9,6 +9,7 @@ from .price_curve import curve_key
 
 
 CONTRACT = 'fc_pricing_proof_v6'
+REFUND_RECOVERY_POLICY = 'creator_forecast_excludes_refunds_and_recoveries_20261113'
 PROVEN = 'PROVEN'
 INCOMPLETE = 'PROOF_INCOMPLETE'
 FAILED = 'HARD_CONSTRAINT_FAILED'
@@ -131,12 +132,16 @@ def _evaluate_path(row, path_id, site_id, key, unavailable):
         gaps.append('expected_total_usd_amounts')
     if row.get('cost_status') != 'verified' or row.get('quantity_basis') not in BASES:
         gaps.append('cost_unverified')
+        if _strings(row.get('ordinary_cost_gaps')):
+            result['ordinary_cost_gaps'] = sorted(set(row['ordinary_cost_gaps']))
     for field in PATH_REFERENCES:
         result[field] = row.get(field) if _reference(row.get(field)) else None
         if result[field] is None and field != 'fee_ref':
             gaps.append(f'missing_reference:{field}')
     for field in ('proof_status', 'currency', 'amount_kind', 'cost_status', 'quantity_basis', 'fee_status'):
         result[field] = row.get(field) if _reference(row.get(field)) else None
+    if _reference(row.get('quote_basis')):
+        result['quote_basis'] = row['quote_basis']
 
     values = {}
     for field in ('purchase_k', 'promised_bonus_k', 'promised_delivered_k', 'regular_usd',
@@ -259,7 +264,9 @@ def validate_curve(curve, baskets, evidence, validation_domain):
     ``curve`` is the F0 read_curve result. Domain revisions attest which sites and
     paths are covered. Evidence binds native quotes, costs and fees to that same
     curve key. Baskets contain the current-quote path ids and original weights.
-    The caller establishes source authenticity, freshness and domain completeness.
+    Net receipts include checkout discounts. The pricing forecast excludes later
+    refunds and recoveries per the creator's policy. The caller establishes
+    source authenticity, freshness and domain completeness.
     """
     if not all(isinstance(record, dict) for record in (curve, baskets, evidence, validation_domain)):
         raise ValueError('pricing_proof_expected_dicts')
@@ -303,7 +310,8 @@ def validate_curve(curve, baskets, evidence, validation_domain):
                 failures.append(f'platform_margin:{name}')
         margins = [basket['safe_procurement_margin'] for basket in evaluated.values()]
         minimum = min(map(Decimal, margins)) if all(margin is not None for margin in margins) else None
-        result = dict(contract=CONTRACT, curve_key=key, scope=scope, paths=list(paths.values()),
+        result = dict(contract=CONTRACT, refund_recovery_policy=REFUND_RECOVERY_POLICY,
+                      curve_key=key, scope=scope, paths=list(paths.values()),
                       baskets=evaluated, minimum_safe_procurement_margin=_decimal_string(minimum),
                       hard_margin=_decimal_string(HARD_MARGIN), target=_target(main), gaps=sorted(set(gaps)),
                       hard_failures=sorted(failures),

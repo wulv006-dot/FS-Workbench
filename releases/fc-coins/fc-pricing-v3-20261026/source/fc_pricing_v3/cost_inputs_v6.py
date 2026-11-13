@@ -5,7 +5,7 @@ from decimal import Decimal
 import hashlib
 import json
 
-from .cost_model import BASES, LAYER_FIELDS, estimate_layer
+from .cost_model import BASES, LAYER_FIELDS, estimate_layer, normalize_cost
 from .financial import instant, number
 from .platforms import PLATFORMS
 
@@ -20,6 +20,7 @@ ADMIN_LOSS_ENDPOINT = '/admin/order.Order/orderStaticsDetailByEs'
 ADMIN_LOSS_BUCKETS = ('ts', 'tssj', 'dc', 'cb', 'tkwtg', 'wh', 'bftk', 'qt', 'bh',
                       'ts_zhui', 'tssj_zhui', 'dc_zhui', 'cb_zhui',
                       'ts_zhui_no', 'tssj_zhui_no', 'dc_zhui_no', 'cb_zhui_no', 'pianzi')
+ORDINARY_COST_BASIS = 'same_order_ordinary_delivery_total_at_verified_promised_k'
 
 
 def merchant_fee_components(site_id):
@@ -203,10 +204,17 @@ def _facts(revisions, as_of):
             actual = _number(row.get('actual_cost_cny'), zero=True)
             if actual != observed:
                 raise ValueError('cost_order_facts_complete_total_mismatch')
-        selected[key] = (paid, actual, observed, generated, records)
+        ordinary_records_complete = bool(proof.get('shipment_window_complete') is True
+            and coverage.get('admin_complete') is True and row.get('status') == '已完成'
+            and row.get('pay_status') == '1' and observed is not None and cost_window
+            and len(valid) == len(records)
+            and all(trade and cost_window[0] <= trade <= cost_window[1] and trade <= generated
+                    for trade in trade_times))
+        selected[key] = (paid, actual, observed, generated, records, ordinary_records_complete)
     return selected, dict(source_revision=revision, admin_revision=coverage['source_revision'],
                           available_at=available.isoformat(), generated_at=generated.isoformat(),
-                          order_cost_complete=proof.get('order_cost_complete') is True)
+                          order_cost_complete=proof.get('order_cost_complete') is True,
+                          shipment_window_complete=proof.get('shipment_window_complete') is True)
 
 
 def _delivery_quantity_evidence(records, purchase, bonus):
@@ -229,8 +237,17 @@ def _delivery_quantity_evidence(records, purchase, bonus):
     return 'matches_promised_delivered_k' if total_quantity == purchase + bonus else 'unverified'
 
 
+def _ordinary_delivery_total(records, paid, observed):
+    ids = {record.get('cost_record_id') for record in records}
+    if (None in ids or len(ids) != len(records)
+            or any(not record.get('cost_record_id') or record.get('component') != 'order_delivery'
+                   or _instant(record.get('trade_at')) < paid for record in records)):
+        return None
+    return observed if sum((_number(record.get('cost_cny'), zero=True) for record in records), Decimal(0)) == observed else None
+
+
 def _window(rows, layer, quantity_basis, *, start, end, proof, source_available, as_of,
-            layer_matches, facts, rate):
+            layer_matches, facts, rate, ordinary_forecast=False):
     samples, days, gaps, revisions, delivery_quantities = [], Counter(), Counter(), {}, Counter()
     lower = _instant(proof.get('paid_window_start'))
     upper = _instant(proof.get('paid_window_end_exclusive'))
@@ -262,7 +279,7 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
             raise ValueError('cost_attachment_order_revision_conflict')
 
     known_cny = partial_cny = Decimal(0)
-    cny_count = partial_count = complete_count = 0
+    cny_count = partial_count = complete_count = ordinary_count = 0
     for key, row in revisions.items():
         match = layer_matches.get(key) or {}
         matched_at = _instant(match.get('available_at'))
@@ -281,12 +298,18 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
         bonus = _number(row.get('bonus_k'), zero=True)
         actual, observed = None, _number(row.get('cost_cny'), zero=True)
         if key in facts:
-            d2_paid, d2_actual, d2_observed, d2_generated, d2_records = facts[key]
+            d2_paid, d2_actual, d2_observed, d2_generated, d2_records, ordinary_records_complete = facts[key]
             if d2_paid != paid:
                 gaps['order_facts_paid_time_mismatch'] += 1
             elif d2_observed is not None and (observed is None or d2_generated >= source_at or d2_observed == observed):
-                actual, observed = d2_actual, d2_observed
-                delivery_quantities[_delivery_quantity_evidence(d2_records, purchase, bonus)] += 1
+                actual, observed = (None if ordinary_forecast else d2_actual), d2_observed
+                quantity_evidence = _delivery_quantity_evidence(d2_records, purchase, bonus)
+                delivery_quantities[quantity_evidence] += 1
+                if ordinary_forecast and ordinary_records_complete and quantity_evidence == 'matches_promised_delivered_k':
+                    ordinary = _ordinary_delivery_total(d2_records, paid, observed)
+                    if ordinary is not None:
+                        actual = ordinary
+                        ordinary_count += 1
             elif d2_observed is not None:
                 gaps['order_cost_source_revision_mismatch'] += 1
         amount = actual if actual is not None else observed
@@ -296,24 +319,30 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
             if actual is None:
                 partial_cny += amount
                 partial_count += 1
-        usd = amount / rate if amount is not None and rate is not None else None
-        complete = actual is not None and usd is not None
+        model_amount = None
+        if amount is not None and rate is not None:
+            # Keep ordinary-source amounts exact until after the comparable
+            # rates and bounds are combined. The layer arithmetic is homogeneous.
+            model_amount = amount if ordinary_forecast else amount / rate
+        complete = actual is not None and model_amount is not None
         if complete and purchase is not None and (quantity_basis == 'PURCHASE_K' or bonus is not None):
             complete_count += 1
         days[paid.astimezone(BEIJING).date().isoformat()] += 1
         samples.append(dict(order_key=key, layer=layer, purchase_k=purchase, promised_bonus_k=bonus,
-                            cost_usd=usd, cost_complete=complete, cost_kind='TOTAL'))
+                            cost_usd=model_amount, cost_complete=complete, cost_kind='TOTAL'))
     return samples, dict(start=start.isoformat(), end_exclusive=end.isoformat(),
                          paid_by_beijing_day=dict(sorted(days.items())),
                          order_delivery_quantity_evidence=dict(delivery_quantities),
                          complete_comparable_orders=complete_count, gap_counts=dict(gaps),
+                         ordinary_delivery_orders=ordinary_count,
                          known_cost_cny=known_cny if cny_count else None,
                          known_partial_cost_cny=partial_cny if partial_count else None,
                          orders_with_known_cny=cny_count)
 
 
 def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer_matches,
-                             fact_revisions=(), fx=None, paid_cutoff=None, admin_loss_statistics=()):
+                             fact_revisions=(), fx=None, paid_cutoff=None, admin_loss_statistics=(),
+                             ordinary_forecast=False, selected_orders=None, current_cost=None):
     """Run a same-layer 72h/7d payment-cohort diagnostic with as-of source versions.
 
     attachments are successive snapshots from collect_historical_attachment for the
@@ -324,8 +353,9 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
     paid_cutoff sets the exclusive payment-window end, independently of source availability.
     Admin ES loss snapshots only annotate source coverage. Their intervals differ from
     the payment cohort and their original order sales never modify procurement cost.
-    Current BOC FX translates CNY solely for this forecast diagnostic. The available
-    sources lack full procurement event times, so no write-capable proof is returned.
+    The ordinary forecast may use completed Admin orders whose complete Order
+    delivery window and original amounts corroborate the promised delivery.
+    The source transaction time is retained independently of procurement settlement.
     """
     as_of = instant(as_of)
     cutoff = instant(paid_cutoff) if paid_cutoff is not None else as_of
@@ -333,7 +363,7 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
             or any(not layer.get(field) for field in LAYER_FIELDS) or cutoff > as_of):
         raise ValueError('cost_layer_basis_or_cutoff_invalid')
     source, source_at = _latest(attachments, lambda value: value.get('available_at'), as_of)
-    source_gaps = ['procurement_time_unverified']
+    source_gaps = [] if ordinary_forecast else ['procurement_time_unverified']
     rows, proof, revision = [], {}, None
     if source is None:
         source_gaps.append('historical_cost_source_unavailable')
@@ -344,8 +374,14 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
                 or not isinstance(source.get('historical_orders'), list)):
             raise ValueError('cost_attachment_provenance_invalid')
         rows = source['historical_orders']
+        if selected_orders is not None:
+            selected_keys = set(selected_orders)
+            rows = [row for row in rows if row.get('order_key') in selected_keys]
     facts, fact_evidence = _facts(fact_revisions, as_of)
-    if fact_evidence is None or not fact_evidence['order_cost_complete']:
+    if ordinary_forecast:
+        if fact_evidence is None or not fact_evidence['shipment_window_complete']:
+            source_gaps.append('ordinary_delivery_window_unverified')
+    elif fact_evidence is None or not fact_evidence['order_cost_complete']:
         source_gaps.append('order_cost_completeness_unverified')
     rate, fx_evidence = _fx(fx, as_of)
     loss, _ = _latest(admin_loss_statistics, lambda value: value.get('available_at'), as_of)
@@ -358,18 +394,76 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
     def window(hours):
         return _window(rows, layer, quantity_basis, start=cutoff - timedelta(hours=hours), end=cutoff,
                        proof=proof, source_available=source_at, as_of=as_of, layer_matches=layer_matches,
-                       facts=facts, rate=rate)
+                       facts=facts, rate=rate, ordinary_forecast=ordinary_forecast)
 
     samples, recent = window(72)
     selected = recent
     if recent['complete_comparable_orders'] < MIN_COMPLETE:
         samples, selected = window(7 * 24)
-    estimate = estimate_layer(samples, layer, quantity_basis)
-    result = dict(status='PROOF_INCOMPLETE', time_basis='payment_cohort',
+    upper = None
+    upper_basis = None
+    current_source = None
+    if ordinary_forecast:
+        # The maximum of the latest six comparable ordinary deliveries is a planning
+        # fallback, subject to estimate_layer's observed partial-cost floor.
+        costs = [row for row in samples if row['cost_complete'] and row['purchase_k'] is not None
+                 and (quantity_basis == 'PURCHASE_K' or row['promised_bonus_k'] is not None)]
+        if costs:
+            delivery_at = {row['order_key']: max(_instant(record['trade_at']) for record in facts[row['order_key']][4])
+                           for row in costs if row['order_key'] in facts and facts[row['order_key']][4]}
+            recent_costs = sorted(costs, key=lambda row: (delivery_at[row['order_key']], row['order_key']), reverse=True)[:6]
+            upper = max(recent_costs, key=lambda row: normalize_cost(row, quantity_basis)['unit_usd'])
+            upper_basis = dict(source='up_to_six_latest_same_layer_ordinary_delivery_cost_max',
+                               selected_count=len(recent_costs), basis=quantity_basis,
+                               layer=dict(layer), order_cost_revision=(fact_evidence or {}).get('source_revision'),
+                               sample_ref=hashlib.sha256(json.dumps([row['order_key'] for row in recent_costs]).encode()).hexdigest(),
+                               earliest_delivery_at=min(delivery_at[row['order_key']] for row in recent_costs).isoformat(),
+                               latest_delivery_at=max(delivery_at[row['order_key']] for row in recent_costs).isoformat())
+        if current_cost and quantity_basis == 'PROMISED_DELIVERED_K' and rate is not None:
+            checked = _instant(current_cost.get('checked_at'))
+            trade = _instant(current_cost.get('trade_at'))
+            price = _number(current_cost.get('cny_per_1k'))
+            native_source = current_cost.get('source_platform', current_cost.get('platform'))
+            if (current_cost.get('platform') == layer['platform'] and native_source == layer['platform']
+                    and current_cost.get('status') == 'valid' and current_cost.get('game') == 'FC27'
+                    and current_cost.get('product') == 'Game Coins' and current_cost.get('unit') == 'CNY/K'
+                    and str(current_cost.get('genre')) == '1' and current_cost.get('record_id')
+                    and checked and trade and trade <= checked <= as_of
+                    and as_of - checked <= timedelta(hours=1) and as_of - trade <= timedelta(days=7) and price):
+                current = dict(layer=layer, purchase_k='1', promised_bonus_k='0',
+                               cost_usd=price, cost_kind='PER_BASIS_K', quantity_basis=quantity_basis)
+                current_source = dict(source='current_same_platform_order_delivery_unit_cost',
+                                      source_platform=native_source, record_id=str(current_cost['record_id']),
+                                      checked_at=checked.isoformat(), trade_at=trade.isoformat(),
+                                      cny_per_k=str(price), basis=quantity_basis)
+                if upper is None or current['cost_usd'] > normalize_cost(upper, quantity_basis)['unit_usd']:
+                    upper, upper_basis = current, current_source
+    estimate = estimate_layer(samples, layer, quantity_basis, upper=upper)
+    if ordinary_forecast and not selected['ordinary_delivery_orders']:
+        source_gaps.append('ordinary_delivery_cost_sample_missing')
+    if ordinary_forecast and current_source and estimate['status'] == 'calculated':
+        # A current same-platform quote can raise a completed cohort forecast.
+        # It cannot lower an already observed comparable cost or partial floor.
+        current_rate = _number(current_source['cny_per_k'])
+        for kind in ('expected', 'safe', 'stress'):
+            field = kind + '_unit_usd'
+            estimate[field] = max(estimate[field], current_rate)
+    if ordinary_forecast and rate is not None:
+        for field in ('expected_unit_usd', 'safe_unit_usd', 'stress_unit_usd',
+                      'known_partial_usd', 'unallocated_known_cost_usd'):
+            if estimate[field] is not None:
+                estimate[field] /= rate
+    gaps = sorted(set(source_gaps) | set(estimate['gaps']) | selected['gap_counts'].keys())
+    result = dict(status='calculated' if ordinary_forecast and not gaps else 'PROOF_INCOMPLETE',
+                time_basis='payment_cohort',
                 window_hours=72 if selected is recent else 7 * 24, selected_window=selected, recent_72h=recent,
-                gaps=sorted(set(source_gaps) | set(estimate['gaps']) | selected['gap_counts'].keys()),
+                gaps=gaps,
                 attachment_revision=revision, order_cost_source=fact_evidence, forecast_fx=fx_evidence,
                 diagnostic_estimate=estimate)
+    if ordinary_forecast:
+        result['cost_basis'] = ORDINARY_COST_BASIS
+        result['cost_upper_source'] = upper_basis
+        result['current_cost_source'] = current_source
     if loss is not None:
         result['admin_loss_statistics'] = loss
     return result

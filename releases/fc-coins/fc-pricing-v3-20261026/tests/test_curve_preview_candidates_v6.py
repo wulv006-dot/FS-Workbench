@@ -99,7 +99,8 @@ class PreviewCandidatesV6(unittest.TestCase):
         main = candidates['B']['planning_baskets']['main']
         self.assertEqual(main['source_sha256'], 'same-snapshot-seven-days')
         self.assertEqual(main['paid_orders'], 1)
-        self.assertIn('paid_source_refund_revisions_unverified', main['coverage_gaps'])
+        self.assertNotIn('paid_source_refund_revisions_unverified', main['coverage_gaps'])
+        self.assertIn('current_quote_or_eligibility_unverified', main['coverage_gaps'])
         self.assertIn('current_quote_or_eligibility_unverified', main['coverage_gaps'])
         self.assertNotIn('do-not-expose-order', json.dumps(result))
         with closing(self.db.connect()) as conn:

@@ -292,7 +292,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
         from fc_pricing_v3.runtime import collect_curve_catalogues, store_curve_proof_inputs
         inputs = evidence.pop('curve_proof_inputs', None)
         if inputs is None:
-            inputs = collect_curve_catalogues(evidence, planned['platforms'])
+            inputs = collect_curve_catalogues(evidence, planned['platforms'], live_checkout=persist)
         if inputs:
             store_curve_proof_inputs(ledger(), evidence, inputs)
     result = calculate(evidence, edits)

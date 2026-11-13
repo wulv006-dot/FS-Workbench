@@ -7,7 +7,8 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from fc_pricing_v3.price_curve import IDENTITY_FIELDS, curve_key, read_curve
-from fc_pricing_v3.pricing_proof_v6 import validate_curve
+from fc_pricing_v3.financial import fingerprint
+from fc_pricing_v3.pricing_proof_v6 import REFUND_RECOVERY_POLICY, validate_curve
 
 
 def make_curve(*, high_price='100', observed_at='old'):
@@ -58,6 +59,24 @@ def add_path(evidence, domain, path_id, site_id='266', **overrides):
 
 
 class PricingProofV6(unittest.TestCase):
+    def test_forecast_ignores_refund_and_recovery_events_but_keeps_checkout_and_cost(self):
+        curve, baskets, evidence, domain = fixture()
+        path = evidence['paths'][0]
+        path.update(net_receipt_usd='95', refund_event={'currency': None, 'occurred_at': None},
+                    recovery_event={'amount': '50', 'occurred_at': None})
+        result = validate_curve(curve, baskets, evidence, domain)
+        self.assertEqual(result['refund_recovery_policy'], REFUND_RECOVERY_POLICY)
+        self.assertEqual(result['proof_hash'], fingerprint({k:v for k,v in result.items() if k != 'proof_hash'}))
+        self.assertEqual(result['paths'][0]['net_receipt_usd'], '95')
+        self.assertEqual(result['paths'][0]['stress_cost_usd'], '80')
+        self.assertEqual(result['paths'][0]['zero_line_surplus_usd'], '14')
+        self.assertEqual(result['status'], 'PROVEN')
+        self.assertEqual(path['recovery_event']['amount'], '50')
+        path['cost_status'] = 'unknown'
+        incomplete = validate_curve(curve, baskets, evidence, domain)
+        self.assertIn('path:ordinary:cost_unverified', incomplete['gaps'])
+        self.assertEqual(incomplete['status'], 'PROOF_INCOMPLETE')
+
     def test_24_percent_not_rejected_by_target25(self):
         result = validate_curve(*fixture())
         self.assertEqual(result['status'], 'PROVEN')

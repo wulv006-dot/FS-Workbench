@@ -558,6 +558,46 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(runtime._validated_curve(target, found['all_inputs'][curve_key(target)])['status'],
                              'PROOF_INCOMPLETE')
 
+    def test_same_round_native_path_preserves_checkout_scope_and_ordinary_cost(self):
+        from decimal import Decimal
+        from fc_pricing_v3.price_curve import curve_key
+        from test_cost_inputs_v6 import AS_OF, CUT, attachment, facts, fx, rows_for
+        from test_curve_strategy_v6 import fixture
+
+        curve, _, _ = fixture()
+        self.assertEqual(curve['identity']['aid'], '21587')
+        tier = next(row for row in curve['tiers'] if row['purchase_k'] == '1000')
+        purchase = tier['purchase_k']
+        bonus = tier['promised_bonus_k']
+        total = str(Decimal(purchase) + Decimal(bonus))
+        ordinary_orders = list(rows_for([48] * 10, quantity=f'{purchase}K Coins + {bonus}K Free x1 = $100'))
+        source = attachment(ordinary_orders)
+        for row in source['historical_orders']:
+            row['region_id'] = 0
+        recent = dict(source, historical_orders_coverage=dict(source['historical_orders_coverage'],
+                                                              paid_window_end_exclusive=CUT.isoformat()))
+        cost_facts = facts(ordinary_orders, cost=str(Decimal(total) * Decimal('.39')),
+                           delivery_fields={'qty':total, 'gift':'0', 'cost_unit':'.39'})
+        checkout = dict(curve_key=curve_key(curve), platform='PS', site_id='266',
+                        coverage_gaps=['member_and_discount_allocation_unverified'], lines=[
+            dict(purchase_k=purchase, gift_k=bonus, promised_delivered_k=total, regular_usd=tier['native_price_usd'],
+                 proof_status='verified', offer_path='anonymous_no_coupon', quote_basis='observed_native_cart',
+                 net_goods_usd=tier['native_price_usd'], quote_ref='checkout-ref', eligibility_ref='eligibility-ref',
+                 offer_version='current-guest-offer', fulfilment_contract='native-guest-cart',
+                 native_tier_or_rule='native-1000', rounding_contract='native-cent', path_id='catalogue:1000')])
+        proof_input = runtime._catalogue_proof_input(curve, 'PS', source, CUT.isoformat(), AS_OF,
+            recent=recent, checkout=checkout, facts=cost_facts, fx=fx())
+        path = next(row for row in proof_input['evidence']['paths'] if row['purchase_k'] == purchase)
+        self.assertEqual(path.get('cost_status'), 'verified', path)
+        self.assertEqual(path['quote_basis'], 'observed_native_cart')
+        self.assertAlmostEqual(Decimal(path['stress_cost_usd']), Decimal(total) * Decimal('.39') / 7)
+        self.assertEqual(proof_input['baskets']['main']['matched_orders'], 10)
+        self.assertEqual(proof_input['baskets']['recent']['selection'], 'main_fallback')
+        result = runtime._validated_curve(curve, proof_input)
+        self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
+        self.assertIn('member_and_discount_allocation_unverified', result['scope']['coverage_gaps'])
+        self.assertNotIn('procurement_time_unverified', result['gaps'])
+
 
 if __name__ == '__main__':
     unittest.main()

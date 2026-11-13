@@ -800,6 +800,8 @@ def historical_attachment(selected, orders, logs, provenance, observed_at):
         row = dict(order_key=hashlib.sha256(('site266:FC27:Coins:' + sn).encode()).hexdigest(),
             paid_at=paid_at, created_at=created_at, available_at=observed_at.isoformat(),
             base_k=quantity['purchase_k'] if quantity else None, bonus_k=quantity['bonus_k'] if quantity else None,
+            single_line_unit_purchase=bool(quantity and len(quantity['lines']) == 1
+                                           and quantity['lines'][0]['multiplier'] == 1),
             delivered_k=quantity['delivered_k'] if quantity else None, platform=platform, region_id=region_id,
             original_region_factor=str(factor) if factor is not None else None,
             regular_usd=str(before) if before is not None else None, paid_usd=str(paid) if paid is not None else None,
@@ -1758,6 +1760,91 @@ def historical_period(period, *, now=None):
     return dict(period_selector=selector, period=dict(start=start.isoformat(), end=(end_exclusive - timedelta(days=1)).isoformat()),
                 paid_window=dict(start=start.isoformat(), end_exclusive=end_exclusive.isoformat(), timezone='Asia/Shanghai'),
                 paid_window_start=lower.isoformat(), paid_window_end_exclusive=upper.isoformat(), timezone='Asia/Shanghai')
+
+
+def collect_recent_curve_population(manager, closed, paid_cutoff):
+    """Add only today's scoped native observations to the saved closed-day evidence."""
+    from urllib.parse import urlencode
+
+    from channel_source import apply_cost_overrides, pages
+    from channel_effects import fraud
+    from .financial import instant
+    from .planning_baskets_v6 import HISTORICAL_SCOPE, PAID_SCOPE
+
+    cutoff = instant(paid_cutoff).astimezone(TZ)
+    midnight = cutoff.replace(hour=0, minute=0, second=0, microsecond=0)
+    proof = (closed or {}).get('historical_orders_coverage') or {}
+    closed_rows = (closed or {}).get('historical_orders') or []
+    lower, upper = (proof.get(key) for key in ('paid_window_start', 'paid_window_end_exclusive'))
+    start = instant(lower) if lower else midnight
+    archive_complete = bool(lower and upper and start <= cutoff - timedelta(days=3) and instant(upper) == midnight
+                            and proof.get('window_complete') is True and proof.get('population_status') == 'complete'
+                            and proof.get('population_scope') in (PAID_SCOPE, HISTORICAL_SCOPE)
+                            and proof.get('source_sha256') == closed.get('source_sha256'))
+    if not lower or not upper or instant(upper) != midnight:
+        closed_rows = []
+    else:
+        closed_rows = [row for row in closed_rows if row.get('paid_at')
+                       and start <= instant(row['paid_at']) < midnight]
+
+    class NativeAdmin:
+        def get_admin(self, path, **params):
+            status, raw = manager.request(path + '?' + urlencode(params))
+            return status, json.loads(raw)
+
+    settings = apply_cost_overrides(dict(sources={}))
+    tests = settings['testOrders']
+    rows, unknown, seen = [], 0, set()
+    latest = cutoff.strftime('%Y-%m-%d %H:%M:%S')
+    earliest = midnight.strftime('%Y-%m-%d %H:%M:%S')
+    batch = pages(NativeAdmin(), '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
+                  ('pay_status', '=', '1'), ('paytime', 'RANGE', earliest + ',' + latest),
+                  ('cid', '=', '1')], 100) if cutoff > midnight else []
+    observed = _historical_provider_now()
+    if observed < cutoff:
+        raise ValueError('recent_curve_observation_precedes_cutoff')
+    for raw in batch:
+        sn, paytime = raw.get('order_no'), raw.get('paytime')
+        if (not isinstance(sn, str) or not sn or sn in seen or str(raw.get('site_id')) != '266'
+                or str(raw.get('gid')) != '1327' or str(raw.get('pay_status')) != '1'
+                or not isinstance(paytime, str) or not earliest <= paytime <= latest):
+            raise ValueError('recent_curve_native_order_scope')
+        seen.add(sn)
+        status = str(raw.get('status_format') or '')
+        test = tests.get(sn)
+        paid = amount(raw.get('amount_usd_format'))
+        if (status.startswith('已退款') or fraud({'status': status}) or
+                test and str(test.get('gid')) == '1327' and amount(test.get('salesUsd')) == paid):
+            continue
+        paid_at = instant(paytime)
+        if not midnight <= paid_at < cutoff:
+            continue
+        quantity = _quantity(raw)
+        if quantity is None:
+            unknown += 1
+        regular = amount(raw.get('before_discount'))
+        no_deduction = (regular is not None and paid == regular and amount(raw.get('discount')) == 100
+                        and amount(raw.get('points')) == 0 and not raw.get('discount_code'))
+        order = dict(order_key=hashlib.sha256(('site266:FC27:Coins:' + sn).encode()).hexdigest(),
+                     paid_at=paid_at.isoformat(), available_at=observed.isoformat(), platform=_platform(raw),
+                     base_k=quantity['purchase_k'] if quantity else None,
+                     bonus_k=quantity['bonus_k'] if quantity else None,
+                     delivered_k=quantity['delivered_k'] if quantity else None,
+                     single_line_unit_purchase=bool(quantity and len(quantity['lines']) == 1
+                                                    and quantity['lines'][0]['multiplier'] == 1),
+                     region_id=0 if str(raw.get('is_region_price')) == '0' else None,
+                     promotion_path={'kind':'none'} if no_deduction else None, cost_cny=None, status=status)
+        order['source_sha256'] = fingerprint(order)
+        rows.append(order)
+    complete = archive_complete and settings['sources']['accounting']['status'] == 'available'
+    coverage = dict(population_scope=PAID_SCOPE, population_status='complete' if complete else 'partial',
+                    window_complete=complete, paid_window_start=start.isoformat(), paid_window_end_exclusive=cutoff.isoformat(),
+                    closed_archive_revision=(closed or {}).get('source_sha256'), native_rows=len(batch),
+                    native_quantity_unparsed=unknown, native_today_only=True)
+    rows = [*closed_rows, *rows]
+    source_revision = fingerprint(dict(rows=rows, coverage=coverage))
+    return dict(historical_orders=rows, source_sha256=source_revision, available_at=observed.isoformat(),
+                historical_orders_coverage=dict(coverage, source_sha256=source_revision))
 
 
 def _historical_existing_day_blocks(period):
