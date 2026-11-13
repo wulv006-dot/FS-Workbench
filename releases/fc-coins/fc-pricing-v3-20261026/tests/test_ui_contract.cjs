@@ -23,8 +23,9 @@ assert.match(mainConsole,/id="collect"[^>]*>立即采集/);
 assert.match(mainConsole,/立即采集只查价/);
 assert.match(mainConsole,/id="v3-curve-collect"[^>]*>采集并预览新定价/);
 assert.match(mainConsole,/id="v3-curve-status" role="status"/);
+assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-queue-status/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-activation/);
 assert.match(script,/双20只按购买100K、实交100K这一档核算/);
 assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
 assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
@@ -48,7 +49,7 @@ elements['v3-mode'].value = 'daily';
 const document = { getElementById: id => elements[id], createElement: () => new Element(), activeElement: null, hidden: false };
 const store = new Map();
 const sessionStorage = { getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) };
-const plan = { plan_id: 'plan-1', mode: 'daily', state: 'SUSPENDED' };
+const plan = { plan_id: 'plan-1', mode: 'daily', state: 'SUSPENDED', revision:3, resources:['base:PS','base:XBOX','base:PC'] };
 const state = { plans: [plan], active_plans: [plan], plan, generation: 'g', captured_at: '2026-10-26T13:00:00+08:00', snapshot_id: 'snapshot-1',
   price_control:{revision:0,manual_enabled:false,manual_prices:{PS:null,XBOX:null,PC:null},uplift_enabled:false,uplift_pct:'0'},
   strategies: { daily: { status: 'READY', selected: { action: { base_prices: { PS: '8.51', XBOX:'8.45', PC: '8.59' } }, score: { absolute_forecast_available: false } } }, revenue_sprint: { status: 'DATA_PENDING' } },
@@ -74,6 +75,9 @@ const executeBodies=[];
 const priceBodies=[];let priceFailure=false;
 const collectBodies=[],curvePreviews=[];
 let curveJob,curveSubmitLost=false,curveQueueBusy=false,curveBadPlatform='',scheduledCurve;
+let curveProven=false,curveActivationResponse='',activationBodies=[];
+const previousCurveId='34454366-c016-46ae-89f6-ddccb64f377a';
+const curveCapturedAt=new Date().toISOString();
 let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='queued',idSequence=0;
 const fetch=async (url,options={})=>{
   if(url.endsWith('/pricing/collect')){
@@ -89,12 +93,25 @@ const fetch=async (url,options={})=>{
     if(!curveJob)return {ok:false,status:404,json:async()=>({error:'not_found'})};
     return {ok:true,json:async()=>curveJob};
   }
+  if(url.endsWith('/jobs/'+previousCurveId))return {ok:true,json:async()=>({job_id:previousCurveId,
+    kind:'collect',request:{write_protocol:'fc27_curve_v6'},status:'ready',result:{run_id:previousCurveId}})};
+  if(url.endsWith('/jobs/00000000-0000-0000-0000-000000000000'))return {ok:false,status:404,json:async()=>({error:'not_found'})};
+  if(url.endsWith('/plans/plan-1/activate-curve')){
+    const body=JSON.parse(options.body);activationBodies.push(body);
+    if(curveActivationResponse==='lost-before')throw Error('fixture request lost before acceptance');
+    plan.revision=body.expected_revision+1;
+    plan.write_protocol='fc27_curve_v6';
+    plan.curve_activation_snapshot_id=body.snapshot_id;
+    if(curveActivationResponse==='lost-after')throw Error('fixture receipt lost after acceptance');
+    return {ok:true,json:async()=>plan};
+  }
   if(url.endsWith('/pricing/v3/preview')&&JSON.parse(options.body).write_protocol){
     const body=JSON.parse(options.body);curvePreviews.push(body);
     return {ok:true,json:async()=>({write_protocol:body.write_protocol,platform:body.platform,
-      snapshot_id:curveBadPlatform===body.platform?'wrong-run':body.snapshot_id,execution_authorized:false,write_performed:false,
+      snapshot_id:curveBadPlatform===body.platform?'wrong-run':body.snapshot_id, snapshot_captured_at:curveCapturedAt,
+      execution_authorized:false,write_performed:false,
       current_catalogue:{quote_100k:{regular_usd:'8.50'}},decision:{candidates:[{
-        labels:['A'],quote:{purchase_k:'1000',regular_usd:'79.25'},financial_proof:{status:'PROOF_INCOMPLETE',
+        labels:[curveProven?'CURRENT':'A'],quote:{purchase_k:'1000',regular_usd:'79.25'},financial_proof:{status:curveProven?'PROVEN':'PROOF_INCOMPLETE',
           average_discount:{contract:'fc_v6_d8_d2_amount_weighted_discount_v1',retained_ratio:'0.935',
             eligible_orders:200,matched_orders:200},minimum_safe_procurement_margin:'0.215'}}]}})};
   }
@@ -301,6 +318,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   await elements['v3-curve-collect'].events.click();
   assert.match(elements['v3-curve-status'].textContent,/三平台预览已读回.*本次未改价/);
   assert.equal(sessionStorage.getItem('fc-v3-curve-collect-job'),null);
+  assert.equal(elements['v3-curve-activate'].disabled,true,'incomplete proof cannot switch the plan');
   assert.equal(collectBodies.length,2);
   curveQueueBusy=true;curveJob=null;
   await elements['v3-curve-collect'].events.click();
@@ -314,7 +332,30 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   curveJob={...curveJob,status:'failed',error_detail:'fixture no quote'};
   await scheduledCurve();
   assert.match(elements['v3-curve-status'].textContent,/未能生成预览/);
+  plan.state='ACTIVE';await elements['v3-refresh'].events.click();
+  curveProven=true;
+  const collectsBeforeRead=collectBodies.length;
+  elements['v3-curve-read-id'].value='00000000-0000-0000-0000-000000000000';
+  await elements['v3-curve-read'].events.click();
+  assert.match(elements['v3-curve-status'].textContent,/未找到原采集.*请核对编号/);
+  assert.equal(elements['v3-curve-collect'].textContent,'采集并预览新定价');
+  const activationSnapshot=previousCurveId;
+  elements['v3-curve-read-id'].value=activationSnapshot;
+  await elements['v3-curve-read'].events.click();
+  assert.equal(collectBodies.length,collectsBeforeRead,'reading the prior job after reload never starts a new collector');
+  assert.equal(elements['v3-curve-activate'].disabled,false);
+  curveActivationResponse='lost-before';
+  await elements['v3-curve-activate'].events.click();
+  assert.equal(activationBodies.length,1,'unknown result only reads state automatically');
+  assert.equal(elements['v3-curve-activate'].textContent,'续办原启用');
+  curveActivationResponse='lost-after';
+  await elements['v3-curve-activate'].events.click();
+  assert.deepEqual(activationBodies,[{expected_revision:3,snapshot_id:activationSnapshot},{expected_revision:3,snapshot_id:activationSnapshot}]);
+  assert.match(elements['v3-curve-activation-status'].textContent,/新定价已启用.*版本 4/);
+  assert.equal(elements['v3-curve-activate'].disabled,true);
+  assert.equal(sessionStorage.getItem('fc-v3-curve-activation'),null);
   assert.equal(executeBodies.length,0);
+  delete plan.write_protocol;delete plan.curve_activation_snapshot_id;
   plan.state='ACTIVE';await elements['v3-refresh'].events.click();
   assert.equal(elements['v3-execute-now'].disabled,false);
   executeGate=new Promise(resolve=>{releaseExecution=resolve;});
