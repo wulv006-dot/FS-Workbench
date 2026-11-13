@@ -198,7 +198,7 @@ class AdminDcTests(unittest.TestCase):
         added = {prefix + 'fc_pricing_v3/' + name for prefix in ('', 'hermes-copy/') for name in modules}
         self.assertEqual(set(targets.CURVE_V6_MODULES), modules)
         self.assertEqual(set(candidate) - set(current), added)
-        self.assertEqual(targets.CURVE_V6_TARGET_COUNT, 43)
+        self.assertEqual(targets.CURVE_V6_TARGET_COUNT, 45)
         self.assertEqual(len(candidate), targets.CURVE_V6_TARGET_COUNT)
         self.assertEqual({key: path for key, path in candidate.items() if key in current},
                          {key: current[key] for key in candidate.keys() & current.keys()})

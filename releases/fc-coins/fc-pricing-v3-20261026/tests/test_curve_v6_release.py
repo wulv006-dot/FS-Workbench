@@ -37,14 +37,14 @@ class CurveV6Release(unittest.TestCase):
         self.assertEqual(len(base), 101)
         self.assertEqual(len(three), 107)
         self.assertEqual(len(adapter.THREE_PLATFORM_TARGETS), 56)
-        self.assertEqual(len(adapter.CURVE_V6_TARGETS), 43)
+        self.assertEqual(len(adapter.CURVE_V6_TARGETS), 45)
 
     def test_candidate_sources_build_both_copies_with_baseline_dependencies(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             archive = root / 'candidate.tar.gz'
             result = self.build_candidate(archive)
-            self.assertEqual(result['targets'], 43)
+            self.assertEqual(result['targets'], 45)
             browser = root / 'browser'
             hermes = root / 'hermes'
             baseline = self.git('ls-tree', '-r', '--name-only', BASE, '--',
@@ -238,8 +238,8 @@ SimulationBridge(request=lambda *args: version).versions()
                 self.assertEqual(raw, (deploy / 'approved-manifest.json').read_bytes())
                 manifest = json.loads(raw)
                 inspect.assert_called_once_with(manifest, stage)
-                self.assertEqual(result['files'], 43)
-                self.assertEqual(result['existing'], 29)
+                self.assertEqual(result['files'], 45)
+                self.assertEqual(result['existing'], 31)
                 self.assertEqual(result['new'], 14)
                 self.assertIn('fc-pricing-v3.service', manifest['runtimeRequired'])
                 protected = {row['path'] for row in manifest['unchangedRequired']}

@@ -189,6 +189,58 @@ def smart_choices(evidence,plan,current,baseline,schedule,now):
     return variants,effective_probabilities,probabilities,choice
 
 
+def preview_curve(snapshot, platform, *, requested_snapshot_id=None):
+    """Read one platform's current saved catalogue without opening a pricing operation."""
+    from coin_all_sync_job import PRODUCTS, read_row
+    from fc_shared_admin import SessionManager, read_private_config
+    from .admin_readback import GID_FC27, MID_FC27_COINS, SITE_MAIN
+    from .price_curve import curve_key, quote_native, read_curve
+    from .pricing_proof_v6 import CONTRACT, INCOMPLETE
+
+    gaps = ['customer_checkout_unverified', 'offer_path_unverified', 'necessary_fee_unverified',
+            'validation_domain_unverified', 'procurement_time_unverified', 'planning_baskets_unverified',
+            'adopted_reference_curve_unavailable', 'comparison_episode_unavailable']
+    result = dict(status=INCOMPLETE, write_protocol=CURVE_WRITE_PROTOCOL, platform=platform,
+                  snapshot_id=requested_snapshot_id, snapshot_captured_at=None, current_catalogue=None,
+                  decision=dict(financial_contract=CONTRACT, selected=None, gaps=gaps),
+                  execution_authorized=False, write_performed=False)
+    if not snapshot:
+        gaps.append('pricing_snapshot_unavailable')
+        return result
+    evidence = snapshot.get('evidence') or {}
+    if (snapshot.get('origin') != 'live_collector' or snapshot.get('mode') != 'production'
+            or snapshot.get('authorization_purpose') or snapshot.get('snapshot_id') != evidence.get('run_id')
+            or requested_snapshot_id is not None and snapshot['snapshot_id'] != requested_snapshot_id):
+        gaps.append('pricing_snapshot_scope_unverified')
+        return result
+    result.update(snapshot_id=snapshot['snapshot_id'], snapshot_captured_at=snapshot['created_at'])
+    _, goods_id, aid = PRODUCTS[platform]
+    own = (evidence.get('storefront') or {}).get('rows', {}).get(platform) or {}
+    if str(own.get('sku_id')) != str(goods_id):
+        gaps.append('pricing_snapshot_goods_scope_unverified')
+        return result
+
+    source = 'Admin Goods edit read only'
+    observations = []
+    try:
+        manager = SessionManager(read_private_config())
+        row = read_row(manager, platform, int(SITE_MAIN), observer=observations.append)
+        captured_at = clock().isoformat()
+        identity = dict(id=goods_id, mid=MID_FC27_COINS, gid=GID_FC27, cid=9623,
+                        site_id=SITE_MAIN, aid=aid, unit='K', status=1)
+        curve = read_curve(row, identity, dict(source=source, verified_domain='native stored tiers only'))
+        quote = quote_native(curve, dict(purchase_k='100', multiplier=1, site_id=SITE_MAIN, currency='USD'))
+        key = quote.get('curve_key') or curve_key(curve)
+    except (OSError, ValueError, TypeError, AttributeError) as error:
+        gaps.append('current_catalogue_identity_mismatch' if str(error) == 'coin_product_scope_changed'
+                    else 'current_catalogue_readback_unavailable')
+        return result
+    result['current_catalogue'] = dict(status='saved_tier', source=source, captured_at=captured_at,
+        response_sha256=observations[0]['response_sha256'], identity=curve['identity'], tiers=curve['tiers'],
+        curve_key=key, quote_100k=quote)
+    return result
+
+
 def calculate(evidence, edits=None, *, selected_action=None,override_reason=None,operation_id=None):
     edits = edits or {}
     if edits.get('costs') or edits.get('offers') or edits.get('quotes'):

@@ -10,7 +10,7 @@ CURVE_V6_BASE = '7042edaf90647cbd51ab7df3e35f7b4341f72b3f'
 CURVE_V6_MODULES = ('competitor_offers.py', 'cost_inputs_v6.py', 'cost_model.py', 'price_curve.py',
                     'pricing_proof_v6.py', 'planning_baskets_v6.py', 'curve_strategy_v6.py')
 CURVE_V6_CHANGED_MODULES = (
-    'adapters.py', 'business_source.py', 'daily.py', 'dispatch.py', 'engine.py',
+    'adapters.py', 'api.py', 'business_source.py', 'daily.py', 'dispatch.py', 'engine.py',
     'ledger.py', 'market_registry.py', 'observations.py', 'runtime.py', 'selective_sources.py',
     'sources.py',
 )

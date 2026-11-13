@@ -10,7 +10,8 @@ import sqlite3
 import uuid
 
 from . import VERSION
-from .engine import evaluate, POLICIES
+from .dispatch import CURVE_WRITE_PROTOCOL
+from .engine import evaluate, PLATFORMS, POLICIES
 from .financial import fingerprint, instant, number
 from .ledger import clock
 from .runtime import ledger, STORE, public_snapshot_summary
@@ -78,13 +79,17 @@ def latest(db, public=False):
         if summary:
             return summary
     with closing(db.connect()) as conn:
-        for row in conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC'):
-            snapshot=json.loads(row[0])
-            if snapshot.get('authorization_purpose') in ('original_unsent_ALL_steps_only','retire_uk_discount_v1'):
-                continue
-            if not public:
-                return snapshot
-            return public_snapshot_summary(dict(snapshot,result=snapshot.get('result') or {'rows':[]}))
+        snapshot = _latest_snapshot(conn)
+    if public and snapshot:
+        return public_snapshot_summary(dict(snapshot,result=snapshot.get('result') or {'rows':[]}))
+    return snapshot
+
+
+def _latest_snapshot(conn):
+    for row in conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC'):
+        snapshot = json.loads(row[0])
+        if snapshot.get('authorization_purpose') not in ('original_unsent_ALL_steps_only','retire_uk_discount_v1'):
+            return snapshot
     return None
 
 
@@ -291,6 +296,28 @@ def read(path):
 
 
 def post(path,data,actor):
+    if isinstance(data, dict) and 'write_protocol' in data and (
+            path == 'preview' or data['write_protocol'] == CURVE_WRITE_PROTOCOL):
+        if path != 'preview':
+            raise ValueError('pricing_curve_preview_route_required')
+        if (data['write_protocol'] != CURVE_WRITE_PROTOCOL or data.get('platform') not in PLATFORMS
+                or set(data) - {'write_protocol', 'platform', 'snapshot_id'}):
+            raise ValueError('pricing_curve_preview_fields_invalid')
+        snapshot_id = data.get('snapshot_id')
+        if 'snapshot_id' in data and (not isinstance(snapshot_id, str) or
+                re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', snapshot_id) is None):
+            raise ValueError('pricing_curve_preview_snapshot_id_invalid')
+        store = STORE / 'control.sqlite3'
+        snapshot = None
+        if store.exists():
+            with closing(sqlite3.connect(store.resolve().as_uri() + '?mode=ro', uri=True, timeout=5)) as conn:
+                if snapshot_id is None:
+                    snapshot = _latest_snapshot(conn)
+                else:
+                    row = conn.execute('SELECT body FROM pricing_snapshots WHERE id=?', (snapshot_id,)).fetchone()
+                    snapshot = json.loads(row[0]) if row else None
+        from .runtime import preview_curve
+        return preview_curve(snapshot, data['platform'], requested_snapshot_id=snapshot_id)
     if path=='interval':
         if not isinstance(data,dict) or set(data)!={'interval_minutes','expected_revision'}:
             raise ValueError('pricing_interval_request_invalid')
