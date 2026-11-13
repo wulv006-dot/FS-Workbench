@@ -396,6 +396,100 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                     builder.prepare(ROOT, self.snapshot, self.output, COMMIT, fc_v61=True)
                 self.assertFalse(self.output.exists())
 
+    def add_reporting_candidate(self):
+        prior_commit = 'c51bb4f494523f19e6979cf5c85565dac94a4257'
+        revisions = {
+            'fc.reporting.business': ('20261110-three-platform-100k', '20261113-v61-reporting-business'),
+            'fc.reporting.data': ('fs-fc-admin-es-shared-20261113-r4', '20261113-v61-reporting-data'),
+            'fc.reporting.methods': ('20261105-2', '20261113-v61-reporting-entry'),
+            'fs.data.sources': ('fs-fc-admin-es-shared-20261113-r2', '20261113-v61-reporting-sources'),
+        }
+        first = self.policy['requests']['first']
+        second = self.policy['task_routes']['routes'][0]
+        index = json.loads((self.snapshot / first['catalog']).read_bytes())
+        other = json.loads((self.snapshot / second['catalog']).read_bytes())
+        index['entries'] = [item for item in index['entries'] if item['id'] not in revisions]
+        first['entry_ids'] = [identity for identity in first['entry_ids'] if identity not in revisions]
+        prior, current = [], []
+        for identity, (old_revision, revision) in revisions.items():
+            path = 'canonical/' + identity + '.md'
+            old_data, new_data = b'Original report source.\n', b'V6 report source.\n'
+            selector = None
+            if identity == 'fs.data.sources':
+                selector = dict(start='## Selected', end='## End')
+                old_data = b'## Selected\n\n' + old_data
+                new_data = b'## Selected\n\n' + new_data
+            self.git[prior_commit, path] = old_data
+            self.git[COMMIT, path] = new_data
+            prior.append(row(identity, old_revision, path, old_data))
+            item = row(identity, revision, path, new_data)
+            if selector:
+                for commit, template, section in ((prior_commit, prior[-1], old_data), (COMMIT, item, new_data)):
+                    full = b'Unrelated shared rules.\n\n' + section + b'\n## End\n'
+                    self.git[commit, path] = full
+                    template['source'].update(selector=selector, sha256=builder.sha(full))
+            item['supersedes'] = [identity + '@' + old_revision]
+            current.append(item)
+            saved_path = 'entries/' + identity + '.md'
+            saved = dict(row(identity, old_revision, saved_path, old_data), unrelated_metadata='original')
+            index['entries'].append(saved)
+            self.put_snapshot(index['source_root'] + '/' + saved_path, old_data)
+            first['entry_ids'].append(identity)
+            if selector:
+                other['entries'] = [entry for entry in other['entries'] if entry['id'] != identity] + [copy.deepcopy(saved)]
+                self.put_snapshot(other['source_root'] + '/' + saved_path, old_data)
+        self.git[prior_commit, 'knowledge/index.json'] = builder.encoded({'entries': prior})
+        self.git[COMMIT, 'knowledge/index.json'] = builder.encoded(dict(
+            contract='fs-knowledge-index-v1', release=builder.FC_V61, release_state='candidate',
+            source_commit=None, entries=current))
+        self.put_snapshot(first['catalog'], builder.encoded(index))
+        first['sha256'] = self.info['protected'][builder.FS_RUNTIME_ROOT + first['catalog']]
+        self.put_snapshot(second['catalog'], builder.encoded(other))
+        second['sha256'] = self.info['protected'][builder.FS_RUNTIME_ROOT + second['catalog']]
+        self.write_preflight()
+        return revisions, index
+
+    def test_fc_v61_reporting_changes_three_reports_and_shared_source_section(self):
+        revisions, original = self.add_reporting_candidate()
+        result = builder.prepare(ROOT, self.snapshot, self.output, COMMIT, fc_v61_reporting=True)
+        manifest = result['manifest']
+        self.assertFalse(manifest['releaseReady'])
+        self.assertNotIn('baselinePatch', manifest)
+        self.assertEqual([r['candidate'] for r in manifest['files'] if r['candidate'].startswith('runtime/')],
+                         ['runtime/knowledge-load-policy.json'])
+        artifact = self.output / 'candidate/artifact'
+        catalog = json.loads((artifact / 'index.json').read_bytes())
+        self.assertEqual([item['id'] for item in catalog['entries']], [item['id'] for item in original['entries']])
+        for before, after in zip(original['entries'], catalog['entries']):
+            identity = before['id']
+            if identity not in revisions:
+                self.assertEqual(after, before)
+                continue
+            self.assertEqual(after['revision'], revisions[identity][1])
+            self.assertEqual(after['unrelated_metadata'], 'original')
+            heading = b'## Selected\n\n' if identity == 'fs.data.sources' else b''
+            self.assertEqual((artifact / 'sources' / before['source']['path']).read_bytes(), heading + b'Original report source.\n')
+            self.assertEqual((artifact / 'sources' / after['source']['path']).read_bytes(), heading + b'V6 report source.\n')
+            self.assertNotIn('selector', after['source'])
+        second = json.loads((artifact / 'catalog-1/index.json').read_bytes())
+        second_entries = {item['id']: item for item in second['entries']}
+        self.assertEqual(set(revisions) & set(second_entries), {'fs.data.sources'})
+        self.assertEqual(second_entries['fs.data.sources']['revision'], revisions['fs.data.sources'][1])
+
+    def test_fc_v61_reporting_refuses_unreviewed_live_content_even_at_the_expected_revision(self):
+        _, original = self.add_reporting_candidate()
+        route = self.policy['requests']['first']
+        item = next(row for row in original['entries'] if row['id'] == 'fc.reporting.data')
+        data = b'Extra active report guidance.\n'
+        item['source']['sha256'] = builder.sha(data)
+        self.put_snapshot(original['source_root'] + '/' + item['source']['path'], data)
+        self.put_snapshot(route['catalog'], builder.encoded(original))
+        route['sha256'] = self.info['protected'][builder.FS_RUNTIME_ROOT + route['catalog']]
+        self.write_preflight()
+        with self.assertRaisesRegex(ValueError, 'fc_v61_reporting_snapshot_source_changed:fc.reporting.data'):
+            builder.prepare(ROOT, self.snapshot, self.output, COMMIT, fc_v61_reporting=True)
+        self.assertFalse(self.output.exists())
+
     def test_only_existing_shared_sections_overlay_and_live_baseline_stays_bound(self):
         value = self.prepare()
         manifest = value['manifest']

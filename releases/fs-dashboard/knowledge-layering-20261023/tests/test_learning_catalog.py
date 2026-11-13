@@ -341,7 +341,9 @@ class LearningCatalog(unittest.TestCase):
         rows = {r['id']:r for r in value['entries']}
         updated = {'fs.data.sources'}
         new = {'fc.marketing.attribution','fc.reporting.data'}
-        self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r2'},updated)
+        self.assertEqual(rows['fs.data.sources']['revision'], '20261113-v61-reporting-sources')
+        self.assertIn('fs.data.sources@fs-fc-admin-es-shared-20261113-r2',
+                      rows['fs.data.sources']['supersedes'])
         self.assertEqual(rows['fc.reporting.data']['revision'], '20261113-v61-reporting-data')
         self.assertIn('fc.reporting.data@fs-fc-admin-es-shared-20261113-r4',
                       rows['fc.reporting.data']['supersedes'])
@@ -359,6 +361,9 @@ class LearningCatalog(unittest.TestCase):
         texts = {r['id']:r['content'] for r in selection['entries']}
         for token in ('requested/effective_scope','unsupported_filters','pay_status=1','0/0','不是30/60/90日留存'):
             self.assertIn(token,texts['fs.data.sources'])
+        self.assertIn('FC 定价按实际计划协议执行', texts['fs.data.sources'])
+        self.assertIn('历史标量操作按', texts['fs.data.sources'])
+        self.assertNotIn('FC定价双20', texts['fs.data.sources'])
         for token in ('unknown','首访不当首购','后补不移动价格窗口','Admin已付金额非净收入'):
             self.assertIn(token,texts['fc.marketing.attribution'])
         self.assertIn('actual_cost需整单覆盖证据',texts['fs.finance.procurement'])
