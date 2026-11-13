@@ -132,3 +132,10 @@
 - 沿原发布器 `nav-20261113T113800Z` 完成 11 个目标及 200 个保护项读回，manifest `c562097cfa11e2ad736d2a8eea174fa2b4572eff9cc676f15c82fb72b4110192`。第一次参数名错误在解析阶段退出；修正后碰原自动锁，核 11 before／零 journal／零写入，等自然轮 `42ad3b52-b24a-5583-8227-4455814ac3de` 于 11:40:00Z 完成后沿同 ID 发布成功。未停用调度、未重放价格请求。
 - 修复保留所有已知数量在未知成本占比分母内，混单未分配采购额不冒充 Coins 成本；普通已知部分成本提高估算上界；PC 候选展示恢复。原生 Ke 售价编辑与 Je 折扣输入分开，Ke 按真实处理器派生并向后传播，保留 Je 原限制；不为分币表达抬全局单价。两段组合不足时可生成实际可执行候选。
 - API／worker／scheduler 已运行新版；原计划 `5cecacfd-19f7-584a-8845-16adbef9b13d` 仍 rev3 ACTIVE、`write_protocol=null`，60 分钟自动运行保持。新真实只读采集 `34454366-c016-46ae-89f6-ddccb64f377a` 已从登录页面登记并进入采集，尚未据候选声明价格已生效。
+
+### 新计划真实激活，首次执行写前取消待修
+
+- PR #1041 固定 `27b324683c6a2415a579da17c8feac144cb76011`，正式 CI `43419681581` 成功，合并 `d31ff7a76348fd98de398e481abd6bf540154154`。登录态启用入口及原预览只读入口沿原静态发布器 `nav-20261113T115000Z` 发布，2 目标／209 保护通过，无服务重启；manifest `f0af0a18b68684c9077cc36d28003872637b1860b6cf54a10aa07f389eb93ec0`。行为测试覆盖启用成功、超时未入账原请求续办、成功回执丢失后读回和原预览不重采。
+- 真实 Chrome 复用原预览 `34454366-c016-46ae-89f6-ddccb64f377a`，一次提交启用。页面与独立 DB 均确认原计划 rev3/null → rev4/`fc27_curve_v6`，原回执 `curve-plan-activation:5cecacfd-19f7-584a-8845-16adbef9b13d:3`，6 项资源同计划 rev4；policy／schedule 42 和 60 分钟不变，下轮自然时间 12:36:56.589500Z。截图接口超时，不能声称取得截图；真实页面文本与后端回执已读回。
+- 首轮真实执行只提交一次：`manual:b25fed1b-fd17-5f0c-ae33-e9fbd5990d37` → run `913cd78e-d38c-559d-bf39-b7244df7466c` → operation `1d5ba32f-dfad-561f-8eb0-268ded0d487e`。三平台新证据 PS／PC READY、Xbox KEEP，均无缺口；11:54:32Z 原操作 `CANCELLED_NOT_SENT`，`prewrite_source_guard/KeyError`，writer／dispatch／price post 均未开始、lease 空，无价格写入或未决结果。
+- 根因是 V6 写前刷新仍先访问旧标量 `promotion_envelope`，而平均优惠合同不提供该逐券字段；正在修正对应调用链，保留新鲜报价、原共享范围及实际 Admin CAS，旧操作取消记录不改成成功。新协议已激活，首次价格写入及全天经营效果仍未验收。

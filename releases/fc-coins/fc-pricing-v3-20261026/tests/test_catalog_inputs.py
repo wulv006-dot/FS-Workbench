@@ -375,6 +375,53 @@ class CatalogInputs(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'coupon_terms_changed'):
                     pricing_sources.refresh_before_write(dict(preview_id=preview), root)
 
+    def test_v6_prewrite_checks_shared_discount_without_scalar_or_public_evidence(self):
+        from fc_pricing_v3.average_discount_v6 import average_discount
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        from test_cost_inputs_v6 import AS_OF, CUT, attachment, rows_for
+
+        archive=attachment(list(rows_for([72])))
+        archive['historical_orders_coverage'].update(shared_publication_id='original-pin',
+            shared_source_revision='source-revision', paid_window_start=(CUT-pricing_sources.timedelta(days=8)).isoformat())
+        archive['historical_orders'][0].update(merchandise_before_discount_usd='50',actual_es_discount_usd='5')
+        average=average_discount(archive,'PS',CUT)
+        self.assertEqual(average['status'],'complete')
+        receipt=dict(write_protocol=CURVE_WRITE_PROTOCOL,action={'curves':{'PS':{}}},
+                     curve_proofs={'PS':{'average_discount':average}})
+        coverage=dict(publication_id='original-pin',source_revision='source-revision',
+                      day_revisions={'same-day':'same-revision'},fc27_projection_revision='native-revision')
+        publication={'coverage':coverage}
+        shared_read=Mock(return_value=publication)
+        run='00000000-0000-4000-8000-000000000011'
+        preview='00000000-0000-4000-8000-000000000012'
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/'quotes').mkdir(); (root/'previews').mkdir()
+            # The deployed V6 quote deliberately omits promotion_envelope and may lack public diagnostics.
+            (root/'quotes'/(run+'.json')).write_text(json.dumps(dict(evidence={'checked_at':CUT.isoformat()},
+                    result={'decision_receipt':receipt})))
+            (root/'previews'/(preview+'.json')).write_text(json.dumps({'run_id':run}))
+            request=dict(preview_id=preview,write_protocol=CURVE_WRITE_PROTOCOL,platforms=['PS'])
+            with patch.object(pricing_v2,'verify_quote',return_value=receipt) as verified, \
+                    patch.object(automation_policy,'load_policy',return_value={}), \
+                    patch.object(pricing_sources,'datetime',SimpleNamespace(now=lambda *_:AS_OF)), \
+                    patch.object(pricing_sources,'collect',side_effect=AssertionError('legacy promotion collector')), \
+                    patch.object(business_source,'shared_curve_attachment',return_value=archive), \
+                    patch.dict(sys.modules,{'shared_es_facts':SimpleNamespace(read=shared_read)}):
+                result=pricing_sources.refresh_before_write(request,root)
+                self.assertEqual(result['status'],'current_curve_proof_rechecked')
+                self.assertFalse(result['price_write_performed'])
+                self.assertEqual(verified.call_args.args[2],['PS'])
+                self.assertTrue(verified.call_args.kwargs['for_execution'])
+                self.assertEqual(shared_read.call_args.args[0],dict(site_id='266',gid='1327',start='2026-11-05',end='2026-11-12'))
+                active=dict(coverage,publication_id='next-pin')
+                shared_read.side_effect=[{'coverage':active}, publication]
+                self.assertEqual(pricing_sources.refresh_before_write(request,root)['publication_id'],'next-pin')
+                active['fc27_projection_revision']='drift'
+                shared_read.side_effect=[{'coverage':active}, publication]
+                with self.assertRaisesRegex(ValueError,'pricing_average_history_changed_since_quote'):
+                    pricing_sources.refresh_before_write(request,root)
+
     def test_null_display_is_not_zeroed_by_current_js_formatters(self):
         script = (SOURCE/'fc-pricing-v3.js').read_text(encoding='utf-8')
         self.assertRegex(script, r"function value\(v\)\{return v==null\?")
