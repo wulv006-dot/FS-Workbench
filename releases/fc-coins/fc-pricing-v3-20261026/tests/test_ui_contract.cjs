@@ -28,7 +28,7 @@ assert.equal((html.match(/class="price-strip"/g)||[]).length,1);
 for (const platform of ['ps','xbox','pc']) assert(ids.includes('v3-price-large-'+platform));
 assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261113-price-cards/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261113-current-curve/);
 assert.equal((html.match(/<article data-platform=/g)||[]).length,3);
 assert.match(html,/竞品 100K 报价/);
 assert.match(html,/我方大额段独立核算/);
@@ -379,6 +379,19 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(marketTag.textContent,/Lootbar.*U7Buy.*Arab-UT.*100K/);
   assert.match(elements['v3-market-status'].textContent,/等待当前新定价/);
   assert.doesNotMatch(elements['v3-price-basis-ps'].textContent,/双红线|双20/);
+  assert.match(elements['v3-decision-basis'].textContent,/等待当前 V6/);
+  assert.doesNotMatch(elements['v3-state'].textContent,/2026-10-26/,'V6 must hide a legacy snapshot during independent deployment');
+  assert.doesNotMatch(JSON.stringify(elements['v3-strategies'].children),/双20|本轮最终候选/);
+  const oldSnapshotId=state.snapshot_id,oldSnapshotTime=state.captured_at;
+  state.write_protocol='fc27_curve_v6';
+  state.snapshot_id='curve-market-run';
+  state.captured_at=curveCapturedAt;
+  state.source_checked_at=curveCapturedAt;
+  state.curve_decision={status:'READY',rows:[
+    {platform:'PS',status:'READY',selection:{segment:'large',label:'C'}},
+    {platform:'XBOX',status:'KEEP'},
+    {platform:'PC',status:'PROOF_INCOMPLETE',gaps:['ordinary_cost_unavailable']}
+  ]};
   curveMarket={write_protocol:'fc27_curve_v6',snapshot_id:'curve-market-run',captured_at:curveCapturedAt,
     price_basis:{rows:{PS:{average_discount:{retained_ratio:'.91'},minimum_safe_procurement_margin:'.182'}}},
     catalogue_samples:{PS:{observed_at:curveCapturedAt,tiers:[{purchase_k:'100',native_price_usd:'8.51',promised_bonus_k:'0'},{purchase_k:'1000',native_price_usd:'81.60',promised_bonus_k:'30'}]}},
@@ -392,9 +405,26 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   await elements['v3-refresh'].events.click();
   assert.match(elements['v3-market-status'].textContent,/新定价采集快照/);
   assert.equal(elements['v3-market-snapshot'].textContent,'curve-market-run');
+  assert.match(elements['v3-decision-basis'].textContent,/curve-market-run.*V6/);
+  const curveDecisionText=JSON.stringify(elements['v3-strategies'].children);
+  assert.match(curveDecisionText,/PS.*已有可行方案.*大额段.*C.*Xbox.*保持现价.*PC.*核算待补/);
+  assert.doesNotMatch(curveDecisionText,/双20|已写价|本轮最终候选|op-1/);
+  assert.equal(elements['v3-legacy-proof-table'].hidden,true);
+  assert.match(elements['version'].textContent,/V6.*curve-market-run/);
+  assert.match(elements['v3-stage'].textContent,/已有可行方案/);
+  assert.notEqual(elements['v3-source-time'].textContent,'当前计划来源待核');
+  const savedOperations=state.operations;
+  state.operations=[{operation_id:'original-current-curve',plan_id:plan.plan_id,status:'COMPLETED',
+    bundle:{write_protocol:'fc27_curve_v6',snapshot_id:'curve-market-run'},
+    readback:{write_protocol:'fc27_curve_v6',execution_id:'original-current-curve',status:'CONFIRMED'}},...savedOperations];
+  await elements['v3-refresh'].events.click();
+  assert.match(JSON.stringify(elements['v3-strategies'].children),/本轮原操作.*Admin 主站价表已核对.*original-current-curve/);
+  assert.match(elements['v3-stage'].textContent,/Admin 主站价表已核对/);
+  state.operations=savedOperations;
   assert.equal(elements['v3-price-large-ps'].textContent,'$81.60');
   assert.match(elements['v3-price-delivery-ps'].textContent,/赠 30K · 实交 1030K/);
   assert.equal(elements['v3-price-large-xbox'].textContent,'现价待核');
+  assert.equal(elements['v3-price-xbox'].textContent,'现价待核','V6 current price does not fall back to a public quote');
   const [psMarket,xboxMarket,pcMarket]=elements['v3-market-cards'].children;
   assert.match(JSON.stringify(psMarket),/Lootbar.*\$8\.75.*购买 100K.*赠 5K.*U7Buy.*\$9\.10.*购买 100K/);
   assert.match(JSON.stringify(xboxMarket),/Arab-UT.*该快照未取得 100K 报价/);
@@ -404,6 +434,8 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(elements['v3-price-ps'].textContent,'$8.51');
   assert.match(elements['v3-price-source-ps'].textContent,/后台采样/);
   assert.equal(elements['v3-price-change-ps'].hidden,true);
+  state.snapshot_id=oldSnapshotId;state.captured_at=oldSnapshotTime;
+  delete state.write_protocol;delete state.curve_decision;delete state.source_checked_at;
   const sampled=curveMarket.catalogue_samples.PS;
   const operationsBefore=state.operations;
   state.catalogue_readbacks={PS:{...sampled,basis:'confirmed_readback'}};

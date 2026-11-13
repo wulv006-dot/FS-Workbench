@@ -397,6 +397,55 @@ class RuntimeContracts(unittest.TestCase):
             self.assertLess(len(json.dumps(state).encode()),1024*1024)
             self.assertEqual(market['snapshot_id'],'large')
 
+    def test_v6_state_and_market_share_owned_snapshot_and_keep_scalar_history(self):
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+
+        with tempfile.TemporaryDirectory() as folder:
+            db = Ledger(Path(folder) / 'control.db')
+            ident = '00000000-0000-4000-8000-000000000078'
+            scalar = dict(snapshot_id=ident, created_at='2026-11-13T03:38:00Z', origin='live_collector',
+                          evidence={}, result={'rows': []})
+            db.put('pricing_snapshots', ident, scalar)
+            db.put('metadata', 'latest_snapshot_summary', runtime.public_snapshot_summary(scalar))
+            scalar_decisions = dict(daily=dict(status='READY', selected={'action': {'base_prices': {'PS': '7.15'}}}))
+            db.put('strategy_decisions', ident, scalar_decisions)
+            curve = dict(snapshot_id='curve', created_at='2026-11-13T13:38:00Z', plan_id='owner',
+                         write_protocol=CURVE_WRITE_PROTOCOL,
+                         evidence={'checked_at': '2026-11-13T13:37:00Z', 'private': 'private-order'},
+                         result=dict(status='READY', rows=[
+                             dict(platform='PS', status='READY', gaps=[], selection=dict(segment='large', label='C',
+                                                                                        private='private-order')),
+                             dict(platform='XBOX', status='KEEP', gaps=[]),
+                             dict(platform='PC', status='PROOF_INCOMPLETE', gaps=['ordinary_cost_unavailable'])],
+                             decision_receipt={'private': 'private-order'}))
+            db.put('pricing_snapshots', 'curve', curve)
+            db.put('metadata', 'latest_snapshot:owner', {'snapshot_id': 'curve'})
+            plan = dict(plan_id='owner', write_protocol=CURVE_WRITE_PROTOCOL, mode='smart')
+            with patch.object(api, 'ledger', return_value=db), patch.object(db, 'active_plan', return_value=plan), \
+                    patch.object(runtime, '_curve_proof_inputs', return_value={}):
+                state, market = api.read('state'), api.read('market')
+                self.assertEqual(state['snapshot_id'], market['snapshot_id'])
+                self.assertEqual(state['snapshot_id'], 'curve')
+                self.assertEqual(state['captured_at'], curve['created_at'])
+                self.assertEqual(state['write_protocol'], CURVE_WRITE_PROTOCOL)
+                self.assertEqual(state['strategies'], {})
+                self.assertEqual(state['curve_decision']['rows'][0]['selection'], {'segment': 'large', 'label': 'C'})
+                self.assertEqual(state['curve_decision']['rows'][2]['gaps'], ['ordinary_cost_unavailable'])
+                self.assertNotIn('private-order', json.dumps(state))
+                self.assertEqual(api.read('review-state')['snapshot_id'], 'curve')
+                self.assertIn('daily', api.read('strategy-decisions/' + ident)['results'])
+                for stale in ('other-plan', None):
+                    db.put('pricing_snapshots', 'curve', dict(curve, plan_id=stale))
+                    self.assertIsNone(api.read('state')['snapshot_id'])
+                    self.assertIsNone(api.read('market')['snapshot_id'])
+                activation = dict(curve, snapshot_id='activation', plan_id=None, result=dict(status='CURVE_CANDIDATE_PROVEN'))
+                db.put('pricing_snapshots', 'activation', activation)
+                plan['curve_activation_snapshot_id'] = 'activation'
+                activation_state = api.read('state')
+                self.assertEqual(activation_state['snapshot_id'], 'activation')
+                self.assertIsNone(activation_state['curve_decision'])
+                self.assertEqual(api.read('market')['snapshot_id'], 'activation')
+
     def test_v6_market_projects_only_current_100k_without_rewriting_frozen_snapshots(self):
         from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
 

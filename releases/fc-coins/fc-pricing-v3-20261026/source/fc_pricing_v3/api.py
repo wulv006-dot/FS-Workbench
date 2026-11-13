@@ -85,6 +85,34 @@ def latest(db, public=False):
     return snapshot
 
 
+def _owned_curve_snapshot(db, plan):
+    latest = db.get('metadata', 'latest_snapshot:' + plan['plan_id']) or {}
+    sources = ((latest.get('snapshot_id'), (plan['plan_id'],)),
+               (plan.get('curve_activation_snapshot_id'), (plan['plan_id'], None)))
+    for ident, owners in sources:
+        snapshot = db.get('pricing_snapshots', ident) if ident else None
+        if (snapshot and snapshot.get('snapshot_id') == ident
+                and snapshot.get('write_protocol') == CURVE_WRITE_PROTOCOL
+                and snapshot.get('plan_id') in owners):
+            return snapshot
+    return None
+
+
+def _curve_decision(snapshot, plan):
+    if not snapshot or snapshot.get('plan_id') != plan['plan_id']:
+        return None
+    result = snapshot.get('result') or {}
+    rows = []
+    for row in result.get('rows', []):
+        selection = row.get('selection') or {}
+        chosen = {key: selection[key] for key in ('segment', 'label') if key in selection}
+        actual_label = (selection.get('assignment') or {}).get('actual_label')
+        if actual_label:
+            chosen['actual_label'] = actual_label
+        rows.append(dict(platform=row['platform'], status=row['status'], gaps=row.get('gaps', []), selection=chosen))
+    return dict(status=result.get('status'), rows=rows) if rows else None
+
+
 def _latest_snapshot(conn, *, curve=False):
     candidate = None
     for row in conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC'):
@@ -263,8 +291,15 @@ def read(path):
         parts=path.split('/')
         if len(parts)!=2:raise ValueError('pricing_daily_review_request_invalid')
         daily_request=str(uuid.UUID(parts[1]));path='review-state'
-    snapshot=latest(db,public=True) if path in ('state','review-state','','region-rules','market') else None
-    if path in ('state','review-state',''):
+    state_read = path in ('state', 'review-state', '')
+    plan = db.active_plan() if state_read or path == 'market' else None
+    curve = (plan or {}).get('write_protocol') == CURVE_WRITE_PROTOCOL
+    current = _owned_curve_snapshot(db, plan) if curve else None
+    if curve:
+        snapshot = (public_snapshot_summary(dict(current, result={'rows': []})) if current and state_read else None)
+    else:
+        snapshot = latest(db, public=True) if state_read or path in ('region-rules', 'market') else None
+    if state_read:
         target=(snapshot or {}).get('evidence',{}).get('monthly_target') or {}
         configured=db.get('monthly_targets','current')
         if configured:
@@ -276,11 +311,11 @@ def read(path):
             operations=[dict({key:operation[key] for key in ('operation_id','plan_id','status','created_at','completed_at','resources','error') if key in operation},
                              action=(operation.get('bundle') or {}).get('action'),
                              detail_source=dict(action='operation_read',operation_id=operation['operation_id'])) for operation in operations]
-        result=dict(version=VERSION,generation=db.generation(),plan=db.active_plan(),price_control=db.price_control(),
+        result=dict(version=VERSION,generation=db.generation(),plan=plan,price_control=db.price_control(),
                     plans=sorted(db.all('pricing_plans'),key=lambda p:p['created_at'],reverse=True),active_plans=db.active_plans(),
                     snapshot_id=snapshot['snapshot_id'] if snapshot else None,
                     captured_at=snapshot['created_at'] if snapshot else None,
-                    strategies=strategy_summary(db.get('strategy_decisions',snapshot['snapshot_id'])) if snapshot else {},
+                    strategies=strategy_summary(db.get('strategy_decisions',snapshot['snapshot_id'])) if snapshot and not curve else {},
                     operations=operations,
                     incidents=db.all('incidents'),target=target,
                     region_rules=(snapshot or {}).get('evidence',{}).get('region_rules',[]),
@@ -288,6 +323,9 @@ def read(path):
                     current_prices=(snapshot or {}).get('result',{}).get('rows',[]),
                     latest_market_observations=recent_market_observations(db),
                     daily_review=db.get('metadata','latest_daily_review'),retirement=db.all('retirement_inventory'),effect_status='long_term_business_effect_not_established')
+        if curve:
+            result.update(write_protocol=CURVE_WRITE_PROTOCOL, curve_decision=_curve_decision(current, plan),
+                          source_checked_at=(snapshot or {}).get('source_checked_at'))
         if path=='state':
             result['manual_execution']=manual_execution_progress(db,operations)
             result['catalogue_readbacks']=catalogue_readbacks(operations)
@@ -339,17 +377,12 @@ def read(path):
         return dict(rules=(snapshot or {}).get('evidence',{}).get('region_rules',[]),
                     contract=(snapshot or {}).get('evidence',{}).get('region_contract'))
     if path=='market':
-        plan=db.active_plan() or {}
-        if plan.get('write_protocol') == CURVE_WRITE_PROTOCOL:
+        if curve:
             from .competitor_offers import CURRENT_QUANTITIES, POLICY, quantity_coverage
             from .runtime import _curve_proof_inputs, _validated_curve
             from .price_curve import curve_key
 
-            latest_plan = db.get('metadata', 'latest_snapshot:' + plan['plan_id']) or {}
-            ident = latest_plan.get('snapshot_id') or plan.get('curve_activation_snapshot_id')
-            current = db.get('pricing_snapshots', ident) if ident else None
-            if (not current or current.get('write_protocol') != CURVE_WRITE_PROTOCOL
-                    or current.get('plan_id') not in (None, plan['plan_id'])):
+            if not current:
                 return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY, snapshot_id=None)
             evidence = current['evidence']
             offers = [row for row in evidence.get('competitor_offers') or []
