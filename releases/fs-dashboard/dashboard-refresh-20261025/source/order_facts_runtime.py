@@ -1,6 +1,7 @@
 """Read existing Admin, pinned ES and delivery sources without publishing anything."""
 from contextlib import closing
 from datetime import datetime, timezone
+from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
@@ -16,9 +17,9 @@ COSTS = Path('/var/lib/fs-channel-effects/order-deliveries.json')
 CHANNEL_ARCHIVE = COSTS.parent
 FIELDS = ('id','order_no','site_id','site','gid','game_format','paytime','pay_status',
           'status_format','amount_usd_format','amount_rmb_format')
-MARKETING_FIELDS = ('discount_code','recommend_uid','country_code','country','paytype_display','paytype')
+MARKETING_FIELDS = ('discount_code','recommend_uid','country_code','country','paytype_display','paytype','device')
 PROMOTION_CHANNELS = {'seo':'SEO','谷歌广告':'PPC','kol':'Referral','tiktok':'Referral','tt':'Referral'}
-ATTRIBUTION_RULE = 'order-channel-priority-20261113-v2'
+ATTRIBUTION_RULE = 'order-channel-priority-20261113-v3'
 
 
 def admin_orders(scope, request, *, marketing=False):
@@ -87,6 +88,33 @@ def existing_costs(path=COSTS):
     return value['rows'], dict(status='observed_only', source_revision=hashlib.sha256(raw).hexdigest(),
         generated_at=value.get('generatedAt'), period=value.get('period'),
         shipment_window_complete=value.get('complete') is True, order_cost_complete=False)
+
+
+@lru_cache(maxsize=1)
+def dashboard_delivery_records(signature):
+    from channel_cache import delivery_records
+    return delivery_records(signature)
+
+
+def dashboard_deliveries(scope, path):
+    from channel_cache import days
+    path = Path(path)
+    files = [path.parent/'delivery-days'/f'{day}.json' for day in days(scope)]
+    files.extend((path, path.parent/'order-supplements.json'))
+    signature = []
+    for file in files:
+        if not file.is_file():continue
+        if any(p.is_symlink() for p in (file,*file.parents)):
+            raise ValueError('order_facts_cost_cache')
+        info = file.stat()
+        if info.st_size > 128*1024*1024:
+            raise ValueError('order_facts_cost_cache')
+        signature.append((str(file),info.st_mtime_ns,info.st_size,info.st_ino))
+    if not signature:return [], {'status':'unavailable'}
+    records, generated_at, _ = dashboard_delivery_records(tuple(signature))
+    revision = hashlib.sha256(repr(signature).encode()).hexdigest()
+    return records, dict(status='observed_only',source_revision=revision,generated_at=generated_at,
+        period={k:scope[k] for k in ('start','end')},order_cost_complete=False)
 
 
 def collect(scope, **kwargs):
@@ -200,27 +228,30 @@ def effective_attribution(order, native, archived, mapping):
     native_channel = order['channel'] if order['channel']!='unknown' else None
     promotion_detail = project if project not in (None,'未归类','推荐人渠道待核','无推广归属','待核：映射冲突') else None
     code_detail = ('广告投放' if promotion_detail == '谷歌广告' else promotion_detail) if code_mapped else None
+    coupons = observed.get('coupons')
+    direct_detail = (code_detail or '运营') if has_code else '新人/活动' if coupons and not promotion_channel else None
     if native_conflict:
         channel, basis, detail = 'pending_classification', 'native_conflict', None
     elif native_channel:
         channel, basis, detail = native_channel, 'native_channel', fact.get('source_raw')
-        if native_channel=='Direct' and has_code:
-            detail = code_detail or '待归类'
+        if native_channel=='Direct' and direct_detail:
+            detail = direct_detail
     elif source_conflict:
         channel, basis, detail = 'pending_classification', 'order_source_conflict', None
     elif source_channel:
         channel, basis, detail = source_channel, 'order_source', source
-        if channel=='Direct' and has_code:
-            detail = code_detail or '待归类'
-    elif has_code and code_detail:
-        channel, basis, detail = 'Direct', 'mapped_discount_code', code_detail
-    elif promotion_channel and not has_code:
+        if channel=='Direct' and direct_detail:
+            detail = direct_detail
+    elif has_code:
+        channel, basis, detail = 'Direct', 'mapped_discount_code' if code_detail else 'unmapped_discount_code', direct_detail
+    elif promotion_channel:
         channel, basis, detail = promotion_channel, 'promotion', project
+    elif coupons:
+        channel, basis, detail = 'Direct', 'coupon', '新人/活动'
     elif any(isinstance(label,str) and label.strip() for label in (fact.get('channel_raw'),fact.get('source_raw'),source,code,uid)):
         channel, basis, detail = 'pending_classification', 'unmapped_evidence', source or promotion_detail or fact.get('source_raw')
     else:
         channel, basis, detail = 'unknown', 'unknown', None
-    coupons = observed.get('coupons')
     return dict(channel=channel, basis=basis, detail=detail, order_source=source,
         source_conflict=source_conflict,
         conflict=native_conflict or source_conflict or (has_code and promotion_conflict)
@@ -232,6 +263,7 @@ def effective_attribution(order, native, archived, mapping):
         coupon=bool(coupons) if coupons is not None else None,
         coupon_templates=[item['title'] for item in coupons or () if isinstance(item,dict) and isinstance(item.get('title'),str)],
         promotion_project=promotion_detail,
+        device={0:'PC',1:'移动端'}.get(native['device']) if type(native.get('device')) is int else None,
         filter_row=dict(orderNo=order['order_no'],gid=order['gid'],
             refunded=order['pay_status']=='2' or order['status'].startswith('已退款'),
             country=clean(native.get('country_code') or native.get('country') or observed.get('country')) or None,
@@ -250,7 +282,7 @@ def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, read
         raise ValueError('order_facts_batch_period')
     if reader is None:
         from shared_es_facts import read as reader
-    deliveries, cost_proof = existing_costs(costs)
+    deliveries, cost_proof = dashboard_deliveries(scopes[0],costs) if dashboard else existing_costs(costs)
     if dashboard:
         mapping, mapping_revision = dashboard_mapping()
     results = []

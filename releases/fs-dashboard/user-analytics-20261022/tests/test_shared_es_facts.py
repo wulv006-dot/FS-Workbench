@@ -70,6 +70,14 @@ class SharedFacts(unittest.TestCase):
     def read(self, query=None, ident=None):
         return facts.read(query or scope(), db=self.store.path, publication_id=ident)
 
+    def test_native_device_keeps_known_pc_and_mobile_but_missing_or_invalid_stay_absent(self):
+        rows=[dict(order(label,D1),device=device) if device is not None else order(label,D1)
+              for label,device in (('pc',0),('mobile',1),('legacy',None),('unmapped',2),('invalid',False))]
+        rev=self.stage(D1,archive(),*rows)
+        weekly.write_publication(self.store,publication(D2),None,shared_revisions={D1:rev})
+        actual={row['order_no']:row.get('device') for row in self.read()['rows']}
+        self.assertEqual(actual,{'pc':0,'mobile':1,'legacy':None,'unmapped':None,'invalid':None})
+
     def test_fc27_quantity_supplement_keeps_original_pin_and_exact_source_members(self):
         from unittest.mock import patch
         from user_source import fc27_coins_projection

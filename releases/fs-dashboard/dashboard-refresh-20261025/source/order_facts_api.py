@@ -2,6 +2,7 @@
 from collections import defaultdict
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 import csv
 import gzip
 import hashlib
@@ -25,7 +26,7 @@ FILTERS = ('status','country','payment','project','code','coupon_template','coup
 DETAIL_COLUMNS = (('paidAt','付款时间'),('orderNo','订单号'),('game','游戏'),('channel','归因渠道'),
     ('source','来源明细'),('project','推广项目'),('promoter','推广人'),('code','折扣码'),('coupons','优惠券'),
     ('country','国家'),('payment','支付方式'),('salesUsd','订单金额 USD'),('saleCny','订单金额 CNY'),
-    ('costCny','已读采购 CNY'),('profitCny','已核同单毛利 CNY'),('status','订单状态'))
+    ('orderProfitCny','Order原生利润 CNY'),('orderProfitRate','Order原生利润率'),('status','订单状态'))
 
 
 def matches_tracking_filters(effective, q):
@@ -69,6 +70,11 @@ def safe_detail(raw):
     return None
 
 
+def source_detail(evidence):
+    detail = evidence.get('detail')
+    return detail if evidence.get('channel')=='Direct' and detail=='新人/活动' else safe_detail(detail)
+
+
 def private_label(raw):
     if isinstance(raw,str) and len(raw)<=160 and not re.search(r'[@?&=\r\n]|(?:\+?\d[ ().-]*){7,}',raw):
         return raw
@@ -84,17 +90,45 @@ def detail_csv(rows):
         for key,_ in DETAIL_COLUMNS:
             value = row[key]
             if isinstance(value,list):value = '；'.join(value)
-            if isinstance(value,str) and value.lstrip().startswith(('=','+','-','@')) and key not in ('salesUsd','saleCny','costCny','profitCny'):
+            if isinstance(value,str) and value.lstrip().startswith(('=','+','-','@')) and key not in ('salesUsd','saleCny','orderProfitCny','orderProfitRate'):
                 value = "'"+value
             cells.append(value)
         writer.writerow(cells)
     return '\ufeff'+output.getvalue()
 
 
+def order_profit(records):
+    sale = sum((item[0] for item in records),Decimal(0))
+    profit = sale - sum((item[1] for item in records),Decimal(0))
+    return dict(order_profit_cny=format(profit,'f') if records else None,
+                order_profit_rate=float(profit/sale) if sale else None)
+
+
+def delivery_amounts(row, scope):
+    for record in row['cost_records']:
+        day = (record.get('trade_at') or '')[:10]
+        sale, cost = record['order_sale_cny'], record['cost_cny']
+        if scope['start'] <= day <= scope['end'] and sale is not None and cost is not None:
+            yield day, (Decimal(sale), Decimal(cost))
+
+
+def scoped_summary(rows):
+    return dict(summarize(rows),**order_profit([amount for row in rows for _,amount in row['delivery_amounts']]))
+
+
+def dimension_rows(grouped, denominator):
+    results = []
+    for label, rows in sorted(grouped.items(),key=lambda item:(-len(item[1]),item[0] or '')):
+        amounts = [Decimal(row['admin_paid_usd']) for row in rows if row['admin_paid_usd'] is not None]
+        results.append(dict(label=label,orders=len(rows),order_share=len(rows)/denominator,
+            sales_usd=format(sum(amounts,Decimal(0)),'f') if amounts else None))
+    return results
+
+
 def breakdown_rows(grouped, denominator, dimension, status):
     results = []
     for label, rows in sorted(grouped.items(),key=lambda item:(-len(item[1]),item[0] or '')):
-        summary = summarize(rows)
+        summary = scoped_summary(rows)
         evidence = [r['effective_attribution'] for r in rows]
         associations = {}
         for key in ('discount_code','promoter','coupon'):
@@ -108,6 +142,12 @@ def breakdown_rows(grouped, denominator, dimension, status):
             conflict_orders=sum(r.get('conflict') is True for r in evidence))
         if dimension=='channel':summary.update(channel=label,label=CHANNEL_LABELS[label])
         results.append(summary)
+    known = [Decimal(row['admin_paid_usd']) if row['orders'] > row['missing_admin_usd_orders'] else None
+             for row in results]
+    total = sum((value for value in known if value is not None),Decimal(0))
+    comparable = total > 0 and all(value is None or value >= 0 for value in known)
+    for row,value in zip(results,known):
+        row['sales_share'] = float(value/total) if comparable and value is not None else None
     return results
 
 
@@ -126,31 +166,30 @@ def aggregate_csv(result):
     writer = csv.writer(output)
     scope = result['effective_scope']
     writer.writerow(('开始日期','结束日期','站点ID','游戏ID','渠道筛选','时区','时间口径',
-                     '快照版本','事实定义','归因定义','来源修订','同单核算口径','未分配到日的订单','占比分母订单',
+                     '快照版本','事实定义','归因定义','来源修订','利润来源','未分配到日的订单','占比分母订单',
                      '其他筛选','筛选字段未核订单'))
     writer.writerow((scope['start'],scope['end'],scope['site_id'],scope['gid'],scope['channel'],
                      result['source_timezone'],result['time_basis'],result['snapshot_id'],result['facts_version'],
                      result['attribution_version'],json.dumps(result['revisions'],sort_keys=True),
-                     result['totals']['accounting_basis'],result['trend_unallocated_orders'],result['breakdown']['denominator_orders'],
+                     result['order_profit_source'],result['trend_unallocated_orders'],result['breakdown']['denominator_orders'],
                      json.dumps({**{k:scope[k] for k in FILTERS if k in scope},
                                  **{k:True for k in ('keyword_applied','discount_code_applied','coupon_batch_applied') if result.get(k)}},ensure_ascii=False),
                      result['coverage']['unverified_filter_orders']))
     writer.writerow(('维度','项目','范围状态','已知订单数','已知美元金额','缺美元金额订单数',
-                     '已读采购人民币','已核同单毛利人民币','完整成本订单数','订单占比',
+                     'Order原生利润人民币','Order原生利润率','订单占比','美元销售占比',
                      '有折扣码／未核','有推广人／未核','有优惠券／未核','关联优惠券模板','关联推广项目','关联订单来源'))
     dimension = '来源明细' if result['breakdown']['dimension']=='source_detail' else '渠道'
     for kind, key, rows in ((dimension,'label',result['breakdown']['rows']),('日期','day',result['trend'])):
         for row in rows:
             usd = row['admin_paid_usd'] if row['orders'] != row['missing_admin_usd_orders'] or not row['orders'] else None
-            cost = row['observed_cost_cny'] if kind == '日期' or row['cost_records'] else None
             assoc = row.get('associations',{})
             known = [f"{assoc[k]['known_orders']} / {assoc[k]['unknown_orders']}" if k in assoc else None
                      for k in ('discount_code','promoter','coupon')]
             details = ['、'.join(f"{item['label']} ({item['orders']})" for item in assoc.get(k,()))
                        for k in ('coupon_templates','promotion_projects','order_sources')]
             writer.writerow((kind,row[key],row.get('status',result['status']),row['orders'],usd,
-                             row['missing_admin_usd_orders'],cost,
-                             row['procurement_gross_cny'],row['cost_covered_orders'],row.get('order_share'),*known,*details))
+                             row['missing_admin_usd_orders'],row['order_profit_cny'],
+                             row['order_profit_rate'],row.get('order_share'),row.get('sales_share'),*known,*details))
     return '\ufeff' + output.getvalue()
 
 
@@ -190,6 +229,7 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
     rows = data['orders']
     selected = []
     groups, details, daily = defaultdict(list), defaultdict(list), defaultdict(list)
+    delivery_daily, countries, devices = defaultdict(list), defaultdict(list), defaultdict(list)
     unknown_days = set()
     unallocated = unverified_filters = 0
     filter_options = defaultdict(set)
@@ -223,18 +263,27 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
         except (TypeError, ValueError):
             day = None
         if match:
+            row['delivery_amounts'] = list(delivery_amounts(row,scope))
+            for trade_day, amounts in row['delivery_amounts']:
+                delivery_daily[trade_day].append(amounts)
+            country = safe_detail(observed.get('country'))
+            if country and re.fullmatch(r'[A-Za-z]{2}',country):
+                country = country.upper()
+            countries[country].append(row)
+            devices[effective.get('device')].append(row)
             selected.append(row)
             if detail_rows is not None:
                 raw = effective.get('filter_row') or {}
+                profit = order_profit([amount for _,amount in row['delivery_amounts']])
                 detail_rows.append(dict(paidAt=row['paid_at'],orderNo=row['order_no'],gid=row['gid'],game=row['game'],
-                    channel=CHANNEL_LABELS[channel],source=safe_detail(effective.get('detail')),project=safe_detail(effective.get('promotion_project')),
+                    channel=CHANNEL_LABELS[channel],source=source_detail(effective),project=safe_detail(effective.get('promotion_project')),
                     code=private_label(raw.get('code')),promoter=private_label(raw.get('promoter')),
                     coupons=None if raw.get('coupons') is None else [(safe_detail(c.get('title')) or '券名称未提供') for c in raw['coupons']],
                     country=safe_detail(raw.get('country')),payment=safe_detail(raw.get('payment')),
                     salesUsd=row['admin_paid_usd'],saleCny=row['admin_paid_cny'],
-                    costCny=row['observed_cost_cny'] if row['cost_records'] else None,profitCny=row['procurement_gross_cny'],status=row['status']))
+                    orderProfitCny=profit['order_profit_cny'],orderProfitRate=profit['order_profit_rate'],status=row['status']))
             groups[channel].append(row)
-            if q['channel']!='all':details[safe_detail(effective.get('detail'))].append(row)
+            if q['channel']!='all':details[source_detail(effective)].append(row)
             if day:
                 daily[day].append(row)
             else:
@@ -297,7 +346,7 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
             observed_cost_cny=summary['observed_cost_cny'] if summary['cost_records'] else None,
             procurement_gross_cny=summary['procurement_gross_cny'],
             cost_covered_orders=summary['cost_covered_orders'],
-            gross_covered_orders=summary['gross_covered_orders']))
+            gross_covered_orders=summary['gross_covered_orders'],**order_profit(delivery_daily[key])))
         day += timedelta(days=1)
     status = data['status']
     if status == 'available' and any(row['status'] == 'partial' for row in trend):status = 'partial'
@@ -309,8 +358,10 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
                 requested_scope={k:v for k,v in q.items() if k not in ('q','code','coupon_batch')},
                 effective_scope={**scope,'channel':q['channel'],**{k:q[k] for k in FILTERS if k in q and k not in ('q','code','coupon_batch')}},
                 channel_filter='derived_order_facts', coverage_scope=scope,
-                totals=summarize(selected),
+                totals=scoped_summary(selected),
+                order_profit_source='Order原生利润（发货交易日）',
                 channels=channel_rows,breakdown=breakdown,
+                dimensions=dict(country=dimension_rows(countries,len(selected)),device=dimension_rows(devices,len(selected))),
                 trend=trend, trend_unallocated_orders=unallocated, coverage=coverage, revisions=revisions,
                 source_timezone='Asia/Shanghai', time_basis='Admin paytime',
                 captured_at=source.get('captured_at'), options={'games':deepcopy(list(games)),

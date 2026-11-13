@@ -287,6 +287,8 @@ def _native(rows, day, tracking):
         body = {field: raw[field] for field in FIELDS if field in raw}
         if (site,gid)==(FC27_SITE,FC27_GID) and 'fc27_coins' in raw:
             body['fc27_coins'] = _checked_fc27_projection(raw['fc27_coins'])
+        if type(raw.get('device')) is int and raw['device'] in (0,1):
+            body['device'] = raw['device']
         body['site'] = {'full_title': title}
         if (site, order_no) in tracking:
             body['tracking'] = tracking[site, order_no]

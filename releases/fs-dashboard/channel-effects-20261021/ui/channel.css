@@ -10,3 +10,29 @@
 .distribution-value{font-weight:600}
 .attribution-associations{padding:12px 18px}
 @media(max-width:520px){.distribution-label{font-size:10px}.distribution-tick{font-size:9px}}
+
+.distribution-charts{padding:0 18px 12px;align-items:start}
+.distribution-charts h3{margin:8px 0 10px;font-size:13px;color:var(--fs-text)}
+#source-attribution-chart{padding:0}
+#source-sales-chart{display:grid;grid-template-columns:minmax(104px,180px) minmax(0,1fr);gap:12px;align-items:center}
+#source-sales-chart p{grid-column:1/-1;margin:0}
+.sales-pie{display:block;width:100%;height:auto}
+.sales-pie-segment{stroke-width:27}
+.sales-pie-segment,.sales-pie-legend li{--segment:var(--fs-brand)}
+.sales-pie-segment:nth-of-type(2),.sales-pie-legend li:nth-child(2){--segment:var(--fs-info)}
+.sales-pie-segment:nth-of-type(3),.sales-pie-legend li:nth-child(3){--segment:var(--fs-violet)}
+.sales-pie-segment:nth-of-type(4),.sales-pie-legend li:nth-child(4){--segment:var(--fs-warn)}
+.sales-pie-segment:nth-of-type(5),.sales-pie-legend li:nth-child(5){--segment:var(--fs-down)}
+.sales-pie-segment:nth-of-type(6),.sales-pie-legend li:nth-child(6){--segment:var(--fs-up)}
+.sales-pie-segment:nth-of-type(7),.sales-pie-legend li:nth-child(7){--segment:var(--fs-muted)}
+.sales-pie-segment{stroke:var(--segment)}
+.sales-pie-legend{display:grid;gap:6px;margin:0;padding:0;list-style:none;color:var(--fs-text);font-size:12px}
+.sales-pie-legend li{display:flex;gap:6px;align-items:baseline;overflow-wrap:anywhere}
+.sales-pie-legend li:before{content:"";width:8px;height:8px;flex:0 0 8px;border-radius:2px;background:var(--segment)}
+#fact-country-map,#fact-device-chart{padding:12px 18px 0}
+.fact-world-map{display:block;width:100%;height:auto;max-height:300px}
+.map-land{fill:var(--fs-surface-3);stroke:var(--fs-line);stroke-width:.55}
+.map-region{fill:var(--fs-brand);stroke:var(--fs-surface);stroke-width:.7}
+.map-order-dot{fill:var(--fs-info);fill-opacity:.55;stroke:var(--fs-surface);stroke-width:1.5}
+.definitions summary #definitions-title{font-size:inherit;color:inherit;font-weight:inherit;margin-left:0}
+@media(max-width:430px){#source-sales-chart{grid-template-columns:minmax(92px,128px) minmax(0,1fr)}}

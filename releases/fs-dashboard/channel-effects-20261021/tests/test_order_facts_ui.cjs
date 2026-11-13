@@ -11,7 +11,8 @@ const summary=(orders,unknown=0)=>({orders,unknown_channel_orders:unknown,
   admin_paid_usd:orders?'100':'0',admin_paid_cny:orders?'700':'0',
   observed_cost_cny:'0',procurement_gross_cny:null,gross_covered_orders:0,
   missing_admin_usd_orders:0,missing_admin_cny_orders:0,cost_covered_orders:0,
-  missing_cost_orders:orders,covered_revenue_cny:'0',missing_cost_revenue_cny:orders?'700':'0'});
+  missing_cost_orders:orders,covered_revenue_cny:'0',missing_cost_revenue_cny:orders?'700':'0',
+  order_profit_cny:orders?'40':null,order_profit_rate:orders?.2:null});
 const server=http.createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(url.pathname.endsWith('/data.json')){
@@ -25,20 +26,21 @@ const server=http.createServer((req,res)=>{
       if(state==='detail-expired'){res.writeHead(409);res.end('{}');return;}
       const snapshot_id=url.searchParams.get('snapshot_id');
       if(url.searchParams.has('detail_export')){res.end(JSON.stringify({snapshot_id,total:3,detail_csv:'channel,code,coupon\r\nReferral,synthetic-code,Launch\r\n'}));return;}
-      res.end(JSON.stringify({snapshot_id,total:3,page:1,pages:1,orders:[{orderNo:'SYNTHETIC',channel:'Referral（引荐）',source:'YouTube',code:'synthetic-code',coupons:['Launch'],salesUsd:15}]}));return;
+      res.end(JSON.stringify({snapshot_id,total:3,page:1,pages:1,orders:[{orderNo:'SYNTHETIC',channel:'Referral（引荐）',source:'YouTube',code:'synthetic-code',coupons:['Launch'],salesUsd:15,orderProfitCny:'25',orderProfitRate:.25}]}));return;
     }
     const missing=state==='shared-missing',empty=state==='empty'||missing,zero=state==='zero',channel=url.searchParams.get('channel'),selected=channel==='unknown';
     const referral=channel==='Referral', ppc=channel==='PPC', filtered=url.searchParams.has('coupon_template');
     const totals=summary(empty?0:selected||filtered||ppc?1:referral?3:4,empty||referral||filtered||ppc?0:1);
-    if(zero)Object.assign(totals,{missing_cost_orders:0,cost_covered_orders:2,procurement_gross_cny:'0',gross_covered_orders:2,admin_paid_usd:'0'});
+    if(zero)Object.assign(totals,{missing_cost_orders:0,cost_covered_orders:2,procurement_gross_cny:'0',gross_covered_orders:2,admin_paid_usd:'0',order_profit_cny:'0',order_profit_rate:0});
     const scope=Object.fromEntries(['start','end','site_id','gid','channel','status','country','payment','project','coupon_template']
       .filter(k=>url.searchParams.has(k)).map(k=>[k,url.searchParams.get(k)]));
     const associations={discount_code:{known_orders:0,unknown_orders:0},promoter:{known_orders:0,unknown_orders:0},
       coupon:{known_orders:1,unknown_orders:0},coupon_templates:[{label:'Launch',orders:1}],promotion_projects:[],order_sources:[]};
-    const sourceRow=(label,orders)=>({label,...summary(orders),associations,cost_records:0,order_share:orders/totals.orders});
+    const sourceRow=(label,orders,salesShare=1)=>({label,...summary(orders),associations,cost_records:0,order_share:orders/totals.orders,
+      admin_paid_usd:zero?'0':String(100*salesShare),sales_share:zero?null:salesShare});
     const breakdown={dimension:channel==='all'?'channel':'source_detail',denominator_orders:totals.orders,
-      rows:empty?[]:selected?[sourceRow('未提供',1)]:ppc?[sourceRow('google-FC27-PMAX-Coins-US',1)]:referral?(filtered?[sourceRow('YouTube',1)]:[sourceRow('YouTube',2),sourceRow('未提供',1)]):
-        [sourceRow('Referral（引荐）',3),sourceRow('未知',1)]};
+      rows:empty?[]:selected?[sourceRow('未提供',1)]:ppc?[sourceRow('google-FC27-PMAX-Coins-US',1)]:referral?(filtered?[sourceRow('YouTube',1)]:[sourceRow('YouTube',2,.9),sourceRow('未提供',1,.1)]):
+        [sourceRow('Referral（引荐）',3,.8),sourceRow('未知',1,.2)]};
     const snapshot=state==='revision'?'revision-2':'revision-1';
     res.end(JSON.stringify({version:'order-facts-api-20261113-v1',status:missing?'unavailable':'available',admin_complete:!missing,
       ...(state==='deferred'?{refresh_deferred:true,refresh_reason:'recent_capture',retryAfter:60}:{}),
@@ -46,7 +48,8 @@ const server=http.createServer((req,res)=>{
       snapshot_id:snapshot,aggregate_csv:`gid,channel,snapshot\r\n${scope.gid},${scope.channel},${snapshot}\r\n`,
       trend:[{day:scope.start,...totals,status:'available'},
         {day:scope.end,...summary(0),admin_paid_usd:null,observed_cost_cny:null,status:'partial'}],
-      totals,breakdown,channels:[],keyword_applied:url.searchParams.has('q'),discount_code_applied:url.searchParams.has('code'),coupon_batch_applied:url.searchParams.has('coupon_batch'),
+      totals,breakdown,dimensions:{country:empty?[]:[{label:'US',orders:totals.orders,order_share:1,sales_usd:'100'}],
+        device:empty?[]:[{label:null,orders:totals.orders,order_share:1,sales_usd:'100'}]},channels:[],keyword_applied:url.searchParams.has('q'),discount_code_applied:url.searchParams.has('code'),coupon_batch_applied:url.searchParams.has('coupon_batch'),
       coverage:{unlinked_admin_rows:0,unlinked_attribution_rows:3,unverified_filter_orders:filtered?1:0,missing_days:missing?[scope.end]:[]},
       options:{games:[['1327','FC27'],['456','Diablo 4'],['1329','AION2']],country:['US'],payment:['PayPal'],coupon_templates:[['7','Launch']]},
       revisions:{attribution:{publication_id:state==='revision'?'revision-2':'revision-1'}}}));return;
@@ -62,7 +65,7 @@ const server=http.createServer((req,res)=>{
   }
   if(url.pathname.startsWith('/__hub/')){res.setHeader('Content-Type','text/javascript');res.end('');return;}
   const name=url.pathname.endsWith('/')?'index.html':url.pathname.split('/').pop();
-  if(!['index.html','channel.js','channel.css'].includes(name)){res.writeHead(404);res.end();return;}
+  if(!['index.html','channel.js','channel.css','world-map.js'].includes(name)){res.writeHead(404);res.end();return;}
   res.setHeader('Content-Type',{'.html':'text/html','.js':'text/javascript','.css':'text/css'}[path.extname(name)]);
   res.end(fs.readFileSync(path.join(root,'ui',name)));
 });
@@ -88,17 +91,29 @@ const server=http.createServer((req,res)=>{
     assert.match(await chart.textContent(),/Referral（引荐） 75.0%.*未知 25.0%/s);
     assert.equal(await page.locator('#source-attribution-chart [aria-hidden=true]').count(),2);
     const widths=await chart.locator('.distribution-bar').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));
-    assert.ok(widths[0]>200&&widths[1]>60&&Math.abs(widths[0]/widths[1]-3)<0.02);
+    assert.ok(widths[0]>170&&widths[1]>50&&Math.abs(widths[0]/widths[1]-3)<0.02);
+    const pie=page.getByRole('img',{name:'各归因渠道销售额占比'});
+    assert.equal(await pie.locator('circle').count(),2);
+    assert.equal(await pie.locator('circle').first().getAttribute('stroke-dasharray'),'80 100');
+    assert.equal(await pie.locator('circle').last().getAttribute('stroke-dashoffset'),'-80');
+    assert.match(await page.locator('#source-sales-chart').innerText(),/Referral（引荐） · 80.0%/);
+    const panes=await page.locator('#distribution-charts > div').evaluateAll(nodes=>nodes.map(n=>[n.offsetLeft,n.offsetTop]));
+    assert.equal(panes[0][1],panes[1][1]);
+    assert.ok(panes[0][0]<panes[1][0]);
+    assert.equal(await page.getByRole('img',{name:'订单国家 / 地区地图'}).locator('.map-region').count(),1);
+    assert.match(await page.locator('#fact-countries').innerText(),/美国（US）/);
+    assert.match(await page.locator('#fact-devices').innerText(),/未知/);
+    assert.doesNotMatch(await page.locator('#fact-devices').innerText(),/PC/);
     if(process.env.FS_CHANNEL_CHART_SCREENSHOT) await page.locator('.attribution-panel').screenshot({path:process.env.FS_CHANNEL_CHART_SCREENSHOT+'-all.png'});
     assert.equal(await page.locator('#legacy-details').isVisible(),false);
     assert.equal(await page.locator('#trend svg').isVisible(),true);
     assert.equal(await page.locator('#trend .sales').count(),1);
     await page.getByText('查看每日数据表',{exact:true}).click();
     assert.match(await page.locator('#trend-table tbody tr').last().innerText(),/—.*部分/s);
-    assert.match(await page.locator('#kpis').innerText(),/¥0/);
-    assert.match(await page.locator('#kpis').innerText(),/—/);
+    assert.match(await page.locator('#kpis').innerText(),/Order 原生利润（¥）[\s\S]*¥40[\s\S]*20.0%/);
     assert.equal(await page.locator('#status').getAttribute('data-state'),'partial');
-    assert.match(await page.locator('#definitions').textContent(),/不称净利润/);
+    assert.match(await page.locator('#definitions').textContent(),/利润率按发货销售额加权/);
+    assert.doesNotMatch(await page.locator('#results').innerText(),/完整成本覆盖/);
     assert.deepEqual(Object.keys(requests.at(-1)).sort(),['channel','end','gid','mode','refresh','site_id','start']);
     assert.equal(requests.at(-1).refresh,'1');
     assert.equal(requests.at(-1).site_id,'266');
@@ -123,7 +138,8 @@ const server=http.createServer((req,res)=>{
     assert.match(await page.locator('#source-attribution-note').innerText(),/所选渠道共 3 单/);
     assert.match(await chart.textContent(),/YouTube 66.7%.*未提供 33.3%/s);
     const shares=await chart.locator('.distribution-bar').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));
-    assert.ok(shares[0]>180&&Math.abs(shares[0]/shares[1]-2)<0.02);
+    assert.ok(shares[0]>155&&Math.abs(shares[0]/shares[1]-2)<0.02);
+    assert.match(await page.locator('#source-sales-chart').innerText(),/YouTube · 90.0%/);
     if(process.env.FS_CHANNEL_CHART_SCREENSHOT) await page.locator('.attribution-panel').screenshot({path:process.env.FS_CHANNEL_CHART_SCREENSHOT+'-referral.png'});
     const detailSummary=page.getByText('查看同一范围的订单、推广人、折扣码和优惠券',{exact:true});
     await detailSummary.click();
@@ -162,7 +178,7 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('#results').isVisible(),true);
     const beforeRefresh=requests.length;
     state='refresh-pending';await page.locator('#refresh').click();
-    await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('仍有缺口'));
+    await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('部分归因或金额字段待补'));
     assert.equal(requests[beforeRefresh].refresh,'1');
     assert.equal(requests.length-beforeRefresh,2);
     assert.equal(requests.at(-1).refresh,undefined);
@@ -208,7 +224,8 @@ const server=http.createServer((req,res)=>{
     assert.doesNotMatch(await page.locator('#kpis').innerText(),/\$0\.00/);
     assert.equal(await page.locator('#source-attribution-chart svg').count(),0);
     state='zero';await page.locator('[name=channel]').selectOption('all');
-    await page.waitForFunction(()=>document.querySelector('#coverage').textContent.includes('完整成本 2 / 4'));
+    await page.waitForFunction(()=>document.querySelector('#kpis').textContent.includes('¥0'));
+    assert.equal(await page.locator('#source-sales-chart svg').count(),0);
     assert.doesNotMatch(await page.locator('#kpis').innerText(),/—/);
     state='revision';await page.locator('#refresh').click();
     await page.locator('#freshness').filter({hasText:'revision-2'}).waitFor();
@@ -224,6 +241,9 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('#source-attribution .table-wrapper').getAttribute('role'),'region');
     assert.equal(await page.locator('#source-attribution .table-wrapper').getAttribute('tabindex'),'0');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+    const mobile=await page.locator('#distribution-charts > div').evaluateAll(nodes=>nodes.map(n=>[n.offsetLeft,n.offsetTop]));
+    assert.equal(mobile[0][0],mobile[1][0]);
+    assert.ok(mobile[0][1]<mobile[1][1]);
     await page.getByRole('button',{name:'近28天',exact:true}).click();
     assert.equal(await page.evaluate(()=>{const f=document.querySelector('#filters');return(new Date(f.elements.end.value)-new Date(f.elements.start.value))/86400000}),27);
     state='denied';await page.locator('#refresh').click();

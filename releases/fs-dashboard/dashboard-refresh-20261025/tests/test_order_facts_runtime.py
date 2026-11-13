@@ -144,7 +144,7 @@ class Runtime(unittest.TestCase):
         mapping=Attribution({'entries':[dict(code='known',channel='KOL')]},[],{})
         order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
                    channel='Direct',marketing_attribution={'channel_raw':'Direct','source_raw':'(direct)'})
-        for code, detail in (('Known','KOL'),('Unknown','待归类'),('', '(direct)')):
+        for code, detail in (('Known','KOL'),('Unknown','运营'),('', '(direct)')):
             result=effective_attribution(order,{'discount_code':code},None,mapping)
             self.assertEqual((result['channel'],result['detail']),('Direct',detail))
         order.update(channel='unknown',marketing_attribution={})
@@ -172,13 +172,56 @@ class Runtime(unittest.TestCase):
         value=public(result,dict(SCOPE,channel='Direct'))
         self.assertEqual(value['breakdown']['denominator_orders'],1)
         self.assertEqual(value['breakdown']['rows'][0]['label'],'运营')
-        self.assertEqual(effective_attribution(fact,native,{},mapping)['channel'],'pending_classification')
+        fallback=effective_attribution(fact,native,{},mapping)
+        self.assertEqual((fallback['channel'],fallback['basis'],fallback['detail']),('Direct','unmapped_discount_code','运营'))
         self.assertEqual(effective_attribution(fact,dict(native,discount_code='old'),
                          dict(discountOperatorProject='运营'),mapping)['detail'],'KOL')
         self.assertEqual(effective_attribution(dict(fact,pinned_order_source='google-FC27-PMAX-Coins-US'),native,
                          dict(discountOperatorProject='SEO'),mapping)['channel'],'PPC')
         self.assertEqual(effective_attribution(dict(fact,channel='Referral'),native,
                          dict(discountOperatorProject='SEO'),mapping)['channel'],'Referral')
+
+    def test_only_coupon_fills_direct_but_code_and_higher_sources_keep_priority(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL')]},[],{})
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+                   channel='unknown',marketing_attribution={})
+        observed={'coupons':[{'title':'Launch'}]}
+        for updates,native,channel,detail in (
+                ({},{},'Direct','新人/活动'),
+                ({},{'discount_code':'unknown'},'Direct','运营'),
+                ({},{'discount_code':'Known'},'Direct','KOL'),
+                ({'channel':'SEO','marketing_attribution':{'source_raw':'Organic'}},{'discount_code':'Known'},'SEO','Organic'),
+                ({'pinned_order_source':'google-FC27-PMAX-Coins-US'},{'discount_code':'unknown'},'PPC','google-FC27-PMAX-Coins-US')):
+            with self.subTest(channel=channel,detail=detail):
+                evidence=effective_attribution(dict(order,**updates),native,observed,mapping)
+                self.assertEqual((evidence['channel'],evidence['detail'],evidence['coupon']),(channel,detail,True))
+        for device, expected in ((None,None),(0,'PC'),(1,'移动端'),(2,None),(False,None)):
+            evidence=effective_attribution(order,{'device':device},observed,mapping)
+            self.assertEqual(evidence['device'],expected)
+
+    def test_dashboard_delivery_reuses_closed_day_and_refreshes_duplicate_id(self):
+        from order_facts_runtime import dashboard_deliveries
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            archive=root/'delivery-days'
+            archive.mkdir()
+            day=SCOPE['start']
+            day_cache=archive/(day+'.json')
+            current=root/'order-deliveries.json'
+            member=dict(delivery_id='10',sn='one',trade_at=day+' 10:00:00',sale_total='100')
+            def cache(observed, rows):
+                return json.dumps(dict(contract='channel-order-deliveries-v1',complete=True,
+                    generatedAt=day+'T'+observed+'+08:00',period=dict(start=day,end=day),rows=rows))
+            day_cache.write_text(cache('11:00:00',[member]))
+            current.write_text(cache('15:00:00',[dict(member,sale_total='120')]))
+            records, proof=dashboard_deliveries(SCOPE,current)
+            self.assertEqual([(item['delivery_id'],item['sale_total']) for item in records],[('10','120')])
+            self.assertEqual(proof['status'],'observed_only')
+            current.unlink()
+            records, proof=dashboard_deliveries(SCOPE,current)
+            self.assertEqual(records[0]['sale_total'],'100')
 
     def test_mapped_code_owner_counts_as_promoter_with_native_zero_uid(self):
         from channel_effects import Attribution
