@@ -4,7 +4,7 @@ import sys
 import tempfile
 import unittest
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -414,6 +414,55 @@ class Paging(unittest.TestCase):
                 return 200, {'code':1,'data':{'total':2 if self.duplicate or n == 1 else 3,'list':[{'id':1 if n == 1 or self.duplicate else 2}]}}
         for duplicate in (True, False):
             with self.assertRaises(ValueError): pages(Session(duplicate),'/test',limit=1)
+
+
+class SharedTracking(unittest.TestCase):
+    def test_original_modes_use_scoped_publication_and_keep_original_paging(self):
+        from channel_effects import ChannelService
+        from order_facts_runtime import effective_attribution
+        import channel_source
+        day=(datetime.now(TZ).date()-timedelta(days=3)).isoformat()
+        native=dict(discount_code='alpha',recommend_uid='0',country_code='US',paytype_display='PayPal')
+        row=dict(site_id='266',gid='1327',order_no='synthetic',paid_at=day+' 10:00:00',game='FC27',
+            channel='Direct',marketing_attribution={'source_raw':'(direct)'},pinned_order_source='direct',
+            pinned_customer_flag='是',admin_paid_usd='50',admin_paid_cny='350',pay_status='1',status='已完成')
+        mapping=Attribution({'entries':[dict(code='alpha',channel='KOL')]},[],{})
+        row['effective_attribution']=effective_attribution(row,native,{'coupons':[dict(templateId='7',batch='launch',title='Launch')]},mapping)
+        partial=dict(status='partial',orders=[row],source_coverage=dict(admin_complete=False,missing_days=[day],
+            publication_id='se_fixture',captured_at=day+'T15:00:00+08:00'))
+        with tempfile.TemporaryDirectory() as root, patch('order_facts_runtime.collect_dashboard',return_value=partial) as shared, \
+                patch.object(channel_source,'collect') as native_read, patch.object(channel_source,'apply_customer_types') as reexport, \
+                patch.object(channel_source,'load_costs',return_value=([],dict(status='unavailable',source='Order'))), \
+                patch.object(channel_source,'apply_cost_overrides',side_effect=lambda v:v):
+            service=ChannelService(root,lambda user:user=='admin',shared=True)
+            self.addCleanup(service.pool.shutdown)
+            for mode in ('code','coupon'):
+                params=dict(start=[day],end=[day],gid=['1327'],mode=[mode],country=['US'],payment=['PayPal'])
+                code,value=service.get(params,'admin')
+                self.assertEqual((code,value['status'],value['total']),(200,'partial',1))
+                self.assertEqual(value['orders'][0]['customerType'],'新客')
+                self.assertEqual(value['orders'][0]['coupons'][0]['title'],'Launch')
+                self.assertEqual(value['sources']['orders']['publication_id'],'se_fixture')
+            code,value=service.get(dict(start=[day],end=[day],gid=['1327'],mode=['profit']),'admin')
+            self.assertEqual((code,value['error']),(503,'profit_orders_incomplete'))
+            shared.assert_called_with(dict(start=day,end=day,gid='1327',site_id='266'))
+            native_read.assert_not_called();reexport.assert_not_called()
+            self.assertFalse(any(Path(root).glob('*.json')))
+
+    def test_existing_daily_cost_keeps_shared_missing_day_without_order_archive_write(self):
+        from channel_cache import cache_day
+        day='2026-11-10'
+        coverage=dict(admin_complete=False,missing_days=[day])
+        with tempfile.TemporaryDirectory() as root, patch.dict(sys.modules,{'fcntl':SimpleNamespace()}), \
+                patch('shared_es_facts.read',return_value=dict(rows=[],coverage=coverage)) as shared, \
+                patch('channel_source.collect') as collect:
+            root=Path(root); (root/'delivery-days').mkdir(); path=root/'delivery-days'/f'{day}.json'
+            path.write_text(json.dumps(dict(contract='channel-order-deliveries-v1',complete=True,period=dict(start=day,end=day))))
+            result=cache_day(day,root,shared=True)
+            self.assertEqual(result,dict(day=day,orders=None,status='partial',missingDays=[day],deliveryDayComplete=True))
+            shared.assert_called_once_with(dict(start=day,end=day,site_id='266',gid='all'))
+            collect.assert_not_called()
+            self.assertFalse((root/'days').exists())
 
     def test_empty_success_and_explicit_failure(self):
         class Session:

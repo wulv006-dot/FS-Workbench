@@ -77,7 +77,7 @@ class OrderFactsSource(unittest.TestCase):
         facts=project(data=dict(dataset([attr]),captured_at='2026-11-13T01:00:00+08:00'))
         evidence=effective_attribution(facts['orders'][0],{},dict(sourceStatus='available',
             sourceRaw='Google organic',sourceCapturedAt='2026-11-12T01:00:00+08:00'),Attribution({'entries':[]},[],{}))
-        self.assertEqual(evidence['channel'],'unknown')
+        self.assertEqual(evidence['channel'],'pending_classification')
         self.assertTrue(evidence['conflict'])
 
     def test_scoped_identity_uniqueness_never_proves_global_uniqueness(self):

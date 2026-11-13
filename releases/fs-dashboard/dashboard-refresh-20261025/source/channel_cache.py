@@ -195,20 +195,21 @@ def collect_period(period, root=ROOT, force=False):
     return result
 
 
-def cache_day(day, root=ROOT):
+def cache_day(day, root=ROOT, *, shared=False):
     import fcntl
-    from channel_source import collect
-    from channel_cost_source import collect as collect_cost
-    sys.path.insert(0, '/opt/sales-dashboard/collector'); import p2pah_auth as auth
     period = dict(start=day, end=day)
-    with (root / 'collector.lock').open('a+b') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        data = compose(period, root)
-        if data is None or data['sources']['customer']['status'] != 'complete' or any('adminSaleCny' not in r for r in data['orders']):
-            data = collect(period)
-            store_days(data, root)
+    if not shared:
+        from channel_source import collect
+        with (root / 'collector.lock').open('a+b') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            data = compose(period, root)
+            if data is None or data['sources']['customer']['status'] != 'complete' or any('adminSaleCny' not in r for r in data['orders']):
+                data = collect(period)
+                store_days(data, root)
     path = root / 'delivery-days' / (day + '.json')
     if not path.exists():
+        from channel_cost_source import collect as collect_cost
+        sys.path.insert(0, '/opt/sales-dashboard/collector'); import p2pah_auth as auth
         with (root / 'order-deliveries.lock').open('a+b') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             session = auth.Session()
@@ -217,6 +218,15 @@ def cache_day(day, root=ROOT):
             finally: session.close()
             atomic(path, dict(contract='channel-order-deliveries-v1', complete=True,
                 generatedAt=datetime.now(TZ).isoformat(), period=period, rows=rows))
+    if shared:
+        cost = json.loads(path.read_text('utf-8'))
+        if cost.get('contract')!='channel-order-deliveries-v1' or cost.get('complete') is not True or cost.get('period')!=period:
+            raise ValueError('invalid_delivery_day_cache')
+        from shared_es_facts import read
+        value = read(dict(period,site_id='266',gid='all'))
+        return dict(day=day,orders=len(value['rows']) if value['coverage']['admin_complete'] else None,
+                    status='complete' if value['coverage']['admin_complete'] else 'partial',
+                    missingDays=value['coverage']['missing_days'],deliveryDayComplete=True)
     # Complete pagination means source coverage, not that every order has a cost.
     result = compose(period, root)
     result['deliveryDayComplete'] = True
@@ -246,9 +256,8 @@ def main():
             if not date.fromisoformat(day) < now.date(): raise ValueError('closed_day_required')
             if args.backfill:
                 if datetime.now(TZ).hour >= 7: break
-                cached = compose(dict(start=day, end=day))
-                if cached and cached['sources']['cache'].get('deliveryDayComplete') and cached['sources']['customer']['status'] == 'complete' and all('adminSaleCny' in r for r in cached['orders']): continue
-            try: result = cache_day(day)
+                if (ROOT/'delivery-days'/(day+'.json')).is_file():continue
+            try: result = cache_day(day,shared=True)
             except BlockingIOError:
                 result = dict(day=day, status='deferred', reason='foreground_source_read_active')
                 atomic(ROOT / (mode + '-status.json'), dict(result, at=datetime.now(TZ).isoformat()))
@@ -261,7 +270,7 @@ def main():
                 print(json.dumps(result), flush=True); raise
             atomic(ROOT / (mode + '-status.json'), dict(result, at=datetime.now(TZ).isoformat()))
             print(json.dumps(result), flush=True)
-            if result['status'] != 'complete': raise SystemExit(75)
+            if result['status'] != 'complete' and not args.backfill: raise SystemExit(75)
             if not args.backfill: return
             time.sleep(2)
 

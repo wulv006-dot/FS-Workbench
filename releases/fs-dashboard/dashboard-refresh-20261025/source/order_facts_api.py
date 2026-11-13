@@ -16,9 +16,10 @@ from channel_effects import base_order_matches, keyword_order_matches, promotion
 from order_facts import summarize
 
 VERSION = 'order-facts-api-20261113-v1'
-CHANNELS = ('all', 'SEO', 'Direct', 'PPC', 'Referral', 'Campaign', 'unknown')
+CHANNELS = ('all', 'SEO', 'Direct', 'PPC', 'Referral', 'Campaign', 'pending_classification', 'unknown')
 CHANNEL_LABELS = {'SEO':'SEO（自然搜索）','Direct':'Direct（直接访问）','PPC':'PPC（谷歌广告）',
-                  'Referral':'Referral（引荐）','Campaign':'Campaign（营销活动）','unknown':'未知'}
+                  'Referral':'Referral（引荐）','Campaign':'Campaign（营销活动）','pending_classification':'待归类','unknown':'未知'}
+UNCLASSIFIED = ('unknown','pending_classification')
 ACTIVE = ('pending', 'cost_pending')
 FILTERS = ('status','country','payment','project','code','coupon_template','coupon_batch','q')
 DETAIL_COLUMNS = (('paidAt','付款时间'),('orderNo','订单号'),('game','游戏'),('channel','归因渠道'),
@@ -192,7 +193,7 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
     unknown_days = set()
     unallocated = unverified_filters = 0
     filter_options = defaultdict(set)
-    specific_channel = q['channel'] not in ('all','unknown')
+    specific_channel = q['channel'] not in ('all',*UNCLASSIFIED)
     for row in rows:
         effective = row.get('effective_attribution')
         if effective is None:
@@ -208,11 +209,11 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
                 filter_options['coupon_templates'].add((coupon['templateId'],title))
         matching = matches_tracking_filters(effective,q)
         if matching is not True:
-            if matching is None and (q['channel'] in ('all',channel) or specific_channel and channel=='unknown'):
+            if matching is None and (q['channel'] in ('all',channel) or specific_channel and channel in UNCLASSIFIED):
                 unverified_filters += 1
             continue
         match = q['channel'] == 'all' or channel == q['channel']
-        if not match and not (specific_channel and channel == 'unknown'):
+        if not match and not (specific_channel and channel in UNCLASSIFIED):
             continue
         try:
             paid_at = datetime.strptime(row['paid_at'], '%Y-%m-%d %H:%M:%S')
@@ -238,7 +239,7 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
                 daily[day].append(row)
             else:
                 unallocated += 1
-        if channel == 'unknown':
+        if channel in UNCLASSIFIED:
             unknown_days.add(day)
     # Coverage counts describe the source cohort; totals describe the selection.
     coverage = {k: v for k, v in data.get('coverage', {}).items()

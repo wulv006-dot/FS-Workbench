@@ -229,9 +229,11 @@ def metrics(rows):
     fraud_rows = [r for r in rows if fraud(r)]
     rows = [r for r in rows if not fraud(r)]
     covered = [r for r in rows if completed(r) and r['costCny'] is not None and r['saleCny'] is not None]
-    total = lambda key, items: sum((Decimal(str(r[key])) for r in items), Decimal(0))
+    total = lambda key, items: sum((Decimal(str(r[key])) for r in items if r[key] is not None), Decimal(0))
     usd, sale, cost = total('salesUsd', rows), total('saleCny', covered), total('costCny', covered)
-    return dict(orders=len(rows), testOrders=test_count, salesUsd=number(usd), coveredOrders=len(covered),
+    priced_orders=sum(r['salesUsd'] is not None for r in rows)
+    return dict(orders=len(rows), testOrders=test_count, salesUsd=number(usd) if priced_orders or not rows else None,
+                missingUsdOrders=len(rows)-priced_orders,coveredOrders=len(covered),
                 completedOrders=sum(completed(r) for r in rows), pendingOrders=sum(not completed(r) and not r['refunded'] for r in rows),
                 refundedOrders=sum(r['refunded'] for r in rows),
                 fraudOrders=len(fraud_rows), excludedFraudUsd=number(total('salesUsd', fraud_rows)),
@@ -244,7 +246,7 @@ def metrics(rows):
                 saleCny=number(sale) if covered else None, costCny=number(cost) if covered else None,
                 profitCny=number(sale - cost) if covered else None,
                 margin=float((sale - cost) / sale) if sale else None,
-                aovUsd=number(usd / len(rows)) if rows else None,
+                aovUsd=number(usd / len(rows)) if rows and priced_orders==len(rows) else None,
                 codedOrders=sum(bool(r['codeKey']) for r in rows),
                 referrerOnly=sum(r['attribution'] == '推荐人无码' for r in rows),
                 overlapOrders=sum(bool(r['codeKey'] and r['coupons']) for r in rows),
@@ -256,7 +258,7 @@ def grouped(rows, key, labels=None):
     for row in rows:
         buckets[str(row[key])].append(row)
     return sorted([dict(key=k, label=(labels or {}).get(k, k), **metrics(v)) for k, v in buckets.items()],
-                  key=lambda r: (-r['salesUsd'], r['key']))
+                  key=lambda r: (r['salesUsd'] is None,-(r['salesUsd'] or 0),r['key']))
 
 
 def source_attribution(rows):
@@ -377,7 +379,8 @@ def view(data, query):
     page = min(int(query.get('page', '1')), max(1, (len(selected) + 49) // 50))
     return dict(version=VERSION, revenueBasis='admin_order_cny' if admin_revenue else 'legacy_delivery', period=data['period'], generatedAt=data['generatedAt'], sources=data['sources'],
                 mapping=data['mapping'], summary=summary, denominator=denominator, sourceAttribution=source_attribution(base), trend=trend,
-                projects=sorted(left, key=lambda r: -r['salesUsd']), codes=sorted(right, key=lambda r: -r['salesUsd']),
+                projects=sorted(left, key=lambda r:(r['salesUsd'] is None,-(r['salesUsd'] or 0))),
+                codes=sorted(right, key=lambda r:(r['salesUsd'] is None,-(r['salesUsd'] or 0))),
                 breakdowns={key: grouped(selected, key) for key in ('game', 'country', 'payment', 'customerType', 'status')},
                 options=dict(games=sorted({(r['gid'], r['game']) for r in rows}, key=lambda p: p[1]),
                              countries=sorted({r['country'] for r in rows}), payments=sorted({r['payment'] for r in rows})),
@@ -404,8 +407,9 @@ def parse_query(params):
 
 
 class ChannelService:
-    def __init__(self, root, authorizer, source=None):
+    def __init__(self, root, authorizer, source=None, *, shared=False):
         self.root, self.authorizer, self.source = Path(root), authorizer, source
+        self.shared = shared
         self.pool, self.lock, self.jobs, self.starts = ThreadPoolExecutor(max_workers=2), RLock(), {}, {}
         self.admission = nullcontext
 
@@ -475,6 +479,8 @@ class ChannelService:
             return 403, {'error': 'admin_required'}
         query = parse_query(params)
         period = {k: query[k] for k in ('start', 'end')}
+        if self.shared:
+            return self.get_shared(period,query)
         key = hashlib.sha256((VERSION + json.dumps(period, sort_keys=True)).encode()).hexdigest()[:24]
         target = self.root / (key + '.json')
         archived = None
@@ -518,3 +524,49 @@ class ChannelService:
             result.update(status='available', refreshing=state in ('pending','cost_pending','deferred'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')
             return 200, result
         return (503 if state == 'source_failed' else 202), dict(status=state or 'pending', retryAfter=3)
+
+    def get_shared(self, period, query):
+        from channel_cache import apply_delivery_cache
+        from channel_source import shared_view
+        data, coverage = shared_view(period,query.get('gid'))
+        if data is None:
+            return 503, dict(status='unavailable',error='shared_orders_unavailable',missingDays=coverage.get('missing_days',[]))
+        if query.get('mode')=='profit' and data['sources']['orders']['status']!='complete':
+            return 503, dict(status='partial',error='profit_orders_incomplete',missingDays=coverage.get('missing_days',[]))
+        result = view(apply_delivery_cache(data,self.root),query)
+        status = 'available' if data['sources']['orders']['status']=='complete' and data['sources']['coupons']['status']=='complete' else 'partial'
+        state = self.refresh_shared_cost(period,query.get('refresh')=='1')
+        return 200, dict(result,status=status,costRefreshing=state=='cost_pending',costError=state=='cost_failed',
+                         refreshing=state=='cost_pending')
+
+    def refresh_shared_cost(self, period, force):
+        key = 'shared-channel-cost'
+        with self.lock:
+            state = self.jobs.get(key)
+            if period['end'] < datetime.now(TZ).date().isoformat() and not force:
+                return state
+            if state=='cost_pending' or time.monotonic()-self.starts.get(key,-1000)<60:return state
+            if sum(v in ('pending','cost_pending') for v in self.jobs.values()) + sum(
+                    v in ('pending','cost_pending') for v in getattr(self,'actual_jobs',{}).values()) >= 2:
+                return state
+            try:
+                with self.admission():
+                    self.starts[key]=time.monotonic(); self.jobs[key]='cost_pending'
+                    self.pool.submit(self.capture_shared_cost,period,key,force)
+            except BlockingIOError:
+                return state
+            except Exception:
+                self.jobs[key]='cost_failed'
+                return 'cost_failed'
+            return 'cost_pending'
+
+    def capture_shared_cost(self, period, key, force):
+        from channel_source import enrich
+        try:
+            with self.admission():
+                enrich(dict(period=period,orders=[],sources={'cost':{}}),force=force)
+        except Exception:
+            state='cost_failed'
+        else:
+            state='available'
+        with self.lock:self.jobs[key]=state

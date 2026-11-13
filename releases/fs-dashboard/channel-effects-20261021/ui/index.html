@@ -24,7 +24,7 @@
       <label>结束日期<input name="end" type="date" required></label>
       <fieldset class="quick"><legend>快捷区间</legend><button type="button" data-days="1">昨日</button><button type="button" data-days="7">近7天</button><button type="button" data-days="30">近30天</button></fieldset>
       <label>游戏<select name="gid"><option value="">全部游戏</option><option value="1327">FC 27</option></select></label>
-      <label id="fact-channel-filter">归因渠道<select name="channel"><option value="all">全部渠道（含未知）</option><option value="SEO">SEO（自然搜索）</option><option value="Direct">Direct（直接访问）</option><option value="PPC">PPC（谷歌广告）</option><option value="Referral">Referral（引荐）</option><option value="Campaign">Campaign（营销活动）</option><option value="unknown">未知</option></select></label>
+      <label id="fact-channel-filter">归因渠道<select name="channel"><option value="all">全部渠道（含待归类和未知）</option><option value="SEO">SEO（自然搜索）</option><option value="Direct">Direct（直接访问）</option><option value="PPC">PPC（谷歌广告）</option><option value="Referral">Referral（引荐）</option><option value="Campaign">Campaign（营销活动）</option><option value="pending_classification">待归类</option><option value="unknown">未知</option></select></label>
       <div class="filter-actions"><button type="submit" class="primary">查询</button><button id="reset" type="button">清空筛选</button></div>
       <details id="promotion-filters" class="promotion-filters">
       <summary>订单状态、渠道优惠与关键词</summary>
