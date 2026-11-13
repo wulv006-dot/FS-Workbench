@@ -4,7 +4,7 @@ The native payload is retained independently of the semantic price key. Neither
 this reader nor its key certifies that an edited payload can be saved/published.
 """
 from copy import deepcopy
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 import hashlib
 import json
 from math import isfinite
@@ -13,6 +13,8 @@ from math import isfinite
 IDENTITY_FIELDS = ('id', 'mid', 'gid', 'cid', 'site_id', 'aid', 'unit', 'status')
 NUMERIC_ARRAYS = ('gold', 'give', 'discount', 'price')
 OBSERVATION_FIELDS = frozenset(('checked_at', 'captured_at', 'observed_at'))
+CATALOGUE_ORIGIN_FIELD = 'catalogue_origin'
+EDITOR_CATALOGUE_ORIGIN = 'editor_candidate'
 EDITOR_ASSET_SHA256 = '859f07a7dadc48054b740ee09b66c494d11bcb0fef1faf5ecd0a9c6d0b98dfe7'
 EDITOR_HANDLER_SHA256 = 'c9341a511d39a79736e6d7e7147654c8c24202b928954e11b1a13ed7a612b451'
 EDITOR_UNVERIFIED_DOMAINS = ('admin_save', 'all_site_propagation', 'order_projection',
@@ -280,7 +282,8 @@ def compile_curve(current, segment_targets, native_contract):
         if isinstance(payload['more'], str):
             payload['more'] = json.dumps(more, ensure_ascii=False, separators=(',', ':'))
 
-    result = read_curve(payload, checked['identity'], native_contract)
+    candidate_contract = dict(native_contract, catalogue_origin=EDITOR_CATALOGUE_ORIGIN)
+    result = read_curve(payload, checked['identity'], candidate_contract)
     tier_100 = by_quantity.get('100')
     base_rate = (None if tier_100 is None else
                  _number(Decimal(result['tiers'][tier_100]['native_price_usd'] + 'e-2')))
@@ -288,6 +291,80 @@ def compile_curve(current, segment_targets, native_contract):
                   base_rate_usd_per_k=base_rate,
                   base_rate_basis='candidate_100k_regular_usd_div_100',
                   unverified_domains=list(EDITOR_UNVERIFIED_DOMAINS))
+    return result
+
+
+def quote_native(curve, order_context):
+    """Project one explicit USD catalogue tier from the exact Goods row.
+
+    Context supplies per-item purchase_k, integer multiplier, site_id and
+    currency. It can also supply promised_bonus_k for historical comparison,
+    region_id for an override, and offer_path for a requested checkout path.
+    A regular amount and promised quantities are available for a matched tier
+    only, and applies to Admin ALL/site0 and MMOEXP/site266. Checkout,
+    net receipt, fees and offer rules remain unverified. A saved tier is
+    only the caller's frozen readback; this function cannot authenticate it.
+    """
+    if not isinstance(order_context, dict):
+        raise ValueError('native_quote_context_invalid')
+    checked = read_curve(curve['native_payload'], curve['identity'], curve['native_contract'])
+    identity = checked['identity']
+    result = dict(regular_usd=None, net_receipt_usd=None, purchase_k=None,
+                  promised_bonus_k=None, promised_delivered_k=None, known_fee_usd=None,
+                  fee_status='unknown', native_tier_or_rule=None, rounding_contract=None,
+                  offer_version=None, proof_status='PROOF_INCOMPLETE',
+                  catalogue_status='unavailable', site_id=identity['site_id'],
+                  goods_id=identity['id'], currency=None, amount_kind=None, gaps=[])
+    gaps = result['gaps']
+    if str(order_context.get('site_id')) != identity['site_id']:
+        gaps.append('catalogue_site_mismatch')
+    elif identity['site_id'] not in ('0', '266'):
+        gaps.append('catalogue_site_currency_unverified')
+    if order_context.get('currency') != 'USD':
+        gaps.append('currency_projection_unverified')
+    region = order_context.get('region_id')
+    if region is not None and str(region) != '0':
+        gaps.append('regional_projection_unverified')
+    multiplier = order_context.get('multiplier')
+    if type(multiplier) is not int or multiplier < 1:
+        gaps.append('native_quote_multiplier_invalid')
+    elif multiplier != 1:
+        gaps.append('cart_multiplier_unverified')
+    try:
+        purchase = _number(order_context.get('purchase_k'), positive=True)
+    except ValueError:
+        gaps.append('native_quote_quantity_invalid')
+        return result
+    tier = next((tier for tier in checked['tiers'] if tier['purchase_k'] == purchase), None)
+    if tier is None:
+        gaps.append('custom_quantity_unverified')
+    if tier is not None and 'promised_bonus_k' in order_context:
+        try:
+            expected_bonus = _number(order_context['promised_bonus_k'])
+        except ValueError:
+            gaps.append('native_quote_bonus_invalid')
+        else:
+            if expected_bonus != tier['promised_bonus_k']:
+                gaps.append('catalogue_bonus_mismatch')
+    if gaps:
+        return result
+
+    bonus = tier['promised_bonus_k']
+    with localcontext() as context:
+        context.prec = max(len(purchase.partition('.')[0]), len(bonus.partition('.')[0])) + max(
+            len(purchase.partition('.')[2]), len(bonus.partition('.')[2])) + 1
+        delivered = _number(Decimal(purchase) + Decimal(bonus))
+    editor_candidate = (curve.get('compilation_status') == 'EDITOR_CANDIDATE'
+                        or checked['native_contract'].get(CATALOGUE_ORIGIN_FIELD)
+                        == EDITOR_CATALOGUE_ORIGIN)
+    result.update(regular_usd=tier['native_price_usd'], purchase_k=purchase,
+                  promised_bonus_k=bonus, promised_delivered_k=delivered,
+                  native_tier_or_rule=f"goods.more.price[{tier['native_index']}]",
+                  rounding_contract=('admin_editor_tofixed2' if editor_candidate
+                                     else 'admin_saved_tier_amount_as_read'),
+                  catalogue_status='editor_candidate_tier' if editor_candidate else 'saved_tier',
+                  curve_key=curve_key(checked), currency='USD', amount_kind='TOTAL')
+    gaps.extend(('customer_checkout_unverified', 'offer_path_unverified', 'necessary_fee_unverified'))
     return result
 
 
@@ -320,7 +397,7 @@ def curve_key(curve):
     if 'discount' in payload:
         payload['discount'] = _number(payload['discount'])
     contract = {k: v for k, v in checked['native_contract'].items()
-                if k not in OBSERVATION_FIELDS}
+                if k not in OBSERVATION_FIELDS and k != CATALOGUE_ORIGIN_FIELD}
     body = dict(native_payload=payload, native_contract=contract)
     raw = json.dumps(body, sort_keys=True, ensure_ascii=False, separators=(',', ':'),
                      allow_nan=False)

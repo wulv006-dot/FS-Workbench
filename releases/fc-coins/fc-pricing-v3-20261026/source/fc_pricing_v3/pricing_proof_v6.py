@@ -193,6 +193,7 @@ def _evaluate_basket(name, basket, paths):
     revenue = costs = Decimal(0)
     for path_id, member in sorted(members.items()):
         weight = None if path_id in duplicate else _decimal(member.get('weight'))
+        quote_ref = member.get('quote_ref')
         path = paths.get(path_id)
         member_gaps = []
         if path_id in duplicate:
@@ -203,7 +204,10 @@ def _evaluate_basket(name, basket, paths):
             member_gaps.append('main_site_path_missing')
         elif not path['basket_input_complete']:
             member_gaps.append('basket_path_incomplete')
-        result['members'].append(dict(path_id=path_id, weight=_decimal_string(weight), gaps=member_gaps))
+        elif 'quote_ref' in member and (not _reference(quote_ref) or quote_ref != path['quote_ref']):
+            member_gaps.append('basket_quote_ref_mismatch')
+        result['members'].append(dict(path_id=path_id, weight=_decimal_string(weight),
+                                      quote_ref=quote_ref if _reference(quote_ref) else None, gaps=member_gaps))
         gaps.extend(f'{gap}:{path_id}' for gap in member_gaps)
         if not member_gaps:
             revenue += weight * Decimal(path['net_receipt_usd'])

@@ -199,12 +199,21 @@ class PricingProofV6(unittest.TestCase):
     def test_main_fallback_keeps_members_and_explicitly_records_selection(self):
         curve, baskets, evidence, domain = fixture()
         baskets['recent'] = basket('main_fallback', [('ordinary', '30')])
+        baskets['main']['members'][0]['quote_ref'] = evidence['paths'][0]['quote_ref']
         result = validate_curve(curve, baskets, evidence, domain)
         self.assertIn('recent:fallback_members_mismatch', result['gaps'])
         baskets['recent']['members'] = deepcopy(baskets['main']['members'])
         result = validate_curve(curve, baskets, evidence, domain)
         self.assertEqual(result['status'], 'PROVEN')
         self.assertEqual(result['baskets']['recent']['selection'], 'main_fallback')
+
+    def test_basket_quote_reference_must_match_current_path_when_supplied(self):
+        curve, baskets, evidence, domain = fixture()
+        baskets['main']['members'][0]['quote_ref'] = 'old-quote'
+        result = validate_curve(curve, baskets, evidence, domain)
+        self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
+        self.assertIn('main:basket_quote_ref_mismatch:ordinary', result['gaps'])
+        self.assertIsNone(result['baskets']['main']['safe_procurement_margin'])
 
     def test_fingerprint_canonicalizes_order_decimals_and_context_and_binds_evidence(self):
         curve, baskets, evidence, domain = fixture()

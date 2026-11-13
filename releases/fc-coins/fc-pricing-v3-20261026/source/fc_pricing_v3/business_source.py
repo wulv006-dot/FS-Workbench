@@ -930,7 +930,43 @@ def _window_end(window, group, windows, now, *, platform=None):
     return min(ends)
 
 
+def _window_curve(action, platform):
+    from .price_curve import read_curve, CATALOGUE_ORIGIN_FIELD, EDITOR_CATALOGUE_ORIGIN
+    from .admin_readback import PLATFORM_AID, GID_FC27, MID_FC27_COINS, SITE_MAIN
+    curves = action.get('curves')
+    curve = curves.get(platform) if isinstance(curves, dict) else None
+    if not isinstance(curve, dict):
+        raise ValueError('window_frozen_curve_missing')
+    checked = read_curve(curve['native_payload'], curve['identity'], curve['native_contract'])
+    if (curve.get('compilation_status') == 'EDITOR_CANDIDATE'
+            or checked['native_contract'].get(CATALOGUE_ORIGIN_FIELD) == EDITOR_CATALOGUE_ORIGIN):
+        raise ValueError('window_curve_saved_tier_unverified')
+    identity = checked['identity']
+    if (identity['aid'] != PLATFORM_AID.get(platform) or identity['site_id'] != SITE_MAIN
+            or identity['gid'] != GID_FC27 or identity['mid'] != MID_FC27_COINS):
+        raise ValueError('window_curve_scope_mismatch')
+    return checked
+
+
 def _window_regular(window, action, order, platform, quantity):
+    if 'curves' in action:
+        from .price_curve import quote_native
+        curve = _window_curve(action, platform)
+        if str(order.get('gid')) != curve['identity']['gid']:
+            raise ValueError('window_curve_order_game_mismatch')
+        if str(order.get('is_region_price')) == '1':
+            raise ValueError('window_curve_region_quote_unverified')
+        if len(quantity['lines']) != 1:
+            raise ValueError('window_curve_multiline_quote_unverified')
+        line = quantity['lines'][0]
+        count = line['multiplier']
+        quote = quote_native(curve, dict(purchase_k=str(Decimal(line['purchase_k']) / count),
+            promised_bonus_k=str(Decimal(line['bonus_k']) / count), multiplier=count,
+            site_id=str(order.get('site_id')), currency='USD',
+            region_id=order.get('region_price_lang_region_id') if str(order.get('is_region_price')) == '1' else None))
+        if quote['catalogue_status'] != 'saved_tier' or quote.get('regular_usd') is None:
+            raise ValueError('window_curve_saved_tier_unverified')
+        return Decimal(quote['regular_usd'])
     from .engine import render
     from .platforms import action_key
     group = action_key(action,platform)
@@ -1014,7 +1050,10 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                 continue
             try:
                 regular = _window_regular(window, window['action'], order, platform, quantity)
-                if abs(regular - amount(order.get('before_discount'))) <= Decimal('.01'):
+                observed_regular = amount(order.get('before_discount'))
+                price_matches = (regular == observed_regular if 'curves' in window['action'] else
+                                 abs(regular - observed_regular) <= Decimal('.01'))
+                if price_matches:
                     matches.append((window, group, regular))
                 else:
                     failures['actual_regular_price_not_window_price'] += 1
@@ -1057,6 +1096,12 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             coupon_present=bool(coupon_logs.get(sn)), cost_status='same_order_confirmed' if contribution is not None else 'pending',
             cost_basis='same_order_Order_shipping_CNY_margin_at_actual_USD_receipt' if contribution is not None else None))
         bound_customers[sn]=len(actual_outcomes)-1
+        if 'curves' in window['action']:
+            from .price_curve import curve_key
+            actual_outcomes[-1].update(curve_key=curve_key(window['action']['curves'][platform]),
+                purchase_k=quantity['purchase_k'], promised_bonus_k=quantity['bonus_k'],
+                promised_delivered_k=quantity['delivered_k'],
+                price_basis='frozen_saved_native_tier_and_observed_order_regular')
         if coupon_logs.get(sn):
             failures['budget_reference_historical_coupon_terms_pending'] += 1
             continue
@@ -1100,6 +1145,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
         actual_outcomes[index].update(customer_key=identities.get(sn),
             new_customer=(new_assignments.get(identities[sn]) == sn) if sn in identities and old and old.get('customerType') in ('新客','老客') else None)
     training = []
+    curve_training = []
     for window in valid:
         operation = window['operation_id']
         if not query_complete or operation in blocked_windows:
@@ -1130,14 +1176,29 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             price = Decimal(window['action']['base_prices'][base_group])
             if ':' in group:
                 price *= Decimal(window['action']['region_coefficients'][group])
-            training.append(dict(mode='production', origin='actual_order_and_price_window', price_window_id=operation,
+            observation = dict(mode='production', origin='actual_order_and_price_window', price_window_id=operation,
                 price_group=group, offset_kind='effective_hours', exposure=str(hours), paid_orders=counts[(operation, group)],
                 effective_price_usd=str(price), assignment_probability=window['assignment_probability'],
                 randomization_verified=window.get('randomization_verified') is True,
                 inference='randomized' if window.get('randomization_verified') is True else 'observational; not_causal',
-                as_of=now.isoformat(), source_sha256=source))
+                as_of=now.isoformat(), source_sha256=source)
+            if 'curves' in window['action']:
+                from .price_curve import curve_key
+                if ':' in group:
+                    continue
+                try:
+                    frozen = _window_curve(window['action'], base_group)
+                except (ValueError, KeyError, TypeError, InvalidOperation) as error:
+                    failures[str(error) if isinstance(error, ValueError) else type(error).__name__] += 1
+                    continue
+                observation.update(curve_key=curve_key(frozen),
+                    price_basis='complete_frozen_curve; scalar_100k_is_projection_only')
+                curve_training.append(observation)
+            else:
+                training.append(observation)
     result = dict(budget_settlements=settlements, actual_outcomes=actual_outcomes, training_observations=training,
-        learning_coverage=dict(status='available' if training else 'price_binding_coverage_pending',
+        curve_training_observations=curve_training,
+        learning_coverage=dict(status='available' if training or curve_training else 'price_binding_coverage_pending',
             price_windows=len(valid), counts=dict(coverage), gaps=dict(failures), source_sha256=source,
             observed_at=now.isoformat(),blocked_price_groups=[dict(price_window_id=op,price_group=group) for op,group in sorted(blocked_groups)],
             gap_events=gap_events, unscoped_time_gaps=unscoped_time_gaps,

@@ -20,3 +20,11 @@
 - `PROVEN` 表示提供的完整域通过两条硬约束。`HARD_CONSTRAINT_FAILED` 表示输入完整且有硬约束失守。`PROOF_INCOMPLETE` 保留缺口以及独立查明的 `hard_failures`。空篮子、无有效权重或零收入的篮子标记 `NOT_EVALUABLE`。
 - 结果保留分站路径、两个篮子成员权重、证据引用和目标差。`proof_hash` 随曲线、版本、引用、范围和金额变化，等价十进制写法、输入列表顺序和价表捕获时间得到同一指纹。它标识本次计算记录。
 - 调用方负责核实原生数量、舍入、优惠资格、必要费用、合并履约、站点传播、篮子窗口、成本成熟度与 FX，随后提供该曲线对应的冻结证据。此函数只校验上述证据输入及其财务计算。F0 的价表读取结果仅提供曲线身份，原生报价需独立取证。当前验证用合成样例，生产报价全域、同批旧新真实回放和断点求解待完成。
+
+## 规划篮子适配
+
+`planning_baskets_v6.build_planning_baskets` 输出可传入 `validate_curve` 的 `main` 和 `recent`。`paid_cutoff` 是本轮支付查询截止点，`as_of` 是完成本轮读证据并冻结的时间。主篮沿 `business_source.historical_period('7d')` 取七个闭合北京付款日。近期源至少覆盖 24 小时。付款人口完整且同平台少于 30 笔时检查 3 日，3 日证据完整且仍不足时沿用主篮并标 `weak_structure`。两次窗口的证据与缺口保留在 `previous_attempt`。
+
+闭合输入直接接 `business_source.collect_historical_attachment` 的私有订单附件。适配器读取 `order_key`、`paid_at`、`available_at`、`platform`、`base_k`、`cost_cny` 和 `source_sha256`。原附件提供合格实付群体和现有支付区间，退款修订缺口保留为 `paid_source_refund_revisions_unverified`。待接入的完整付款源可用同形私有附件提供已核 `population_scope=site266_fc27_coins_paid`、`population_status=complete`、`window_complete=true`、`refund_revision_coverage=complete`，连同版本、可用时间及精确区间。缺成本订单仍贡献权重，历史成本金额不进入当前报价计算。
+
+当前报价映射按匿名 `order_key` 提供 `order_revision`、`curve_key`、`purchase_k`、`path_id`、`quote_ref`、`eligibility_ref`、`fulfilment_ref` 和 `available_at`。映射与订单修订、目标曲线、购买数量一致时才进入聚合。同一路径有不同报价引用时报告冲突。`validate_curve` 核适配器输出成员的 `quote_ref`，回退复制主篮成员及权重。生产近窗读源、完整退款修订、资格与履约报价映射以及当前分层成本适配待接入。

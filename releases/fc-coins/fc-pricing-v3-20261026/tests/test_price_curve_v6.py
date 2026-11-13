@@ -1,5 +1,6 @@
 """Synthetic native catalogue preservation; no live pricing or save claims."""
 from copy import deepcopy
+from decimal import Decimal, localcontext
 import json
 from pathlib import Path
 import sys
@@ -7,7 +8,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from fc_pricing_v3.price_curve import (
-    EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, compile_curve, curve_key, read_curve,
+    EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, compile_curve, curve_key, quote_native, read_curve,
 )
 
 
@@ -226,6 +227,90 @@ class NativeEditorCompiler(unittest.TestCase):
         compiled = compile_editor({}, row=row)
         self.assertEqual(compiled['native_payload'], row)
         self.assertEqual(curve_key(compiled), curve_key(read(row, EDITOR_CONTRACT)))
+
+
+class NativeCatalogueQuote(unittest.TestCase):
+    def quote(self, curve=None, **context):
+        row = read() if curve is None else curve
+        return quote_native(row, dict({'purchase_k': '1000', 'multiplier': 1,
+                                       'site_id': '266', 'currency': 'USD'}, **context))
+
+    def test_exact_saved_tier_uses_native_price_without_reapplying_discount(self):
+        row = goods()
+        row['discount'] = '90'
+        curve = read(row)
+        curve['tiers'][1]['native_price_usd'] = '101'
+        result = self.quote(curve, purchase_k=Decimal('1000.00'))
+        self.assertEqual(result['catalogue_status'], 'saved_tier')
+        self.assertEqual(result['regular_usd'], '75')
+        self.assertEqual(result['purchase_k'], '1000')
+        self.assertEqual(result['promised_bonus_k'], '30')
+        self.assertEqual(result['promised_delivered_k'], '1030')
+        self.assertEqual(result['native_tier_or_rule'], 'goods.more.price[1]')
+        self.assertEqual(result['rounding_contract'], 'admin_saved_tier_amount_as_read')
+        self.assertEqual(result['curve_key'], curve_key(curve))
+        self.assertEqual(result['proof_status'], 'PROOF_INCOMPLETE')
+        self.assertIsNone(result['net_receipt_usd'])
+        self.assertIsNone(result['known_fee_usd'])
+        self.assertIsNone(result['offer_version'])
+        self.assertEqual(result['fee_status'], 'unknown')
+        self.assertIn('offer_path_unverified', result['gaps'])
+
+    def test_historical_promised_quantity_must_match_saved_tier(self):
+        matched = self.quote(promised_bonus_k='30.0')
+        self.assertEqual(matched['regular_usd'], '75')
+        for bonus, gap in ((0, 'catalogue_bonus_mismatch'), (None, 'native_quote_bonus_invalid')):
+            with self.subTest(bonus=bonus):
+                result = self.quote(promised_bonus_k=bonus)
+                self.assertEqual(result['catalogue_status'], 'unavailable')
+                self.assertIn(gap, result['gaps'])
+                self.assertIsNone(result['regular_usd'])
+
+    def test_custom_amount_and_multiplier_do_not_fall_back_to_editor_arithmetic(self):
+        for quantity in (1, 999, 1001, 1700, '1000.1'):
+            with self.subTest(quantity=quantity):
+                result = self.quote(purchase_k=quantity)
+                self.assertEqual(result['gaps'], ['custom_quantity_unverified'])
+                self.assertIsNone(result['regular_usd'])
+                self.assertIsNone(result['promised_bonus_k'])
+        result = self.quote(multiplier=2)
+        self.assertEqual(result['gaps'], ['cart_multiplier_unverified'])
+        self.assertIsNone(result['regular_usd'])
+        self.assertIsNone(result['promised_delivered_k'])
+        for multiplier in (0, True, '1', None):
+            self.assertEqual(self.quote(multiplier=multiplier)['gaps'],
+                             ['native_quote_multiplier_invalid'])
+
+    def test_site_currency_and_region_scope_are_explicit(self):
+        for context, gap in (({'site_id': 0}, 'catalogue_site_mismatch'),
+                             ({'currency': 'GBP'}, 'currency_projection_unverified'),
+                             ({'region_id': 10}, 'regional_projection_unverified')):
+            with self.subTest(context=context):
+                result = self.quote(**context)
+                self.assertEqual(result['gaps'], [gap])
+                self.assertIsNone(result['regular_usd'])
+        row = goods()
+        row['site_id'] = 0
+        all_curve = read_curve(row, dict(IDENTITY, site_id=0), CONTRACT)
+        self.assertEqual(self.quote(all_curve)['gaps'], ['catalogue_site_mismatch'])
+        self.assertEqual(self.quote(all_curve, site_id=0)['catalogue_status'], 'saved_tier')
+
+    def test_editor_candidate_stays_explicitly_distinct_after_reader_round_trip(self):
+        candidate = compile_editor({1000: '96'})
+        self.assertEqual(self.quote(candidate)['catalogue_status'], 'editor_candidate_tier')
+        re_read = read_curve(candidate['native_payload'], candidate['identity'], candidate['native_contract'])
+        result = self.quote(re_read)
+        self.assertEqual(result['catalogue_status'], 'editor_candidate_tier')
+        self.assertEqual(result['regular_usd'], '96')
+        self.assertEqual(result['proof_status'], 'PROOF_INCOMPLETE')
+
+    def test_promised_delivery_addition_does_not_truncate_reader_precision(self):
+        row = goods()
+        row['more']['give'][1] = '30.1234567890123456789012345678901234'
+        with localcontext() as context:
+            context.prec = 5
+            result = self.quote(read(row))
+        self.assertEqual(result['promised_delivered_k'], '1030.1234567890123456789012345678901234')
 
 
 if __name__ == '__main__':
