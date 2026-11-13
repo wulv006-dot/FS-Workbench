@@ -9,6 +9,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from urllib.parse import parse_qs
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
@@ -16,6 +17,7 @@ import coin_all_sync_job as writer
 import reconcile_original
 from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL, validate_curve_send, write_protocol
 from fc_pricing_v3.financial import fingerprint
+from fc_pricing_v3.order_projection_v6 import ORIGIN, OrderProjection
 from fc_pricing_v3.price_curve import IDENTITY_FIELDS, curve_key, read_curve
 from fc_pricing_v3.pricing_proof_v6 import validate_curve
 from test_pricing_proof_v6 import basket, quote
@@ -66,7 +68,8 @@ def setup_bundle(small='10', large='103', *, before_large='100', target_override
                   action=dict(curves={PLATFORM: target}), curve_proofs={PLATFORM: proof})
     bundle['sha256'] = fingerprint(bundle)
     capability = dict(evidence_ref='synthetic-catalog-save', domain_version=domain['version'],
-                      source_revisions=refs, recipient_goods={266: PRIMARY_ID})
+                      source_revisions=refs, recipient_goods={266: PRIMARY_ID},
+                      catalogue_status='verified', order_projection_status='verified')
     return bundle, capability, before, goods(PRIMARY_ID, 266, large=before_large)
 
 
@@ -82,10 +85,12 @@ class Transport:
         self.response_lost = False
         self.restore_linear = False
         self.projection_delayed = False
+        self.projection_response_lost = False
 
     def apply_recipient(self, goods_id=PRIMARY_ID):
         self.rows[goods_id]['unit_price'] = self.rows[ALL_ID]['unit_price']
         self.rows[goods_id]['more']['price'] = deepcopy(self.rows[ALL_ID]['more']['price'])
+        self.rows[goods_id]['more']['discount'] = deepcopy(self.rows[ALL_ID]['more']['discount'])
 
     def request(self, path, *, data, token):
         goods_id = int(path.split('=')[-1])
@@ -108,20 +113,85 @@ class Transport:
         if self.restore_linear:
             self.rows[ALL_ID]['more']['price'][1] = '120'
             self.apply_recipient()
+        if self.projection_response_lost:
+            raise TimeoutError
         observe(dict(http_status=200, response_code=1, response_sha256='fixture',
                      path='synthetic-isolated-order-rate'))
 
     def projection(self):
+        def prepare(platform, before, target):
+            if Decimal(self.projection_rate) != Decimal(before):
+                raise ValueError('pricing_curve_order_before_rate_changed')
+            return lambda observe: self.write_rate(platform, before, target, observe)
+
         return dict(path='synthetic-isolated-order-rate', evidence_ref='synthetic-rate-contract',
-                    read=lambda _: self.projection_rate, write=self.write_rate)
+                    read=lambda _: self.projection_rate, prepare=prepare)
+
+
+class OrderProjectionTransport(unittest.TestCase):
+    @staticmethod
+    def response(body, status=200):
+        response = Mock(status=status)
+        response.read.return_value = body
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        return response
+
+    @staticmethod
+    def page(path='/game/admin_game_price/itemEdit'):
+        return f'''<select id="lot-game"><option value="1322" selected>FC27</option></select>
+<table><tr data-id="21942" data-url="{path}"><td title="1322">FC 27</td>
+<td data-type="title"><span>PS</span><input value="PS"></td>
+<td class="toggle-input" data-type="b2c" data-refresh="0" data-callback="showprice">
+<span>0.08</span><input type="text" value="0.08">
+</td></tr></table>'''.encode()
+
+    def test_posts_exact_order_item_and_accepts_only_the_native_business_receipt(self):
+        opener = Mock()
+        opener.open.side_effect = [self.response(self.page()), self.response(b'{"code":1}')]
+        projection = OrderProjection(opener)
+        observer = Mock()
+        send = projection.prepare('PS', '0.0800', '0.0798')
+        self.assertEqual(opener.open.call_count, 1)
+        send(observer)
+        request = opener.open.call_args.args[0]
+        self.assertEqual(request.get_method(), 'POST')
+        self.assertEqual(request.full_url, ORIGIN + '/game/admin_game_price/itemEdit?ids=21942')
+        self.assertEqual(parse_qs(request.data.decode()), {'data_type': ['b2c'], 'data_val': ['0.0798']})
+        self.assertEqual(observer.call_args.args[0]['response_code'], 1)
+
+    def test_rejects_changed_order_endpoint_and_mismatched_rate_before_post(self):
+        opener = Mock()
+        opener.open.side_effect = [self.response(self.page('/game/admin_game_price/saveprice.html')),
+                                   self.response(self.page())]
+        projection = OrderProjection(opener)
+        with self.assertRaisesRegex(ValueError, 'order_row_scope_changed'):
+            projection.prepare('PS', '0.08', '0.0798')
+        with self.assertRaisesRegex(ValueError, 'order_before_rate_changed'):
+            projection.prepare('PS', '0.078', '0.0798')
+        self.assertEqual([call.args[0].get_method() for call in opener.open.call_args_list], ['GET', 'GET'])
+
+    def test_missing_business_success_after_dispatch_is_not_retried(self):
+        opener = Mock()
+        opener.open.side_effect = [self.response(self.page()), self.response(b'{"code":0}')]
+        projection = OrderProjection(opener)
+        observer = Mock()
+        with self.assertRaisesRegex(ValueError, 'order_item_edit_rejected'):
+            projection.prepare('PS', '0.08', '0.0798')(observer)
+        self.assertEqual(opener.open.call_count, 2)
+        self.assertEqual(observer.call_args.args[0]['response_code'], 0)
 
 
 class CurveWriter(unittest.TestCase):
-    def prepare(self, small='10', large='103', *, projection=True, propagate=True, before_large='100'):
+    def prepare(self, small='10', large='103', *, projection=True, propagate=True, before_large='100',
+                extra_recipients=None):
         bundle, capability, before, recipient = setup_bundle(small, large, before_large=before_large)
         self.transport = Transport(before, recipient, propagate=propagate)
         if projection:
             capability['order_projection'] = self.transport.projection()
+        for site, row in (extra_recipients or {}).items():
+            capability['recipient_goods'][site] = row['id']
+            self.transport.rows[row['id']] = row
         self.capabilities = {PLATFORM: capability}
         self.item = dict(writer.curve_catalog_plan(bundle, PLATFORM, capability), operation_id=OPERATION)
         self.bundle = bundle
@@ -175,13 +245,29 @@ class CurveWriter(unittest.TestCase):
         self.assertEqual(len(self.transport.projection_writes), 1)
 
     def test_unverified_order_path_keeps_confirmed_catalog_without_order_write(self):
-        self.prepare(small='12', projection=False)
+        # The transport is unavailable during reconciliation of a previously sent catalog.
+        self.prepare(small='12', propagate=False)
         self.assertEqual(self.dispatch()['status'], 'PARTIAL')
+        self.transport.apply_recipient()
+        self.capabilities[PLATFORM].pop('order_projection')
         self.assertEqual(self.reconcile()['status'], 'PARTIAL')
         self.assertEqual(self.item['catalog']['status'], 'confirmed')
         self.assertEqual(self.item['propagation']['status'], 'confirmed')
         self.assertEqual(self.item['projection']['status'], 'unverified')
         self.assertEqual(len(self.transport.posts), 1)
+        self.assertEqual(self.transport.projection_writes, [])
+
+    def test_missing_order_projection_blocks_new_plan_before_catalog(self):
+        bundle, capability, *_ = setup_bundle(small='12')
+        with self.assertRaisesRegex(ValueError, 'order_projection_unverified'):
+            writer.curve_catalog_plan(bundle, PLATFORM, capability)
+
+    def test_order_drift_blocks_catalog_before_any_dispatch(self):
+        self.prepare(small='12')
+        self.transport.projection_rate = '0.09'
+        self.assertEqual(self.dispatch()['status'], 'NOT_SENT')
+        self.assertEqual(self.item['last_error'], 'pricing_curve_order_before_rate_changed')
+        self.assertEqual(self.transport.posts, [])
         self.assertEqual(self.transport.projection_writes, [])
 
     def test_recipient_late_with_receipt_reconciles_original_without_writes(self):
@@ -234,6 +320,17 @@ class CurveWriter(unittest.TestCase):
         self.assertEqual(self.dispatch()['status'], 'PARTIAL')
         self.assertEqual(self.item['catalog']['status'], 'readback_pending')
 
+    def test_projection_timeout_still_rechecks_admin_and_never_reposts(self):
+        self.prepare(small='12')
+        self.transport.restore_linear = True
+        self.transport.projection_response_lost = True
+        self.assertEqual(self.dispatch()['status'], 'PARTIAL')
+        self.assertEqual(self.item['projection']['status'], 'unknown')
+        self.assertEqual(self.item['catalog']['status'], 'readback_pending')
+        self.assertEqual(self.reconcile()['status'], 'PARTIAL')
+        self.assertEqual(len(self.transport.projection_writes), 1)
+        self.assertEqual(len(self.transport.posts), 1)
+
     def test_current_before_cas_and_late_revision_fence_prevent_dispatch(self):
         self.prepare()
         self.transport.rows[ALL_ID]['more']['price'][1] = '101'
@@ -276,6 +373,79 @@ class CurveWriter(unittest.TestCase):
             writer.curve_catalog_plan(bundle, PLATFORM, None)
         bundle['curve_proofs'][PLATFORM]['status'] = 'PROOF_INCOMPLETE'
         with self.assertRaisesRegex(ValueError, 'financial_proof_invalid'):
+            writer.curve_catalog_plan(bundle, PLATFORM, capability)
+
+    def test_native_price_factor_change_must_match_the_editor_amount(self):
+        def tier_factor(row):
+            row['more']['discount'][1] = '97'
+
+        bundle, capability, before, recipient = setup_bundle(large='97', target_override=tier_factor)
+        capability['tier_price_factors'] = True
+        self.transport = Transport(before, recipient)
+        self.capabilities = {PLATFORM: capability}
+        self.item = dict(writer.curve_catalog_plan(bundle, PLATFORM, capability), operation_id=OPERATION)
+        self.audit = dict(execution_id=OPERATION, write_protocol=CURVE_WRITE_PROTOCOL,
+                          curve_results={PLATFORM: self.item})
+        self.saved = Mock()
+        self.assertEqual(self.dispatch()['status'], 'CONFIRMED')
+        self.assertEqual(self.transport.posts[0][1]['more']['discount'], ['100', '97'])
+        self.assertEqual(self.transport.rows[PRIMARY_ID]['more']['give'], recipient['more']['give'])
+        self.assertEqual(self.item['actual_site266_curve']['tiers'][1]['native_discount'], '97')
+        bundle, capability, *_ = setup_bundle(large='96', target_override=tier_factor)
+        capability['tier_price_factors'] = True
+        with self.assertRaisesRegex(ValueError, 'native_tier_factor_mismatch'):
+            writer.curve_catalog_plan(bundle, PLATFORM, capability)
+
+    def test_main_site_financial_proof_accepts_other_inheriting_catalogue_rows(self):
+        satellite = goods(999, 575)
+        satellite['more']['give'][1] = '35'
+        self.prepare(extra_recipients={575: satellite})
+        self.assertEqual(self.item['required_recipient_sites'], ['266'])
+        self.assertEqual(self.item['recipient_goods'], {'266': PRIMARY_ID, '575': 999})
+        self.assertEqual(self.dispatch()['status'], 'CONFIRMED')
+        self.assertEqual(self.item['propagation']['site_outcomes'],
+                         {'266': 'target_observed', '575': 'unchanged'})
+        self.assertIn('575', self.item['propagation']['actual_hashes'])
+
+    def test_unknown_satellite_readback_does_not_block_mmoexp(self):
+        self.prepare(extra_recipients={575: goods(999, 575)})
+        native = self.transport.request
+
+        def unavailable(path, **kwargs):
+            if path.endswith('=999'):
+                raise TimeoutError
+            return native(path, **kwargs)
+
+        self.transport.request = unavailable
+        self.assertEqual(self.dispatch()['status'], 'CONFIRMED')
+        self.assertEqual(self.item['propagation']['site_outcomes']['575'], 'readback_unavailable')
+        self.assertNotIn('575', self.item['propagation']['actual_hashes'])
+
+    def test_observed_satellite_non_price_drift_preserves_original_for_reconciliation(self):
+        self.prepare(extra_recipients={575: goods(999, 575)})
+        native = self.transport.request
+
+        def unexpected_change(path, **kwargs):
+            result = native(path, **kwargs)
+            if kwargs['data'] is not None:
+                self.transport.rows[999]['more']['give'][1] = '999'
+            return result
+
+        self.transport.request = unexpected_change
+        self.assertEqual(self.dispatch()['status'], 'PARTIAL')
+        self.assertEqual(self.item['propagation']['site_outcomes']['575'], 'protected_fields_changed')
+        self.assertEqual(len(self.transport.posts), 1)
+
+    def test_current_transports_do_not_infer_backend_proof(self):
+        native = writer.curve_writer_capabilities()[PLATFORM]
+        self.assertEqual(native['order_projection']['path'], '/game/admin_game_price/itemEdit?ids=21942')
+        self.assertEqual(native['order_projection_status'], 'catalogue_side_effects_unverified')
+        bundle, capability, *_ = setup_bundle()
+        with self.assertRaisesRegex(ValueError, 'catalog_save_unverified'):
+            writer.curve_catalog_plan(bundle, PLATFORM, native)
+        bundle, capability, *_ = setup_bundle(small='12')
+        capability['order_projection_status'] = native['order_projection_status']
+        with self.assertRaisesRegex(ValueError, 'order_projection_unverified'):
             writer.curve_catalog_plan(bundle, PLATFORM, capability)
 
     def test_legacy_protocol_cannot_take_curve_request(self):
