@@ -15,6 +15,7 @@ from target_map import (THREE_PLATFORM_SCOPE, THREE_PLATFORM_NAMES, THREE_PLATFO
     THREE_PLATFORM_EXTRA, THREE_PLATFORM_REPOSITORY_SOURCES, THREE_PLATFORM_TARGET_COUNT, three_platform_targets,
     MONITOR_SQLITE_CANDIDATE, MONITOR_SQLITE_SOURCE, MONITOR_SQLITE_SHA, MONITOR_SQLITE_PROVENANCE)
 from target_map import (CURVE_V6_BASE, CURVE_V6_SCOPE, CURVE_V6_NEW, CURVE_V6_TARGET_COUNT,
+                        CURVE_V6_REPOSITORY_SOURCES,
                         curve_v6_targets, require_curve_scope_for_imports)
 
 HERE = Path(__file__).resolve().parent
@@ -60,7 +61,8 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     all_expected = {'source/' + name: target for name, target in mapping.items()}
     expected_count = CURVE_V6_TARGET_COUNT if curve_v6 else THREE_PLATFORM_TARGET_COUNT if three_platform else TARGET_COUNT
     if len(all_expected) != expected_count:raise ValueError('staged_payload_differs_from_git_source_manifest')
-    if curve_v6 and (provenance.get('scope') != CURVE_V6_SCOPE or provenance.get('sourceBaseCommit') != CURVE_V6_BASE):
+    if curve_v6 and (provenance.get('scope') != CURVE_V6_SCOPE or provenance.get('sourceBaseCommit') != CURVE_V6_BASE
+                     or provenance.get('repositorySources') != CURVE_V6_REPOSITORY_SOURCES):
         raise ValueError('curve_v6_source_provenance_changed')
     if three_platform:
         if provenance.get('repositorySources')!=THREE_PLATFORM_REPOSITORY_SOURCES:raise ValueError('three_platform_repository_source_changed')

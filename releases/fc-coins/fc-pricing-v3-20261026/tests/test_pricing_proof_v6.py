@@ -109,6 +109,23 @@ class PricingProofV6(unittest.TestCase):
         evidence['paths'][0].update(fee_status='verified', known_fee_usd='0')
         self.assertEqual(validate_curve(curve, baskets, evidence, domain)['status'], 'PROVEN')
 
+    def test_confirmed_merchant_rates_close_the_fee_domain_for_site266_only(self):
+        curve, baskets, evidence, domain = fixture()
+        evidence['paths'][0].update(fee_status='unknown', fee_ref=None, known_fee_usd=None)
+        result = validate_curve(curve, baskets, evidence, domain)
+        row = result['paths'][0]
+        self.assertEqual(row['merchant_fee_components']['payment_rate'], '0')
+        self.assertEqual(row['merchant_fee_components']['fulfilment_rate'], '0')
+        self.assertEqual(row['merchant_fee_components']['source'], 'creator_confirmation_2026-11-13')
+        self.assertEqual(row['known_fee_usd'], '0')
+        self.assertEqual(row['zero_line_surplus_usd'], '20')
+        self.assertEqual(result['status'], 'PROVEN')
+        evidence['paths'][0]['additional_necessary_fee_pending']=True
+        result = validate_curve(curve, baskets, evidence, domain)
+        self.assertIn('fee_unverified', result['paths'][0]['gaps'])
+        self.assertIsNone(result['paths'][0]['known_fee_usd'])
+        self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
+
     def test_unknown_cost_not_dropped(self):
         curve, baskets, evidence, domain = fixture()
         add_path(evidence, domain, 'missing-cost', cost_status='unknown', safe_cost_usd=None)

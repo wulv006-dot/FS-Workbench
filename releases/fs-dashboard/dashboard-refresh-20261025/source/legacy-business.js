@@ -418,7 +418,7 @@ async function load(d,key,s,signal,onWait,onResult,followOrder=true){
  const query=new URLSearchParams({profile:key,start:s.start,end:s.end,grain:s.grain||'day',mode:'summary',profit_basis:'shipping',...(key==='RS'?rsChecked(s):shippingFields(key,s))}),started=Date.now();
  do {
   const data=await requestRange(query,signal,Math.max(1,100000-(Date.now()-started)),onWait);if(signal.aborted)throw new DOMException('Aborted','AbortError');
-  if(!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'||data.profile?.key!==key||!same(data.query,s)||key==='RS'&&!Object.keys(rsOptions).every(k=>data.query?.[k]===s[k])||key!=='RS'&&!shippingSame(key,data.query,s))throw Error('汇总数据合同错误');
+  if(!['available','stale'].includes(data.status)||!['admin-paid-order-labelled-supplement-v2','admin-paid-order-labelled-supplement-v3-scope-repeat'].includes(data.scopeContractId)||data.profile?.key!==key||!same(data.query,s)||key==='RS'&&!Object.keys(rsOptions).every(k=>data.query?.[k]===s[k])||key!=='RS'&&!shippingSame(key,data.query,s))throw Error('汇总数据合同错误');
   const pending=data.sources?.Admin?.status==='pending'||followOrder&&[data.sources?.Order,data.sources?.Shipping].some(s=>s?.status==='pending');
   // A deferred Order read is temporary contention, not a completed source omission.
   // Follow it only inside this explicit read's existing 100-second budget. Closed

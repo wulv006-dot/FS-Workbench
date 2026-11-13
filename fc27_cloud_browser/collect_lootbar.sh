@@ -20,15 +20,21 @@ if [ -f /opt/fs-fc-control/code/fc_collection/lootbar.py ] && ! /opt/python39/bi
   printf '%s\n' '{"status":"failed","read_only":true}'
   exit 1
 fi
+run_id=${1:-}
+if [ "${2:-}" = "--native-quantities" ]; then
+  set -- --native-quantities
+else
+  set --
+fi
 if ! timeout 90s docker exec -u fc27chrome \
   -e FC27_CDP_ENDPOINT=http://127.0.0.1:9225 \
-  fc27-cloud-browser python3 /opt/fc27-collector/lootbar_server_collector.py > "$trace"; then
+  fc27-cloud-browser python3 /opt/fc27-collector/lootbar_server_collector.py "$@" > "$trace"; then
   # fd9 stays held across both nodes. The controller only accepts the exact
   # pre-egress CDP failure, never a site denial or a partially read page.
   fallback=$(mktemp "$evidence/lootbar-${stamp}-fallback-XXXXXX.tmp")
-  if [ "$#" -eq 1 ] && timeout 115s /opt/python39/bin/python3 -I -B -c \
+  if [ -n "$run_id" ] && timeout 115s /opt/python39/bin/python3 -I -B -c \
       'import sys;sys.path.insert(0,"/opt/fs-fc-control/code");from fc_collection.lootbar import main;main()' \
-      --run-id "$1" --trace "$trace" > "$fallback"; then
+      --run-id "$run_id" --trace "$trace" > "$fallback"; then
     cat "$fallback" >> "$trace"
   else
     rm -f "$fallback"

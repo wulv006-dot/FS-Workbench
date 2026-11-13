@@ -9,6 +9,13 @@ const TARGETS = [
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function readVisibleOffer() {
+  const requested = arguments[0];
+  if (Array.isArray(requested)) {
+    const baseline = readVisibleOffer();
+    baseline.quantityOffers = Object.fromEntries(requested.map(quantity =>
+      [quantity, readVisibleOffer(quantity)]));
+    return baseline;
+  }
   const visible = el => {
     if (!el) return false;
     const style = typeof getComputedStyle === 'function' ? getComputedStyle(el) : null;
@@ -50,10 +57,10 @@ function readVisibleOffer() {
     const baseK = amount * (match[2].toUpperCase() === 'M' ? 1000 : 1);
     return Number.isFinite(baseK) && baseK > 0 ? {card, baseK} : null;
   }).filter(Boolean);
-  const oneHundredK = tiers.filter(tier => tier.baseK === 100);
-  const chosen = oneHundredK.length === 1 ? oneHundredK[0] :
-    oneHundredK.length > 1 ? null : tiers.sort((a, b) => a.baseK - b.baseK)[0];
-  const tierState = oneHundredK.length > 1 ? 'multiple' : chosen ? 'ready' : 'missing';
+  const candidates = tiers.filter(tier => tier.baseK === (requested ?? 100));
+  const chosen = candidates.length === 1 ? candidates[0] :
+    candidates.length > 1 || requested != null ? null : tiers.sort((a, b) => a.baseK - b.baseK)[0];
+  const tierState = candidates.length > 1 ? 'multiple' : chosen ? 'ready' : 'missing';
 
   let currentPrice = null, priceState = 'missing', currentPriceNode = null;
   let gift = null, giftState = 'missing';
@@ -187,7 +194,7 @@ function readVisibleOffer() {
   }
 
   return {selected, loggedIn, currencyLabel, currencyState, tierState,
-    tierCandidateCount:oneHundredK.length, visibleCardCount:cards.length,
+    tierCandidateCount:candidates.length, visibleCardCount:cards.length,
     baseK:chosen?.baseK, priceState, usdPrice:currentPrice, giftState, bonusK:gift,
     couponState, observedCouponPrice, excludedCouponDiscount, reconstruction};
 }

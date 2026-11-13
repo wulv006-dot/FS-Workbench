@@ -84,7 +84,7 @@ def _cents(value) -> int | None:
         return None
 
 
-def snapshot_error(snapshot: dict, selected_label: str, stable_reads: int = 3) -> str | None:
+def snapshot_error(snapshot: dict, selected_label: str, stable_reads: int = 3, *, quantity=100) -> str | None:
     """Fail closed on any missing or ambiguous parser field."""
     if not isinstance(snapshot, dict):
         return "Lootbar 页面未能读取"
@@ -94,8 +94,8 @@ def snapshot_error(snapshot: dict, selected_label: str, stable_reads: int = 3) -
         return "Lootbar 登录状态未核实"
     if snapshot.get("currencyState") != "ready":
         return "币种或页面语言未核实为 EN / USD"
-    if snapshot.get("tierState") != "ready" or _positive_decimal(snapshot.get("baseK")) != Decimal("100"):
-        return "100K Safe Coins 商品规格未唯一核实"
+    if snapshot.get("tierState") != "ready" or _positive_decimal(snapshot.get("baseK")) != quantity:
+        return f"{quantity}K Safe Coins 商品规格未唯一核实"
     if snapshot.get("priceState") != "ready" or _positive_decimal(snapshot.get("usdPrice")) is None:
         return "当前 USD 售价缺失或格式不清"
     if snapshot.get("giftState") != "ready" or _positive_decimal(snapshot.get("bonusK"), allow_zero=True) is None:
@@ -124,7 +124,7 @@ def _offer(platform: str, snapshot: dict) -> dict:
     coupon_excluded = snapshot["couponState"] == "excluded"
     result = {
         "platform": platform,
-        "base_k": "100",
+        "base_k": str(snapshot["baseK"]),
         "usd_price": str(snapshot["usdPrice"]),
         "bonus_k": str(snapshot["bonusK"]),
         "coupon_excluded": coupon_excluded,
@@ -154,14 +154,16 @@ def _read_snapshot(page, reader_source: str) -> dict | None:
     return page.evaluate(f"() => ({reader_source})()")
 
 
-def _stable_offer(page, reader_source: str, platform: str, label: str) -> tuple[dict, int]:
+def _stable_offer(page, reader_source: str, platform: str, label: str, quantity_offers=None) -> tuple[dict, int]:
     prior = None
     stable = 0
     last = None
+    quantity_reads = []
     for attempt in range(1, 25):
         emit("offer_read_started", platform=platform, attempt=attempt)
         try:
-            last = _read_snapshot(page, reader_source)
+            last = (_read_snapshot(page, reader_source) if quantity_offers is None else
+                    page.evaluate(f"() => ({reader_source})([1000, 2000, 5000])"))
         except Exception as exc:
             # Platform navigation can destroy evaluate's old context; only that exact error is reread.
             navigation = (type(exc).__name__ == "Error"
@@ -173,10 +175,14 @@ def _stable_offer(page, reader_source: str, platform: str, label: str) -> tuple[
             if not navigation:
                 raise
             prior, stable, last = None, 0, None
+            quantity_reads.clear()
             time.sleep(0.4)
             continue
         validation_error = snapshot_error(last, label, stable_reads=3)
         if validation_error is None:
+            if quantity_offers is not None:
+                quantity_reads.append(last.pop("quantityOffers", {}))
+                quantity_reads = quantity_reads[-3:]
             signature = json.dumps(last, sort_keys=True, ensure_ascii=False)
             stable = stable + 1 if signature == prior else 1
             prior = signature
@@ -185,9 +191,15 @@ def _stable_offer(page, reader_source: str, platform: str, label: str) -> tuple[
                  candidate_count=last.get("tierCandidateCount"), base_k="100",
                  selected_platforms=[label])
             if stable >= 3:
+                for quantity in (1000, 2000, 5000):
+                    observations = [read.get(str(quantity)) for read in quantity_reads]
+                    if (len(observations) == 3 and observations[0] == observations[1] == observations[2]
+                            and snapshot_error(observations[0], label, quantity=quantity) is None):
+                        quantity_offers.append(_offer(platform, observations[0]))
                 return _offer(platform, last), stable
         else:
             prior, stable = None, 0
+            quantity_reads.clear()
             state = last if isinstance(last, dict) else {}
             tier = state.get("tierState")
             base = _positive_decimal(state.get("baseK"))
@@ -215,7 +227,7 @@ def _is_product_page(page) -> bool:
     return parsed.hostname == "www.lootbar.com" and parsed.path.rstrip("/") == "/game-coins/fc27"
 
 
-def _collect_attached(*, single_ps: bool = False, deadline=None) -> dict:
+def _collect_attached(*, single_ps: bool = False, deadline=None, include_quantities=False) -> dict:
     """Attach to one existing tab and read each platform sequentially."""
     deadline = deadline if deadline is not None else time.monotonic() + COLLECT_TIMEOUT_SECONDS
     reader_source = load_reader()
@@ -245,7 +257,8 @@ def _collect_attached(*, single_ps: bool = False, deadline=None) -> dict:
         original = original_pages[0]
         woke = original.url == IDLE_URL
         try:
-            return _collect_product_page(original, reader_source, single_ps=single_ps, woke=woke)
+            return _collect_product_page(original, reader_source, single_ps=single_ps, woke=woke,
+                                         include_quantities=include_quantities)
         finally:
             if not single_ps or woke:
                 try:
@@ -360,7 +373,7 @@ def _release_product_document(original, *, deadline):
         raise
 
 
-def _collect_product_page(original, reader_source, *, single_ps, woke):
+def _collect_product_page(original, reader_source, *, single_ps, woke, include_quantities=False):
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
     if not single_ps or woke:
@@ -416,11 +429,12 @@ def _collect_product_page(original, reader_source, *, single_ps, woke):
             raise CollectionError("platform_timeout:PS") from exc
 
     offers = {}
+    quantity_offers = [] if include_quantities else None
     # The operator's existing PS page is already rendered. Read it first so
     # the smallest server can validate one platform without opening a tab.
     emit("platform_starting", platform="PS")
     try:
-        ps_offer, ps_reads = _stable_offer(original, reader_source, "PS", "PS4/5")
+        ps_offer, ps_reads = _stable_offer(original, reader_source, "PS", "PS4/5", quantity_offers)
     except PlaywrightTimeoutError as exc:
         raise CollectionError("PS：现有商品页读取超时") from exc
     offers["PS"] = ps_offer
@@ -436,8 +450,7 @@ def _collect_product_page(original, reader_source, *, single_ps, woke):
                     emit("platform_click_started", platform=platform)
                     original.locator(selector).click(timeout=4000)
                     emit("platform_click_finished", platform=platform)
-                    offer, stable_reads = _stable_offer(
-                        original, reader_source, platform, label)
+                    offer, stable_reads = _stable_offer(original, reader_source, platform, label, quantity_offers)
                 except PlaywrightTimeoutError as exc:
                     raise CollectionError(f"{platform}：平台切换或读取超时") from exc
                 except CollectionError:
@@ -470,11 +483,14 @@ def _collect_product_page(original, reader_source, *, single_ps, woke):
                 if primary_error is None:
                     raise CollectionError("PS 页面恢复失败") from exc
 
-    return {"checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "offers": offers, "read_only": True}
+    result = {"checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+              "offers": offers, "read_only": True}
+    if quantity_offers is not None:
+        result["quantity_offers"] = quantity_offers
+    return result
 
 
-def collect(*, single_ps: bool = False) -> dict:
+def collect(*, single_ps: bool = False, include_quantities=False) -> dict:
     """Run the complete CDP pass under a hard wall-clock deadline.
 
     Playwright does not expose per-call timeouts for every CDP operation
@@ -485,7 +501,8 @@ def collect(*, single_ps: bool = False) -> dict:
 
     def run() -> None:
         try:
-            result_queue.put((True, _collect_attached(single_ps=single_ps, deadline=deadline)))
+            options = {"include_quantities": True} if include_quantities else {}
+            result_queue.put((True, _collect_attached(single_ps=single_ps, deadline=deadline, **options)))
         except Exception as exc:
             result_queue.put((False, exc))
 
@@ -508,9 +525,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Read Lootbar offers from the existing Chrome session")
     parser.add_argument("--existing-ps-only", action="store_true",
                         help="validate PS without refreshing an active page; wake the owned idle tab if needed")
+    parser.add_argument("--native-quantities", action="store_true",
+                        help="read visible 1000K, 2000K and 5000K alongside the existing 100K quote")
     args = parser.parse_args()
     try:
-        result = collect(single_ps=args.existing_ps_only)
+        result = collect(single_ps=args.existing_ps_only, include_quantities=args.native_quantities)
         emit("complete", **result)
         return 0
     except CollectionError as exc:

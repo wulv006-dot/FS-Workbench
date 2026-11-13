@@ -109,3 +109,52 @@ class ESRelease(unittest.TestCase):
         self.assertEqual(staged,path.read_bytes())
         content=b''.join(name.encode()+b'\0'+(self.stage/'candidate/ui'/name).read_bytes() for name in release.UI)
         self.assertTrue(manifest['assetVersion'].endswith(hashlib.sha256(content).hexdigest()[:12]))
+
+    def test_delta_preserves_live_code_and_rewrites_only_summary_aliases(self):
+        baseline = {target:'b'*64 for target in release.DELTA_PROTECTED}
+        routes = b'# live SEO route\r\n' + b''.join(
+            f'location = {prep.DELTA_LOCATIONS[n]} {{\r\n    auth_request /original;\r\n    alias {prep.DELTA_STATIC_OLD[n]};\r\n}}\r\n'.encode()
+            for n in release.DELTA_UI)
+        (self.captured/'routes.conf').write_bytes(routes)
+        baseline[release.FORMAL] = prep.digest(routes)
+        base = b'def delivery_timestamp(value):\n    return value\n\ndef main():\n    pass\n'
+        desired = b'def delivery_timestamps(value):\n    return value, None\n\ndef main():\n    pass\n'
+        for name,target in release.DELTA_CODE.items():
+            leaf = Path(name).name
+            live = b'# unchanged lxml initialization\n'+base if leaf=='channel_cost_source.py' else b'# original\n'
+            (self.captured/leaf).write_bytes(live)
+            baseline[target] = prep.digest(live)
+        for name,target in prep.DELTA_STATIC_OLD.items():
+            live = b'// live-only boot sequence\nconst mismatch = '+prep.SUMMARY_V2_GUARD+b';\n'
+            (self.captured/name).write_bytes(live)
+            baseline[target] = prep.digest(live)
+
+        def source(revision, relative):
+            if relative == prep.EMAIL_ADAPTER:
+                return self.delegate
+            if relative.endswith('.js'):
+                return prep.SUMMARY_COMPAT_GUARD
+            if relative.endswith('channel_cost_source.py'):
+                return base if revision==prep.DEPLOYED else desired
+            return b'# original\n' if revision==prep.DEPLOYED else b'# updated\n'
+
+        manifest = prep.build_delta(source,self.source_commit,baseline,self.captured,self.stage,frozen_base=self.frozen)
+        self.assertEqual(len(manifest['files']),11)
+        self.assertFalse(manifest['releaseReady'])
+        writer = release.publisher(self.stage,manifest,frozen_base=self.frozen)
+        self.assertEqual(len(writer.validate(manifest,self.stage)),11)
+        candidate = self.stage/'candidate'
+        patched = (candidate/'routes.conf').read_bytes()
+        for name,old in prep.DELTA_STATIC_OLD.items():
+            patched = patched.replace((release.STATIC+manifest['assetVersion']+'/'+name).encode(),old.encode())
+            self.assertEqual((candidate/'ui'/name).read_bytes(),
+                (self.captured/name).read_bytes().replace(prep.SUMMARY_V2_GUARD,prep.SUMMARY_COMPAT_GUARD))
+        self.assertEqual(patched,routes)
+        self.assertEqual((candidate/'host/channel_cost_source.py').read_bytes(),b'# unchanged lxml initialization\n'+desired)
+        for row in manifest['files']:
+            if row['candidate'] in release.DELTA_CODE:
+                self.assertEqual(row['beforeSha256'],baseline[row['target']])
+        invalid = copy.deepcopy(manifest)
+        invalid['files'][1]['beforeSha256'] = None
+        with self.assertRaisesRegex(ValueError,'before CAS'):
+            writer.validate(invalid,self.stage)

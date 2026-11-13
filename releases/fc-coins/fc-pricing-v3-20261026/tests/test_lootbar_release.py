@@ -61,12 +61,18 @@ class LootbarRelease(unittest.TestCase):
                         updater.lootbar_renderer_window(state,'original')
                 else:updater.lootbar_renderer_window(state,'original')
 
-    def role_fixture(self,folder,stack,role):
+    def role_fixture(self,folder,stack,role,*,arab_table=False):
         root=Path(folder)/role;(root/'code/fc_collection').mkdir(parents=True);stage=Path(folder)/'stage';stage.mkdir()
         bundle=stage/(role+'.zip');builder.build(bundle,role)
-        with zipfile.ZipFile(bundle) as z:new_digest=hashlib.sha256(z.read('manifest.json')).hexdigest()
-        old_files={n:('# old '+n).encode() for n in updater.LOOTBAR_ROLE_FILES[role]-{'fc_collection/lootbar.py','manifest.json'}}
-        old_manifest=dict(schema_version=1,role='limited_fc_collector' if role=='node' else 'fc_collection_controller',sources=['ArabUT'],credentials=[],business_runtime=False,production_consume=False,sha256={n:hashlib.sha256(b).hexdigest() for n,b in old_files.items()})
+        with zipfile.ZipFile(bundle) as z:
+            new_digest=hashlib.sha256(z.read('manifest.json')).hexdigest()
+            old_files={n:z.read(n) for n in z.namelist() if n!='manifest.json'}
+        if arab_table:
+            changed=updater.ARAB_PRICE_TABLE_CHANGES|({'fc_collection/client.py'} if role=='control' else set())
+            old_files.update({name:('# old '+name).encode() for name in changed})
+        else:
+            old_files={n:('# old '+n).encode() for n in old_files if n!='fc_collection/lootbar.py'}
+        old_manifest=dict(schema_version=1,role='limited_fc_collector' if role=='node' else 'fc_collection_controller',sources=['ArabUT','Lootbar'] if arab_table else ['ArabUT'],credentials=[],business_runtime=False,production_consume=False,sha256={n:hashlib.sha256(b).hexdigest() for n,b in old_files.items()})
         old_files['manifest.json']=json.dumps(old_manifest).encode()
         for n,b in old_files.items():(root/'code'/n).write_bytes(b)
         protected=root/'protected';protected.write_bytes(b'original routing/unit')
@@ -78,7 +84,9 @@ class LootbarRelease(unittest.TestCase):
         stack.enter_context(patch.object(updater,'_lootbar_root_owned',return_value=True))
         stack.enter_context(patch.object(updater.os,'geteuid',return_value=0,create=True))
         stack.enter_context(patch.object(updater.socket,'gethostname',return_value='play187' if role=='control' else 'FSHTUS01'))
-        m=updater.prepare_lootbar(role,bundle,hashlib.sha256(bundle.read_bytes()).hexdigest(),'original-release','a'*40,worker_digest=new_digest)
+        options = (dict(installed_manifest=hashlib.sha256(old_files['manifest.json']).hexdigest(),
+                        installed_worker=updater.WORKER if role=='control' else None) if arab_table else {})
+        m=updater.prepare_lootbar(role,bundle,hashlib.sha256(bundle.read_bytes()).hexdigest(),'original-release','a'*40,worker_digest=new_digest,**options)
         path=stage/'manifest.json';path.write_text(json.dumps(m));digest=hashlib.sha256(path.read_bytes()).hexdigest()
         return root,path,digest,old_files,access
 
@@ -329,6 +337,20 @@ class LootbarRelease(unittest.TestCase):
             self.assertEqual({p.relative_to(root/'code').as_posix():p.read_bytes() for p in (root/'code').rglob('*') if p.is_file()},old_files)
             self.assertEqual(health.call_count,2)
             self.assertEqual(json.loads((root/'lootbar-original-release.json').read_text())['phase'],'rolled_back')
+
+    def test_arab_table_update_requires_existing_role_and_exact_changed_files(self):
+        for role in ('node','control'):
+            with self.subTest(role=role),tempfile.TemporaryDirectory() as folder,ExitStack() as stack:
+                root,path,digest,_,_=self.role_fixture(folder,stack,role,arab_table=True)
+                result=updater.update_lootbar(path,False,digest)
+                self.assertEqual(result['scope'],updater.ARAB_PRICE_TABLE_SCOPE)
+                self.assertEqual(result['phase'],'preview')
+                self.assertTrue((root/'code/fc_collection/lootbar.py').exists())
+                manifest=json.loads(path.read_text())
+                manifest['before']['fc_collection/lootbar.py']='a'*64
+                path.write_text(json.dumps(manifest))
+                with self.assertRaisesRegex(ValueError,'arab_price_table_exact_change_scope'):
+                    updater.update_lootbar(path,False,hashlib.sha256(path.read_bytes()).hexdigest())
 
 
 if __name__=='__main__':unittest.main()

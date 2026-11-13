@@ -14,7 +14,7 @@ DASHBOARD = ROOT.parents[1] / 'fs-dashboard'
 sys.path[:0] = [str(ROOT / 'source'), str(DASHBOARD / 'dashboard-refresh-20261025/source'),
                 str(DASHBOARD / 'cache-archive-retention-20261025/source')]
 from fc_pricing_v3 import business_source
-from fc_pricing_v3.cost_inputs_v6 import BOC_URL, estimate_historical_cost
+from fc_pricing_v3.cost_inputs_v6 import BOC_URL, estimate_historical_cost, project_admin_loss_statistics
 from order_facts_source import project_order_facts
 
 
@@ -22,6 +22,32 @@ CUT = datetime.fromisoformat('2026-11-13T00:00:00+08:00')
 AS_OF = CUT + timedelta(minutes=30)
 LAYER = dict(platform='PS', quantity_bucket='large', offer_version='offer-1', fulfilment_contract='normal')
 SCOPE = dict(site_id='266', gid='1327', start='2026-11-06', end='2026-11-12')
+
+
+class AdminLossStatistics(unittest.TestCase):
+    def test_category_loss_statistics_preserve_overlapping_membership_and_do_not_supply_cost(self):
+        request=dict(site=266,game=1327,cid=1,pay_status=1,date=['2026-11-11 00:00','2026-11-11 23:59'])
+        game=dict(gid=1327,cat={'gold':{'num':256}},
+                  dc=dict(n=1,amount='130.09',order_id='912345671'),
+                  dc_zhui_no=dict(n=1,amount='130.09',order_id='912345671'),
+                  ts=dict(n=2,amount='278.33',order_id='912345672'))
+        payload=json.dumps(dict(code=1,data={'data':dict(game_rank={'FC 27':game},
+            site_rank={'www.mmoexp.com':{}},total='256')})).encode()
+        loss=project_admin_loss_statistics(payload,request,CUT)
+        self.assertEqual(loss['multi_bucket_order_ids'],1)
+        self.assertEqual(loss['unique_observed_order_ids'],2)
+        self.assertEqual(loss['buckets']['dc']['amount_usd'],'130.09')
+        self.assertEqual(loss['buckets']['ts']['order_id_coverage'],'partial')
+        self.assertNotIn('cb',loss['buckets'])
+        self.assertNotIn('912345671',str(loss))
+        self.assertIsNone(loss['reshipment_and_recovery_net_cny'])
+        opts=dict(as_of=AS_OF,layer_matches={})
+        original=estimate_historical_cost([],LAYER,'PURCHASE_K',**opts)
+        attached=estimate_historical_cost([],LAYER,'PURCHASE_K',admin_loss_statistics=[loss],**opts)
+        self.assertEqual(attached.pop('admin_loss_statistics'),loss)
+        self.assertEqual(attached,original)
+        with self.assertRaisesRegex(ValueError,'admin_loss_request_scope_invalid'):
+            project_admin_loss_statistics(payload,dict(request,cid=2),CUT)
 
 
 def rows_for(offsets, *, quantity='1000K Coins + 30K Free x1 = $50'):

@@ -22,7 +22,7 @@ class LiveSummary {
     const data=await r.json();
     if(epoch!==this.epoch)return;
     if(r.status===202||r.status===429){this.state({phase:'loading',message:'后台正在读取或队列繁忙；尚无新结果。'});await new Promise(resolve=>setTimeout(resolve,2000));continue;}
-    if(!r.ok||!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'||data.profile?.key!==selection.profile||data.query?.start!==selection.start||data.query?.end!==selection.end)throw Error('summary_unavailable');
+    if(!r.ok||!['available','stale'].includes(data.status)||!['admin-paid-order-labelled-supplement-v2','admin-paid-order-labelled-supplement-v3-scope-repeat'].includes(data.scopeContractId)||data.profile?.key!==selection.profile||data.query?.start!==selection.start||data.query?.end!==selection.end)throw Error('summary_unavailable');
     this.current=data;this.nextRefreshAt=Date.now()+((Object.values(data.sources||{}).some(x=>x.status==='pending')?600:Math.max(1,(data.expiresInSeconds??600)+1))*1000);this.update(data);this.state({phase:'available'});
     // Retry temporary Order contention only inside the initial read budget;
     // do not wait a whole 10-minute cache cycle after a short lock conflict.

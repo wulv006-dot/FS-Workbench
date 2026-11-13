@@ -6,6 +6,7 @@ import re
 import types
 
 SCOPE = 'fs-admin-es-data-20261113'
+DELTA_SCOPE = 'fs-admin-es-data-delta-20261113'
 RANGE = '/opt/fs-exact-range-20261001/'
 HERMES = '/opt/fs-hermes-fc/'
 STATIC = '/var/lib/fs-navigation-formal-static/'
@@ -25,20 +26,38 @@ HOST_FILES = ('es_order_structure.py','order_attribution.py','user_store.py')
 UI = ('business.js','home-business.js','legacy-business.js','index.html','channel.js','channel.css')
 NEW = {'range/'+n for n in ('admin_scope.py','local_repeat_source.py','order_facts.py','order_facts_api.py',
     'order_facts_runtime.py','order_facts_source.py')} | {'host/order_attribution.py'} | {'ui/'+n for n in UI}
+DELTA_UI = (*UI[:3], 'shell.js', 'home-shell.js', 'legacy-shell.js', 'homepage-shell.js')
+DELTA_CODE = {'range/order_facts.py':RANGE+'order_facts.py', 'range/order_facts_api.py':RANGE+'order_facts_api.py',
+              'host/channel_cost_source.py':HERMES+'channel_cost_source.py'}
+DEPLOYED_ASSET_VERSION = 'admin-es-20261113-bf229232f385'
+SUMMARY_ASSET_VERSION = 'summary-performance-20261107-7309593bc091'
+SEO_ASSET_VERSION = 'seo-ui-c9e4111c43b04308'
 
 
-def targets(version):
+def targets(version, *, delta=False):
     if not re.fullmatch(r'admin-es-20261113-[a-f0-9]{12}',version or ''):
         raise ValueError('exact ES asset version required')
+    if delta:
+        return {'routes.conf':FORMAL, **DELTA_CODE, **{'ui/'+n:STATIC+version+'/'+n for n in DELTA_UI}}
     return {'routes.conf':FORMAL, **{'range/'+n:RANGE+n for n in RANGE_FILES},
         **{'host/'+n:HERMES+n for n in HOST_FILES}, **{'ui/'+n:STATIC+version+'/'+n for n in UI}}
 
 
+DELTA_PROTECTED = (PROTECTED | set(targets(DEPLOYED_ASSET_VERSION).values()) |
+    {STATIC+SUMMARY_ASSET_VERSION+'/'+n for n in DELTA_UI[3:]} |
+    {STATIC+SEO_ASSET_VERSION+'/'+n for n in ('index.html','seo.css','app.mjs','model.mjs','ai.mjs','fs-tokens.css','fs-theme.js')}) - {
+    FORMAL, *DELTA_CODE.values()}
+
+
 def contract(manifest):
-    expected = targets(manifest.get('assetVersion'))
+    scope = manifest.get('scope')
+    delta = scope == DELTA_SCOPE
+    expected = targets(manifest.get('assetVersion'), delta=delta)
+    new = {'ui/'+n for n in DELTA_UI} if delta else NEW
+    required = DELTA_PROTECTED if delta else PROTECTED
     if (set(manifest) != {'schemaVersion','scope','releaseReady','businessWrites','timersChanged','files',
             'unchangedRequired','runtimeRequired','sourceCommit','assetVersion'}
-            or manifest.get('schemaVersion') != 1 or manifest.get('scope') != SCOPE
+            or manifest.get('schemaVersion') != 1 or scope not in (SCOPE, DELTA_SCOPE)
             or type(manifest.get('releaseReady')) is not bool or manifest.get('businessWrites') is not False
             or manifest.get('timersChanged') is not False or manifest.get('runtimeRequired') != RUNTIME
             or not re.fullmatch(r'[0-9a-f]{40}',manifest.get('sourceCommit',''))):
@@ -50,10 +69,10 @@ def contract(manifest):
         name, before = row['candidate'], row['beforeSha256']
         if (set(row) != {'candidate','target','sha256','beforeSha256'} or row['target'] != expected[name]
                 or not re.fullmatch(r'[a-f0-9]{64}',row['sha256'] or '')
-                or (before is None) != (name in NEW) or before is not None and not re.fullmatch(r'[a-f0-9]{64}',before)):
+                or (before is None) != (name in new) or before is not None and not re.fullmatch(r'[a-f0-9]{64}',before)):
             raise ValueError('invalid ES payload or before CAS')
     protected = manifest['unchangedRequired']
-    if len(protected) != len(PROTECTED) or {row.get('path') for row in protected} != PROTECTED:
+    if len(protected) != len(required) or {row.get('path') for row in protected} != required or required.intersection(expected.values()):
         raise ValueError('exact ES protected dependencies required')
     if any(set(row) != {'path','sha256'} or not re.fullmatch(r'[a-f0-9]{64}',row.get('sha256') or '') for row in protected):
         raise ValueError('invalid protected ES hash')
@@ -71,7 +90,11 @@ def publisher(stage, manifest, *, frozen_base=None):
     delegate = types.ModuleType('_es_range_publisher_adapter')
     delegate.__file__ = str(path)
     exec(compile(raw, str(path), 'exec'), delegate.__dict__)
-    delegate.SCOPE, delegate.TARGETS, delegate.PROTECTED = SCOPE, targets(manifest['assetVersion']), PROTECTED
+    scope = manifest['scope']
+    delta = scope == DELTA_SCOPE
+    delegate.SCOPE = scope
+    delegate.TARGETS = targets(manifest['assetVersion'], delta=delta)
+    delegate.PROTECTED = DELTA_PROTECTED if delta else PROTECTED
     delegate.contract = contract
     if frozen_base is not None:
         delegate.BASE = Path(frozen_base)

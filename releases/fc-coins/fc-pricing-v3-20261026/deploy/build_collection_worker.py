@@ -8,8 +8,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 LOOTBAR = {
-    'lootbar_server_collector.py': 'a950c08208df92a40183cbcbe0ea73b7c22e8d79f386336239f6d27079642384',
-    'background.js': 'e0e1946f607ae37df8547788d3252d05e02f5251ffae9c744ed9e941712e298e'}
+    'lootbar_server_collector.py': '291d5be8075dea7136f22ea2d9ea727b5159cd749526f0bda0ca1a628b268bd9',
+    'background.js': '5d8427cc4cf7cab846bc083ec87cf5a6fae4e342b922709778e504b26257ab5d'}
 LOOTBAR_SOURCE = 'releases/ops/pricing-recovery-20261023/fc_residency/source/'
 
 

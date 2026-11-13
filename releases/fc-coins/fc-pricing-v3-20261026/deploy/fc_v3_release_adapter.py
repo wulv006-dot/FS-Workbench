@@ -17,7 +17,7 @@ from target_map import COUPON_DISPLAY_NAMES, COUPON_DISPLAY_SCOPE, COUPON_DISPLA
 from target_map import (THREE_PLATFORM_NAMES, THREE_PLATFORM_SCOPE, THREE_PLATFORM_EXTRA,
                         THREE_PLATFORM_NEW, three_platform_targets, MONITOR_SQLITE_CANDIDATE,
                         MONITOR_SQLITE_SHA, MONITOR_SQLITE_SOURCE)
-from target_map import CURVE_V6_SCOPE, CURVE_V6_NEW, curve_v6_targets
+from target_map import CURVE_V6_EXECUTABLES, CURVE_V6_SCOPE, CURVE_V6_NEW, curve_v6_targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -255,6 +255,8 @@ def checked_manifest(value):
     if value.get('releaseReady') is not True:
         raise ValueError('reviewed_code_release_required')
     if scope == CURVE_V6_SCOPE:
+        if any(row['mode'] != '0o755' for row in rows if row['candidate'] in CURVE_V6_EXECUTABLES):
+            raise ValueError('curve_v6_collectors_must_be_executable')
         by_name = {row['candidate']: row['sha256'] for row in rows}
         if any(sha != by_name['source/' + name.removeprefix('source/hermes-copy/')]
                for name, sha in by_name.items() if name.startswith('source/hermes-copy/')):

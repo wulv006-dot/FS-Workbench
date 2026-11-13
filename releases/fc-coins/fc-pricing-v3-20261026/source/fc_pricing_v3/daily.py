@@ -1,10 +1,12 @@
 """One daily outcome review over saved price windows and isolated shadow results."""
 from .platforms import SMART_VERSIONS, action_key, native_resources, PLATFORMS
-from datetime import datetime,timedelta,timezone
+from datetime import date as calendar_date,datetime,timedelta,timezone
 from decimal import Decimal
 import json
 from pathlib import Path
+import sqlite3
 import subprocess
+import sys
 import uuid
 
 from .financial import fingerprint,instant
@@ -64,7 +66,6 @@ def exposure_scope(windows,date):
 
 def collect_outcomes(date,windows,*,shared_order_facts=None):
     """Admin/Order business reads only; no competitor, public price or write endpoint."""
-    import sys
     sys.path.insert(0,'/opt/fs-hermes-fc')
     from channel_source import pages,COLLECTOR
     sys.path.insert(0,COLLECTOR)
@@ -79,12 +80,54 @@ def collect_outcomes(date,windows,*,shared_order_facts=None):
     now=datetime.now(timezone.utc)
     learning_rows,_=_period_population(history_period(now))
     learning_rows = dict(learning_rows or {}, **(selected or {}))
-    try:online=online_window_context(session,pages,windows,now,learning_rows or {})
+    payment_days={}
+    try:online=online_window_context(session,pages,windows,now,learning_rows or {},payment_days=payment_days)
     finally:session.close()
     if shared_order_facts is not None:
         from .business_source import attach_shared_marketing
         online=attach_shared_marketing(online,shared_order_facts)
-    return dict(actual=hourly_actual(selected,coverage,date),online=online)
+    return dict(actual=hourly_actual(selected,coverage,date),online=online,payment_days=payment_days)
+
+
+def marketing_unavailable(reason):
+    return dict(status='unavailable', reason=reason, payment_date=None, review_day_coverage='unavailable')
+
+
+def collect_marketing_context(review_date, outcomes, payment_days):
+    """Read one represented payment day through D2 with the original publication pinned."""
+    from .business_source import attach_shared_marketing
+    if not payment_days:
+        return marketing_unavailable('no_bound_payment_day')
+    sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
+    from order_facts_runtime import collect, publication
+    from es_order_structure import archived_dataset
+    pin = publication()
+    if pin is None:
+        return marketing_unavailable('es_publication_unavailable')
+    cutoff = datetime.fromisoformat(pin['cutoff'])
+    if cutoff.tzinfo is None:
+        raise ValueError('es_publication_timezone')
+    cutoff_date = cutoff.astimezone(LOCAL).date()
+    review_day = calendar_date.fromisoformat(review_date)
+    earliest = review_day - timedelta(days=365)
+    bound_days = {calendar_date.fromisoformat(day) for day in payment_days.values()}
+    covered = [day for day in bound_days if earliest <= day <= review_day and day < cutoff_date]
+    if not covered:
+        return marketing_unavailable('publication_does_not_cover_bound_payment_day')
+    day = max(covered).isoformat()
+
+    def read_pinned(args, *, root, publication):
+        if publication != pin:
+            raise ValueError('es_publication_changed')
+        return archived_dataset(args, root=root, publication=pin)
+
+    facts = collect(dict(start=day,end=day,site_id='266',gid='1327'), dataset_reader=read_pinned)
+    source = facts['source_coverage']['attribution']
+    if source.get('source_revision') != pin['publication_id']:
+        return marketing_unavailable('es_publication_not_observed')
+    selected = [row for row in outcomes if payment_days.get(row['order_key']) == day]
+    result = attach_shared_marketing(dict(actual_outcomes=selected),facts)['marketing_context']
+    return dict(result,payment_date=day,review_day_coverage=result['status'] if day == review_date else 'unavailable')
 
 
 def profit_summary(online,windows,operations,date,plan_id):
@@ -169,6 +212,18 @@ def run(body):
         record['learning_coverage']=outcomes['online'].get('learning_coverage')
         if 'marketing_context' in outcomes['online']:
             record['marketing_context']=outcomes['online']['marketing_context']
+        elif outcomes.get('payment_days'):
+            try:
+                marketing = subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
+                    input=json.dumps(dict(action='marketing_context',local_date=date,
+                        outcomes=[{k:row[k] for k in ('order_key','actual_net_usd')}
+                            for row in outcomes['online']['actual_outcomes']],payment_days=outcomes['payment_days'])),
+                    text=True,capture_output=True,timeout=190,cwd='/opt/fc27-cloud-browser')
+                record['marketing_context']=json.loads(marketing.stdout) if not marketing.returncode else marketing_unavailable('shared_order_facts_process_failed')
+            except subprocess.TimeoutExpired:
+                record['marketing_context']=marketing_unavailable('shared_order_facts_timeout')
+            except (OSError,ValueError):
+                record['marketing_context']=marketing_unavailable('shared_order_facts_process_failed')
         record['actual_profit_summary']=profit_summary(outcomes['online'],db.all('actual_price_windows'),db.all('operations'),date,(db.active_plan() or {}).get('plan_id'))
         db.put('metadata',key,record)
     export_shadow_snapshot(db,force=True)
@@ -266,6 +321,16 @@ def run_hourly(body):
 
 
 if __name__=='__main__':
-    data=json.load(__import__('sys').stdin)
-    print(json.dumps(collect_hourly_outcomes(data['windows'],data.get('previous',{})) if data.get('action')=='hourly_outcomes'
-                     else collect_outcomes(data['local_date'],data['windows'],shared_order_facts=data.get('shared_order_facts'))))
+    data=json.load(sys.stdin)
+    if data.get('action') == 'marketing_context':
+        try:
+            result=collect_marketing_context(data['local_date'],data['outcomes'],data['payment_days'])
+        except (ImportError,OSError,sqlite3.Error,ValueError,KeyError,TypeError) as error:
+            reason = str(error) if isinstance(error,ValueError) and str(error) in (
+                'es_publication_changed','es_publication_timezone') else type(error).__name__
+            result=marketing_unavailable('shared_order_facts_read_failed:'+reason)
+    elif data.get('action')=='hourly_outcomes':
+        result=collect_hourly_outcomes(data['windows'],data.get('previous',{}))
+    else:
+        result=collect_outcomes(data['local_date'],data['windows'],shared_order_facts=data.get('shared_order_facts'))
+    print(json.dumps(result))

@@ -1402,7 +1402,7 @@ def incremental_window_context(session,pages,windows,now,previous):
     return dict(state=state,online=online)
 
 
-def online_window_context(session, pages, windows, now, archived):
+def online_window_context(session, pages, windows, now, archived, *, payment_days=None):
     if not windows:
         return dict(budget_settlements=[], training_observations=[], learning_coverage=dict(status='await_first_confirmed_exposure', price_windows=0))
     try:
@@ -1448,7 +1448,14 @@ def online_window_context(session, pages, windows, now, archived):
                 if str(log.get('order_no')) not in group or str(log.get('site_id')) != '266':
                     raise ValueError('window_coupon_log_scope_invalid')
                 logs[str(log['order_no'])].append(log)
-        return bind_price_windows(rows, valid, now, archived=archived, coupon_logs=logs)
+        online = bind_price_windows(rows, valid, now, archived=archived, coupon_logs=logs)
+        if payment_days is not None:
+            bound = {row['order_key'] for row in online['actual_outcomes']}
+            for row in rows:
+                key = hashlib.sha256(('FC27:266:' + str(row.get('order_no'))).encode()).hexdigest()
+                if key in bound:
+                    payment_days[key] = row['paytime'][:10]
+        return online
     except (ValueError, OSError, KeyError, TypeError) as error:
         return dict(budget_settlements=[], training_observations=[], learning_coverage=dict(status='price_binding_coverage_pending',
             price_windows=len(windows), reason=str(error) if isinstance(error, ValueError) else type(error).__name__, query_complete=False))
