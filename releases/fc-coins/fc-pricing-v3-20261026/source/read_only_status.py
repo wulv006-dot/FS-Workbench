@@ -89,7 +89,16 @@ def assess(value):
         collection.get('storefront_run_id') != collection.get('run_id')):
         issues.append({'level':'warning','code':'latest_attempt_or_monitor_run_unverified'})
     publication = value.get('publication',{})
-    if (publication.get('status') != 'matched' or len(publication.get('platforms',[])) != 3 or
+    if publication.get('basis') == 'confirmed_admin_site266_curve':
+        rows = publication.get('platforms', [])
+        for row in rows:
+            if row.get('status') == 'mismatch' and row.get('platform') in ('PS', 'XBOX', 'PC'):
+                issues.append({'level':'critical', 'code':'coin_v3_public_price_mismatch:' + row['platform'],
+                               'platform':row['platform']})
+        if (len(rows) != 3 or {row.get('platform') for row in rows} != {'PS', 'XBOX', 'PC'}
+                or any(row.get('status') not in ('matched', 'mismatch') for row in rows)):
+            issues.append({'level':'warning','code':'coin_v3_public_observation_pending'})
+    elif (publication.get('status') != 'matched' or len(publication.get('platforms',[])) != 3 or
         {r.get('platform') for r in publication.get('platforms',[])} != {'PS','XBOX','PC'} or
         any(r.get('status') != 'matched' for r in publication.get('platforms',[]))):
         mismatch=(publication.get('status')=='mismatch' or
@@ -180,8 +189,8 @@ def collect():
                       'reference_sources':refs,
                       'cost_platforms':[r.get('platform') for r in collection.get('costs',[])],
                       'storefront_run_id':monitor['storefront'].get('collection_run_id')}},
-        'publication': {'status':monitor['publication'].get('status'),
-                        'platforms':[{k:r.get(k) for k in ('platform','status','public_checked_at')}
+        'publication': selected(monitor['publication'], ('status', 'basis')) |
+                       {'platforms':[{k:r.get(k) for k in ('platform','status','public_checked_at')}
                                      for r in monitor['publication'].get('platforms',[])]},
         'recent_auto_jobs': summary_jobs(ROOT/'jobs','auto_cycle'),
         'gallery': {'config': selected(cfg,('revision','updated_at','pause_reason')),

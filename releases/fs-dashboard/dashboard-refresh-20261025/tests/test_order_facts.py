@@ -53,6 +53,13 @@ class OrderFacts(unittest.TestCase):
                 [attribution(channel='Direct'),attribution(channel='PPC')],[]):
    row=build([order()],attrs)['orders'][0]
    self.assertEqual(row['channel'],'Direct' if len(attrs)==1 and attrs[0]['归因渠道']=='Direct' else 'unknown')
+ def test_customer_flag_conflict_is_distinct_from_a_missing_es_flag(self):
+  first=attribution();second=copy.deepcopy(first)
+  first['是否新客户']='是';second['是否新客户']='否'
+  for rows,flag,conflict in (([],None,False),([first],'是',False),([first,second],None,True)):
+   fact=build([order()],rows)['orders'][0]
+   self.assertEqual(fact['pinned_customer_flag'],flag)
+   self.assertIs(fact['pinned_customer_flag_conflict'],conflict)
  def test_conflicting_parent_money_or_delivery_revision_explicitly_rejected(self):
   with self.assertRaisesRegex(ValueError,'admin_order_revision_conflict'):build([order(),order(cny='351')])
   with self.assertRaisesRegex(ValueError,'cost_record_revision_conflict'):build([order()],costs=[delivery(),delivery(cost='151')])

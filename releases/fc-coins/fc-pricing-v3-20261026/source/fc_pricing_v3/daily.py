@@ -66,7 +66,7 @@ def exposure_scope(windows,date):
         attribution='only_orders_bound_by_creation_and_actual_price_are_effect_samples; full_day_orders_are_business_context; range_is_not_continuous_coverage_proof')
 
 
-def collect_outcomes(date,windows,*,shared_order_facts=None):
+def collect_outcomes(date,windows,*,shared_order_facts=None,use_shared_customer_flags=False):
     """Admin/Order business reads only; no competitor, public price or write endpoint."""
     sys.path.insert(0,'/opt/fs-hermes-fc')
     from channel_source import pages,COLLECTOR
@@ -83,7 +83,11 @@ def collect_outcomes(date,windows,*,shared_order_facts=None):
     learning_rows,_=_period_population(history_period(now))
     learning_rows = dict(learning_rows or {}, **(selected or {}))
     payment_days={}
-    try:online=online_window_context(session,pages,windows,now,learning_rows or {},payment_days=payment_days)
+    options = dict(payment_days=payment_days)
+    if use_shared_customer_flags:
+        sys.path.insert(0,'/opt/fs-exact-range-20261001')
+        options['use_shared_customer_flags'] = True
+    try:online=online_window_context(session,pages,windows,now,learning_rows or {},**options)
     finally:session.close()
     if shared_order_facts is not None:
         from .business_source import attach_shared_marketing
@@ -265,8 +269,10 @@ def run(body):
         phase='created',price_write_performed=False,automatic_strategy_switch=False)
     if record.get('phase')=='completed':return record
     if 'actual' not in record:
+        plan = db.active_plan() or {}
         process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
-            input=json.dumps(dict(local_date=date,windows=db.all('actual_price_windows'))),text=True,
+            input=json.dumps(dict(local_date=date,windows=db.all('actual_price_windows'),
+                use_shared_customer_flags=plan.get('write_protocol') == CURVE_WRITE_PROTOCOL)),text=True,
             capture_output=True,timeout=600,cwd='/opt/fc27-cloud-browser')
         if process.returncode:raise ValueError('pricing_daily_outcome_collection_failed')
         outcomes=json.loads(process.stdout)
@@ -339,11 +345,13 @@ def run(body):
     return record
 
 
-def collect_hourly_outcomes(windows,previous):
+def collect_hourly_outcomes(windows,previous,*,use_shared_customer_flags=False):
     import sys
     sys.path.insert(0,'/opt/fs-hermes-fc')
     from channel_source import pages,COLLECTOR
     sys.path.insert(0,COLLECTOR)
+    if use_shared_customer_flags:
+        sys.path.insert(0,'/opt/fs-exact-range-20261001')
     import p2pah_auth as auth
     from .business_source import incremental_window_context
     session=auth.Session()
@@ -351,7 +359,8 @@ def collect_hourly_outcomes(windows,previous):
         token,_=auth.admin_token_from_service()
         if not token:raise ValueError('pricing_hourly_shared_admin_unavailable')
         session.bind_admin_token(token);del token
-        return incremental_window_context(session,pages,windows,datetime.now(timezone.utc),previous)
+        return incremental_window_context(session,pages,windows,datetime.now(timezone.utc),previous,
+                                          use_shared_customer_flags=use_shared_customer_flags)
     finally:session.close()
 
 
@@ -373,7 +382,8 @@ def run_hourly(body):
     if not windows:return dict(status='await_first_confirmed_exposure')
     key=('curve-outcome-source:' if curve else 'smart-outcome-source:')+policy_suffix(plan)
     process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
-        input=json.dumps(dict(action='hourly_outcomes',windows=windows,previous=db.get('metadata',key) or {})),
+        input=json.dumps(dict(action='hourly_outcomes',windows=windows,previous=db.get('metadata',key) or {},
+            use_shared_customer_flags=curve)),
         text=True,capture_output=True,timeout=600,cwd='/opt/fc27-cloud-browser')
     if process.returncode:raise ValueError('pricing_hourly_outcome_collection_failed')
     result=json.loads(process.stdout)
@@ -403,7 +413,9 @@ if __name__=='__main__':
                 'es_publication_changed','es_publication_timezone') else type(error).__name__
             result=marketing_unavailable('shared_order_facts_read_failed:'+reason)
     elif data.get('action')=='hourly_outcomes':
-        result=collect_hourly_outcomes(data['windows'],data.get('previous',{}))
+        result=collect_hourly_outcomes(data['windows'],data.get('previous',{}),
+            use_shared_customer_flags=data.get('use_shared_customer_flags',False))
     else:
-        result=collect_outcomes(data['local_date'],data['windows'],shared_order_facts=data.get('shared_order_facts'))
+        result=collect_outcomes(data['local_date'],data['windows'],shared_order_facts=data.get('shared_order_facts'),
+            use_shared_customer_flags=data.get('use_shared_customer_flags',False))
     print(json.dumps(result))

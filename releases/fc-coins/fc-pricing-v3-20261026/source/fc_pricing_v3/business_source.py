@@ -6,6 +6,7 @@ import hashlib
 import html
 import json
 import re
+import sqlite3
 
 from .financial import fingerprint
 
@@ -1133,7 +1134,32 @@ def _window_regular(window, action, order, platform, quantity):
     return total
 
 
-def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None, query_complete=True,customer_keys=None,shared_order_facts=None):
+def attach_window_customers(outcomes, bound_customers, orders, archived, customer_keys, shared_customers=None):
+    customer_rows = {sn: archived[sn] for sn in bound_customers if archived.get(sn)}
+    if shared_customers is not None:
+        flags, proof = shared_customers
+        for sn, flag in flags.items():
+            if sn in bound_customers:
+                prior = (customer_rows.get(sn) or [{}])[0]
+                customer_rows[sn] = [dict(prior, customerType=flag, paidAt=orders[sn]['paytime'])]
+    identities, assignments, coverage = _customer_assignments(customer_rows, orders, customer_keys)
+    if len(customer_rows) != len(bound_customers):
+        coverage['status'] = 'partial'
+        coverage['missing_archive_orders'] = len(bound_customers) - len(customer_rows)
+    for sn, index in bound_customers.items():
+        row = (customer_rows.get(sn) or [{}])[0]
+        identity = identities.get(sn)
+        outcomes[index].update(customer_key=identity,
+            new_customer=(assignments.get(identity) == sn) if identity and row.get('customerType') in ('新客','老客') else None)
+    if shared_customers is not None:
+        coverage['shared_es'] = dict(proof,
+            matched_flags=sum(sn in bound_customers and flag is not None for sn, flag in flags.items()),
+            flag_conflicts=sum(sn in bound_customers and flag is None for sn, flag in flags.items()))
+        coverage['source_sha256'] = fingerprint(dict(customer_coverage=coverage['source_sha256'], shared_es=coverage['shared_es']))
+    return coverage
+
+
+def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None, query_complete=True,customer_keys=None,shared_order_facts=None, shared_customers=None):
     """Server-local anonymous settlement records and window aggregates, never customer identities."""
     from .engine import replay_promotion
     from .platforms import action_key
@@ -1274,15 +1300,8 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             coverage=dict(created_epoch_display_verified=True, unique_regular_price_window=True,
                           cost='same_order_Order_shipping_CNY_margin_at_actual_USD_receipt' if contribution is not None else 'pending; reservation_retained',
                           reference='same_realized_code_or_points_path; cash_residual_within_one_cent')))
-    customer_rows = {sn: archived[sn] for sn in bound_customers if archived.get(sn)}
-    identities, new_assignments, customer_coverage = _customer_assignments(customer_rows, orders_by_id,customer_keys)
-    if len(customer_rows) != len(bound_customers):
-        customer_coverage['status'] = 'partial'
-        customer_coverage['missing_archive_orders'] = len(bound_customers) - len(customer_rows)
-    for sn,index in bound_customers.items():
-        old=(archived.get(sn) or [None])[0]
-        actual_outcomes[index].update(customer_key=identities.get(sn),
-            new_customer=(new_assignments.get(identities[sn]) == sn) if sn in identities and old and old.get('customerType') in ('新客','老客') else None)
+    customer_coverage = attach_window_customers(actual_outcomes, bound_customers, orders_by_id, archived,
+                                                customer_keys, shared_customers)
     training = []
     curve_training = []
     for window in valid:
@@ -1439,7 +1458,48 @@ def hourly_accounting(rows, logs, start, now, cost_since):
                 cost_source=cost,cost_cursor_at=cost.get('generatedAt') if covered else None)
 
 
-def incremental_window_context(session,pages,windows,now,previous):
+def shared_customer_flags(rows, *, publication_id=None):
+    """Read native new/old labels for these orders from one published ES revision."""
+    payments = {str(row['order_no']): row['paytime'] for row in rows if row.get('order_no') and row.get('paytime')}
+    if not payments:
+        return {}, dict(status='unavailable', reason='no_orders')
+    try:
+        from shared_es_facts import latest_publication, read
+        from order_facts_source import project_order_facts
+        pin = latest_publication() if publication_id is None else None
+        if publication_id is None and not pin:
+            return {}, dict(status='unavailable', reason='no_shared_publication')
+        publication_id = publication_id or pin['publication_id']
+        days = {paid[:10] for paid in payments.values()}
+        if pin:
+            days = {day for day in days if day < pin['cutoff']}
+        if not days:
+            return {}, dict(status='unavailable', reason='no_closed_paid_days', publication_id=publication_id)
+        scope = dict(start=min(days), end=max(days), site_id='266', gid='1327')
+        shared = read(scope, publication_id=publication_id)
+        proof = {key: shared['coverage'].get(key) for key in ('publication_id', 'data_revision', 'day_revisions')}
+        if proof['publication_id'] != publication_id or not proof['day_revisions']:
+            return {}, dict(status='unavailable', reason='no_published_paid_days', publication_id=publication_id)
+        projected = project_order_facts(shared['rows'], shared['dataset'], [], scope=scope,
+            source_coverage=shared['coverage'], identity_catalog=shared['identity_catalog'])
+        history = {row['order_no']: (row.get('tracking') or {}).get('customerType') for row in shared['rows']}
+        flags = {}
+        for fact in projected['orders']:
+            sn, paid = fact['order_no'], fact['paid_at']
+            if (fact['site_id'] != '266' or fact['gid'] != '1327' or sn not in payments
+                    or paid != payments[sn] or paid[:10] not in proof['day_revisions']):
+                continue
+            flag = {'是':'新客', '否':'老客'}.get(fact.get('pinned_customer_flag'), history.get(sn))
+            if fact.get('pinned_customer_flag_conflict'):
+                flags[sn] = None
+            elif flag in ('新客','老客'):
+                flags[sn] = flag
+        return flags, dict(proof, status=shared['status'])
+    except (ImportError, OSError, sqlite3.Error, ValueError, KeyError, TypeError) as error:
+        return {}, dict(status='unavailable', reason=type(error).__name__, publication_id=publication_id)
+
+
+def incremental_window_context(session,pages,windows,now,previous, *, use_shared_customer_flags=False):
     """Increment paid membership; keep the full private cohort and rebind late costs to original windows."""
     from copy import deepcopy
     valid=[w for w in windows if w.get('origin') in OBSERVED_PRICE_WINDOWS and w.get('mode')=='production']
@@ -1515,8 +1575,10 @@ def incremental_window_context(session,pages,windows,now,previous):
         not str(row.get('status_format','')).startswith('已退款') and not (archived.get(row['order_no']) or [{}])[0].get('testOrder') and
         any((archived.get(row['order_no']) or [{}])[0].get(key) is None for key in ('costCny','saleCny'))})
     filtered=[row for row in live if not (archived.get(row['order_no']) or [{}])[0].get('testOrder')]
+    shared_customers = shared_customer_flags(filtered) if use_shared_customer_flags else None
     online=bind_price_windows(filtered,valid,now,archived=archived,coupon_logs=logs,
-                customer_keys={row['order_no']:row['customer_key'] for row in filtered if row.get('customer_key')})
+                customer_keys={row['order_no']:row['customer_key'] for row in filtered if row.get('customer_key')},
+                shared_customers=shared_customers)
     online['learning_coverage']['gap_events'].extend(dict(gap,group=None,amount_usd=str(amount(gap['amount_usd'])) if amount(gap['amount_usd']) is not None else None) for gap in missing.values())
     online['learning_coverage'].update(refresh_mode='incremental_paid_membership_and_all_saved_outcome_rebinding',
         cost_source=accounting['cost_source'],
@@ -1529,7 +1591,7 @@ def incremental_window_context(session,pages,windows,now,previous):
     return dict(state=state,online=online)
 
 
-def online_window_context(session, pages, windows, now, archived, *, payment_days=None):
+def online_window_context(session, pages, windows, now, archived, *, payment_days=None, use_shared_customer_flags=False):
     if not windows:
         return dict(budget_settlements=[], training_observations=[], learning_coverage=dict(status='await_first_confirmed_exposure', price_windows=0))
     try:
@@ -1575,7 +1637,8 @@ def online_window_context(session, pages, windows, now, archived, *, payment_day
                 if str(log.get('order_no')) not in group or str(log.get('site_id')) != '266':
                     raise ValueError('window_coupon_log_scope_invalid')
                 logs[str(log['order_no'])].append(log)
-        online = bind_price_windows(rows, valid, now, archived=archived, coupon_logs=logs)
+        shared_customers = shared_customer_flags(rows) if use_shared_customer_flags else None
+        online = bind_price_windows(rows, valid, now, archived=archived, coupon_logs=logs, shared_customers=shared_customers)
         if payment_days is not None:
             bound = {row['order_key'] for row in online['actual_outcomes']}
             for row in rows:
