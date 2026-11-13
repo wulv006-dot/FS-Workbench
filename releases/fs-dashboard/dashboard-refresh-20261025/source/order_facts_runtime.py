@@ -5,6 +5,7 @@ from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
+import re
 import sqlite3
 import time
 from urllib.parse import urlencode
@@ -19,7 +20,9 @@ FIELDS = ('id','order_no','site_id','site','gid','game_format','paytime','pay_st
           'status_format','amount_usd_format','amount_rmb_format')
 MARKETING_FIELDS = ('discount_code','recommend_uid','country_code','country','paytype_display','paytype','device')
 PROMOTION_CHANNELS = {'seo':'SEO','谷歌广告':'PPC','kol':'Referral','tiktok':'Referral','tt':'Referral'}
-ATTRIBUTION_RULE = 'order-channel-priority-20261113-v5'
+ATTRIBUTION_RULE = 'order-channel-priority-20261113-v6'
+GOOGLE_AD_CAMPAIGN = re.compile(r'google-(?:[a-z0-9]+-)+(?:sn|pmax|dem|discovery|video)-[a-z0-9]+(?:-[a-z0-9]+)*',re.I)
+GOOGLE_AD_CATALOG_NAMES = frozenset(('google-arcr-items','google-arcr-blueprints'))
 
 
 def admin_orders(scope, request, *, marketing=False):
@@ -162,10 +165,22 @@ def dashboard_mapping():
     return Attribution(json.loads(raw), [], json.loads(directory)), hashlib.sha256(raw+b'\0'+directory).hexdigest()
 
 
+def google_ad_label(source):
+    if not isinstance(source,str):
+        return None
+    # Keep the marketing label, never a query string or its parameter values.
+    label = re.split(r'[?&]',source,maxsplit=1)[0].strip()
+    if (len(label)<=80 and (GOOGLE_AD_CAMPAIGN.fullmatch(label)
+            or label.casefold() in GOOGLE_AD_CATALOG_NAMES)):
+        return label
+    return None
+
+
 def tracked_channel(source):
-    # Existing 2026-10-22 exact PMax campaign identity. A generic Google tag is ambiguous.
+    if google_ad_label(source):
+        return 'PPC'
     label = source.strip().casefold() if isinstance(source,str) else ''
-    return {'google-fc27-pmax-coins-us':'PPC','direct':'Direct','(direct)':'Direct','直接访问':'Direct'}.get(label)
+    return {'direct':'Direct','(direct)':'Direct','直接访问':'Direct'}.get(label)
 
 
 def pinned_source_correction(order, observed):
@@ -224,7 +239,8 @@ def effective_attribution(order, native, archived, mapping):
         project = observed['discountOperatorProject']
         code_mapped = True
     promotion_channel = PROMOTION_CHANNELS.get((project or '').casefold())
-    source_channel = tracked_channel(source)
+    source_label = google_ad_label(source) or source
+    source_channel = tracked_channel(source_label)
     native_channel = order['channel'] if order['channel']!='unknown' else None
     promotion_detail = project if project not in (None,'未归类','推荐人渠道待核','无推广归属','待核：映射冲突') else None
     code_detail = ('广告投放' if promotion_detail == '谷歌广告' else promotion_detail) if code_mapped else None
@@ -243,7 +259,7 @@ def effective_attribution(order, native, archived, mapping):
     elif source_conflict:
         channel, basis, detail = 'pending_classification', 'order_source_conflict', None
     elif source_channel:
-        channel, basis, detail = source_channel, 'order_source', source
+        channel, basis, detail = source_channel, 'order_source', source_label
         if channel=='Direct' and direct_detail:
             detail = direct_detail
     elif has_code:
@@ -259,7 +275,7 @@ def effective_attribution(order, native, archived, mapping):
         channel, basis, detail = 'unknown', 'unknown', None
     if channel=='pending_classification' and uid:
         channel, basis, detail = 'Direct', 'pending_promoter_distribution', '分销'
-    return dict(channel=channel, basis=basis, detail=detail, order_source=source,
+    return dict(channel=channel, basis=basis, detail=detail, order_source=source_label, order_source_raw=source,
         source_conflict=source_conflict,
         conflict=native_conflict or source_conflict or (has_code and promotion_conflict)
             or len({c for c in (native_channel,source_channel,promotion_channel) if c})>1,
