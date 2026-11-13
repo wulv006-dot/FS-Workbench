@@ -29,6 +29,7 @@ const server=http.createServer((req,res)=>{
       effective_scope:Object.fromEntries(['start','end','site_id','gid'].map(k=>[k,url.searchParams.get(k)])),
       totals,channels:empty?[]:selected?[{channel:'unknown',...totals}]:[{channel:'Direct',...summary(1)},{channel:'unknown',...summary(1,1)}],
       coverage:{unlinked_admin_rows:0,unlinked_attribution_rows:3},
+      options:{games:[['1327','FC27'],['456','Diablo 4'],['1329','AION2']]},
       revisions:{attribution:{publication_id:state==='revision'?'revision-2':'revision-1'}}}));return;
   }
   if(url.pathname.endsWith('runtime.js')){
@@ -72,6 +73,12 @@ const server=http.createServer((req,res)=>{
     assert.deepEqual(Object.keys(requests.at(-1)).sort(),['channel','end','gid','mode','refresh','site_id','start']);
     assert.equal(requests.at(-1).refresh,'1');
     assert.equal(requests.at(-1).site_id,'266');
+    assert.equal(await page.locator('[name=gid] option[value="456"]').textContent(),'Diablo 4');
+    await page.locator('[name=gid]').selectOption('456');
+    await page.waitForFunction(()=>document.querySelector('#scope').textContent.includes('Diablo 4'));
+    assert.equal(requests.at(-1).gid,'456');
+    await page.locator('[name=gid]').selectOption('1327');
+    await page.waitForFunction(()=>document.querySelector('#scope').textContent.includes('FC27'));
     state='deferred';await page.locator('#refresh').click();
     await page.locator('#status').filter({hasText:'60 秒后可再次刷新'}).waitFor();
     assert.equal(await page.locator('#results').isVisible(),true);

@@ -41,7 +41,7 @@
 
 ## 续工优先级与真实阻碍
 
-1. 主控核本提交及现场变化，继续 D5 的 connector schema/adapter、知识及 F5 唯一 `business_source.py` 接线。D4 的 `order_reader` 目前是明确注入点，生产 main 尚未绑定；不能把合成 runtime→Store→snapshot 通过当成自然夜间消费。
+1. 主控核本提交及现场变化，继续 D5 的正式知识和 F5 唯一 `business_source.py` 接线；connector 候选增量见下节。D4 的 `order_reader` 目前是明确注入点，生产 main 尚未绑定；不能把合成 runtime→Store→snapshot 通过当成自然夜间消费。
 2. D2 的付款记录是当前读取、ES是固定历史发布；状态修订差异保持，不强拼修订。补可信整单成本完成来源，不能用发货时间窗完整标记代替。
 3. F0 编译/报价、F4 非线性保存/传播/Order投影需要原生处理器或已有边界回执：自定义数量/步长/上限、非100折扣、购物车多件、舍入、低档到高档传播尚未证明。不得以真实改价试错取得这些证据。
 4. F1仍有100K硬编码：Lootbar/U7/Arab adapters、quantity_scope、registry、coverage键、selective_sources、engine需要统一适配。现有fixture未提供大档响应，不能仅放开一个校验。183入口 `/opt/fs-fc-collector/code/entry.py`，187控制入口 `/opt/fs-fc-control/code`；renderer已有 `/opt/d4follow/_qd_render` 共享RPG目录，必须保护，当前未改部署或routing。
@@ -56,3 +56,25 @@
 FC：同 dispatcher 的 `releases/fc-coins/fc-pricing-v3-20261026/tests`，模块 `test_price_curve_v6,test_cost_model_v6`。SEO：`test_order_source,test_runtime,test_contracts,test_daily_snapshot,test_estimate`；Windows需明确 UTF-8 子进程及可用 tzdata。
 
 183：`/var/tmp/fs-d2-integration-f15ef6c/work`，现有 `python:3.9.18-slim`，断网、nobody、只读根目录、0.25 CPU、256 MiB、128 MiB tmpfs，无生产挂载；27+18项零失败/错误/跳过。测试包SHA `c294328a663a6f2dcf103d0872c973fccd0c059428161fd550621767e48fef3d`。实际生产基础镜像未验。完整本地驱动和日志在工作树 `.agent_runtime/d2-integration-*`，不包含原始订单。
+
+## D5 连接器候选增量
+
+基线检查点 `c09a8b4c8578923ee6a2e3b28a731aae3ad56e98` 后，主控继续完成：
+
+- 原 `fs_mcp_connector/catalog.json` 新增 `channels.facts`，复用原渠道 URL、资源授权、当前用户 cookie 和通用只读 adapter；固定 `mode=order-facts`，闭合 schema 只允许日期/site/gid/channel/refresh，调用者不能注入完整成本证明、修订或其他 mode。
+- `business.summary` 增加已实现的 `country_code` 与 `grain=minute`。保留 Admin-only 和原生/本地复购区分；schema 开放不代表生产字段已部署。
+- 通用 adapter 原样保留 202/pending、unknown、null、覆盖、请求/有效范围和修订；SEO 原快照入口没有投影白名单，新增字段无需第二套 adapter。没有添加任意 HTTP 代理或模型调用。
+- 原 data_methods 两条指南增加新归因与辅助码/券的区别、成本缺失及候选未部署边界；未修改正式知识 catalog、Notion 或生效教材。
+
+相关 backend/catalog/data_methods/response_view 共 **47项通过，零失败/错误/跳过**。首轮两项失败分别是候选 provenance 未采用既有 `not_verified` 标记、固定操作计数仍为113；修正标记并把计数更新为新增操作后的114，同时明确断言新操作存在，没有放宽原权限或内容检查。日志 `.agent_runtime/d5-connector-tests.log`。正式CI、Linux运行、云连接器可见性和真实模型消费未验。原知识影响识别复用同入口，结果另存证据；不发布、不激活。
+
+## 独立复核后的两项 P2 修正
+
+老D经主控转交对 `c09a8b4` 的两项发现，本次最小修复：
+
+1. 公共 `revisions.cost` 白名单保留成本 source_revision、generated_at、period、status、整单及发货窗完整性；相同Admin修订下成本20→40不再失去对应成本版本。保留毛利未知，未新增采集。针对性回归也检查私有原单字段不透出。
+2. 原有 PROFILES 的 Admin游戏ID/名称直接传入新接口 options.games；新视图首次响应即可填游戏，不依赖先访问旧模式，空订单集合仍有目录。Playwright初次新模式选择Diablo 4并确认gid=456，再返回FC27通过。
+
+Windows与183 Python3.9增量 **18项零失败/错误/跳过**，直接新渠道Playwright通过；没有重跑原无关全量分组。183增量包SHA `e72e00bff8c7eeee5d2b20791d7bd411f7fd8760550137abe2371223da4df2c5`。首轮旧测试还断言不含cost字段，以及游戏切换后的最后请求仍应带refresh，均按新已明确合同修正精确预期，并保留原强刷断言。连接器另补成本修订不丢的定向断言。
+
+老D另报告FC两个helper四组合成探针通过、与作者Linux包对应文件逐字节一致；这是独立转交证据，不提升原生报价/大档优惠/18%或25%证明状态。

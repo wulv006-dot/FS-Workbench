@@ -368,7 +368,8 @@ if HERMES is not None:
  ACTUAL_PROFITS=ActualProfitService(CHANNELS,PROFILE_MAP)
  from order_facts_api import OrderFactsService
  from order_facts_runtime import collect as collect_order_facts
- ORDER_FACTS=OrderFactsService(CHANNELS,collect_order_facts)
+ ORDER_FACTS=OrderFactsService(CHANNELS,collect_order_facts,
+  games=[(str(row[3]),row[1]) for row in PROFILES if str(row[3]).isdigit() and int(row[3])>0])
 ADVISOR=Advisor(snapshot,get_range,FC_DAILY,CACHE/'advisor',deep=DEEP)
 USERS=None;USERS_ERROR=None
 try:

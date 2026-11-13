@@ -209,6 +209,7 @@ function modeControls() {
 }
 function renderFacts() {
   const s = data.totals, scope = data.effective_scope;
+  selectOptions('gid', data.options.games, '全部游戏');
   $('legacy-details').hidden = true;
   $('source-attribution-title').textContent = '后台归因渠道 · 同范围去重订单';
   $('scope').textContent = `${scope.start} — ${scope.end} · MMOEXP · ${field('gid').selectedOptions[0].text} · ${field('channel').selectedOptions[0].text} · Admin付款订单`;

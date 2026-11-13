@@ -37,7 +37,7 @@ def selection(params):
     return q
 
 
-def public(data, q):
+def public(data, q, games=()):
     """Never copy raw inputs, original order keys, or arbitrary source metadata."""
     scope = {k: q[k] for k in ('start', 'end', 'site_id', 'gid')}
     if any(data.get('input_scope', {}).get(k) != v for k, v in scope.items()):
@@ -54,6 +54,13 @@ def public(data, q):
     source = data.get('source_coverage', {})
     revisions = {k: source[k] for k in ('source_revision', 'data_revision', 'publication_id')
                  if type(source.get(k)) in (str, int)}
+    cost = source.get('cost', {})
+    revisions['cost'] = {k:cost[k] for k in ('source_revision','generated_at','status')
+                         if isinstance(cost.get(k),str)}
+    revisions['cost']['period'] = {k:v for k,v in (cost.get('period') or {}).items()
+                                    if k in ('start','end','until') and isinstance(v,str)}
+    revisions['cost']['order_cost_complete'] = cost.get('order_cost_complete') is True
+    revisions['cost']['shipment_window_complete'] = cost.get('shipment_window_complete') is True
     attribution = source.get('attribution', {})
     revisions['attribution'] = {k: attribution[k] for k in
         ('source_revision', 'data_revision', 'publication_id', 'identity_revision', 'available_at')
@@ -72,20 +79,21 @@ def public(data, q):
                 channel_filter='derived_order_facts', coverage_scope=scope,
                 totals=summarize(selected),
                 channels=[dict(channel=k, **summarize(v)) for k, v in sorted(groups.items())],
-                coverage=coverage, revisions=revisions,
+                coverage=coverage, revisions=revisions, options={'games':deepcopy(list(games))},
                 admin_complete=source.get('admin_complete') is True,
                 readonly=True, private=True)
 
 
 class OrderFactsService:
-    def __init__(self, channels, source, clock=time.monotonic):
+    def __init__(self, channels, source, clock=time.monotonic, *, games=()):
         self.channels, self.source, self.clock = channels, source, clock
+        self.games = deepcopy(list(games))
         self.entries = {}
 
     def capture(self, key, q):
         try:
             with self.channels.admission():
-                value = public(self.source({k: q[k] for k in ('start', 'end', 'site_id', 'gid')}), q)
+                value = public(self.source({k: q[k] for k in ('start', 'end', 'site_id', 'gid')}), q, self.games)
             state = 'available'
         except PermissionError:
             value, state = None, 'denied'

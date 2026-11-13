@@ -12,7 +12,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/'source'), str(ROOT.parent/'cache-archive-retention-20261025/source')]
 from order_facts import build_order_facts
-from order_facts_api import OrderFactsService, selection
+from order_facts_api import OrderFactsService, selection, public
 
 DAY = (datetime.now(timezone(timedelta(hours=8))).date()-timedelta(days=2)).isoformat()
 
@@ -40,6 +40,32 @@ def facts(scope):
 
 
 class OrderFactsAPI(unittest.TestCase):
+    def test_cost_revision_and_window_survive_with_same_admin_revision(self):
+        query=selection(params());scope={k:v for k,v in query.items() if k!='channel'}
+        outputs=[]
+        for revision,observed in [('cost-r1','20'),('cost-r2','40')]:
+            value=facts(scope)
+            value['source_coverage']['cost']=dict(source_revision=revision,generated_at=DAY+'T10:00:00+08:00',
+                period={'start':DAY,'end':DAY,'until':DAY+' 10:00','raw':'PRIVATE'},status='observed_only',
+                shipment_window_complete=True,order_cost_complete=False,raw_order='PRIVATE')
+            value['orders'][0]['observed_cost_cny']=observed
+            outputs.append(public(value,query))
+        self.assertEqual(outputs[0]['revisions']['source_revision'],outputs[1]['revisions']['source_revision'])
+        self.assertEqual([v['revisions']['cost']['source_revision'] for v in outputs],['cost-r1','cost-r2'])
+        self.assertEqual([v['totals']['observed_cost_cny'] for v in outputs],['20','40'])
+        for value in outputs:
+            self.assertFalse(value['revisions']['cost']['order_cost_complete'])
+            self.assertEqual(value['revisions']['cost']['period']['until'],DAY+' 10:00')
+            self.assertIsNone(value['totals']['procurement_gross_cny'])
+            self.assertNotIn('PRIVATE',json.dumps(value))
+
+    def test_first_response_exposes_existing_game_directory_even_for_empty_cohort(self):
+        query=selection(params());scope={k:v for k,v in query.items() if k!='channel'}
+        value=facts(scope);value['orders']=[]
+        result=public(value,query,[('1327','FC27'),('456','Diablo 4')])
+        self.assertEqual(result['options']['games'],[('1327','FC27'),('456','Diablo 4')])
+        self.assertEqual(result['totals']['orders'],0)
+
     def setUp(self):
         self.now = 1000
         self.calls = []
@@ -78,7 +104,8 @@ class OrderFactsAPI(unittest.TestCase):
         self.assertEqual(code,200)
         self.assertEqual(value['totals']['orders'],2)
         self.assertEqual(value['totals']['admin_paid_usd'],'100')
-        self.assertEqual(value['revisions'],{'source_revision':'revision-1','attribution':{}})
+        self.assertEqual(value['revisions'],{'source_revision':'revision-1','attribution':{},
+            'cost':{'period':{},'order_cost_complete':False,'shipment_window_complete':False}})
         rendered=json.dumps(value)
         for forbidden in ('PRIVATE-ORDER','DO-NOT-EXPOSE','order_no','unlinked_admin_rows": ['):
             self.assertNotIn(forbidden,rendered)
