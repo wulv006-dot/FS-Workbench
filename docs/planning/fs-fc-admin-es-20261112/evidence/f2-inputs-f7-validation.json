@@ -1,0 +1,28 @@
+{
+  "source_commit": "cd6d3f9c9474d5e73862686331ac32334b96230d",
+  "scope": "fc-pricing-owned-curve-v6-20261113",
+  "targets": 43,
+  "archive_sha256": "470ecadabeeb316a0c1a79e23bf3a2904a070014074ba078c0b30416c19a7ec2",
+  "archive_members_verified": true,
+  "module_copies_match": true,
+  "cost_linux": {
+    "passed": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "bundle_sha256": "056333e349ef2e29cab5e6fa619fff853c9d92bc6aa4dbd901c4fb5046d1c690"
+  },
+  "publisher_linux_initial": {
+    "run": 74,
+    "failures": 2,
+    "errors": 7,
+    "skipped": 0
+  },
+  "publisher_linux_remaining": [
+    "3 real-Git dependent cases unavailable in slim container",
+    "Lootbar stage fixture missing historical collector file; Windows evidence retained"
+  ],
+  "production_prepare": false,
+  "deployed": false,
+  "activated": false
+}
