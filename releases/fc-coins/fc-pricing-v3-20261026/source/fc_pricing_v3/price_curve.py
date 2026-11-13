@@ -112,6 +112,26 @@ def _editor_discount_input(discount):
     return .01 <= discount <= 100 and _editor_fixed(discount, 2) == discount
 
 
+def _editor_price_derived_factor(discount):
+    return (isfinite(discount) and discount >= .01 and not 100 < discount <= 100.05
+            and _editor_fixed(discount, 2) == discount)
+
+
+def _editor_price_edit_factor(subtotal, price, current):
+    """Apply the native Ke change handler to a price field."""
+    if abs(price - _editor_price(subtotal, current)) < .005:
+        return None
+    inverse = price / subtotal * 100
+    if not isfinite(inverse):
+        raise ValueError('editor_anchor_not_expressible')
+    discount = _editor_fixed(inverse, 2)
+    if 100 < discount <= 100.05:
+        discount = 100.0
+    if not _editor_price_derived_factor(discount):
+        raise ValueError('editor_anchor_not_expressible')
+    return discount
+
+
 def _editor_discount(subtotal, price):
     """Find a two-place Je input whose oe result exactly matches price."""
     # Start with Ke's inverse, including its normalization near 100. The
@@ -167,23 +187,29 @@ def _compile_forward_tiers(checked, anchors, native_contract, requested_unit):
             unit = _editor_target(requested_unit, 8)
         except ValueError as error:
             return _editor_gap(str(error), field='unit_price_usd_per_k')
-    factors = {quantity: _editor_discount(unit * float(quantity), amount) for quantity, amount in anchors.items()}
-    if any(factor is None for factor in factors.values()):
-        quantity = next(quantity for quantity, factor in factors.items() if factor is None)
-        return _editor_gap('editor_anchor_not_expressible', anchor_k=quantity, required_usd=_number(anchors[quantity]))
     factor = None
     for index, tier in enumerate(tiers):
         quantity = tier['purchase_k']
-        factor = factors.get(quantity, factor)
+        subtotal = unit * float(quantity)
+        if not isfinite(subtotal) or subtotal <= 0:
+            return _editor_gap('editor_native_number_unrepresentable', purchase_k=quantity)
+        before_factor = factor if factor is not None else float(tier['native_discount'])
+        if quantity in anchors:
+            try:
+                new_factor = _editor_price_edit_factor(subtotal, anchors[quantity], before_factor)
+            except ValueError as error:
+                return _editor_gap(str(error), anchor_k=quantity, required_usd=_number(anchors[quantity]))
+            if new_factor is not None:
+                factor = new_factor
         if factor is None:
             if requested_unit is None:
                 continue
-            preserve = _editor_discount(unit * float(quantity), float(tier['native_price_usd']))
+            preserve = _editor_discount(subtotal, float(tier['native_price_usd']))
             if preserve is None:
                 return _editor_gap('editor_untouched_tier_not_expressible', purchase_k=quantity)
             more['discount'][index] = preserve
             continue
-        amount = _editor_price(unit * float(quantity), factor)
+        amount = _editor_price(subtotal, factor)
         if amount <= 0:
             return _editor_gap('editor_tier_price_outside_reader_domain', purchase_k=tier['purchase_k'])
         more['price'][index] = amount

@@ -6,7 +6,7 @@ import hashlib
 import json
 
 from .cost_model import BASES, LAYER_FIELDS, estimate_layer, normalize_cost
-from .financial import instant, number
+from .financial import fingerprint, instant, number
 from .platforms import PLATFORMS
 
 
@@ -214,13 +214,15 @@ def _facts(revisions, as_of):
             actual = _number(row.get('actual_cost_cny'), zero=True)
             if actual != observed:
                 raise ValueError('cost_order_facts_complete_total_mismatch')
-        ordinary_records_complete = bool(proof.get('shipment_window_complete') is True
-            and coverage.get('admin_complete') is True and row.get('status') == '已完成'
-            and row.get('pay_status') == '1' and observed is not None and shipment_windows
+        ordinary_records_observed = bool(proof.get('shipment_window_complete') is True
+            and coverage.get('admin_complete') is True and row.get('pay_status') == '1'
+            and observed is not None and shipment_windows
             and len(valid) == len(records)
             and all(trade and any(lower <= trade <= upper and trade <= captured
                                   for lower, upper, captured in shipment_windows) for trade in trade_times))
-        selected[key] = (paid, actual, observed, generated, records, ordinary_records_complete)
+        ordinary_records_complete = ordinary_records_observed and row.get('status') == '已完成'
+        selected[key] = (paid, actual, observed, generated, records, ordinary_records_complete,
+                         ordinary_records_observed)
     return selected, dict(source_revision=revision, admin_revision=coverage['source_revision'],
                           available_at=available.isoformat(), generated_at=generated.isoformat(),
                           order_cost_complete=proof.get('order_cost_complete') is True,
@@ -306,18 +308,20 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
         paid = instant(row['paid_at'])
         purchase = _number(row.get('base_k'))
         bonus = _number(row.get('bonus_k'), zero=True)
-        actual, observed = None, _number(row.get('cost_cny'), zero=True)
-        if key in facts:
-            d2_paid, d2_actual, d2_observed, d2_generated, d2_records, ordinary_records_complete = facts[key]
+        quantity_only = match.get('quantity_only') is True
+        actual, observed = None, None if quantity_only else _number(row.get('cost_cny'), zero=True)
+        ordinary = None
+        if not quantity_only and key in facts:
+            d2_paid, d2_actual, d2_observed, d2_generated, d2_records, ordinary_complete, ordinary_observed = facts[key]
             if d2_paid != paid:
                 gaps['order_facts_paid_time_mismatch'] += 1
             elif d2_observed is not None and (observed is None or d2_generated >= source_at or d2_observed == observed):
                 actual, observed = (None if ordinary_forecast else d2_actual), d2_observed
                 quantity_evidence = _delivery_quantity_evidence(d2_records, purchase, bonus)
                 delivery_quantities[quantity_evidence] += 1
-                if ordinary_forecast and ordinary_records_complete and quantity_evidence == 'matches_promised_delivered_k':
+                if ordinary_forecast and ordinary_observed and quantity_evidence == 'matches_promised_delivered_k':
                     ordinary = _ordinary_delivery_total(d2_records, paid, observed)
-                    if ordinary is not None:
+                    if ordinary is not None and ordinary_complete:
                         actual = ordinary
                         ordinary_count += 1
             elif d2_observed is not None:
@@ -339,7 +343,8 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
             complete_count += 1
         days[paid.astimezone(BEIJING).date().isoformat()] += 1
         samples.append(dict(order_key=key, layer=layer, purchase_k=purchase, promised_bonus_k=bonus,
-                            cost_usd=model_amount, cost_complete=complete, cost_kind='TOTAL'))
+                            cost_usd=model_amount, cost_complete=complete, cost_kind='TOTAL',
+                            ordinary_cost_floor_verified=ordinary is not None and model_amount is not None))
     return samples, dict(start=start.isoformat(), end_exclusive=end.isoformat(),
                          paid_by_beijing_day=dict(sorted(days.items())),
                          order_delivery_quantity_evidence=dict(delivery_quantities),
@@ -448,6 +453,22 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
                                       cny_per_k=str(price), basis=quantity_basis)
                 if upper is None or current['cost_usd'] > normalize_cost(upper, quantity_basis)['unit_usd']:
                     upper, upper_basis = current, current_source
+        if upper is not None:
+            # An observed ordinary shipment can raise an existing planning bound
+            # without treating the order's unfinished cost as a complete sample.
+            partials = [row for row in samples if not row['cost_complete'] and row['ordinary_cost_floor_verified']]
+            if partials:
+                floor = max(partials, key=lambda row: (normalize_cost(row, quantity_basis)['unit_usd'], row['order_key']))
+                floor_rate = normalize_cost(floor, quantity_basis)['unit_usd']
+                if floor_rate > normalize_cost(upper, quantity_basis)['unit_usd']:
+                    upper = floor
+                    records = facts[floor['order_key']][4]
+                    upper_basis = dict(source='same_layer_ordinary_delivery_observed_partial_floor',
+                        base_upper_source=upper_basis, basis=quantity_basis, layer=dict(layer),
+                        order_cost_revision=(fact_evidence or {}).get('source_revision'),
+                        sample_ref=fingerprint(dict(order=floor['order_key'], records=[r['cost_record_id'] for r in records])),
+                        latest_delivery_at=max(_instant(record['trade_at']) for record in records).isoformat(),
+                        cny_per_basis_k=str(floor_rate))
     estimate = estimate_layer(samples, layer, quantity_basis, upper=upper)
     if ordinary_forecast and not selected['ordinary_delivery_orders']:
         source_gaps.append('ordinary_delivery_cost_sample_missing')

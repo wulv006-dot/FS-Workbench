@@ -618,7 +618,7 @@ class CurveRuntime(unittest.TestCase):
 
         # Reuse actual verifier and old writer-compatible native factor, even
         # when an unchanged small catalogue needs a higher global unit.
-        from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT, read_curve
+        from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT, curve_key, read_curve
         from test_price_curve_v6 import EDITOR_CONTRACT
         editor = dict(EDITOR_CONTRACT, price_edit_policy=FORWARD_TIER_EDIT)
         all_row = dict(current['native_payload'],id=writer.PRODUCTS['PS'][0],site_id=0)
@@ -637,11 +637,97 @@ class CurveRuntime(unittest.TestCase):
         candidate = answer['candidate']['curve']
         self.assertEqual([p['native_price_usd'] for p in candidate['tiers'] if int(p['purchase_k'])<1000],
                          [p['native_price_usd'] for p in current['tiers'] if int(p['purchase_k'])<1000])
+        preview = runtime._preview_curve_candidates(current, curve_key(current), 'PS', None, 'large', source,
+            CUT.isoformat(), AS_OF.isoformat(), AS_OF, {curve_key(current):proof_for(current)},
+            editor=editor, repair=repair)
+        self.assertEqual([(item['labels'], item['financial_proof']['status']) for item in preview['candidates']],
+                         [(['CURRENT'], 'HARD_CONSTRAINT_FAILED'), (['COST_REPAIR'], 'PROVEN')])
+        self.assertEqual(preview['candidates'][1]['curve_key'], curve_key(candidate))
 
         source['historical_orders'][0]['actual_es_discount_usd'] = None
         incomplete = average_discount(source,'PS',CUT)
         self.assertIsNone(incomplete['retained_ratio'])
         self.assertEqual(incomplete['gap_counts'],{'average_discount_amount_unknown':1})
+
+    def test_combined_basket_margin_repair_when_every_quantity_breaks_even(self):
+        from decimal import Decimal
+        from fc_pricing_v3.average_discount_v6 import average_discount
+        from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT, read_curve
+        from test_cost_inputs_v6 import AS_OF, CUT, attachment, facts, fx, rows_for
+        from test_curve_strategy_v6 import fixture
+        from test_price_curve_v6 import EDITOR_CONTRACT
+
+        original, _, _ = fixture()
+        editor = dict(EDITOR_CONTRACT, price_edit_policy=FORWARD_TIER_EDIT)
+        native = original['native_payload']
+        quantities = native['more']['gold']
+        rates = dict(native['more'], discount=[100] * len(quantities),
+                     price=[str((Decimal(q)*Decimal('.0816')).quantize(Decimal('.01'))) for q in quantities])
+        current = read_curve(dict(native,unit_price='.0816',more=rates),original['identity'],editor)
+        all_id = writer.PRODUCTS['PS'][0]
+        all_before = read_curve(dict(current['native_payload'],id=all_id,site_id=0),
+                                dict(current['identity'],id=all_id,site_id=0),editor)
+        large = list(rows_for([48] * 20, quantity='1000K Coins + 30K Free x1 = $81.60'))
+        small = [(key+'-small', paid, quantity) for key, paid, quantity in
+                 rows_for([48] * 10, quantity='100K Coins + 0K Free x1 = $8.16')]
+        source = attachment(large + small)
+        source['historical_orders_coverage'].update(shared_publication_id='fixed-pin',
+            shared_source_revision='fixed-source', paid_window_start=(CUT-timedelta(days=8)).isoformat())
+        for row in source['historical_orders']:
+            row.update(single_line_unit_purchase=True, merchandise_before_discount_usd='100', actual_es_discount_usd='9')
+        large_facts = facts(large, cost='427.45', delivery_fields=dict(qty='1030', gift='0', cost_unit='.415'))
+        small_facts = facts(small, cost='41.50', delivery_fields=dict(qty='100', gift='0', cost_unit='.415'))
+        combined = dict(large_facts, orders=large_facts['orders'] + small_facts['orders'])
+        average = average_discount(source,'PS',CUT)
+
+        def inputs_for(curve):
+            return runtime._average_discount_proof_input(curve,'PS',source,source,CUT.isoformat(),AS_OF,
+                average=average,route={'propagation_revision':'native-directory'},facts=combined,fx=fx(),current_cost=None)
+
+        before = runtime._validated_curve(current,inputs_for(current))
+        self.assertEqual(before['status'], 'HARD_CONSTRAINT_FAILED')
+        self.assertTrue(all(path['zero_line_status']=='PROVEN' for path in before['paths']))
+        self.assertEqual(before['hard_failures'], ['platform_margin:main', 'platform_margin:recent'])
+        repair = runtime._average_discount_repair(current,all_before,editor,before,inputs_for)
+        selected = runtime._curve_repair(current,before,repair)
+        self.assertEqual(selected['status'], 'COST_REPAIR')
+        candidate = selected['candidate']
+        self.assertEqual(runtime._validated_curve(candidate['curve'],candidate['inputs'])['status'],'PROVEN')
+        self.assertEqual(runtime._validated_curve(candidate['all_target'],candidate['all_inputs'])['status'],'PROVEN')
+        self.assertTrue(all(Decimal(old['native_price_usd'])<=Decimal(new['native_price_usd'])
+                            for old,new in zip(current['tiers'],candidate['curve']['tiers'])))
+
+    def test_unallocated_multi_unit_cost_increases_missing_quantity_share(self):
+        from decimal import Decimal
+        from fc_pricing_v3.average_discount_v6 import average_discount
+        from test_cost_inputs_v6 import AS_OF, CUT, attachment, facts, fx, rows_for
+        from test_curve_strategy_v6 import fixture
+
+        current, _, _ = fixture()
+        large = list(rows_for([48] * 11, quantity='1000K Coins + 30K Free x1 = $100'))
+        small = [(key+'-small', paid, quantity) for key, paid, quantity in
+                 rows_for([48] * 10, quantity='100K Coins + 0K Free x1 = $10')]
+        source = attachment(large + small)
+        source['historical_orders_coverage'].update(shared_publication_id='fixed-pin',
+            shared_source_revision='fixed-source', paid_window_start=(CUT-timedelta(days=8)).isoformat())
+        for index, row in enumerate(source['historical_orders']):
+            allocated = index < 2 or index >= len(large)
+            row.update(single_line_unit_purchase=allocated, merchandise_before_discount_usd='100',
+                       actual_es_discount_usd='0', cost_cny=None if allocated else '100000')
+        lower = facts(large[:1], cost='350', delivery_fields=dict(qty='1030', gift='0', cost_unit=str(Decimal(350)/1030)))
+        higher = facts(large[1:2], cost='630', delivery_fields=dict(qty='1030', gift='0', cost_unit=str(Decimal(630)/1030)))
+        small_facts = facts(small, cost='3.50', delivery_fields=dict(qty='100', gift='0', cost_unit='.035'))
+        facts_value = dict(lower, orders=lower['orders'] + higher['orders'] + small_facts['orders'])
+        result = runtime._average_discount_proof_input(current,'PS',source,source,CUT.isoformat(),AS_OF,
+            average=average_discount(source,'PS',CUT),route={'propagation_revision':'native-directory'},
+            facts=facts_value,fx=fx(),current_cost=None)
+        path = next(row for row in result['evidence']['paths'] if row['purchase_k']=='1000')
+        self.assertEqual(path['cost_status'], 'verified')
+        self.assertAlmostEqual(Decimal(path['expected_cost_usd']), Decimal(70))
+        self.assertAlmostEqual(Decimal(path['safe_cost_usd']), Decimal(950)/11)
+        self.assertAlmostEqual(Decimal(path['stress_cost_usd']), Decimal(90))
+        self.assertEqual(next(row['weight'] for row in result['baskets']['main']['members'] if row['path_id']=='average:1000'),'11')
+        self.assertEqual(runtime._validated_curve(current,result)['baskets']['main']['status'],'HARD_CONSTRAINT_FAILED')
 
     def test_same_round_native_path_preserves_checkout_scope_and_ordinary_cost(self):
         from decimal import Decimal

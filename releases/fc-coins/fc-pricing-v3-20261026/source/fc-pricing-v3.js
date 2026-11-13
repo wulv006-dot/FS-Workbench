@@ -19,7 +19,7 @@
   const $=id=>document.getElementById(id);
   const marketTag=$('v3-market-title').parentElement.querySelector('.tag'),legacyMarketTag=marketTag.textContent;
   let current,loading=false,acting=false,manualPreview=null,selectedPlanId=null,displayedMode='smart',canWrite=false,permissionKnown=false,playerRevision=null,playerDirty=false,collectPending=sessionStorage.getItem('fc-v3-collect-job'),automationRevision=null,lastAutomation=null,lastMonitor=null;
-  let curvePending=sessionStorage.getItem(curvePendingKey),curveChecking=false,curveRetry='',curveTimer;
+  let curvePending=sessionStorage.getItem(curvePendingKey),curveChecking=false,curveRetry='',curveSubmitError='',curveTimer;
   const statuses={DRAFT:'待启用',SCHEDULED:'等待开始',ACTIVE:'执行中',SUSPENDED:'已暂停新写入',ENDING:'正在退出',ENDED:'已结束',
     READY:'已有可行方案',INFEASIBLE:'当前证据下无可行报价',DATA_PENDING:'数据待补齐',
     AUTHORIZED:'已授权待执行',DISPATCHED:'已发出请求',RUNNING:'执行中',CONFIRMED:'后台已确认',FAILED:'执行失败，保留原编号',CANCELLED:'已取消',CANCELLED_NOT_SENT:'已核实未发送并取消',SUPERSEDED:'已由更新计划接替',
@@ -46,6 +46,7 @@
       pricing_plan_required:'当前没有可执行的活动计划',pricing_resource_unresolved:'原操作尚未对账，此范围暂不可写',pricing_smart_scope_requires_all_owned_resources:'智能决策须同时接管PS、Xbox、PC和现有Saudi范围，请刷新后重试',
       pricing_manual_preview_expired:'人工预览已过期，请重新核算',pricing_manual_infeasible:'当前明确价未通过新鲜财务或市场证明',
       pricing_operation_missing:'未找到该原操作编号',state_unavailable:'状态暂时无法读取',
+      queue_mutation_busy:'采集队列暂忙，本次未入队',queue_unavailable:'采集队列暂不可用',
       pricing_price_control_revision_changed:'配置已被更新，请刷新状态后再保存',pricing_manual_price_required:'开启人工干预时须填写PS、Xbox和PC的后台单价',
       pricing_manual_unit_precision:'后台单价最多保留四位小数',pricing_price_control_conflicts_with_manual_preview:'请先关闭人工干预和临时涨价，再使用单次人工预览'};
     return known[code]||(/^pricing_[a-z_]+(?::.*)?$/.test(code)?`操作未完成；请核对当前状态和原编号。技术原因：${code}`:code);
@@ -246,6 +247,7 @@
   function finishCurve(){
     curvePending=null;
     curveRetry='';
+    curveSubmitError='';
     sessionStorage.removeItem(curvePendingKey);
     clearKey(curveRequest);
   }
@@ -305,9 +307,10 @@
       catch(error){
         if(error.httpStatus!==404)throw error;
         curveRetry='submit';
-        curveStatus(`暂未找到采集 ${id}。可用原编号续办。`);
+        curveStatus(curveSubmitError?`采集 ${id}：${curveSubmitError}。可用原编号续办。`:`暂未找到采集 ${id}。可用原编号续办。`);
         return;
       }
+      curveSubmitError='';
       if(job.job_id!==id||job.kind!=='collect'||job.request?.write_protocol!==curveProtocol){
         curveStatus(`采集 ${id} 的回执与新定价请求不符。`);
         return;
@@ -360,6 +363,7 @@
     sessionStorage.setItem(curvePendingKey,id);
     curveChecking=true;
     curveRetry='';
+    curveSubmitError='';
     curveControls();
     $('v3-curve-results').hidden=true;
     curveStatus(`正在登记只读采集。任务 ${id}`);
@@ -370,7 +374,10 @@
       if(error.httpStatus>=400&&error.httpStatus<500&&![408,409,429].includes(error.httpStatus)){
         curveStatus(`采集 ${id} 未登记。${errorText(error)}`);
         finishCurve();
-      }else curveStatus(`采集 ${id} 的提交回执待核。`);
+      }else{
+        if(error.httpStatus)curveSubmitError=errorText(error);
+        curveStatus(`采集 ${id} 的提交回执待核。`);
+      }
     }finally{
       curveChecking=false;
       curveControls();
