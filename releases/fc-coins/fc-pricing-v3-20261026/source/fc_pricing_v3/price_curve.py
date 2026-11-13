@@ -1,4 +1,4 @@
-"""Lossless native catalogue reader; no inferred custom-quantity or save rules.
+"""Lossless native catalogue reader and offline Admin editor compilation.
 
 The native payload is retained independently of the semantic price key. Neither
 this reader nor its key certifies that an edited payload can be saved/published.
@@ -7,11 +7,17 @@ from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
+from math import isfinite
 
 
 IDENTITY_FIELDS = ('id', 'mid', 'gid', 'cid', 'site_id', 'aid', 'unit', 'status')
 NUMERIC_ARRAYS = ('gold', 'give', 'discount', 'price')
 OBSERVATION_FIELDS = frozenset(('checked_at', 'captured_at', 'observed_at'))
+EDITOR_ASSET_SHA256 = '859f07a7dadc48054b740ee09b66c494d11bcb0fef1faf5ecd0a9c6d0b98dfe7'
+EDITOR_HANDLER_SHA256 = 'c9341a511d39a79736e6d7e7147654c8c24202b928954e11b1a13ed7a612b451'
+EDITOR_UNVERIFIED_DOMAINS = ('admin_save', 'all_site_propagation', 'order_projection',
+                             'customer_checkout_quote', 'custom_quantity',
+                             'cart_multiplier', 'offer_paths')
 
 
 def _number(value, *, positive=False):
@@ -78,6 +84,211 @@ def read_curve(native_goods, identity, native_contract):
                 tiers=tiers, native_payload=deepcopy(native_goods),
                 native_contract=deepcopy(native_contract),
                 quotation_status='native_semantics_not_evaluated')
+
+
+def _editor_fixed(value, places):
+    """Number(value.toFixed(places)) for finite non-negative binary64 values."""
+    if value >= 1e21:
+        return value
+    # toFixed rounds the exact binary value to nearest, with ties upward.
+    # Multiplying the float by 10**places first would round it a second time.
+    numerator, denominator = value.as_integer_ratio()
+    scale = 10 ** places
+    rounded, remainder = divmod(numerator * scale, denominator)
+    if remainder * 2 >= denominator:
+        rounded += 1
+    whole, fraction = divmod(rounded, scale)
+    return float(f'{whole}.{fraction:0{places}d}')
+
+
+def _editor_price(subtotal, discount):
+    return _editor_fixed(subtotal * (discount / 100), 2)
+
+
+def _editor_discount_input(discount):
+    return .01 <= discount <= 100 and _editor_fixed(discount, 2) == discount
+
+
+def _editor_discount(subtotal, price):
+    """Find a two-place Je input whose oe result exactly matches price."""
+    # Start with Ke's inverse, including its normalization near 100. The
+    # observed direct Je input supports .01–100. A larger Ke result is outside
+    # this evidence, even though the pure function can return it.
+    inverse = price / subtotal * 100
+    if isfinite(inverse):
+        discount = _editor_fixed(inverse, 2)
+        if 100 < discount <= 100.05:
+            discount = 100.0
+        if _editor_discount_input(discount) and _editor_price(subtotal, discount) == price:
+            return discount
+
+    # At a rounding edge, check the exact native grid. oe is monotone on
+    # this grid, and any returned discount is verified at the requested cent.
+    low, high = 1, 10000
+    while low <= high:
+        middle = (low + high) // 2
+        discount = middle / 100
+        computed = _editor_price(subtotal, discount)
+        if computed == price:
+            return discount
+        if computed < price:
+            low = middle + 1
+        else:
+            high = middle - 1
+    return None
+
+
+def _editor_gap(code, **detail):
+    return dict(compilation_status='PROOF_INCOMPLETE',
+                gaps=[dict(code=code, **detail)],
+                unverified_domains=list(EDITOR_UNVERIFIED_DOMAINS))
+
+
+def _editor_target(value, places):
+    normalized = _number(value, positive=True)
+    if len(normalized.partition('.')[2]) > places:
+        raise ValueError('editor_target_precision')
+    number = float(normalized)
+    if not isfinite(number) or _number(number) != normalized:
+        raise ValueError('editor_target_number_unrepresentable')
+    return number
+
+
+def compile_curve(current, segment_targets, native_contract):
+    """Compile exact segment anchors into a full, offline editor candidate.
+
+    ``current`` is a read_curve result. ``segment_targets`` accepts
+    ``anchor_prices_usd`` (optional mapping from 100/1000/explicit 2000 K
+    anchors to exact USD cents) and ``unit_price_usd_per_k`` (optional explicit
+    Admin unit price, at most eight decimals). The 100K control covers the
+    entire small segment. Omitted segments keep each saved tier amount.
+
+    The evidence is scoped to the matching popup editor asset and handler
+    excerpt. Backend saves, site propagation, checkout and Order projection
+    need their own evidence. PROOF_INCOMPLETE carries no candidate payload.
+    """
+    if (not isinstance(native_contract, dict)
+            or native_contract.get('editor_asset_sha256') != EDITOR_ASSET_SHA256
+            or native_contract.get('editor_handler_sha256') != EDITOR_HANDLER_SHA256):
+        return _editor_gap('editor_contract_evidence_missing_or_mismatched')
+    captured_contract = current['native_contract']
+    if any(key in captured_contract and captured_contract[key] != native_contract[key]
+           for key in ('editor_asset_sha256', 'editor_handler_sha256')):
+        return _editor_gap('editor_contract_evidence_missing_or_mismatched')
+    if (not isinstance(segment_targets, dict)
+            or segment_targets.keys() - {'anchor_prices_usd', 'unit_price_usd_per_k'}):
+        raise ValueError('editor_segment_targets_invalid')
+    requested = segment_targets.get('anchor_prices_usd', {})
+    if not isinstance(requested, dict):
+        raise ValueError('editor_segment_targets_invalid')
+    anchors = {}
+    for quantity, price in requested.items():
+        quantity = _number(quantity, positive=True)
+        if quantity not in ('100', '1000', '2000') or quantity in anchors:
+            raise ValueError('editor_segment_anchor_invalid')
+        try:
+            anchors[quantity] = _editor_target(price, 2)
+        except ValueError as exc:
+            return _editor_gap(str(exc), anchor_k=quantity)
+
+    checked = read_curve(current['native_payload'], current['identity'], native_contract)
+    tiers = checked['tiers']
+    by_quantity = {tier['purchase_k']: i for i, tier in enumerate(tiers)}
+    for quantity in anchors:
+        if quantity not in by_quantity:
+            return _editor_gap('editor_segment_anchor_missing', anchor_k=quantity)
+    payload = checked['native_payload']
+    more = _more(payload)
+    unit = float(checked['unit_price_usd_per_k'])
+    if 'unit_price_usd_per_k' in segment_targets:
+        try:
+            unit = _editor_target(segment_targets['unit_price_usd_per_k'], 8)
+        except ValueError as exc:
+            return _editor_gap(str(exc), field='unit_price_usd_per_k')
+
+    quantities = [float(tier['purchase_k']) for tier in tiers]
+    subtotals = [unit * quantity for quantity in quantities]
+    if any(not isfinite(value) or value <= 0 for value in subtotals):
+        return _editor_gap('editor_native_number_unrepresentable')
+    if any(left >= right for left, right in zip(quantities, quantities[1:])):
+        return _editor_gap('editor_native_order_not_ascending')
+
+    segment_discounts = {}
+    for anchor, target in anchors.items():
+        subtotal = subtotals[by_quantity[anchor]]
+        discount = _editor_discount(subtotal, target)
+        if discount is None:
+            return _editor_gap('editor_anchor_not_expressible', anchor_k=anchor,
+                               required_usd=_number(target))
+        segment_discounts[anchor] = discount
+
+    unit_changed = ('unit_price_usd_per_k' in segment_targets
+                    and _number(unit) != checked['unit_price_usd_per_k'])
+    discount_changes = []
+    if anchors or unit_changed:
+        # W recalculates even the lower tiers after Je. Work out the controls
+        # needed to retain the original cents of every unselected tier.
+        discounts = more['discount']
+        for i, (tier, subtotal) in enumerate(zip(tiers, subtotals)):
+            quantity = quantities[i]
+            anchor = '100' if quantity < 1000 else '1000'
+            if quantity >= 2000 and '2000' in anchors:
+                anchor = '2000'
+            expected = tier['native_price_usd']
+            discount = segment_discounts.get(anchor)
+            if discount is None:
+                discount = float(tier['native_discount'])
+                original_price = _editor_price(subtotal, discount)
+                original_control_retained = _number(discounts[i]) == tier['native_discount']
+                if (not isfinite(original_price) or _number(original_price) != expected
+                        or not (original_control_retained or _editor_discount_input(discount))):
+                    discount = _editor_discount(subtotal, float(expected))
+                if discount is None:
+                    return _editor_gap('editor_untouched_tier_not_expressible',
+                                       purchase_k=tier['purchase_k'], required_usd=expected)
+
+            if _number(discounts[i]) != _number(discount):
+                # Je applies one control to this index and all following
+                # indexes. Later controls restore/override from low to high.
+                if not _editor_discount_input(discount):
+                    return _editor_gap('editor_discount_input_domain_unverified',
+                                       purchase_k=tier['purchase_k'],
+                                       discount=_number(discount))
+                discounts[i:] = [discount] * (len(tiers) - i)
+            final_discount = _number(discounts[i])
+            if final_discount != tier['native_discount']:
+                discount_changes.append(dict(purchase_k=tier['purchase_k'],
+                                             before=tier['native_discount'],
+                                             after=final_discount,
+                                             source='segment_anchor' if anchor in anchors
+                                             else 'preserve_saved_tier_price'))
+
+            price = _editor_price(subtotal, float(final_discount))
+            if not isfinite(price) or price <= 0:
+                return _editor_gap('editor_tier_price_outside_reader_domain',
+                                   purchase_k=tier['purchase_k'])
+            if anchor not in anchors and _number(price) != expected:
+                return _editor_gap('editor_untouched_tier_not_expressible',
+                                   purchase_k=tier['purchase_k'], required_usd=expected)
+            if tier['purchase_k'] in anchors and price != anchors[tier['purchase_k']]:
+                return _editor_gap('editor_anchor_not_expressible', anchor_k=anchor,
+                                   required_usd=_number(anchors[anchor]))
+            more['price'][i] = price
+
+        if unit_changed:
+            payload['unit_price'] = unit
+        if isinstance(payload['more'], str):
+            payload['more'] = json.dumps(more, ensure_ascii=False, separators=(',', ':'))
+
+    result = read_curve(payload, checked['identity'], native_contract)
+    tier_100 = by_quantity.get('100')
+    base_rate = (None if tier_100 is None else
+                 _number(Decimal(result['tiers'][tier_100]['native_price_usd'] + 'e-2')))
+    result.update(compilation_status='EDITOR_CANDIDATE', discount_changes=discount_changes,
+                  base_rate_usd_per_k=base_rate,
+                  base_rate_basis='candidate_100k_regular_usd_div_100',
+                  unverified_domains=list(EDITOR_UNVERIFIED_DOMAINS))
+    return result
 
 
 def curve_key(curve):
