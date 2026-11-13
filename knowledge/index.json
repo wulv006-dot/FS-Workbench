@@ -1,6 +1,6 @@
 {
   "contract": "fs-knowledge-index-v1",
-  "release": "fs-fc-admin-es-shared-20261113-r5",
+  "release": "fc-v61-average-discount-20261113-r1",
   "release_state": "candidate",
   "source_commit": null,
   "entries": [
@@ -392,19 +392,19 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc27_dual20_d9_d2_platform_100k_v4",
+      "revision": "fc_v6_d8_d2_amount_weighted_discount_v1",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-10",
+      "effective_at": "2026-11-13",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
-        "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "eb3ceac8cc9f40162da2608bdb59624f4738ec4c11aac470831076cb7e279b14",
+        "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+        "sha256": "25db089744580d38fae7f117ddf8ac9d6178f8787b4c86cd29726c4927d554ec",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -415,7 +415,8 @@
         "fc.pricing.constraints@v13",
         "fc.pricing.constraints@v14",
         "fc.pricing.constraints@v15",
-        "fc.pricing.constraints@fc27_dual20_d9_d2_v2"
+        "fc.pricing.constraints@fc27_dual20_d9_d2_v2",
+        "fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4"
       ],
       "provenance": [
         {
@@ -474,6 +475,12 @@
           "date": "2026-11-10",
           "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
           "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
+        },
+        {
+          "kind": "direct_user_all_editor_and_average_discount",
+          "date": "2026-11-13",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/MASTER.md",
+          "scope": "V6 native ALL propagation and platform weighted D-8 through D-2 discounts; legacy operations retain their protocol until migration"
         }
       ],
       "consumers": [
@@ -481,7 +488,7 @@
         "Hermes selected knowledge candidate"
       ],
       "time_precision": "date_only",
-      "pricing_scope": "100k_package_only"
+      "pricing_scope": "native_curve_average_discount"
     },
     {
       "id": "fs.experience.archive-cycle",
@@ -1167,20 +1174,20 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "20261111-lootbar-no-coupon",
+      "revision": "fc_v6_d8_d2_amount_weighted_discount_v1",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-11",
+      "effective_at": "2026-11-13",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
-        "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "eb3ceac8cc9f40162da2608bdb59624f4738ec4c11aac470831076cb7e279b14",
+        "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+        "sha256": "25db089744580d38fae7f117ddf8ac9d6178f8787b4c86cd29726c4927d554ec",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1195,7 +1202,8 @@
         "fc.pricing.v3@20261107-time-attribution",
         "fc.pricing.v3@20261107-bidirectional-v2",
         "fc.pricing.v3@20261109-coupon-display",
-        "fc.pricing.v3@20261110-three-platform-100k"
+        "fc.pricing.v3@20261110-three-platform-100k",
+        "fc.pricing.v3@20261111-lootbar-no-coupon"
       ],
       "provenance": [
         {
@@ -1271,13 +1279,19 @@
           "date": "2026-11-11",
           "decision": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
           "scope": "No-coupon quote reconstruction and existing renderer reuse; financial selected section unchanged"
+        },
+        {
+          "kind": "direct_user_all_editor_and_average_discount",
+          "date": "2026-11-13",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/MASTER.md",
+          "scope": "V6 native ALL propagation and platform weighted D-8 through D-2 discounts; legacy operations retain their protocol until migration"
         }
       ],
       "consumers": [
         "Codex",
         "Hermes selected knowledge candidate"
       ],
-      "pricing_scope": "100k_package_only"
+      "pricing_scope": "native_curve_average_discount"
     },
     {
       "id": "fc.reporting.methods",

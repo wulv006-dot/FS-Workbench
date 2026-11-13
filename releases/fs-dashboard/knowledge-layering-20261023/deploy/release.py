@@ -16,6 +16,7 @@ RUNTIME = {'runtime/' + n: '/opt/fs-hermes-fc/' + n for n in
            ('business_context.py', 'controller.py', 'knowledge_catalog.py')}
 PREFIX = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + RELEASE + '/'
 SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r3'
+FC_V61 = 'fc-v61-average-discount-20261113-r1'
 
 
 def targets(manifest):
@@ -24,7 +25,8 @@ def targets(manifest):
         commit = manifest.get('sourceCommit', '')
         release = manifest.get('knowledgeRelease', '')
         if (not re.fullmatch('[a-f0-9]{40}', commit) or
-                release not in ('fc-reporting-knowledge-20261105-' + commit[:8], SHARED_ADMIN_ES + '-' + commit) or
+                release not in ('fc-reporting-knowledge-20261105-' + commit[:8], SHARED_ADMIN_ES + '-' + commit,
+                                FC_V61 + '-' + commit) or
                 manifest.get('scope') != SCOPE or manifest.get('businessWrites') is not False or
                 manifest.get('timersChanged') is not False):
             raise ValueError('knowledge_only_identity_or_authority')

@@ -46,13 +46,14 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'fc27_dual20_d9_d2_platform_100k_v4')
+        self.assertEqual(v['entries'][0]['revision'], 'fc_v6_d8_d2_amount_weighted_discount_v1')
         self.assertIn('合法单笔优惠仍可低毛利或亏损', v['entries'][0]['content'])
-        for value in ('D-9至D-2的8个完整日','d9_d2_eight_closed_days_v1','不按每日率等权','八日平均20%'):
+        for value in ('D-8 至 D-2','七个完整自然日','按金额加权','组合利润率 18%','25%','后续档位传导'):
             self.assertIn(value,v['entries'][0]['content'])
-        for value in ('PS、Xbox、PC','100K购买、实交100K','Lootbar','Arab-UT','ItemD2R辅助'):
+        for value in ('PS、Xbox、PC','Lootbar','Arab-UT','ItemD2R辅助','保留缺口，不补零'):
             self.assertIn(value,v['entries'][0]['content'])
         self.assertNotIn('105K',v['entries'][0]['content'])
+        self.assertNotIn('八日平均20%',v['entries'][0]['content'])
         self.assertNotIn('18:21最新自然验收', v['entries'][0]['content'])
         self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'])['status'], 'not_published')
 
