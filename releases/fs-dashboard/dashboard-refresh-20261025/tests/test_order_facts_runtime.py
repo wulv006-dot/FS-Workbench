@@ -245,14 +245,20 @@ class Runtime(unittest.TestCase):
         unavailable=dict(status='unavailable',rows=[],dataset=None,identity_catalog=None,
             coverage=dict(complete=False,admin_complete=False,admin_date_basis='paytime',admin_snapshot=True,
                 source_revision='revision-4',publication_id=None,day_revisions={},missing_days=[SCOPE['start']]))
-        drift=dict(unavailable,coverage=dict(unavailable['coverage'],source_revision='revision-5'))
+        first=dict(unavailable,coverage=dict(unavailable['coverage'],publication_id='se_pinned'))
+        scoped=dict(first,coverage=dict(first['coverage'],source_revision='other-scope-revision'))
+        drift=dict(scoped,coverage=dict(scoped['coverage'],publication_id='se_changed'))
         with tempfile.TemporaryDirectory() as folder:
             kwargs=dict(db=Path(folder)/'shared.db',costs=Path(folder)/'absent.json')
             [value]=collect_shared_many([SCOPE],reader=Mock(return_value=unavailable),**kwargs)
             self.assertEqual(value['status'],'unavailable')
             self.assertEqual(value['source_coverage']['missing_days'],[SCOPE['start']])
+            reader=Mock(side_effect=[first,scoped])
+            a,b=collect_shared_many([SCOPE,dict(SCOPE,site_id='all')],reader=reader,**kwargs)
+            self.assertNotEqual(a['source_coverage']['source_revision'],b['source_coverage']['source_revision'])
+            self.assertEqual(reader.call_args.kwargs['publication_id'],'se_pinned')
             with self.assertRaisesRegex(ValueError,'order_facts_shared_revision_changed'):
-                collect_shared_many([SCOPE,dict(SCOPE,gid='456')],reader=Mock(side_effect=[unavailable,drift]),**kwargs)
+                collect_shared_many([SCOPE,dict(SCOPE,gid='456')],reader=Mock(side_effect=[first,drift]),**kwargs)
     def test_existing_http_route_dispatches_facts_without_changing_old_modes(self):
         tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'))
         handler=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Handler')

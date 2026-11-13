@@ -276,7 +276,7 @@ def shared_view(period, gid=None, *, read=None):
             paidAt=fact['paid_at'], day=fact['paid_at'][:10], salesUsd=number(money(fact['admin_paid_usd'])),
             adminSaleCny=number(money(fact['admin_paid_cny'])), status=fact['status'], payStatus=fact['pay_status'],
             refunded=observed['refunded'], country=observed.get('country') or '国家未提供', payment=observed.get('payment') or '支付方式未提供',
-            customerType={'是':'新客','否':'老客'}.get(flags,'新老客未提供'),
+            customerType={'是':'新客','否':'老客'}.get(flags, effective.get('historical_customer_type') or '新老客未提供'),
             sourceRaw=source, sourceStatus='available' if source and not effective.get('source_conflict') else 'unavailable',
             code=code,codeKey=code.casefold(),project=project,promoter=observed.get('promoter') or '推广人未提供',promoterUid=uid,
             attribution='折扣码' if code else '推荐人无码' if uid else '无推广归属', attributionSource=effective.get('promoter_basis'),

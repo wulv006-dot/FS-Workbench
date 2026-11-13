@@ -99,6 +99,20 @@ class OrderFactsSource(unittest.TestCase):
         self.assertNotIn('order_no',result['unlinked_attribution_rows'][0])
         self.assertEqual(result['source_coverage']['attribution']['identity_scope']['pay_status'],'1')
 
+    def test_mixed_history_only_links_formal_day_and_keeps_known_cross_site_conflict(self):
+        fresh, old = order('new'), dict(order('old'),paytime='2026-11-09 10:00:00')
+        rows = [es_row('new','Direct'),es_row('old','SEO',day='2026-11-09')]
+        proof = dict(catalog([fresh,old]),complete=False,verified_days=['2026-11-10'])
+        proof['scope']['start'] = '2026-11-09'
+        scoped = dict(SCOPE,start='2026-11-09')
+        def channels():
+            result=project_order_facts([fresh,old],dataset(rows),[],scope=scoped,identity_catalog=proof,
+                                       source_coverage=dict(admin_complete=True))
+            return {r['order_no']:r['channel'] for r in result['orders']}
+        self.assertEqual(channels(),{'new':'Direct','old':'unknown'})
+        proof['rows'].append(order('new',site='320',title='www.rsorders.com'))
+        self.assertEqual(channels(),{'new':'unknown','old':'unknown'})
+
     def test_cross_site_collision_in_catalog_outside_selected_members_stays_unlinked(self):
         other=order(site='320',title='www.rsorders.com')
         result=project(identity=catalog([order(),other]))

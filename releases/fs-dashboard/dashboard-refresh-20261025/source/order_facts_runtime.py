@@ -214,6 +214,7 @@ def effective_attribution(order, native, archived, mapping):
         discount_code=bool(code.strip()) if isinstance(code,str) else None,
         promoter=True if uid else False if native_uid is not None or archived is not None else None,
         promoter_uid=uid or None, promoter_basis=promoter_basis,
+        historical_customer_type=observed.get('customerType'),
         coupon=bool(coupons) if coupons is not None else None,
         coupon_templates=[item['title'] for item in coupons or () if isinstance(item,dict) and isinstance(item.get('title'),str)],
         promotion_project=promotion_detail,
@@ -239,15 +240,14 @@ def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, read
     if dashboard:
         mapping, mapping_revision = dashboard_mapping()
     results = []
-    revision = None
+    first_read = True
     for scope in scopes:
         shared = reader(scope, db=Path(db), publication_id=publication_id)
         coverage = dict(shared['coverage'], cost=cost_proof)
-        current = coverage.get('publication_id'), coverage.get('source_revision')
-        if ((publication_id is not None and current[0]!=publication_id)
-                or (revision is not None and current!=revision)):
+        current = coverage.get('publication_id')
+        if (publication_id is not None or not first_read) and current != publication_id:
             raise ValueError('order_facts_shared_revision_changed')
-        publication_id, _ = revision = current
+        publication_id, first_read = current, False
         status = shared['status']
         if status not in ('available','partial','unavailable'):
             raise ValueError('order_facts_shared_status')

@@ -3,6 +3,7 @@ from contextlib import closing
 from hashlib import sha256
 from pathlib import Path
 import sqlite3
+import json
 import sys
 import tempfile
 from threading import RLock
@@ -68,6 +69,58 @@ class SharedFacts(unittest.TestCase):
 
     def read(self, query=None, ident=None):
         return facts.read(query or scope(), db=self.store.path, publication_id=ident)
+
+    def test_existing_channel_history_is_main_site_only_and_keeps_formal_revisions(self):
+        formal = self.stage(D2, archive(line('fresh', D2)), order('fresh', D2))
+        pub = publication(D3)
+        weekly.write_publication(self.store, pub, None, shared_revisions={D2: formal})
+        root = self.store.root / 'channel-days'
+        root.mkdir()
+        legacy = dict(contract='channel-day-v1',period=dict(start=D1,end=D1),
+            generatedAt=D2+'T01:00:00+08:00',sources=dict(
+                orders=dict(status='complete',site='MMOEXP',dateBasis='paytime',currency='USD',rows=1),
+                coupons=dict(status='complete',rows=1)),
+            orders=[dict(orderNo='old',day=D1,paidAt=D1+' 12:30:00',gid='1327',game='FC27',
+                salesUsd=4.75,adminSaleCny=None,code='alpha',promoterUid='23',customerType='老客',
+                status='已完成',payStatus='1',country='US',payment='PayPal',
+                sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',
+                coupons=[dict(templateId='9',title='Launch',batch='batch1')])])
+        (root / (D1+'.json')).write_text(json.dumps(legacy),encoding='utf-8')
+        # A previously indexed formal day always wins, even if an old local file changed.
+        (root / (D2+'.json')).write_text('{}',encoding='utf-8')
+        before = self.store.path.read_bytes()
+        options = dict(root=root,now=D3+'T15:00:00+08:00')
+        preview = facts.import_channel_history(self.store,pub['publication_id'],**options)
+        self.assertEqual((preview['selected_days'],preview['already_indexed'],preview['orders'],preview['coupons']),
+                         ([D1],[D2],1,1))
+        self.assertEqual(self.store.path.read_bytes(),before)
+        with self.assertRaisesRegex(ValueError,'shared_es_history_source_changed'):
+            facts.import_channel_history(self.store,pub['publication_id'],apply=True,expected_source='wrong',**options)
+        self.assertEqual(self.store.path.read_bytes(),before)
+        result = facts.import_channel_history(self.store,pub['publication_id'],apply=True,
+                                              expected_source=preview['source_revision'],**options)
+        main = self.read(scope(D1,D2))
+        self.assertEqual(main['status'],'partial')
+        self.assertTrue(main['coverage']['admin_complete'])
+        self.assertEqual(main['coverage']['historical_channel_days'],[D1])
+        self.assertEqual(main['identity_catalog']['verified_days'],[D2])
+        self.assertFalse(main['identity_catalog']['complete'])
+        self.assertEqual(main['coverage']['publication_id'],result['publication_id'])
+        self.assertEqual(main['rows'][0]['amount_usd_format'],'4.75')
+        self.assertEqual(main['rows'][0]['tracking']['customerType'],'老客')
+        self.assertEqual(main['rows'][0]['tracking']['coupons'][0]['title'],'Launch')
+        self.assertEqual(len(main['dataset']['rows']),1)
+        self.assertEqual(self.read(scope(D1,D2,site='all'))['coverage']['missing_days'],[D1])
+        self.assertEqual(self.read(scope(D1,D1,site='300'))['status'],'unavailable')
+        self.assertEqual(self.read(scope(D1,D1),ident=pub['publication_id'])['status'],'unavailable')
+        self.assertEqual(self.read(scope(D1,D1,gid='456'))['rows'],[])
+        with self.assertRaisesRegex(ValueError,'shared_es_history_publication_changed'):
+            facts.import_channel_history(self.store,pub['publication_id'],**options)
+        replacement = self.stage(D1, archive(line('formal-old',D1)), order('formal-old',D1,site='300'))
+        newer = publication('2026-11-13','b')
+        weekly.write_publication(self.store,newer,pub['publication_id'],shared_revisions={D1: replacement})
+        self.assertEqual(self.read(scope(D1,D1,site='all',gid='all'))['rows'][0]['order_no'],'formal-old')
+        self.assertEqual(self.read(scope(D1,D1),ident=result['publication_id'])['rows'][0]['order_no'],'old')
 
     def test_scoped_read_retains_multiline_and_cross_site_identity_but_no_private_fields(self):
         rev1 = self.stage(D1, archive(line('same', D1), line('same', D1, 'item'),
