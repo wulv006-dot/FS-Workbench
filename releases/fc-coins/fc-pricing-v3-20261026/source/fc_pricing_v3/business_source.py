@@ -2008,9 +2008,51 @@ def shared_curve_attachment(shared, scope, *, as_of, code_names=None):
                 available_at=observed.isoformat(), source_sha256=revision)
 
 
+def _recent_curve_native_rows(session, filters, *, limit=1000):
+    """Count native joined rows for pagination and count each paid order only once."""
+    from channel_source import search
+
+    fields = ('site_id', 'gid', 'pay_status', 'status_format', 'paytime', 'aid',
+              'content', 'show_game_pro', 'amount_usd_format', 'before_discount',
+              'discount', 'points', 'discount_code', 'is_region_price')
+    originals, identities = {}, {}
+    seen_pages = set()
+    total, fetched = None, 0
+    for page in range(1, 501):
+        status, payload = session.get_admin('/admin/order.Order/index', page=page,
+                                            limit=limit, order='id,desc', **search(filters))
+        data = payload.get('data') or {}
+        rows, count = data.get('list'), int(data.get('total', -1))
+        if status != 200 or payload.get('code') != 1 or not isinstance(rows, list) or not 0 <= count <= 100000:
+            raise ValueError('admin_page_failed')
+        if total is None:
+            total = count
+        if total != count or len(rows) > limit:
+            raise ValueError('admin_pagination_changed')
+        page_identity = tuple(sorted(str(row.get('id') or '') for row in rows))
+        if page_identity in seen_pages:
+            raise ValueError('admin_duplicate_page')
+        seen_pages.add(page_identity)
+        for row in rows:
+            ident, order = str(row.get('id') or ''), row.get('order_no')
+            if not ident.isdecimal() or int(ident) <= 0 or not isinstance(order, str) or not order:
+                raise ValueError('recent_curve_native_identity_missing')
+            if identities.setdefault(order, ident) != ident:
+                raise ValueError('recent_curve_native_identity_conflict')
+            previous = originals.setdefault(ident, row)
+            if order != previous['order_no'] or any(row.get(key) != previous.get(key) for key in fields):
+                raise ValueError('recent_curve_native_identity_conflict')
+        fetched += len(rows)
+        if fetched == total:
+            return list(originals.values())
+        if not rows or fetched > total:
+            break
+    raise ValueError('admin_incomplete_pages')
+
+
 def collect_recent_curve_population(manager, closed, paid_cutoff):
     """Add only today's scoped native observations to the saved closed-day evidence."""
-    from channel_source import apply_cost_overrides, pages
+    from channel_source import apply_cost_overrides
     from channel_effects import fraud
     from .financial import instant
     from .planning_baskets_v6 import HISTORICAL_SCOPE, PAID_SCOPE
@@ -2036,9 +2078,9 @@ def collect_recent_curve_population(manager, closed, paid_cutoff):
     rows, unknown, seen = [], 0, set()
     latest = cutoff.strftime('%Y-%m-%d %H:%M:%S')
     earliest = midnight.strftime('%Y-%m-%d %H:%M:%S')
-    batch = pages(_CurveAdminRead(manager), '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
+    batch = _recent_curve_native_rows(_CurveAdminRead(manager), [('site_id', '=', '266'), ('gid', '=', '1327'),
                   ('pay_status', '=', '1'), ('paytime', 'RANGE', earliest + ',' + latest),
-                  ('cid', '=', '1')], 100) if cutoff > midnight else []
+                  ('cid', '=', '1')]) if cutoff > midnight else []
     observed = _historical_provider_now()
     if observed < cutoff:
         raise ValueError('recent_curve_observation_precedes_cutoff')

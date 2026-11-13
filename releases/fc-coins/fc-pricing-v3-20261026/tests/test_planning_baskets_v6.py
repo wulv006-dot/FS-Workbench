@@ -1,6 +1,7 @@
 """Payment-window and quote-revision tests using the existing attachment schema."""
 from datetime import datetime, timedelta
 import hashlib
+import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -149,24 +150,29 @@ class PlanningBaskets(unittest.TestCase):
     def test_recent_combines_saved_days_and_only_the_current_day_native_read(self):
         historical = paid('closed-order', CUTOFF - timedelta(days=1))
         native = dict(site_id='266', gid='1327', pay_status='1', status_format='已完成',
-                      order_no='today-order', aid='21587', paytime='2026-11-13 09:00:00',
+                      id=101, order_no='today-order', aid='21587', paytime='2026-11-13 09:00:00',
                       is_region_price='0', discount='100', points='0', amount_usd_format='10',
                       before_discount='10', content='<span class="item">100K Coins x1 = $10</span>')
         calls = []
 
-        def pages(session, path, filters, limit):
-            calls.append((path, dict((key, value) for key, _, value in filters), limit))
-            return [native]
+        def request(path):
+            from urllib.parse import parse_qs, urlsplit
 
-        channel = SimpleNamespace(pages=pages, apply_cost_overrides=lambda data: {
+            target = urlsplit(path)
+            calls.append((target.path, parse_qs(target.query)))
+            return 200, json.dumps(dict(code=1, data=dict(total=2, list=[native, native])))
+
+        channel = SimpleNamespace(search=lambda filters: {key: value for key, _, value in filters}, apply_cost_overrides=lambda data: {
             'sources': {'accounting': {'status':'available'}}, 'testOrders': {}})
         effects = SimpleNamespace(fraud=lambda row: False)
         with patch.dict(sys.modules, channel_source=channel, channel_effects=effects), \
                 patch.object(business_source, '_historical_provider_now', return_value=AS_OF):
-            recent = business_source.collect_recent_curve_population(None, closed_source([historical]), CUTOFF)
-            partial = business_source.collect_recent_curve_population(None, None, CUTOFF)
-        self.assertEqual(calls, [('/admin/order.Order/index', dict(site_id='266', gid='1327', pay_status='1',
-            paytime='2026-11-13 00:00:00,2026-11-13 10:00:00', cid='1'), 100)] * 2)
+            manager = SimpleNamespace(request=request)
+            recent = business_source.collect_recent_curve_population(manager, closed_source([historical]), CUTOFF)
+            partial = business_source.collect_recent_curve_population(manager, None, CUTOFF)
+        query = dict(site_id=['266'], gid=['1327'], pay_status=['1'],
+            paytime=['2026-11-13 00:00:00,2026-11-13 10:00:00'], cid=['1'], page=['1'], limit=['1000'], order=['id,desc'])
+        self.assertEqual(calls, [('/admin/order.Order/index', query)] * 2)
         self.assertEqual(recent['historical_orders_coverage']['population_status'], 'complete')
         self.assertEqual(recent['historical_orders_coverage']['closed_archive_revision'], 'original')
         self.assertEqual(partial['historical_orders_coverage']['population_status'], 'partial')
@@ -176,6 +182,26 @@ class PlanningBaskets(unittest.TestCase):
         self.assertTrue(today['single_line_unit_purchase'])
         self.assertEqual(today['promotion_path'], {'kind':'none'})
         self.assertNotIn('today-order', str(recent))
+
+    def test_recent_native_pages_count_raw_duplicates_and_reject_conflicting_orders(self):
+        a = dict(id=1, order_no='a', content='100K Coins')
+        b = dict(id=2, order_no='b', content='200K Coins')
+        channel = SimpleNamespace(search=lambda _: {})
+        def read(pages, total=3):
+            session = SimpleNamespace(get_admin=lambda path, page, **params:
+                (200, dict(code=1, data=dict(total=total, list=pages[page-1]))))
+            return business_source._recent_curve_native_rows(session, [], limit=2)
+
+        with patch.dict(sys.modules, channel_source=channel):
+            self.assertEqual(read([[b, a], [dict(a, non_pricing_join_field='other')]]), [b,a])
+            with self.assertRaisesRegex(ValueError,'recent_curve_native_identity_conflict'):
+                read([[b,a], [dict(a,content='200K Coins')]])
+            with self.assertRaisesRegex(ValueError,'recent_curve_native_identity_conflict'):
+                read([[b,a], [dict(a,id=9)]])
+            with self.assertRaisesRegex(ValueError,'admin_incomplete_pages'):
+                read([[b,a], []])
+            with self.assertRaisesRegex(ValueError,'admin_duplicate_page'):
+                read([[b,a], [a,b]], total=4)
 
     def test_uses_complete_paid_population_while_preserving_original_refund_gap(self):
         key = 'private-order'
