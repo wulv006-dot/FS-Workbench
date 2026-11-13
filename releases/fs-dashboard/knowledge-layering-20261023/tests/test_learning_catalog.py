@@ -21,7 +21,7 @@ sys.path[:0] = [str(SOURCE), str(ROOT / 'releases/fs-dashboard/hermes-fc-pilot-2
 import knowledge_catalog as kc
 import business_context as bc
 
-BASE = '416167951cfe261d55f2aba299e2cd020a082cf0'
+BASE = '33689877152c20e05f8400fc71e35494892ed406'
 SHARED_REVISION = 'fs-fc-admin-es-shared-20261113-r1'
 BASELINE = 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'
 HISTORY = 'knowledge/history/fc-business-baseline-before-aion2-20261023.md'
@@ -322,7 +322,7 @@ class LearningCatalog(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(lf(path)).hexdigest()
         current = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.marketing.attribution'], preview=True)
-        self.assertEqual(current['entries'][0]['revision'], SHARED_REVISION)
+        self.assertEqual(current['entries'][0]['revision'], 'fs-fc-admin-es-shared-20261113-r2')
         self.assertIn('fc.marketing.attribution@fc-v3-20261026', current['entries'][0]['supersedes'])
         self.assertIn('优惠码 `Aion2` 由 TikTok 改归**分销**', current['entries'][0]['content'])
         old = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.marketing.attribution'],
@@ -335,7 +335,9 @@ class LearningCatalog(unittest.TestCase):
         expected = {'fs.data.sources','fs.customer.identity','fs.finance.procurement',
                     'fc.marketing.attribution','fs.learning.methods','fc.reporting.data'}
         rows = {r['id']:r for r in value['entries']}
-        self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected)
+        updated = {'fs.data.sources','fc.marketing.attribution','fc.reporting.data'}
+        self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r2'},updated)
+        self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated)
         for ident in expected:
             self.assertEqual(rows[ident]['knowledge_updated_at'],'2026-11-13')
             self.assertTrue(rows[ident]['supersedes'])

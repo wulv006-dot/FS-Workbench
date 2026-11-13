@@ -208,7 +208,7 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             entries = []
             shared = builder.SHARED_OVERLAYS if number == 0 else builder.SHARED_OVERLAYS[:-1]
             for identity in (*shared, 'fs.learning.methods', 'fc.pricing.v3', builder.EMAIL):
-                path = 'entries/' + identity + '.md'
+                path = ('overlay/' if identity in shared else 'entries/') + identity + '.md'
                 data = (f'## Anchor\n\nCommon context.\n\nOriginal live wording {number}.\n').encode()
                 item = row(identity, f'live-{number}', path, data)
                 item['unrelated_metadata'] = number
@@ -271,12 +271,15 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                 self.assertEqual(item['unrelated_metadata'], number)
                 self.assertEqual(item['modules'], previous['modules'])
                 source = '/'.join(index['source_root'].split('/')[2:])
+                self.assertNotEqual(item['source']['path'], previous['source']['path'])
+                self.assertEqual((staged / 'artifact' / source / previous['source']['path']).read_bytes(),
+                                 f'## Anchor\n\nCommon context.\n\nOriginal live wording {number}.\n'.encode())
                 self.assertEqual((staged / 'artifact' / source / item['source']['path']).read_bytes(),
                                  f'## Anchor\n\nD5 shared method.\n\nCommon context.\n\nOriginal live wording {number}.\n'.encode())
             self.assertEqual('fc.reporting.data' in [r['id'] for r in index['entries']], number == 0)
         proof = json.loads((self.output / 'retained-baseline-provenance.json').read_bytes())
         self.assertEqual(proof['retained_sha256'], proof['existing_provenance']['after_sha256'])
-        self.assertEqual(len(proof['overlays']), 9)
+        self.assertEqual(len(proof['overlays']), 5)
 
     def test_missing_merge_context_refuses_candidate(self):
         name = self.policy['requests']['first']['catalog']

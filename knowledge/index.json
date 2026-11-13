@@ -1,6 +1,6 @@
 {
   "contract": "fs-knowledge-index-v1",
-  "release": "fs-fc-admin-es-shared-20261113-r1",
+  "release": "fs-fc-admin-es-shared-20261113-r2",
   "release_state": "candidate",
   "source_commit": null,
   "entries": [
@@ -9,7 +9,10 @@
       "revision": "order-email-defaults-20261111",
       "layer": "current",
       "status": "effective",
-      "modules": ["FS", "marketing"],
+      "modules": [
+        "FS",
+        "marketing"
+      ],
       "effective_at": "2026-11-11",
       "owner": "吴律；订单邮箱功能负责人",
       "authority": "git",
@@ -20,12 +23,24 @@
         "hash_basis": "utf8_lf"
       },
       "supersedes": [],
-      "provenance": [{"kind": "direct_user", "date": "2026-11-11", "decision": "四条件置灰省略及知识同步", "runtime_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/999", "acceptance_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/1000"}],
-      "consumers": ["Hermes selected knowledge candidate", "DSH", "FS connector method guidance"]
+      "provenance": [
+        {
+          "kind": "direct_user",
+          "date": "2026-11-11",
+          "decision": "四条件置灰省略及知识同步",
+          "runtime_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/999",
+          "acceptance_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/1000"
+        }
+      ],
+      "consumers": [
+        "Hermes selected knowledge candidate",
+        "DSH",
+        "FS connector method guidance"
+      ]
     },
     {
       "id": "fs.data.sources",
-      "revision": "fs-fc-admin-es-shared-20261113-r1",
+      "revision": "fs-fc-admin-es-shared-20261113-r2",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -38,7 +53,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "1cee4c0b5b68a14ecabc69c16f28b641ef311c5e4844016b39791d65ad0a125a",
+        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -53,7 +68,8 @@
         "fs.data.sources@baseline-v15-business-filter-layout-20261025",
         "fs.data.sources@fc-v3-20261026",
         "fs.data.sources@dashboard-shipping-20261030",
-        "fs.data.sources@order-email-sources-20261111"
+        "fs.data.sources@order-email-sources-20261111",
+        "fs.data.sources@fs-fc-admin-es-shared-20261113-r1"
       ],
       "provenance": [
         {
@@ -112,6 +128,12 @@
           "prior_revision": "order-email-sources-20261111",
           "prior_source_sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
           "scope": "selected_definition_updated; runtime_not_published"
+        },
+        {
+          "kind": "direct_user",
+          "date": "2026-11-13",
+          "decision": "渠道统一追踪优先级与来源明细；ES一份共享库每日昨日及每周当月复核",
+          "implementation_status": "candidate; production and natural-cycle evidence tracked separately"
         }
       ],
       "consumers": [
@@ -136,7 +158,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "1cee4c0b5b68a14ecabc69c16f28b641ef311c5e4844016b39791d65ad0a125a",
+        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -217,7 +239,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "1cee4c0b5b68a14ecabc69c16f28b641ef311c5e4844016b39791d65ad0a125a",
+        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -300,7 +322,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "1cee4c0b5b68a14ecabc69c16f28b641ef311c5e4844016b39791d65ad0a125a",
+        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -581,7 +603,7 @@
     },
     {
       "id": "fc.marketing.attribution",
-      "revision": "fs-fc-admin-es-shared-20261113-r1",
+      "revision": "fs-fc-admin-es-shared-20261113-r2",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -593,7 +615,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "1cee4c0b5b68a14ecabc69c16f28b641ef311c5e4844016b39791d65ad0a125a",
+        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -603,7 +625,8 @@
       "supersedes": [
         "fc.marketing.attribution@v15-pmax-20261022",
         "fc.marketing.attribution@v15-pmax-aion2-20261023",
-        "fc.marketing.attribution@fc-v3-20261026"
+        "fc.marketing.attribution@fc-v3-20261026",
+        "fc.marketing.attribution@fs-fc-admin-es-shared-20261113-r1"
       ],
       "provenance": [
         {
@@ -651,6 +674,12 @@
           "prior_revision": "fc-v3-20261026",
           "prior_source_sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
           "scope": "selected_definition_updated; runtime_not_published"
+        },
+        {
+          "kind": "direct_user",
+          "date": "2026-11-13",
+          "decision": "渠道统一追踪优先级与来源明细；ES一份共享库每日昨日及每周当月复核",
+          "implementation_status": "candidate; production and natural-cycle evidence tracked separately"
         }
       ],
       "consumers": [
@@ -679,7 +708,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "1cee4c0b5b68a14ecabc69c16f28b641ef311c5e4844016b39791d65ad0a125a",
+        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -747,7 +776,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "1cee4c0b5b68a14ecabc69c16f28b641ef311c5e4844016b39791d65ad0a125a",
+        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -815,7 +844,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "1cee4c0b5b68a14ecabc69c16f28b641ef311c5e4844016b39791d65ad0a125a",
+        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -947,7 +976,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "1cee4c0b5b68a14ecabc69c16f28b641ef311c5e4844016b39791d65ad0a125a",
+        "sha256": "cd1e130a778a9a3464c4d4eeb54c8ab028c328f3342d25ec3c2ad2c051dee385",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1275,7 +1304,7 @@
     },
     {
       "id": "fc.reporting.data",
-      "revision": "fs-fc-admin-es-shared-20261113-r1",
+      "revision": "fs-fc-admin-es-shared-20261113-r2",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1289,7 +1318,7 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "12888990ff42eb935085271b726a849adc2903f38edaabdc48c93dc1d57fd3da",
+        "sha256": "309de8fc4aad68f53bd4a402cfdbfd7dced44f0dc78a8c3569addcc1ab973d34",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1298,7 +1327,8 @@
         "fc.reporting.data@20261106-1",
         "fc.reporting.data@20261106-clean",
         "fc.reporting.data@20261107-profit-summary",
-        "fc.reporting.data@20261107-time-attribution"
+        "fc.reporting.data@20261107-time-attribution",
+        "fc.reporting.data@fs-fc-admin-es-shared-20261113-r1"
       ],
       "provenance": [
         {
@@ -1349,6 +1379,12 @@
           "prior_revision": "20261107-time-attribution",
           "prior_source_sha256": "28a08fd28d740a800b161ba98f1ca8855a56a71fd15b77056e9cdb1b6d155403",
           "scope": "selected_definition_updated; runtime_not_published"
+        },
+        {
+          "kind": "direct_user",
+          "date": "2026-11-13",
+          "decision": "渠道统一追踪优先级与来源明细；ES一份共享库每日昨日及每周当月复核",
+          "implementation_status": "candidate; production and natural-cycle evidence tracked separately"
         }
       ],
       "consumers": [
@@ -1679,5 +1715,5 @@
       ]
     }
   ],
-  "base_commit": "416167951cfe261d55f2aba299e2cd020a082cf0"
+  "base_commit": "33689877152c20e05f8400fc71e35494892ed406"
 }

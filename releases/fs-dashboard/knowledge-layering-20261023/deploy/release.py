@@ -15,7 +15,7 @@ RELEASE = 'knowledge-layering-20261023-1'
 RUNTIME = {'runtime/' + n: '/opt/fs-hermes-fc/' + n for n in
            ('business_context.py', 'controller.py', 'knowledge_catalog.py')}
 PREFIX = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + RELEASE + '/'
-SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r1'
+SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r2'
 
 
 def targets(manifest):

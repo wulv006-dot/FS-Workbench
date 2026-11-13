@@ -99,7 +99,9 @@ class Knowledge(unittest.TestCase):
         selected=kc.select(ROOT,'knowledge/index.json',sha,['FC27'],['fc.marketing.attribution'],preview=True)
         self.assertEqual(selected['status'],'available_preview')
         self.assertIn('归FC项目',selected['entries'][0]['content'])
-        self.assertIn('不能因费用难分而排除真实成交',selected['entries'][0]['content'])
+        self.assertIn('真实FC订单及USD计FC广告成交',selected['entries'][0]['content'])
+        self.assertIn('无已核分摊不套FC',selected['entries'][0]['content'])
+        self.assertIn('归因渠道 ＞ 订单来源 ＞ 推广人及折扣码',selected['entries'][0]['content'])
         self.assertNotIn('属全局品牌广告',selected['entries'][0]['content'])
 
     def test_explicit_unresolved_conflict_is_reported(self):
