@@ -195,6 +195,29 @@ class FactsTest(unittest.TestCase):
             cache.config={**CFG,'trust_customer_flag':False}
             with self.assertRaisesRegex(ValueError,'customer_not_verified'):cache.get({**params,'customer':['new']})
 
+    def test_snapshot_csv_exports_only_the_requested_cached_revision(self):
+        calls=[]
+        with tempfile.TemporaryDirectory() as temp,ThreadPoolExecutor(max_workers=1) as pool:
+            def read(q,c):
+                calls.append(q)
+                return {**data([row(1)]),'snapshot_id':'fc-detail-'+str(len(calls)),
+                        'coverage':{'period':q['period']}}
+            cache=FCDetails(pool,temp,read,CFG)
+            params={'mode':['fc-detail'],'profile':['FC27'],'start':['2026-10-11'],'end':['2026-10-11']}
+            export={**params,'format':['csv'],'snapshot_id':['fc-detail-1']}
+            self.assertEqual(cache.get(export),(409,{'error':'fc_export_snapshot_changed'}))
+            self.assertEqual(calls,[])
+            self.assertEqual(cache.get(params)[0],202);pool.submit(lambda:None).result()
+            status,result=cache.get(export)
+            self.assertEqual(status,200)
+            self.assertIn('TEST1',result['csv'])
+            self.assertEqual(result['snapshot_id'],'fc-detail-1')
+            self.assertIn('fc-detail-1',result['csv'])
+            self.assertIn('fc-detail-1',result['dashboard_csv'])
+            self.assertEqual(cache.get({**params,'refresh':['true']})[0],202);pool.submit(lambda:None).result()
+            self.assertEqual(cache.get(export),(409,{'error':'fc_export_snapshot_changed'}))
+            self.assertEqual(len(calls),2)
+
     def test_failed_initial_source_is_unavailable_not_zero(self):
         def failed(q,c):raise OSError('unavailable')
         with tempfile.TemporaryDirectory() as temp,ThreadPoolExecutor(max_workers=1) as pool:

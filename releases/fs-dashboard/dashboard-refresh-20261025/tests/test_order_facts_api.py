@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import RLock
 from types import SimpleNamespace
+import csv
+import io
 import json
 import sys
 import unittest
@@ -123,6 +125,56 @@ class OrderFactsAPI(unittest.TestCase):
         self.assertEqual(self.service.get(params(channel='Direct'),'bob')[0],202)
         self.assertEqual(self.service.get(params(channel='unknown'),'alice')[0],202)
         self.assertEqual(len(self.channels.pool.calls),2)
+
+    def test_derived_scope_and_daily_rows_share_the_publication(self):
+        next_day = (datetime.fromisoformat(DAY) + timedelta(days=1)).date().isoformat()
+        q = selection(dict(params(gid='1327',site_id='266',channel='Direct'),end=[next_day]))
+        scope = {k:v for k,v in q.items() if k!='channel'}
+        value = facts(scope)
+        value['orders'][1]['paid_at'] = next_day+' 00:00:00'
+        result = public(value,q)
+        self.assertEqual(result['effective_scope'],q)
+        self.assertEqual(result['coverage_scope'],scope)
+        self.assertEqual([(r['day'],r['orders'],r['admin_paid_usd'],r['status']) for r in result['trend']],
+                         [(DAY,1,'50','available'),(next_day,0,None,'partial')])
+        self.assertEqual(sum(r['orders'] for r in result['trend']),result['totals']['orders'])
+        self.assertEqual(result['snapshot_id'],public(value,q)['snapshot_id'])
+        rows = list(csv.reader(io.StringIO(result['aggregate_csv'].lstrip('\ufeff'))))
+        self.assertEqual(rows[1][:5],[DAY,next_day,'266','1327','Direct'])
+        self.assertEqual(rows[1][7],result['snapshot_id'])
+        self.assertEqual(rows[3:], [['渠道','Direct','partial','1','50','0','','','0'],
+                                   ['日期',DAY,'available','1','50','0','','','0'],
+                                   ['日期',next_day,'partial','0','','0','','','0']])
+        value['source_coverage']['attribution'] = {'publication_id':'new-revision'}
+        self.assertNotEqual(result['snapshot_id'],public(value,q)['snapshot_id'])
+        self.assertNotIn('PRIVATE-ORDER',json.dumps(result))
+
+    def test_trend_keeps_complete_zero_and_does_not_fill_missing_amount(self):
+        q = selection(params())
+        scope = {k:v for k,v in q.items() if k!='channel'}
+        value = facts(scope)
+        value['orders'] = []
+        self.assertEqual(public(value,q)['trend'][0]['admin_paid_usd'],'0')
+        value = facts(scope)
+        for row in value['orders']:row['admin_paid_usd'] = None
+        result = public(value,q)
+        self.assertEqual(result['trend'][0]['orders'],2)
+        self.assertIsNone(result['trend'][0]['admin_paid_usd'])
+        self.assertEqual(result['trend'][0]['missing_admin_usd_orders'],2)
+
+    def test_unknown_payment_day_preserves_aggregate_without_inventing_daily_zero(self):
+        q = selection(params())
+        scope = {k:v for k,v in q.items() if k!='channel'}
+        value = facts(scope)
+        value['orders'][0]['paid_at'] = None
+        value['orders'][1]['paid_at'] = DAY+' 10:72:00'
+        result = public(value,q)
+        self.assertEqual(result['totals']['orders'],2)
+        self.assertEqual(result['totals']['admin_paid_usd'],'100')
+        self.assertEqual(result['trend_unallocated_orders'],2)
+        self.assertEqual(result['trend'][0]['orders'],0)
+        self.assertIsNone(result['trend'][0]['admin_paid_usd'])
+        self.assertEqual(result['trend'][0]['status'],'partial')
 
     def test_shared_two_slot_budget_counts_both_existing_services(self):
         self.channels.jobs['old']='pending'

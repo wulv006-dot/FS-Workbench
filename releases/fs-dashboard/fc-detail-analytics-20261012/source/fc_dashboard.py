@@ -139,17 +139,18 @@ def native_membership(read, pages, paid, period, config):
 def identity(row):
     return (str(row.get('site') or ''), str(row.get('id') or ''))
 
-def export_csv(dashboard):
+def export_csv(dashboard, *, scope=((), ())):
     """Export the same selected financial/category/trend facts, including unknowns."""
     stream = io.StringIO()
     writer = csv.writer(stream)
     fields = ('orders', 'revenue_usd', 'shipping_sales_cny', 'cost_cny', 'gross_profit_cny', 'gross_margin_pct')
-    writer.writerow(('范围', '分类', '时间', *fields, '分类覆盖', '发货汇总对账'))
+    headings, values = scope
+    writer.writerow(('范围', '分类', '时间', *fields, '分类覆盖', '发货汇总对账', *headings))
     coverage = dashboard['coverage']
     for row in dashboard['categories']:
-        writer.writerow(('所选范围', row['label'], '', *(row.get(field) for field in fields), coverage['classification_status'], coverage.get('reconciliation_status', 'not_verified')))
+        writer.writerow(('所选范围', row['label'], '', *(row.get(field) for field in fields), coverage['classification_status'], coverage.get('reconciliation_status', 'not_verified'), *values))
     for row in dashboard['trend']:
-        writer.writerow(('所选范围', '全部所选分类', row['date'], *(row.get(field) for field in fields), coverage['classification_status'], coverage.get('reconciliation_status', 'not_verified')))
+        writer.writerow(('所选范围', '全部所选分类', row['date'], *(row.get(field) for field in fields), coverage['classification_status'], coverage.get('reconciliation_status', 'not_verified'), *values))
     return '\ufeff' + stream.getvalue()
 
 def reconcile_shipping(rows, native_sale, native_cost, native_transactions=None):

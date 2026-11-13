@@ -9,11 +9,14 @@ from fc_detail_model import aggregate, selected, CONTRACT
 HERE = Path(__file__).resolve().parent
 
 def query(params, now=None):
-    allowed = {'mode', 'profile', 'start', 'end', 'grain', 'platform', 'customer', 'product', 'site_group', 'bucket', 'issue', 'pool', 'list', 'page', 'format', 'country', 'device', 'payment', 'hour', 'refresh'}
+    allowed = {'mode', 'profile', 'start', 'end', 'grain', 'platform', 'customer', 'product', 'site_group', 'bucket', 'issue', 'pool', 'list', 'page', 'format', 'country', 'device', 'payment', 'hour', 'refresh', 'snapshot_id'}
     if set(params) - allowed or any(len(v) != 1 for v in params.values()): raise ValueError('invalid_fc_parameters')
     values = {k: v[0] for k, v in params.items()}
     if values.get('profile') != 'FC27' or values.get('grain', 'day') not in ('day', 'hour'): raise ValueError('fc_day_required')
     if values.get('mode') not in ('fc-detail', 'fc-report'): raise ValueError('invalid_fc_mode')
+    if 'snapshot_id' in values and (values.get('mode') != 'fc-detail' or values.get('format') != 'csv'
+            or 'refresh' in values or not re.fullmatch(r'fc-detail-[a-z0-9]{1,64}', values['snapshot_id'])):
+        raise ValueError('invalid_fc_export_snapshot')
     now = now or datetime.now(timezone(timedelta(hours=8)))
     hourly = values.get('grain') == 'hour' and len(values.get('start', '')) > 10
     if hourly:
@@ -96,11 +99,14 @@ class FCDetails:
             self.denied.add(key)
             if time.monotonic()-denied['at'] < 60: return 403, {'contractId':CONTRACT,'data_status':'unavailable','error':'fc_source_denied'}
             data = None  # Permit the existing bounded retry, while withholding the rejected cache.
+        pinned = q.get('snapshot_id')
+        if pinned and (data is None or data.get('snapshot_id') != pinned):
+            return 409, {'error':'fc_export_snapshot_changed'}
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(data['as_of'])).total_seconds() if data else float('inf')
         ttl = self.config['today_cache_seconds'] if q['end'] == datetime.now(timezone(timedelta(hours=8))).date().isoformat() else self.config['history_cache_seconds']
         # Current open orders have their own shorter freshness bound even in a historical report.
         ttl = min(ttl, self.config['today_cache_seconds'])
-        if q.get('refresh') == 'true' or not 0 <= age < ttl:
+        if not pinned and (q.get('refresh') == 'true' or not 0 <= age < ttl):
             with self.lock:
                 job = self.jobs.get(key)
                 if job and job['state'] == 'failed' and time.monotonic() - job['at'] >= 60: job = None
@@ -125,16 +131,20 @@ class FCDetails:
         result['refreshSeconds'] = ttl
         result['refresh_error_code'] = self.jobs.get(key, {}).get('error')
         if q.get('format') == 'csv':
-            current = q.get('pool', 'paid') == 'current'
             rows = result['orders']
             result['orders'] = rows[:10]
             output = io.StringIO(); writer = csv.writer(output)
-            writer.writerow(['订单号', '范围', '平台', '商品分类', 'USD', '客户标记', '支付时间', '当前状态'])
+            export_scope = (result['snapshot_id'], q['start'], q['end'], q.get('grain','day'),
+                q.get('site_group','all'), q.get('product','all'), q.get('platform','all'),
+                q.get('customer','all'), q.get('bucket','all'), q.get('pool','paid'))
+            export_fields = ('快照版本','开始日期','结束日期','粒度','站点筛选','商品筛选','平台筛选',
+                             '客户筛选','金额档筛选','订单池')
+            writer.writerow(('订单号', '范围', '平台', '商品分类', 'USD', '客户标记', '支付时间', '当前状态', *export_fields))
             safe = lambda v: "'" + str(v) if str(v).startswith(('=', '+', '-', '@')) else v
-            for r in rows: writer.writerow([safe(v) for v in (r['id'], r['site_group'], r['platform'], r.get('category', 'unknown'), '' if r['amount_usd'] is None else r['amount_usd'], r['customer'], r['paid_at'] or '', r['status'])])
+            for r in rows: writer.writerow([safe(v) for v in (r['id'], r['site_group'], r['platform'], r.get('category', 'unknown'), '' if r['amount_usd'] is None else r['amount_usd'], r['customer'], r['paid_at'] or '', r['status'], *export_scope)])
             result['csv'] = '\ufeff' + output.getvalue()
             from fc_dashboard import export_csv
-            result['dashboard_csv'] = export_csv(result['fc_dashboard'])
+            result['dashboard_csv'] = export_csv(result['fc_dashboard'], scope=(export_fields, export_scope))
         if q['mode'] == 'fc-report':
             core = {k: v for k, v in result.items() if k not in ('orders', 'csv', 'refreshing', 'refresh_error', 'page')}
             report_id = hashlib.sha256(json.dumps(core, sort_keys=True).encode()).hexdigest()[:24]

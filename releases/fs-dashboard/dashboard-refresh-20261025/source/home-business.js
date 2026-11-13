@@ -313,9 +313,21 @@ function render(host,data,key='MMOEXP',selection=null,readState=null){
  const projected=fsMainSite(p,combined),m=projected.metrics,period=projected.period,shown={...m};
  const head=text('div',null,'fsi-heading');head.append(text('h3',key==='RS'?'RS · '+projected.site:combined?'全部网站':'MMOEXP 主站经营'),text('p',(key==='MMOEXP'?'MMOEXP':p.name||key)+' · '+(period?.start||'—')+' 至 '+(period?.end||'—')+' · 北京时间','fsi-note'));host.append(head);
  const cards=text('div',null,'fsi-metrics');
- const fields=[['订单数','orders',count],['销售额','revenueUsd',money],['毛利（¥）','profitCny',v=>'¥'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})],['毛利率','profitMarginPct',pct],['新客人数','newCustomers',count],['付款人数','payingCustomers',count],['新客付款金额','newCustomerRevenueUsd',money],['复购率','repeatRatePct',pct],['新客占比','newCustomerSharePct',pct],['纯销售额','pureSalesUsd',money],['退款金额','refundAmountUsd',money],['退款订单','refundOrders',count],['发货完成率','fulfillmentRatePct',pct],['支付成功率','paymentSuccessRatePct',pct],['客单价','averageOrderUsd',money],['付费客户均额（ARPU）','averageCustomerUsd',money]];
+ const fields=[['订单数','orders',count],['销售额','revenueUsd',money],['毛利（¥）','profitCny',v=>'¥'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})],['毛利率','profitMarginPct',pct],['新客人数','newCustomers',count],['付款人数','payingCustomers',count],['新客付款金额','newCustomerRevenueUsd',money],['Admin原生复购率','repeatRatePct',pct],['新客占比','newCustomerSharePct',pct],['纯销售额','pureSalesUsd',money],['退款金额','refundAmountUsd',money],['退款订单','refundOrders',count],['发货完成率','fulfillmentRatePct',pct],['支付成功率','paymentSuccessRatePct',pct],['客单价','averageOrderUsd',money],['付费客户均额（ARPU）','averageCustomerUsd',money]];
  for(const [label,k,format] of fields){const item=shown[k];cards.append(metricCard(label,phase?placeholder:fsMetricText(item,format),'来源：'+item.source+' · '+item.scope+(k==='averageOrderUsd'?' · 付款销售额÷付款订单数':''),k));}
  host.append(cards);
+ const native=p.supplement;
+ if(!phase&&native?.native_repeat_rate&&native.reconciliation_status==='not_aligned'){
+  const local=native.local_repeat_rate,q=local?.scope;
+  const note=text('p','两种复购率的订单成员与计算口径仍待对账。','fsi-note');
+  if(local?.status==='available'||local?.status==='not_applicable'){
+   const rate=local.status==='available'?pct(local.value):'不适用';
+   const scopeLabel=q?.scope==='global'?'全局':q?.scope_id?[q.scope,q.scope_id].join(' '):'范围待核';
+   const dates=q?.start&&q?.end_exclusive?` · ${q.start.slice(0,10)} 至 ${q.end_exclusive.slice(0,10)}（不含结束日）`:'';
+   note.append(text('span',` 本地区间复购用户占比 ${rate}（${count(local.numerator)} / ${count(local.denominator)} 人） · ${scopeLabel}${dates} · 期间与客户身份覆盖已核。`));
+  }else note.append(text('span',' 本地区间复购用户占比暂缺。'));
+  host.append(note);
+ }
 
  if(!combined&&!projected.onlyMain)host.append(text('p','新客、复购率等采用 Admin 本区间原统计范围，可能含其他站点，仅参考；没有将其冒充主站独立指标。','fsi-note'));
  host.append(text('p','Admin 取数：'+(projected.adminCapturedAt||'未提供')+'；Order 取数：'+(projected.orderCapturedAt||'未提供'),'fsi-note'));
@@ -2299,6 +2311,11 @@ function fcDetailInit(){
   if(b.dataset.fcClear){fcFilters[b.dataset.fcClear]='all';fcHost.querySelector(`[data-fc-filter="${b.dataset.fcClear}"]`).value='all';fcDetailState.key='';fcDetailSync();}
  });
  fcHost.querySelector('dialog').addEventListener('close',()=>{fcDrawerAbort?.abort();fcHost.querySelector('[data-fc-retry]')?.focus();});
+ const exportStatus=document.createElement('p');
+ exportStatus.className='hint';exportStatus.dataset.fcExportStatus='';
+ exportStatus.setAttribute('role','status');exportStatus.hidden=true;
+ fcHost.querySelector('.fc-state').after(exportStatus);
+ exportStatus.dataset.snapshot='';
  scope.signal.addEventListener('abort',()=>{clearTimeout(fcDetailTimer);fcAbort?.abort();fcDrawerAbort?.abort();fcDetailState.data=null;fcDrawerData=null;fcHost?.replaceChildren();},{once:true});
  for(const [key,value]of Object.entries(fcFilters))fcHost.querySelector(`[data-fc-filter="${key}"]`).value=value;
 }
@@ -2322,10 +2339,11 @@ function fcDetailShow(){
 async function fcRead(query,signal,onSnapshot){
  const q={...query};
  const deadline=Date.now()+920000;
- do{if(signal.aborted)throw new DOMException('Aborted','AbortError');let r,d;try{r=await fetch('/dashboard/fs-home/range.json?'+new URLSearchParams(q),{signal:AbortSignal.any([signal,AbortSignal.timeout(Math.max(1,Math.min(20000,deadline-Date.now())))]),credentials:'same-origin',cache:'no-store'});if(r.status===401||r.status===403||r.redirected)throw Object.assign(Error('session_denied'),{status:r.status===401?401:403});d=await r.json();}catch(e){if(e.message==='session_denied'||e.message==='protected_read_redirected'){window.dispatchEvent(new CustomEvent('fs-exact-permission-denied',{detail:{status:e.status||403}}));throw e;}if(signal.aborted||scope.signal.aborted)throw e;await fcWait(3000,signal);continue;}
+ do{if(signal.aborted)throw new DOMException('Aborted','AbortError');let r,d;try{r=await fetch('/dashboard/fs-home/range.json?'+new URLSearchParams(q),{signal:AbortSignal.any([signal,AbortSignal.timeout(Math.max(1,Math.min(20000,deadline-Date.now())))]),credentials:'same-origin',cache:'no-store'});if(r.status===401||r.status===403||r.redirected)throw Object.assign(Error('session_denied'),{status:r.status===401?401:403});d=await r.json();}catch(e){if(e.message==='session_denied'||e.message==='protected_read_redirected'){window.dispatchEvent(new CustomEvent('fs-exact-permission-denied',{detail:{status:e.status||403}}));throw e;}if(q.snapshot_id&&e.message==='protected_read_failed_409')throw Error('导出快照已变化，请更新明细后重试。');if(signal.aborted||scope.signal.aborted||q.snapshot_id)throw e;await fcWait(3000,signal);continue;}
   delete q.refresh;
   if(r.status===202||r.status===429){await fcWait(Math.min(30,Math.max(3,d.retryAfter||3))*1000,signal);continue;}
   if(r.status===401||r.status===403){window.dispatchEvent(new CustomEvent('fs-exact-permission-denied',{detail:{status:r.status}}));throw Error('登录或来源权限失效');}
+  if(q.snapshot_id&&(r.status===409||r.ok&&d.snapshot_id!==q.snapshot_id))throw Error('导出快照已变化，请更新明细后重试。');
   if(!r.ok||!fcSameQuery(d.query,q)||d.contractId!=='fc27-detail-analytics-v1'||d.query?.start!==q.start||d.query?.end!==q.end||!d.snapshot_id)throw Error('FC明细暂不可用，未将失败显示成零。');
   // Cached data is usable during refresh; only the visible dashboard follows the refresh.
   if(onSnapshot)onSnapshot(d);
@@ -2352,6 +2370,9 @@ function fcDetailSync(refresh=false){
 
 function fcDetailDraw(){
  if(!fcHost)return;const d=!exactPermissionDenied()&&fcSameQuery(fcDetailState.data?.query,fcQuery())?fcDetailState.data:null;
+ fcHost.querySelector('[data-fc-csv]').disabled=!d?.snapshot_id;
+ const exportStatus=fcHost.querySelector('[data-fc-export-status]');
+ if(exportStatus.dataset.snapshot!==(d?.snapshot_id||'')){exportStatus.hidden=true;exportStatus.textContent='';}
  fcHost.querySelector('.fc-state').textContent=fcDetailState.error||(d?`${d.scope_label} · ${d.query.start} 至 ${d.query.end} · 读取 ${new Date(d.as_of).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})} 北京时间${d.stale?(d.refreshing?(d.refresh_phase==='queued'?' · 显示上次快照，后台排队中':' · 显示上次快照，后台更新中'): ' · 上次快照，尚未更新'):''}${d.data_status==='partial'?' · 部分可用，缺失日不补零':''}${d.refresh_error?' · 最近刷新失败，保留原快照':''}`:'首次读取这个范围，正在读取订单；各分析区块共用同一范围。');
  fcHost.querySelector('.fc-filter-tags').innerHTML=Object.entries(fcFilters).filter(([k,v])=>v!=='all'&&!['platform','site_group'].includes(k)).map(([k,v])=>`<button type="button" data-fc-clear="${k}">${esc(fcName(v))} ×</button>`).join('');
  if(!d){fcUpdateMetrics();for(const [key]of fcTabs)fcHost.querySelector('[data-fc-content='+key+']').innerHTML=fcDetailState.error?'<button type="button" data-fc-retry>重试 FC 明细</button>':'';renderProfit();renderMain();renderStructure();dailyMount();return;}
@@ -2381,7 +2402,19 @@ function fcDrawerRender(){
  fcHost.querySelector('.fc-drawer-content').innerHTML=`<p>${d.stale?'上次快照 · ':''}${new Date(d.as_of).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})} 北京时间<br>${esc(d.query.start)} 至 ${esc(d.query.end)} · ${d.query.pool==='current'?'当前全部未结案（日期不截断）':'支付日订单'} · ${esc(fcName(d.query.platform))} · ${esc(fcName(d.query.customer))} · 金额档 ${esc(d.query.bucket||'all')}</p>${fcTable(['订单','范围 / 商品','USD','客户','等待','当前状态'],rows)}<div class="fc-pagination"><button type="button" data-fc-page="${d.page-1}" ${d.page===1?'disabled':''}>上一页</button><span>第 ${d.page} 页 · ${d.list_total==null?'已知 '+d.list_known_total+' 单 · 完整总数暂缺':d.list_total+' 单'} · 10 条/页</span><button type="button" data-fc-page="${d.page+1}" ${d.page*10>=(d.list_total??d.list_known_total)?'disabled':''}>下一页</button></div>`;
 }
 function fcOrder(id){const r=fcDrawerData?.orders[Number(id)];if(!r)return;fcHost.querySelector('.fc-drawer-content').innerHTML=`<button type="button" data-fc-return>← 返回订单列表</button><h3>${esc(r.id)}</h3><dl>${[['范围',fcName(r.site_group)],['平台',r.platform],['商品',fcName(r.category||r.product)],['USD',fcMoney(r.amount_usd)],['客户',fcName(r.customer)],['支付时间',r.paid_at||'暂缺'],['当前状态',r.status],['原因',r.reason],['等待时长',r.age_hours==null?'暂缺':r.age_hours+' 小时'],['优先关注',(r.attention||[]).join('、')||'无已命中规则']].map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl><a href="/dashboard/tasks/" target="_blank" rel="noopener">到已有任务台记录跟进</a><p>看板跟进不改变订单后台状态。</p>`;}
-async function fcExportCsv(){try{const d=await fcRead(fcQuery({format:'csv'}),scope.signal);fcDownload(`FC27_${d.query.start}_${d.query.end}.csv`,d.csv,'text/csv;charset=utf-8');if(d.dashboard_csv)fcDownload('FC27分类趋势_'+d.query.start+'_'+d.query.end+'.csv',d.dashboard_csv,'text/csv;charset=utf-8');}catch(e){fcHost.querySelector('.fc-state').textContent=e.message;}}
+async function fcExportCsv(){
+ const visible=fcDetailState.data,q=fcQuery();
+ if(!fcSameQuery(visible?.query,q)||!visible.snapshot_id||exactPermissionDenied())return;
+ const status=fcHost.querySelector('[data-fc-export-status]');
+ status.textContent='';status.hidden=true;status.dataset.snapshot=visible.snapshot_id;
+ try{
+  const d=await fcRead({...q,format:'csv',snapshot_id:visible.snapshot_id},scope.signal);
+  if(!fcSameQuery(q,fcQuery())||fcDetailState.data?.snapshot_id!==d.snapshot_id||exactPermissionDenied())throw Error('当前范围或快照已变化，请重新导出。');
+  const filename=`${d.query.start}_${d.query.end}_${d.snapshot_id}.csv`;
+  fcDownload('FC27_'+filename,d.csv,'text/csv;charset=utf-8');
+  if(d.dashboard_csv)fcDownload('FC27分类趋势_'+filename,d.dashboard_csv,'text/csv;charset=utf-8');
+ }catch(e){if(!scope.signal.aborted&&!exactPermissionDenied()){status.textContent=e.message;status.hidden=false;}}
+}
 async function fcReport(){
  const reportFilters={...fcFilters};
   const core=[...document.querySelectorAll('#supplement-insights .fsi-metric')].filter(c=>['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd'].includes(c.dataset.metric)).map(c=>[c.querySelector('span').textContent,c.querySelector('strong').textContent,c.querySelector('small').textContent]);
@@ -2459,7 +2492,7 @@ function workspaceSync(){if(scope.signal.aborted||workspaceQueued)return;workspa
   if(!root.getElementById('all-metrics')){const button=document.createElement('button');button.id='all-metrics';button.className='metrics-toggle';button.onclick=()=>{scope.metrics=!scope.metrics;workspaceSync();};grid.before(button);}
   const button=root.getElementById('all-metrics');fcSetText(button,scope.metrics?'收起补充指标':'展开补充指标');button.setAttribute('aria-expanded',String(!!scope.metrics));
   const cards=[...grid.children],primary=['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd'];
-  for(const [i,c] of cards.entries()){const n=primary.indexOf(c.dataset.metric);if(n>=0)fcSetText(c.querySelector('span'),['销售额','订单数','毛利（¥）','毛利率','新客人数','复购率','新客占比','客单价'][n]);c.style.order=n<0?primary.length+i:n;c.hidden=!scope.metrics&&n<0;}
+  for(const [i,c] of cards.entries()){const n=primary.indexOf(c.dataset.metric);if(n>=0)fcSetText(c.querySelector('span'),['销售额','订单数','毛利（¥）','毛利率','新客人数','Admin原生复购率','新客占比','客单价'][n]);c.style.order=n<0?primary.length+i:n;c.hidden=!scope.metrics&&n<0;}
   for(let i=0;i<primary.length;i++){const card=cards.find(c=>c.dataset.metric===primary[i]);if(card&&grid.children[i]!==card)grid.insertBefore(card,grid.children[i]||null);}
 
  }

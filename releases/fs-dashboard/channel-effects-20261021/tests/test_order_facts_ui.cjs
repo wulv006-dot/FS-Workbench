@@ -24,9 +24,14 @@ const server=http.createServer((req,res)=>{
     const empty=state==='empty',zero=state==='zero',selected=url.searchParams.get('channel')==='unknown';
     const totals=summary(empty?0:selected?1:2,empty?0:1);
     if(zero)Object.assign(totals,{missing_cost_orders:0,cost_covered_orders:2,procurement_gross_cny:'0',gross_covered_orders:2,admin_paid_usd:'0'});
+    const scope=Object.fromEntries(['start','end','site_id','gid','channel'].map(k=>[k,url.searchParams.get(k)]));
+    const snapshot=state==='revision'?'revision-2':'revision-1';
     res.end(JSON.stringify({version:'order-facts-api-20261113-v1',status:'available',admin_complete:true,
       ...(state==='deferred'?{refresh_deferred:true,refresh_reason:'recent_capture',retryAfter:60}:{}),
-      effective_scope:Object.fromEntries(['start','end','site_id','gid'].map(k=>[k,url.searchParams.get(k)])),
+      effective_scope:state==='mismatch'?{...scope,gid:'999'}:scope,
+      snapshot_id:snapshot,aggregate_csv:`gid,channel,snapshot\r\n${scope.gid},${scope.channel},${snapshot}\r\n`,
+      trend:[{day:scope.start,...totals,status:'available'},
+        {day:scope.end,...summary(0),admin_paid_usd:null,observed_cost_cny:null,status:'partial'}],
       totals,channels:empty?[]:selected?[{channel:'unknown',...totals}]:[{channel:'Direct',...summary(1)},{channel:'unknown',...summary(1,1)}],
       coverage:{unlinked_admin_rows:0,unlinked_attribution_rows:3},
       options:{games:[['1327','FC27'],['456','Diablo 4'],['1329','AION2']]},
@@ -66,6 +71,10 @@ const server=http.createServer((req,res)=>{
     assert.match(await page.locator('#source-attribution').innerText(),/未知/);
     assert.match(await page.locator('#source-attribution-note').innerText(),/已归因 1 \/ 2 单/);
     assert.equal(await page.locator('#legacy-details').isVisible(),false);
+    assert.equal(await page.locator('#trend svg').isVisible(),true);
+    assert.equal(await page.locator('#trend .sales').count(),1);
+    await page.getByText('查看每日数据表',{exact:true}).click();
+    assert.match(await page.locator('#trend-table tbody tr').last().innerText(),/—.*部分/s);
     assert.match(await page.locator('#kpis').innerText(),/¥0/);
     assert.match(await page.locator('#kpis').innerText(),/—/);
     assert.equal(await page.locator('#status').getAttribute('data-state'),'partial');
@@ -92,6 +101,19 @@ const server=http.createServer((req,res)=>{
     await page.waitForFunction(()=>document.querySelector('#source-attribution-note').textContent.includes('已归因 0 / 1 单'));
     assert.equal(requests.at(-1).channel,'unknown');
     assert.equal(await page.locator('#source-attribution tbody tr').count(),1);
+    const exportButton=page.locator('#export-facts');
+    const beforeExport=requests.length;
+    const [download]=await Promise.all([page.waitForEvent('download'),exportButton.click()]);
+    assert.match(download.suggestedFilename(),/revision-1\.csv$/);
+    assert.match(fs.readFileSync(await download.path(),'utf8'),/1327,unknown,revision-1/);
+    assert.equal(requests.length,beforeExport);
+    const oldStart=await page.locator('[name=start]').inputValue();
+    await page.locator('[name=start]').fill(await page.locator('[name=end]').inputValue());
+    assert.equal(await exportButton.isDisabled(),true);
+    await page.locator('[name=start]').fill(oldStart);
+    state='mismatch';await page.locator('#refresh').click();
+    await page.locator('#status[data-state=error]').waitFor();
+    assert.match(await page.locator('#scope').innerText(),/FC27.*未知/);
     state='error';await page.locator('#refresh').click();
     await page.locator('#status[data-state=error]').waitFor();
     assert.equal(await page.locator('#results').isVisible(),true);
@@ -105,6 +127,8 @@ const server=http.createServer((req,res)=>{
     assert.doesNotMatch(await page.locator('#kpis').innerText(),/—/);
     state='revision';await page.locator('#refresh').click();
     await page.locator('#freshness').filter({hasText:'revision-2'}).waitFor();
+    const [newDownload]=await Promise.all([page.waitForEvent('download'),exportButton.click()]);
+    assert.match(fs.readFileSync(await newDownload.path(),'utf8'),/1327,all,revision-2/);
     for(const theme of ['dark','light']){
       await page.locator('#theme').selectOption(theme);
       assert.equal(await page.locator('html').getAttribute('data-fs-theme'),theme);
@@ -119,6 +143,7 @@ const server=http.createServer((req,res)=>{
     await page.locator('#status').filter({hasText:'未获渠道效果看板授权'}).waitFor();
     assert.equal(await page.locator('#results').isVisible(),false);
     assert.equal(await page.locator('#refresh').isDisabled(),true);
+    assert.equal(await exportButton.isDisabled(),true);
     assert.deepEqual(errors,[]);
     console.log('D2 channel UI: pending, scoped requests, unknown, missing/zero, partial, empty, error retention, revision, themes/mobile, auth passed');
   }finally{await browser.close();server.close();}

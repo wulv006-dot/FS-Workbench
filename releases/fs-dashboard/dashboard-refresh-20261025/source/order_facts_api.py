@@ -2,7 +2,9 @@
 from collections import defaultdict
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
+import csv
 import hashlib
+import io
 import json
 import math
 import re
@@ -13,6 +15,28 @@ from order_facts import summarize
 VERSION = 'order-facts-api-20261113-v1'
 CHANNELS = ('all', 'SEO', 'Direct', 'PPC', 'Referral', 'Campaign', 'unknown')
 ACTIVE = ('pending', 'cost_pending')
+
+
+def aggregate_csv(result):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    scope = result['effective_scope']
+    writer.writerow(('开始日期','结束日期','站点ID','游戏ID','渠道筛选','时区','时间口径',
+                     '快照版本','事实定义','归因定义','来源修订','同单核算口径','未分配到日的订单'))
+    writer.writerow((scope['start'],scope['end'],scope['site_id'],scope['gid'],scope['channel'],
+                     result['source_timezone'],result['time_basis'],result['snapshot_id'],result['facts_version'],
+                     result['attribution_version'],json.dumps(result['revisions'],sort_keys=True),
+                     result['totals']['accounting_basis'],result['trend_unallocated_orders']))
+    writer.writerow(('维度','项目','范围状态','已知订单数','已知美元金额','缺美元金额订单数',
+                     '已读采购人民币','已核同单毛利人民币','完整成本订单数'))
+    for kind, key, rows in (('渠道','channel',result['channels']),('日期','day',result['trend'])):
+        for row in rows:
+            usd = row['admin_paid_usd'] if row['orders'] != row['missing_admin_usd_orders'] or not row['orders'] else None
+            cost = row['observed_cost_cny'] if kind == '日期' or row['cost_records'] else None
+            writer.writerow((kind,row[key],row.get('status',result['status']),row['orders'],usd,
+                             row['missing_admin_usd_orders'],cost,
+                             row['procurement_gross_cny'],row['cost_covered_orders']))
+    return '\ufeff' + output.getvalue()
 
 
 def selection(params):
@@ -43,9 +67,32 @@ def public(data, q, games=()):
     if any(data.get('input_scope', {}).get(k) != v for k, v in scope.items()):
         raise ValueError('order_facts_source_scope')
     rows = data['orders']
-    selected = [r for r in rows if q['channel'] == 'all' or r['channel'] == q['channel']]
-    groups = defaultdict(list)
-    for row in selected:groups[row['channel']].append(row)
+    selected = []
+    groups, daily = defaultdict(list), defaultdict(list)
+    unknown_days = set()
+    unallocated = 0
+    specific_channel = q['channel'] not in ('all','unknown')
+    for row in rows:
+        channel = row['channel']
+        match = q['channel'] == 'all' or channel == q['channel']
+        if not match and not (specific_channel and channel == 'unknown'):
+            continue
+        try:
+            paid_at = datetime.strptime(row['paid_at'], '%Y-%m-%d %H:%M:%S')
+            day = paid_at.date().isoformat()
+            if not q['start'] <= day <= q['end']:
+                day = None
+        except (TypeError, ValueError):
+            day = None
+        if match:
+            selected.append(row)
+            groups[channel].append(row)
+            if day:
+                daily[day].append(row)
+            else:
+                unallocated += 1
+        if channel == 'unknown':
+            unknown_days.add(day)
     # Coverage counts describe the source cohort; totals describe the selection.
     coverage = {k: v for k, v in data.get('coverage', {}).items()
                 if k in ('linked_orders', 'unlinked_admin_rows', 'unlinked_attribution_rows',
@@ -73,15 +120,47 @@ def public(data, q, games=()):
             ('available', 'partial', 'unavailable') else 'unavailable',
         identity_status='complete' if attribution.get('identity_status') == 'complete' else 'unverified',
         bridge_counts=bridge)
-    return dict(version=VERSION, facts_version=data['version'],
-                attribution_version=data['attribution_version'], status=data['status'],
-                requested_scope=deepcopy(q), effective_scope=scope,
+    admin_complete = source.get('admin_complete') is True and data['status'] == 'available'
+    trend = []
+    day = date.fromisoformat(q['start'])
+    end = date.fromisoformat(q['end'])
+    while day <= end:
+        key = day.isoformat()
+        summary = summarize(daily[key])
+        orders = summary['orders']
+        complete = admin_complete and not unallocated and not (specific_channel and (key in unknown_days or None in unknown_days))
+        missing_usd = summary['missing_admin_usd_orders']
+        missing_cny = summary['missing_admin_cny_orders']
+        # Zero means a known empty day or known zero amounts. Missing data stays blank.
+        usd_known = orders > missing_usd if orders else complete
+        cny_known = orders > missing_cny if orders else complete
+        trend.append(dict(day=key, orders=orders,
+            status='available' if complete and not (missing_usd or missing_cny) else 'partial',
+            admin_paid_usd=summary['admin_paid_usd'] if usd_known else None,
+            admin_paid_cny=summary['admin_paid_cny'] if cny_known else None,
+            missing_admin_usd_orders=missing_usd, missing_admin_cny_orders=missing_cny,
+            observed_cost_cny=summary['observed_cost_cny'] if summary['cost_records'] else None,
+            procurement_gross_cny=summary['procurement_gross_cny'],
+            cost_covered_orders=summary['cost_covered_orders'],
+            gross_covered_orders=summary['gross_covered_orders']))
+        day += timedelta(days=1)
+    status = 'partial' if any(row['status'] == 'partial' for row in trend) else data['status']
+    result = dict(version=VERSION, facts_version=data['version'],
+                attribution_version=data['attribution_version'], status=status,
+                requested_scope=deepcopy(q), effective_scope={**scope,'channel':q['channel']},
                 channel_filter='derived_order_facts', coverage_scope=scope,
                 totals=summarize(selected),
                 channels=[dict(channel=k, **summarize(v)) for k, v in sorted(groups.items())],
-                coverage=coverage, revisions=revisions, options={'games':deepcopy(list(games))},
+                trend=trend, trend_unallocated_orders=unallocated, coverage=coverage, revisions=revisions,
+                source_timezone='Asia/Shanghai', time_basis='Admin paytime',
+                captured_at=source.get('captured_at'), options={'games':deepcopy(list(games))},
                 admin_complete=source.get('admin_complete') is True,
                 readonly=True, private=True)
+    revision_input = {k: v for k, v in result.items() if k not in ('options','captured_at')}
+    result['snapshot_id'] = 'order-facts-' + hashlib.sha256(
+        json.dumps(revision_input, sort_keys=True).encode()).hexdigest()[:24]
+    result['aggregate_csv'] = aggregate_csv(result)
+    return result
 
 
 class OrderFactsService:

@@ -24,7 +24,8 @@ let generation = 0;
 let denied = false;
 let identity = null;
 let renderedQuery = '';
-const snapshotKey = value => JSON.stringify([value.version, value.revisions, value.totals, value.channels, value.coverage, value.status, value.refresh_deferred, value.refresh_reason, value.generatedAt, value.sources?.cost?.generatedAt, value.sources?.customer, value.sources?.accounting, value.sources?.cache, value.sources?.orderSource, value.sourceAttribution, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
+let exportPending = false;
+const snapshotKey = value => JSON.stringify([value.version, value.snapshot_id, value.revisions, value.totals, value.channels, value.coverage, value.status, value.refresh_deferred, value.refresh_reason, value.generatedAt, value.sources?.cost?.generatedAt, value.sources?.customer, value.sources?.accounting, value.sources?.cache, value.sources?.orderSource, value.sourceAttribution, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
 const lifetime = new AbortController();
 const beijingDay = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 const shift = (day, amount) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + amount); return d.toISOString().slice(0, 10); };
@@ -43,6 +44,7 @@ function deny(code) {
   denied = true;
   readController?.abort(); clearTimeout(poll); data = null;
   $('results').hidden = true; $('refresh').disabled = true;
+  $('export-facts').disabled = true;
   for (const node of form.querySelectorAll('input,select,button')) node.disabled = true;
   show(code === 403 ? '当前账号未获渠道效果看板授权，请联系管理员。' : '登录已失效，请重新登录。', 'error');
 }
@@ -62,6 +64,10 @@ function params(refresh = false) {
   query.set('page', String(page)); query.set('sort', $('sort').value); query.set('direction', direction);
   if (refresh) query.set('refresh', '1');
   return query;
+}
+function exportable() {
+  return !denied && !exportPending && data?.version === 'order-facts-api-20261113-v1' && !!data.aggregate_csv &&
+    renderedQuery === params().toString();
 }
 function selectOptions(key, rows, label) {
   const select = field(key), old = select.value;
@@ -149,8 +155,8 @@ const svgNode = (tag, attributes, content) => {
   if (content != null) node.textContent = content;
   return node;
 };
-function trend() {
-  const rows = data.trend, width = 1000, height = 300, left = 70, right = 920, top = 32, bottom = 250;
+function trend(rows, facts = false) {
+  const width = 1000, height = 300, left = 70, right = 920, top = 32, bottom = 250;
   const maxSales = Math.max(1, ...rows.map(r => r.salesUsd));
   const profits = rows.filter(r => r.profitCny != null).map(r => r.profitCny);
   const minProfit = Math.min(0, ...profits), maxProfit = Math.max(1, ...profits);
@@ -169,15 +175,22 @@ function trend() {
   let segment = [];
   const flush = () => { if (segment.length) chart.append(svgNode('polyline', {points:segment.join(' '),class:'profit'})); segment = []; };
   rows.forEach((r, i) => {
-    const bar = svgNode('rect', {x:x(i) - Math.min(22, 270 / rows.length), y:ySales(r.salesUsd), width:Math.min(44, 540 / rows.length), height:Math.max(0, bottom - ySales(r.salesUsd)), rx:2, class:'sales'});
-    bar.append(svgNode('title', {}, `${r.key} · 销售 ${usd(r.salesUsd)} · 毛利 ${cny(r.profitCny)}`)); chart.append(bar);
+    if (r.salesUsd != null) {
+      const bar = svgNode('rect', {x:x(i) - Math.min(22, 270 / rows.length), y:ySales(r.salesUsd), width:Math.min(44, 540 / rows.length), height:Math.max(0, bottom - ySales(r.salesUsd)), rx:2, class:'sales'});
+      bar.append(svgNode('title', {}, `${r.key} · 销售 ${usd(r.salesUsd)} · 毛利 ${cny(r.profitCny)}`)); chart.append(bar);
+    }
     if (r.profitCny == null) flush(); else segment.push(`${x(i)},${yProfit(r.profitCny)}`);
     if (i % Math.max(1, Math.ceil(rows.length / 9)) === 0 || i === rows.length - 1) chart.append(svgNode('text', {x:x(i),y:bottom + 24,'text-anchor':'middle'}, r.key.slice(5)));
   }); flush();
   if (rows.length <= 31) rows.forEach((r, i) => { if (r.profitCny != null) chart.append(svgNode('circle', {cx:x(i),cy:yProfit(r.profitCny),r:3,class:'point'})); });
   const legend = text('div', null, 'chart-legend'); legend.append(text('span', '销售额（USD，左轴）'), text('span', '毛利（¥，右轴；已完成且已核算）'));
   $('trend').replaceChildren(chart, legend);
-  table('trend-table', ['日期', '订单数', '销售额 $', '采购 ¥', '毛利 ¥', '利润率', '已完成核算'], rows, r => [r.key,count(r.orders),usd(r.salesUsd),cny(r.costCny),cny(r.profitCny),pct(r.margin),`${r.coveredOrders} / ${r.completedOrders}`], '每日销售与毛利数值');
+  if (facts) {
+    table('trend-table', ['日期','已知订单数','已知金额 USD','已读采购 ¥','已核同单毛利 ¥','完整成本覆盖','范围覆盖'], rows,
+      r => [r.key,count(r.orders),usd(r.salesUsd),cny(r.costCny),cny(r.profitCny),`${count(r.coveredOrders)} / ${count(r.orders)} 单`,r.status === 'available' ? '已读' : '部分'], '后台归因每日数值');
+  } else {
+    table('trend-table', ['日期', '订单数', '销售额 $', '采购 ¥', '毛利 ¥', '利润率', '已完成核算'], rows, r => [r.key,count(r.orders),usd(r.salesUsd),cny(r.costCny),cny(r.profitCny),pct(r.margin),`${r.coveredOrders} / ${r.completedOrders}`], '每日销售与毛利数值');
+  }
 }
 function orders() {
   const coupon = field('mode').value === 'coupon';
@@ -212,13 +225,20 @@ function renderFacts() {
   selectOptions('gid', data.options.games, '全部游戏');
   $('legacy-details').hidden = true;
   $('source-attribution-title').textContent = '后台归因渠道 · 同范围去重订单';
-  $('scope').textContent = `${scope.start} — ${scope.end} · MMOEXP · ${field('gid').selectedOptions[0].text} · ${field('channel').selectedOptions[0].text} · Admin付款订单`;
+  const game = data.options.games.find(([id]) => id === scope.gid)?.[1] || (scope.gid === 'all' ? '全部游戏' : scope.gid);
+  const channel = [...field('channel').options].find(option => option.value === scope.channel)?.text || scope.channel;
+  $('scope').textContent = `${scope.start} — ${scope.end} · MMOEXP · ${game} · ${channel} · Admin付款订单`;
   const revision = data.revisions?.attribution?.publication_id;
   $('freshness').textContent = revision ? '归因发布版本 ' + revision : '归因发布版本尚未取得';
   const attributed = s.orders - s.unknown_channel_orders;
   $('source-attribution-note').textContent = `后台新归因字段；已归因 ${count(attributed)} / ${count(s.orders)} 单，未知 ${count(s.unknown_channel_orders)} 单仍保留收入。渠道划分不以优惠码、推荐人或旧来源补齐，不代表广告因果效果。`;
   table('source-attribution', ['归因渠道','订单数','Admin订单金额 USD','已读采购 ¥','已核同单毛利 ¥','完整成本覆盖'], data.channels,
     row => [row.channel === 'unknown' ? '未知' : row.channel, count(row.orders), usd(row.admin_paid_usd), cny(row.observed_cost_cny), cny(row.procurement_gross_cny), `${count(row.cost_covered_orders)} / ${count(row.orders)} 单`], '后台归因渠道聚合');
+  $('export-facts').hidden = false;
+  $('trend-hint').textContent = '按北京时间付款日汇总。金额只计已知记录，采购与毛利缺失留空，具体覆盖见每日数据表。';
+  if (data.trend_unallocated_orders) $('trend-hint').textContent += ` ${count(data.trend_unallocated_orders)} 单付款日期待核，已计入区间汇总。`;
+  trend(data.trend.map(row => ({key:row.day,orders:row.orders,salesUsd:row.admin_paid_usd,
+    costCny:row.observed_cost_cny,profitCny:row.procurement_gross_cny,coveredOrders:row.cost_covered_orders,status:row.status})), true);
   const labels = [
     ['去重订单数', count(s.orders), '所选渠道的付款订单'],
     ['已知订单金额（USD）', usd(s.admin_paid_usd), `缺美元金额 ${count(s.missing_admin_usd_orders)} 单`],
@@ -233,12 +253,12 @@ function renderFacts() {
     const card=text('article',null,'panel kpi');card.append(text('span',name,'name'),text('strong',value),text('small',hint));return card;
   }));
   $('coverage').textContent = `完整成本 ${count(s.cost_covered_orders)} / ${count(s.orders)} 单 · 成本缺口 ${count(s.missing_cost_orders)} 单`;
-  const partial = data.status !== 'available' || !data.admin_complete || s.unknown_channel_orders > 0 || s.missing_cost_orders > 0 || s.missing_admin_usd_orders > 0;
+  const partial = data.status !== 'available' || !data.admin_complete || s.unknown_channel_orders > 0 || s.missing_cost_orders > 0 || s.missing_admin_usd_orders > 0 || s.missing_admin_cny_orders > 0;
   $('definitions').replaceChildren(...[
     '范围按北京时间付款日期，最多28天。主渠道直接使用后台归因字段；首访时间不等于首购日。渠道筛选由服务端订单事实聚合，不改变经营看板的Order发货统计主毛利。',
     `成本覆盖收入 ${cny(s.covered_revenue_cny)}；缺成本收入 ${cny(s.missing_cost_revenue_cny)}。已读采购小计0不证明实际成本0；同单毛利仅使用已完成、非退款且成本完整的同一群体。费用覆盖未知，不称净利润。`,
     `未关联Admin记录 ${data.coverage?.unlinked_admin_rows == null ? '未核' : count(data.coverage.unlinked_admin_rows)}；未关联归因记录 ${data.coverage?.unlinked_attribution_rows == null ? '未核' : count(data.coverage.unlinked_attribution_rows)}。订单数与金额按去重订单统计，不将raw行非空率当客户或收入覆盖率。`,
-    '优惠码、推荐人及优惠券分析在独立追踪类型中保留；它们不能与本表相加。该接口尚不提供逐单明细或每日趋势。'
+    '优惠码、推荐人及优惠券分析在独立追踪类型中保留。此处按日期和渠道汇总。'
   ].map(value => text('p',value)));
   $('results').hidden = false;
   if (data.refresh_deferred) {
@@ -250,6 +270,8 @@ function renderFacts() {
 function render() {
   if (data.version === 'order-facts-api-20261113-v1') { renderFacts(); return; }
   $('legacy-details').hidden = false;
+  $('export-facts').hidden = true;
+  $('trend-hint').textContent = '销售额为 USD，采购毛利为同群体人民币收入减实际采购成本；来源及覆盖见统计范围，不按固定汇率互换。';
   $('source-attribution-title').textContent = '广告优先来源归属 · 全站去重';
   const coupon = field('mode').value === 'coupon';
   $('project-label').textContent = coupon ? '优惠券模板 / 活动' : '项目 / 渠道';
@@ -264,7 +286,7 @@ function render() {
   selectOptions('code', data.codes.map(r => [JSON.stringify(r.key),r.label]), coupon ? '全部发放批次' : '全部折扣码');
   $('scope').textContent = `${data.period.start} — ${data.period.end} · ${field('gid').selectedOptions[0].text} · ${field('project').selectedOptions[0].text} · ${coupon ? '用券订单（跨模板去重）' : '实际用码 + 推荐人无码；自然流量仅作对照'} · ${field('status').selectedOptions[0].text}`;
   $('freshness').textContent = '更新 ' + new Date(data.generatedAt).toLocaleString('zh-CN',{hour12:false,timeZone:'Asia/Shanghai'});
-  sourceAttribution(); kpis(); comparison(); trend(); orders();
+  sourceAttribution(); kpis(); comparison(); trend(data.trend); orders();
   for (const [host,key,title] of [['games','game','游戏'],['countries','country','国家 / 地区'],['payments','payment','支付方式'],['customers','customerType','新老客'],['states','status','订单状态']]) breakdown(host,key,title);
   $('results').hidden = false;
   if (data.revenueBasis === 'legacy_delivery') show('正在回补Admin单笔人民币收入，暂展示旧口径完整缓存；新旧收入字段不会混算。' + (data.sourceError ? ' 本次来源读取失败，保留原数据待重试。' : ''), 'partial');
@@ -281,6 +303,8 @@ function render() {
 async function load(refresh = false) {
   if (denied || document.hidden) return;
   modeControls();
+  exportPending = false;
+  $('export-facts').disabled = true;
   clearTimeout(poll); readController?.abort(); ++generation;
   if (!form.reportValidity()) return;
   if (field('mode').value === 'order-facts' && (new Date(field('end').value)-new Date(field('start').value))/86400000 >= 28) {
@@ -291,6 +315,7 @@ async function load(refresh = false) {
   const query = params(refresh);
   const applied = new URLSearchParams(query); applied.delete('refresh');
   const sameView = data && renderedQuery === applied.toString();
+  exportPending = true;
   if (!data) $('results').hidden = true;
   $('results').setAttribute('aria-busy', 'true');
   if (!sameView || refresh) {
@@ -308,10 +333,13 @@ async function load(refresh = false) {
     }
     const expectedVersion = query.get('mode') === 'order-facts' ? 'order-facts-api-20261113-v1' : 'channel-effects-v1';
     if (!response.ok || next.version !== expectedVersion) throw Error('source_failed');
+    if (query.get('mode') === 'order-facts' && (!next.snapshot_id || !Array.isArray(next.trend) ||
+        ['start','end','site_id','gid','channel'].some(key => next.effective_scope?.[key] !== query.get(key)))) throw Error('source_scope_mismatch');
     const unchanged = sameView && snapshotKey(data) === snapshotKey(next);
     data = next;
     if (!unchanged || refresh) render();
     renderedQuery = params().toString();
+    exportPending = false;
     if (next.refreshing) poll = setTimeout(() => load(), 3000);
   } catch (error) {
     if (mine !== generation || denied || error.name === 'AbortError') return;
@@ -319,11 +347,17 @@ async function load(refresh = false) {
       show('已有查询正在执行，稍后继续读取。', 'partial');
       poll = setTimeout(() => load(), 10000); return;
     }
+    exportPending = false;
     show(data ? '本次切换失败，仍展示上次已完成范围；请稍后重试。' : '本次数据未取得。请稍后刷新；不会把失败、缺数或旧范围显示成零。', 'error');
   } finally {
-    if (mine === generation && !denied) { $('refresh').disabled = false; $('results').setAttribute('aria-busy', 'false'); }
+    if (mine === generation && !denied) {
+      $('refresh').disabled = false;
+      $('export-facts').disabled = !exportable();
+      $('results').setAttribute('aria-busy', 'false');
+    }
   }
 }
+form.addEventListener('input', () => { $('export-facts').disabled = !exportable(); });
 form.addEventListener('submit', event => { event.preventDefault(); page = 1; load(); });
 for (const key of ['mode','gid','project','code','status','country','payment','channel']) field(key).addEventListener('change', () => {
   if (['mode','gid','project'].includes(key)) field('code').value = '';
@@ -337,6 +371,16 @@ for (const button of form.querySelectorAll('[data-days]')) button.addEventListen
 });
 $('reset').addEventListener('click', () => { const mode=field('mode').value; HTMLFormElement.prototype.reset.call(form);field('mode').value=mode; field('end').value = shift(beijingDay(), -1); field('start').value = shift(field('end').value, -6); page = 1; load(); });
 $('refresh').addEventListener('click', () => load(true));
+$('export-facts').addEventListener('click', () => {
+  if (!exportable()) return;
+  const {start,end} = data.effective_scope;
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(new Blob([data.aggregate_csv], {type:'text/csv;charset=utf-8'}));
+  link.href = url;
+  link.download = `后台归因_${start}_${end}_${data.snapshot_id}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 $('sort').addEventListener('change', () => { page = 1; load(); });
 $('direction').addEventListener('click', () => { direction = direction === 'desc' ? 'asc' : 'desc'; $('direction').textContent = direction === 'desc' ? '降序 ↓' : '升序 ↑'; page = 1; load(); });
 $('prev').addEventListener('click', () => { page--; load(); }); $('next').addEventListener('click', () => { page++; load(); });
