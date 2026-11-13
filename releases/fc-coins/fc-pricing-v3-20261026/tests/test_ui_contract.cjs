@@ -28,7 +28,10 @@ assert.equal((html.match(/class="price-strip"/g)||[]).length,1);
 for (const platform of ['ps','xbox','pc']) assert(ids.includes('v3-price-large-'+platform));
 assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-details/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261113-price-cards/);
+assert.equal((html.match(/<article data-platform=/g)||[]).length,3);
+assert.match(html,/竞品 100K 报价/);
+assert.match(html,/我方大额段独立核算/);
 assert.match(script,/双20只按购买100K、实交100K这一档核算/);
 assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
 assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
@@ -162,7 +165,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   state.operations[0].order_close={reason:'order_write_confirmed_admin_price_matched'};
   monitor.publication.status='mismatch';await elements['v3-refresh'].events.click();
   assert.match(elements['v3-stage'].textContent,/^Order与Admin已确认/);
-  assert.match(elements['v3-review-source'].textContent,/最近原操作 op-1：Order与Admin已确认.*公开读回状态单独列示/);
+  assert.match(elements['v3-review-source'].textContent,/最近原操作 op-1：Order与Admin已确认.*公开网页核验单独列示/);
   assert.match(elements['v3-public-status'].textContent,/mismatch/,'separate public mismatch remains visible');
   delete state.operations[0].order_close;monitor.publication.status='matched';await elements['v3-refresh'].events.click();
   assert.match(elements['v3-stage'].textContent,/公开核验完成/,'legacy public-confirmed completion label is preserved');
@@ -313,6 +316,8 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   const originalCurve=curveJob.job_id;
   assert.equal(sessionStorage.getItem('fc-v3-curve-collect-job'),originalCurve);
   assert.match(elements['v3-curve-status'].textContent,/正在采集三平台/);
+  assert.equal(elements['v3-market-activity'].dataset.state,'pending');
+  assert.match(elements['v3-market-activity'].textContent,/最近保存的快照/);
   assert.equal(elements['v3-curve-collect'].disabled,true);
   curveJob={...curveJob,status:'ready',result:{run_id:originalCurve,quote_status:'proof_incomplete'}};
   curveBadPlatform='PC';
@@ -325,6 +330,10 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/\$8\.40.*证据待补.*\$0\.10/);
   assert.equal(elements['v3-price-ps'].textContent,'$7.00');
   assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/核算依据.*D-8 至 D-2 平均优惠 6\.50%.*200\/200.*21\.50%/);
+  const candidateCard=elements['v3-curve-results'].children[0];
+  assert.match(JSON.stringify(candidateCard),/预览/);
+  assert.doesNotMatch(JSON.stringify(candidateCard),/后台现价/);
+  assert.equal(candidateCard.children.filter(row=>row.className==='candidate-basis').length,1);
   assert.doesNotMatch(JSON.stringify(elements['v3-curve-results'].children[2]),/79\.25/);
   assert.equal(elements['v3-curve-collect'].textContent,'重读原预览');
   curveBadPlatform='';
@@ -367,19 +376,57 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(elements['v3-curve-activation-status'].textContent,/新定价已启用.*版本 4/);
   assert.equal(elements['v3-curve-activate'].disabled,true);
   assert.equal(sessionStorage.getItem('fc-v3-curve-activation'),null);
-  assert.match(marketTag.textContent,/Lootbar.*U7Buy.*Arab-UT/);
+  assert.match(marketTag.textContent,/Lootbar.*U7Buy.*Arab-UT.*100K/);
   assert.match(elements['v3-market-status'].textContent,/等待当前新定价/);
   assert.doesNotMatch(elements['v3-price-basis-ps'].textContent,/双红线|双20/);
   curveMarket={write_protocol:'fc27_curve_v6',snapshot_id:'curve-market-run',captured_at:curveCapturedAt,
     price_basis:{rows:{PS:{average_discount:{retained_ratio:'.91'},minimum_safe_procurement_margin:'.182'}}},
     catalogue_samples:{PS:{observed_at:curveCapturedAt,tiers:[{purchase_k:'100',native_price_usd:'8.51',promised_bonus_k:'0'},{purchase_k:'1000',native_price_usd:'81.60',promised_bonus_k:'30'}]}},
-    competitor_offers:[{source:'U7Buy',platform:'PS',purchase_k:'1000',bonus_k:'30',currency:'USD',regular_price:'85',comparable:true}]};
+    competitor_offers:[
+      {source:'Lootbar',platform:'PS',purchase_k:100,bonus_k:'5',currency:'USD',regular_price:'8.75',comparable:true,captured_at:curveCapturedAt},
+      {source:'U7Buy',platform:'PS',purchase_k:'1000',bonus_k:'30',currency:'USD',regular_price:'85',comparable:true},
+      {source:'U7Buy',platform:'PS',purchase_k:'100',bonus_k:'0',currency:'USD',regular_price:'9.10',comparable:true,captured_at:'2000-01-01T00:00:00Z'},
+      {source:'ArabUT',platform:'XBOX',purchase_k:'1000',bonus_k:'30',currency:'USD',regular_price:'80',comparable:true},
+      {source:'ArabUT',platform:'PC',purchase_k:'100.000',bonus_k:'0',currency:'SAR',regular_price:'35',comparable:true}
+    ]};
   await elements['v3-refresh'].events.click();
-  assert.match(elements['v3-market-status'].textContent,/新定价采集.*curve-market-run/);
+  assert.match(elements['v3-market-status'].textContent,/新定价采集快照/);
+  assert.equal(elements['v3-market-snapshot'].textContent,'curve-market-run');
   assert.equal(elements['v3-price-large-ps'].textContent,'$81.60');
   assert.match(elements['v3-price-delivery-ps'].textContent,/赠 30K · 实交 1030K/);
   assert.equal(elements['v3-price-large-xbox'].textContent,'现价待核');
-  assert.match(JSON.stringify(elements['v3-market-cards'].children),/U7Buy.*1000K.*\$85\.00/);
+  const [psMarket,xboxMarket,pcMarket]=elements['v3-market-cards'].children;
+  assert.match(JSON.stringify(psMarket),/Lootbar.*\$8\.75.*购买 100K.*赠 5K.*U7Buy.*\$9\.10.*购买 100K/);
+  assert.match(JSON.stringify(xboxMarket),/Arab-UT.*该快照未取得 100K 报价/);
+  assert.match(JSON.stringify(pcMarket),/Arab-UT.*SAR 35.*采价时间待核.*报价详情.*购买 100K/);
+  assert.match(JSON.stringify(psMarket),/Lootbar.*已采 · 15 分钟内.*U7Buy.*历史报价 · 已过 15 分钟/);
+  assert.doesNotMatch(JSON.stringify([psMarket,xboxMarket,pcMarket]),/1000K|\$85\.00|\$80\.00/);
+  assert.equal(elements['v3-price-ps'].textContent,'$8.51');
+  assert.match(elements['v3-price-source-ps'].textContent,/后台采样/);
+  assert.equal(elements['v3-price-change-ps'].hidden,true);
+  const sampled=curveMarket.catalogue_samples.PS;
+  const operationsBefore=state.operations;
+  state.catalogue_readbacks={PS:{...sampled,basis:'confirmed_readback'}};
+  state.operations=[{operation_id:'original-confirmed',status:'COMPLETED',readback:{
+    write_protocol:'fc27_curve_v6',execution_id:'original-confirmed',status:'CONFIRMED',curve_results:{
+      PS:{operation_id:'original-confirmed',propagation:{status:'confirmed',confirmed_at:curveCapturedAt},
+        recipients_before:{'266':{more:{gold:[100,1000],price:[8.16,82.15]}}}}
+    }
+  }}];
+  await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-price-change-ps'].textContent,'最近确认 +$0.35');
+  assert.equal(elements['v3-price-change-ps'].dataset.trend,'up');
+  assert.equal(elements['v3-price-change-large-ps'].textContent,'最近确认 −$0.55');
+  assert.equal(elements['v3-price-change-large-ps'].dataset.trend,'down');
+  assert.match(elements['v3-price-source-ps'].textContent,/后台已确认/);
+  assert.match(elements['v3-review-source'].textContent,/Admin 主站完整价表已确认.*公开网页核验单独列示/);
+  assert.match(elements['v3-public-status'].textContent,/公开网页独立核验/);
+  curveMarket.catalogue_samples.PS={...sampled,observed_at:'2099-01-01T00:00:00Z',basis:'admin_sample'};
+  await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-price-change-ps'].hidden,true,'older confirmed change never labels a newer sample');
+  assert.match(elements['v3-price-source-ps'].textContent,/后台采样/);
+  state.operations=operationsBefore;
+  delete state.catalogue_readbacks;
   assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/9\.00%.*18\.20%/);
   curveMarket=undefined;
   assert.equal(executeBodies.length,0);

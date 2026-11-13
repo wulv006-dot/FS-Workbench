@@ -20,6 +20,25 @@ from test_price_curve_v6 import EDITOR_CONTRACT
 
 
 class CurveRuntime(unittest.TestCase):
+    def test_large_band_smart_trial_uses_own_orders_without_competitor_quotes(self):
+        from test_curve_strategy_v6 import fixture
+
+        current, reference, episode = fixture()
+        now = datetime.fromisoformat('2026-11-13T12:00:00+00:00')
+        plan = dict(plan_id='plan', mode='smart', revision=1, starts_at='2026-11-13T09:00:00+00:00')
+        state = dict(reference=reference, episode=dict(episode, opened_at=plan['starts_at']))
+        performance = {'small': {'current': {'paid_orders': 8}}, 'large': {'current': {'paid_orders': 30}}}
+        stale_large_offer = dict(source='Lootbar', platform='PS', purchase_k='1000', regular_price='10',
+                                delivered_k='1000', captured_at=now.isoformat(), currency='USD',
+                                promotion_eligibility='all_customers', comparable=True, conditional=False)
+        no_market = runtime._curve_preference('PS', current, {}, {'performance': performance},
+                                              now, plan=plan, state=state)
+        old_market = runtime._curve_preference('PS', current, {'competitor_offers':[stale_large_offer]},
+                                               {'performance': performance}, now, plan=plan, state=state)
+        self.assertEqual(old_market, no_market)
+        self.assertEqual((no_market['segment'], no_market['source']), ('large', 'smart_three_hour_block'))
+        self.assertIn(no_market['label'], 'ABC')
+
     def setUp(self):
         stack = ExitStack()
         self.addCleanup(stack.close)

@@ -60,6 +60,7 @@ class BusinessOutcome(unittest.TestCase):
 
     def test_public_storefront_429_keeps_original_v6_quote_path_only(self):
         from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3 import sources
 
         source = SOURCE/'fc27_cloud_worker.py'
         function = next(node for node in ast.parse(source.read_text()).body
@@ -77,18 +78,23 @@ class BusinessOutcome(unittest.TestCase):
                              refresh_storefront=Mock(return_value=dict(status='unavailable',reason='HTTP 429')),
                              atomic_json=Mock(),os=SimpleNamespace(chown=Mock(),chmod=Mock()),json=json)
                 exec(compile(ast.Module(body=[function],type_ignores=[]),str(source),'exec'),scope)
+                arab = dict(status='available', offers=[dict(platform='PC', purchase_k='100')])
                 with patch.object(runtime,'ledger'), patch.object(runtime,'collection_scope',return_value=dict(
-                        active_mode='smart',scope=scope_fields)):
+                        active_mode='smart',scope=scope_fields)), patch.object(sources,'collect_arab_100k',return_value=arab) as collect_arab:
                     if scope_fields:
                         result = scope['collect_quote'](dict(job_id='original'))
                         self.assertEqual(result,dict(run_id='original',quote_status='proof_incomplete'))
                         self.assertEqual(runner.call_count,2)
                         self.assertEqual(scope['atomic_json'].call_args.args[1]['storefront'],
                                          dict(status='unavailable', collection_run_id='original', reason='HTTP 429'))
+                        self.assertEqual(scope['atomic_json'].call_args.args[1]['arab_ut_status'], arab)
+                        collect_arab.assert_called_once()
+                        self.assertEqual(collect_arab.call_args.args[0]['run_id'], 'original')
                     else:
                         with self.assertRaisesRegex(ValueError,'storefront_incomplete'):
                             scope['collect_quote'](dict(job_id='original'))
                         self.assertEqual(runner.call_count,1)
+                        collect_arab.assert_not_called()
 
     def test_curve_no_feasible_passes_real_worker_and_completes_cycle_without_retry(self):
         from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL

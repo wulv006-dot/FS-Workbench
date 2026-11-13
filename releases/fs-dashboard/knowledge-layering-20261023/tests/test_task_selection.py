@@ -318,7 +318,7 @@ class TaskSelection(unittest.TestCase):
                            str(ROOT / 'releases/fs-dashboard/hermes-fc-pilot-20261013')]
             result = unittest.TestResult()
             suite = unittest.defaultTestLoader.loadTestsFromTestCase(module.ServiceTests)
-            self.assertEqual(suite.countTestCases(), 9)
+            self.assertEqual(suite.countTestCases(), 10)
             suite.run(result)
             self.assertEqual(result.failures, [])
             self.assertEqual(result.errors, [])

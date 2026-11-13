@@ -151,6 +151,9 @@ def collect_quote(job):
     run_snapshot["collection_mode"] = cfg
     run_snapshot['source_plan']=planned
     # The existing shared source runtime owns HTTPS reads; worker Python has no ssl.
+    if curve_run and not isinstance(run_snapshot.get('arab_ut_status'),dict):
+        from fc_pricing_v3.sources import collect_arab_100k
+        run_snapshot['arab_ut_status']=collect_arab_100k(run_snapshot)
     atomic_json(run_path, run_snapshot)
     os.chown(run_path, -1, 11028)
     os.chmod(run_path, 0o640)

@@ -16,56 +16,53 @@ CENT = Decimal('.01')
 
 
 def market_preference(current, platform, offers, performance, now):
-    """Select a platform's direction from comparable same-hour evidence."""
-    opportunities = []
-    for segment, quantity in ANCHORS.items():
-        matched = []
-        for row in offers:
-            if (row.get('source') != 'Lootbar' or row.get('platform') != platform
-                    or row.get('purchase_k') != quantity or row.get('currency') != 'USD'
-                    or row.get('promotion_eligibility') != 'all_customers' or row.get('comparable') is not True
-                    or row.get('conditional') is True or row.get('region_id') not in (None, 0, '0')
-                    or not row.get('regular_price') or not row.get('delivered_k')):
-                continue
-            try:
-                if 0 <= (now-instant(row['captured_at'])).total_seconds() <= 900:
-                    matched.append(row)
-            except (KeyError, ValueError, TypeError):
-                continue
-        own = next((tier for tier in current['tiers'] if tier['purchase_k'] == quantity), None)
-        comparison = performance.get(segment) or {}
-        if len(matched) != 1 or own is None or comparison.get('coverage_status') != 'comparable':
+    """Use comparable 100K evidence for the small band only."""
+    segment, quantity = 'small', ANCHORS['small']
+    matched = []
+    for row in offers:
+        if (row.get('source') != 'Lootbar' or row.get('platform') != platform
+                or row.get('purchase_k') != quantity or row.get('currency') != 'USD'
+                or row.get('promotion_eligibility') != 'all_customers' or row.get('comparable') is not True
+                or row.get('conditional') is True or row.get('region_id') not in (None, 0, '0')
+                or not row.get('regular_price') or not row.get('delivered_k')):
             continue
         try:
-            current_metrics, previous_metrics = comparison['current'], comparison['previous']
-            orders, prior_orders = (Decimal(str(row['paid_orders'])) for row in (current_metrics, previous_metrics))
-            revenue, prior_revenue = (Decimal(str(row['net_paid_usd'])) for row in (current_metrics, previous_metrics))
-            if not all(v.is_finite() for v in (orders, prior_orders, revenue, prior_revenue)):
-                continue
-            margin_field = comparison.get('margin_basis')
-            margin, prior_margin = None, None
-            if margin_field in ('contribution_usd', 'procurement_gross_usd'):
-                margin, prior_margin = (Decimal(str(row[margin_field])) for row in (current_metrics, previous_metrics))
-                if not margin.is_finite() or not prior_margin.is_finite():
-                    continue
-            rival = Decimal(matched[0]['regular_price']) / Decimal(matched[0]['delivered_k'])
-            current_rate = Decimal(own['native_price_usd']) / (Decimal(quantity) + Decimal(own['promised_bonus_k']))
-            difference = current_rate / rival - 1
-        except (ArithmeticError, KeyError, TypeError, ValueError):
+            if 0 <= (now-instant(row['captured_at'])).total_seconds() <= 900:
+                matched.append(row)
+        except (KeyError, ValueError, TypeError):
             continue
-        if prior_orders <= 0 or orders < 0:
-            continue
-        if (difference >= Decimal('.05') and orders <= prior_orders * Decimal('.90')
-                and (revenue < prior_revenue or margin is not None and margin < prior_margin)):
-            opportunities.append((segment, 'B', difference, comparison))
-        elif (difference <= Decimal('-.03') and orders >= prior_orders
-                and margin is not None and margin >= prior_margin):
-            opportunities.append((segment, 'C', difference, comparison))
-    if not opportunities:
+    own = next((tier for tier in current['tiers'] if tier['purchase_k'] == quantity), None)
+    comparison = performance.get(segment) or {}
+    if len(matched) != 1 or own is None or comparison.get('coverage_status') != 'comparable':
         return None
-    # Address a proved demand decline before recapturing a price advantage.
-    segment, label, difference, basis = max(opportunities, key=lambda row: (row[1] == 'B', abs(row[2])))
-    return dict(segment=segment, label=label, lootbar_price_difference=str(difference), comparison=basis)
+    try:
+        current_metrics, previous_metrics = comparison['current'], comparison['previous']
+        orders, prior_orders = (Decimal(str(row['paid_orders'])) for row in (current_metrics, previous_metrics))
+        revenue, prior_revenue = (Decimal(str(row['net_paid_usd'])) for row in (current_metrics, previous_metrics))
+        if not all(v.is_finite() for v in (orders, prior_orders, revenue, prior_revenue)):
+            return None
+        margin_field = comparison.get('margin_basis')
+        margin, prior_margin = None, None
+        if margin_field in ('contribution_usd', 'procurement_gross_usd'):
+            margin, prior_margin = (Decimal(str(row[margin_field])) for row in (current_metrics, previous_metrics))
+            if not margin.is_finite() or not prior_margin.is_finite():
+                return None
+        rival = Decimal(matched[0]['regular_price']) / Decimal(matched[0]['delivered_k'])
+        current_rate = Decimal(own['native_price_usd']) / (Decimal(quantity) + Decimal(own['promised_bonus_k']))
+        difference = current_rate / rival - 1
+    except (ArithmeticError, KeyError, TypeError, ValueError):
+        return None
+    if prior_orders <= 0 or orders < 0:
+        return None
+    if (difference >= Decimal('.05') and orders <= prior_orders * Decimal('.90')
+            and (revenue < prior_revenue or margin is not None and margin < prior_margin)):
+        label = 'B'
+    elif (difference <= Decimal('-.03') and orders >= prior_orders
+            and margin is not None and margin >= prior_margin):
+        label = 'C'
+    else:
+        return None
+    return dict(segment=segment, label=label, lootbar_price_difference=str(difference), comparison=comparison)
 
 
 def _repair_rank(current, target, affected_segments):

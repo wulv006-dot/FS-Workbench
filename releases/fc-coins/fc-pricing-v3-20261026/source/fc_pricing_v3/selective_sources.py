@@ -64,7 +64,7 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
     platforms=scope.get('platforms',['PS','XBOX','PC'])
     if not platforms or set(platforms)-{'PS','XBOX','PC'}:raise ValueError('selective_platform_scope_invalid')
     regions=sorted(set(int(value) for value in known_region_ids)|set(int(value) for value in scope.get('region_ids',[])))
-    from .competitor_offers import POLICY, QUANTITIES
+    from .competitor_offers import CURRENT_QUANTITIES, POLICY
     v6=scope.get('competitor_policy')==POLICY
     markets=['Lootbar','U7Buy','ArabUT'] if v6 else ['Lootbar','ArabUT']
     result=dict(version=VERSION,active_mode=active_mode,platforms=list(platforms),region_ids=regions,
@@ -81,7 +81,7 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
             history='D_minus_8_through_D_minus_2_seven_closed_days_from_shared_ES',
             own_public_price='optional_independent_diagnostic',
             auxiliary_markets=[],retired_automatic_sources=['ELD','U4GM','IGGM','ItemD2R'],
-            quantity_scope=list(QUANTITIES),competitor_roles={'Lootbar':'core','U7Buy':'differentiation','ArabUT':'observation'},
+            quantity_scope=list(CURRENT_QUANTITIES),competitor_roles={'Lootbar':'core','U7Buy':'differentiation','ArabUT':'observation'},
             quantity_identity='source_platform_purchase_eligibility_delivery_currency',
             missing_source_policy='unknown_optional_signal_no_price_action')
     return result
@@ -97,7 +97,9 @@ def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
         valid=[];gaps=[]
         for row in rows:
             if row.get('source') not in plan['required_markets']:continue
-            try:valid.extend(normalize_offers([row],snapshot['run_id'],now))
+            try:
+                valid.extend(offer for offer in normalize_offers([row],snapshot['run_id'],now)
+                             if offer['purchase_k'] in plan['quantity_scope'])
             except ValueError as error:gaps.append(dict(source=row.get('source'),platform=row.get('platform'),purchase_k=row.get('purchase_k',row.get('base_k')),reason=str(error)))
         seen={};conflicts=set()
         for row in valid:

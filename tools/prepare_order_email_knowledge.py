@@ -9,8 +9,8 @@ always remains releaseReady=false until the lead's original-publisher preflight.
 --shared-admin-es additionally takes the retained business-baseline.md and
 preflight.json with captured_at, protected file hashes, service states and
 existing immutable D5 release names. It performs no publish or service action.
---fc-v61 uses the same retained-baseline preflight, replaces only the two FC
-pricing IDs already present in each catalog and preserves all route selections.
+--fc-v61 uses the same retained-baseline preflight and preserves route selections.
+The 100K revision also updates the existing parameter and learning rule entries.
 """
 import argparse
 import copy
@@ -36,6 +36,9 @@ FC_V61 = 'fc-v61-average-discount-20261113-r1'
 FC_V61_OVERLAYS = ('fc.pricing.constraints', 'fc.pricing.v3')
 FC_V61_DISCOUNT_REVISION = 'fc_v6_d8_d2_amount_weighted_discount_v1'
 FC_V61_TWO_BAND_REVISION = 'fc_v61_native_all_two_band_20261113'
+FC_V61_100K_MARKET_REVISION = 'fc_v61_100k_market_two_band_20261113'
+FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
+FC_V61_LEARNING_ID = 'fs.learning.methods'
 FS_RUNTIME_ROOT = '/var/lib/fs-hermes-fc/fs/'
 BASELINE_TARGET = '/opt/fs-hermes-fc/business-baseline.md'
 BASELINE_SOURCE = 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
@@ -138,15 +141,18 @@ def merge_shared_entry(identity, template, row, content, changes):
     return data
 
 
-def shared_preflight(root, snapshot, commit, release):
+def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False):
     info = json.loads(bound(snapshot, 'preflight.json').read_bytes())
     if release in info['immutable_directories']:
         raise ValueError('shared_admin_es_release_already_exists_reconcile')
     baseline = bound(snapshot, 'business-baseline.md').read_bytes()
     proof = json.loads(git_bytes(root, commit, BASELINE_SOURCE.replace('.md', '.provenance.json')))
     digest = sha(baseline)
-    if (digest != info['protected'][BASELINE_TARGET] or digest != proof['after_sha256']
-            or baseline != git_bytes(root, commit, BASELINE_SOURCE)
+    candidate = git_bytes(root, commit, BASELINE_SOURCE)
+    retained = digest == proof['after_sha256'] and baseline == candidate
+    patch = (allow_baseline_patch and digest == proof.get('before_sha256')
+             and sha(candidate) == proof['after_sha256'] and candidate != baseline)
+    if (digest != info['protected'][BASELINE_TARGET] or not (retained or patch)
             or proof['contract'] != 'fc-current-baseline-patch-v1' or proof['runtime_source'] != BASELINE_SOURCE
             or not re.fullmatch('[a-f0-9]{64}', proof['canonical_sha256'])):
         raise ValueError('shared_admin_es_retained_baseline_provenance_invalid')
@@ -200,7 +206,11 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     if fc_v61 and (canonical.get('release') != FC_V61 or canonical.get('release_state') != 'candidate'):
         raise ValueError('exact_fc_v61_candidate_required')
     current = {}
-    for identity in FC_V61_OVERLAYS if fc_v61 else SHARED_OVERLAYS if shared_admin_es else OVERLAYS:
+    overlay_ids = FC_V61_OVERLAYS if fc_v61 else SHARED_OVERLAYS if shared_admin_es else OVERLAYS
+    if fc_v61 and any(r['id'] == 'fc.pricing.v3' and r['revision'] == FC_V61_100K_MARKET_REVISION
+                      for r in canonical['entries']):
+        overlay_ids = (*FC_V61_OVERLAYS, FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID)
+    for identity in overlay_ids:
         found = [r for r in canonical['entries'] if r['id'] == identity
                  and r['layer'] == 'current' and r['status'] == 'effective']
         if len(found) != 1:
@@ -208,8 +218,11 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         current[identity] = found[0]
     if fc_v61:
         revision, full_revision = (current[identity]['revision'] for identity in FC_V61_OVERLAYS)
-        if revision not in (FC_V61_DISCOUNT_REVISION, FC_V61_TWO_BAND_REVISION) or full_revision != revision:
+        if revision not in (FC_V61_DISCOUNT_REVISION, FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION) or full_revision != revision:
             raise ValueError('exact_fc_v61_revision_required')
+        if any(identity in current and current[identity]['revision'] != revision
+               for identity in (FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID)):
+            raise ValueError('exact_fc_v61_parameter_revision_required')
     policy_raw = bound(snapshot, 'policy.json').read_bytes()
     policy = json.loads(policy_raw)
     if policy.get('contract') != 'fs-knowledge-load-policy-v1':
@@ -222,8 +235,9 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     if shared_admin_es:
         changes = shared_changes(root, commit, catalog, canonical, current)
     if preserve_routes:
-        preflight, baseline_proof = shared_preflight(root, snapshot, commit, release)
-        compatibility = {'mode': 'retain_full_baseline', 'sha256': baseline_proof['after_sha256']}
+        preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
+            allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current)
+        compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
             raise ValueError('shared_admin_es_baseline_binding_drift')
     release_root = 'knowledge-releases/' + release
@@ -307,7 +321,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                     raise ValueError('canonical_source_changed:' + identity)
                 catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
                 overlay_root = 'overlay/'
-                if fc_v61 and row['revision'] == FC_V61_TWO_BAND_REVISION:
+                if fc_v61 and row['revision'] in (FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION):
                     # Retain the preceding snapshot's source at its original path.
                     overlay_root += row['revision'] + '/'
                 source.update(path=overlay_root + canonical_path, canonical_path=canonical_path)
@@ -339,24 +353,40 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         checks.append((before, copy.deepcopy(route)))
     payloads['runtime/knowledge-load-policy.json'] = encoded(policy)
     payloads['artifact/originals/policy.json'] = policy_raw
+    baseline_patch = None
+    if preserve_routes and baseline_proof['after_sha256'] != preflight['protected'][BASELINE_TARGET]:
+        before_digest = preflight['protected'][BASELINE_TARGET]
+        baseline_patch = dict(contract='fc-v61-current-baseline-patch-v1',
+                              before_sha256=before_digest, after_sha256=baseline_proof['after_sha256'])
+        payloads['runtime/business-baseline.md'] = git_bytes(root, commit, BASELINE_SOURCE)
+        payloads['artifact/originals/business-baseline.md'] = bound(snapshot, 'business-baseline.md').read_bytes()
+        for route in all_routes:
+            if 'baseline_compatibility' in route:
+                route['baseline_compatibility']['sha256'] = baseline_proof['after_sha256']
+        payloads['runtime/knowledge-load-policy.json'] = encoded(policy)
     prefix = '/var/lib/fs-hermes-fc/fs/' + release_root + '/'
     manifest = dict(schemaVersion=1, scope=publisher.SCOPE, knowledgeOnly=True,
                     knowledgeRelease=release, sourceCommit=commit, releaseReady=False,
                     businessWrites=False, timersChanged=False, unchangedRequired=[], runtimeRequired={},
-                    files=[dict(candidate=name, target=('/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'
+                    files=[dict(candidate=name, target=(BASELINE_TARGET if name == 'runtime/business-baseline.md'
+                           else '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'
                            if name.startswith('runtime/') else prefix + name[len('artifact/'):]),
                            sha256=sha(data), beforeSha256=None, owner='0:0', mode='0o644')
                            for name, data in sorted(payloads.items())])
+    if baseline_patch:
+        manifest['baselinePatch'] = baseline_patch
+        next(r for r in manifest['files'] if r['candidate'] == 'runtime/business-baseline.md')['beforeSha256'] = baseline_patch['before_sha256']
     if preserve_routes:
         if shared_admin_es and {row['id'] for row in shared_rows} != set(SHARED_OVERLAYS):
             raise ValueError('shared_admin_es_overlay_inventory_invalid')
-        if fc_v61 and {row['id'] for row in shared_rows} != set(FC_V61_OVERLAYS):
+        if fc_v61 and {row['id'] for row in shared_rows} != set(overlay_ids):
             raise ValueError('fc_v61_existing_overlay_inventory_required')
         policy_row = next(row for row in manifest['files'] if row['candidate'] == 'runtime/knowledge-load-policy.json')
         policy_row['beforeSha256'] = sha(policy_raw)
         manifest.update(imageId=PUBLISHER_IMAGE, runtimeRequired=preflight['runtime'],
                         unchangedRequired=[dict(path=path, sha256=digest)
-                                           for path, digest in sorted(preflight['protected'].items())])
+                                           for path, digest in sorted(preflight['protected'].items())
+                                           if not (baseline_patch and path == BASELINE_TARGET)])
     publisher.targets(manifest)
     adapters = {'release.py': MODULE + '/deploy/release.py',
                 'release_adapter_base.py': 'releases/fs-dashboard/fs-business-baseline-20261021/deploy/release.py',

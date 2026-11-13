@@ -50,10 +50,10 @@
       "effective_at": "2026-10-31",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "2323f31f4bf6f553b7ffc1ae2d29247421f78dba9d3fe3ad6a1bdb6cf4493480",
+        "sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -155,10 +155,10 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "2323f31f4bf6f553b7ffc1ae2d29247421f78dba9d3fe3ad6a1bdb6cf4493480",
+        "sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -236,10 +236,10 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "2323f31f4bf6f553b7ffc1ae2d29247421f78dba9d3fe3ad6a1bdb6cf4493480",
+        "sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -319,10 +319,10 @@
       "effective_at": "2026-10-22",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "2323f31f4bf6f553b7ffc1ae2d29247421f78dba9d3fe3ad6a1bdb6cf4493480",
+        "sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -392,7 +392,7 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_native_all_two_band_20261113",
+      "revision": "fc_v61_100k_market_two_band_20261113",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -401,10 +401,10 @@
       "effective_at": "2026-11-13",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "fa093f5fde9eb7c30e798be984fc404f2bc63992",
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "9451986945e60d2174d5dde0efe3d74810df9b8b944127858f65eb23031d9366",
+        "sha256": "0170963eb49d7266cb1e8ec794734ff3b847d4004d93a9c28af6617519add1d9",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -417,7 +417,8 @@
         "fc.pricing.constraints@v14",
         "fc.pricing.constraints@v15",
         "fc.pricing.constraints@fc27_dual20_d9_d2_v2",
-        "fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4"
+        "fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4",
+        "fc.pricing.constraints@fc_v61_native_all_two_band_20261113"
       ],
       "provenance": [
         {
@@ -482,6 +483,13 @@
           "date": "2026-11-13",
           "decision": "docs/planning/fs-fc-admin-es-20261112/MASTER.md",
           "scope": "V6 native ALL propagation and platform weighted D-8 through D-2 discounts; legacy operations retain their protocol until migration"
+        },
+        {
+          "kind": "direct_user_v61_100k_and_current_rule_cleanup",
+          "date": "2026-11-13",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "prior_revision": "fc_v61_native_all_two_band_20261113",
+          "scope": "100K-only market collection; independent own-price bands; active V6 versus historical scalar protocol"
         }
       ],
       "consumers": [
@@ -489,7 +497,8 @@
         "Hermes selected knowledge candidate"
       ],
       "time_precision": "date_only",
-      "pricing_scope": "native_curve_average_discount"
+      "pricing_scope": "native_curve_average_discount",
+      "knowledge_updated_at": "2026-11-13"
     },
     {
       "id": "fs.experience.archive-cycle",
@@ -620,10 +629,10 @@
       "effective_at": "2026-10-23",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "2323f31f4bf6f553b7ffc1ae2d29247421f78dba9d3fe3ad6a1bdb6cf4493480",
+        "sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -734,10 +743,10 @@
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "2323f31f4bf6f553b7ffc1ae2d29247421f78dba9d3fe3ad6a1bdb6cf4493480",
+        "sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -791,21 +800,21 @@
     },
     {
       "id": "fs.pricing.parameter-identity",
-      "revision": "20261110-three-platform-100k",
+      "revision": "fc_v61_100k_market_two_band_20261113",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-11-10",
+      "effective_at": "2026-11-13",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "2323f31f4bf6f553b7ffc1ae2d29247421f78dba9d3fe3ad6a1bdb6cf4493480",
+        "sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -813,7 +822,8 @@
         }
       },
       "supersedes": [
-        "fs.pricing.parameter-identity@existing-contract-20261023"
+        "fs.pricing.parameter-identity@existing-contract-20261023",
+        "fs.pricing.parameter-identity@20261110-three-platform-100k"
       ],
       "provenance": [
         {
@@ -852,10 +862,18 @@
           "prior_revision": "20261110-three-platform-100k",
           "prior_source_sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
           "scope": "source_file_hash_refreshed; selected_text_unchanged"
+        },
+        {
+          "kind": "direct_user_v61_100k_and_current_rule_cleanup",
+          "date": "2026-11-13",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "prior_revision": "20261110-three-platform-100k",
+          "scope": "100K-only market collection; independent own-price bands; active V6 versus historical scalar protocol"
         }
       ],
-      "effective_at_basis": "2026-11-10 用户确认三平台独立及100K实交基准",
-      "original_effective_at": null
+      "effective_at_basis": "2026-11-13 用户确认 V6 两段及仅100K竞品，清理现行旧规则冲突",
+      "original_effective_at": null,
+      "knowledge_updated_at": "2026-11-13"
     },
     {
       "id": "fs.product.identity",
@@ -870,10 +888,10 @@
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "2323f31f4bf6f553b7ffc1ae2d29247421f78dba9d3fe3ad6a1bdb6cf4493480",
+        "sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -991,21 +1009,21 @@
     },
     {
       "id": "fs.learning.methods",
-      "revision": "fs-fc-admin-es-shared-20261113-r1",
+      "revision": "fc_v61_100k_market_two_band_20261113",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-11-10",
+      "effective_at": "2026-11-13",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "2323f31f4bf6f553b7ffc1ae2d29247421f78dba9d3fe3ad6a1bdb6cf4493480",
+        "sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1015,7 +1033,8 @@
       "supersedes": [
         "fs.learning.methods@existing-contract-20261023",
         "fs.learning.methods@fc-v3-20261026",
-        "fs.learning.methods@20261110-three-platform-100k"
+        "fs.learning.methods@20261110-three-platform-100k",
+        "fs.learning.methods@fs-fc-admin-es-shared-20261113-r1"
       ],
       "provenance": [
         {
@@ -1054,9 +1073,16 @@
           "prior_revision": "20261110-three-platform-100k",
           "prior_source_sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
           "scope": "selected_definition_updated; runtime_not_published"
+        },
+        {
+          "kind": "direct_user_v61_100k_and_current_rule_cleanup",
+          "date": "2026-11-13",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "prior_revision": "fs-fc-admin-es-shared-20261113-r1",
+          "scope": "100K-only market collection; independent own-price bands; active V6 versus historical scalar protocol"
         }
       ],
-      "effective_at_basis": "2026-11-10 用户确认三平台独立及100K实交基准",
+      "effective_at_basis": "2026-11-13 用户确认 V6 两段及仅100K竞品，清理现行旧规则冲突",
       "original_effective_at": null,
       "knowledge_updated_at": "2026-11-13"
     },
@@ -1175,7 +1201,7 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc_v61_native_all_two_band_20261113",
+      "revision": "fc_v61_100k_market_two_band_20261113",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1185,10 +1211,10 @@
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
-      "source_commit": "fa093f5fde9eb7c30e798be984fc404f2bc63992",
+      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "9451986945e60d2174d5dde0efe3d74810df9b8b944127858f65eb23031d9366",
+        "sha256": "0170963eb49d7266cb1e8ec794734ff3b847d4004d93a9c28af6617519add1d9",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1205,7 +1231,8 @@
         "fc.pricing.v3@20261107-bidirectional-v2",
         "fc.pricing.v3@20261109-coupon-display",
         "fc.pricing.v3@20261110-three-platform-100k",
-        "fc.pricing.v3@20261111-lootbar-no-coupon"
+        "fc.pricing.v3@20261111-lootbar-no-coupon",
+        "fc.pricing.v3@fc_v61_native_all_two_band_20261113"
       ],
       "provenance": [
         {
@@ -1287,13 +1314,21 @@
           "date": "2026-11-13",
           "decision": "docs/planning/fs-fc-admin-es-20261112/MASTER.md",
           "scope": "V6 native ALL propagation and platform weighted D-8 through D-2 discounts; legacy operations retain their protocol until migration"
+        },
+        {
+          "kind": "direct_user_v61_100k_and_current_rule_cleanup",
+          "date": "2026-11-13",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "prior_revision": "fc_v61_native_all_two_band_20261113",
+          "scope": "100K-only market collection; independent own-price bands; active V6 versus historical scalar protocol"
         }
       ],
       "consumers": [
         "Codex",
         "Hermes selected knowledge candidate"
       ],
-      "pricing_scope": "native_curve_average_discount"
+      "pricing_scope": "native_curve_average_discount",
+      "knowledge_updated_at": "2026-11-13"
     },
     {
       "id": "fc.reporting.methods",

@@ -246,7 +246,11 @@ def _delivery_quantity_evidence(records, purchase, bonus):
         if gift or abs(quantity * unit_cost - cost) > Decimal('.01'):
             return 'unverified'
         total_quantity += quantity
-    return 'matches_promised_delivered_k' if total_quantity == purchase + bonus else 'unverified'
+    if total_quantity == purchase + bonus:
+        return 'matches_promised_delivered_k'
+    if total_quantity > purchase + bonus:
+        return 'exceeds_promised_delivered_k'
+    return 'unverified'
 
 
 def _ordinary_delivery_total(records, paid, observed):
@@ -319,9 +323,13 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
                 actual, observed = (None if ordinary_forecast else d2_actual), d2_observed
                 quantity_evidence = _delivery_quantity_evidence(d2_records, purchase, bonus)
                 delivery_quantities[quantity_evidence] += 1
-                if ordinary_forecast and ordinary_observed and quantity_evidence == 'matches_promised_delivered_k':
+                exact_quantity = quantity_evidence == 'matches_promised_delivered_k'
+                completed_overdelivery = ordinary_complete and quantity_evidence == 'exceeds_promised_delivered_k'
+                if ordinary_forecast and ordinary_observed and (exact_quantity or completed_overdelivery):
                     ordinary = _ordinary_delivery_total(d2_records, paid, observed)
-                    if ordinary is not None and ordinary_complete:
+                    # Overdelivery supports only an observed cost floor over the
+                    # original promised quantity, never a complete normal sample.
+                    if ordinary is not None and ordinary_complete and exact_quantity:
                         actual = ordinary
                         ordinary_count += 1
             elif d2_observed is not None:

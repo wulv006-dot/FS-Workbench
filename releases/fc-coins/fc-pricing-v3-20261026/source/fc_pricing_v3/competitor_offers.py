@@ -10,6 +10,7 @@ VERSION = 'fc27-competitor-offers-v6.1'
 SOURCES = ('Lootbar', 'U7Buy', 'ArabUT')
 PLATFORMS = ('PS', 'XBOX', 'PC')
 QUANTITIES = ('100', '1000', '2000', '5000')
+CURRENT_QUANTITIES = ('100',)
 
 
 def decimal(value, *, zero=False):

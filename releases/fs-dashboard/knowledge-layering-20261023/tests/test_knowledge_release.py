@@ -69,6 +69,40 @@ class Release(unittest.TestCase):
             scope.targets(dict(value, files=value['files'] + [
                 dict(candidate='runtime/business-baseline.md', target='/opt/fs-hermes-fc/business-baseline.md')]))
 
+    def test_fc_v61_baseline_patch_is_bound_to_existing_target_and_both_hashes(self):
+        commit = 'a' * 40
+        release = scope.FC_V61 + '-' + commit
+        prefix = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + release + '/'
+        row = dict(candidate=scope.BASELINE_CANDIDATE, target=scope.BASELINE_TARGET,
+                   beforeSha256='b' * 64, sha256='c' * 64)
+        marker = dict(contract=scope.BASELINE_PATCH_CONTRACT, before_sha256='b' * 64, after_sha256='c' * 64)
+        value = dict(scope=scope.SCOPE, knowledgeOnly=True, knowledgeRelease=release, sourceCommit=commit,
+                     businessWrites=False, timersChanged=False, baselinePatch=marker, files=[
+                         dict(candidate='runtime/knowledge-load-policy.json',
+                              target='/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'),
+                         dict(candidate='artifact/index.json', target=prefix + 'index.json'), row])
+        self.assertEqual(scope.targets(value)[scope.BASELINE_CANDIDATE], scope.BASELINE_TARGET)
+        without_marker = dict(value)
+        del without_marker['baselinePatch']
+        with self.assertRaisesRegex(ValueError, 'knowledge_immutable_release_boundary'):
+            scope.targets(without_marker)
+        self.assertEqual(len(scope.targets(dict(without_marker, files=value['files'][:2]))), 2)
+        for variant, reason in (
+            (dict(value, knowledgeOnly=False), 'scope'),
+            (dict(value, knowledgeRelease=scope.SHARED_ADMIN_ES + '-' + commit), 'scope'),
+            (dict(value, baselinePatch=None), 'contract'),
+            (dict(value, baselinePatch=dict(marker, extra=True)), 'contract'),
+            (dict(value, baselinePatch=dict(marker, before_sha256='c' * 64)), 'hash'),
+            (dict(value, baselinePatch=dict(marker, before_sha256=42)), 'hash'),
+            (dict(value, files=value['files'][:2]), 'binding'),
+            (dict(value, files=value['files'] + [row]), 'binding'),
+            (dict(value, files=value['files'][:2] + [dict(row, target='/opt/fs-hermes-fc/controller.py')]), 'binding'),
+            (dict(value, files=value['files'][:2] + [dict(row, beforeSha256=None)]), 'binding'),
+            (dict(value, files=value['files'][:2] + [dict(row, sha256='d' * 64)]), 'binding'),
+        ):
+            with self.subTest(reason=reason), self.assertRaisesRegex(ValueError, 'knowledge_baseline_patch_' + reason):
+                scope.targets(variant)
+
     def test_existing_publisher_used_and_immutable_package_can_be_read(self):
         with tempfile.TemporaryDirectory() as tmp:
             stage=Path(tmp)/'stage'
