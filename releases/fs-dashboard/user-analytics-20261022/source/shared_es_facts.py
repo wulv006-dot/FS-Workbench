@@ -419,28 +419,33 @@ def stage_day(store, day, manifest_key, dataset, native_rows, tracking, captured
 
 
 def _stage(store, day, manifest_key, native, lines, meta):
+    with store.db() as db:
+        db.execute('BEGIN IMMEDIATE')
+        return _write_stage(db, day, manifest_key, native, lines, meta)
+
+
+def _write_stage(db, day, manifest_key, native, lines, meta):
     evidence = dict(day=day, native=native, lines=lines, hashes=meta['hashes'])
     if 'archive_site' in meta:
         evidence['archive_site'] = meta['archive_site']
+    if 'fc27_paid_archive_proof' in meta:
+        evidence['fc27_paid_archive_proof'] = meta['fc27_paid_archive_proof']
     revision = digest(evidence)
-    with store.db() as db:
-        db.execute('BEGIN IMMEDIATE')
-        for statement in SCHEMA:
-            db.execute(statement)
-        prior = db.execute('SELECT manifest_key FROM shared_es_slices WHERE day=? AND revision=?',
-                           (day, revision)).fetchone()
-        if prior:
-            if prior[0] != manifest_key:
-                db.execute('UPDATE shared_es_slices SET manifest_key=? WHERE day=? AND revision=?',
-                           (manifest_key, day, revision))
-            return revision
-        db.execute('INSERT INTO shared_es_slices VALUES(?,?,?,?)', (day, revision, manifest_key, canonical(meta)))
-        db.executemany('INSERT INTO shared_es_native VALUES(?,?,?,?,?,?)',
-                       ((day, revision, *row) for row in native))
-        db.executemany('INSERT INTO shared_es_lines VALUES(?,?,?,?,?)',
-                       ((day, revision, *row) for row in lines))
+    for statement in SCHEMA:
+        db.execute(statement)
+    prior = db.execute('SELECT manifest_key FROM shared_es_slices WHERE day=? AND revision=?',
+                       (day, revision)).fetchone()
+    if prior:
+        if prior[0] != manifest_key:
+            db.execute('UPDATE shared_es_slices SET manifest_key=? WHERE day=? AND revision=?',
+                       (manifest_key, day, revision))
+        return revision
+    db.execute('INSERT INTO shared_es_slices VALUES(?,?,?,?)', (day, revision, manifest_key, canonical(meta)))
+    db.executemany('INSERT INTO shared_es_native VALUES(?,?,?,?,?,?)',
+                   ((day, revision, *row) for row in native))
+    db.executemany('INSERT INTO shared_es_lines VALUES(?,?,?,?,?)',
+                   ((day, revision, *row) for row in lines))
     return revision
-
 
 def staged(store, day, manifest_key):
     with store.db() as db:
@@ -639,19 +644,9 @@ def refresh_discounts_due(store, now, *, reader=None):
         return dict(status='partial',reason=type(error).__name__)
 
 
-def seed(store, start, end, *, apply=False, now=None, archive_root=None, reader=None, archive=None):
-    """Explicit finite import from existing complete archives, using the producer's native map."""
-    from user_customer_types import ARCHIVE, manifest_inventory
-    from user_weekly import stored_publication
+def _seed_archives(root, days, now):
+    from user_customer_types import manifest_inventory
 
-    root = ARCHIVE if archive_root is None else Path(archive_root)
-    now = stamp(now) if now is not None else datetime.now(stamp(start).tzinfo)
-    days = list(_days(start, end))
-    if not days or len(days) > 7 or date.fromisoformat(end) >= now.date():
-        raise ValueError('shared_es_seed_period')
-    published = stored_publication(store)
-    if published is None:
-        raise ValueError('shared_es_seed_publication_unavailable')
     available = defaultdict(list)
     for pin in manifest_inventory(root):
         raw = (root / pin['name']).read_bytes()
@@ -666,6 +661,23 @@ def seed(store, start, end, *, apply=False, now=None, archive_root=None, reader=
         for day in days:
             if query['start'] <= day <= query['end']:
                 available[day].append(pin)
+    return available
+
+
+def seed(store, start, end, *, apply=False, now=None, archive_root=None, reader=None, archive=None):
+    """Explicit finite import from existing complete archives, using the producer's native map."""
+    from user_customer_types import ARCHIVE
+    from user_weekly import stored_publication
+
+    root = ARCHIVE if archive_root is None else Path(archive_root)
+    now = stamp(now) if now is not None else datetime.now(stamp(start).tzinfo)
+    days = list(_days(start, end))
+    if not days or len(days) > 7 or date.fromisoformat(end) >= now.date():
+        raise ValueError('shared_es_seed_period')
+    published = stored_publication(store)
+    if published is None:
+        raise ValueError('shared_es_seed_publication_unavailable')
+    available = _seed_archives(root, days, now)
     active = latest_publication(db=store.path)
     covered = {}
     if active:
@@ -712,6 +724,151 @@ def seed(store, start, end, *, apply=False, now=None, archive_root=None, reader=
         bind_publication(db, value, base, ready)
     return dict(result, status='partial' if missing else 'available', publication_id=value['publication_id'],
                 indexed_days=sorted(ready))
+
+
+def plan_fc27_archive_seed(store, day, publication_id, *, now=None, archive_root=None, archive=None):
+    """Plan one closed main-site FC payment day from existing native and ES archives."""
+    from user_customer_types import ARCHIVE
+    from user_weekly import stored_publication
+
+    start = stamp(date.fromisoformat(day).isoformat())
+    end = start + DAY
+    now = stamp(now) if now is not None else datetime.now(start.tzinfo)
+    if end > now:
+        raise ValueError('shared_es_fc27_archive_period')
+    active = latest_publication(db=store.path)
+    if not active or active['publication_id'] != publication_id:
+        raise ValueError('shared_es_fc27_archive_publication_changed')
+    with closing(_read_db(store.path)) as db:
+        db.execute('BEGIN')
+        stored = db.execute(
+            """SELECT p.revision,s.body FROM shared_es_publication_days p
+               JOIN shared_es_slices s ON s.day=p.day AND s.revision=p.revision
+               WHERE p.publication_id=? AND p.day=?""", (publication_id, day)).fetchone()
+        if not stored:
+            raise ValueError('shared_es_fc27_archive_historical_day')
+        day_revision, body = stored
+        meta = json.loads(body)
+        if (meta.get('archive_site'), meta.get('es_lines')) != (FC27_SITE, 0):
+            raise ValueError('shared_es_fc27_archive_historical_day')
+        legacy = [json.loads(body) for body, in db.execute(
+            'SELECT body FROM shared_es_native WHERE day=? AND revision=? AND site=?',
+            (day, day_revision, FC27_SITE))]
+        lower, upper = start.isoformat(), end.isoformat()
+        job = db.execute(
+            """SELECT body FROM jobs WHERE site=? AND start=? AND end=? AND state='complete'""",
+            (FC27_SITE, lower, upper)).fetchone()
+        native = [(gid, paid, json.loads(body)) for gid, paid, body in db.execute(
+            'SELECT gid,paid_at,body FROM orders WHERE site=? AND paid_at>=? AND paid_at<?',
+            (FC27_SITE, lower, upper))]
+    counts = {status: sum(str(row.get('pay_status')) == status for _, _, row in native)
+              for status in ('0', '1', '2')}
+    proof = json.loads(job[0]) if job else {}
+    if (proof.get('correction_coverage') != 'complete_reenumeration_of_payment_window_only'
+            or proof.get('status_counts') != counts or proof.get('source_rows') != len(native)):
+        raise ValueError('shared_es_fc27_archive_admin_coverage')
+    expected = {row['order_no']: (paid, row['id']) for gid, paid, row in native
+                if gid == FC27_GID and str(row.get('pay_status')) == '1'}
+    members = {row['order_no']: row for row in legacy
+               if str(row['gid']) == FC27_GID and str(row.get('pay_status')) == '1'}
+    if (not members or set(members) != set(expected)
+            or any(stamp(row['paytime']).isoformat() != expected[number][0]
+                   or not str(expected[number][1]).isdecimal() or int(expected[number][1]) <= 0
+                   for number, row in members.items())):
+        raise ValueError('shared_es_fc27_archive_admin_membership')
+    members = {number: dict(row, id=expected[number][1]) for number, row in members.items()}
+    if len({str(row['id']) for row in members.values()}) != len(members):
+        raise ValueError('shared_es_fc27_archive_admin_membership')
+    root = ARCHIVE if archive_root is None else Path(archive_root)
+    pins = _seed_archives(root, (day,), now)[day]
+    published = stored_publication(store)
+    if not pins or published is None:
+        raise ValueError('shared_es_fc27_archive_missing')
+    candidate = dict(published, flag_manifests=pins, published_at=now.isoformat(), cutoff=end.isoformat())
+    candidate.pop('publication_id')
+    candidate['publication_id'] = 'uw_' + digest(candidate)[:32]
+    if archive is None:
+        from es_order_structure import archived_dataset
+        archive = lambda args, **options: archived_dataset(args, root=root, **options)
+    book = archive(dict(profile='ALL', start=day, end=day), publication=candidate)
+    if (book.get('_private_dataset') is not True or book.get('revision_selection') != 'published_pins'
+            or book.get('status') != 'available' or book.get('failed_files') != 0
+            or book.get('parse_failures') != 0 or not book.get('hashes')):
+        raise ValueError('shared_es_fc27_archive_incomplete')
+    by_hash = {_order_hash(number): number for number in members}
+    selected = {}
+    for row in book['rows']:
+        if (number := by_hash.get(row['订单号'])) is not None:
+            if number in selected or not row.get('产品类型') or stamp(row['付款时间'].replace('/', '-')) != stamp(members[number]['paytime']):
+                raise ValueError('shared_es_fc27_archive_product_identity')
+            selected[number] = row
+    if selected.keys() != members.keys():
+        raise ValueError('shared_es_fc27_archive_product_identity')
+    coins = {number for number, row in selected.items() if row['产品类型'] == '货币(Gold)'}
+    source_revision = digest(dict(day_revision=day_revision, pins=pins, workbook_hashes=book['hashes'],
+                                  ids=sorted((_order_hash(number), row['id']) for number, row in members.items())))
+    return dict(day=day, publication=active, source_revision=source_revision, members=members,
+                coins=coins, legacy=legacy, workbook_hashes=book['hashes'],
+                selected=selected, meta=meta)
+
+
+def fc27_archive_seed_pin(base, day, witness):
+    return 'se_' + digest(dict(base=base, day=day, witness=witness))[:32]
+
+
+def apply_fc27_archive_seed(store, plan, confirmed, *, response_revision, observed_at):
+    """Publish the verified narrow source under a new pin. Caller holds the existing jobs lock."""
+    if not re.fullmatch('[a-f0-9]{64}', response_revision):
+        raise ValueError('shared_es_fc27_archive_response')
+    observed = stamp(observed_at)
+    day, active, members = plan['day'], plan['publication'], plan['members']
+    verified = {}
+    for row in confirmed:
+        number = row.get('order_no')
+        pinned = members.get(number)
+        if (pinned is None or number in verified or str(row.get('site_id')) != FC27_SITE
+                or str(row.get('gid')) != FC27_GID or str(row.get('pay_status')) != '1'
+                or str(row.get('id')) != str(pinned['id']) or row.get('paytime') != pinned['paytime']):
+            raise ValueError('shared_es_fc27_archive_admin_identity')
+        verified[number] = row
+    if verified.keys() != members.keys():
+        raise ValueError('shared_es_fc27_archive_admin_identity')
+    rows, tracking = [], {}
+    for raw in plan['legacy']:
+        number = raw['order_no']
+        confirmed = verified.get(number)
+        if 'tracking' in raw:
+            tracking[(FC27_SITE, number)] = raw['tracking']
+        if confirmed is not None:
+            raw = dict(raw, id=members[number]['id'])
+            if 'discount_code' in confirmed:
+                raw['discount_code'] = confirmed['discount_code']
+            if number in plan['coins'] and 'fc27_coins' in confirmed:
+                raw['fc27_coins'] = confirmed['fc27_coins']
+        rows.append(raw)
+    projections = sum('fc27_coins' in row for row in rows)
+    witness = dict(source_revision=plan['source_revision'], response_revision=response_revision,
+                   paid_orders=len(members), coin_orders=len(plan['coins']), projections=projections)
+    base = active['publication_id']
+    next_pin = fc27_archive_seed_pin(base, day, witness)
+    if observed < stamp(active['captured_at']):
+        raise ValueError('shared_es_fc27_archive_observation')
+    lines = _lines(plan['selected'].values(), day)
+    native = _native(rows, day, tracking)
+    meta = dict(plan['meta'], hashes=plan['workbook_hashes'], es_lines=len(lines),
+                captured_at=observed.isoformat(), fc27_paid_archive_proof=witness)
+    value = dict(publication_id=next_pin, data_version=active['data_revision'], published_at=observed.isoformat(),
+                 cutoff=active['cutoff'])
+    with store.db() as db:
+        db.execute('BEGIN IMMEDIATE')
+        prior = db.execute('SELECT value FROM meta WHERE key=?', (META,)).fetchone()
+        if prior and prior[0] == next_pin:
+            return dict(status='reused', publication_id=next_pin, **witness)
+        if not prior or prior[0] != base:
+            raise ValueError('shared_es_fc27_archive_publication_changed')
+        revision = _write_stage(db, day, digest(witness), native, lines, meta)
+        bind_publication(db, value, base, {day:revision})
+    return dict(status='available', publication_id=next_pin, **witness)
 
 
 def _historical_channel_day(path, day):
@@ -955,6 +1112,9 @@ def read(scope, *, db=DB, publication_id=None):
     identity_catalog = dict(complete=complete and not historical, revision=revision, rows=identities,
                             verified_days=[day for day, _, info in visible if 'archive_site' not in info],
                             scope=dict(start=start, end=end, site='all', game='all', pay_status='1'))
+    if (site,gid)==(FC27_SITE,FC27_GID):
+        identity_catalog['fc27_paid_scope_complete'] = complete and all(
+            'archive_site' not in info or 'fc27_paid_archive_proof' in info for info in metadata)
     return dict(status=dataset['status'], rows=rows, dataset=dataset, identity_catalog=identity_catalog,
                 coverage=coverage)
 
