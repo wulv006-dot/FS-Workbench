@@ -304,9 +304,16 @@ def curve_catalog_plan(bundle, platform, capability):
                                 for curve in (before, target))
     if before_rate is None or target_rate is None:
         raise ValueError('pricing_curve_100k_tier_missing')
-    if before_rate != target_rate and (capability.get('order_projection_status') not in ('native_route_ready', 'verified')
-                                      or not capability.get('order_projection')):
-        raise ValueError('pricing_curve_order_projection_unverified')
+    # The scalar B2C update does not preserve independent Admin tiers.
+    projection_status = 'not_required'
+    if not two_band:
+        if before_rate != target_rate:
+            if (capability.get('order_projection_status') not in ('native_route_ready', 'verified')
+                    or not capability.get('order_projection')):
+                raise ValueError('pricing_curve_order_projection_unverified')
+            projection_status = 'pending'
+        elif native_route:
+            projection_status = 'read_only_pending'
     primary_before_hash = (bundle.get('curve_primary_before_hashes') or {}).get(platform)
     if native_route and not primary_before_hash:
         raise ValueError('pricing_curve_primary_before_unbound')
@@ -321,8 +328,7 @@ def curve_catalog_plan(bundle, platform, capability):
                 recipient_goods={str(site): goods for site, goods in recipients.items()},
                 required_recipient_sites=sorted(str(site) for site in priced_sites),
                 catalog={'status': 'pending'}, propagation={'status': 'pending'},
-                projection={'status': ('read_only_pending' if native_route and not two_band else 'not_required')
-                            if before_rate == target_rate else 'pending'})
+                projection={'status': projection_status})
 
 
 def curve_prices_match(row, target):
