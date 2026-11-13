@@ -37,14 +37,14 @@ class CurveV6Release(unittest.TestCase):
         self.assertEqual(len(base), 101)
         self.assertEqual(len(three), 107)
         self.assertEqual(len(adapter.THREE_PLATFORM_TARGETS), 56)
-        self.assertEqual(len(adapter.CURVE_V6_TARGETS), 45)
+        self.assertEqual(len(adapter.CURVE_V6_TARGETS), 50)
 
     def test_candidate_sources_build_both_copies_with_baseline_dependencies(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             archive = root / 'candidate.tar.gz'
             result = self.build_candidate(archive)
-            self.assertEqual(result['targets'], 45)
+            self.assertEqual(result['targets'], 50)
             browser = root / 'browser'
             hermes = root / 'hermes'
             baseline = self.git('ls-tree', '-r', '--name-only', BASE, '--',
@@ -65,6 +65,7 @@ class CurveV6Release(unittest.TestCase):
                 provenance = json.load(bundle.extractfile(prefix + 'source-manifest.json'))
                 self.assertEqual(provenance['scope'], target_map.CURVE_V6_SCOPE)
                 self.assertEqual(provenance['sourceBaseCommit'], BASE)
+                self.assertEqual(provenance['repositorySources'], target_map.CURVE_V6_REPOSITORY_SOURCES)
                 self.assertEqual(set(provenance['files']), set(adapter.CURVE_V6_TARGETS))
                 for name, sha in provenance['files'].items():
                     payload = bundle.extractfile(prefix + 'candidate/' + name).read()
@@ -79,7 +80,7 @@ class CurveV6Release(unittest.TestCase):
                         destination = browser / name.removeprefix('source/')
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_bytes(payload)
-                self.assertFalse(any('collect_competitor' in name for name in bundle.getnames()))
+                self.assertTrue(set(target_map.CURVE_V6_COLLECTION_TARGETS) <= set(provenance['files']))
                 self.assertFalse(any('monitor-' in name for name in provenance['files']))
             for destination in (browser, hermes):
                 subprocess.run([sys.executable, '-I', '-B', '-c',
@@ -113,7 +114,7 @@ SimulationBridge(request=lambda *args: version).versions()
             self.assertEqual(args[1:6], ['diff', '--name-only', '--no-renames', '-z', BASE])
             self.assertEqual(args[6], 'a' * 40)
             selected = {name.removeprefix('source/').removeprefix('hermes-copy/')
-                        for name in adapter.CURVE_V6_TARGETS}
+                        for name in adapter.CURVE_V6_TARGETS if name not in target_map.CURVE_V6_REPOSITORY_SOURCES}
             if extra is not None:
                 selected.add(extra)
             return ''.join(RELEASE + '/source/' + name + '\0' for name in sorted(selected))
@@ -167,13 +168,17 @@ SimulationBridge(request=lambda *args: version).versions()
                         releaseReady=True, files=[
                             dict(candidate=name, target=path, sha256='b' * 64,
                                  beforeSha256=None if name in target_map.CURVE_V6_NEW else 'a' * 64,
-                                 owner='0:0', mode='0o644')
+                                 owner='0:0', mode='0o755' if name in target_map.CURVE_V6_EXECUTABLES else '0o644')
                             for name, path in adapter.CURVE_V6_TARGETS.items()
                         ])
 
         value = fixture()
         self.assertIs(adapter.checked_manifest(value), value)
         self.assertEqual(len(target_map.CURVE_V6_NEW), 14)
+        value = fixture()
+        value['files'] = [r for r in value['files'] if r['candidate'] != 'source/collect_competitor.sh']
+        with self.assertRaisesRegex(ValueError, 'exact_fc_v3_targets_required'):
+            adapter.checked_manifest(value)
         value = fixture()
         value['files'].append(dict(value['files'][0], candidate='source/fc_pricing_v3/extra.py'))
         with self.assertRaisesRegex(ValueError, 'exact_fc_v3_targets_required'):
@@ -204,10 +209,13 @@ SimulationBridge(request=lambda *args: version).versions()
                 live.parent.mkdir(exist_ok=True)
                 if name not in target_map.CURVE_V6_NEW:
                     live.write_bytes(b'# live bytes\n')
+                    if name in target_map.CURVE_V6_EXECUTABLES:
+                        live.chmod(0o755)
                 mapping[name.removeprefix('source/')] = str(live)
             sha = hashlib.sha256(b'# staged bytes\n').hexdigest()
             (stage / 'source-manifest.json').write_text(json.dumps(dict(
                 scope=target_map.CURVE_V6_SCOPE, sourceBaseCommit=BASE, sourceCommit='a' * 40,
+                repositorySources=target_map.CURVE_V6_REPOSITORY_SOURCES,
                 files={name: sha for name in adapter.CURVE_V6_TARGETS}
             )), encoding='utf-8')
             frozen = SimpleNamespace(HERMES_TARGETS={}, HERMES_CAPABILITY_TARGETS={},
@@ -238,8 +246,8 @@ SimulationBridge(request=lambda *args: version).versions()
                 self.assertEqual(raw, (deploy / 'approved-manifest.json').read_bytes())
                 manifest = json.loads(raw)
                 inspect.assert_called_once_with(manifest, stage)
-                self.assertEqual(result['files'], 45)
-                self.assertEqual(result['existing'], 31)
+                self.assertEqual(result['files'], 50)
+                self.assertEqual(result['existing'], 36)
                 self.assertEqual(result['new'], 14)
                 self.assertIn('fc-pricing-v3.service', manifest['runtimeRequired'])
                 protected = {row['path'] for row in manifest['unchangedRequired']}

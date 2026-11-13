@@ -164,6 +164,26 @@ class DailyProfit(unittest.TestCase):
                 daily.run(dict(local_date='2026-11-06'))
                 self.assertEqual(review.call_count,1);self.assertEqual(read.call_count,1)
 
+    def test_daily_run_preserves_actuals_when_optional_shared_reader_times_out(self):
+        from subprocess import TimeoutExpired
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'db')
+            for w in self.windows:db.put('actual_price_windows',w['operation_id'],w)
+            for op in self.ops:db.put('operations',op['operation_id'],op)
+            payment_days={row['order_key']:'2026-11-06' for row in self.online['actual_outcomes']}
+            outcome=Mock(returncode=0,stdout=json.dumps(dict(
+                actual={'status':'complete'},online=self.online,payment_days=payment_days)))
+            with patch.object(runtime,'ledger',return_value=db),patch.object(daily.subprocess,'run',side_effect=[outcome,TimeoutExpired('marketing',190)]) as read,patch.object(scheduler,'export_shadow_snapshot'),patch.object(history,'ensure_shadow',return_value=dict(status='completed',result={})),patch.object(bridge,'review',return_value=dict(phase='completed')) as review:
+                result=daily.run(dict(local_date='2026-11-06'))
+                daily.run(dict(local_date='2026-11-06'))
+            self.assertEqual(read.call_count,2)
+            args=json.loads(read.call_args.kwargs['input'])
+            self.assertEqual(args['action'],'marketing_context')
+            self.assertEqual(set(args['outcomes'][0]),{'order_key','actual_net_usd'})
+            self.assertEqual(result['actual']['status'],'complete')
+            self.assertEqual(result['marketing_context']['reason'],'shared_order_facts_timeout')
+            self.assertEqual(review.call_count,1)
+
     def test_prompt_carries_summary_preserves_precision_and_does_not_mutate_source(self):
         summary=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','p')
         quote=dict(daily_report=dict(actual_profit_summary=summary,actual=dict(hourly=[dict(hour=0,orders=1,net_paid_usd='100')]),decision_basis=dict(demand_model=dict(status='fit',groups={'pc':{'elasticity':'1.12345678','metrics':['detail']}}))))

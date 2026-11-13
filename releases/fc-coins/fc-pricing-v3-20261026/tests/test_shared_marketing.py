@@ -113,5 +113,24 @@ class SharedMarketing(unittest.TestCase):
         value['actual_outcomes'][0]['actual_contribution_usd']='24'
         self.assertNotEqual(daily.profit_summary(value,case.windows,case.ops,'2026-11-06','p')['source_sha256'],original['source_sha256'])
 
+    def test_daily_reader_uses_latest_bound_payment_day_covered_by_the_pin(self):
+        from fc_pricing_v3 import daily
+        online=source.bind_price_windows([self.order],[self.window],self.now)
+        key=online['actual_outcomes'][0]['order_key']
+        publication=dict(cutoff='2026-10-28T00:00:00+08:00',publication_id='es1')
+        collect=Mock(return_value=self.facts)
+        runtime=SimpleNamespace(publication=Mock(return_value=publication),collect=collect)
+        with patch.dict(sys.modules,{'order_facts_runtime':runtime,'es_order_structure':SimpleNamespace(archived_dataset=Mock())}):
+            result=daily.collect_marketing_context('2026-10-28',online['actual_outcomes'],{key:'2026-10-27'})
+            missing=daily.collect_marketing_context('2026-10-28',online['actual_outcomes'],{key:'2026-10-28'})
+        self.assertEqual(collect.call_args.args[0],dict(start='2026-10-27',end='2026-10-27',site_id='266',gid='1327'))
+        collect.assert_called_once()
+        self.assertEqual(result['payment_date'],'2026-10-27')
+        self.assertEqual(result['review_day_coverage'],'unavailable')
+        self.assertEqual(result['channels']['SEO']['orders'],1)
+        self.assertEqual(missing['reason'],'publication_does_not_cover_bound_payment_day')
+        self.assertNotIn(self.order['order_no'],str(result))
+        self.assertNotIn('private referral text',str(result))
+
 
 if __name__=='__main__':unittest.main()

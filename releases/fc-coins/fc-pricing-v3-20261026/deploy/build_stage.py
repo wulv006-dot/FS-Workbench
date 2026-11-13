@@ -10,6 +10,7 @@ import tempfile
 from target_map import COUPON_DISPLAY_EXTRA, COUPON_DISPLAY_NAMES, COUPON_DISPLAY_SOURCE, TARGET_COUNT, targets
 from target_map import LOOTBAR_CALLER_EXTRA, LOOTBAR_CALLER_NAMES, LOOTBAR_CALLER_REPOSITORY_SOURCES
 from target_map import (CURVE_V6_BASE, CURVE_V6_SCOPE, CURVE_V6_SOURCE_NAMES, CURVE_V6_TARGET_COUNT,
+                        CURVE_V6_REPOSITORY_SOURCES,
                         curve_v6_targets, require_curve_scope_for_imports,
                         THREE_PLATFORM_EXTRA, THREE_PLATFORM_NAMES, THREE_PLATFORM_REPOSITORY_SOURCES,
                         THREE_PLATFORM_TARGET_COUNT, three_platform_targets,
@@ -47,6 +48,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
     if coupon_display:paths.append(COUPON_DISPLAY_SOURCE)
     if lootbar:paths.extend(LOOTBAR_CALLER_REPOSITORY_SOURCES.values())
     if three_platform:paths.extend(THREE_PLATFORM_REPOSITORY_SOURCES.values())
+    if curve_v6:paths.extend(CURVE_V6_REPOSITORY_SOURCES.values())
     dirty = subprocess.check_output(['git', 'status', '--porcelain', '--', *paths],
                                     cwd=checkout, text=True).strip()
     if dirty:
@@ -83,6 +85,8 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             if lootbar and 'source/'+name in LOOTBAR_CALLER_REPOSITORY_SOURCES:original=checkout/LOOTBAR_CALLER_REPOSITORY_SOURCES['source/'+name]
             if three_platform and 'source/'+name in THREE_PLATFORM_REPOSITORY_SOURCES:
                 original=checkout/THREE_PLATFORM_REPOSITORY_SOURCES['source/'+name]
+            if curve_v6 and 'source/'+name in CURVE_V6_REPOSITORY_SOURCES:
+                original=checkout/CURVE_V6_REPOSITORY_SOURCES['source/'+name]
             destination = candidate / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             payload = library if 'source/'+name==MONITOR_SQLITE_CANDIDATE else read_blob(original)
@@ -104,7 +108,8 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             provenance['repositorySources']=THREE_PLATFORM_REPOSITORY_SOURCES
             provenance['externalSources']=[MONITOR_SQLITE_PROVENANCE]
         if curve_v6:
-            provenance.update(scope=CURVE_V6_SCOPE, sourceBaseCommit=CURVE_V6_BASE)
+            provenance.update(scope=CURVE_V6_SCOPE, sourceBaseCommit=CURVE_V6_BASE,
+                              repositorySources=CURVE_V6_REPOSITORY_SOURCES)
         (stage / 'source-manifest.json').write_text(
             json.dumps(provenance, ensure_ascii=False, sort_keys=True, indent=2) + '\n', encoding='utf-8')
         output = Path(output).resolve()

@@ -8,7 +8,7 @@ import sqlite3
 import stat
 import time
 
-from .contracts import build_job, instant, integer, to_arab_status, fingerprint
+from .contracts import ARAB_TABLE_SCOPE, build_job, instant, integer, to_arab_status, fingerprint
 from .coordinator import Coordinator
 from .public_sources import VERSIONS
 from .ssh_client import Session, ssh_command
@@ -66,7 +66,7 @@ def source_ready(coordinator, routing, *, consume_only=False, source_id='ArabUT'
     return source
 
 
-def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None):
+def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None, price_table=False):
     if not isinstance(parent, dict) or set(parent) != {'run_id', 'created_at', 'deadline_at'}:
         raise ValueError('collection_parent_required')
     # Opening the candidate must never create a second ledger or reset pilot budgets.
@@ -87,10 +87,11 @@ def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None):
     source = ready(consume_only=True)
     from .lootbar import REQUEST_BUDGET
     task = build_job(parent, source_id, dict(requested_platforms=['PS', 'XBOX', 'PC'], region_scope=[0] if source_id == 'Lootbar' else [21],
-        quantity_scope=dict(purchase_quantity='100', quantity_unit='K'), discount_scope='coupon_excluded', currency='USD',
+        quantity_scope=ARAB_TABLE_SCOPE if price_table else dict(purchase_quantity='100', quantity_unit='K'),
+        discount_scope='coupon_excluded', currency='native' if price_table else 'USD',
         policy_version=source['policy_version'], adapter_version=source['adapter_version'],
-        assignment_generation=source['generation'], total_attempt_limit=2 if '187' in source['nodes'] else 1,
-        total_request_budget=REQUEST_BUDGET if source_id == 'Lootbar' else 8 if '187' in source['nodes'] else 4), parent['deadline_at'])
+        assignment_generation=source['generation'], total_attempt_limit=2 if '187' in source['nodes'] and not price_table else 1,
+        total_request_budget=1 if price_table else REQUEST_BUDGET if source_id == 'Lootbar' else 8 if '187' in source['nodes'] else 4), parent['deadline_at'])
     with coordinator.transaction() as db:
         key = fingerprint([source_id, parent['run_id']])
         pin = dict(routing, created_at=task['created_at'], task_context_hash=task['task_context_hash'])
@@ -205,13 +206,15 @@ def legacy_ready(source_id='ArabUT'):
     return True
 
 
-def arab_normal(local, parent=None, *, pinned=None):
+def arab_normal(local, parent=None, *, pinned=None, price_table=False):
     is_local = isinstance(pinned, dict) and pinned.get('mode') == 'local'
     try:
         routing = dict(remote_result_mode='off') if is_local else read_routing()
     except (OSError, ValueError):
         return dict(status='unavailable', reason='collection_routing_invalid', offers=[])
     if routing['remote_result_mode'] != 'consume':
+        if price_table:
+            return dict(status='unavailable', reason='arab_price_table_requires_source_lease', offers=[])
         # The bounded independent shadow driver owns remote shadow requests.
         try:
             if not legacy_ready():
@@ -220,6 +223,6 @@ def arab_normal(local, parent=None, *, pinned=None):
             return dict(status='unavailable', reason='collection_origin_state_unavailable', offers=[])
         return local()
     try:
-        return collect_remote(parent, routing)
+        return collect_remote(parent, routing, price_table=True) if price_table else collect_remote(parent, routing)
     except (OSError, ValueError, TimeoutError, EOFError, sqlite3.Error):
         return dict(status='unavailable', reason='remote_collection_unavailable', offers=[])

@@ -32,6 +32,51 @@ def task():
 
 
 class BidirectionalCollection(unittest.TestCase):
+    def test_quantity_table_uses_one_lease_request_and_preserves_native_money_and_delivery(self):
+        from fc_collection.adapters import RestrictedHTTP
+        from fc_collection.contracts import ARAB_TABLE_SCOPE
+        from fc_collection.worker import collect_job
+        html = b'''<table aria-labelledby="coins-prices-console" class="coins-prices__table">
+        <tr><th>Amount</th><th>Normal<small>2 hours</small></th><th>Fast<small>45 min</small></th></tr>
+        <tr><th>100K</th><td>USD&nbsp;8.96</td><td>USD&nbsp;9.57</td></tr>
+        <tr><th>1M</th><td>USD&nbsp;70.53</td><td>USD&nbsp;76.19</td></tr>
+        <tr><th>2M</th><td>USD&nbsp;142.45</td><td>USD&nbsp;169.20</td></tr>
+        <tr><th>5M</th><td>&mdash;</td><td>USD&nbsp;424.99</td></tr></table>
+        <table aria-labelledby="coins-prices-pc" class="coins-prices__table coins-prices__table--single">
+        <tr><th>Amount</th><th>Price</th></tr><tr><th>100K</th><td>USD&nbsp;11.63</td></tr>
+        <tr><th>1M</th><td>USD&nbsp;94.83</td></tr><tr><th>2M</th><td>USD&nbsp;211.97</td></tr>
+        <tr><th>5M</th><td>USD&nbsp;536.21</td></tr></table>'''
+        scope = dict(context(),requested_platforms=['PS','XBOX','PC'],region_scope=[21],
+                     quantity_scope=ARAB_TABLE_SCOPE,currency='native',adapter_version=VERSIONS['ArabUT'],
+                     total_request_budget=1,total_attempt_limit=1)
+        request=build_job(dict(run_id='quantity-market',created_at=NOW.isoformat()),'ArabUT',
+                          scope,(NOW+timedelta(seconds=60)).isoformat())
+        request.update(attempt_id='attempt-1',lease_epoch=1,node_id='183',node_boot_id='boot-1')
+        calls=[]
+        def get(template):
+            calls.append(template)
+            return html
+        body=collect_job(request,arab_adapter,SimpleNamespace(get=get,clock=lambda:NOW,used=1),lambda:NOW)
+        self.assertEqual(calls,['prices_table'])
+        result=to_arab_status([body],request,NOW)
+        self.assertEqual(result['offers'],[])
+        rows={(row['platform'],row['purchase_k'],row['delivery_tier']):row for row in result['quantity_offers']}
+        self.assertEqual(len(rows),18)
+        self.assertNotIn(('PS','5000','normal'),rows)
+        self.assertEqual(rows[('PS','5000','fast')]['regular_price'],'424.99')
+        self.assertEqual(rows[('XBOX','5000','fast')]['regular_price'],'424.99')
+        self.assertEqual(rows[('PC','5000','standard')]['original_amount_minor'],53621)
+        self.assertIsNone(rows[('PC','5000','standard')]['bonus_k'])
+        self.assertFalse(rows[('PC','5000','standard')]['comparable'])
+        self.assertIn('prices_table',RestrictedHTTP(REGISTRY).registry['ArabUT'])
+        for forged in (dict(REGISTRY['ArabUT']['prices_table'],path='/coins/prices'),
+                       dict(REGISTRY['ArabUT']['prices_table'],query={'currency':'SAR'})):
+            with self.assertRaisesRegex(ValueError,'arab_prices_table_endpoint_invalid'):
+                RestrictedHTTP({'ArabUT':{'prices_table':forged}})
+        with self.assertRaisesRegex(ValueError,'arab_price_table_scope_invalid'):
+            build_job(dict(run_id='quantity-market',created_at=NOW.isoformat()),'ArabUT',
+                      dict(scope,total_request_budget=2),(NOW+timedelta(seconds=60)).isoformat())
+
     def test_PC_is_independent_and_native_null_delivery_is_preserved(self):
         rows = arab_offers(native('pc'), NOW, platform='pc')
         self.assertEqual([r['platform'] for r in rows], ['PC'])

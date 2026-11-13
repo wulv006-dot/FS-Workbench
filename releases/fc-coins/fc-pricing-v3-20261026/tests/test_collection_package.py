@@ -28,7 +28,7 @@ class WorkerPackage(unittest.TestCase):
                     'lootbar/background.js', 'manifest.json'})
                 manifest = json.loads(archive.read('manifest.json'))
                 self.assertEqual(manifest['lootbar']['lootbar_server_collector.py'],
-                    'a950c08208df92a40183cbcbe0ea73b7c22e8d79f386336239f6d27079642384')
+                    '291d5be8075dea7136f22ea2d9ea727b5159cd749526f0bda0ca1a628b268bd9')
                 self.assertFalse(manifest['production_ready'])
                 self.assertEqual(manifest['credentials'], [])
                 # Loading the exported parser needs no Chrome extension API or storage.

@@ -84,12 +84,16 @@ def _regional_history(replay,region_id,platforms):
 
 def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mode=None,scope=None,history_cache=None,history_signature=None,online_context=None,collection_context=None,collection_mode=None,shared_order_facts=None):
     from .market_registry import arab_normal
-    def read_arab():
+    def read_arab(*, price_table=False):
         routing=Path('/var/lib/fc27-cloud/collection-access/routing.json')
         if not routing.exists() and not routing.is_symlink():
+            if price_table:
+                return dict(status='unavailable',reason='arab_price_table_requires_source_lease',offers=[])
             return arab_normal()
         sys.path.insert(0,'/opt/fs-fc-control/code')
         from fc_collection.client import arab_normal as routed
+        if price_table:
+            return routed(arab_normal,collection_context,pinned=collection_mode,price_table=True)
         return routed(arab_normal,collection_context,pinned=collection_mode)
     try:arab=(arab_ut_status if isinstance(arab_ut_status,dict) else read_arab()) if active_mode is None else dict(status='not_required',offers=[])
     except Exception as exc:arab=dict(status='unavailable',reason=type(exc).__name__,offers=[])
@@ -126,7 +130,9 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mo
     finally:
         session.close()
     if active_mode is not None and 'ArabUT' in selective_plan['required_markets']:
-        try:arab=arab_ut_status if isinstance(arab_ut_status,dict) else read_arab()
+        from .competitor_offers import POLICY
+        try:arab=arab_ut_status if isinstance(arab_ut_status,dict) else read_arab(
+            price_table=selective_plan.get('competitor_policy') == POLICY)
         except Exception as exc:arab=dict(status='unavailable',reason=type(exc).__name__,offers=[])
     aids={'PS':21587,'XBOX':21585,'PC':21589}
     product_scopes=_admin_product_scopes(storefront,products)

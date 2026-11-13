@@ -208,6 +208,34 @@ class CompetitorOffersV6(unittest.TestCase):
         self.assertEqual(stored['legacy_competitor_scope'],'100k_observed_only')
         self.assertEqual(summary['status'],'ready_for_quote')
 
+    def test_snapshot_keeps_native_lootbar_tiers_out_of_the_legacy_offer_list(self):
+        module=snapshot_module()
+        offers={p:dict(platform=p,base_k='100',bonus_k='5',usd_price='9',coupon_excluded=False) for p in module.PLATFORMS}
+        events=[dict(stage='ps_restored'),dict(stage='complete',read_only=True,checked_at=NOW.isoformat(),
+            offers=offers,quantity_offers=[
+                dict(offers['PS'],base_k='1000',bonus_k='50',usd_price='79.38',coupon_excluded=True,
+                     observed_coupon_price='69.86',excluded_coupon_discount='9.52'),
+                dict(offers['PC'],base_k='2000',usd_price='160',coupon_excluded=True)])]
+        processes=[SimpleNamespace(returncode=code,stdout=b'') for code in (0,1,0,0)]
+        with tempfile.TemporaryDirectory() as folder,patch.object(module,'ROOT',Path(folder)),\
+             patch.object(module.subprocess,'run',side_effect=processes) as run,\
+             patch.object(module.glob,'glob',side_effect=[[],[str(Path(folder)/'lootbar.jsonl')],[],[],[]]),\
+             patch.object(module.Path,'read_text',return_value='\n'.join(json.dumps(event) for event in events)),\
+             patch.object(module,'collector_failure',return_value='fixture_missing'),\
+             patch.object(module,'cost_snapshots',return_value=[dict(status='valid',platform=p) for p in module.PLATFORMS]),\
+             patch.object(module,'newest_evidence',return_value=dict(status='valid',checked_at=NOW.isoformat(),cny_per_usd='7')),\
+             patch.object(module,'atomic_json') as save,patch.object(module.os,'chown',create=True),patch.object(module.os,'chmod'):
+            _,ready=module.collect_once('00000000-0000-4000-8000-000000000099',POLICY)
+        self.assertTrue(ready)
+        self.assertIn('--native-quantities',run.call_args_list[0].args[0])
+        stored=save.call_args.args[1]
+        self.assertEqual([row['purchase_k'] for row in stored['competitors']],['100']*3)
+        large=[row for row in stored['competitor_offers'] if row['purchase_k']!='100']
+        self.assertEqual([(row['platform'],row['purchase_k'],row['regular_price'],row['delivered_k']) for row in large],
+                         [('PS','1000','79.38','1050')])
+        self.assertTrue(large[0]['comparable'])
+        self.assertIsNone(large[0]['eligible_net_price'])
+
     def test_u7_reader_requests_each_platform_once_preserves_absent_quantities(self):
         file=REPO/'fc27_cloud_browser/collect_competitor_browser.py'
         tree=ast.parse(file.read_text(encoding='utf-8'))

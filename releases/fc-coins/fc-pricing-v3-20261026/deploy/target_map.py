@@ -47,11 +47,24 @@ for _name in ('lootbar_server_collector.py','background.js'):
     LOOTBAR_CALLER_REPOSITORY_SOURCES[_candidate]='releases/ops/pricing-recovery-20261023/fc_residency/source/'+_name
     LOOTBAR_CALLER_NAMES+=(_candidate,)
 
+CURVE_V6_COLLECTION_TARGETS = {
+    **LOOTBAR_CALLER_EXTRA,
+    'source/collect_competitor.sh': '/opt/fc27-cloud-browser/collect_competitor.sh',
+    'source/collector/collect_competitor_browser.py': '/opt/fc27-cloud-browser/collector/collect_competitor_browser.py',
+}
+CURVE_V6_REPOSITORY_SOURCES = {
+    **LOOTBAR_CALLER_REPOSITORY_SOURCES,
+    'source/collect_competitor.sh': 'fc27_cloud_browser/collect_competitor.sh',
+    'source/collector/collect_competitor_browser.py': 'fc27_cloud_browser/collect_competitor_browser.py',
+}
+CURVE_V6_EXECUTABLES = ('source/collect_lootbar.sh', 'source/collect_competitor.sh')
+
 THREE_PLATFORM_SCOPE='fc-pricing-three-platform-20261110'
 THREE_PLATFORM_MODULES=('platforms.py','legacy_simulation/platform_v2_engine.py',
                         'legacy_simulation/platform_v2_financial.py')
 THREE_PLATFORM_TARGET_COUNT=TARGET_COUNT+2*len(THREE_PLATFORM_MODULES)
-CURVE_V6_TARGET_COUNT = len(CURVE_V6_TOP_LEVEL) + 2 * len(CURVE_V6_CHANGED_MODULES + CURVE_V6_MODULES)
+CURVE_V6_TARGET_COUNT = (len(CURVE_V6_TOP_LEVEL) + len(CURVE_V6_COLLECTION_TARGETS)
+                         + 2 * len(CURVE_V6_CHANGED_MODULES + CURVE_V6_MODULES))
 MONITOR_SQLITE_CANDIDATE='source/monitor-runtime/libsqlite3.so.0'
 MONITOR_SQLITE_SOURCE='/opt/auth-portal/registration-runtime-deps/sqlite-3.53.4/lib/libsqlite3.so.3.53.4'
 MONITOR_SQLITE_SHA='d3d896ba27628b174c67cfc6127c92f29c97b48dc3dfe70c84c5f6c28ca4c5f8'
@@ -170,6 +183,7 @@ def curve_v6_targets(source):
     return {
         **{name: current[name] for name in CURVE_V6_TOP_LEVEL},
         **module_targets(CURVE_V6_CHANGED_MODULES + CURVE_V6_MODULES),
+        **{name.removeprefix('source/'): path for name, path in CURVE_V6_COLLECTION_TARGETS.items()},
     }
 
 

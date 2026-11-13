@@ -35,8 +35,8 @@ def offer_key(row):
     return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(',',':')).encode()).hexdigest()
 
 
-def _lootbar_100k_merchandise(raw, purchase, currency, tier):
-    if (raw['source'] != 'Lootbar' or purchase != '100' or currency != 'USD' or tier is not None
+def _lootbar_merchandise(raw, purchase, currency, tier):
+    if (raw['source'] != 'Lootbar' or currency != 'USD' or tier is not None
             or raw.get('conditional') is True or raw.get('comparable') is False
             or raw.get('coupon_excluded') is not True
             or raw.get('discount_source') not in ('visible_no_coupon', 'visible_coupon_excluded')):
@@ -44,14 +44,16 @@ def _lootbar_100k_merchandise(raw, purchase, currency, tier):
     evidence = raw.get('evidence_ref', raw.get('source_metadata'))
     if not isinstance(evidence, dict):
         return False
-    # The 187 reader validates the current no-coupon amount and the exact 100K
+    # The 187 reader validates the current no-coupon amount and exact card
     # selection. The 183 projection also reports its standard delivery method.
     return (
         raw.get('price_basis') == 'visible_public_sale_price'
         and raw.get('auth_state') == 'logged_in'
         and type(raw.get('raw_coupon_excluded')) is bool
         and raw.get('delivery_method') is None
+        and (purchase == '100' or raw.get('selection_verified') is True)
         or raw.get('price_basis') in ('visible_public_sale_price', 'reconstructed_no_coupon_lower_bound')
+        and purchase == '100'
         and raw.get('selection_verified') is True
         and raw.get('observation_id')
         and raw.get('auth_state') in ('public', 'logged_in')
@@ -79,7 +81,7 @@ def normalize_offers(rows, run_id, now, *, max_age=900):
         if not isinstance(currency,str) or len(currency)!=3 or not currency.isascii() or not currency.isupper():
             raise ValueError('competitor_currency')
         tier = raw.get('delivery_tier', raw.get('delivery'))
-        lootbar_merchandise = _lootbar_100k_merchandise(raw, purchase, currency, tier)
+        lootbar_merchandise = _lootbar_merchandise(raw, purchase, currency, tier)
         conditional = False if lootbar_merchandise else raw.get('conditional')
         regular = raw.get('regular_price')
         if 'regular_price' not in raw and currency == 'USD' and conditional is not True:
@@ -120,7 +122,8 @@ def normalize_offers(rows, run_id, now, *, max_age=900):
         row['comparable'] = (row['comparable'] and row['bonus_k'] is not None
             and (row['regular_price'] is not None or row['eligible_net_price'] is not None)
             and (lootbar_merchandise or row['delivery_method'] not in (None,'unknown') and tier not in (None,'unknown')))
-        row['comparability_basis'] = ('lootbar_observed_100k_merchandise_no_delivery_tier' if lootbar_merchandise
+        row['comparability_basis'] = (('lootbar_observed_100k_merchandise_no_delivery_tier' if purchase == '100'
+            else 'lootbar_observed_native_merchandise_no_delivery_tier') if lootbar_merchandise
             else 'merchandise_quote_only_fees_and_tax_separate')
         row['delivered_k'] = decimal(Decimal(purchase)+Decimal(row['bonus_k'])) if row['bonus_k'] is not None else None
         row['offer_key'] = key = offer_key(row)

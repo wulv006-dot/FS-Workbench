@@ -89,7 +89,8 @@ def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
     from .competitor_offers import POLICY, normalize_offers, quantity_coverage
     if plan.get('competitor_policy')==POLICY:
         rows=list(snapshot.get('competitor_offers',snapshot.get('competitors') or []))
-        rows+=list((snapshot.get('arab_ut_status') or {}).get('offers') or [])
+        arab = snapshot.get('arab_ut_status') or {}
+        rows+=list(arab.get('quantity_offers') or arab.get('offers') or [])
         valid=[];gaps=[]
         for row in rows:
             if row.get('source') not in plan['required_markets']:continue

@@ -14,7 +14,7 @@ import time
 from urllib.parse import urlencode, urljoin, urlsplit, parse_qsl
 from urllib.request import Request
 
-from .contracts import SOURCES, integer, label, ARAB_WARM_PATHS
+from .contracts import SOURCES, integer, label, ARAB_WARM_PATHS, ARAB_PRICE_TABLE
 
 
 class SourceUnavailable(ValueError):
@@ -80,6 +80,8 @@ class RestrictedHTTP:
                         or not isinstance(item['path'], str) or not re.fullmatch(r'/[A-Za-z0-9/_-]*', item['path'])
                         or '//' in item['path'] or len(item['path']) > 500):
                     raise ValueError('template_endpoint_invalid')
+                if template == 'prices_table' and (source != 'ArabUT' or item != ARAB_PRICE_TABLE):
+                    raise ValueError('arab_prices_table_endpoint_invalid')
                 if 'query' in item:
                     query = dict(platform='playstation', delivery='normal', quantity='100000')
                     if (source != 'ArabUT' or item['host'] != 'www.arab-ut.com'
@@ -121,7 +123,8 @@ class RestrictedHTTP:
         response = None
         try:
             path = item['path'] + ('?' + urlencode(item['query']) if item.get('query') else '')
-            accept = ('text/html' if template_id in ARAB_WARM_PATHS else 'application/json') if source_id == 'ArabUT' else 'application/json,text/html'
+            accept = ('text/html' if template_id in ARAB_WARM_PATHS or template_id == 'prices_table'
+                      else 'application/json') if source_id == 'ArabUT' else 'application/json,text/html'
             request = Request('https://' + item['host'] + path,
                               headers={'Accept': accept, 'User-Agent': 'Mozilla/5.0'})
             if source_id == 'ArabUT':

@@ -117,7 +117,7 @@ class DailyProgramFlow(unittest.TestCase):
         session = Mock()
         auth = SimpleNamespace(Session=Mock(return_value=session), admin_token_from_service=lambda:('token',None))
         channel = SimpleNamespace(pages=Mock(), COLLECTOR='unused-test-path')
-        def online(session_arg, pages, windows, now, rows):
+        def online(session_arg, pages, windows, now, rows, *, payment_days):
             self.assertEqual(rows['today-order'][0]['costCny'], '20')
             self.assertEqual(rows['today-order'][0]['customerType'], '新客')
             self.assertIn('older-order', rows)

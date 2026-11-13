@@ -8,6 +8,9 @@ import re
 
 SOURCES = {'ItemD2R', 'Lootbar', 'ArabUT'}
 ARAB_WARM_PATHS = {'warm':'/', 'warm_en':'/en', 'warm_en_slash':'/en/', 'warm_ar':'/ar', 'warm_ar_slash':'/ar/'}
+ARAB_PRICE_TABLE = dict(host='arab-ut.com', path='/en/coins/prices', max_bytes=2097153)
+ARAB_TABLE_QUANTITIES = ('100', '1000', '2000', '5000')
+ARAB_TABLE_SCOPE = dict(purchase_quantities=list(ARAB_TABLE_QUANTITIES), quantity_unit='K')
 PLATFORMS = {'PS', 'XBOX', 'PC'}
 CONTEXT = {'requested_platforms', 'region_scope', 'quantity_scope', 'discount_scope',
            'currency', 'policy_version', 'adapter_version', 'assignment_generation',
@@ -86,15 +89,20 @@ def build_job(parent_run, source_id, context, deadline_at):
             or any(type(value) is not int or value < 0 for value in regions)):
         raise ValueError('scope_invalid')
     q = context['quantity_scope']
-    if not isinstance(q, dict) or set(q) != {'purchase_quantity', 'quantity_unit'}:
-        raise ValueError('quantity_scope_invalid')
-    if quantity(q['purchase_quantity'], q['quantity_unit']) != 100:
-        raise ValueError('purchase_scope_invalid')
-    # Canonical quantities make equivalent coin/K demands share a job.
-    context['quantity_scope'] = dict(purchase_quantity='100', quantity_unit='K')
+    table = source_id == 'ArabUT' and q == ARAB_TABLE_SCOPE
+    if table:
+        if regions != [21] or context['total_request_budget'] != 1 or context['total_attempt_limit'] != 1:
+            raise ValueError('arab_price_table_scope_invalid')
+    else:
+        if not isinstance(q, dict) or set(q) != {'purchase_quantity', 'quantity_unit'}:
+            raise ValueError('quantity_scope_invalid')
+        if quantity(q['purchase_quantity'], q['quantity_unit']) != 100:
+            raise ValueError('purchase_scope_invalid')
+        # Canonical quantities make equivalent coin/K demands share a job.
+        context['quantity_scope'] = dict(purchase_quantity='100', quantity_unit='K')
     context['requested_platforms'] = sorted(platforms)
     context['region_scope'] = sorted(regions)
-    if context['discount_scope'] != 'coupon_excluded' or context['currency'] != 'USD':
+    if context['discount_scope'] != 'coupon_excluded' or context['currency'] != ('native' if table else 'USD'):
         raise ValueError('price_scope_invalid')
     for key in ('policy_version', 'adapter_version'):
         label(context[key])
@@ -111,6 +119,7 @@ def build_job(parent_run, source_id, context, deadline_at):
 
 
 def validate_observation(body, task, now):
+    table = task['source_id'] == 'ArabUT' and task.get('quantity_scope') == ARAB_TABLE_SCOPE
     if (not isinstance(body, dict) or set(body) - {'retry_after_seconds', 'platform_errors','request_accounting'} != OBSERVATION
             or type(body['schema_version']) is not int or body['schema_version'] != 1):
         raise ValueError('observation_schema_invalid')
@@ -144,6 +153,8 @@ def validate_observation(body, task, now):
     if body['reason_code'] is not None:
         label(body['reason_code'])
     integer(body['request_budget_used'], 0, task['total_request_budget'])
+    if table and body['offers'] and body['request_budget_used'] != 1:
+        raise ValueError('arab_price_table_request_required')
     if not isinstance(body['evidence_hash'], str) or not re.fullmatch('[a-f0-9]{64}', body['evidence_hash']):
         raise ValueError('evidence_hash_invalid')
     started, finished = instant(body['capture_started_at']), instant(body['capture_finished_at'])
@@ -156,15 +167,24 @@ def validate_observation(body, task, now):
         raise ValueError('capture_after_deadline')
     fresh(started, now)
     fresh(finished, now)
-    if not isinstance(body['offers'], list) or len(body['offers']) > 9:
+    if not isinstance(body['offers'], list) or len(body['offers']) > (20 if table else 9):
         raise ValueError('offers_invalid')
     if body['status'] in ('failed', 'blocked') and body['offers']:
         raise ValueError('failed_observation_has_offers')
-    seen, times = set(), []
+    seen, times, currencies = set(), [], set()
     for row in body['offers']:
         if not isinstance(row, dict) or set(row) - {'source_metadata'} != OFFER:
             raise ValueError('offer_schema_invalid')
-        if 'source_metadata' in row and task['source_id'] == 'Lootbar':
+        if table:
+            if ('source_metadata' in row or row['currency'] not in ('USD','SAR') or row['settlement_currency'] != row['currency']
+                    or row['conversion_source'] != 'not_required' or row['price_basis'] != 'official_public_price_table'
+                    or row['discount_source'] != 'official_public_no_coupon' or row['coupon_excluded'] is not True
+                    or row['conditional'] is not False or row['comparable'] is not False or row['auth_state'] != 'public'
+                    or row['delivery_method'] not in (('standard',) if row['platform'] == 'PC' else ('normal','fast'))
+                    or row['bonus_quantity'] != '0' or not isinstance(row['amount'],str)
+                    or not re.fullmatch(r'\d{1,12}\.\d{2}',row['amount'])):
+                raise ValueError('arab_price_table_offer_invalid')
+        elif 'source_metadata' in row and task['source_id'] == 'Lootbar':
             meta = row['source_metadata']
             fields = {'coupon_state','raw_coupon_excluded','logged_in','observed_coupon_price',
                       'excluded_coupon_discount','stable_reads','raw_usd_price','coupon_evidence','reconstruction','parser_reconstruction'}
@@ -208,19 +228,26 @@ def validate_observation(body, task, now):
         elif task['source_id'] == 'Lootbar' and task['adapter_version'] == 'lootbar-public-browser-v1':
             raise ValueError('lootbar_source_metadata_required')
         key = row['platform'], row['region_id']
+        if table:
+            key += (row['purchase_quantity'], row['delivery_method'])
         if (row['platform'] not in task['requested_platforms'] or type(row['region_id']) is not int
                 or row['region_id'] not in task['region_scope'] or key in seen):
             raise ValueError('offer_scope_invalid')
         seen.add(key)
         valid_conversion = (row['settlement_currency'], row['conversion_source']) == ('USD', 'not_required')
+        if table:
+            valid_conversion = (row['settlement_currency'], row['conversion_source']) == (row['currency'], 'not_required')
+            currencies.add(row['currency'])
         if task['source_id'] == 'ArabUT':
             valid_conversion = valid_conversion or (row['settlement_currency'], row['conversion_source']) == ('SAR', 'official_display_quote')
-        if row['currency'] != task['currency'] or not valid_conversion:
+        if (not table and row['currency'] != task['currency']) or not valid_conversion:
             raise ValueError('currency_invalid')
         purchase = quantity(row['purchase_quantity'], row['quantity_unit'])
         bonus = quantity(row['bonus_quantity'], row['quantity_unit'], True)
         delivered = quantity(row['delivered_quantity'], row['quantity_unit'])
-        if purchase != 100 or delivered != purchase + bonus:
+        valid_quantity = (row['quantity_unit'] == 'K' and row['purchase_quantity'] in ARAB_TABLE_QUANTITIES
+                          if table else purchase == 100)
+        if not valid_quantity or delivered != purchase + bonus:
             raise ValueError('quantity_identity_invalid')
         decimal(row['amount'])
         for field in ('coupon_excluded', 'conditional', 'comparable', 'selection_verified'):
@@ -238,6 +265,8 @@ def validate_observation(body, task, now):
         if not started <= observed <= finished:
             raise ValueError('capture_time_invalid')
         times.append(observed)
+    if len(currencies) > 1:
+        raise ValueError('arab_price_table_currency_mixed')
     if times and (max(times) - min(times)).total_seconds() > 300:
         raise ValueError('observation_span_invalid')
     return body
@@ -333,6 +362,14 @@ def arab_status(rows, requested_platforms, errors=None):
 def to_arab_status(accepted, task, now):
     if task['source_id'] != 'ArabUT':
         raise ValueError('arab_source_invalid')
+    if task.get('quantity_scope') == ARAB_TABLE_SCOPE:
+        rows = []
+        for body in accepted:
+            validate_observation(body,task,now)
+            rows.extend(arab_table_row(offer, run_id=task['parent_run_id'],
+                observation_id=body['observation_id']) for offer in body['offers'])
+        return dict(status='available' if rows else 'unavailable', offers=[],
+                    quantity_offers=rows, reason=next((b['reason_code'] for b in accepted if b['reason_code']), None))
     rows = to_fc_quote_rows(accepted, task, now)['offers']
     errors = {}
     for body in accepted:
@@ -341,3 +378,16 @@ def to_arab_status(accepted, task, now):
             for platform in task['requested_platforms']:
                 errors.setdefault(platform, body['reason_code'])
     return arab_status(rows, task['requested_platforms'], errors)
+
+
+def arab_table_row(offer, **binding):
+    return dict(source='ArabUT', status='valid', platform=offer['platform'], region_id=offer['region_id'],
+        purchase_k=offer['purchase_quantity'], bonus_k=None, regular_price=offer['amount'], currency=offer['currency'],
+        conversion_source='native_public_display_currency', original_currency=offer['currency'],
+        original_amount_minor=int(decimal(offer['amount'])*100),
+        delivery_method=offer['delivery_method'], delivery_tier=offer['delivery_method'],
+        captured_at=offer['observed_at'], source_url='https://' + ARAB_PRICE_TABLE['host'] + ARAB_PRICE_TABLE['path'],
+        reference_scope='official_shared_console' if offer['platform'] != 'PC' else 'official_independent_PC',
+        promotion_eligibility='all_customers', conditional=False, comparable=False, coupon_excluded=True,
+        selection_verified=True, auth_state='public', price_basis='official_public_price_table',
+        evidence_ref=offer['sanitized_evidence_ref'], **binding)
