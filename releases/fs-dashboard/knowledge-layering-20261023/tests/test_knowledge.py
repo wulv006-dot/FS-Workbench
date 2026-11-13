@@ -102,14 +102,16 @@ class Knowledge(unittest.TestCase):
         self.assertIn('真实FC订单及USD计FC广告成交',selected['entries'][0]['content'])
         self.assertIn('无已核分摊不套FC',selected['entries'][0]['content'])
         self.assertIn('归因渠道 ＞ 订单来源 ＞ 推广人及折扣码',selected['entries'][0]['content'])
-        self.assertIn('其余未映射线索＝待归类，全无线索＝未知', selected['entries'][0]['content'])
+        self.assertIn('待归类且有推广人UID＝Direct/分销；其余未映射线索＝待归类，全无线索＝未知',
+                      selected['entries'][0]['content'])
+        self.assertIn('明确上级优先', selected['entries'][0]['content'])
         self.assertIn('同级冲突待核', selected['entries'][0]['content'])
         self.assertIn('每单收入计一次，原字段和协助保留', selected['entries'][0]['content'])
-        for text in ('明确Direct的用码单及无上级归属的用码单，均按码细分于Direct',
+        for text in ('明确Direct或无上级归属的用码单按码细分于Direct',
                      '历史映射照用', '/admin/market/discount',
                      '张玲玲＝KOL', '董文鑫、陈宝＝广告投放', '刘晓辰、尹岚＝分销',
                      '张皓＝TikTok', '王修权＝SEO（自然搜索）',
-                     '其他及未映射码＝运营', '无更高归属且仅券＝Direct/新人/活动', '码券并用按码',
+                     '其他及未映射码＝运营', '无上级归属且仅券＝Direct/新人/活动', '码券并用按码',
                      '率＝总利润/同组Order销售', '缺记录或金额留空'):
             self.assertIn(text, selected['entries'][0]['content'])
         self.assertNotIn('属全局品牌广告',selected['entries'][0]['content'])
