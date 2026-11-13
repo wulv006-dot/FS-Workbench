@@ -618,7 +618,7 @@ class CurveRuntime(unittest.TestCase):
 
         # Reuse actual verifier and old writer-compatible native factor, even
         # when an unchanged small catalogue needs a higher global unit.
-        from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT, read_curve
+        from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT, curve_key, read_curve
         from test_price_curve_v6 import EDITOR_CONTRACT
         editor = dict(EDITOR_CONTRACT, price_edit_policy=FORWARD_TIER_EDIT)
         all_row = dict(current['native_payload'],id=writer.PRODUCTS['PS'][0],site_id=0)
@@ -637,6 +637,12 @@ class CurveRuntime(unittest.TestCase):
         candidate = answer['candidate']['curve']
         self.assertEqual([p['native_price_usd'] for p in candidate['tiers'] if int(p['purchase_k'])<1000],
                          [p['native_price_usd'] for p in current['tiers'] if int(p['purchase_k'])<1000])
+        preview = runtime._preview_curve_candidates(current, curve_key(current), 'PS', None, 'large', source,
+            CUT.isoformat(), AS_OF.isoformat(), AS_OF, {curve_key(current):proof_for(current)},
+            editor=editor, repair=repair)
+        self.assertEqual([(item['labels'], item['financial_proof']['status']) for item in preview['candidates']],
+                         [(['CURRENT'], 'HARD_CONSTRAINT_FAILED'), (['COST_REPAIR'], 'PROVEN')])
+        self.assertEqual(preview['candidates'][1]['curve_key'], curve_key(candidate))
 
         source['historical_orders'][0]['actual_es_discount_usd'] = None
         incomplete = average_discount(source,'PS',CUT)

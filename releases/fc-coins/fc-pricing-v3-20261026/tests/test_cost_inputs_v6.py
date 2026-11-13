@@ -196,6 +196,27 @@ class CostInputs(unittest.TestCase):
         self.assertIn('upper_below_known_partial', other['gaps'])
         self.assertIsNone(other['current_cost_source'])
 
+    def test_reconciled_partial_ordinary_shipment_raises_bound_without_becoming_complete(self):
+        orders = list(rows_for([2, 3, 4], quantity='6000K Coins + 150K Free x1 = $450'))
+        source = attachment(orders)
+        data = facts(orders, cost='2583', delivery_fields=dict(qty='6150', gift='0', cost_unit='.42'))
+        partial = data['orders'][-1]
+        partial.update(status='处理中', observed_cost_cny='2644.50')
+        partial['cost_records'][0].update(cost_cny='2644.50', cost_unit_cny='.43')
+        result = run([source], revisions=[data], rate=fx(), basis='PROMISED_DELIVERED_K', ordinary_forecast=True)
+        self.assertEqual(result['status'], 'calculated', result['gaps'])
+        self.assertEqual(result['selected_window']['ordinary_delivery_orders'], 2)
+        self.assertEqual(result['diagnostic_estimate']['incomplete_cost_orders'], 1)
+        self.assertEqual(result['diagnostic_estimate']['known_partial_usd'], Decimal('2644.50') / 7)
+        self.assertAlmostEqual(result['diagnostic_estimate']['expected_unit_usd'], Decimal('.42') / 7)
+        self.assertAlmostEqual(result['diagnostic_estimate']['safe_unit_usd'], ((Decimal('.42') * 2 + Decimal('.43')) / 3) / 7)
+        self.assertAlmostEqual(result['diagnostic_estimate']['stress_unit_usd'], Decimal('.43') / 7)
+        upper = result['cost_upper_source']
+        self.assertEqual(upper['source'], 'same_layer_ordinary_delivery_observed_partial_floor')
+        self.assertEqual(upper['base_upper_source']['source'], 'up_to_six_latest_same_layer_ordinary_delivery_cost_max')
+        self.assertEqual(upper['cny_per_basis_k'], '0.43')
+        self.assertNotIn(orders[-1][0], str(result))
+
     def test_attachment_amount_is_cny_observation_and_never_rewrites_actuals(self):
         orders = list(rows_for([1]))
         original = attachment(orders, cost='70')

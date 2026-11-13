@@ -309,7 +309,7 @@ def _preview_curve_candidates(curve, key, platform, strategy_state, segment, clo
                               snapshot_at, catalogue_at, evidence_as_of, frozen_candidates, *, editor=None, repair=None):
     from .admin_readback import SITE_MAIN
     from .curve_strategy_v6 import ANCHORS, build_candidates
-    from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, quote_native
+    from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, curve_key, quote_native
 
     candidate_gaps = {}
     boundary_search_status = None
