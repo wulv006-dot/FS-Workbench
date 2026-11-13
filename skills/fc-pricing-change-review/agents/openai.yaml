@@ -1,0 +1,4 @@
+interface:
+  display_name: "FC 定价规则变更验收"
+  short_description: "按变更范围核对定价、写入、监控恢复和经营复盘的完整调用链"
+  default_prompt: "使用 $fc-pricing-change-review 检查本次 FC 定价规则变更，修复已授权范围内的遗漏并给出实际验收结果。"

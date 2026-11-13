@@ -117,6 +117,29 @@ class HealthContract(unittest.TestCase):
         self.assertEqual(result['platforms']['PS']['reasons'],[])
         self.assertEqual(result['platforms']['PC']['reasons'],[])
 
+    def test_v6_public_mismatch_recovers_through_the_original_gate(self):
+        value = self.native_report()
+        value['coin']['job'] = {'job_id': 'original-cycle', 'result_status': 'confirmed'}
+        value['publication'] = {'status':'mismatch', 'basis':'confirmed_admin_site266_curve',
+                                'platforms':[{'platform':'PS', 'status':'mismatch'}]}
+        with patch.object(hooks, 'bot_ready', return_value=False):
+            prior = hooks.controls(value)
+            self.assertEqual(prior['platforms']['PS']['phase'], 'ESCALATED')
+            value['publication']['platforms'] = [
+                {'platform':'PS', 'status':'matched'},
+                {'platform':'XBOX', 'status':'not_checked_after_write'},
+                {'platform':'PC', 'status':'not_checked_after_write'},
+            ]
+            value['publication']['status'] = 'not_checked_after_write'
+            first = hooks.controls(value, prior)
+            self.assertEqual(first['platforms']['PS']['reasons'], ['recovery_confirmation_pending'])
+            second = hooks.controls(value, first)
+            self.assertEqual(second['platforms']['PS']['reasons'], [])
+            self.assertEqual(second['platforms']['PS']['phase'], 'AWAITING_CYCLE')
+            value['coin']['job']['job_id'] = 'next-cycle'
+            recovered = hooks.controls(value, second)
+        self.assertEqual(recovered['platforms']['PS']['phase'], 'RECOVERED')
+
     def test_v3_unknown_and_stale_remain_real_blocks(self):
         value=self.native_report();value['unknown_operations']=[{'operation_id':'original','platforms':['PS']}]
         with patch.object(hooks,'bot_ready',return_value=False):result=hooks.controls(value)

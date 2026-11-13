@@ -1,6 +1,7 @@
 """Authenticated local API for FC27 server jobs and review artifacts."""
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -330,7 +331,111 @@ def latest_complete_collection():
     return last_attempt, None
 
 
-def publication_view(storefront):
+def admin_curve_publication(storefront, now, interval_minutes):
+    """Compare the owned V6 Admin receipts to independent public 100K observations."""
+    from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+    from fc_pricing_v3.financial import instant, number
+    from fc_pricing_v3.ledger import confirmed_curve_window, fully_owned_plans
+    from fc_pricing_v3.platforms import PLATFORMS
+    from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
+
+    path = ROOT / 'v3/control.sqlite3'
+    with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=2)) as db:
+        db.execute('PRAGMA query_only=ON')
+        db.execute('BEGIN')
+        owners = {p: (plan['plan_id'], plan['revision'], plan['generation'])
+                  for plan in fully_owned_plans(db)
+                  if plan.get('write_protocol') == CURVE_WRITE_PROTOCOL
+                  and plan.get('state') in ('ACTIVE', 'ENDING', 'SUSPENDED')
+                  for p in PLATFORMS if 'base:' + p in plan['resources']}
+        if not owners:
+            return {}
+        operations = [json.loads(raw) for (raw,) in db.execute('SELECT body FROM operations')]
+
+    newest = {}
+    for op in operations:
+        bundle = op.get('bundle') or {}
+        if op.get('status') != 'COMPLETED' or bundle.get('write_protocol') != CURVE_WRITE_PROTOCOL:
+            continue
+        identity = (op.get('plan_id'), op.get('revision'), op.get('generation'))
+        affected = [p for p in bundle.get('affected_platforms') or [] if owners.get(p) == identity]
+        if not affected:
+            continue
+        completed_at = instant(op['completed_at'])
+        for platform in affected:
+            if platform not in newest or completed_at > newest[platform][0]:
+                newest[platform] = completed_at, op
+
+    result = {}
+    for platform in owners:
+        row = (storefront.get('rows') or {}).get(platform) or {}
+        detail = dict(platform=platform, write_protocol=CURVE_WRITE_PROTOCOL,
+                      status='backend_confirmation_pending', public_checked_at=row.get('checked_at'),
+                      public_page_usd=None, backend_page_usd=None)
+        result[platform] = detail
+        if platform not in newest:
+            continue
+        completed_at, op = newest[platform]
+        try:
+            receipt = op['readback']['curve_results'][platform]
+            action, _ = confirmed_curve_window(op)
+            curve = action['curves'][platform]
+            confirmed_at = instant(receipt['propagation']['confirmed_at'])
+            if (receipt['projection']['status'] != 'not_required'
+                    or curve['native_contract'].get('price_edit_policy') != TWO_BAND_PRICE_EDIT
+                    or not confirmed_at <= completed_at <= now):
+                continue
+            tier = next(t for t in curve['tiers'] if t['purchase_k'] == '100')
+        except (KeyError, TypeError, ValueError, StopIteration):
+            continue
+        backend = Decimal(tier['native_price_usd']).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        detail.update(execution_id=op['operation_id'], backend_checked_at=confirmed_at.isoformat(),
+                      backend_page_usd=str(backend), status='unavailable')
+        try:
+            if (row.get('status') != 'ok' or row.get('platform') != platform
+                    or storefront.get('currency') != 'USD'
+                    or storefront.get('source') != 'https://www.mmoexp.com/Fc-27/Coins.html'
+                    or number(row.get('base_k')) != 100 or str(row.get('sku_id')) != curve['identity']['id']
+                    or number(row.get('bonus_k'), zero=True) != Decimal(tier['promised_bonus_k'])):
+                continue
+            public = number(row.get('package_usd'))
+            checked = instant(row.get('checked_at'))
+        except (TypeError, ValueError):
+            continue
+        detail['public_page_usd'] = str(public)
+        if checked < confirmed_at:
+            detail['status'] = 'not_checked_after_write'
+        elif not timedelta(0) <= now - checked <= timedelta(minutes=interval_minutes + 15):
+            detail['status'] = 'stale_or_clock_invalid'
+        else:
+            detail['status'] = 'matched' if public == backend else 'mismatch'
+    return result
+
+
+def publication_view(storefront, *, v3_enabled=None, interval_minutes=60, now=None):
+    if v3_enabled is None:
+        control = ROOT / 'config/v3-control.json'
+        v3_enabled = control.exists() and read_json(control).get('enabled')
+    if not v3_enabled:
+        return legacy_publication_view(storefront)
+    curves = admin_curve_publication(storefront, now or datetime.now(timezone.utc), interval_minutes)
+    if not curves:
+        return legacy_publication_view(storefront)
+
+    platforms = ('PS', 'XBOX', 'PC')
+    legacy = legacy_publication_view(storefront) if len(curves) < len(platforms) else {}
+    legacy_rows = {row['platform']: row for row in legacy.get('platforms', [])}
+    details = [curves.get(p) or legacy_rows.get(p) or dict(platform=p, status='unavailable') for p in platforms]
+    status = next((status for status in ('mismatch', 'unavailable', 'backend_confirmation_pending',
+                                        'stale_or_clock_invalid', 'not_checked_after_write')
+                   if any(row['status'] == status for row in details)), 'matched')
+    latest = max((row for row in curves.values() if row.get('backend_checked_at')),
+                 key=lambda row: row['backend_checked_at'], default={})
+    return dict(status=status, basis='confirmed_admin_site266_curve', platforms=details,
+                execution_id=latest.get('execution_id'), backend_checked_at=latest.get('backend_checked_at'))
+
+
+def legacy_publication_view(storefront):
     """Compare the latest observed backend prices at public-page cent precision."""
     audits = []
     for path in (ROOT / "executions").glob("*.json"):
@@ -454,6 +559,7 @@ def monitor_view():
         player_sync = player_sync_view(load_player_sync_policy())
     except (OSError, ValueError, TypeError):
         player_sync = {"enabled": None, "revision": None, "last_job": None}
+    automation = automation_view(load_policy())
     return {"generated_at": current_time.isoformat(),
             "storefront": {"status": storefront.get("status", "unavailable"),
                            "last_attempt_at": storefront.get("last_attempt_at"), "rows": rows,
@@ -467,8 +573,9 @@ def monitor_view():
             "cache_refresh": {"status": (cache_job.get("cache_refresh") or {}).get("status"),
                               "checked_at": (cache_job.get("cache_refresh") or {}).get("checked_at"),
                               "reason": (cache_job.get("cache_refresh") or {}).get("reason")},
-            "publication": publication_view(storefront),
-            "automation": automation_view(load_policy()),
+            "publication": publication_view(storefront, v3_enabled=(automation.get('v3') or {}).get('enabled'),
+                                            interval_minutes=automation['interval_minutes'], now=current_time),
+            "automation": automation,
             "player_sync": player_sync,
             "health": {**health(), "automation_timer": timer_status,
                        "storefront_collection": "linked"}}

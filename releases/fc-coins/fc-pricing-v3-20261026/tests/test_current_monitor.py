@@ -59,6 +59,20 @@ class CurrentMonitor(unittest.TestCase):
         value=snapshot();value['publication']['platforms'][1]['status']='mismatch';value['publication']['status']='mismatch'
         self.assertIn(dict(level='critical',code='three_platform_publication_unverified'),self.assess(value)['issues'])
 
+    def test_admin_curve_mismatch_is_platform_scoped_and_pending_is_independent(self):
+        value = snapshot()
+        rows = value['publication']['platforms']
+        value['publication'].update(basis='confirmed_admin_site266_curve', status='mismatch')
+        rows[0]['status'], rows[1]['status'] = 'mismatch', 'not_checked_after_write'
+        issues = self.assess(value)['issues']
+        self.assertIn(dict(level='critical', code='coin_v3_public_price_mismatch:PS', platform='PS'), issues)
+        self.assertIn(dict(level='warning', code='coin_v3_public_observation_pending'), issues)
+        self.assertFalse(any(row['code'] == 'three_platform_publication_unverified' for row in issues))
+        rows[0]['status'], rows[1]['status'], rows[1]['platform'] = 'matched', 'matched', 'PC'
+        issues = self.assess(value)['issues']
+        self.assertIn(dict(level='warning', code='coin_v3_public_observation_pending'), issues)
+        self.assertFalse(any(row['level'] == 'critical' for row in issues))
+
     def test_real_unknown_and_stale_sources_stay_critical(self):
         value=snapshot();value['v3']['issues']=[dict(level='critical',code='coin_v3_original_operation_unknown:original')]
         self.assertEqual(self.assess(value)['status'],'critical')

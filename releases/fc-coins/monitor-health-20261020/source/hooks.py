@@ -225,8 +225,8 @@ def controls(value, previous=None, at=None):
     v3_enabled=(value.get('v3') or {}).get('enabled') is True
     for platform in PLATFORMS:
         observed=publication_rows.get(platform, {}).get('status')
-        # V3 completion is Order success plus Admin same-unit verification.
-        # Missing PUBLIC evidence is independent; an observed mismatch still blocks.
+        # Public observation is independent of V3 writer completion.
+        # A comparable mismatch still blocks the affected platform.
         if observed=='mismatch' or not v3_enabled and observed!='matched':
             reasons[platform].append('published_price_unverified')
     if not v3_enabled and 'three_platform_publication_unverified' in codes and not publication.get('platforms'):
@@ -238,7 +238,8 @@ def controls(value, previous=None, at=None):
                 reasons[platform].append('unknown_operation:'+operation['operation_id'])
     states = {}
     job_id = (coin.get('job') or {}).get('job_id')
-    job_result = (coin.get('job') or {}).get('result')
+    job = coin.get('job') or {}
+    job_result = job.get('result_status') if v3_enabled else job.get('result')
     for platform in PLATFORMS:
         old = previous.get('platforms', {}).get(platform, {})
         same_policy = previous.get('policy_revision') == cfg.get('revision')

@@ -64,6 +64,51 @@ class HourlyOutcomesTest(unittest.TestCase):
             source.incremental_window_context(None,MagicMock(side_effect=ValueError('page_failed')),[window],now,prior)
         self.assertEqual(prior,snapshot)
 
+    def test_saved_orders_get_same_order_pinned_es_flags_without_recollecting_membership(self):
+        now, order, window = self.fixture()
+        closed = order['paytime'][:10]
+        second = dict(order, id='2', order_no='second', email='another@example.invalid')
+        third = dict(order, id='3', order_no='third', email='third@example.invalid')
+        fourth = dict(order, id='4', order_no='fourth', email='fourth@example.invalid')
+        orders = [order, second, third, fourth]
+        def pages(session, path, filters, limit=100):
+            if 'CouponLog' in path:
+                return []
+            lower, upper = next(f[2] for f in filters if f[0]=='paytime').split(',')
+            return [row for row in orders if lower <= row['paytime'] <= upper]
+        archived = {r['order_no']: [dict(status='已完成', costCny='42', saleCny='60', salesUsd='8.68',
+                    paidAt=order['paytime'], customerType='老客')] for r in orders}
+        archived[order['order_no']][0]['customerType'] = '新老客未提供'
+        with patch.object(source, 'hourly_accounting', return_value={'archived': archived, 'cost_source': {}}):
+            prior = source.incremental_window_context(None, pages, [window], now, {})
+
+        es = MagicMock()
+        es.latest_publication.return_value = dict(publication_id='se_test', cutoff=(now.astimezone(source.TZ).date() + timedelta(days=1)).isoformat())
+        es.read.return_value = dict(status='available', coverage=dict(publication_id='se_test', data_revision='7', day_revisions={closed:'d1'}),
+                                    rows=[], dataset={}, identity_catalog={})
+        projector = MagicMock()
+        projector.project_order_facts.return_value = dict(orders=[
+            dict(site_id='266', gid='1327', paid_at=order['paytime'], order_no=order['order_no'], pinned_customer_flag='是'),
+            dict(site_id='266', gid='1327', paid_at=order['paytime'], order_no='second', pinned_customer_flag_conflict=True),
+            dict(site_id='320', gid='1327', paid_at=order['paytime'], order_no='third', pinned_customer_flag='是'),
+        ])
+        with patch.dict('sys.modules', {'shared_es_facts': es, 'order_facts_source': projector}), \
+                patch.object(source, 'hourly_accounting', return_value={'archived': archived, 'cost_source': {}}):
+            later = source.incremental_window_context(None, pages, [window], now, prior['state'], use_shared_customer_flags=True)
+        def order_key(row):
+            return hashlib.sha256(('FC27:266:' + row['order_no']).encode()).hexdigest()
+        old = {r['order_key']: r for r in prior['online']['actual_outcomes']}
+        updated = {r['order_key']: r for r in later['online']['actual_outcomes']}
+        self.assertEqual([updated[order_key(r)]['new_customer'] for r in orders], [True, None, False, False])
+        self.assertEqual({k: {n: v for n, v in r.items() if n != 'new_customer'} for k, r in old.items()},
+                         {k: {n: v for n, v in r.items() if n != 'new_customer'} for k, r in updated.items()})
+        proof = later['online']['learning_coverage']['customer_coverage']['shared_es']
+        self.assertEqual(proof['publication_id'], 'se_test')
+        self.assertEqual(proof['day_revisions'], {closed:'d1'})
+        self.assertEqual(proof['flag_conflicts'], 1)
+        es.read.assert_called_once_with(dict(start=closed, end=closed, site_id='266', gid='1327'), publication_id='se_test')
+        self.assertNotIn('another@example.invalid', json.dumps(later))
+
     def test_hourly_failure_preserves_last_success_context_and_private_cursor(self):
         with tempfile.TemporaryDirectory() as folder:
             db=Ledger(Path(folder)/'test.db')
@@ -88,6 +133,7 @@ class HourlyOutcomesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             db=Ledger(Path(folder)/'test.db');db.put('pricing_plans','p',p);db.put('actual_price_windows','op',window)
             def slow_collection(command,**kwargs):
+                self.assertFalse(json.loads(kwargs['input'])['use_shared_customer_flags'])
                 if kwargs['timeout']<300:
                     raise __import__('subprocess').TimeoutExpired(command,kwargs['timeout'])
                 return MagicMock(returncode=0,stdout=json.dumps(result))
@@ -120,7 +166,9 @@ class HourlyOutcomesTest(unittest.TestCase):
                         patch.object(daily.subprocess, 'run', return_value=MagicMock(returncode=0, stdout=json.dumps(outcome))) as read:
                     receipt = daily.run_hourly({'plan_id': 'p', 'revision': 1})
                 self.assertEqual(receipt['status'], 'updated')
-                self.assertEqual(json.loads(read.call_args.kwargs['input'])['action'], 'hourly_outcomes')
+                request = json.loads(read.call_args.kwargs['input'])
+                self.assertEqual(request['action'], 'hourly_outcomes')
+                self.assertTrue(request['use_shared_customer_flags'])
                 self.assertEqual(db.get('metadata', 'curve-outcome-source:'+policy_suffix(plan)), outcome['state'])
                 self.assertEqual(db.get('metadata', 'curve-online-context:p')['actual_outcomes'], online['actual_outcomes'])
                 self.assertEqual(db.get('metadata', 'daily_online_context'), legacy)

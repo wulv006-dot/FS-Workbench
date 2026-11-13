@@ -134,6 +134,7 @@ def build_order_facts(admin_orders, attribution_rows, deliveries, *, sites, scop
         sources = {source.strip() for _, source, _ in contexts if isinstance(source,str) and source.strip()}
         customer_flags = {flag for _, _, flag in contexts if flag in ('是','否')}
         row['pinned_customer_flag'] = next(iter(customer_flags)) if len(customer_flags)==1 else None
+        row['pinned_customer_flag_conflict'] = len(customer_flags)>1
         row['pinned_order_source'] = next(iter(sources)) if len(sources)==1 else None
         row['pinned_order_source_conflict'] = len(sources)>1
         if row['pinned_order_source']:
