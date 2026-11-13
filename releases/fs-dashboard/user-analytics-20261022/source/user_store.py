@@ -13,6 +13,9 @@ from pathlib import Path
 from user_contract import canonical, digest, stamp, money
 import user_version_index
 
+BOUNDED_TAIL_REVISIONS = 16
+BOUNDED_TAIL_BYTES = 8 * 1024 * 1024
+
 
 class StoreUnavailable(OSError):
     """Authoritative facts are unavailable; never interpret this as an empty cache."""
@@ -401,8 +404,27 @@ class Store:
         row['body'] = canonical({'amount_usd': body.get('amount_usd'), 'order_no_hash': hashlib.sha256(str(body.get('order_no') or '').encode()).hexdigest()})
         return row
 
+    @staticmethod
+    def bounded_tail_available(db, target, current):
+        if current - target > BOUNDED_TAIL_REVISIONS:
+            return False
+        remaining = BOUNDED_TAIL_BYTES
+        expected = target + 1
+        for revision, size in db.execute(
+                'SELECT id,length(CAST(body AS BLOB)) FROM revisions WHERE id>? AND id<=? ORDER BY id',
+                (target, current)):
+            if revision != expected or size is None:
+                raise StoreUnavailable('users_revision_history_incomplete')
+            remaining -= size
+            if remaining < 0:
+                return False
+            expected += 1
+        if expected != current + 1:
+            raise StoreUnavailable('users_revision_history_incomplete')
+        return True
+
     def read_at(self, version, start=None, end=None, *, bounded_only=False):
-        """Replay a fixed revision. Return None if a bounded read would require a full scan."""
+        """Replay a fixed revision. Bound date lookup and recent undo data on request."""
         if not isinstance(version, str) or not version.isdecimal() or str(int(version)) != version or (start is None) != (end is None):
             raise ValueError('snapshot_replay_version')
         if bounded_only and start is None:
@@ -430,11 +452,17 @@ class Store:
             if self.config.get('revision_range_index') is True and user_version_index.ready(db, current):
                 return sorted((self.analytics_row_v1(row) for row in user_version_index.read(db, target, start=start, end=end)
                                if row['valid']), key=lambda row: (row['paid_at'], row['order_key']))
+            order_query = 'SELECT * FROM orders WHERE revision<=?'
+            order_args = (target,)
             if bounded_only:
-                return None
-            for row in db.execute('SELECT * FROM orders WHERE revision<=?', (target,)):
+                if not self.bounded_tail_available(db, target, current):
+                    return None
+                order_query = ('SELECT * FROM orders INDEXED BY purchase_time '
+                               'WHERE revision<=? AND paid_at>=? AND paid_at<? AND valid=1')
+                order_args = (target, start, end)
+            for row in db.execute(order_query, order_args):
                 include(dict(row))
-            for row in db.execute('SELECT body FROM revisions WHERE id>? ORDER BY id', (target,)):
+            for row in db.execute('SELECT body FROM revisions WHERE id>? AND id<=? ORDER BY id', (target,current)):
                 for old in json.loads(row[0]):
                     include(old)
         if start is not None:
