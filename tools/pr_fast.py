@@ -242,6 +242,9 @@ def selfcheck():
         raise RuntimeError("game_monitor_sop_checks_missing")
     if select(["releases/fc-coins/fc-pricing-v2-20261022/source/pricing_v2.py"]) != ["fc-pricing-v2"]:
         raise RuntimeError("fc_pricing_v2_checks_missing")
+    for probe in ("check-native-editor.cjs", "check-native-quantity.cjs"):
+        if select(["docs/planning/fs-fc-admin-es-20261112/evidence/"+probe]) != ["fc-native-evidence", "fc-pricing-v3"]:
+            raise RuntimeError("fc_native_evidence_checks_missing:"+probe)
     if select(["releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/runtime.py"]) != ["fc-pricing-v3"]:
         raise RuntimeError("fc_pricing_v3_checks_missing")
     if select(['releases/fc-coins/fc-pricing-v2-20261022/source/conversation_service.py']) != ['fc-pricing-v2','hermes-conversation']:
@@ -757,6 +760,9 @@ def select(paths):
             groups.add("fs-on-demand");continue
         if name.startswith("releases/fc-coins/lock-gate-hardening-20261013/"):
             groups.add("fc-lock-gate-hardening");continue
+        if name in ("docs/planning/fs-fc-admin-es-20261112/evidence/check-native-editor.cjs",
+                    "docs/planning/fs-fc-admin-es-20261112/evidence/check-native-quantity.cjs"):
+            groups.update(("fc-native-evidence", "fc-pricing-v3"));continue
         if name.startswith("releases/fc-coins/fc-pricing-v3-20261026/"):
             groups.add("fc-pricing-v3");continue
         if name.startswith("releases/fc-evolutions/admin-session-20261110/"):
@@ -1409,6 +1415,11 @@ def main():
             units("mlb_admin_import_20261012/tests",["test_admin_write_channel"])
         elif group=="fc-lock-gate-hardening":
             units("releases/fc-coins/lock-gate-hardening-20261013",["test_hardening"])
+        elif group=="fc-native-evidence":
+            node("docs/planning/fs-fc-admin-es-20261112/evidence/check-native-editor.cjs")
+            # Full quantity replay needs locally captured pinned public bytes; CI checks syntax only.
+            subprocess.run(["node", "--check", str(ROOT/"docs/planning/fs-fc-admin-es-20261112/evidence/check-native-quantity.cjs")],
+                           check=True, timeout=30, cwd=ROOT)
         elif group=="fc-pricing-v3":
             subprocess.run([sys.executable,"-I","-B","-m","unittest","discover","-s",
                 str(ROOT/"releases/fc-coins/fc-pricing-v3-20261026/tests"),"-p","test_*.py"],
