@@ -224,8 +224,9 @@ def curve_admin_manager():
 def curve_catalog_plan(bundle, platform, capability):
     """Freeze price-only changes and bind them to the original proof and Goods rows."""
     from fc_pricing_v3.financial import fingerprint
-    from fc_pricing_v3.price_curve import (EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, FORWARD_TIER_EDIT,
-        _editor_discount_input, _editor_price, _editor_price_derived_factor, curve_key, read_curve)
+    from fc_pricing_v3.price_curve import (COIN_BAND_ANCHORS, EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256,
+        FORWARD_TIER_EDIT, TWO_BAND_PRICE_EDIT, _editor_discount_input, _editor_price,
+        _editor_price_derived_factor, band_price_usd, coin_quantity_band, curve_key, read_curve)
     from fc_pricing_v3.pricing_proof_v6 import CONTRACT, PROVEN, DOMAIN_REVISIONS
 
     before = bundle['before_action']['curves'][platform]
@@ -238,10 +239,29 @@ def curve_catalog_plan(bundle, platform, capability):
     before_row, target_row = before['native_payload'], target['native_payload']
     if before_row.get('title') != 'coins' or target_row.get('title') != 'coins':
         raise ValueError('coin_product_scope_changed')
-    tier_price_factors = bool(capability and capability.get('tier_price_factors'))
+    two_band = target['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
+    from fc_pricing_v3.average_discount_v6 import MODEL
+    proof = bundle['curve_proofs'][platform]
+    if (capability and capability.get('catalogue_status') == 'native_route_ready' and not two_band
+            and (before['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
+                 or (proof.get('average_discount') or {}).get('contract') == MODEL)):
+        raise ValueError('pricing_curve_two_band_policy_missing')
+    tier_price_factors = bool(not two_band and capability and capability.get('tier_price_factors'))
     if protected(before_row, tier_price_factors=tier_price_factors) != protected(
             target_row, tier_price_factors=tier_price_factors):
         raise ValueError('pricing_curve_non_price_field_changed')
+    if two_band:
+        if before['unit_price_usd_per_k'] != target['unit_price_usd_per_k']:
+            raise ValueError('pricing_curve_two_band_unit_price_changed')
+        for anchor in COIN_BAND_ANCHORS.values():
+            tiers = [(old,new) for old,new in zip(before['tiers'],target['tiers'])
+                     if COIN_BAND_ANCHORS[coin_quantity_band(new['purchase_k'])] == anchor]
+            if not any(old['native_price_usd'] != new['native_price_usd'] for old,new in tiers):
+                continue
+            amount = next((new['native_price_usd'] for _,new in tiers if new['purchase_k'] == anchor),None)
+            if not amount or any(money(new['native_price_usd']) != band_price_usd(amount,anchor,new['purchase_k'])
+                                 for _,new in tiers):
+                raise ValueError('pricing_curve_two_band_price_table_invalid')
     if tier_price_factors:
         contract = target['native_contract']
         forward = (contract.get('price_edit_policy') == FORWARD_TIER_EDIT
@@ -258,7 +278,6 @@ def curve_catalog_plan(bundle, platform, capability):
                 raise ValueError('pricing_curve_native_tier_factor_mismatch')
     if curve_prices_match(before_row, target_row):
         raise ValueError('pricing_curve_price_payload_unchanged')
-    proof = bundle['curve_proofs'][platform]
     scope = proof.get('scope', {})
     if (proof.get('contract') != CONTRACT or proof.get('status') != PROVEN
             or proof.get('curve_key') != curve_key(target)
@@ -302,7 +321,7 @@ def curve_catalog_plan(bundle, platform, capability):
                 recipient_goods={str(site): goods for site, goods in recipients.items()},
                 required_recipient_sites=sorted(str(site) for site in priced_sites),
                 catalog={'status': 'pending'}, propagation={'status': 'pending'},
-                projection={'status': ('read_only_pending' if native_route else 'not_required')
+                projection={'status': ('read_only_pending' if native_route and not two_band else 'not_required')
                             if before_rate == target_rate else 'pending'})
 
 
@@ -324,7 +343,7 @@ def curve_specs_match(row, target):
 def curve_readback(manager, item):
     """Read the original Goods only and distinguish price, receipt and propagation."""
     from fc_pricing_v3.financial import fingerprint
-    from fc_pricing_v3.price_curve import CATALOGUE_ORIGIN_FIELD, IDENTITY_FIELDS, curve_key, read_curve
+    from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
 
     platform = item['platform']
     tier_price_factors = item.get('tier_price_factors', False)
@@ -334,9 +353,15 @@ def curve_readback(manager, item):
     catalog['status'] = 'readback_pending' if curve_receipt_matches(catalog) else 'unknown'
     propagation = item['propagation']
     propagation['status'] = 'readback_pending'
+    rejection = curve_rejected_receipt(item)
+    if (item['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT and not rejection):
+        if not curve_receipt_matches(catalog):
+            catalog['reason'] = 'pricing_curve_original_receipt_unavailable'
+            return False
+        return curve_primary_readback(manager, item)
     all_row = read_row(manager, platform, 0)
     item.setdefault('observed_rows', {})['0'] = all_row
-    if curve_rejected_receipt(item):
+    if rejection:
         confirm_curve_rejection(manager, item, all_row)
         return False
     if not curve_receipt_matches(catalog):
@@ -386,7 +411,37 @@ def curve_readback(manager, item):
     if first_mismatch is not None:
         propagation['reason'] = 'pricing_curve_recipient_readback_mismatch:' + first_mismatch
         return False
+    return confirm_curve_primary(item)
+
+
+def curve_primary_readback(manager, item):
+    """Check the effective MMOEXP catalogue after the original successful save."""
+    from fc_pricing_v3.financial import fingerprint
+
+    platform = item['platform']
+    catalog = item['catalog']
+    propagation = item['propagation']
+    catalog.setdefault('confirmed_at', datetime.now(timezone.utc).isoformat())
+    catalog.update(status='confirmed', confirmation_basis='original_admin_save_receipt')
+    catalog.pop('reason', None)
+    observed = read_row(manager, platform, 266, recipient_id=item['recipient_goods']['266'])
+    item.setdefault('observed_rows', {})['266'] = observed
+    propagation['actual_hashes'] = {'266': fingerprint(editable(observed))}
+    before = item['recipients_before']['266']
+    if not (curve_specs_match(observed, item['target']) and curve_prices_match(observed, item['target'])
+            and unchanged(before, observed, platform, True)):
+        propagation.update(site_outcomes={'266': 'target_mismatch'},
+                           reason='pricing_curve_recipient_readback_mismatch:266')
+        return False
+    propagation['site_outcomes'] = {'266': 'target_observed'}
+    return confirm_curve_primary(item)
+
+
+def confirm_curve_primary(item):
+    from fc_pricing_v3.price_curve import CATALOGUE_ORIGIN_FIELD, IDENTITY_FIELDS, curve_key, read_curve
+
     observed = item['observed_rows']['266']
+    propagation = item['propagation']
     native_contract = {key: value for key, value in item['native_contract'].items()
                        if key != CATALOGUE_ORIGIN_FIELD}
     actual = read_curve(

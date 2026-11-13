@@ -779,7 +779,7 @@ def collect_curve_catalogues(evidence, platforms):
     from .average_discount_v6 import MODEL, average_discount
     from .business_source import collect_recent_curve_population
     from .curve_strategy_v6 import ANCHORS, build_candidates
-    from .price_curve import (EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, FORWARD_TIER_EDIT,
+    from .price_curve import (EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, TWO_BAND_PRICE_EDIT,
                               IDENTITY_FIELDS, curve_key, read_curve)
 
     try:
@@ -810,13 +810,14 @@ def collect_curve_catalogues(evidence, platforms):
         try:
             primary = read_row(manager, platform, 266, observer=observed.append)
             all_row = read_row(manager, platform, 0, observer=observed.append)
-            contract = dict(source='Admin Goods edit read only', verified_domain='native stored tiers only')
+            contract = dict(source='Admin Goods edit read only', verified_domain='native stored tiers only',
+                            price_edit_policy=TWO_BAND_PRICE_EDIT)
             current, all_before = (read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, contract)
                                    for row in (primary, all_row))
         except (OSError, TypeError, ValueError):
             continue
         editor = dict(contract, editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256,
-                      price_edit_policy=FORWARD_TIER_EDIT)
+                      price_edit_policy=TWO_BAND_PRICE_EDIT)
         candidates = {curve_key(current): current}
         state = db.curve_strategy_state(platform)
         if state:
@@ -918,7 +919,7 @@ def _validated_curve(curve, frozen):
 def _average_discount_repair(current, all_before, editor, current_proof, inputs_for):
     from .average_discount_v6 import CENT, quantity_group, repair_controls
     from .curve_strategy_v6 import minimum_repair
-    from .price_curve import compile_curve
+    from .price_curve import TWO_BAND_PRICE_EDIT, compile_curve
     from .pricing_proof_v6 import FAILED, PROVEN
 
     floors, affected = repair_controls(current, current_proof)
@@ -928,9 +929,11 @@ def _average_discount_repair(current, all_before, editor, current_proof, inputs_
 
     def try_controls(floors, segments, extra_cents):
         # Native forward editing requires explicit restoration of an unaffected tail.
-        preserved = {row['purchase_k']: row['native_price_usd'] for row in source
-                     if Decimal(row['purchase_k']) > min(map(Decimal, floors))
-                     and quantity_group(Decimal(row['purchase_k'])) not in segments}
+        preserved = {}
+        if editor.get('price_edit_policy') != TWO_BAND_PRICE_EDIT:
+            preserved = {row['purchase_k']: row['native_price_usd'] for row in source
+                         if Decimal(row['purchase_k']) > min(map(Decimal, floors))
+                         and quantity_group(Decimal(row['purchase_k'])) not in segments}
         anchors = {key: price + extra_cents * CENT for key, price in floors.items()}
         choices = dict(anchor_prices_usd={**preserved, **{q: str(value) for q, value in anchors.items()}})
         target = compile_curve(current, choices, editor)

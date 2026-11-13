@@ -4,12 +4,13 @@ from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, localcontext
 import json
 
 from .financial import fingerprint, instant
-from .price_curve import FORWARD_TIER_EDIT, compile_curve, curve_key, quote_native, read_curve
+from .price_curve import (COIN_BAND_ANCHORS, FORWARD_TIER_EDIT, TWO_BAND_PRICE_EDIT, coin_quantity_band,
+                          compile_curve, curve_key, quote_native, read_curve)
 from .pricing_proof_v6 import CONTRACT as PROOF_CONTRACT, FAILED, INCOMPLETE, PROVEN
 from .admin_readback import GID_FC27, MID_FC27_COINS, PLATFORM_AID, SITE_MAIN
 
 
-ANCHORS = {'small': '100', 'large': '1000'}
+ANCHORS = COIN_BAND_ANCHORS
 STEP = Decimal('.03')
 CENT = Decimal('.01')
 
@@ -71,6 +72,7 @@ def _repair_rank(current, target, affected_segments):
     old_unit = Decimal(current['unit_price_usd_per_k'])
     new_unit = Decimal(target['unit_price_usd_per_k'])
     forward = target['native_contract'].get('price_edit_policy') == FORWARD_TIER_EDIT
+    two_band = target['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
     if (current['identity'] != target['identity'] or _shape(current) != _shape(target)
             or new_unit < old_unit or not forward and new_unit != old_unit and 'small' not in affected_segments):
         return None
@@ -78,10 +80,10 @@ def _repair_rank(current, target, affected_segments):
     for before, after in zip(current['tiers'], target['tiers']):
         segment = _group(before['purchase_k'])
         old, new = Decimal(before['native_price_usd']), Decimal(after['native_price_usd'])
-        if new < old or segment not in affected_segments and (new != old or
+        if (new < old and not (two_band and old - new <= CENT)) or segment not in affected_segments and (new != old or
                 not forward and after['native_discount'] != before['native_discount']):
             return None
-        if new != old:
+        if new > old:
             moves.setdefault(segment, []).append((new - old) / old)
     if not moves:
         return None
@@ -138,7 +140,7 @@ def _shape(curve):
 
 
 def _group(quantity):
-    return 'small' if Decimal(quantity) < 1000 else 'large'
+    return coin_quantity_band(quantity)
 
 
 def _saved_discount_changed_at_same_price(current, adopted):
@@ -162,17 +164,22 @@ def _candidate(curve, labels, current, *, tier_price_factors_verified=False):
                 if discount_changes and not tier_price_factors_verified else [])
 
 
-def _compiled_step(adopted, selected_segment, anchor, target, direction, editor_contract, unit_price):
+def _compiled_step(adopted, selected_segment, anchor, target, direction, editor_contract, unit_price, *, current=None):
     targets = dict(anchor_prices_usd={anchor: str(target)})
     if unit_price is not None:
         targets['unit_price_usd_per_k'] = unit_price
-    compiled = compile_curve(adopted, targets, editor_contract)
+    two_band = editor_contract.get('price_edit_policy') == TWO_BAND_PRICE_EDIT
+    compiled = compile_curve(current if two_band and current is not None else adopted, targets, editor_contract)
     if compiled['compilation_status'] != 'EDITOR_CANDIDATE':
         return None, compiled['gaps']
     forward = editor_contract.get('price_edit_policy') == FORWARD_TIER_EDIT
-    for before, after in zip(adopted['tiers'], compiled['tiers']):
+    for before, after, live in zip(adopted['tiers'], compiled['tiers'], (current or adopted)['tiers']):
         old, new = Decimal(before['native_price_usd']), Decimal(after['native_price_usd'])
-        if (forward and Decimal(before['purchase_k']) < Decimal(anchor)
+        if two_band and _group(before['purchase_k']) != selected_segment:
+            legal = Decimal(live['native_price_usd']) == new
+        elif two_band:
+            legal = 0 <= direction * (new - old) <= STEP * old + CENT
+        elif (forward and Decimal(before['purchase_k']) < Decimal(anchor)
                 or not forward and _group(before['purchase_k']) != selected_segment):
             legal = old == new
         else:
@@ -200,7 +207,7 @@ def intermediate_candidates(comparison, preferred_label, editor_contract, *, tie
     seen = {candidate['curve_key'] for candidate in comparison['candidates'] if preferred_label in candidate['labels']}
     target = outer - direction * CENT
     while direction * (target - basis) > 0:
-        compiled, _ = _compiled_step(adopted, segment, anchor, target, direction, editor_contract, None)
+        compiled, _ = _compiled_step(adopted, segment, anchor, target, direction, editor_contract, None, current=current)
         if compiled is not None:
             candidate = _candidate(compiled, [preferred_label], current,
                                    tier_price_factors_verified=tier_price_factors_verified)
@@ -257,7 +264,19 @@ def build_candidates(confirmed_current_curve, reference, episode, selected_segme
                                      tier_price_factors_verified=tier_price_factors_verified)
 
     add(current, 'CURRENT')
-    add(adopted, 'A')
+    active_editor = current['native_contract'] if editor_contract is None else editor_contract
+    if active_editor.get('price_edit_policy') == TWO_BAND_PRICE_EDIT:
+        adopted_prices = {row['purchase_k']: row['native_price_usd'] for row in adopted['tiers']}
+        current_prices = {row['purchase_k']: row['native_price_usd'] for row in current['tiers']}
+        controls = ({anchor: adopted_prices[anchor]} if anchor in adopted_prices
+                    and adopted_prices[anchor] != current_prices.get(anchor) else {})
+        reference_candidate = compile_curve(current, dict(anchor_prices_usd=controls), active_editor) if controls else current
+        if reference_candidate.get('compilation_status', 'EDITOR_CANDIDATE') == 'EDITOR_CANDIDATE':
+            add(reference_candidate, 'A')
+        else:
+            result['gaps']['A'] = reference_candidate['gaps']
+    else:
+        add(adopted, 'A')
     result['candidates'] = list(by_key.values())
     basis = next((Decimal(tier['native_price_usd']) for tier in adopted['tiers']
                   if tier['purchase_k'] == anchor), None)
@@ -272,8 +291,7 @@ def build_candidates(confirmed_current_curve, reference, episode, selected_segme
             result['gaps'][label] = ['anchor_rounding_has_no_price_step']
             continue
         compiled, gaps = _compiled_step(adopted, selected_segment, anchor, target, direction,
-                                       current['native_contract'] if editor_contract is None else editor_contract,
-                                       unit_price_usd_per_k)
+                                       active_editor, unit_price_usd_per_k, current=current)
         if gaps:
             result['gaps'][label] = gaps
         else:

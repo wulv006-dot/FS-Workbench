@@ -5,7 +5,7 @@ from decimal import Context, Decimal, ROUND_CEILING, ROUND_DOWN, ROUND_HALF_UP, 
 
 from .business_source import TZ
 from .financial import fingerprint, instant, number
-from .price_curve import curve_key
+from .price_curve import COIN_BAND_ANCHORS, TWO_BAND_PRICE_EDIT, band_price_usd, coin_quantity_band, curve_key
 
 
 MODEL = 'fc_v6_d8_d2_amount_weighted_discount_v1'
@@ -67,7 +67,7 @@ def average_discount(closed, platform, paid_cutoff):
 
 
 def quantity_group(purchase):
-    return 'small' if purchase < 1000 else 'large'
+    return coin_quantity_band(purchase)
 
 
 def forecast_receipt(amount, retained):
@@ -82,21 +82,34 @@ def forecast_quotes(curve, quantities, average, *, observed_gifts=None):
     key = curve_key(curve)
     values = {}
     observed_gifts = observed_gifts or {}
+    two_band = curve['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
     for purchase in sorted(set(quantities) | tiers.keys()):
         before = max((anchor for anchor in anchors if anchor <= purchase), default=anchors[0])
         after = min((anchor for anchor in anchors if anchor >= purchase), default=anchors[-1])
         lower = tiers[before]
         amount = Decimal(lower['native_price_usd'])
         gift = Decimal(lower['promised_bonus_k'])
-        if purchase != before:
+        if purchase not in tiers and two_band:
+            anchor = COIN_BAND_ANCHORS[quantity_group(purchase)]
+            if Decimal(anchor) in tiers:
+                lower = tiers[Decimal(anchor)]
+                amount = band_price_usd(lower['native_price_usd'], anchor, purchase)
+        elif purchase != before:
             amount = (amount * purchase / before).quantize(CENT, rounding=ROUND_HALF_UP)
         if purchase not in tiers:
-            upper_gift = Decimal(tiers[after]['promised_bonus_k'])
-            gift = max(gift, upper_gift, observed_gifts.get(purchase, Decimal(0)),
-                       (purchase * gift / before).to_integral_value(rounding=ROUND_CEILING))
+            if two_band:
+                gift = max(observed_gifts.get(purchase, Decimal(0)),
+                           (purchase * Decimal(lower['promised_bonus_k']) / Decimal(lower['purchase_k'])
+                            ).to_integral_value(rounding=ROUND_CEILING))
+            else:
+                upper_gift = Decimal(tiers[after]['promised_bonus_k'])
+                gift = max(gift, upper_gift, observed_gifts.get(purchase, Decimal(0)),
+                           (purchase * gift / before).to_integral_value(rounding=ROUND_CEILING))
         quantity = format(purchase.normalize(), 'f')
-        tier_rule = ('goods.more.price[' + str(lower['native_index']) + ']' if purchase in tiers
-                     else 'forecast_lower_native_tier_unit_rate:' + format(before.normalize(), 'f'))
+        tier_rule = 'goods.more.price[' + str(lower['native_index']) + ']'
+        if purchase not in tiers:
+            rule = 'forecast_two_band_price_anchor:' if two_band else 'forecast_lower_native_tier_unit_rate:'
+            tier_rule = rule + lower['purchase_k']
         quote = dict(curve_key=key, path_id='average:' + quantity, site_id='266', currency='USD',
                      amount_kind='TOTAL', purchase_k=quantity, promised_bonus_k=format(gift.normalize(), 'f'),
                      promised_delivered_k=format((purchase + gift).normalize(), 'f'), regular_usd=str(amount),
@@ -104,6 +117,7 @@ def forecast_quotes(curve, quantities, average, *, observed_gifts=None):
                      quote_basis=MODEL, offer_version=average['revision'],
                      fulfilment_contract='ordinary_native_coins_promised_delivered_k',
                      gift_basis=('admin_fixed_tier' if purchase in tiers else
+                                 'forecast_observed_or_prorated_band_gift_upper_bound' if two_band else
                                  'forecast_observed_adjacent_or_prorated_gift_upper_bound'),
                      proof_status='verified', receipt_status='forecast_under_average_discount')
         if average['retained_ratio'] is not None:
@@ -129,6 +143,8 @@ def repair_controls(current, proof, *, affected=None):
         return {}, failed
     anchors = {group: min(Decimal(tier['purchase_k']) for tier in current['tiers']
                           if quantity_group(Decimal(tier['purchase_k'])) == group) for group in failed}
+    if current['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT:
+        anchors = {group: Decimal(COIN_BAND_ANCHORS[group]) for group in failed}
     required = {group: Decimal(0) for group in failed}
     for row in paths.values():
         purchase = Decimal(row['purchase_k'])

@@ -240,6 +240,46 @@ class CurveWriter(unittest.TestCase):
         self.assertEqual(mapping['actual_site266_curve_key'], curve_key(actual))
         self.assertNotEqual(mapping['actual_site266_curve_key'], mapping['target_curve_key'])
 
+    def test_two_band_writer_accepts_primary_complete_table_without_post_save_all_read(self):
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
+
+        self.prepare(extra_recipients={575: goods(999, 575)})
+        target = self.bundle['action']['curves'][PLATFORM]
+        target['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        self.item = dict(writer.curve_catalog_plan(self.bundle, PLATFORM, self.capabilities[PLATFORM]), operation_id=OPERATION)
+        self.audit['curve_results'][PLATFORM] = self.item
+        original = self.transport.request
+        post_write_reads = []
+
+        def request(path, *, data, token):
+            if data is None and self.transport.posts:
+                post_write_reads.append(int(path.split('=')[-1]))
+                if not path.endswith('=' + str(PRIMARY_ID)):
+                    raise AssertionError('only the primary storefront is used for post-save verification')
+            return original(path, data=data, token=token)
+
+        with patch.object(self.transport, 'request', side_effect=request):
+            result = self.dispatch()
+        self.assertEqual(result['status'], 'CONFIRMED')
+        self.assertEqual(post_write_reads, [PRIMARY_ID])
+        self.assertEqual(self.item['catalog']['confirmation_basis'], 'original_admin_save_receipt')
+        self.assertEqual(self.item['projection']['status'], 'not_required')
+        self.assertEqual(writer.protected(self.item['target']), writer.protected(self.item['before']))
+        self.assertEqual(self.transport.projection_writes, [])
+
+    def test_two_band_main_full_table_drift_keeps_original_partial(self):
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
+
+        self.prepare(propagate=False)
+        self.bundle['action']['curves'][PLATFORM]['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        self.item = dict(writer.curve_catalog_plan(self.bundle, PLATFORM, self.capabilities[PLATFORM]), operation_id=OPERATION)
+        self.audit['curve_results'][PLATFORM] = self.item
+        self.assertEqual(self.dispatch()['status'], 'PARTIAL')
+        self.assertEqual(self.item['propagation']['reason'], 'pricing_curve_recipient_readback_mismatch:266')
+        self.transport.apply_recipient()
+        self.assertEqual(self.reconcile()['status'], 'CONFIRMED')
+        self.assertEqual(len(self.transport.posts), 1)
+
     def test_original_writer_receipt_freezes_actual_site266_in_window(self):
         from fc_pricing_v3.ledger import confirmed_curve_window
 
