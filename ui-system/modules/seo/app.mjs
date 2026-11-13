@@ -70,7 +70,7 @@ function overview(history, scope, request) {
   const search=card('中游 · 搜索表现','GSC','search');cardValue(search,value(gsc?.metrics.gsc.clicks),'自然搜索点击');
   search.append(keyValues([['点击率',value(gsc?.metrics.gsc.ctr,true)],['GSC平均位置',value(gsc?.metrics.gsc.position)]]),chart(history,r=>r.metrics.gsc?.clicks,'近30日GSC搜索点击','search'),text('p','GSC平均位置不作为固定条件的Google排名。','card-note'));
   const sales=card('下游 · 成交预估','GA4 + Admin','sales');cardValue(sales,latest?.estimate?.revenue_usd==null?'—':'$'+value(latest.estimate.revenue_usd),'预估SEO成交额');
-    sales.append(text('p','业务统计日 '+(latest?.source_date??client.meta.report_date)+' · 北京时间','source-caption'),keyValues([['自然会话',value(latest?.metrics.ga4?.sessions)],['购买次数',value(latest?.metrics.ga4?.purchase_events)],['Admin客单价',latest?.metrics.admin?.admin_customer_price_usd==null?'—':'$'+value(latest.metrics.admin.admin_customer_price_usd)]],'sales-metrics'),viewButton('orders','查看成交预估明细'),text('p','购买次数 × Admin现成客单价；金额为预估，无法逐单归因。','card-note warn'));
+    sales.append(text('p','业务统计日 '+(latest?.source_date??client.meta.report_date)+' · 北京时间','source-caption'),keyValues([['自然会话',value(latest?.metrics.ga4?.sessions)],['购买次数',value(latest?.metrics.ga4?.purchase_events)],['Admin客单价',latest?.metrics.admin?.admin_customer_price_usd==null?'—':'$'+value(latest.metrics.admin.admin_customer_price_usd)]],'sales-metrics'),viewButton('orders',client.meta.sources?.orders==='configured'?'查看后台归因与预估':'查看成交预估明细'),text('p','购买次数 × Admin现成客单价；金额为预估，无法逐单归因。','card-note warn'));
   grid.append(demand,search,sales);panel.append(grid);
   const matrix=text('section',null,'dashboard-section');matrix.append(sectionHeading('国家竞争矩阵','按国家、语言、设备与关键词分别观察真实竞争位置。','rankings'));panel.append(matrix);
   if(client.meta.sources?.serp==='not_configured')renderMarkets(matrix,scope);else loadOptional('markets',scope,request,matrix,result=>renderMarkets(matrix,scope,result.rows,result.source_state));
@@ -144,6 +144,25 @@ function appendNext(data,kind,scope,request,root=panel) {
     next.disabled=true;try{const result=await client.load(kind,scope,data.next_cursor);if(request!==epoch)return;const body=root.querySelector('tbody');table([],result.rows.map(r=>detailCells(kind,r)),'续页').querySelectorAll('tbody tr').forEach(tr=>body.append(tr));next.remove();appendNext(result,kind,scope,request,root);}catch(error){next.disabled=false;status.textContent=error.message;}
   });root.append(next);
 }
+function recordedOrders(rows) {
+  const contract='admin-recorded-order-attribution-v1';
+  const recorded=rows.map(row=>({day:row.source_date,
+    metrics:row.metrics.orders?.contract===contract?row.metrics.orders:null, source:row.source_status?.orders}));
+  if(client.meta.sources?.orders!=='configured'&&!recorded.some(row=>row.metrics))return;
+  const money=amount=>amount==null?'—':'$'+value(amount);
+  const section=text('section',null,'dashboard-section');
+  section.append(sectionHeading('后台已记录为 SEO 的付款订单','MMOEXP 主站 · 所选游戏 · 北京时间付款日。金额为后台付款额，费用覆盖未知。'));
+  section.append(table(['付款日期','SEO 已知订单','已知付款额（USD）','已归因订单 / 已读订单','已知金额归因覆盖','来源状态'],recorded.map(({day,metrics:m,source})=>{
+    const amount=m?.seo_revenue_usd??m?.known_recorded_seo_revenue_usd;
+    const state=!m?(labels[source?.status]??'缺少来源'):
+      m.attribution_status==='unknown'?'归因未知':source?.status!=='available'||m.attribution_status==='partial'||m.missing_seo_revenue_orders>0?'部分覆盖':'已读';
+    return [day,value(m?.seo_orders),money(amount),m?value(m.attributed_orders)+' / '+value(m.paid_orders):'—',value(m?.attribution_amount_coverage,true),state];
+  }),'后台已记录的SEO付款订单，按北京时间'));
+  const revisions=recorded.filter(row=>row.source?.quality?.contract===contract).map(({day,source:{quality:q}})=>
+    [day,q.source_revision,q.attribution_source_revision,q.data_revision]);
+  if(revisions.length)section.append(details('查看后台归因来源修订',table(['付款日期','Admin 订单版本','ES 归因发布','ES 数据修订'],revisions,'后台归因来源修订')));
+  panel.append(section);
+}
 async function render() {
   const request=++epoch,scope=select.value;selectedURL();panel.replaceChildren(loading());panel.setAttribute('aria-busy','true');
   document.querySelector('#detail-nav').replaceChildren();if(!primary.includes(active))document.querySelector('#detail-nav').append(viewButton('overview','返回经营全景'),text('span',views[active][0],'muted'));
@@ -160,6 +179,7 @@ async function render() {
     if(active==='overview')overview(data.rows,scope,request);
     else if(active==='history'){panel.append(sectionHeading(names[scope]+' 每日数据','缺失留空，金额与指标来自此快照。'),historyTable(data.rows));}
     else if(active==='orders'){
+      recordedOrders(data.rows);
       panel.append(sectionHeading('自然搜索成交预估','直接使用同日、同游戏MMOEXP主站Admin客单价。'));
       panel.append(text('p','GA4自然搜索购买事件次数 × Admin原生customer_price。交易标识为空，不能关联具体订单或用户；后台该字段口径为付费客户均额，GA4为初步值。','method-note'));
       panel.append(chart(data.rows,r=>r.estimate?.revenue_usd,'近30日预估SEO成交额','sales'));

@@ -1,8 +1,20 @@
 const {chromium}=require('playwright');
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=__dirname,meta={snapshot_id:'seo-2026-11-05',facts_hash:'fixture-only',publication_date:'2026-11-05',report_date:'2026-11-04',history_start:'2026-10-06',history_end:'2026-11-04',games:['FC27','D4','AION2','WOW_FOREVER'],sources:{gsc:'configured',ga4:'configured',admin:'configured',serp:'not_configured',pages:'not_configured',orders:'not_configured'},data_status:'partial'};
-let apiCalls=[],empty=false,historyError=false,hangAI=true,holdManifest=false,extras=false;const pending=[],manifests=[];
-function historyRows(game){return [{source_date:'2026-11-02',metrics:{gsc:{clicks:'3',impressions:'10',ctr:'.3',position:'4'},ga4:null,admin:null,orders:null},source_status:{gsc:{status:'available',source_timezone:'America/Los_Angeles'}},estimate:{status:'missing'}},{source_date:'2026-11-04',metrics:{gsc:null,ga4:{sessions:'10',purchase_events:game==='WOW_FOREVER'?'0':'3'},admin:{admin_customer_price_usd:'7.25'},orders:null},source_status:{ga4:{status:'provisional',source_timezone:'Asia/Shanghai'},admin:{status:'available',source_timezone:'Asia/Shanghai'}},estimate:{status:'estimated',revenue_usd:game==='WOW_FOREVER'?'0.00':'21.75'}}];}
+let apiCalls=[],empty=false,historyError=false,hangAI=true,holdManifest=false,extras=false,recorded=false;const pending=[],manifests=[];
+function historyRows(game){
+ const rows=[{source_date:'2026-11-02',metrics:{gsc:{clicks:'3',impressions:'10',ctr:'.3',position:'4'},ga4:null,admin:null,orders:null},source_status:{gsc:{status:'available',source_timezone:'America/Los_Angeles'}},estimate:{status:'missing'}},{source_date:'2026-11-04',metrics:{gsc:null,ga4:{sessions:'10',purchase_events:game==='WOW_FOREVER'?'0':'3'},admin:{admin_customer_price_usd:'7.25'},orders:null},source_status:{ga4:{status:'provisional',source_timezone:'Asia/Shanghai'},admin:{status:'available',source_timezone:'Asia/Shanghai'}},estimate:{status:'estimated',revenue_usd:game==='WOW_FOREVER'?'0.00':'21.75'}}];
+ if(!recorded)return rows;
+ const contract='admin-recorded-order-attribution-v1',
+  source={status:'available',source_timezone:'Asia/Shanghai',quality:{contract,source_revision:'admin-fixture',attribution_source_revision:'es-fixture',data_revision:'d0-12'}};
+ rows[0].source_status.orders={status:'failed',source_timezone:'Asia/Shanghai',quality:{}};
+ rows.splice(1,0,{source_date:'2026-11-03',metrics:{orders:{contract,paid_orders:0,seo_orders:0,seo_revenue_usd:'0',attributed_orders:0,attribution_amount_coverage:null,attribution_status:'available'}},source_status:{orders:source},estimate:{status:'missing'}});
+ const latest=rows[2];latest.source_status.orders=source;
+ latest.metrics.orders={contract,paid_orders:4,seo_orders:2,seo_revenue_usd:null,known_recorded_seo_revenue_usd:'25.60',missing_seo_revenue_orders:1,
+  attributed_orders:2,attribution_amount_coverage:'0.4',attribution_status:'partial'};
+ rows.unshift({source_date:'2026-11-01',metrics:{orders:{contract,paid_orders:1,seo_orders:null,seo_revenue_usd:null,attributed_orders:0,attribution_amount_coverage:null,attribution_status:'unknown'}},source_status:{orders:source},estimate:{status:'missing'}});
+ return rows;
+}
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
  if(url.pathname.startsWith('/dashboard/analytics/seo/api/v1/')){
@@ -49,6 +61,24 @@ const server=http.createServer((req,res)=>{
   }
   assert(apiCalls.filter(p=>p.includes('/history')).every(p=>p.includes('/seo-2026-11-05/')));
   await page.getByRole('button',{name:'查看成交预估明细',exact:true}).click();await page.getByRole('cell',{name:'21.75',exact:true}).waitFor();assert.equal(await page.getByRole('img').count(),1);
+  assert.equal(await page.getByRole('heading',{name:'后台已记录为 SEO 的付款订单'}).count(),0);
+  recorded=true;meta.sources.orders='configured';
+  const callsBefore=apiCalls.length;
+  await page.reload();await page.getByRole('heading',{name:'后台已记录为 SEO 的付款订单'}).waitFor({timeout:4000});
+  const facts=page.getByRole('table',{name:'后台已记录的SEO付款订单，按北京时间'});
+  const known=await facts.getByRole('row',{name:/2026-11-04/}).innerText();
+  assert.match(known,/25\.6.*2 \/ 4.*40\.0%.*部分/s);
+  assert.match(await facts.getByRole('row',{name:/2026-11-03/}).innerText(),/\b0\b.*\$0/s);
+  assert.match(await facts.getByRole('row',{name:/2026-11-01/}).innerText(),/—.*0 \/ 1.*归因未知/s);
+  assert.match(await facts.getByRole('row',{name:/2026-11-02/}).innerText(),/—.*采集失败/s);
+  await page.getByText('查看后台归因来源修订',{exact:true}).click();
+  assert.match(await page.getByRole('table',{name:'后台归因来源修订'}).innerText(),/admin-fixture.*es-fixture.*d0-12/s);
+  assert.equal(await page.getByRole('cell',{name:'21.75',exact:true}).count(),1);
+  assert(apiCalls.slice(callsBefore).every(p=>!p.includes('/orders')));
+  await page.setViewportSize({width:390,height:844});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.setViewportSize({width:1600,height:1100});
+  recorded=false;meta.sources.orders='not_configured';
   await page.getByRole('tab',{name:'游戏日程',exact:true}).click();await page.getByRole('heading',{name:'游戏日程来源尚未接入',exact:true}).waitFor();
   await page.getByRole('tab',{name:'数据来源',exact:true}).click();await page.getByRole('heading',{name:'Google Search Console',exact:true}).waitFor();
   await page.getByText('查看快照校验与逐日来源明细').click();await page.getByText('fixture-only',{exact:true}).waitFor();
