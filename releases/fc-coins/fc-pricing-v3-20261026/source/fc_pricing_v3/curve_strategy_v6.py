@@ -4,7 +4,7 @@ from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, localcontext
 import json
 
 from .financial import fingerprint, instant
-from .price_curve import compile_curve, curve_key, quote_native, read_curve
+from .price_curve import FORWARD_TIER_EDIT, compile_curve, curve_key, quote_native, read_curve
 from .pricing_proof_v6 import CONTRACT as PROOF_CONTRACT, FAILED, INCOMPLETE, PROVEN
 from .admin_readback import GID_FC27, MID_FC27_COINS, PLATFORM_AID, SITE_MAIN
 
@@ -70,15 +70,16 @@ def market_preference(current, platform, offers, performance, now):
 def _repair_rank(current, target, affected_segments):
     old_unit = Decimal(current['unit_price_usd_per_k'])
     new_unit = Decimal(target['unit_price_usd_per_k'])
+    forward = target['native_contract'].get('price_edit_policy') == FORWARD_TIER_EDIT
     if (current['identity'] != target['identity'] or _shape(current) != _shape(target)
-            or new_unit < old_unit or new_unit != old_unit and 'small' not in affected_segments):
+            or new_unit < old_unit or not forward and new_unit != old_unit and 'small' not in affected_segments):
         return None
     moves = {}
     for before, after in zip(current['tiers'], target['tiers']):
         segment = _group(before['purchase_k'])
         old, new = Decimal(before['native_price_usd']), Decimal(after['native_price_usd'])
-        if new < old or segment not in affected_segments and (
-                new != old or after['native_discount'] != before['native_discount']):
+        if new < old or segment not in affected_segments and (new != old or
+                not forward and after['native_discount'] != before['native_discount']):
             return None
         if new != old:
             moves.setdefault(segment, []).append((new - old) / old)
@@ -131,7 +132,8 @@ def _shape(curve):
     row.update(unit_price='1', more=more)
     # Keep versioned semantics and unknown native controls in the terms key.
     contract = {key: value for key, value in curve['native_contract'].items()
-                if key not in ('source', 'verified_domain', 'editor_asset_sha256', 'editor_handler_sha256')}
+                if key not in ('source', 'verified_domain', 'editor_asset_sha256', 'editor_handler_sha256',
+                               'price_edit_policy')}
     return curve_key(read_curve(row, curve['identity'], contract))
 
 
@@ -167,9 +169,11 @@ def _compiled_step(adopted, selected_segment, anchor, target, direction, editor_
     compiled = compile_curve(adopted, targets, editor_contract)
     if compiled['compilation_status'] != 'EDITOR_CANDIDATE':
         return None, compiled['gaps']
+    forward = editor_contract.get('price_edit_policy') == FORWARD_TIER_EDIT
     for before, after in zip(adopted['tiers'], compiled['tiers']):
         old, new = Decimal(before['native_price_usd']), Decimal(after['native_price_usd'])
-        if _group(before['purchase_k']) != selected_segment:
+        if (forward and Decimal(before['purchase_k']) < Decimal(anchor)
+                or not forward and _group(before['purchase_k']) != selected_segment):
             legal = old == new
         else:
             with localcontext() as context:

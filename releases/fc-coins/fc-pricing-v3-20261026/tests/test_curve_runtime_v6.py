@@ -273,6 +273,9 @@ class CurveRuntime(unittest.TestCase):
     def test_cost_repair_advances_reference_only_after_original_writer_confirmation(self):
         self.run_verified_curve_cycle(cost_repair=True)
 
+    def test_initial_activation_adopts_current_and_authorizes_verified_repair(self):
+        self.run_verified_curve_cycle(cost_repair=True, initial_activation=True)
+
     def test_proven_keep_opens_and_extends_only_readback_window(self):
         from fc_pricing_v3.competitor_offers import POLICY
         from fc_pricing_v3.price_curve import IDENTITY_FIELDS, curve_key, read_curve
@@ -319,7 +322,7 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(self.db.all('readback_receipts'), [])
         self.assertEqual(self.transport.posts, [])
 
-    def run_verified_curve_cycle(self, *, cost_repair=False):
+    def run_verified_curve_cycle(self, *, cost_repair=False, initial_activation=False):
         from fc_pricing_v3.competitor_offers import POLICY
         from fc_pricing_v3.price_curve import IDENTITY_FIELDS, curve_key, read_curve
         from fc_pricing_v3.pricing_proof_v6 import FAILED
@@ -339,9 +342,10 @@ class CurveRuntime(unittest.TestCase):
         current = read_curve(current_row, {k: current_row[k] for k in IDENTITY_FIELDS}, EDITOR_CONTRACT)
         target_row = dict(current['native_payload'], more=dict(current['native_payload']['more'], price=['10', '103']))
         target = read_curve(target_row, current['identity'], EDITOR_CONTRACT)
-        self.db.start_curve_episode(PLATFORM, 'fixture-current-rules', 'Previously adopted A',
-                                    initial_curve=current if cost_repair else target,
-                                    readback_ref='fixture-site266-readback')
+        if not initial_activation:
+            self.db.start_curve_episode(PLATFORM, 'fixture-current-rules', 'Previously adopted A',
+                                        initial_curve=current if cost_repair else target,
+                                        readback_ref='fixture-site266-readback')
         reference_before = self.db.curve_strategy_state(PLATFORM)
         all_before = self.bundle['before_action']['curves'][PLATFORM]
         all_target = self.bundle['action']['curves'][PLATFORM]
@@ -360,6 +364,11 @@ class CurveRuntime(unittest.TestCase):
                                                curve_key(current): inputs(current, total='100')},
                                all_before=all_before, all_targets={curve_key(target): all_target},
                                all_inputs={curve_key(all_target): inputs(all_target)})
+        if initial_activation:
+            self.assertIsNone(reference_before)
+            platform_inputs.update(preferred_label='CURRENT',
+                readbacks=[dict(path='/admin/goods.Goods/edit?id=' + current['identity']['id'],
+                                http_status=200, response_code=1, response_sha256='fixture-site266-readback')])
         if cost_repair:
             failed_input = inputs(current, total='100', safe_cost='83')
             failed = runtime._validated_curve(current, failed_input)
@@ -392,6 +401,10 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(activated['revision'], 5)
             self.assertEqual(runtime.activate_curve_plan(self.db, 'plan', 4, 'wulv', candidate_id), activated)
             self.assertEqual(activated['parameters']['competitor_policy'], POLICY)
+            if initial_activation:
+                reference_before = self.db.curve_strategy_state(PLATFORM)
+                self.assertEqual(curve_key(reference_before['reference']['reference_curve']),curve_key(current))
+                self.assertEqual(self.transport.posts, [])
             with closing(self.db.connect()) as conn:
                 cycle = conn.execute('SELECT body FROM durable_jobs WHERE id=?', (cycle_key,)).fetchone()
                 self.assertEqual(json.loads(cycle[0]), dict(plan_id='plan', revision=5,
@@ -550,13 +563,85 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual([p['regular_usd'] for p in proof_input['evidence']['paths']],
                          [tier['native_price_usd'] for tier in curve['tiers']])
         self.assertEqual(runtime._validated_curve(curve, proof_input)['status'], 'PROOF_INCOMPLETE')
-        self.assertIn('native_checkout_path_domain_unverified', proof_input['domain']['coverage_gaps'])
+        self.assertIn('average_discount_window_unavailable', proof_input['domain']['coverage_gaps'])
+        self.assertIn('curve_native_route_unavailable', proof_input['domain']['coverage_gaps'])
         self.assertTrue(found['all_targets'])
         for key, target in found['all_targets'].items():
             self.assertEqual(target['identity']['site_id'], '0')
             self.assertIn(key, found['primary_inputs'])
             self.assertEqual(runtime._validated_curve(target, found['all_inputs'][curve_key(target)])['status'],
                              'PROOF_INCOMPLETE')
+
+    def test_d8_d2_weighted_amount_and_custom_quantity_drive_current_proof(self):
+        from decimal import Decimal
+        from fc_pricing_v3.average_discount_v6 import MODEL, average_discount
+        from test_cost_inputs_v6 import AS_OF, CUT, attachment, facts, fx, rows_for
+        from test_curve_strategy_v6 import fixture
+
+        current, _, _ = fixture()
+        small = list(rows_for([48] * 10, quantity='123K Coins + 0K Free x1 = $100'))
+        large = [(key + '-large', paid, quantity) for key, paid, quantity in
+                 rows_for([72] * 10, quantity='1500K Coins + 30K Free x1 = $100')]
+        included = small + large
+        source = attachment(included)
+        coverage = source['historical_orders_coverage']
+        coverage.update(shared_publication_id='fixed-pin',shared_source_revision='fixed-source',
+                        paid_window_start=(CUT - timedelta(days=8)).isoformat())
+        for row in source['historical_orders']:
+            gross, off = ('20','4') if row['base_k']=='123' else ('100','4')
+            row.update(merchandise_before_discount_usd=gross, actual_es_discount_usd=off,
+                       single_line_unit_purchase=True, promotion_path=None)
+        source['historical_orders'].append(dict(source['historical_orders'][0], order_key='d1-excluded',
+            paid_at=(CUT - timedelta(hours=12)).isoformat(), merchandise_before_discount_usd='999',
+            actual_es_discount_usd='999'))
+        average = average_discount(source,'PS',CUT)
+        self.assertEqual((average['matched_orders'],average['actual_discount_usd'],
+                          average['merchandise_before_discount_usd']), (20,'80','1200'))
+        self.assertEqual(average['retained_ratio'], str(Decimal(1120) / Decimal(1200)))
+        self.assertEqual(average['start'], (CUT - timedelta(days=8)).isoformat())
+        self.assertEqual(average['end_exclusive'], (CUT - timedelta(days=1)).isoformat())
+
+        small_facts = facts(small, cost='4.92', delivery_fields={'qty':'123','gift':'0','cost_unit':'.04'})
+        large_facts = facts(large, cost='61.20', delivery_fields={'qty':'1530','gift':'0','cost_unit':'.04'})
+        combined = dict(small_facts, orders=small_facts['orders'] + large_facts['orders'])
+        # The paid population excludes unresolved quantity only from modelling.
+        source['historical_orders'].pop()
+        quote = runtime._average_discount_proof_input(current,'PS',source,source,CUT.isoformat(),AS_OF,
+            average=average,route={'propagation_revision':'native-directory'},facts=combined,fx=fx(),current_cost=None)
+        path = next(row for row in quote['evidence']['paths'] if row['purchase_k']=='123')
+        self.assertEqual((path['regular_usd'],path['net_receipt_usd'],path['quote_basis']),('12.30','11.47',MODEL))
+        self.assertEqual(path['receipt_status'],'forecast_under_average_discount')
+        proof = runtime._validated_curve(current,quote)
+        self.assertEqual(proof['status'],'PROVEN',proof['gaps'])
+        self.assertEqual(proof['average_discount']['revision'],average['revision'])
+        self.assertEqual(proof['baskets']['main']['selection'],'closed_bjt_7d')
+
+        # Reuse actual verifier and old writer-compatible native factor, even
+        # when an unchanged small catalogue needs a higher global unit.
+        from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT, read_curve
+        from test_price_curve_v6 import EDITOR_CONTRACT
+        editor = dict(EDITOR_CONTRACT, price_edit_policy=FORWARD_TIER_EDIT)
+        all_row = dict(current['native_payload'],id=writer.PRODUCTS['PS'][0],site_id=0)
+        all_before = read_curve(all_row,dict(current['identity'],id=all_row['id'],site_id=0),editor)
+        higher = facts(large, cost='1025.10', delivery_fields={'qty':'1530','gift':'0','cost_unit':'.67'})
+        combined = dict(small_facts,orders=small_facts['orders'] + higher['orders'])
+        def proof_for(curve):
+            return runtime._average_discount_proof_input(curve,'PS',source,source,CUT.isoformat(),AS_OF,
+                average=average,route={'propagation_revision':'native-directory'},facts=combined,fx=fx(),current_cost=None)
+        current_proof = runtime._validated_curve(current,proof_for(current))
+        self.assertEqual(current_proof['status'],'HARD_CONSTRAINT_FAILED')
+        repair = runtime._average_discount_repair(current,all_before,editor,current_proof,proof_for)
+        self.assertIsNotNone(repair)
+        answer = runtime._curve_repair(current,current_proof,repair)
+        self.assertEqual(answer['status'],'COST_REPAIR',answer)
+        candidate = answer['candidate']['curve']
+        self.assertEqual([p['native_price_usd'] for p in candidate['tiers'] if int(p['purchase_k'])<1000],
+                         [p['native_price_usd'] for p in current['tiers'] if int(p['purchase_k'])<1000])
+
+        source['historical_orders'][0]['actual_es_discount_usd'] = None
+        incomplete = average_discount(source,'PS',CUT)
+        self.assertIsNone(incomplete['retained_ratio'])
+        self.assertEqual(incomplete['gap_counts'],{'average_discount_amount_unknown':1})
 
     def test_same_round_native_path_preserves_checkout_scope_and_ordinary_cost(self):
         from decimal import Decimal

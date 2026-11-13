@@ -138,13 +138,17 @@ def daily_review_text(quote):
             day['groups']=[[row.get(k) for k in day['group_columns']] for row in day['groups']]
     if money_rendered:report['amount_display']='USD rounded to cents for display; original precision remains in the source evidence'
     profit_note=('实际成本与采购毛利见actual_profit_summary；部分覆盖不能说成没有成本。review_day按创建日归属，active_plan为截至observed_at的累计，不与全天付款销售混算。未知成本不记零，已知子群毛利不是全量毛利或净利润。' if 'actual_profit_summary' in report else '')
+    protocol=(report.get('decision_basis') or {}).get('write_protocol')
+    pricing_rule=('按各平台 D-8 至 D-2 金额加权平均优惠估算，分别核对档位保本及组合采购毛利至少18%，25%为经营目标。平均优惠试算不等于任意优惠组合或实际成交。'
+                  if protocol=='fc27_curve_v6' else
+                  '双20%采购毛利底线、赠送/优惠/地区/舍入由程序每轮校验，不能豁免。目标未设就说明收入优化试验。')
     instructions=('FC27每日一次经营效果复盘。你负责效果判断和方案建议；正常每轮由程序定价，不等待你审核。'
         '本任务只读，不推荐待执行价格、不调用recommend、不创建/执行/切换计划、不补采竞品。'
         '根据证据自主确定经营问题、比较窗口、需要补查的只读工具和呈现方式，说明预测与实绩差异及其数据覆盖。'
         '全天订单只是经营背景；只有确认价格曝光窗内按创建时间及实际价格绑定的订单可作本次策略效果样本。曝光开始前的成交不能归给V3。'
         '结合真实样本成熟度与覆盖判断能否提出策略调整建议，本次没有自动切换授权。'
         '说明当前策略参数、基数如何核算，哪些是实际、哪些是初始弹性等假设，下一日如何追踪和反证。'
-        '双20%采购毛利底线、赠送/优惠/地区/舍入由程序每轮校验，不能豁免。目标未设就说明收入优化试验。'
+        +pricing_rule+
         '先回答最需要判断的问题，再用关键事实支持结论和行动建议；不预设固定章节。模拟收益不能叫真实增收。'
         +profit_note+'实际及影子摘要：')
     # Fixed v2 representation for every review, independent of its current size.

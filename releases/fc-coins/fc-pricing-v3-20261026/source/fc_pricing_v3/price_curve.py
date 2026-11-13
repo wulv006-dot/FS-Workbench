@@ -17,6 +17,7 @@ CATALOGUE_ORIGIN_FIELD = 'catalogue_origin'
 EDITOR_CATALOGUE_ORIGIN = 'editor_candidate'
 EDITOR_ASSET_SHA256 = '859f07a7dadc48054b740ee09b66c494d11bcb0fef1faf5ecd0a9c6d0b98dfe7'
 EDITOR_HANDLER_SHA256 = 'c9341a511d39a79736e6d7e7147654c8c24202b928954e11b1a13ed7a612b451'
+FORWARD_TIER_EDIT = 'native_forward_tier_unit_rate'
 EDITOR_UNVERIFIED_DOMAINS = ('admin_save', 'all_site_propagation', 'order_projection',
                              'customer_checkout_quote', 'custom_quantity',
                              'cart_multiplier', 'offer_paths')
@@ -156,6 +157,54 @@ def _editor_target(value, places):
     return number
 
 
+def _compile_forward_tiers(checked, anchors, native_contract, requested_unit):
+    payload = checked['native_payload']
+    more = _more(payload)
+    tiers = checked['tiers']
+    unit = float(checked['unit_price_usd_per_k'])
+    if requested_unit is not None:
+        try:
+            unit = _editor_target(requested_unit, 8)
+        except ValueError as error:
+            return _editor_gap(str(error), field='unit_price_usd_per_k')
+    factors = {quantity: _editor_discount(unit * float(quantity), amount) for quantity, amount in anchors.items()}
+    if any(factor is None for factor in factors.values()):
+        quantity = next(quantity for quantity, factor in factors.items() if factor is None)
+        return _editor_gap('editor_anchor_not_expressible', anchor_k=quantity, required_usd=_number(anchors[quantity]))
+    factor = None
+    for index, tier in enumerate(tiers):
+        quantity = tier['purchase_k']
+        factor = factors.get(quantity, factor)
+        if factor is None:
+            if requested_unit is None:
+                continue
+            preserve = _editor_discount(unit * float(quantity), float(tier['native_price_usd']))
+            if preserve is None:
+                return _editor_gap('editor_untouched_tier_not_expressible', purchase_k=quantity)
+            more['discount'][index] = preserve
+            continue
+        amount = _editor_price(unit * float(quantity), factor)
+        if amount <= 0:
+            return _editor_gap('editor_tier_price_outside_reader_domain', purchase_k=tier['purchase_k'])
+        more['price'][index] = amount
+        more['discount'][index] = factor
+    if requested_unit is not None:
+        payload['unit_price'] = unit
+    if isinstance(payload['more'], str):
+        payload['more'] = json.dumps(more, ensure_ascii=False, separators=(',', ':'))
+    result = read_curve(payload, checked['identity'], dict(native_contract, catalogue_origin=EDITOR_CATALOGUE_ORIGIN))
+    base = next((Decimal(row['native_price_usd']) / 100 for row in result['tiers'] if row['purchase_k']=='100'), None)
+    return dict(result, compilation_status='EDITOR_CANDIDATE',
+                base_rate_usd_per_k=_number(base) if base else None,
+                base_rate_basis='candidate_100k_regular_usd_div_100',
+                discount_changes=[dict(purchase_k=old['purchase_k'], before=old['native_discount'],
+                                       after=new['native_discount'], source='forward_tier_unit_rate')
+                                  for old,new in zip(tiers,result['tiers'])
+                                  if old['native_discount'] != new['native_discount']],
+                forward_price_controls={key:_number(value) for key,value in anchors.items()},
+                unverified_domains=list(EDITOR_UNVERIFIED_DOMAINS))
+
+
 def compile_curve(current, segment_targets, native_contract):
     """Compile exact segment anchors into a full, offline editor candidate.
 
@@ -186,7 +235,8 @@ def compile_curve(current, segment_targets, native_contract):
     anchors = {}
     for quantity, price in requested.items():
         quantity = _number(quantity, positive=True)
-        if quantity not in ('100', '1000', '2000') or quantity in anchors:
+        if (native_contract.get('price_edit_policy') != FORWARD_TIER_EDIT
+                and quantity not in ('100', '1000', '2000') or quantity in anchors):
             raise ValueError('editor_segment_anchor_invalid')
         try:
             anchors[quantity] = _editor_target(price, 2)
@@ -199,6 +249,8 @@ def compile_curve(current, segment_targets, native_contract):
     for quantity in anchors:
         if quantity not in by_quantity:
             return _editor_gap('editor_segment_anchor_missing', anchor_k=quantity)
+    if native_contract.get('price_edit_policy') == FORWARD_TIER_EDIT and anchors:
+        return _compile_forward_tiers(checked, anchors, native_contract, segment_targets.get('unit_price_usd_per_k'))
     payload = checked['native_payload']
     more = _more(payload)
     unit = float(checked['unit_price_usd_per_k'])
@@ -397,7 +449,7 @@ def curve_key(curve):
     if 'discount' in payload:
         payload['discount'] = _number(payload['discount'])
     contract = {k: v for k, v in checked['native_contract'].items()
-                if k not in OBSERVATION_FIELDS and k != CATALOGUE_ORIGIN_FIELD}
+                if k not in OBSERVATION_FIELDS and k not in (CATALOGUE_ORIGIN_FIELD, 'price_edit_policy')}
     body = dict(native_payload=payload, native_contract=contract)
     raw = json.dumps(body, sort_keys=True, ensure_ascii=False, separators=(',', ':'),
                      allow_nan=False)

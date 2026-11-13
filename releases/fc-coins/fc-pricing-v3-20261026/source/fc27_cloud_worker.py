@@ -71,6 +71,7 @@ def collect_quote(job):
     from fc_pricing_v3.competitor_offers import POLICY as QUANTITY_POLICY
     selection=collection_scope(ledger(),run_id)
     planned=source_plan(selection['active_mode'],selection['scope'])
+    curve_run = planned.get('competitor_policy') == QUANTITY_POLICY
     if cfg['mode'] == 'local':
         job['storefront'] = {'status': 'unavailable', 'reason': 'local_collection_pending'}
         save_job(job)
@@ -124,15 +125,24 @@ def collect_quote(job):
     job["storefront"] = (refresh_storefront(job) if cfg['mode'] == 'server' else
                          {'status': 'ok', 'collection_location': 'local', 'refreshed_platforms': list(PLATFORMS)})
     save_job(job)
-    if job["storefront"].get("status") != "ok":
+    if job["storefront"].get("status") != "ok" and not curve_run:
         job["error_detail"] = "storefront_incomplete"
         raise ValueError("storefront_incomplete")
-    state = json.loads((ROOT / "monitor/storefront.json").read_text(encoding="utf-8"))
+    state = {}
+    if job['storefront'].get('status') == 'ok':
+        try:
+            state = json.loads((ROOT / "monitor/storefront.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            if not curve_run:
+                raise
     if (state.get("collection_run_id") != run_id or state.get("status") != "ok"
             or set(state.get("rows") or {}) != set(PLATFORMS)
             or any(state["rows"][p].get("status") != "ok" for p in PLATFORMS)):
-        job["error_detail"] = "storefront_run_mismatch"
-        raise ValueError("storefront_run_mismatch")
+        if not curve_run:
+            job["error_detail"] = "storefront_run_mismatch"
+            raise ValueError("storefront_run_mismatch")
+        state = dict(status='unavailable', collection_run_id=run_id,
+                     reason=job['storefront'].get('reason') or 'storefront_run_mismatch')
     run_path = ROOT / "runs" / f"{run_id}.json"
     run_snapshot = json.loads(run_path.read_text(encoding="utf-8"))
     if run_snapshot.get("run_id") != run_id or run_snapshot.get("status") != "ready_for_quote":

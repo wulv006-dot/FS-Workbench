@@ -33,6 +33,21 @@ def read(row=None, contract=None):
 
 
 class NativeCurve(unittest.TestCase):
+    def test_forward_native_controls_keep_prefix_and_replace_tail_until_next_control(self):
+        from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT
+        editor = dict(EDITOR_CONTRACT, price_edit_policy=FORWARD_TIER_EDIT)
+        source = catalogue()
+        before = read(source, editor)
+        one = compile_curve(before, {'anchor_prices_usd':{'100':'9.99'}}, editor)
+        amounts = {tier['purchase_k']: tier['native_price_usd'] for tier in one['tiers']}
+        self.assertEqual(amounts['100'], '9.99')
+        self.assertEqual(amounts['5000'], '499.5')
+        two = compile_curve(before, {'anchor_prices_usd':{'100':'9.99','2000':'190'}}, editor)
+        amounts = {tier['purchase_k']: tier['native_price_usd'] for tier in two['tiers']}
+        self.assertEqual((amounts['100'], amounts['2000'], amounts['5000']), ('9.99','190','475'))
+        self.assertEqual(one['native_payload']['more']['give'], source['more']['give'])
+        self.assertEqual(one['tiers'][0], before['tiers'][0])
+
     def test_native_tier_prices_survive(self):
         result = read()
         self.assertEqual([v['native_price_usd'] for v in result['tiers']], ['8', '75', '145'])

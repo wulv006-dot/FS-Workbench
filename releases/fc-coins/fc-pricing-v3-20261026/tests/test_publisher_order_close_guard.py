@@ -208,7 +208,7 @@ class SupersededAllCodePublish(unittest.TestCase):
     def test_code_publisher_restarts_the_scheduler_that_imports_runtime_and_engine(self):
         from unittest.mock import Mock
         sys.path.insert(0,str(SOURCE.parent/'deploy'))
-        from target_map import CURVE_V6_SCOPE, LOOTBAR_CALLER_SCOPE
+        from target_map import CURVE_AVERAGE_SCOPE, CURVE_V6_SCOPE, LOOTBAR_CALLER_SCOPE
         path=SOURCE.parent/'deploy/fc_v3_release_adapter.py'
         load=next(n for n in ast.parse(path.read_text('utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
         restart=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='restart')
@@ -217,6 +217,7 @@ class SupersededAllCodePublish(unittest.TestCase):
                    SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection',BIDIRECTIONAL_SCOPE='bidirectional',REPAIR_SCOPE='repair',QUOTE_FRAGMENT_SCOPE='quote-fragment',QUOTE_PREVIEW_SCOPE='quote-preview',DAILY_REPAIR_SCOPE='daily-repair',DAILY_SUMMARY_SCOPE='daily-summary',COUPON_DISPLAY_SCOPE='coupon-display',THREE_PLATFORM_SCOPE='three-platform',bundle_readiness=Mock())
         exec(compile(ast.Module(body=[restart],type_ignores=[]),str(path),'exec'),scope)
         scope['CURVE_V6_SCOPE'] = CURVE_V6_SCOPE
+        scope['CURVE_AVERAGE_SCOPE'] = CURVE_AVERAGE_SCOPE
         for kind in ('full','delta','shadow','operating','bidirectional','repair','quote-fragment','quote-preview','daily-repair','daily-summary','coupon-display','three-platform',CURVE_V6_SCOPE):
             process.run.reset_mock();scope['restart_with_hermes_readiness'].reset_mock();scope['restart']({'scope':kind})
             restarts=[c.args[0] for c in process.run.call_args_list if c.args[0][:2]==['systemctl','restart']]
@@ -224,6 +225,12 @@ class SupersededAllCodePublish(unittest.TestCase):
             if kind=='three-platform':expected+=('fc27-pack-bundles.service',)
             self.assertEqual(restarts,[['systemctl','restart',name] for name in expected])
             scope['restart_with_hermes_readiness'].assert_called_once()
+        process.run.reset_mock();scope['restart_with_hermes_readiness'].reset_mock()
+        scope['restart']({'scope':CURVE_AVERAGE_SCOPE})
+        restarts=[c.args[0] for c in process.run.call_args_list if c.args[0][:2]==['systemctl','restart']]
+        self.assertEqual(restarts,[['systemctl','restart',name] for name in (
+            'fc27-cloud-api.service','fc27-cloud-worker.service','fc-pricing-v3.service')])
+        scope['restart_with_hermes_readiness'].assert_not_called()
         process.run.reset_mock();scope['restart_with_hermes_readiness'].reset_mock()
         scope['restart']({'scope':'history-read'}, 'fence')
         process.run.assert_not_called()

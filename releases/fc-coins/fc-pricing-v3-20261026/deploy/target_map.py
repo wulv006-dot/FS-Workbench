@@ -29,6 +29,15 @@ CURVE_V6_SEPARATE_ROLE_SOURCES = frozenset('fc_collection/' + name for name in (
 ))
 CURVE_V6_NEW = frozenset(prefix + 'fc_pricing_v3/' + name
     for prefix in ('source/', 'source/hermes-copy/') for name in CURVE_V6_MODULES)
+CURVE_AVERAGE_SCOPE = 'fc-pricing-v6-average-discount-20261113'
+CURVE_AVERAGE_MODULES = ('average_discount_v6.py', 'business_source.py', 'curve_strategy_v6.py',
+                         'daily.py', 'native_checkout_evidence.py', 'price_curve.py', 'pricing_proof_v6.py',
+                         'runtime.py', 'selective_sources.py')
+CURVE_AVERAGE_TOP_LEVEL = ('fc27_cloud_worker.py', 'server_quote_job.py', 'fc27-coins.html', 'fc-pricing-v3.js',
+                           'hermes_pricing_bridge.py', 'pricing_operations.py')
+CURVE_AVERAGE_TARGET_COUNT = len(CURVE_AVERAGE_TOP_LEVEL) + 2 * len(CURVE_AVERAGE_MODULES)
+CURVE_AVERAGE_NEW = frozenset(prefix + 'fc_pricing_v3/average_discount_v6.py'
+                              for prefix in ('source/', 'source/hermes-copy/'))
 
 # The original V3 mapping must also be available from a partial V6 stage.
 BASE_MODULES = (
@@ -208,6 +217,12 @@ def module_targets(modules):
         rows[relative] = '/opt/fc27-cloud-browser/' + relative
         rows['hermes-copy/' + relative] = '/opt/fs-hermes-fc/' + relative
     return rows
+
+
+def curve_average_targets(source):
+    current = targets(source)
+    return {**{name:current[name] for name in CURVE_AVERAGE_TOP_LEVEL},
+            **module_targets(CURVE_AVERAGE_MODULES)}
 
 
 def require_curve_scope_for_imports(name, payload):

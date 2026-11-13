@@ -24,7 +24,7 @@ assert.match(mainConsole,/立即采集只查价/);
 assert.match(mainConsole,/id="v3-curve-collect"[^>]*>采集并预览新定价/);
 assert.match(mainConsole,/id="v3-curve-status" role="status"/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-preview/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-average/);
 assert.match(script,/双20只按购买100K、实交100K这一档核算/);
 assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
 assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
@@ -93,7 +93,9 @@ const fetch=async (url,options={})=>{
     return {ok:true,json:async()=>({write_protocol:body.write_protocol,platform:body.platform,
       snapshot_id:curveBadPlatform===body.platform?'wrong-run':body.snapshot_id,execution_authorized:false,write_performed:false,
       current_catalogue:{quote_100k:{regular_usd:'8.50'}},decision:{candidates:[{
-        labels:['A'],quote:{purchase_k:'1000',regular_usd:'79.25'},financial_proof:{status:'PROOF_INCOMPLETE'}}]}})};
+        labels:['A'],quote:{purchase_k:'1000',regular_usd:'79.25'},financial_proof:{status:'PROOF_INCOMPLETE',
+          average_discount:{contract:'fc_v6_d8_d2_amount_weighted_discount_v1',retained_ratio:'0.935',
+            eligible_orders:200,matched_orders:200},minimum_safe_procurement_margin:'0.215'}}]}})};
   }
   if(url.endsWith('/pricing/v3/price-control')){
     const body=JSON.parse(options.body);priceBodies.push(body);
@@ -291,6 +293,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.deepEqual(curvePreviews.map(row=>row.platform),['PS','XBOX','PC']);
   assert(curvePreviews.every(row=>row.snapshot_id===originalCurve&&row.write_protocol==='fc27_curve_v6'));
   assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/\$79\.25.*证据待补/);
+  assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/D-8 至 D-2 平均优惠 6\.50%.*200\/200.*21\.50%/);
   assert.doesNotMatch(JSON.stringify(elements['v3-curve-results'].children[2]),/79\.25/);
   assert.equal(elements['v3-curve-collect'].textContent,'重读原预览');
   curveBadPlatform='';

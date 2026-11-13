@@ -90,6 +90,18 @@ class DailyProgramFlow(unittest.TestCase):
         self.assertIn('每日一次',prompt)
         self.assertIn('不调用recommend',prompt);self.assertLess(len(prompt),12000)
 
+    def test_daily_review_and_tool_select_original_pricing_protocol(self):
+        scalar = hermes_pricing_bridge.daily_review_text(dict(daily_report={'decision_basis':{}}))
+        curve = hermes_pricing_bridge.daily_review_text(dict(
+            daily_report={'decision_basis':{'write_protocol':'fc27_curve_v6'}}))
+        self.assertIn('双20%',scalar)
+        self.assertNotIn('双20%',curve)
+        self.assertIn('D-8 至 D-2',curve)
+        self.assertIn('至少18%，25%为经营目标',curve)
+        description = pricing_operations.schema()['function']['description']
+        self.assertIn('fc27_curve_v6 uses the amount-weighted D-8 through D-2 discount',description)
+        self.assertIn('scalar records retain their original dual 20% proofs',description)
+
     def test_daily_capabilities_use_saved_review_instead_of_wrong_run_compare(self):
         scope=Mock();scope.clock.return_value=NOW
         with patch.object(pricing_operations,'authorization',return_value=dict(mode='daily_review',runs=['daily-id'])):

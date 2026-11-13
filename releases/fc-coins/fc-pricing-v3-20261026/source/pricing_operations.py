@@ -32,7 +32,21 @@ def schema():
     props['reason']['description']='Explain why this candidate serves the chosen objective, its actual order/AOV/cost and competitor basis, tradeoffs against alternatives, and missing evidence.'
     props['evidence_refs']={'type':'array','items':{'type':'string'},'description':'Include pricing:<bundle_sha256> and any inspected same-run evidence references.'}
     props['simulation_id']['description']='Original ID returned by simulate; read the result with simulation_read.'
-    return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control','description':'FC27 Pricing V3 review and decision tool. state requires only action; read_quote requires action, run_id, path; compare_strategies requires action, mode. Other exact fields are listed in action.description and capabilities.action_fields. State returns the saved daily_review (missing historical profit fields remain unavailable), compact operation references and available strategy results; use operation_read for each full original operation. Use state, compare_strategies and the same-run quote receipt to inspect daily operations and revenue sprint, real paid-order/AOV and delivered-K units, dual 20% proofs, scope and missing evidence. State lists every action and its hash with compact score and margins; use candidate_detail with the exact run, mode and action hash for its full original proof. Hermes reviews effects once daily without recommend or price approval. Only separately authorized strategy research may record a candidate recommendation with its exact action hash and substantive reason. Routine cycles choose and reprove candidates in the program without waiting for Hermes. There are no pricing budgets or spending caps. Use operation_read and simulation_read for outcomes and historical review. Old 80/15/5 and parity are read-only historical replays, never current pricing rules. UNKNOWN must reconcile the original operation ID. Shadow projections are estimates, never observed profit or execution authority.','parameters':{'type':'object','properties':props,'required':['action'],'additionalProperties':False}}}
+    description = ('FC27 Pricing V3 review and decision tool. state requires only action; read_quote requires action, run_id, path; '
+                   'compare_strategies requires action, mode. Other exact fields are listed in action.description and capabilities.action_fields. '
+                   'State returns the saved daily_review (missing historical profit fields remain unavailable), compact operation references and '
+                   'available strategy results; use operation_read for each full original operation. Use state, compare_strategies and the same-run quote '
+                   'receipt to inspect daily operations and revenue sprint, real paid-order/AOV and delivered-K units, scope and missing evidence. '
+                   'Read the original write protocol: fc27_curve_v6 uses the amount-weighted D-8 through D-2 discount, per-tier break-even, '
+                   'and per-platform 18% hard and 25% target procurement margins; scalar records retain their original dual 20% proofs. '
+                   'State lists every action and its hash with compact score and margins; use candidate_detail with the exact run, mode and action hash '
+                   'for its full original proof. Hermes reviews effects once daily without recommend or price approval. Only separately authorized '
+                   'strategy research may record a candidate recommendation with its exact action hash and substantive reason. Routine cycles choose and '
+                   'reprove candidates in the program without waiting for Hermes. There are no pricing budgets or spending caps. Use operation_read and '
+                   'simulation_read for outcomes and historical review. Old 80/15/5 and parity are read-only historical replays, never current pricing rules. '
+                   'UNKNOWN must reconcile the original operation ID. Shadow projections are estimates, never observed profit or execution authority.')
+    return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control','description':description,
+                'parameters':{'type':'object','properties':props,'required':['action'],'additionalProperties':False}}}
 
 
 
