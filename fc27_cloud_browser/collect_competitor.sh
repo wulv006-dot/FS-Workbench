@@ -6,7 +6,7 @@ case "$site" in IGGM|U4GM|U7Buy) ;; *) exit 2 ;; esac
 quantities=${2:-}
 if [ -n "$quantities" ]; then
   [ "$site" = U7Buy ] || exit 2
-  [ "$quantities" = 100,1000,2000,5000 ] || exit 2
+  case "$quantities" in 100|100,1000,2000,5000) ;; *) exit 2 ;; esac
 fi
 evidence=/var/lib/fc27-cloud/evidence
 state=/var/lib/fc27-cloud/state

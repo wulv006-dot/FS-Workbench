@@ -152,6 +152,35 @@ class CurvePreviewV6(unittest.TestCase):
         self.assertEqual(response['competitor_offers'][0]['regular_price'],'8.5')
         self.assertNotIn('private_field',json.dumps(response))
 
+    def test_exact_readonly_collection_market_does_not_read_or_move_the_plan_pin(self):
+        self.snapshot.update(write_protocol=CURVE_WRITE_PROTOCOL, plan_id=None,
+                             result={'execution_authorized': False})
+        self.snapshot['evidence']['competitor_offers'] = [
+            dict(source='ArabUT', platform='PS', purchase_k='100', bonus_k='0', currency='USD',
+                 regular_price='8.8', comparable=True, private_field='not public'),
+            dict(source='U7Buy', platform='PS', purchase_k='1000', bonus_k='30', currency='USD',
+                 regular_price='85', comparable=True)]
+        self.db.put('pricing_snapshots', SNAPSHOT_ID, self.snapshot)
+        self.db.put('metadata', 'latest_snapshot:active-plan', {'snapshot_id': 'decision-run'})
+        before = self.database_contents()
+        result = api.read('market/' + SNAPSHOT_ID)
+        self.assertEqual(result['basis'], 'readonly_collection')
+        self.assertEqual(result['snapshot_id'], SNAPSHOT_ID)
+        self.assertFalse(result['execution_authorized'])
+        self.assertFalse(result['write_performed'])
+        self.assertEqual([(r['source'], r['purchase_k'], r['regular_price'])
+                          for r in result['competitor_offers']], [('ArabUT', '100', '8.8')])
+        self.assertNotIn('price_basis', result)
+        self.assertNotIn('catalogue_samples', result)
+        self.assertNotIn('private_field', json.dumps(result))
+        self.assertEqual(self.database_contents(), before)
+        for invalid in ({'plan_id': 'active-plan'}, {'origin': 'replay'}, {'write_protocol': None},
+                        {'result': {'execution_authorized': True}}, {'evidence': {'run_id': 'different'}}):
+            with self.subTest(invalid=invalid):
+                self.db.put('pricing_snapshots', SNAPSHOT_ID, dict(self.snapshot, **invalid))
+                with self.assertRaisesRegex(ValueError, 'pricing_readonly_market_snapshot_unavailable'):
+                    api.read('market/' + SNAPSHOT_ID)
+
     def test_rejects_client_proof_invalid_platform_and_other_routes_before_state_access(self):
         for route, payload, error in (
                 ('preview', preview_request(evidence={'status': 'PROVEN'}), 'pricing_curve_preview_fields_invalid'),

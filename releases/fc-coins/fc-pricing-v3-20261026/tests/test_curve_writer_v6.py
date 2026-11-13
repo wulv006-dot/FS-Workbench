@@ -44,7 +44,7 @@ def saved(row, origin=None):
     return read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, contract)
 
 
-def setup_bundle(small='10', large='103', *, before_large='100', target_override=None):
+def setup_bundle(small='10', large='103', *, before_large='100', target_override=None, cost_evidence=None):
     before = goods(ALL_ID, 0, large=before_large)
     after = goods(ALL_ID, 0, small, large)
     if target_override:
@@ -56,7 +56,8 @@ def setup_bundle(small='10', large='103', *, before_large='100', target_override
     domain = dict(curve_key=key, platform=PLATFORM, version='fixture-domain',
                   coverage_status='complete', coverage_gaps=[], source_revisions=refs,
                   site_paths={'266': ['ordinary']})
-    paths = dict(curve_key=key, paths=[quote('ordinary', key, regular_usd=large, net_receipt_usd=large)])
+    paths = dict(curve_key=key, paths=[quote('ordinary', key, regular_usd=large, net_receipt_usd=large,
+                                            **(cost_evidence or {}))])
     baskets = dict(main=basket('closed_bjt_7d', [('ordinary', '50')]),
                    recent=basket('latest_24h', [('ordinary', '30')]))
     proof = validate_curve(target, baskets, paths, domain)
@@ -279,6 +280,39 @@ class CurveWriter(unittest.TestCase):
         self.transport.apply_recipient()
         self.assertEqual(self.reconcile()['status'], 'CONFIRMED')
         self.assertEqual(len(self.transport.posts), 1)
+
+    def test_two_band_100k_change_has_no_order_io_and_keeps_the_full_admin_target(self):
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
+
+        for small, before_large, large in (('8.62', '81.60', '86.12'), ('8.35', '86.00', '86.00')):
+            with self.subTest(small=small, large=large):
+                def admin_target(row):
+                    row['unit_price'] = '0.10'
+
+                bundle, capability, before, recipient = setup_bundle(
+                    small=small, large=large, before_large=before_large, target_override=admin_target,
+                    cost_evidence=dict(expected_cost_usd='60', safe_cost_usd='61', stress_cost_usd='62'))
+                bundle['action']['curves'][PLATFORM]['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+                capability.pop('order_projection_status')
+                self.transport = Transport(before, recipient)
+                self.capabilities = {PLATFORM: capability}
+                self.item = dict(writer.curve_catalog_plan(bundle, PLATFORM, capability), operation_id=OPERATION)
+                self.audit = dict(execution_id=OPERATION, write_protocol=CURVE_WRITE_PROTOCOL,
+                                  curve_results={PLATFORM: self.item})
+                self.saved = Mock()
+                order_read = Mock(side_effect=AssertionError('two-band writer must not read a scalar Order rate'))
+                order_prepare = Mock(side_effect=AssertionError('two-band writer must not prepare an Order POST'))
+                capability['order_projection'] = dict(read=order_read, prepare=order_prepare)
+                self.assertEqual(self.dispatch()['status'], 'CONFIRMED')
+                self.assertEqual(self.reconcile()['status'], 'CONFIRMED')
+                order_read.assert_not_called()
+                order_prepare.assert_not_called()
+                self.assertEqual(self.item['projection'], {'status': 'not_required'})
+                self.assertEqual(len(self.transport.posts), 1)
+                for row in self.transport.rows.values():
+                    self.assertEqual(row['more']['price'], [small, large])
+                    self.assertEqual(row['more']['give'], ['0', '30'])
+                    self.assertEqual(row['unit_price'], '0.10')
 
     def test_original_writer_receipt_freezes_actual_site266_in_window(self):
         from fc_pricing_v3.ledger import confirmed_curve_window

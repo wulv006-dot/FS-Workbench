@@ -28,7 +28,7 @@ assert.equal((html.match(/class="price-strip"/g)||[]).length,1);
 for (const platform of ['ps','xbox','pc']) assert(ids.includes('v3-price-large-'+platform));
 assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261113-price-cards/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261113-current-curve/);
 assert.equal((html.match(/<article data-platform=/g)||[]).length,3);
 assert.match(html,/竞品 100K 报价/);
 assert.match(html,/我方大额段独立核算/);
@@ -90,6 +90,8 @@ const tickProgress=()=>{const [id,fn]=progressTimers.entries().next().value;prog
 let curveProven=false,curveActivationResponse='',activationBodies=[];
 const previousCurveId='34454366-c016-46ae-89f6-ddccb64f377a';
 const curveCapturedAt=new Date().toISOString();
+const readonlyMarketId='0d0d4870-f3dd-4f23-bae6-bf9892e48e03';
+let readonlyJob=null,readonlyMarket=null,readonlyReads=[];
 let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='done',idSequence=0;
 const fetch=async (url,options={})=>{
   if(url.endsWith('/pricing/v3/state')){stateReads++;if(stateReadGate)await stateReadGate;}
@@ -101,6 +103,12 @@ const fetch=async (url,options={})=>{
       if(curveSubmitLost)throw Error('fixture collect receipt lost');
       return {ok:true,json:async()=>({job_id:body.client_event_id})};
     }
+    if(readonlyJob)return {ok:true,json:async()=>({job_id:readonlyMarketId})};
+  }
+  if(url.endsWith('/jobs/'+readonlyMarketId))return {ok:true,json:async()=>readonlyJob};
+  if(url.includes('/pricing/v3/market/')){
+    readonlyReads.push({url,method:options.method});
+    return readonlyMarket?{ok:true,json:async()=>readonlyMarket}:{ok:false,status:503,json:async()=>({error:'state_unavailable'})};
   }
   if(url.includes('/jobs/new-id-')){
     if(!curveJob)return {ok:false,status:404,json:async()=>({error:'not_found'})};
@@ -379,6 +387,19 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(marketTag.textContent,/Lootbar.*U7Buy.*Arab-UT.*100K/);
   assert.match(elements['v3-market-status'].textContent,/等待当前新定价/);
   assert.doesNotMatch(elements['v3-price-basis-ps'].textContent,/双红线|双20/);
+  assert.match(elements['v3-decision-basis'].textContent,/等待当前 V6/);
+  assert.doesNotMatch(elements['v3-state'].textContent,/2026-10-26/,'V6 must hide a legacy snapshot during independent deployment');
+  assert.doesNotMatch(JSON.stringify(elements['v3-strategies'].children),/双20|本轮最终候选/);
+  const oldSnapshotId=state.snapshot_id,oldSnapshotTime=state.captured_at;
+  state.write_protocol='fc27_curve_v6';
+  state.snapshot_id='curve-market-run';
+  state.captured_at=curveCapturedAt;
+  state.source_checked_at=curveCapturedAt;
+  state.curve_decision={status:'READY',rows:[
+    {platform:'PS',status:'READY',selection:{segment:'large',label:'C'}},
+    {platform:'XBOX',status:'KEEP'},
+    {platform:'PC',status:'PROOF_INCOMPLETE',gaps:['ordinary_cost_unavailable']}
+  ]};
   curveMarket={write_protocol:'fc27_curve_v6',snapshot_id:'curve-market-run',captured_at:curveCapturedAt,
     price_basis:{rows:{PS:{average_discount:{retained_ratio:'.91'},minimum_safe_procurement_margin:'.182'}}},
     catalogue_samples:{PS:{observed_at:curveCapturedAt,tiers:[{purchase_k:'100',native_price_usd:'8.51',promised_bonus_k:'0'},{purchase_k:'1000',native_price_usd:'81.60',promised_bonus_k:'30'}]}},
@@ -392,9 +413,26 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   await elements['v3-refresh'].events.click();
   assert.match(elements['v3-market-status'].textContent,/新定价采集快照/);
   assert.equal(elements['v3-market-snapshot'].textContent,'curve-market-run');
+  assert.match(elements['v3-decision-basis'].textContent,/curve-market-run.*V6/);
+  const curveDecisionText=JSON.stringify(elements['v3-strategies'].children);
+  assert.match(curveDecisionText,/PS.*已有可行方案.*大额段.*C.*Xbox.*保持现价.*PC.*核算待补/);
+  assert.doesNotMatch(curveDecisionText,/双20|已写价|本轮最终候选|op-1/);
+  assert.equal(elements['v3-legacy-proof-table'].hidden,true);
+  assert.match(elements['version'].textContent,/V6.*curve-market-run/);
+  assert.match(elements['v3-stage'].textContent,/已有可行方案/);
+  assert.notEqual(elements['v3-source-time'].textContent,'当前计划来源待核');
+  const savedOperations=state.operations;
+  state.operations=[{operation_id:'original-current-curve',plan_id:plan.plan_id,status:'COMPLETED',
+    bundle:{write_protocol:'fc27_curve_v6',snapshot_id:'curve-market-run'},
+    readback:{write_protocol:'fc27_curve_v6',execution_id:'original-current-curve',status:'CONFIRMED'}},...savedOperations];
+  await elements['v3-refresh'].events.click();
+  assert.match(JSON.stringify(elements['v3-strategies'].children),/本轮原操作.*Admin 主站价表已核对.*original-current-curve/);
+  assert.match(elements['v3-stage'].textContent,/Admin 主站价表已核对/);
+  state.operations=savedOperations;
   assert.equal(elements['v3-price-large-ps'].textContent,'$81.60');
   assert.match(elements['v3-price-delivery-ps'].textContent,/赠 30K · 实交 1030K/);
   assert.equal(elements['v3-price-large-xbox'].textContent,'现价待核');
+  assert.equal(elements['v3-price-xbox'].textContent,'现价待核','V6 current price does not fall back to a public quote');
   const [psMarket,xboxMarket,pcMarket]=elements['v3-market-cards'].children;
   assert.match(JSON.stringify(psMarket),/Lootbar.*\$8\.75.*购买 100K.*赠 5K.*U7Buy.*\$9\.10.*购买 100K/);
   assert.match(JSON.stringify(xboxMarket),/Arab-UT.*该快照未取得 100K 报价/);
@@ -404,6 +442,38 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(elements['v3-price-ps'].textContent,'$8.51');
   assert.match(elements['v3-price-source-ps'].textContent,/后台采样/);
   assert.equal(elements['v3-price-change-ps'].hidden,true);
+  const decisionBeforeReadonly=elements['v3-decision-basis'].textContent;
+  const sourceBeforeReadonly=elements['v3-source-time'].textContent;
+  readonlyJob={job_id:readonlyMarketId,kind:'collect',status:'running'};
+  readonlyMarket={write_protocol:'fc27_curve_v6',snapshot_id:readonlyMarketId,basis:'readonly_collection',
+    execution_authorized:false,write_performed:false,captured_at:curveCapturedAt,
+    competitor_offers:[{source:'ArabUT',platform:'PS',purchase_k:'100',bonus_k:'0',currency:'USD',
+      regular_price:'8.80',comparable:true,captured_at:curveCapturedAt}]};
+  await elements.collect.events.click();
+  assert.match(elements['v3-result'].textContent,/只读采集已登记/);
+  assert.equal(elements['v3-market-snapshot'].textContent,'curve-market-run');
+  readonlyJob={...readonlyJob,status:'ready',result:{run_id:readonlyMarketId,quote_status:'curve_candidate_proven'}};
+  await scheduledCurve();
+  assert.match(elements['v3-result'].textContent,/采集已完成.*本次未改价/);
+  assert.doesNotMatch(elements['v3-result'].textContent,/待核（ready）/);
+  assert.match(elements['v3-market-status'].textContent,/只读采集快照.*本次未改价/);
+  assert.equal(elements['v3-market-snapshot'].textContent,readonlyMarketId);
+  assert.match(JSON.stringify(elements['v3-market-cards'].children[0]),/Arab-UT.*\$8\.80/);
+  assert.equal(elements['v3-decision-basis'].textContent,decisionBeforeReadonly);
+  assert.equal(elements['v3-source-time'].textContent,sourceBeforeReadonly);
+  assert.equal(elements['v3-price-ps'].textContent,'$8.51');
+  assert.equal(readonlyReads.length,1);
+  assert.equal(readonlyReads[0].method,undefined,'read the saved collection over GET');
+  await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-market-snapshot'].textContent,readonlyMarketId,'status refresh retains the newer collection');
+  const originalMarketTime=curveMarket.captured_at;
+  curveMarket.captured_at='2099-01-01T00:00:00Z';
+  await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-market-snapshot'].textContent,'curve-market-run','newer plan evidence replaces old collection');
+  curveMarket.captured_at=originalMarketTime;
+  readonlyJob=null;readonlyMarket=null;
+  state.snapshot_id=oldSnapshotId;state.captured_at=oldSnapshotTime;
+  delete state.write_protocol;delete state.curve_decision;delete state.source_checked_at;
   const sampled=curveMarket.catalogue_samples.PS;
   const operationsBefore=state.operations;
   state.catalogue_readbacks={PS:{...sampled,basis:'confirmed_readback'}};

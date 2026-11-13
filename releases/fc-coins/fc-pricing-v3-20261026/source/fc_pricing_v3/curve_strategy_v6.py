@@ -140,6 +140,60 @@ def _group(quantity):
     return coin_quantity_band(quantity)
 
 
+def segment_terms(curve, segment):
+    tiers = [tier for tier in curve['tiers'] if _group(tier['purchase_k']) == segment]
+    return dict(tiers=tiers, unit_price_usd_per_k=curve['unit_price_usd_per_k'] if segment == 'small' else None)
+
+
+def segment_changes(before, after):
+    return [segment for segment in ANCHORS if segment_terms(before, segment) != segment_terms(after, segment)]
+
+
+def comparison_background_key(curve, segment):
+    other = 'large' if segment == 'small' else 'small'
+    return fingerprint([_shape(curve), segment_terms(curve, other)])
+
+
+def segment_reference_id(reference, segment):
+    return (reference.get('segment_sources') or {}).get(segment, reference)['reference_curve_id']
+
+
+def update_reference_segments(reference, confirmed, segments, reference_id, receipt, kind):
+    previous = reference['reference_curve']
+    current_terms = read_curve(confirmed['native_payload'], confirmed['identity'], previous['native_contract'])
+    if not segments or set(segments) - ANCHORS.keys() or _shape(previous) != _shape(current_terms):
+        raise ValueError('strategy_reference_segment_terms_changed')
+    previous_sources = reference.get('segment_sources') or {}
+    prior_source = dict(reference_curve_id=reference['reference_curve_id'], curve_key=curve_key(previous),
+                        readback_ref=reference.get('readback_ref'),
+                        operation_id=reference.get('confirmed_operation_id'))
+    sources = {segment: deepcopy(previous_sources.get(segment, prior_source)) for segment in ANCHORS}
+    confirmed_key = curve_key(confirmed)
+    for segment in segments:
+        sources[segment] = dict(reference_curve_id=reference_id, curve_key=confirmed_key,
+                                readback_ref=receipt['readback_ref'], operation_id=receipt['operation_id'],
+                                kind=kind)
+    payload = deepcopy(confirmed['native_payload'])
+    if 'small' not in segments:
+        payload['unit_price'] = previous['native_payload']['unit_price']
+    raw = payload['more']
+    more = raw if isinstance(raw, dict) else json.loads(raw)
+    old_raw = previous['native_payload']['more']
+    old_more = old_raw if isinstance(old_raw, dict) else json.loads(old_raw)
+    for row in confirmed['tiers']:
+        if _group(row['purchase_k']) not in segments:
+            index = row['native_index']
+            for field in ('price', 'discount'):
+                more[field][index] = old_more[field][index]
+    if not isinstance(raw, dict):
+        payload['more'] = json.dumps(more, ensure_ascii=False, separators=(',', ':'))
+    baseline = (confirmed if payload == confirmed['native_payload'] else
+                read_curve(payload, confirmed['identity'], confirmed['native_contract']))
+    return dict(reference_curve=baseline, reference_curve_id=reference_id, segment_sources=sources,
+                reference_curve_is_composite=len({source['reference_curve_id'] for source in sources.values()}) > 1,
+                confirmed_operation_id=receipt['operation_id'], readback_ref=receipt['readback_ref'])
+
+
 def _saved_discount_changed_at_same_price(current, adopted):
     previous_tiers = {tier['purchase_k']: tier for tier in adopted['tiers']}
     for tier in current['tiers']:
@@ -264,9 +318,8 @@ def build_candidates(confirmed_current_curve, reference, episode, selected_segme
     active_editor = current['native_contract'] if editor_contract is None else editor_contract
     if active_editor.get('price_edit_policy') == TWO_BAND_PRICE_EDIT:
         adopted_prices = {row['purchase_k']: row['native_price_usd'] for row in adopted['tiers']}
-        current_prices = {row['purchase_k']: row['native_price_usd'] for row in current['tiers']}
         controls = ({anchor: adopted_prices[anchor]} if anchor in adopted_prices
-                    and adopted_prices[anchor] != current_prices.get(anchor) else {})
+                    and segment_terms(adopted, selected_segment) != segment_terms(current, selected_segment) else {})
         reference_candidate = compile_curve(current, dict(anchor_prices_usd=controls), active_editor) if controls else current
         if reference_candidate.get('compilation_status', 'EDITOR_CANDIDATE') == 'EDITOR_CANDIDATE':
             add(reference_candidate, 'A')
@@ -348,11 +401,14 @@ def propose_adoption(reference, comparison, decision, evidence, *, operation_id)
     The caller supplies the judgment and comparable cumulative business results.
     """
     selected = decision.get('selected') or {}
+    segment = comparison.get('selected_segment')
     if (decision.get('status') not in ('KEEP', 'BOUNDED_TRIAL') or not selected
             or decision.get('proof_hash') is None or selected['curve_key'] == curve_key(reference['reference_curve'])
             or decision.get('reference_curve_id') != reference['reference_curve_id']
             or decision.get('comparison_episode_id') != comparison['comparison_episode_id']
-            or selected not in comparison['candidates']):
+            or selected not in comparison['candidates']
+            or segment is not None and (segment not in ANCHORS or
+                segment not in segment_changes(reference['reference_curve'], selected['curve']))):
         raise ValueError('strategy_adoption_candidate_unproven')
     revisions = evidence.get('order_revisions')
     windows = evidence.get('window_ids')
@@ -377,9 +433,13 @@ def propose_adoption(reference, comparison, decision, evidence, *, operation_id)
         raise ValueError('strategy_adoption_has_no_new_evidence')
     initial_prices = {tier['purchase_k']: tier['native_price_usd']
                       for tier in comparison['initial_reference_curve']['tiers']}
+    proposed_tiers = selected['curve']['tiers']
+    if segment is not None:
+        proposed_tiers = [new if _group(new['purchase_k']) == segment else old for old, new in
+                          zip(reference['reference_curve']['tiers'], proposed_tiers)]
     cumulative_tier_prices = [dict(purchase_k=tier['purchase_k'],
                                   initial_usd=initial_prices.get(tier['purchase_k']),
-                                  target_usd=tier['native_price_usd']) for tier in selected['curve']['tiers']]
+                                  target_usd=tier['native_price_usd']) for tier in proposed_tiers]
     proposal = dict(kind='BUSINESS_ADOPT', operation_id=operation_id, target_curve_key=selected['curve_key'],
                     proof_hash=decision['proof_hash'], reference_curve_id=reference['reference_curve_id'],
                     comparison_episode_id=comparison['comparison_episode_id'],
@@ -390,6 +450,8 @@ def propose_adoption(reference, comparison, decision, evidence, *, operation_id)
                     maturity=evidence['maturity'], reason=evidence['reason'],
                     changed_judgment=evidence['changed_judgment'], cumulative=deepcopy(cumulative),
                     cumulative_tier_prices=cumulative_tier_prices)
+    if segment is not None:
+        proposal['selected_segment'] = segment
     proposal['adoption_id'] = fingerprint(proposal)
     return proposal
 
@@ -423,9 +485,10 @@ def confirm_adoption(reference, proposal, confirmed_current_curve, receipt):
                 used_order.append(revision)
         revisions[order] = delta['after']
     used = list(history.get('used_evidence_hashes', ())) + [proposal['evidence_hash']]
-    return dict(reference_curve=confirmed, reference_curve_id=proposal['adoption_id'],
-                adoption_evidence=dict(order_revisions=revisions, used_evidence_hashes=used, used_order_revisions=seen),
+    segments = [proposal['selected_segment']] if 'selected_segment' in proposal else list(ANCHORS)
+    adopted = update_reference_segments(reference, confirmed, segments, proposal['adoption_id'], receipt,
+                                        'BUSINESS_ADOPT')
+    return dict(adopted, adoption_evidence=dict(order_revisions=revisions, used_evidence_hashes=used, used_order_revisions=seen),
                 comparison_episode_id=proposal['comparison_episode_id'],
                 initial_reference_curve_id=proposal['initial_reference_curve_id'],
-                adoption=deepcopy(proposal), confirmed_operation_id=receipt['operation_id'],
-                readback_ref=receipt['readback_ref'])
+                adoption=deepcopy(proposal))

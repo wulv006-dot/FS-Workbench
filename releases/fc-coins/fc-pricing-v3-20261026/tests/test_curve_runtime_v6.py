@@ -39,6 +39,93 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual((no_market['segment'], no_market['source']), ('large', 'smart_three_hour_block'))
         self.assertIn(no_market['label'], 'ABC')
 
+    def test_v6_learning_uses_confirmed_full_curves_and_changes_later_assignments(self):
+        from copy import deepcopy
+        from fc_pricing_v3.curve_strategy_v6 import comparison_background_key
+        from fc_pricing_v3.price_curve import curve_key, read_curve
+        from fc_pricing_v3.smart import curve_learning, curve_slot, observed_curve_blocks
+        from test_curve_strategy_v6 import fixture
+
+        current, reference, episode = fixture()
+        start = datetime.fromisoformat('2026-11-13T00:00:00+00:00')
+        now = start + timedelta(hours=49)
+        plan = dict(plan_id='plan', revision=1, mode='smart', starts_at=start.isoformat())
+        state = dict(reference=reference, episode=dict(episode, opened_at=start.isoformat()))
+        row = deepcopy(current['native_payload'])
+        row['more']['price'][4] = '97.85'
+        higher = read_curve(row, current['identity'], current['native_contract'])
+        self.assertEqual(current['tiers'][2], higher['tiers'][2])
+        self.assertNotEqual(curve_key(current), curve_key(higher))
+        slots = [curve_slot(plan, PLATFORM, state, start + timedelta(hours=3 * block)) for block in range(16)]
+        pairs = [slot['slot'] for slot in slots[:8] if slot['segment'] == 'large'][:2]
+        windows, outcomes = [], []
+        for first in pairs:
+            for label, slot, curve in (('A', slots[first], current), ('C', slots[first + 8], higher)):
+                opened = datetime.fromisoformat(slot['starts_at'])
+                ident = 'window-' + str(slot['block'])
+                key = curve_key(curve)
+                decision_key = 'all-' + key
+                info = dict(slot, actual_label=label, decision_curve_key=decision_key, primary_curve_key=key,
+                            background_curve_key=comparison_background_key(curve, 'large'))
+                windows.append(dict(operation_id=ident, action={'curves': {PLATFORM: curve}},
+                    origin='confirmed_public_price_window', mode='production', write_protocol=CURVE_WRITE_PROTOCOL,
+                    opened_at=slot['starts_at'], resource_closed_at={'base:PS': slot['ends_at']},
+                    mutable_resources=['base:PS'], curve_selection={PLATFORM: {'assignment': info}},
+                    decision_curve_keys={PLATFORM: decision_key}, curve_confirmations={PLATFORM: dict(
+                        operation_id=ident, target_curve_key=decision_key, actual_site266_curve_key=key,
+                        basis='full_prices_and_tier_specs_readback')},
+                    continuations=[dict(resources=['base:PS'], at=(opened + timedelta(hours=1)).isoformat(),
+                                        curve_selection={PLATFORM: {'assignment': info}})]))
+                for index in range(5):
+                    outcomes.append(dict(order_key=f'{ident}:{index}', platform=PLATFORM, price_window_id=ident,
+                        occurred_at=(opened + timedelta(minutes=25 + 30 * index)).isoformat(),
+                        curve_key=key, decision_curve_key=decision_key, actual_net_usd='100',
+                        actual_contribution_usd='22' if label == 'C' else '20',
+                        cost_basis='same_order_Order_shipping_CNY_margin_at_actual_USD_receipt',
+                        purchase_k='1000', promised_bonus_k='20', promised_delivered_k='1020',
+                        new_customer=True, customer_key=f'{ident}:{index}'))
+        coverage = dict(query_complete=True, unscoped_time_gaps=False, gap_events=[],
+                        source_sha256='test-source', observed_at=now.isoformat())
+        online = dict(smart_plan_id='plan', smart_revision=1, learning_coverage=coverage, actual_outcomes=outcomes)
+        learned = curve_learning(plan, PLATFORM, state, online, windows, now, current)
+        self.assertEqual(learned['large']['policy']['winner'], 'C')
+        self.assertFalse(learned['large']['policy']['causal_effect_estimated'])
+        blocks = observed_curve_blocks(plan, PLATFORM, state, online, windows, now)
+        self.assertEqual([(block['hours'], len(block['events'])) for block in blocks], [(3, 5)] * 4)
+        self.assertEqual(len({key for block in blocks for key in block['prices']}), 2)
+        scheduled_at = [now + timedelta(hours=3 * i) for i in range(16)]
+        def choices(evidence):
+            selected = [runtime._curve_preference(PLATFORM, current, {}, {'learning': evidence}, at,
+                                                  plan=plan, state=state) for at in scheduled_at]
+            return [row for row in selected if row['segment'] == 'large']
+        self.assertNotEqual([row['label'] for row in choices(learned)], [row['label'] for row in choices({})])
+        self.assertTrue(all(row['source'] == 'observed_curve_policy' for row in choices(learned)))
+        # A later same-order cost revision updates the original exposures and corrects C.
+        for order in outcomes:
+            if order['curve_key'] == curve_key(higher):
+                order['actual_contribution_usd'] = '16'
+        learned = curve_learning(plan, PLATFORM, state, online, windows, now, current)
+        self.assertIsNone(learned['large']['policy']['winner'])
+        self.assertIn('C', learned['large']['correction']['effective_blocks'])
+        self.assertNotIn('C', {row['label'] for row in choices(learned)})
+        # A separate small-band change is a different background for large.
+        mixed = deepcopy(current['native_payload'])
+        mixed['more']['price'][2] = '10.02'
+        mixed = read_curve(mixed, current['identity'], current['native_contract'])
+        other_background = curve_learning(plan, PLATFORM, state, online, windows, now, mixed)
+        self.assertEqual(other_background['large']['correction']['effective_blocks'], {})
+        # Complete paid coverage can report zero. Incomplete membership is unavailable.
+        online['actual_outcomes'] = []
+        learned = curve_learning(plan, PLATFORM, state, online, windows, now, current)
+        self.assertEqual(learned['large']['blocks'][-1]['platform']['orders'], 0)
+        self.assertEqual(learned['large']['blocks'][-1]['platform']['procurement_gross_usd'], '0')
+        self.assertIsNone(learned['large']['blocks'][-1]['platform']['procurement_margin'])
+        coverage['gap_events'] = [dict(occurred_at=windows[-1]['opened_at'], group=PLATFORM)]
+        learned = curve_learning(plan, PLATFORM, state, online, windows, now, current)
+        self.assertIsNone(learned['large']['blocks'][-1]['platform']['orders'])
+        coverage['query_complete'] = False
+        self.assertEqual(curve_learning(plan, PLATFORM, state, online, windows, now, current), {})
+
     def setUp(self):
         stack = ExitStack()
         self.addCleanup(stack.close)
@@ -337,13 +424,14 @@ class CurveRuntime(unittest.TestCase):
         self.prepare(large='100')
         now = datetime.now(timezone.utc)
         plan = self.db.get('pricing_plans', 'plan')
-        plan.update(mode='daily', write_protocol=CURVE_WRITE_PROTOCOL,
+        plan.update(mode='smart', write_protocol=CURVE_WRITE_PROTOCOL,
                     starts_at=(now - timedelta(hours=1)).isoformat(), resources=['base:PS'])
         self.db.put('pricing_plans', 'plan', plan)
         row = self.transport.rows[writer.PRODUCTS[PLATFORM][1]]
         curve = read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, EDITOR_CONTRACT)
         self.db.start_curve_episode(PLATFORM, 'fixture-rules', 'Adopted readback', initial_curve=curve,
                                     readback_ref='fixture-initial')
+        now = datetime.now(timezone.utc)
         _, baskets, evidence, domain = fixture()
         key = curve_key(curve)
         domain['curve_key'] = evidence['curve_key'] = evidence['paths'][0]['curve_key'] = key
@@ -371,6 +459,10 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(curve_key(window['action']['curves'][PLATFORM]), key)
         self.assertEqual(len(window['continuations']), 1)
         self.assertFalse(window['continuations'][0]['write_performed'])
+        self.assertIn('assignment', window['curve_selection'][PLATFORM])
+        self.assertIn('assignment', window['continuations'][0]['curve_selection'][PLATFORM])
+        self.assertNotIn('B', (window['curve_selection'][PLATFORM]['assignment']['actual_label'],
+                              window['continuations'][0]['curve_selection'][PLATFORM]['assignment']['actual_label']))
         self.assertEqual(self.db.all('operations'), [])
         self.assertEqual(self.db.all('readback_receipts'), [])
         self.assertEqual(self.transport.posts, [])
@@ -532,10 +624,15 @@ class CurveRuntime(unittest.TestCase):
         current_slot = runtime._curve_preference('PS', current, {}, inputs, now, plan=plan, state=state)
         same_slot = runtime._curve_preference(
             'PS', current, {}, inputs, now + timedelta(minutes=15), plan=plan, state=state)
-        self.assertEqual(current_slot, same_slot)
-        self.assertEqual((current_slot['source'], current_slot['segment'], current_slot['block']),
-                         ('smart_three_hour_block', 'large', 0))
+        self.assertEqual((current_slot['label'], current_slot['segment'], current_slot['block']),
+                         (same_slot['label'], same_slot['segment'], same_slot['block']))
+        self.assertEqual(current_slot['source'], 'smart_three_hour_block')
         self.assertIn(current_slot['label'], 'ABC')
+        slots = [runtime._curve_preference('PS', current, {}, {}, now + timedelta(hours=3 * block),
+                                         plan=plan, state=state)['assignment'] for block in range(16)]
+        self.assertEqual([slot['segment'] for slot in slots[:8]], [slot['segment'] for slot in slots[8:]])
+        self.assertEqual([slot['pair_id'] for slot in slots[:8]], [slot['pair_id'] for slot in slots[8:]])
+        self.assertTrue(all(a['segment'] != b['segment'] for a, b in zip(slots[:7], slots[1:8])))
         self.assertEqual(runtime._curve_preference('PS', current, {}, inputs, now,
                          plan=dict(plan, mode='revenue_sprint'), state=state)['label'], 'B')
 
@@ -601,6 +698,13 @@ class CurveRuntime(unittest.TestCase):
                                     readback_ref='fixture-same-platform')
         evidence = dict(run_id='run', checked_at=(now - timedelta(seconds=5)).isoformat(),
                         storefront={'rows': {PLATFORM: {'sku_id': primary_id}}})
+        plan = dict(self.db.get('pricing_plans', 'plan'), mode='smart')
+        self.db.put('pricing_plans', 'plan', plan)
+        self.db.put('metadata', 'curve-online-context:plan', {'smart_plan_id': 'plan'})
+        self.db.put('actual_price_windows', 'window', {'operation_id': 'window'})
+        job = runtime.ROOT / 'jobs' / 'run.json'
+        job.parent.mkdir(parents=True, exist_ok=True)
+        job.write_text(json.dumps({'request': {'v3_plan_id': 'plan', 'v3_operation_id': 'op'}}))
         def read(_, platform, site, observer):
             self.assertEqual(platform, PLATFORM)
             observer({'response_sha256': 'fixture-' + str(site)})
@@ -608,8 +712,12 @@ class CurveRuntime(unittest.TestCase):
 
         with patch.object(writer, 'read_row', side_effect=read) as get, \
                 patch.object(writer, 'read_curve_routes', return_value={}), \
+                patch('fc_pricing_v3.smart.curve_learning', return_value={'large': {'blocks': []}}) as learning, \
                 patch('fc_shared_admin.SessionManager'):
             found = runtime.collect_curve_catalogues(evidence, [PLATFORM])[PLATFORM]
+        learning.assert_called_once()
+        self.assertEqual(learning.call_args.args[0], plan)
+        self.assertEqual(found['learning'], {'large': {'blocks': []}})
         self.assertEqual(get.call_count, 2)
         curve = found['primary_curve']
         proof_input = found['primary_inputs'][curve_key(curve)]

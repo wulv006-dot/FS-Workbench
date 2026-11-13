@@ -1,4 +1,4 @@
-import ast,importlib.util,json,re,sys,tempfile,unittest
+import ast,importlib.util,json,re,sys,tempfile,unittest,shutil,subprocess
 from datetime import datetime,timezone,timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,6 +18,17 @@ def function(name,file,scope):
 
 
 class OptionalCollection(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('sh'), 'requires POSIX shell')
+    def test_public_wrapper_accepts_current_100k_and_rejects_other_scopes(self):
+        wrapper = Path(__file__).resolve().parents[4] / 'fc27_cloud_browser/collect_competitor.sh'
+        # Execute only argument admission, before any directory, lock or network action.
+        admission = wrapper.read_text().split('evidence=/var/lib/', 1)[0] + '\nexit 0\n'
+        for site, scope, expected in [('U7Buy', '100', 0), ('U7Buy', '100,1000,2000,5000', 0),
+                                      ('U7Buy', '1000', 2), ('U7Buy', '100,5000', 2), ('IGGM', '100', 2)]:
+            with self.subTest(site=site, scope=scope):
+                result = subprocess.run(['sh', '-c', admission, 'collector', site, scope], capture_output=True)
+                self.assertEqual(result.returncode, expected, result.stderr)
+
     def test_partial_reader_through_worker_quote_api_and_monitor_keeps_each_platform(self):
         page=Mock();page.url=reader.URL;page.goto.return_value=SimpleNamespace(status=200,headers={});page.title.return_value='FC 27 Coins'
         selected={'device':None}

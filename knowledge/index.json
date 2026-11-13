@@ -392,7 +392,7 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_100k_market_two_band_20261113",
+      "revision": "fc_v61_admin_only_two_band_20261113",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -401,10 +401,10 @@
       "effective_at": "2026-11-13",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "0170963eb49d7266cb1e8ec794734ff3b847d4004d93a9c28af6617519add1d9",
+        "sha256": "9a67017bb7b720cbe19e40babcc02abb9566aca113e7035c5af38919f5662d3f",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -418,7 +418,8 @@
         "fc.pricing.constraints@v15",
         "fc.pricing.constraints@fc27_dual20_d9_d2_v2",
         "fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4",
-        "fc.pricing.constraints@fc_v61_native_all_two_band_20261113"
+        "fc.pricing.constraints@fc_v61_native_all_two_band_20261113",
+        "fc.pricing.constraints@fc_v61_100k_market_two_band_20261113"
       ],
       "provenance": [
         {
@@ -490,6 +491,10 @@
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
           "prior_revision": "fc_v61_native_all_two_band_20261113",
           "scope": "100K-only market collection; independent own-price bands; active V6 versus historical scalar protocol"
+        },
+        {
+          "kind": "direct_user_v61_admin_only_price_write",
+          "date": "2026-11-13"
         }
       ],
       "consumers": [
@@ -1201,7 +1206,7 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc_v61_100k_market_two_band_20261113",
+      "revision": "fc_v61_admin_only_two_band_20261113",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1211,10 +1216,10 @@
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "0170963eb49d7266cb1e8ec794734ff3b847d4004d93a9c28af6617519add1d9",
+        "sha256": "9a67017bb7b720cbe19e40babcc02abb9566aca113e7035c5af38919f5662d3f",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1232,7 +1237,8 @@
         "fc.pricing.v3@20261109-coupon-display",
         "fc.pricing.v3@20261110-three-platform-100k",
         "fc.pricing.v3@20261111-lootbar-no-coupon",
-        "fc.pricing.v3@fc_v61_native_all_two_band_20261113"
+        "fc.pricing.v3@fc_v61_native_all_two_band_20261113",
+        "fc.pricing.v3@fc_v61_100k_market_two_band_20261113"
       ],
       "provenance": [
         {
@@ -1321,6 +1327,10 @@
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
           "prior_revision": "fc_v61_native_all_two_band_20261113",
           "scope": "100K-only market collection; independent own-price bands; active V6 versus historical scalar protocol"
+        },
+        {
+          "kind": "direct_user_v61_admin_only_price_write",
+          "date": "2026-11-13"
         }
       ],
       "consumers": [

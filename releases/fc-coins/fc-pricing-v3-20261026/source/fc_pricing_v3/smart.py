@@ -179,6 +179,157 @@ def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=No
     return result
 
 
+def observed_curve_blocks(plan, platform, state, online, windows, now):
+    """Slice confirmed V6 exposure at assignment and actual price boundaries."""
+    from .business_source import OBSERVED_PRICE_WINDOWS, _window_decision_key, _window_end
+    from .curve_strategy_v6 import ANCHORS, comparison_background_key, segment_reference_id
+    from .platforms import native_resources
+    from .price_curve import curve_key
+
+    coverage = online.get('learning_coverage') or {}
+    if (online.get('smart_plan_id') != plan['plan_id'] or online.get('smart_revision') != plan['revision']
+            or coverage.get('query_complete') is not True or coverage.get('unscoped_time_gaps') is not False
+            or 'gap_events' not in coverage or not coverage.get('observed_at') or not coverage.get('source_sha256')):
+        return []
+    cutoff = min(now, instant(coverage['observed_at']))
+    resource = 'base:' + platform
+    scoped = [window for window in windows if resource in native_resources(window.get('mutable_resources', []))]
+    outcomes = {}
+    for row in online.get('actual_outcomes', []):
+        if row.get('platform') == platform:
+            outcomes.setdefault(row.get('price_window_id'), []).append(row)
+    gaps = [gap for gap in coverage['gap_events'] if gap.get('group') is None or
+            gap['group'].rsplit(':', 1)[-1] == platform]
+    blocks = {}
+    for window in scoped:
+        curve = (window['action'].get('curves') or {}).get(platform)
+        if (window.get('write_protocol') != 'fc27_curve_v6' or not curve or
+                window.get('mode') != 'production' or window.get('origin') not in OBSERVED_PRICE_WINDOWS):
+            continue
+        opened = instant(window['opened_at'])
+        entries = [(opened, (window.get('curve_selection') or {}).get(platform))]
+        entries.extend((instant(row['at']), (row.get('curve_selection') or {}).get(platform))
+                       for row in window.get('continuations', []) if resource in row['resources'])
+        entries.sort(key=lambda entry: entry[0])
+        if not any(selection and selection.get('assignment') for _, selection in entries):
+            continue
+        closed = _window_end(window, platform, scoped, cutoff, platform=platform)
+        actual_key = curve_key(curve)
+        decision_key = _window_decision_key(window, platform, actual_key)
+        for index, (at, selection) in enumerate(entries):
+            info = (selection or {}).get('assignment') or {}
+            segment = info.get('segment')
+            if (segment not in ANCHORS or info.get('plan_id') != plan['plan_id']
+                    or info.get('revision') != plan['revision'] or info.get('platform') != platform
+                    or info.get('comparison_episode_id') != state['episode']['comparison_episode_id']
+                    or info.get('reference_curve_id') != segment_reference_id(state['reference'], segment)):
+                continue
+            start = instant(info['starts_at'])
+            end = instant(info['ends_at'])
+            if end > cutoff:
+                continue
+            begin = max(opened, at, start)
+            stop = min(closed, end, entries[index + 1][0]) if index + 1 < len(entries) else min(closed, end)
+            if stop <= begin:
+                continue
+            label = info['actual_label']
+            background = comparison_background_key(curve, segment)
+            block = blocks.setdefault((segment, info['block']), dict(segment=segment, block=info['block'],
+                epoch=info['epoch'], slot=info['slot'], pair_id=info['pair_id'], starts_at=info['starts_at'],
+                ends_at=info['ends_at'], label=label, display_regime_key=info['background_curve_key'],
+                hours=Decimal(0), intervals=[], prices=set(), events={}, complete=True, window_ids=set()))
+            if (block['label'] != label or block['display_regime_key'] != info['background_curve_key']
+                    or info['background_curve_key'] != background
+                    or info['primary_curve_key'] != actual_key
+                    or info['decision_curve_key'] not in (actual_key, decision_key)):
+                block['complete'] = False
+            block['intervals'].append([(begin-start).total_seconds(), (stop-start).total_seconds()])
+            block['hours'] += Decimal(str((stop-begin).total_seconds())) / 3600
+            block['prices'].add(actual_key)
+            block['window_ids'].add(window['operation_id'])
+            if any(begin <= instant(gap['occurred_at']) < stop for gap in gaps):
+                block['complete'] = False
+            for row in outcomes.get(window['operation_id'], ()):
+                occurred = instant(row['occurred_at'])
+                if not begin <= occurred < stop:
+                    continue
+                if row.get('curve_key') != actual_key or row.get('decision_curve_key') != decision_key:
+                    block['complete'] = False
+                    continue
+                event = dict(row, offset=(occurred-start).total_seconds())
+                identity = row['order_key']
+                if identity in block['events'] and block['events'][identity] != event:
+                    block['complete'] = False
+                block['events'][identity] = event
+    for block in blocks.values():
+        block['complete'] = block['complete'] and len(block['prices']) == 1
+        block['prices'] = sorted(block['prices'])
+        block['window_ids'] = sorted(block['window_ids'])
+        block['events'] = list(block['events'].values())
+    return list(blocks.values())
+
+
+def _curve_block_summary(block):
+    from .price_curve import coin_quantity_band
+
+    def summarize(rows):
+        cost_basis = 'same_order_Order_shipping_CNY_margin_at_actual_USD_receipt'
+        cost_rows = [r for r in rows if r.get('cost_basis') == cost_basis
+                     and r.get('actual_contribution_usd') is not None and r.get('actual_net_usd') is not None]
+        totals = {}
+        for field in ('actual_net_usd', 'purchase_k', 'promised_bonus_k', 'promised_delivered_k'):
+            totals[field] = (str(sum(Decimal(r[field]) for r in rows))
+                             if block['complete'] and all(r.get(field) is not None for r in rows) else None)
+        net = totals['actual_net_usd']
+        gross = sum(Decimal(r['actual_contribution_usd']) for r in cost_rows)
+        totals.update(orders=len(rows) if block['complete'] else None, cost_covered_orders=len(cost_rows),
+                      procurement_gross_usd=str(gross) if net is not None and len(cost_rows) == len(rows) else None,
+                      procurement_margin=str(gross / Decimal(net)) if net and Decimal(net) > 0
+                      and len(cost_rows) == len(rows) else None)
+        return totals
+
+    rows = block['events']
+    summary = {key: value for key, value in block.items() if key not in ('events', 'intervals', 'hours')}
+    summary.update(hours=str(block['hours']), platform=summarize(rows),
+                   segments={segment: summarize([row for row in rows if row.get('purchase_k') is not None
+                                                 and coin_quantity_band(row['purchase_k']) == segment])
+                             for segment in ('small', 'large')})
+    return summary
+
+
+def curve_learning(plan, platform, state, online, windows, now, current):
+    """Reuse the existing paired assessor, keeping procurement coverage explicit."""
+    from .curve_strategy_v6 import ANCHORS, comparison_background_key, segment_reference_id
+
+    blocks = observed_curve_blocks(plan, platform, state, online, windows, now)
+    source = online.get('learning_coverage') or {}
+    result = {}
+    current_epoch = curve_slot(plan, platform, state, now)['epoch']
+    for segment in ANCHORS:
+        rows = sorted((row for row in blocks if row['segment'] == segment), key=lambda row: row['block'])
+        if not rows:
+            continue
+        background = comparison_background_key(current, segment)
+        eligible = []
+        for row in rows:
+            if row['label'] not in ('A', 'B', 'C') or row['display_regime_key'] != background:
+                continue
+            events = [dict(event, actual_contribution_usd=None) if
+                      event.get('cost_basis') != 'same_order_Order_shipping_CNY_margin_at_actual_USD_receipt'
+                      else event for event in row['events']]
+            eligible.append(dict(row, events=events))
+        policy = assess_strata([row for row in eligible if row['epoch'] < current_epoch], complete=True)
+        recent = assess(eligible, complete=True)
+        correction = dict(effective_blocks={label: eligible[-1]['block'] + 1 for label in recent['excluded']})
+        result[segment] = dict(policy=policy, correction=correction, background_curve_key=background,
+            reference_curve_id=segment_reference_id(state['reference'], segment),
+            comparison_episode_id=state['episode']['comparison_episode_id'],
+            assessed_epoch=current_epoch - 1,
+            observed_at=source['observed_at'], source_sha256=source['source_sha256'],
+            blocks=[_curve_block_summary(row) for row in rows[-2:]])
+    return result
+
+
 def paired_exposure(first, second):
     for a in first:
         for b in second:
@@ -558,6 +709,35 @@ def assignment(plan, now, *, policy=None, correction=None):
                 schedule=schedule,
                 starts_at=(start + timedelta(hours=3 * block)).isoformat(),
                 ends_at=(start + timedelta(hours=3 * (block + 1))).isoformat())
+
+
+def curve_slot(plan, platform, state, now, *, learning=None):
+    """Give both same-clock halves to the same band before considering sales."""
+    from .curve_strategy_v6 import segment_reference_id
+
+    episode = state['episode']
+    start = max(instant(plan['starts_at']), instant(episode['opened_at']))
+    block = int((now - start).total_seconds() // (3 * 3600))
+    epoch, slot = divmod(block, 16)
+    pair = slot % 8
+    scope = [plan['plan_id'], plan['revision'], platform, episode['comparison_episode_id']]
+    segment = ('small', 'large')[(int(fingerprint(scope)[-1], 16) + pair) % 2]
+    reference_id = segment_reference_id(state['reference'], segment)
+    learned = (learning or {}).get(segment) or {}
+    if (learned.get('reference_curve_id') != reference_id
+            or learned.get('comparison_episode_id') != episode['comparison_episode_id']
+            or learned.get('assessed_epoch', epoch - 1) >= epoch):
+        learned = {}
+    policy, correction = learned.get('policy'), learned.get('correction')
+    scoped = dict(plan, starts_at=start.isoformat(), smart_strategy_version='smart-v1',
+                  plan_id='curve-v6:' + fingerprint([*scope, segment]))
+    assigned = assignment(scoped, now, policy=policy, correction=correction)
+    return dict(assigned, plan_id=plan['plan_id'], revision=plan['revision'], platform=platform,
+                segment=segment, pair_id=str(epoch) + ':' + str(pair),
+                comparison_episode_id=episode['comparison_episode_id'], reference_curve_id=reference_id,
+                policy=policy, correction=correction, learning_source_sha256=learned.get('source_sha256'),
+                learning_observed_at=learned.get('observed_at'), decision_at=now.isoformat(),
+                background_curve_key=learned.get('background_curve_key'))
 
 
 def bidirectional_assignment(plan, now, *, policy=None, correction=None):
