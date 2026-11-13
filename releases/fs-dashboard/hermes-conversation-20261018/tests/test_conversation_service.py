@@ -286,6 +286,29 @@ class ServiceTests(unittest.TestCase):
             self.assertLess(len(json.dumps(index, ensure_ascii=False).encode("utf-8")), 8000)
             self.assertLess(len(json.dumps(policy, ensure_ascii=False).encode("utf-8")), 8000)
 
+    def test_active_pricing_admission_uses_the_bound_contract(self):
+        import ast
+        root = Path(__file__).resolve().parents[4]
+        active = root / 'releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py'
+        tree = ast.parse(active.read_bytes())
+        prompt = next(ast.literal_eval(node.value) for node in tree.body
+                      if isinstance(node, ast.Assign)
+                      and any(isinstance(target, ast.Name) and target.id == 'SHORT_RULES'
+                              for target in node.targets))
+        dispatch = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+                        and node.name == '_dispatch')
+        admission_prompt = next(value for node in ast.walk(dispatch) if isinstance(node, ast.Dict)
+                                for key, value in zip(node.keys, node.values)
+                                if isinstance(key, ast.Constant) and key.value == 'prompt')
+        self.assertTrue(any(isinstance(node, ast.Name) and node.id == 'SHORT_RULES'
+                            for node in ast.walk(admission_prompt)))
+        self.assertIn('按本次程序回执的 write_protocol 核对对应合同', prompt)
+        self.assertIn('fc27_curve_v6 按 D-8 至 D-2 金额加权平均优惠', prompt)
+        self.assertIn('档位保本和平台组合采购毛利至少18%，25%是经营目标', prompt)
+        self.assertIn('已核为旧标量协议的原操作继续执行原双20%采购毛利规则', prompt)
+        self.assertIn('协议未核实时先读原回执和当前合同', prompt)
+        self.assertIn('本任务capabilities明确允许的动作才执行；未授权任务只读', prompt)
+
     def test_active_request_capabilities_exact_get_preserves_transport(self):
         import ast
         import io
