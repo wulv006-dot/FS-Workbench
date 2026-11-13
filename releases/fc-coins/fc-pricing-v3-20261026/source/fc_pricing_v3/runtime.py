@@ -349,21 +349,87 @@ def _curve_collection_fingerprint(evidence):
     return fingerprint({key: value for key, value in evidence.items() if key != 'curve_proof_inputs'})
 
 
-def _curve_cost_facts(closed):
-    if closed is None:
-        return None
-    import sys
-    sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
-    from order_facts_runtime import collect_shared
+def ordinary_delivery_archives(scope, shared, *, root=None):
+    """Use original closed delivery-day files, superseded by the current cache where it actually covers."""
+    from pathlib import Path
+    from channel_cache import delivery_bounds
+    from order_facts_source import project_order_facts
 
-    period = closed['period']
-    facts = collect_shared(dict(site_id='266', gid='1327', start=period['start'], end=period['end']))
-    coverage = facts['source_coverage']
-    # The local read fixes the joint input version. Admin archive availability
-    # and Order cache generation retain their individual source times.
+    root = Path(root or '/var/lib/fs-channel-effects')
+    names = {row['order_no'] for row in shared['rows']}
+    lo = datetime.fromisoformat(scope['start']).date()
+    hi = datetime.fromisoformat(scope['end']).date()
+    days = [(lo + timedelta(days=i)).isoformat() for i in range((hi - lo).days + 1)]
+    ordered_paths = [root / 'delivery-days' / (day + '.json') for day in days]
+    ordered_paths.append(root / 'order-deliveries.json')
+    sources = []
+    for path in ordered_paths:
+        if not path.is_file():
+            continue
+        if any(item.is_symlink() for item in (path, *path.parents)) or path.stat().st_size > 128*1024*1024:
+            raise ValueError('curve_delivery_archive_path')
+        payload = path.read_bytes()
+        value = json.loads(payload)
+        if value.get('contract') != 'channel-order-deliveries-v1' or value.get('complete') is not True:
+            raise ValueError('curve_delivery_archive_contract')
+        period = value['period']
+        if path.parent.name == 'delivery-days' and period != {'start':path.stem, 'end':path.stem}:
+            raise ValueError('curve_delivery_archive_day_mismatch')
+        lower, upper = delivery_bounds(period)
+        generated = instant(value['generatedAt'])
+        matched = [row for row in value['rows'] if row.get('source') == 'www.mmoexp.com'
+                   and row.get('sn') in names and str(row.get('genre')) == '1'
+                   and lower <= str(row.get('trade_at')) <= upper]
+        if (any(not str(row.get('delivery_id') or '').isdecimal() for row in matched)
+                or len({str(row['delivery_id']) for row in matched}) != len(matched)):
+            raise ValueError('curve_delivery_archive_record_conflict')
+        sources.append((generated, lower, upper, hashlib.sha256(payload).hexdigest(), matched))
+    coverage = dict(shared['coverage'])
+    rows = {}
+    sources.sort(key=lambda source: source[:4])
+    for _, lower, upper, _, matched in sources:
+        for row in matched:
+            old = rows.get(str(row['delivery_id']))
+            if old and old['sn'] != row['sn']:
+                raise ValueError('curve_delivery_archive_order_conflict')
+        for key, old in list(rows.items()):
+            if lower <= old['trade_at'] <= upper:
+                del rows[key]
+        for row in matched:
+            key = str(row['delivery_id'])
+            rows[key] = row
+    captured = clock()
     coverage['admin_captured_at'] = coverage.get('captured_at')
-    coverage['captured_at'] = clock().isoformat()
-    return facts
+    coverage['captured_at'] = captured.isoformat()
+    windows = [dict(start=lower, end=upper, revision=revision, generated_at=generated.isoformat())
+               for generated, lower, upper, revision, _ in sources]
+    coverage['cost'] = dict(status='observed_only',
+                            source_revision=fingerprint(windows) if windows else None,
+                            generated_at=max((row[0] for row in sources), default=None).isoformat() if sources else None,
+                            shipment_windows=windows, shipment_window_complete=bool(windows),
+                            order_cost_complete=False)
+    return project_order_facts(shared['rows'], shared['dataset'], rows.values(), scope=scope,
+                               source_coverage=coverage, identity_catalog=shared['identity_catalog'])
+
+
+def _shared_curve_inputs(paid_cutoff, as_of):
+    import sys
+    from .business_source import historical_period, shared_curve_attachment
+
+    sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
+    from shared_es_facts import read
+
+    period = historical_period('7d', now=instant(paid_cutoff))['period']
+    scope = dict(site_id='266', gid='1327', **period)
+    shared = read(scope)
+    closed = shared_curve_attachment(shared, scope, as_of=as_of)
+    if closed is None:
+        return None, None
+    try:
+        facts = ordinary_delivery_archives(scope, shared)
+    except (ImportError, OSError, ValueError, TypeError, KeyError):
+        facts = None
+    return closed, facts
 
 
 def _same_run_checkout(evidence, curves, as_of, *, live):
@@ -436,12 +502,12 @@ def _checkout_cost_path(path, native, platform, population, orders, paid_cutoff,
     for identity, row in orders.items():
         source_tier = comparable.get(row.get('base_k'))
         if (row.get('platform') != platform or not source_tier
-                or row.get('bonus_k') != source_tier['gift_k'] or row.get('region_id') != 0
-                or row.get('promotion_path') != {'kind':'none'}
+                or row.get('bonus_k') != source_tier['gift_k']
                 or row.get('single_line_unit_purchase') is not True):
             continue
         observed_at = as_of.isoformat()
-        if row['base_k'] == path['purchase_k']:
+        if (row['base_k'] == path['purchase_k'] and row.get('region_id') == 0
+                and row.get('promotion_path') == {'kind':'none'}):
             matching[identity] = dict(curve_key=path['curve_key'], purchase_k=path['purchase_k'],
                                       path_id=path['path_id'], quote_ref=native['quote_ref'],
                                       eligibility_ref=native['eligibility_ref'],
@@ -596,9 +662,11 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
     if not collected:
         return {}
     try:
-        facts = _curve_cost_facts(closed)
+        shared_closed, facts = _shared_curve_inputs(paid_cutoff, clock())
     except (ImportError, OSError, ValueError, TypeError, KeyError):
-        facts = None
+        shared_closed, facts = None, None
+    if shared_closed is not None:
+        closed = shared_closed
     try:
         recent = collect_recent_curve_population(manager, closed, paid_cutoff)
     except (ImportError, OSError, ValueError, TypeError, KeyError):

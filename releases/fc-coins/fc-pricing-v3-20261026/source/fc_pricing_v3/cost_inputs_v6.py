@@ -178,6 +178,16 @@ def _facts(revisions, as_of):
     except (KeyError, TypeError, ValueError):
         return {}, None
     cost_window = _fact_cost_window(proof.get('period'))
+    shipment_windows = []
+    for source in proof.get('shipment_windows', ()):
+        lower, upper = _instant(source.get('start')), _instant(source.get('end'))
+        captured = _instant(source.get('generated_at'))
+        if (lower is None or upper is None or captured is None
+                or not lower <= upper or captured > generated or not source.get('revision')):
+            raise ValueError('ordinary_delivery_source_window_invalid')
+        shipment_windows.append((lower, upper, captured))
+    if not shipment_windows and cost_window is not None:
+        shipment_windows = [(*cost_window, generated)]
     selected = {}
     for row in value['orders']:
         raw_id = row.get('order_no')
@@ -206,10 +216,10 @@ def _facts(revisions, as_of):
                 raise ValueError('cost_order_facts_complete_total_mismatch')
         ordinary_records_complete = bool(proof.get('shipment_window_complete') is True
             and coverage.get('admin_complete') is True and row.get('status') == '已完成'
-            and row.get('pay_status') == '1' and observed is not None and cost_window
+            and row.get('pay_status') == '1' and observed is not None and shipment_windows
             and len(valid) == len(records)
-            and all(trade and cost_window[0] <= trade <= cost_window[1] and trade <= generated
-                    for trade in trade_times))
+            and all(trade and any(lower <= trade <= upper and trade <= captured
+                                  for lower, upper, captured in shipment_windows) for trade in trade_times))
         selected[key] = (paid, actual, observed, generated, records, ordinary_records_complete)
     return selected, dict(source_revision=revision, admin_revision=coverage['source_revision'],
                           available_at=available.isoformat(), generated_at=generated.isoformat(),

@@ -5,6 +5,7 @@ from decimal import Decimal
 import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -14,6 +15,7 @@ DASHBOARD = ROOT.parents[1] / 'fs-dashboard'
 sys.path[:0] = [str(ROOT / 'source'), str(DASHBOARD / 'dashboard-refresh-20261025/source'),
                 str(DASHBOARD / 'cache-archive-retention-20261025/source')]
 from fc_pricing_v3 import business_source
+from fc_pricing_v3 import runtime
 from fc_pricing_v3.cost_inputs_v6 import BOC_URL, ORDINARY_COST_BASIS, estimate_historical_cost, project_admin_loss_statistics
 from order_facts_source import project_order_facts
 
@@ -112,6 +114,34 @@ def run(attachments, *, revisions=(), rate=None, as_of=AS_OF, basis='PURCHASE_K'
 
 
 class CostInputs(unittest.TestCase):
+    def test_reads_complete_original_delivery_days_and_applies_only_newer_covered_rows(self):
+        scope = dict(site_id='266', gid='1327', start='2026-11-06', end='2026-11-08')
+        raw = dict(site_id='266', gid='1327', order_no='fixture-order', paytime='2026-11-06 10:00:00',
+                   pay_status='1', status_format='已完成', site={'full_title':'www.mmoexp.com'})
+        shared = dict(rows=[raw], dataset=None, identity_catalog=None,
+                      coverage=dict(admin_complete=True, source_revision='shared-revision',
+                                    captured_at='2026-11-09T10:00:00+08:00'))
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root/'delivery-days').mkdir()
+            for day, rows in (('2026-11-06', [('1','20')]), ('2026-11-07', [('2','30'),('3','40')])):
+                path = root/'delivery-days'/(day+'.json')
+                data = dict(contract='channel-order-deliveries-v1', complete=True,
+                    generatedAt=day+'T23:59:59+08:00', period=dict(start=day,end=day), rows=[
+                        dict(source='www.mmoexp.com', sn='fixture-order', delivery_id=ident, genre='1',
+                             cost_total=cost, trade_at=day+' 11:00:00') for ident,cost in rows])
+                path.write_text(json.dumps(data), encoding='utf-8')
+            latest = dict(data, generatedAt='2026-11-09T12:00:00+08:00',
+                period=dict(start='2026-11-07',end='2026-11-08',until='2026-11-08 08:00'),
+                rows=[dict(data['rows'][0], cost_total='50')])
+            (root/'order-deliveries.json').write_text(json.dumps(latest), encoding='utf-8')
+            result = runtime.ordinary_delivery_archives(scope, shared, root=root)
+        proof = result['source_coverage']['cost']
+        self.assertEqual(len(proof['shipment_windows']), 3)
+        self.assertFalse(proof['order_cost_complete'])
+        self.assertEqual(result['orders'][0]['observed_cost_cny'], '70')
+        self.assertEqual({item['cost_record_id'] for item in result['orders'][0]['cost_records']}, {'1','2'})
+
     def test_complete_ordinary_delivery_supports_forecast_without_relabeling_historical_cost(self):
         orders = list(rows_for([2] * 10, quantity='2500K Coins + 60K Free x1 = $200'))
         original = attachment(orders)

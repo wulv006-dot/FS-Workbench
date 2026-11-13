@@ -1762,6 +1762,93 @@ def historical_period(period, *, now=None):
                 paid_window_start=lower.isoformat(), paid_window_end_exclusive=upper.isoformat(), timezone='Asia/Shanghai')
 
 
+def shared_curve_attachment(shared, scope, *, as_of):
+    """Convert one fixed shared ES/Admin snapshot into private FC pricing inputs."""
+    from .financial import instant
+    from .planning_baskets_v6 import PAID_SCOPE
+
+    coverage = shared['coverage']
+    dataset = shared.get('dataset') or {}
+    as_of = instant(as_of)
+    capture = instant(coverage['captured_at']) if coverage.get('captured_at') else None
+    if (not coverage.get('publication_id') or not coverage.get('source_revision')
+            or capture is None or capture > as_of or not dataset):
+        return None
+    labels, discounts, identities = defaultdict(set), defaultdict(set), defaultdict(set)
+    for row in dataset['rows']:
+        token = row['订单号']
+        labels[token].add(str(row.get('产品类型') or 'unknown'))
+        discounts[token].add(amount(row.get('折扣金额')))
+    for row in (shared.get('identity_catalog') or {}).get('rows', ()):
+        identities[hashlib.sha256(row['order_no'].encode()).hexdigest()].add(str(row['site_id']))
+    from channel_effects import fraud
+    from channel_source import apply_cost_overrides
+
+    settings = apply_cost_overrides(dict(sources={}))
+    tests = settings['testOrders']
+    projected = []
+    gaps = Counter()
+    for order in shared['rows']:
+        if str(order.get('site_id')) != '266' or str(order.get('gid')) != '1327':
+            raise ValueError('curve_shared_native_order_scope')
+        number = order['order_no']
+        hashed = hashlib.sha256(number.encode()).hexdigest()
+        if str(order.get('pay_status')) != '1':
+            continue
+        status = str(order.get('status_format') or '')
+        paid = amount(order.get('amount_usd_format'))
+        test = tests.get(number)
+        if (status.startswith('已退款') or fraud({'status':status}) or test
+                and str(test.get('gid')) == '1327' and amount(test.get('salesUsd')) == paid):
+            continue
+        types = labels.get(hashed, set())
+        if types != {'货币(Gold)'}:
+            if not types or 'unknown' in types or '货币(Gold)' in types:
+                gaps['shared_product_identity_unresolved'] += 1
+            continue
+        if identities.get(hashed) != {'266'}:
+            gaps['shared_order_identity_ambiguous'] += 1
+            continue
+        projection = order.get('fc27_coins')
+        if not projection or instant(projection['observed_at']) > as_of:
+            projection = {}
+            gaps['shared_native_coin_quantity_unavailable'] += 1
+        tracking = order.get('tracking') or {}
+        no_deduction = (amount(projection.get('retained_percent')) == 100
+                        and amount(projection.get('points')) == 0 and not order.get('discount_code')
+                        and tracking.get('coupons') == [] and discounts[hashed] == {Decimal(0)})
+        row = dict(order_key=hashlib.sha256(('site266:FC27:Coins:' + number).encode()).hexdigest(),
+                   paid_at=instant(order['paytime']).isoformat(),
+                   available_at=max(capture, instant(projection['observed_at'])).isoformat() if projection else capture.isoformat(),
+                   platform=projection.get('platform'), base_k=projection.get('purchase_k'),
+                   bonus_k=projection.get('bonus_k'), delivered_k=projection.get('delivered_k'),
+                   single_line_unit_purchase=projection.get('single_line_unit_purchase'),
+                   region_id=projection.get('region_id'), promotion_path={'kind':'none'} if no_deduction else None,
+                   promotion_basis='Admin_ratio_points_code_same_order_coupon_log_and_ES_discount'
+                                   if no_deduction else None,
+                   cost_cny=None, status=status)
+        row['source_sha256'] = fingerprint(dict(row=row, shared_source_revision=coverage['source_revision'],
+                                               native_projection=projection.get('source_sha256')))
+        projected.append(row)
+    lower = instant(scope['start'] + ' 00:00:00')
+    upper = instant(scope['end'] + ' 00:00:00') + timedelta(days=1)
+    population_complete = bool(coverage.get('admin_complete') and not coverage.get('missing_days')
+        and (shared.get('identity_catalog') or {}).get('complete')
+        and settings['sources']['accounting']['status'] == 'available'
+        and not gaps['shared_product_identity_unresolved'] and not gaps['shared_order_identity_ambiguous'])
+    proof = dict(population_scope=PAID_SCOPE, population_status='complete' if population_complete else 'partial',
+                 window_complete=population_complete, paid_window_start=lower.isoformat(),
+                 paid_window_end_exclusive=upper.isoformat(), shared_publication_id=coverage['publication_id'],
+                 shared_source_revision=coverage['source_revision'],
+                 fc27_projection_revision=coverage.get('fc27_projection_revision'),
+                 coverage_gaps=dict(+gaps))
+    revision = fingerprint(dict(rows=projected, coverage=proof))
+    observed = max([capture] + [instant(row['available_at']) for row in projected])
+    return dict(period={k:scope[k] for k in ('start','end')}, historical_orders=projected,
+                historical_orders_coverage=dict(proof,source_sha256=revision),
+                available_at=observed.isoformat(), source_sha256=revision)
+
+
 def collect_recent_curve_population(manager, closed, paid_cutoff):
     """Add only today's scoped native observations to the saved closed-day evidence."""
     from urllib.parse import urlencode
