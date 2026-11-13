@@ -276,6 +276,19 @@ def manual_execution_progress(db, operations):
     return progress
 
 
+def _curve_market_quotes(snapshot):
+    from .competitor_offers import CURRENT_QUANTITIES, POLICY, quantity_coverage
+
+    offers = [row for row in snapshot['evidence'].get('competitor_offers') or []
+              if row.get('purchase_k') in CURRENT_QUANTITIES]
+    return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY,
+                snapshot_id=snapshot['snapshot_id'], captured_at=snapshot['created_at'],
+                competitor_coverage=quantity_coverage(offers, requested=CURRENT_QUANTITIES),
+                competitor_offers=[{key:row.get(key) for key in ('source','platform','purchase_k','bonus_k','currency',
+                    'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier',
+                    'captured_at')} for row in offers])
+
+
 def read(path):
     if path=='versions':
         folder=Path(__file__).parent
@@ -285,6 +298,23 @@ def read(path):
                     legacy_sources={name:hashlib.sha256((folder/'legacy_simulation'/filename).read_bytes()).hexdigest()
                                     for name,(filename,_) in SOURCES.items()},
                     execution_authorized=False)
+    if path.startswith('market/'):
+        snapshot_id = path.split('/', 1)[1]
+        if re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', snapshot_id) is None:
+            raise ValueError('pricing_market_snapshot_id_invalid')
+        store = STORE / 'control.sqlite3'
+        snapshot = {}
+        if store.exists():
+            with closing(sqlite3.connect(store.resolve().as_uri() + '?mode=ro', uri=True, timeout=5)) as conn:
+                row = conn.execute('SELECT body FROM pricing_snapshots WHERE id=?', (snapshot_id,)).fetchone()
+                snapshot = json.loads(row[0]) if row else {}
+        if (snapshot.get('snapshot_id') != snapshot_id or snapshot.get('origin') != 'live_collector'
+                or snapshot.get('write_protocol') != CURVE_WRITE_PROTOCOL or snapshot.get('plan_id') is not None
+                or (snapshot.get('evidence') or {}).get('run_id') != snapshot_id
+                or (snapshot.get('result') or {}).get('execution_authorized') is not False):
+            raise ValueError('pricing_readonly_market_snapshot_unavailable')
+        return dict(_curve_market_quotes(snapshot), basis='readonly_collection', execution_authorized=False,
+                    write_performed=False)
     db=ledger()
     daily_request=None
     if path.startswith('review-state/'):
@@ -378,15 +408,13 @@ def read(path):
                     contract=(snapshot or {}).get('evidence',{}).get('region_contract'))
     if path=='market':
         if curve:
-            from .competitor_offers import CURRENT_QUANTITIES, POLICY, quantity_coverage
+            from .competitor_offers import POLICY
             from .runtime import _curve_proof_inputs, _validated_curve
             from .price_curve import curve_key
 
             if not current:
                 return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY, snapshot_id=None)
             evidence = current['evidence']
-            offers = [row for row in evidence.get('competitor_offers') or []
-                      if row.get('purchase_k') in CURRENT_QUANTITIES]
             inputs = _curve_proof_inputs(db, evidence)
             rows, catalogues = {}, {}
             for platform, entry in inputs.items():
@@ -405,12 +433,7 @@ def read(path):
                     continue
                 rows[platform] = dict(status=proof['status'], average_discount=proof.get('average_discount'),
                     minimum_safe_procurement_margin=proof['minimum_safe_procurement_margin'])
-            return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY,
-                snapshot_id=current['snapshot_id'], captured_at=current['created_at'], price_basis={'rows':rows}, catalogue_samples=catalogues,
-                competitor_coverage=quantity_coverage(offers, requested=CURRENT_QUANTITIES),
-                competitor_offers=[{key:row.get(key) for key in ('source','platform','purchase_k','bonus_k','currency',
-                    'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier',
-                    'captured_at')} for row in offers])
+            return dict(_curve_market_quotes(current), price_basis={'rows': rows}, catalogue_samples=catalogues)
         from .engine import price_basis
         original=db.get('pricing_snapshots',snapshot['snapshot_id']) if snapshot else None
         try:basis=price_basis(original['evidence'],instant(original['created_at'])) if original else dict(status='unavailable')

@@ -90,6 +90,8 @@ const tickProgress=()=>{const [id,fn]=progressTimers.entries().next().value;prog
 let curveProven=false,curveActivationResponse='',activationBodies=[];
 const previousCurveId='34454366-c016-46ae-89f6-ddccb64f377a';
 const curveCapturedAt=new Date().toISOString();
+const readonlyMarketId='0d0d4870-f3dd-4f23-bae6-bf9892e48e03';
+let readonlyJob=null,readonlyMarket=null,readonlyReads=[];
 let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='done',idSequence=0;
 const fetch=async (url,options={})=>{
   if(url.endsWith('/pricing/v3/state')){stateReads++;if(stateReadGate)await stateReadGate;}
@@ -101,6 +103,12 @@ const fetch=async (url,options={})=>{
       if(curveSubmitLost)throw Error('fixture collect receipt lost');
       return {ok:true,json:async()=>({job_id:body.client_event_id})};
     }
+    if(readonlyJob)return {ok:true,json:async()=>({job_id:readonlyMarketId})};
+  }
+  if(url.endsWith('/jobs/'+readonlyMarketId))return {ok:true,json:async()=>readonlyJob};
+  if(url.includes('/pricing/v3/market/')){
+    readonlyReads.push({url,method:options.method});
+    return readonlyMarket?{ok:true,json:async()=>readonlyMarket}:{ok:false,status:503,json:async()=>({error:'state_unavailable'})};
   }
   if(url.includes('/jobs/new-id-')){
     if(!curveJob)return {ok:false,status:404,json:async()=>({error:'not_found'})};
@@ -434,6 +442,36 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(elements['v3-price-ps'].textContent,'$8.51');
   assert.match(elements['v3-price-source-ps'].textContent,/后台采样/);
   assert.equal(elements['v3-price-change-ps'].hidden,true);
+  const decisionBeforeReadonly=elements['v3-decision-basis'].textContent;
+  const sourceBeforeReadonly=elements['v3-source-time'].textContent;
+  readonlyJob={job_id:readonlyMarketId,kind:'collect',status:'running'};
+  readonlyMarket={write_protocol:'fc27_curve_v6',snapshot_id:readonlyMarketId,basis:'readonly_collection',
+    execution_authorized:false,write_performed:false,captured_at:curveCapturedAt,
+    competitor_offers:[{source:'ArabUT',platform:'PS',purchase_k:'100',bonus_k:'0',currency:'USD',
+      regular_price:'8.80',comparable:true,captured_at:curveCapturedAt}]};
+  await elements.collect.events.click();
+  assert.match(elements['v3-result'].textContent,/只读采集已登记/);
+  assert.equal(elements['v3-market-snapshot'].textContent,'curve-market-run');
+  readonlyJob={...readonlyJob,status:'ready',result:{run_id:readonlyMarketId,quote_status:'curve_candidate_proven'}};
+  await scheduledCurve();
+  assert.match(elements['v3-result'].textContent,/采集已完成.*本次未改价/);
+  assert.doesNotMatch(elements['v3-result'].textContent,/待核（ready）/);
+  assert.match(elements['v3-market-status'].textContent,/只读采集快照.*本次未改价/);
+  assert.equal(elements['v3-market-snapshot'].textContent,readonlyMarketId);
+  assert.match(JSON.stringify(elements['v3-market-cards'].children[0]),/Arab-UT.*\$8\.80/);
+  assert.equal(elements['v3-decision-basis'].textContent,decisionBeforeReadonly);
+  assert.equal(elements['v3-source-time'].textContent,sourceBeforeReadonly);
+  assert.equal(elements['v3-price-ps'].textContent,'$8.51');
+  assert.equal(readonlyReads.length,1);
+  assert.equal(readonlyReads[0].method,undefined,'read the saved collection over GET');
+  await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-market-snapshot'].textContent,readonlyMarketId,'status refresh retains the newer collection');
+  const originalMarketTime=curveMarket.captured_at;
+  curveMarket.captured_at='2099-01-01T00:00:00Z';
+  await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-market-snapshot'].textContent,'curve-market-run','newer plan evidence replaces old collection');
+  curveMarket.captured_at=originalMarketTime;
+  readonlyJob=null;readonlyMarket=null;
   state.snapshot_id=oldSnapshotId;state.captured_at=oldSnapshotTime;
   delete state.write_protocol;delete state.curve_decision;delete state.source_checked_at;
   const sampled=curveMarket.catalogue_samples.PS;
