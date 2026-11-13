@@ -493,11 +493,36 @@
   }
   async function renderMarketEvidence(){
     const output=$('v3-market-cards'),summary=$('v3-market-status');output.setAttribute('aria-busy','true');
-    for(const platform of ['ps','xbox','pc'])$('v3-price-basis-'+platform).textContent='采购成本 / 双红线待核';
+    const curveActive=(current?.plan?.write_protocol===curveProtocol);
+    for(const platform of ['ps','xbox','pc'])$('v3-price-basis-'+platform).textContent=curveActive?'新定价核算待核':'采购成本 / 双红线待核';
     try{
       const market=await request('market');
       output.replaceChildren();
       if(!market.snapshot_id){summary.textContent='尚无采集快照，等待下一次来源采集。';return;}
+      if(curveActive){
+        if(market.write_protocol!==curveProtocol){summary.textContent='正在等待当前新定价的市场与财务证据。';return;}
+        for(const platform of platforms){
+          const label=platform==='XBOX'?'Xbox':platform, column=node('article');column.className='market-platform';column.append(node('h3',label));
+          const details=$('v3-price-basis-'+platform.toLowerCase()),basis=market.price_basis?.rows?.[platform];
+          const retained=basis?.average_discount?.retained_ratio,margin=basis?.minimum_safe_procurement_margin;
+          if(retained!=null)details.replaceChildren(node('p',`D-8 至 D-2 平均优惠 ${((1-Number(retained))*100).toFixed(2)}%`),
+            node('p',`采集时估算组合采购毛利 ${margin==null?'待核':(Number(margin)*100).toFixed(2)+'%'}`));
+          for(const source of ['Lootbar','U7Buy','ArabUT']){
+            const card=node('section');card.className='market-quote';card.append(node('h4',source==='ArabUT'?'Arab-UT':source));
+            const offers=(market.competitor_offers||[]).filter(row=>row.source===source&&row.platform===platform);
+            if(!offers.length)card.append(node('p','本轮未取得报价'));
+            for(const offer of offers){
+              const amount=offer.regular_price??offer.eligible_net_price??offer.display_price;
+              const price=amount==null?'价格待核':`${offer.currency==='USD'?usd(amount):offer.currency+' '+amount}`;
+              const method=offer.delivery_tier?` · ${offer.delivery_tier}`:'';
+              card.append(node('p',`${offer.purchase_k}K${offer.bonus_k==null?'':` + ${offer.bonus_k}K`} · ${price}${method}${offer.comparable?'':' · 口径待核'}`));
+            }
+            column.append(card);
+          }
+          output.append(column);
+        }
+        summary.textContent=`新定价采集 ${when(market.captured_at)} · 快照 ${market.snapshot_id}。`;return;
+      }
       if(market.snapshot_id!==current?.snapshot_id){summary.textContent='来源快照与本轮决策不一致，等待统一状态更新。';return;}
       const newPolicy=primaryPolicy(chosenPlan());
       for(const platform of ['PS','XBOX','PC']){
@@ -554,7 +579,7 @@
     if(!plans.some(p=>p.plan_id===selectedPlanId))selectedPlanId=state.active_plans?.[0]?.plan_id||plans[0]?.plan_id||null;
     list.value=selectedPlanId||'';
     const plan=chosenPlan(),active=(state.active_plans||[]).find(p=>p.plan_id===selectedPlanId)||state.active_plans?.[0]||state.plan;
-    marketTag.textContent=primaryPolicy(plan)?'Lootbar 主锚 · Arab-UT 次锚（主机Normal / PC标准）· ItemD2R 辅助':legacyMarketTag;
+    marketTag.textContent=state.plan?.write_protocol===curveProtocol?'Lootbar · U7Buy · Arab-UT（同平台同档观察）':primaryPolicy(plan)?'Lootbar 主锚 · Arab-UT 次锚（主机Normal / PC标准）· ItemD2R 辅助':legacyMarketTag;
     if(firstRender&&active?.mode&&names[active.mode]){$('v3-mode').value=active.mode;displayedMode=active.mode;setMode(active.mode);}
     $('v3-state').textContent=(active?`${names[active.mode]} · ${statusText(active.state)} · 数据 ${state.captured_at||'尚未取得'} · ${state.generation?'统一控制权已登记':'尚未切换'}`:'无活动计划；历史价格与原操作保留')+
       (permissionKnown?(canWrite?' · 当前账户可操作':' · 当前账户仅可查看'):' · 操作权限待核');

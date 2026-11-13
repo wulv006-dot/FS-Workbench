@@ -257,6 +257,39 @@ def read(path):
         return dict(rules=(snapshot or {}).get('evidence',{}).get('region_rules',[]),
                     contract=(snapshot or {}).get('evidence',{}).get('region_contract'))
     if path=='market':
+        plan=db.active_plan() or {}
+        if plan.get('write_protocol') == CURVE_WRITE_PROTOCOL:
+            from .competitor_offers import POLICY, quantity_coverage
+            from .runtime import _curve_proof_inputs, _validated_curve
+            from .price_curve import curve_key
+
+            latest_plan = db.get('metadata', 'latest_snapshot:' + plan['plan_id']) or {}
+            ident = latest_plan.get('snapshot_id') or plan.get('curve_activation_snapshot_id')
+            current = db.get('pricing_snapshots', ident) if ident else None
+            if (not current or current.get('write_protocol') != CURVE_WRITE_PROTOCOL
+                    or current.get('plan_id') not in (None, plan['plan_id'])):
+                return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY, snapshot_id=None)
+            evidence = current['evidence']
+            offers = evidence.get('competitor_offers') or []
+            inputs = _curve_proof_inputs(db, evidence)
+            rows = {}
+            for platform, entry in inputs.items():
+                curve = entry.get('primary_curve')
+                try:
+                    frozen = (entry.get('primary_inputs') or {}).get(curve_key(curve)) if curve else None
+                    proof = _validated_curve(curve, frozen) if frozen is not None else None
+                except (KeyError, TypeError, ValueError):
+                    proof = None
+                if proof is None:
+                    continue
+                rows[platform] = dict(status=proof['status'], average_discount=proof.get('average_discount'),
+                    minimum_safe_procurement_margin=proof['minimum_safe_procurement_margin'])
+            return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY,
+                snapshot_id=current['snapshot_id'], captured_at=current['created_at'], price_basis={'rows':rows},
+                competitor_coverage=quantity_coverage(offers),
+                competitor_offers=[{key:row.get(key) for key in ('source','platform','purchase_k','bonus_k','currency',
+                    'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier',
+                    'captured_at')} for row in offers])
         from .engine import price_basis
         original=db.get('pricing_snapshots',snapshot['snapshot_id']) if snapshot else None
         try:basis=price_basis(original['evidence'],instant(original['created_at'])) if original else dict(status='unavailable')
