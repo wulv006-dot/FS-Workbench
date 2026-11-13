@@ -396,6 +396,35 @@ class CurveWriter(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'native_tier_factor_mismatch'):
             writer.curve_catalog_plan(bundle, PLATFORM, capability)
 
+    def test_native_price_derived_markup_requires_exact_editor_contract_and_price(self):
+        from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT
+        from test_price_curve_v6 import EDITOR_CONTRACT
+
+        def set_markup(row):
+            row['more']['discount'][1] = '103'
+
+        for handler in (EDITOR_CONTRACT['editor_handler_sha256'], 'wrong-handler'):
+            with self.subTest(handler=handler):
+                bundle, capability, *_ = setup_bundle(large='103', target_override=set_markup)
+                target = bundle['action']['curves'][PLATFORM]
+                target['native_contract'].update(EDITOR_CONTRACT, price_edit_policy=FORWARD_TIER_EDIT,
+                                                 editor_handler_sha256=handler)
+                capability['tier_price_factors'] = True
+                if handler == 'wrong-handler':
+                    with self.assertRaisesRegex(ValueError,'native_tier_factor_mismatch'):
+                        writer.curve_catalog_plan(bundle, PLATFORM, capability)
+                else:
+                    proof = bundle['curve_proofs'][PLATFORM]
+                    revised_key = curve_key(target)
+                    domain = dict(curve_key=revised_key, platform=PLATFORM, version='fixture-domain',
+                        coverage_status='complete', coverage_gaps=[], source_revisions=capability['source_revisions'],
+                        site_paths={'266':['ordinary']})
+                    bundle['curve_proofs'][PLATFORM] = validate_curve(target,
+                        dict(main=basket('closed_bjt_7d',[('ordinary','50')]),recent=basket('latest_24h',[('ordinary','30')])),
+                        dict(curve_key=revised_key,paths=[quote('ordinary',revised_key,regular_usd='103',net_receipt_usd='103')]), domain)
+                    item = writer.curve_catalog_plan(bundle, PLATFORM, capability)
+                    self.assertEqual(item['target']['more']['discount'][1], '103')
+
     def test_main_site_financial_proof_accepts_other_inheriting_catalogue_rows(self):
         satellite = goods(999, 575)
         satellite['more']['give'][1] = '35'

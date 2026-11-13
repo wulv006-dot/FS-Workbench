@@ -33,6 +33,17 @@ def read(row=None, contract=None):
 
 
 class NativeCurve(unittest.TestCase):
+    def test_forward_price_edit_accepts_native_derived_factor_above_direct_discount_limit(self):
+        from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT
+        editor = dict(EDITOR_CONTRACT, price_edit_policy=FORWARD_TIER_EDIT)
+        source = read(catalogue(), editor)
+        candidate = compile_curve(source, {'anchor_prices_usd':{'100':'10.30','2000':'190'}}, editor)
+        self.assertEqual(candidate['compilation_status'],'EDITOR_CANDIDATE')
+        self.assertEqual(candidate['unit_price_usd_per_k'], source['unit_price_usd_per_k'])
+        self.assertEqual([r['native_discount'] for r in candidate['tiers']], ['100','100','103','103','103','103','95','95'])
+        self.assertEqual([r['native_price_usd'] for r in candidate['tiers']], ['1','5','10.3','82.4','103','154.5','190','475'])
+        self.assertEqual(compile_editor({100:'10.30'})['compilation_status'],'PROOF_INCOMPLETE')
+
     def test_forward_native_controls_keep_prefix_and_replace_tail_until_next_control(self):
         from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT
         editor = dict(EDITOR_CONTRACT, price_edit_policy=FORWARD_TIER_EDIT)

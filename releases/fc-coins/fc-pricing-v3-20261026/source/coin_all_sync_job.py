@@ -210,7 +210,8 @@ def curve_admin_manager():
 def curve_catalog_plan(bundle, platform, capability):
     """Freeze price-only changes and bind them to the original proof and Goods rows."""
     from fc_pricing_v3.financial import fingerprint
-    from fc_pricing_v3.price_curve import _editor_discount_input, _editor_price, curve_key, read_curve
+    from fc_pricing_v3.price_curve import (EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, FORWARD_TIER_EDIT,
+        _editor_discount_input, _editor_price, _editor_price_derived_factor, curve_key, read_curve)
     from fc_pricing_v3.pricing_proof_v6 import CONTRACT, PROVEN, DOMAIN_REVISIONS
 
     before = bundle['before_action']['curves'][platform]
@@ -228,12 +229,17 @@ def curve_catalog_plan(bundle, platform, capability):
             target_row, tier_price_factors=tier_price_factors):
         raise ValueError('pricing_curve_non_price_field_changed')
     if tier_price_factors:
+        contract = target['native_contract']
+        forward = (contract.get('price_edit_policy') == FORWARD_TIER_EDIT
+                   and contract.get('editor_asset_sha256') == EDITOR_ASSET_SHA256
+                   and contract.get('editor_handler_sha256') == EDITOR_HANDLER_SHA256)
+        valid_factor = _editor_price_derived_factor if forward else _editor_discount_input
         for old, new in zip(before['tiers'], target['tiers']):
             if old['native_discount'] == new['native_discount']:
                 continue
             factor = float(new['native_discount'])
             subtotal = float(target['unit_price_usd_per_k']) * float(new['purchase_k'])
-            if not (isfinite(subtotal) and _editor_discount_input(factor)
+            if not (isfinite(subtotal) and valid_factor(factor)
                     and Decimal(str(_editor_price(subtotal, factor))) == money(new['native_price_usd'])):
                 raise ValueError('pricing_curve_native_tier_factor_mismatch')
     if curve_prices_match(before_row, target_row):

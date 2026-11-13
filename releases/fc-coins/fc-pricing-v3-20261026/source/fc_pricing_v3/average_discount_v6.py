@@ -113,20 +113,17 @@ def forecast_quotes(curve, quantities, average, *, observed_gifts=None):
     return values
 
 
-def repair_controls(current, proof):
+def repair_controls(current, proof, *, affected=None):
     """Compute cent floors from failed average-model paths and weighted baskets."""
     from .pricing_proof_v6 import FAILED, HARD_MARGIN
 
     paths = {row['path_id']: row for row in proof['paths']}
-    failed = {quantity_group(Decimal(row['purchase_k']))
-              for row in paths.values() if row['zero_line_status'] == FAILED}
+    failed = affected or {quantity_group(Decimal(row['purchase_k']))
+                          for row in paths.values() if row['zero_line_status'] == FAILED}
     if not failed:
-        affected = {quantity_group(Decimal(paths[member['path_id']]['purchase_k']))
-                    for basket in proof['baskets'].values() if basket['status'] == FAILED
-                    for member in basket['members']}
-        if len(affected) != 1:
-            return {}, set()
-        failed = affected
+        failed = {quantity_group(Decimal(paths[member['path_id']]['purchase_k']))
+                  for basket in proof['baskets'].values() if basket['status'] == FAILED
+                  for member in basket['members']}
     retained = Decimal(proof['average_discount']['retained_ratio'])
     if not retained:
         return {}, failed
@@ -162,8 +159,10 @@ def repair_controls(current, proof):
                 required[group] = max(required[group], rate)
     controls = {}
     for group, anchor in anchors.items():
-        max_current = max(Decimal(tier['native_price_usd']) / Decimal(tier['purchase_k'])
-                          for tier in current['tiers'] if quantity_group(Decimal(tier['purchase_k'])) == group)
-        controls[format(anchor.normalize(), 'f')] = (max(required[group] / retained, max_current)
+        # Existing small-tier cents include rounding. Use the minimum rate
+        # that rounds back to each saved amount, and verify the entire table.
+        min_keep = max((Decimal(tier['native_price_usd']) - CENT / 2) / Decimal(tier['purchase_k'])
+                       for tier in current['tiers'] if quantity_group(Decimal(tier['purchase_k'])) == group)
+        controls[format(anchor.normalize(), 'f')] = (max(required[group] / retained, min_keep)
                                                      * anchor).quantize(CENT, rounding=ROUND_CEILING)
     return controls, failed

@@ -482,14 +482,13 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
         ref = fingerprint(dict(order=row['source_sha256'], contract=fulfilment))
         repriced[identity] = _repriced_checkout_order(row, path, dict(fulfilment_ref=ref), now,
                                                        average['revision'])
-        # Compare only original ordinary single-product deliveries. Custom
-        # forecast gifts never replace the historical same-order gift quantity.
-        if row.get('single_line_unit_purchase') is not True:
-            continue
+        # Known quantities stay in the cost coverage denominator. An unallocated
+        # mixed or multi-unit order cannot supply a comparable procurement amount.
         layer = dict(platform=platform, quantity_bucket=quantity_group(purchase),
                      offer_version=MODEL, fulfilment_contract=fulfilment)
         groups[layer['quantity_bucket']][identity] = dict(
-            layer=layer, available_at=now_text, order_revision=row['source_sha256'], evidence_ref=ref)
+            layer=layer, available_at=now_text, order_revision=row['source_sha256'], evidence_ref=ref,
+            quantity_only=row.get('single_line_unit_purchase') is not True)
 
     estimates = {}
     for group, matches in groups.items():
@@ -917,28 +916,23 @@ def _validated_curve(curve, frozen):
 
 
 def _average_discount_repair(current, all_before, editor, current_proof, inputs_for):
-    from decimal import ROUND_CEILING
     from .average_discount_v6 import CENT, quantity_group, repair_controls
+    from .curve_strategy_v6 import minimum_repair
     from .price_curve import compile_curve
-    from .pricing_proof_v6 import PROVEN
+    from .pricing_proof_v6 import FAILED, PROVEN
 
     floors, affected = repair_controls(current, current_proof)
     if not floors:
         return None
     source = current['tiers']
-    # A low-tier control flows forward. An unaffected segment gets its
-    # original explicit controls back, so it does not pay for a repair elsewhere.
-    preserved = {row['purchase_k']: row['native_price_usd'] for row in source
-                 if Decimal(row['purchase_k']) > min(map(Decimal, floors))
-                 and quantity_group(Decimal(row['purchase_k'])) not in affected}
-    old_unit = Decimal(current['unit_price_usd_per_k'])
 
-    def try_controls(extra_cents):
+    def try_controls(floors, segments, extra_cents):
+        # Native forward editing requires explicit restoration of an unaffected tail.
+        preserved = {row['purchase_k']: row['native_price_usd'] for row in source
+                     if Decimal(row['purchase_k']) > min(map(Decimal, floors))
+                     and quantity_group(Decimal(row['purchase_k'])) not in segments}
         anchors = {key: price + extra_cents * CENT for key, price in floors.items()}
-        needed = max([old_unit, *(amount / Decimal(quantity) for quantity, amount in anchors.items())])
         choices = dict(anchor_prices_usd={**preserved, **{q: str(value) for q, value in anchors.items()}})
-        if needed > old_unit:
-            choices['unit_price_usd_per_k'] = str(needed.quantize(Decimal('.00000001'), rounding=ROUND_CEILING))
         target = compile_curve(current, choices, editor)
         if target['compilation_status'] != 'EDITOR_CANDIDATE':
             return None
@@ -949,20 +943,28 @@ def _average_discount_repair(current, all_before, editor, current_proof, inputs_
             return None
         return dict(curve=target, all_target=all_target, inputs=frozen, all_inputs=all_frozen)
 
-    # One cent per segment is the smallest visible adjustment at these controls.
-    # Further cent candidates allow for catalogue and net receipt rounding.
-    candidates = []
-    for extra in range(4):
-        candidate = try_controls(extra)
-        if candidate:
-            candidates.append(candidate)
-            break
-    if not candidates:
+    mandatory = {quantity_group(Decimal(row['purchase_k'])) for row in current_proof['paths']
+                 if row['zero_line_status'] == FAILED}
+    options = [(floors, affected)]
+    if len(affected) > 1 and not mandatory:
+        # A weighted shortfall may be repaired in one segment. Evaluate those
+        # native alternatives alongside the shared increase under both baskets.
+        options.extend(repair_controls(current, current_proof, affected={segment}) for segment in sorted(affected))
+    proven = []
+    for controls, segments in options:
+        # A few adjacent cent amounts cover native and net-receipt rounding.
+        for extra in range(4):
+            candidate = try_controls(controls, segments, extra)
+            if candidate and minimum_repair(current, [candidate], segments):
+                proven.append(candidate)
+                break
+    selected = minimum_repair(current, proven, affected)
+    if not selected:
         return None
     source_ref = fingerprint(dict(proof=current_proof['proof_hash'], floors={q:str(v) for q,v in floors.items()}))
     return dict(current_proof_hash=current_proof['proof_hash'], domain_status='complete', domain_ref=source_ref,
                 repair_search='average_model_cent_floor_and_native_rounding',
-                affected_segments=sorted(affected), candidates=candidates)
+                affected_segments=sorted(affected), candidates=[selected])
 
 
 def _curve_repair(current, current_proof, repair):

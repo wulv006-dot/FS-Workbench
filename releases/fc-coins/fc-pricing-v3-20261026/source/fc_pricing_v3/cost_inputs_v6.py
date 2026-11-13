@@ -308,9 +308,10 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
         paid = instant(row['paid_at'])
         purchase = _number(row.get('base_k'))
         bonus = _number(row.get('bonus_k'), zero=True)
-        actual, observed = None, _number(row.get('cost_cny'), zero=True)
+        quantity_only = match.get('quantity_only') is True
+        actual, observed = None, None if quantity_only else _number(row.get('cost_cny'), zero=True)
         ordinary = None
-        if key in facts:
+        if not quantity_only and key in facts:
             d2_paid, d2_actual, d2_observed, d2_generated, d2_records, ordinary_complete, ordinary_observed = facts[key]
             if d2_paid != paid:
                 gaps['order_facts_paid_time_mismatch'] += 1
