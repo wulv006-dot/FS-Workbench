@@ -14,7 +14,7 @@ from test_curve_strategy_v6 import fixture
 from fc_pricing_v3 import api, business_source, runtime
 from fc_pricing_v3.ledger import Ledger
 from fc_pricing_v3.planning_baskets_v6 import HISTORICAL_SCOPE
-from fc_pricing_v3.price_curve import read_curve
+from fc_pricing_v3.price_curve import curve_key, read_curve
 import fc_shared_admin
 
 
@@ -112,6 +112,31 @@ class PreviewCandidatesV6(unittest.TestCase):
         self.assertIn('adopted_reference_curve_unavailable', decision['gaps'])
         self.assertEqual([item['labels'] for item in decision['candidates']], [['CURRENT']])
         self.assertIsNone(self.db.curve_strategy_state('PS'))
+
+    def test_read_only_preview_reuses_frozen_coupon_proof_only_for_current_matching_curve(self):
+        key = curve_key(self.current)
+        snapshot = self.db.get('pricing_snapshots', SNAPSHOT_ID)
+        frozen = runtime._catalogue_proof_input(self.current, 'PS', None, SNAPSHOT_AT, NOW)
+        path = frozen['evidence']['paths'][0]
+        path.update(coupon_template_id='1323', coupon_eligibility='welcome_event_eligible_member',
+                    net_receipt_usd='7.99', quote_basis='derived_eligible_single_line_coupon_net_lower_bound')
+        entry = dict(primary_curve=self.current, primary_inputs={key:frozen}, captured_at=SNAPSHOT_AT.isoformat(),
+                     valid_until=(NOW + timedelta(minutes=1)).isoformat())
+        metadata = dict(run_id=SNAPSHOT_ID, collection_sha256=runtime._curve_collection_fingerprint(snapshot['evidence']),
+                        platforms={'PS':entry})
+        metadata_id = 'curve-proof-inputs:' + SNAPSHOT_ID
+        self.db.put('metadata', metadata_id, metadata)
+        result = self.preview()
+        proof = result['decision']['candidates'][0]['financial_proof']
+        by_coupon = {row.get('coupon_template_id'): row for row in proof['paths']}
+        self.assertEqual(by_coupon['1323']['net_receipt_usd'], '7.99')
+        self.manager.request.assert_called_once()
+        for changed in (dict(metadata, collection_sha256='different-snapshot'),
+                        dict(metadata, platforms={'PS':dict(entry, valid_until=NOW.isoformat())}),
+                        dict(metadata, platforms={'PS':dict(entry, primary_curve=fixture()[0])})):
+            self.db.put('metadata', metadata_id, changed)
+            found = self.preview()['decision']['candidates'][0]['financial_proof']['paths']
+            self.assertFalse(any(row.get('coupon_template_id') for row in found))
 
     def test_real_saved_terms_changes_still_block_candidates(self):
         self.db.start_curve_episode('PS', 'fixture-rules', 'Trusted approved fixture A',

@@ -220,7 +220,8 @@ def smart_choices(evidence,plan,current,baseline,schedule,now):
 
 
 def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_state=None,
-                  segment='large', closed_attachment=None, latest_selected=True, evidence_as_of=None):
+                  segment='large', closed_attachment=None, latest_selected=True, evidence_as_of=None,
+                  frozen_inputs=None):
     """Read one platform's current saved catalogue without opening a pricing operation."""
     from coin_all_sync_job import PRODUCTS, read_row
     from fc_shared_admin import SessionManager, read_private_config
@@ -294,13 +295,17 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
     if instant(snapshot['created_at']) > evidence_as_of:
         gaps.append('pricing_snapshot_clock_invalid')
         return result
+    if (frozen_inputs and (not instant(frozen_inputs['captured_at']) <= evidence_as_of < instant(frozen_inputs['valid_until'])
+            or curve_key(frozen_inputs['primary_curve']) != key)):
+        frozen_inputs = None
     decision.update(_preview_curve_candidates(curve, key, platform, strategy_state, segment, closed_attachment,
-                                              snapshot['created_at'], captured_at, evidence_as_of))
+                                              snapshot['created_at'], captured_at, evidence_as_of,
+                                              (frozen_inputs or {}).get('primary_inputs') or {}))
     return result
 
 
 def _preview_curve_candidates(curve, key, platform, strategy_state, segment, closed_attachment,
-                              snapshot_at, catalogue_at, evidence_as_of):
+                              snapshot_at, catalogue_at, evidence_as_of, frozen_candidates):
     from .admin_readback import SITE_MAIN
     from .curve_strategy_v6 import ANCHORS, build_candidates
     from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, quote_native
@@ -323,7 +328,9 @@ def _preview_curve_candidates(curve, key, platform, strategy_state, segment, clo
         candidate_key = candidate['curve_key']
         quote = quote_native(proposed, dict(purchase_k=ANCHORS[segment], multiplier=1,
                                              site_id=SITE_MAIN, currency='USD'))
-        frozen = _catalogue_proof_input(proposed, platform, closed_attachment, snapshot_at, evidence_as_of)
+        frozen = frozen_candidates.get(candidate_key)
+        if frozen is None:
+            frozen = _catalogue_proof_input(proposed, platform, closed_attachment, snapshot_at, evidence_as_of)
         baskets = frozen['baskets']
         proof = _validated_curve(proposed, frozen)
         output.append(dict(curve_key=candidate_key, labels=candidate['labels'],
@@ -339,7 +346,11 @@ def _preview_curve_candidates(curve, key, platform, strategy_state, segment, clo
 def _curve_proof_inputs(db, evidence, conn=None):
     """Use only the coordinator's private, same-run frozen evidence."""
     attachment = db.get('metadata', 'curve-proof-inputs:' + evidence['run_id'], conn)
-    if (not attachment or attachment.get('run_id') != evidence['run_id']
+    return _bound_curve_proof_inputs(attachment, evidence)
+
+
+def _bound_curve_proof_inputs(attachment, evidence):
+    if (not attachment or attachment.get('run_id') != evidence.get('run_id')
             or attachment.get('collection_sha256') != _curve_collection_fingerprint(evidence)):
         return {}
     return attachment.get('platforms') or {}
@@ -443,7 +454,7 @@ def _same_run_checkout(evidence, curves, as_of, *, live):
 
 
 def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=None, checkout=None,
-                           facts=None, fx=None, current_cost=None):
+                           facts=None, fx=None, current_cost=None, coupons=None):
     from .planning_baskets_v6 import build_planning_baskets
     from .price_curve import curve_key, quote_native
 
@@ -453,6 +464,7 @@ def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=
     checkout = checkout if checkout and checkout.get('curve_key') == key and checkout.get('site_id') == '266' else {}
     if checkout and checkout.get('platform') != platform:
         raise ValueError('curve_checkout_platform_mismatch')
+    coupons = coupons or {}
     observed = {row['purchase_k']: row for row in checkout.get('lines', [])
                 if row.get('proof_status') == 'verified' and row.get('offer_path') == 'anonymous_no_coupon'}
     order_rows = {row['order_key']: row for source in (closed, recent) if source
@@ -468,16 +480,58 @@ def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=
                     and native.get('promised_delivered_k') == quote['promised_delivered_k']):
                 path, matching = _checkout_cost_path(path, native, platform, recent or closed, order_rows,
                                                      paid_cutoff, now, facts, fx, current_cost, observed)
+                coupon_paths = {identity: _coupon_quote_path(path, native, identity, terms)
+                                for identity, terms in coupons.get('terms', {}).items()}
                 repriced.update(matching)
-            paths.append(path)
+                for identity, row in order_rows.items():
+                    promotion = row.get('promotion_path') or {}
+                    selected = coupon_paths.get(promotion.get('template_id'))
+                    if (not selected or promotion.get('kind') != 'coupon' or not promotion.get('evidence_ref')
+                            or row.get('platform') != platform or row.get('base_k') != quantity
+                            or row.get('bonus_k') != native['gift_k'] or row.get('region_id') != 0
+                            or row.get('single_line_unit_purchase') is not True):
+                        continue
+                    eligible = fingerprint(dict(redemption=promotion['evidence_ref'],
+                                                current_coupon=selected['coupon_terms_revision']))
+                    repriced[identity] = _repriced_checkout_order(row, selected, native, now, eligible)
+                paths.append(path)
+                paths.extend(coupon_paths.values())
+            else:
+                paths.append(path)
     domain_gaps = ['native_checkout_path_domain_unverified']
     domain_gaps.extend(checkout.get('coverage_gaps', ()))
+    domain_gaps.extend(coupons.get('coverage_gaps', ()))
     return dict(baskets=build_planning_baskets(platform, key, closed, recent, repriced,
                                                 paid_cutoff=paid_cutoff, as_of=now),
                 evidence=dict(curve_key=key, paths=paths),
                 domain=dict(platform=platform, curve_key=key, coverage_status='partial',
                             coverage_gaps=sorted(set(domain_gaps)),
                             site_paths={'266': [path['path_id'] for path in paths]}))
+
+
+def _coupon_quote_path(path, native, identity, terms):
+    from .engine import replay_promotion
+
+    rule = terms['path']
+    regular = number(path['regular_usd'])
+    eligible_subtotal = regular >= number(rule['threshold_usd'], zero=True)
+    net = replay_promotion(regular, rule)
+    rounding = 'native_usd_subtotal_cent_and_coupon_deduction_upper_cent_v1'
+    version = fingerprint(dict(native=native['offer_version'], terms=terms['source_revision']))
+    quote_ref = fingerprint(dict(native=native['quote_ref'], offer_version=version, curve=path['curve_key'],
+                                 template=identity, amount=format(net, '.2f'), rounding=rounding))
+    return dict(path, path_id=path['path_id'] + ':coupon:' + identity, offer_version=version,
+                quote_ref=quote_ref, quote_basis='derived_eligible_single_line_coupon_net_lower_bound',
+                rounding_contract=rounding, net_receipt_usd=format(net, '.2f'), coupon_template_id=identity,
+                coupon_eligibility=terms['eligibility'], coupon_terms_revision=terms['source_revision'],
+                coupon_subtotal_eligible=eligible_subtotal, coupon_rule=rule)
+
+
+def _repriced_checkout_order(row, path, native, as_of, eligibility):
+    return dict(curve_key=path['curve_key'], purchase_k=path['purchase_k'], path_id=path['path_id'],
+                quote_ref=path['quote_ref'], eligibility_ref=eligibility,
+                fulfilment_ref=native.get('fulfilment_ref') or native['quote_ref'],
+                available_at=as_of.isoformat(), order_revision=row['source_sha256'])
 
 
 def _checkout_cost_path(path, native, platform, population, orders, paid_cutoff, as_of, facts, fx,
@@ -508,11 +562,7 @@ def _checkout_cost_path(path, native, platform, population, orders, paid_cutoff,
         observed_at = as_of.isoformat()
         if (row['base_k'] == path['purchase_k'] and row.get('region_id') == 0
                 and row.get('promotion_path') == {'kind':'none'}):
-            matching[identity] = dict(curve_key=path['curve_key'], purchase_k=path['purchase_k'],
-                                      path_id=path['path_id'], quote_ref=native['quote_ref'],
-                                      eligibility_ref=native['eligibility_ref'],
-                                      fulfilment_ref=native.get('fulfilment_ref') or native['quote_ref'],
-                                      available_at=observed_at, order_revision=row['source_sha256'])
+            matching[identity] = _repriced_checkout_order(row, path, native, as_of, native['eligibility_ref'])
         layer_matches[identity] = dict(layer=layer, available_at=observed_at,
                                        order_revision=row['source_sha256'],
                                        evidence_ref=source_tier.get('fulfilment_ref') or source_tier['quote_ref'])
@@ -608,7 +658,7 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
     from coin_all_sync_job import PRODUCTS, read_curve_routes, read_row
     from fc_shared_admin import SessionManager, read_private_config
     from .api import _curve_preview_history
-    from .business_source import collect_recent_curve_population
+    from .business_source import collect_curve_coupon_terms, collect_recent_curve_population
     from .curve_strategy_v6 import ANCHORS, build_candidates
     from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, IDENTITY_FIELDS, curve_key, read_curve
 
@@ -673,7 +723,15 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
         recent = None
     now = clock()
     checkout = _same_run_checkout(evidence, primary_curves, now, live=live_checkout) if primary_curves else {}
+    coupons = {}
+    if any(row.get('lines') for row in checkout.values()):
+        try:
+            coupons = collect_curve_coupon_terms(manager, clock=clock)
+        except (ImportError, OSError, ValueError, TypeError, KeyError):
+            coupons = dict(coverage_gaps=['current_coupon_terms_source_unavailable'])
     now = clock()
+    valid_until = min([now + timedelta(minutes=15)] + [instant(terms['valid_until'])
+        for terms in coupons.get('terms', {}).values() if terms['valid_until']])
     from .native_checkout_evidence import project_anonymous_fixed_tiers
 
     for platform, entry in collected.items():
@@ -687,9 +745,9 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
                     observation, curve_key=curve_key(curve), lines=[])
             return _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, recent=recent,
                                           checkout=native, facts=facts, fx=evidence.get('fx'),
-                                          current_cost=(evidence.get('costs') or {}).get(platform))
+                                          current_cost=(evidence.get('costs') or {}).get(platform), coupons=coupons)
 
-        entry.update(captured_at=now.isoformat(), valid_until=(now + timedelta(minutes=15)).isoformat(),
+        entry.update(captured_at=now.isoformat(), valid_until=valid_until.isoformat(),
                      primary_inputs={key: proof(curve) for key, curve in entry.pop('candidates').items()},
                      all_inputs={curve_key(curve): proof(curve) for curve in entry['all_targets'].values()},
                      performance=_same_hour_curve_performance(platform, online, now))

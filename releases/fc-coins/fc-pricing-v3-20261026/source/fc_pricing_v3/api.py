@@ -342,10 +342,10 @@ def post(path,data,actor):
         if 'snapshot_id' in data and (not isinstance(snapshot_id, str) or
                 re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', snapshot_id) is None):
             raise ValueError('pricing_curve_preview_snapshot_id_invalid')
-        from .runtime import preview_curve
+        from .runtime import _bound_curve_proof_inputs, preview_curve
         evidence_as_of = clock()
         store = STORE / 'control.sqlite3'
-        snapshot, strategy_state, history = None, None, None
+        snapshot, strategy_state, history, frozen = None, None, None, None
         latest_selected = False
         if store.exists():
             with closing(sqlite3.connect(store.resolve().as_uri() + '?mode=ro', uri=True, timeout=5)) as conn:
@@ -359,12 +359,16 @@ def post(path,data,actor):
                                        (curve_strategy_key(data['platform']),)).fetchone()
                     strategy_state = json.loads(row[0]) if row else None
                     history = _curve_preview_history(conn, snapshot, evidence_as_of)
+                    row = conn.execute('SELECT body FROM metadata WHERE id=?',
+                                       ('curve-proof-inputs:' + snapshot['snapshot_id'],)).fetchone()
+                    if row:
+                        frozen = _bound_curve_proof_inputs(json.loads(row[0]), snapshot['evidence']).get(data['platform'])
                 elif snapshot_id is not None:
                     row = conn.execute('SELECT body FROM pricing_snapshots WHERE id=?', (snapshot_id,)).fetchone()
                     snapshot = json.loads(row[0]) if row else None
         return preview_curve(snapshot, data['platform'], requested_snapshot_id=snapshot_id, strategy_state=strategy_state,
                              segment=segment, closed_attachment=history, latest_selected=latest_selected,
-                             evidence_as_of=evidence_as_of)
+                             evidence_as_of=evidence_as_of, frozen_inputs=frozen)
     if path=='interval':
         if not isinstance(data,dict) or set(data)!={'interval_minutes','expected_revision'}:
             raise ValueError('pricing_interval_request_invalid')

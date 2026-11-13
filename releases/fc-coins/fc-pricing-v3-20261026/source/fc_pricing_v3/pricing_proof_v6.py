@@ -142,6 +142,10 @@ def _evaluate_path(row, path_id, site_id, key, unavailable):
         result[field] = row.get(field) if _reference(row.get(field)) else None
     if _reference(row.get('quote_basis')):
         result['quote_basis'] = row['quote_basis']
+    if row.get('coupon_template_id') is not None:
+        result.update(coupon_template_id=row['coupon_template_id'], coupon_eligibility=row.get('coupon_eligibility'),
+                      coupon_terms_revision=row.get('coupon_terms_revision'),
+                      coupon_subtotal_eligible=row.get('coupon_subtotal_eligible'), coupon_rule=row.get('coupon_rule'))
 
     values = {}
     for field in ('purchase_k', 'promised_bonus_k', 'promised_delivered_k', 'regular_usd',

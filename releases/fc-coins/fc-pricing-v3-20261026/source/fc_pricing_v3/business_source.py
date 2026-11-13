@@ -15,6 +15,13 @@ POINTS_PER_USD = Decimal('100')
 POINTS_CAP = Decimal('.10')
 PLATFORMS = {'PS': 'PlayStation 4|5', 'XBOX': 'Xbox One|X|S', 'PC': 'PC Platform'}
 PLATFORM_AIDS = {'21587': 'PS', '21585': 'XBOX', '21589': 'PC'}
+CURVE_COUPON_ELIGIBILITY = {
+    '1343': (1, 'ordinary_new_registration'),
+    '1323': (3, 'welcome_event_eligible_member'),
+    '1327': (3, 'voucher_event_eligible_member'),
+    '1329': (3, 'voucher_event_eligible_member'),
+    '1331': (3, 'voucher_event_eligible_member'),
+}
 
 
 def amount(value):
@@ -170,6 +177,67 @@ def read_used_templates(session,pages,identities):
     if set(result)!=set(wanted):
         raise ValueError('selective_current_coupon_template_missing')
     return result
+
+
+def collect_curve_coupon_terms(manager, *, clock):
+    """Read the current terms of the registration and observed Coins event templates once per run."""
+    from urllib.parse import urlencode
+    from channel_source import pages
+    from pricing_sources import active
+    from .financial import instant
+
+    class NativeAdmin:
+        def get_admin(self, path, **params):
+            status, raw = manager.request(path + '?' + urlencode(params))
+            return status, json.loads(raw)
+
+    ids = ','.join(sorted(CURVE_COUPON_ELIGIBILITY))
+    rows = pages(NativeAdmin(), '/admin/market.Coupon/index', [('id', 'IN', ids)], 100)
+    now = clock()
+    by_id = {str(row['id']): row for row in rows}
+    if len(by_id) != len(rows) or by_id.keys() - CURVE_COUPON_ELIGIBILITY.keys():
+        raise ValueError('curve_coupon_query_scope_mismatch')
+    terms, gaps = {}, []
+    for identity, (scene, eligibility) in CURVE_COUPON_ELIGIBILITY.items():
+        row = by_id.get(identity)
+        if row is None:
+            gaps.append('current_coupon_template_missing:' + identity)
+            continue
+        if str(row.get('status')) == '0':
+            continue
+        try:
+            if (str(row['status']) != '1' or str(row['fetch_scene']) != str(scene)
+                    or str(row['site_id']) not in ('0', '266') or str(row['game_id']) not in ('0', '1327')
+                    or str(row['product_type']) not in ('0', '1') or str(row['goods_id']) != '0'
+                    or str(row['is_open']) != '0'):
+                raise ValueError('curve_coupon_scope_or_exclusivity_changed')
+            bindings = row.get('scope_bindings')
+            bindings = json.loads(bindings) if isinstance(bindings, str) else bindings
+            if bindings and not any(str(binding['game_id']) == '1327'
+                    and (not binding['category_ids'] or '9623' in map(str, binding['category_ids']))
+                    for binding in bindings):
+                raise ValueError('curve_coupon_goods_scope_unverified')
+            validity = str(row['time_effect'])
+            end = None
+            if validity == '1':
+                if row['start_time'] in ('', 0, '0', None) or row['end_time'] in ('', 0, '0', None):
+                    raise ValueError('curve_coupon_absolute_window_missing')
+                end = (datetime.fromtimestamp(int(row['end_time']), timezone.utc)
+                       if str(row['end_time']).isdigit() else instant(row['end_time']))
+                if end <= now:
+                    continue
+            elif validity != '2' or not str(row['days']).isdigit() or int(row['days']) <= 0:
+                raise ValueError('curve_coupon_relative_window_missing')
+            if not active(row, now, coupon=True):
+                continue
+            path = _coupon_path(row)
+            if path['kind'] == 'ratio' and not 0 < Decimal(path['retained_ratio']) < 1:
+                raise ValueError('curve_coupon_ratio_invalid')
+            terms[identity] = dict(path=path, eligibility=eligibility,
+                                   source_revision=fingerprint(row), valid_until=end.isoformat() if end else None)
+        except (ArithmeticError, KeyError, TypeError, ValueError):
+            gaps.append('current_coupon_terms_unverified:' + identity)
+    return dict(terms=terms, coverage_gaps=gaps)
 
 
 def _live_traces(session, pages, period, selected, *, reconcile_population=False, used_templates_only=False):
@@ -1817,15 +1885,32 @@ def shared_curve_attachment(shared, scope, *, as_of):
         no_deduction = (amount(projection.get('retained_percent')) == 100
                         and amount(projection.get('points')) == 0 and not order.get('discount_code')
                         and tracking.get('coupons') == [] and discounts[hashed] == {Decimal(0)})
+        coupon = None
+        applied = tracking.get('coupons')
+        regular = amount(projection.get('regular_usd'))
+        observed_discount = discounts[hashed]
+        if (isinstance(applied, list) and len(applied) == 1 and projection.get('single_line_unit_purchase') is True
+                and projection.get('region_id') == 0 and amount(projection.get('retained_percent')) == 100
+                and amount(projection.get('points')) == 0 and not order.get('discount_code') and not tracking.get('code')
+                and regular is not None and paid is not None and regular > paid >= 0
+                and len(observed_discount) == 1 and (deduction := next(iter(observed_discount))) is not None
+                and deduction > 0 and abs(regular - paid - deduction) <= Decimal('.02')):
+            redemption = applied[0]
+            template = str(redemption.get('templateId'))
+            if (template in CURVE_COUPON_ELIGIBILITY and str(redemption.get('status')) == '1'
+                    and str(redemption.get('id', '')).isdigit() and redemption.get('usedAt')):
+                coupon = dict(kind='coupon', template_id=template,
+                              evidence_ref=fingerprint(dict(redemption=redemption, order=hashed,
+                                                            revision=coverage['source_revision'])))
         row = dict(order_key=hashlib.sha256(('site266:FC27:Coins:' + number).encode()).hexdigest(),
                    paid_at=instant(order['paytime']).isoformat(),
                    available_at=max(capture, instant(projection['observed_at'])).isoformat() if projection else capture.isoformat(),
                    platform=projection.get('platform'), base_k=projection.get('purchase_k'),
                    bonus_k=projection.get('bonus_k'), delivered_k=projection.get('delivered_k'),
                    single_line_unit_purchase=projection.get('single_line_unit_purchase'),
-                   region_id=projection.get('region_id'), promotion_path={'kind':'none'} if no_deduction else None,
+                   region_id=projection.get('region_id'), promotion_path={'kind':'none'} if no_deduction else coupon,
                    promotion_basis='Admin_ratio_points_code_same_order_coupon_log_and_ES_discount'
-                                   if no_deduction else None,
+                                   if no_deduction or coupon else None,
                    cost_cny=None, status=status)
         row['source_sha256'] = fingerprint(dict(row=row, shared_source_revision=coverage['source_revision'],
                                                native_projection=projection.get('source_sha256')))
