@@ -28,3 +28,9 @@ SEO 成交页复用当前 `history` 的版本、游戏和付款日期，显示�
 浏览器先复现旧页面找不到后台归因区域，再验证已有数据、真实零值、未知、部分金额、失败、旧估算、版本修订、390px 和没有额外 `/orders` 请求。原 model、导航和 8 目标 UI 构建合同、JS 语法通过；保留原 CRLF 文件字节约定，按 `core.whitespace=cr-at-eol` 检查变更。
 
 用既有 `ui-system/modules/seo/prepare-ui.cjs` 组装并读回 8 个合成目标。目录 `.agent_runtime/d4-seo-ui-20261113-offline-candidate`，版本 `seo-ui-855c3d9f0a376ff0`，manifest SHA256 `b40be176d2712a0d7af19bade7c519ee054b25e741b96f8cfaac188f08701991`，`app.mjs` SHA256 `7db6809fc112a8c67374e2e5ae7e2485820bae059dd628468ca52e606f452188`。该样例的路由与保护文件哈希为合成输入，标记 `releaseReady=false`。上节 39 目标归档保留制包验证当时的字节，若实际用 SEO 全包更新，应以本次页面源码一起重建。
+
+## 当前生产页面候选与现场检查
+
+本次按现网 `seo-daily-f63038d3070d3af9` 七份资产逐一核对：只有本轮 app.mjs 的后台归因显示发生业务差分，其余资产使用相同 Git 字节。现役 UI-only 桥接为 `/opt/fs-release-stage/navigation-experience-20261103-repair-v3/release_ui.py`，SHA256 `39b6e5b55c0723fafb11743996a51154c1a01828e9370d06dedaddab7264a957`；沿原 `traffic-source-tabs-20261019-v3` 发布器和既有锁/CAS/备份，不使用仅保护首页的 release_gateway 代替。
+
+生产页面候选 `seo-ui-c9e4111c43b04308`：8目标，manifest SHA256 `710aef6756fc22a68612bb5ce09feecf1cf2d3f7a06c418da89e0310168a05f4`，归档SHA256 `f4bd9e9201c5fadbf1166db61f742474900f8c09df7fbaa5b66839fb7cf7efec`。暂存目录 `/opt/fs-release-stage/fs-fc-admin-es-seo-ui-20261113-c9e4111c43b04308`。原 `release_ui.py inspect` 返回8文件、sourceCAS/protectedCAS通过、mutations=false。`releaseReady=true` 仅表示此候选通过该准备检查，不是已经安装。未执行apply，正式CI仍进行中；之后沿同一manifest和原发布器发布、读回与真实页面验收。
