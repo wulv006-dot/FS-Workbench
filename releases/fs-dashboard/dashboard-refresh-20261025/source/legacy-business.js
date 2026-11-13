@@ -321,13 +321,18 @@ function render(host,data,key='MMOEXP',selection=null,readState=null){
  host.append(cards);
  const native=p.supplement;
  if(!phase&&native?.native_repeat_rate&&native.reconciliation_status==='not_aligned'){
-  const local=native.local_repeat_rate,q=local?.scope;
+  const local=native.local_repeat_rate,q=local?.scope,applied=native.effective_scope,requested=native.requested_scope;
   const note=text('p','两种复购率的订单成员与计算口径仍待对账。','fsi-note');
-  if(local?.status==='available'||local?.status==='not_applicable'){
+  note.dataset.localRepeatAudit='';
+  const empty=local?.status==='not_applicable'&&native.coverage?.scope_status==='empty_result_membership_unverified';
+  const expected=empty?requested:applied;
+  const same=q?.scope==='site'&&q.scope_id==='266'&&expected?.site==='266'&&q.game===expected.game&&
+    q.start?.slice(0,16).replace('T',' ')===expected.period?.start&&
+    q.end_exclusive?.slice(0,16).replace('T',' ')===expected.period?.end;
+  if(same&&(local.status==='available'||local.status==='not_applicable')){
    const rate=local.status==='available'?pct(local.value):'不适用';
-   const scopeLabel=q?.scope==='global'?'全局':q?.scope_id?[q.scope,q.scope_id].join(' '):'范围待核';
-   const dates=q?.start&&q?.end_exclusive?` · ${q.start.slice(0,10)} 至 ${q.end_exclusive.slice(0,10)}（不含结束日）`:'';
-   note.append(text('span',` 本地区间复购用户占比 ${rate}（${count(local.numerator)} / ${count(local.denominator)} 人） · ${scopeLabel}${dates} · 期间与客户身份覆盖已核。`));
+   const game=q.game==='all'?'全部游戏':p.name||key;
+   note.append(text('span',` 本地区间复购用户占比 ${rate}（${count(local.numerator)} / ${count(local.denominator)} 人） · MMOEXP主站 · ${game} · ${q.start.slice(0,10)} 至 ${q.end_exclusive.slice(0,10)}（不含结束日） · 期间与客户身份覆盖已核。`));
   }else note.append(text('span',' 本地区间复购用户占比暂缺。'));
   host.append(note);
  }
@@ -2212,6 +2217,8 @@ function fcUpdateMetrics(){
  const d=!exactPermissionDenied()&&fcSameQuery(fcDetailState.data?.query,fcQuery())?fcDetailState.data:null,t=d?.fc_dashboard?.totals;
  const metric={revenueUsd:t?.revenue_usd,orders:t?.orders,profitCny:t?.gross_profit_cny,profitMarginPct:t?.gross_margin_pct,averageOrderUsd:t?.orders>0&&Number.isFinite(t.revenue_usd)?t.revenue_usd/t.orders:null};
  const native=fcNativeAdminMetrics(fcQuery()),nativeKeys=['newCustomers','payingCustomers','newCustomerRevenueUsd','repeatRatePct','newCustomerSharePct','pureSalesUsd','refundAmountUsd','refundOrders','fulfillmentRatePct','paymentSuccessRatePct','averageCustomerUsd'];
+ const localRepeatNote=document.querySelector('#supplement-insights [data-local-repeat-audit]');
+ if(localRepeatNote)localRepeatNote.hidden=!native;
  if(native){
   for(const key of ['orders','revenueUsd'])metric[key]=native.metrics[key]?.status==='available'?native.metrics[key].value:null;
   metric.averageOrderUsd=metric.orders>0&&Number.isFinite(metric.revenueUsd)?metric.revenueUsd/metric.orders:null;
