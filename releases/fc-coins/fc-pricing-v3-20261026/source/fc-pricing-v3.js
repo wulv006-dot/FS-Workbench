@@ -3,6 +3,7 @@
   const base='/api/fc27/cloud/pricing/v3';
   const platforms=['PS','XBOX','PC'];
   const curveProtocol='fc27_curve_v6',curveRequest='curve-collect',curvePendingKey='fc-v3-curve-collect-job';
+  const curveActivationKey='fc-v3-curve-activation';
   const pricesText=prices=>prices&&Object.keys(prices).some(p=>platforms.includes(p))?platforms.map(p=>`${p==='XBOX'?'Xbox':p} ${usd(prices?.[p])}`).join(' · '):`历史Console ${usd(prices?.console)} · PC ${usd(prices?.pc)}`;
   const names={smart:'智能决策',daily:'日常运营（备用）',revenue_sprint:'冲销售额'};
   const purposes={smart:'三平台独立双向试验：每小时重算各平台基准，每3小时独立选择A基准、B合法降3%、C合法涨3%，受各自双20与竞品上界约束。同价合并；按同钟点累计有效对照复盘，低量不强判赢家。',daily:'PS、Xbox、PC分别按真实八日优惠核算财务底线；Lootbar为主锚、Arab-UT为次锚，双源缺失按本平台八日平均30%求最低合法价。',revenue_sprint:'三平台独立报价，Lootbar为主锚、Arab-UT为次锚，ItemD2R仅辅助。按本平台100K实交100K双20及5–10%竞争目标选价，地区继承全球。'};
@@ -19,7 +20,8 @@
   const $=id=>document.getElementById(id);
   const marketTag=$('v3-market-title').parentElement.querySelector('.tag'),legacyMarketTag=marketTag.textContent;
   let current,loading=false,acting=false,manualPreview=null,selectedPlanId=null,displayedMode='smart',canWrite=false,permissionKnown=false,playerRevision=null,playerDirty=false,collectPending=sessionStorage.getItem('fc-v3-collect-job'),automationRevision=null,lastAutomation=null,lastMonitor=null;
-  let curvePending=sessionStorage.getItem(curvePendingKey),curveChecking=false,curveRetry='',curveSubmitError='',curveTimer;
+  let curvePending=sessionStorage.getItem(curvePendingKey),curveChecking=false,curveRetry='',curveSubmitError='',curveTimer,curveReadOnly=false;
+  let curveReady=null,curveActivationRetry=false;
   const statuses={DRAFT:'待启用',SCHEDULED:'等待开始',ACTIVE:'执行中',SUSPENDED:'已暂停新写入',ENDING:'正在退出',ENDED:'已结束',
     READY:'已有可行方案',INFEASIBLE:'当前证据下无可行报价',DATA_PENDING:'数据待补齐',
     AUTHORIZED:'已授权待执行',DISPATCHED:'已发出请求',RUNNING:'执行中',CONFIRMED:'后台已确认',FAILED:'执行失败，保留原编号',CANCELLED:'已取消',CANCELLED_NOT_SENT:'已核实未发送并取消',SUPERSEDED:'已由更新计划接替',
@@ -47,6 +49,9 @@
       pricing_manual_preview_expired:'人工预览已过期，请重新核算',pricing_manual_infeasible:'当前明确价未通过新鲜财务或市场证明',
       pricing_operation_missing:'未找到该原操作编号',state_unavailable:'状态暂时无法读取',
       queue_mutation_busy:'采集队列暂忙，本次未入队',queue_unavailable:'采集队列暂不可用',
+      pricing_curve_activation_snapshot_unverified:'预览已过期或来源未核验，请重新采集',
+      pricing_curve_activation_proof_incomplete:'本轮财务或原后台核验尚未通过',
+      pricing_migration_cycle_running:'原自动轮正在执行，请待其完成后核对原请求',
       pricing_price_control_revision_changed:'配置已被更新，请刷新状态后再保存',pricing_manual_price_required:'开启人工干预时须填写PS、Xbox和PC的后台单价',
       pricing_manual_unit_precision:'后台单价最多保留四位小数',pricing_price_control_conflicts_with_manual_preview:'请先关闭人工干预和临时涨价，再使用单次人工预览'};
     return known[code]||(/^pricing_[a-z_]+(?::.*)?$/.test(code)?`操作未完成；请核对当前状态和原编号。技术原因：${code}`:code);
@@ -151,6 +156,7 @@
     for(const control of $('v3-price-control-form').querySelectorAll('input,button'))control.disabled=!canWrite||acting||current?.price_control==null||!!sessionStorage.getItem(pendingPriceKey)&&control.id!=='v3-price-control-save';
     for(const id of ['v3-system-enabled','v3-auto-enabled'])$(id).disabled=!canWrite||acting||automationRevision==null;
     priceControlInputs();
+    curveActivationControls();
   }
   function table(id,rows){
     const body=$(id);body.replaceChildren();
@@ -237,6 +243,81 @@
     const button=$('v3-curve-collect');
     button.disabled=!canWrite||curveChecking||Boolean(curvePending&&!curveRetry);
     button.textContent=curveRetry==='submit'?'续办原采集':curveRetry==='preview'?'重读原预览':'采集并预览新定价';
+    curveActivationControls();
+  }
+
+  function pendingCurveActivation(){
+    const stored=sessionStorage.getItem(curveActivationKey);
+    return stored?JSON.parse(stored):null;
+  }
+
+  function curveReadyFor(plan){
+    return curveReady&&Date.now()<curveReady.expiresAt&&plan?.state==='ACTIVE'&&!plan.write_protocol
+      &&Number.isInteger(plan.revision)&&plan.resources?.some(resource=>resource.startsWith('base:'));
+  }
+
+  function curveActivationControls(){
+    const button=$('v3-curve-activate'),pending=pendingCurveActivation();
+    button.disabled=!canWrite||acting||curveChecking||!(pending||curveReadyFor(chosenPlan()));
+    button.textContent=pending?(curveActivationRetry?'续办原启用':'核对原启用'):'启用新定价';
+    $('v3-curve-read').disabled=!canWrite||acting||curveChecking||!!curvePending;
+  }
+
+  function readCurveActivation(state,pending){
+    const plan=(state?.plans||[]).find(value=>value.plan_id===pending.planId);
+    const status=$('v3-curve-activation-status');
+    if(plan?.write_protocol===curveProtocol&&plan.curve_activation_snapshot_id===pending.snapshotId
+        &&plan.revision>=pending.revision+1){
+      sessionStorage.removeItem(curveActivationKey);
+      curveReady=null;curveActivationRetry=false;
+      status.textContent=`新定价已启用，计划 ${plan.plan_id} · 版本 ${plan.revision}。实际改价以原自动轮回执为准。`;
+      return true;
+    }
+    if(plan?.state==='ACTIVE'&&plan.revision===pending.revision&&!plan.write_protocol){
+      curveActivationRetry=Date.now()<pending.expiresAt;
+      if(!curveActivationRetry){sessionStorage.removeItem(curveActivationKey);curveReady=null;}
+      status.textContent=`原计划仍是版本 ${plan.revision}，尚未读到启用回执。${curveActivationRetry?'可按原预览续办。':'原预览已过期，请重新采集。'}`;
+      return false;
+    }
+    curveActivationRetry=false;
+    status.textContent=`启用回执待核，计划 ${pending.planId} · 原预览 ${pending.snapshotId}。`;
+    return false;
+  }
+
+  async function activateCurve(){
+    if(!canWrite||acting||curveChecking)return;
+    return action(async()=>{
+      const status=$('v3-curve-activation-status');
+      let pending=pendingCurveActivation();
+      if(pending&&!curveActivationRetry){
+        readCurveActivation(await request('state'),pending);
+        return;
+      }
+      if(!pending){
+        const plan=chosenPlan();
+        if(!curveReadyFor(plan)){
+          status.textContent='预览已过期或所选计划当前不可启用，请刷新核对。';
+          return;
+        }
+        pending={planId:plan.plan_id,revision:plan.revision,snapshotId:curveReady.snapshotId,expiresAt:curveReady.expiresAt};
+        sessionStorage.setItem(curveActivationKey,JSON.stringify(pending));
+      }
+      curveActivationRetry=false;
+      status.textContent=`正在启用计划 ${pending.planId} · 原预览 ${pending.snapshotId}。`;
+      try{
+        await request(`plans/${pending.planId}/activate-curve`,{expected_revision:pending.revision,snapshot_id:pending.snapshotId});
+      }catch(error){
+        if(error.httpStatus>=400&&error.httpStatus<500&&![408,409,429].includes(error.httpStatus)){
+          sessionStorage.removeItem(curveActivationKey);
+          if(error.message==='pricing_curve_activation_snapshot_unverified')curveReady=null;
+          status.textContent=`启用请求未完成。${errorText(error)}。`;
+          return;
+        }
+      }
+      status.textContent=`启用回执待核，计划 ${pending.planId} · 原预览 ${pending.snapshotId}。`;
+      const state=await request('state').catch(()=>null);
+      if(state)readCurveActivation(state,pending);
+    });
   }
 
   function curveStatus(text){
@@ -248,6 +329,7 @@
     curvePending=null;
     curveRetry='';
     curveSubmitError='';
+    curveReadOnly=false;
     sessionStorage.removeItem(curvePendingKey);
     clearKey(curveRequest);
   }
@@ -306,6 +388,11 @@
       try{job=await cloud('jobs/'+id);}
       catch(error){
         if(error.httpStatus!==404)throw error;
+        if(curveReadOnly){
+          curveStatus(`未找到原采集 ${id}。请核对编号。`);
+          finishCurve();
+          return;
+        }
         curveRetry='submit';
         curveStatus(curveSubmitError?`采集 ${id}：${curveSubmitError}。可用原编号续办。`:`暂未找到采集 ${id}。可用原编号续办。`);
         return;
@@ -313,6 +400,7 @@
       curveSubmitError='';
       if(job.job_id!==id||job.kind!=='collect'||job.request?.write_protocol!==curveProtocol){
         curveStatus(`采集 ${id} 的回执与新定价请求不符。`);
+        if(curveReadOnly)finishCurve();
         return;
       }
       if(job.status==='failed'||job.result?.status==='INFEASIBLE'){
@@ -342,6 +430,11 @@
         curveRetry='preview';
         curveStatus(`采集 ${id} 已完成。部分平台预览暂不可读，可重读原预览。`);
       }else{
+        const captured=Date.parse(previews[0].snapshot_captured_at);
+        const proven=previews.every(item=>Date.parse(item.snapshot_captured_at)===captured&&
+          item.decision?.candidates?.some(candidate=>candidate.financial_proof?.status==='PROVEN'&&
+            candidate.labels?.some(label=>label==='CURRENT'||label==='COST_REPAIR')));
+        if(proven)curveReady={snapshotId:id,expiresAt:captured+15*60*1000};
         curveStatus(`三平台预览已读回。任务 ${id} · 本次未改价。`);
         finishCurve();
       }
@@ -359,6 +452,7 @@
     if(!canWrite||curveChecking)return;
     if(curvePending&&curveRetry!=='submit')return checkCurveCollection();
     const id=curvePending||requestKey(curveRequest);
+    curveReady=null;
     curvePending=id;
     sessionStorage.setItem(curvePendingKey,id);
     curveChecking=true;
@@ -382,6 +476,19 @@
       curveChecking=false;
       curveControls();
     }
+    return checkCurveCollection();
+  }
+
+  function readExistingCurve(){
+    if($('v3-curve-read').disabled)return;
+    const id=$('v3-curve-read-id').value.trim();
+    if(!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)){
+      curveStatus('请输入有效的原采集任务编号。');
+      return;
+    }
+    curveReady=null;
+    curvePending=id;
+    curveReadOnly=true;
     return checkCurveCollection();
   }
   async function renderMarketEvidence(){
@@ -463,7 +570,9 @@
     table('v3-operations',(state.operations||[]).map(o=>[o.created_at,names[o.bundle?.mode]||(o.bundle?.maintenance_purpose==='retire_uk_discount_v1'?'英国临时折扣退出':'待核'),statusText(o.status),o.operation_id,statusText(o.readback?.public?.status),statusText(o.cache_receipt?.status)]));
     table('v3-incidents',(state.incidents||[]).map(i=>[i.code,i.dependency,statusText(i.state),i.first_seen,i.last_seen,i.attempt]));
     const sourcePolicy=primaryPolicy(plan)?'计划规则：Lootbar主锚，ArabUT次锚，ItemD2R仅辅助；PS、Xbox和PC分别独立核价。'+(plan.parameters.region_pricing==='global'?'全球统一：地区继承全球，系数1；实际生效以已核地区证明为准。':'地区按原配置核算。'):'全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价，破线时系数归1；英国系数1。';
-    $('v3-proof-notes').textContent=`双红线：购买100K、实交100K档未优惠及D-9至D-2八个完整日真实优惠金额结构估算平均采购毛利都至少 20%。成本、竞品及汇率取本轮。小额与其他档位不作为自动定价硬门槛。${sourcePolicy}${latest?.bundle?.financial_proof?.pricing_scope!=='100k_package_only'&&latest?'下表最近原操作为旧口径历史证明，不代表100K新口径验收。':''}${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
+    $('v3-proof-notes').textContent=plan?.write_protocol===curveProtocol
+      ?'按 D-8 至 D-2 实际优惠金额加权核算。各档检查保本，平台组合采购毛利至少 18%，经营重点是全天累计利润和利润率。'
+      :`双红线：购买100K、实交100K档未优惠及D-9至D-2八个完整日真实优惠金额结构估算平均采购毛利都至少 20%。成本、竞品及汇率取本轮。小额与其他档位不作为自动定价硬门槛。${sourcePolicy}${latest?.bundle?.financial_proof?.pricing_scope!=='100k_package_only'&&latest?'下表最近原操作为旧口径历史证明，不代表100K新口径验收。':''}${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
     writeControls();
     list.disabled=!plans.length;
     $('v3-plan-stop').disabled=!canWrite||!plan||['ENDED','ENDING'].includes(plan.state);
@@ -481,6 +590,8 @@
       cloud('automation').catch(()=>null),cloud('monitor').catch(()=>null),cloud('player-sync').catch(()=>null)]);
       permissionKnown=permission.known;canWrite=permission.value;lastAutomation=automation;lastMonitor=monitor;render(state);renderOverview(state,automation,monitor);await renderMarketEvidence();
       if(curvePending)await checkCurveCollection();
+      const activation=pendingCurveActivation();
+      if(activation&&!acting)readCurveActivation(state,activation);
       if(player){playerRevision=player.revision;if(!playerDirty)$('player-enabled').checked=Boolean(player.enabled);}
       $('v3-error').textContent=permissionKnown?'':'操作权限暂时无法核对，写入入口已停用；只读状态仍可查看。';
       $('v3-error').hidden=permissionKnown;
@@ -530,6 +641,8 @@
   });});
   $('collect').addEventListener('click',()=>action(async()=>{const result=await cloud('pricing/collect',{client_event_id:requestKey('collect')});collectPending=result.job_id;sessionStorage.setItem('fc-v3-collect-job',collectPending);$('v3-result').textContent=`只读采集已登记，任务 ${collectPending}；不写价。`; }));
   $('v3-curve-collect').addEventListener('click',startCurveCollection);
+  $('v3-curve-activate').addEventListener('click',activateCurve);
+  $('v3-curve-read').addEventListener('click',readExistingCurve);
   $('v3-manual-form').addEventListener('input',()=>{if(manualPreview){manualPreview=null;$('v3-manual-execute').disabled=true;$('v3-manual-result').textContent='输入已改变，请重新进行只读预览。';}});
   $('v3-history-id').addEventListener('input',()=>{$('v3-history-read').disabled=!$('v3-history-id').value.trim();});
   $('v3-target-form').addEventListener('submit',event=>{event.preventDefault();action(async()=>{await request('monthly-target',{request_key:requestKey('target'),amount:$('v3-target-amount').value||null});clearKey('target');});});
