@@ -81,6 +81,7 @@ class CurveV6Release(unittest.TestCase):
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_bytes(payload)
                 self.assertTrue(set(target_map.CURVE_V6_COLLECTION_TARGETS) <= set(provenance['files']))
+                self.assertFalse(any(name.startswith('source/fc_collection/') for name in provenance['files']))
                 self.assertFalse(any('monitor-' in name for name in provenance['files']))
             for destination in (browser, hermes):
                 subprocess.run([sys.executable, '-I', '-B', '-c',
@@ -115,6 +116,7 @@ SimulationBridge(request=lambda *args: version).versions()
             self.assertEqual(args[6], 'a' * 40)
             selected = {name.removeprefix('source/').removeprefix('hermes-copy/')
                         for name in adapter.CURVE_V6_TARGETS if name not in target_map.CURVE_V6_REPOSITORY_SOURCES}
+            selected.update(target_map.CURVE_V6_SEPARATE_ROLE_SOURCES)
             if extra is not None:
                 selected.add(extra)
             return ''.join(RELEASE + '/source/' + name + '\0' for name in sorted(selected))

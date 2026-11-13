@@ -10,6 +10,7 @@ import tempfile
 from target_map import COUPON_DISPLAY_EXTRA, COUPON_DISPLAY_NAMES, COUPON_DISPLAY_SOURCE, TARGET_COUNT, targets
 from target_map import LOOTBAR_CALLER_EXTRA, LOOTBAR_CALLER_NAMES, LOOTBAR_CALLER_REPOSITORY_SOURCES
 from target_map import (CURVE_V6_BASE, CURVE_V6_SCOPE, CURVE_V6_SOURCE_NAMES, CURVE_V6_TARGET_COUNT,
+                        CURVE_V6_SEPARATE_ROLE_SOURCES,
                         CURVE_V6_REPOSITORY_SOURCES,
                         curve_v6_targets, require_curve_scope_for_imports,
                         THREE_PLATFORM_EXTRA, THREE_PLATFORM_NAMES, THREE_PLATFORM_REPOSITORY_SOURCES,
@@ -59,6 +60,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             ['git', 'diff', '--name-only', '--no-renames', '-z', CURVE_V6_BASE, commit, '--', source_path],
             cwd=checkout, text=True)
         actual = {path.removeprefix(source_path) for path in changed.split('\0') if path}
+        actual -= CURVE_V6_SEPARATE_ROLE_SOURCES
         if actual != CURVE_V6_SOURCE_NAMES:
             raise ValueError('curve_v6_source_scope_changed:missing='
                              + ','.join(sorted(CURVE_V6_SOURCE_NAMES - actual))

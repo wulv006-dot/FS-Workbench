@@ -21,6 +21,10 @@ CURVE_V6_TOP_LEVEL = (
 CURVE_V6_SOURCE_NAMES = frozenset(CURVE_V6_TOP_LEVEL) | {
     'fc_pricing_v3/' + name for name in CURVE_V6_CHANGED_MODULES + CURVE_V6_MODULES
 }
+# The ArabUT lease change ships through its existing node/control role publisher.
+CURVE_V6_SEPARATE_ROLE_SOURCES = frozenset('fc_collection/' + name for name in (
+    'adapters.py', 'client.py', 'contracts.py', 'public_sources.py',
+))
 CURVE_V6_NEW = frozenset(prefix + 'fc_pricing_v3/' + name
     for prefix in ('source/', 'source/hermes-copy/') for name in CURVE_V6_MODULES)
 
