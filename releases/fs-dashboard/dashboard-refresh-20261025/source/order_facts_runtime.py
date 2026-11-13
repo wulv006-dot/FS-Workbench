@@ -20,7 +20,7 @@ FIELDS = ('id','order_no','site_id','site','gid','game_format','paytime','pay_st
           'status_format','amount_usd_format','amount_rmb_format')
 MARKETING_FIELDS = ('discount_code','recommend_uid','country_code','country','paytype_display','paytype','device')
 PROMOTION_CHANNELS = {'seo':'SEO','谷歌广告':'PPC','kol':'Referral','tiktok':'Referral','tt':'Referral'}
-ATTRIBUTION_RULE = 'order-channel-priority-20261113-v6'
+ATTRIBUTION_RULE = 'order-channel-priority-20261113-v7'
 GOOGLE_AD_CAMPAIGN = re.compile(r'google-(?:[a-z0-9]+-)+(?:sn|pmax|dem|discovery|video)-[a-z0-9]+(?:-[a-z0-9]+)*',re.I)
 GOOGLE_AD_CATALOG_NAMES = frozenset(('google-arcr-items','google-arcr-blueprints'))
 
@@ -203,7 +203,9 @@ def effective_attribution(order, native, archived, mapping):
     source = pinned_source or archive_source
     native_conflict = fact.get('status')=='conflict'
     source_conflict = order.get('pinned_order_source_conflict') is True or (not pinned_source and observed.get('sourceStatus')=='conflict')
-    if pinned_source and archive_source and pinned_source.strip().casefold()!=archive_source.strip().casefold():
+    pinned_label = google_ad_label(pinned_source) or pinned_source
+    archive_label = google_ad_label(archive_source) or archive_source
+    if pinned_label and archive_label and pinned_label.strip().casefold()!=archive_label.strip().casefold():
         source_conflict |= not pinned_source_correction(order,observed)
     native_code = native.get('discount_code')
     code = native_code if isinstance(native_code,str) else observed.get('code')
