@@ -16,3 +16,9 @@
 若独立 SEO 批次先修改同一 Nginx formal 配置，重取现场配置字节与 SHA 后写入新本地 capture 和 baseline，用 `prepare_es_data.py` 在全新输出目录重建，核对只改变六条别名。必要的生产发布清单在主控确认条件后用该 builder 的 `--release-ready` 生成，以新清单 SHA 为准。使用原 `es_data_release.py` 的 `inspect` 检查目标与保护 CAS，再沿同一清单 SHA 和 `nav-YYYYMMDDTHHMMSSZ` 原 ID 执行授权发布。结果未知时查原日志和回执。回滚使用该回执的原备份目录与原清单 SHA。
 
 入口验收使用现有授权身份读回 Nginx 资产与 range health，检查经营三个入口同期间及细分复购范围、渠道聚合与当前结果 CSV、FC 详情快照导出，并确认既有 Hermes 和订单入口仍可读。用已付款 Admin 与固定归因修订分别核实来源，缺少成本、归因、复购覆盖时仍保留未知。应另保留无权限响应与版本对应证据。
+
+## 183 与现场发布前核验
+
+183 对上述固定测试包通过 30/30 与 58/58，零失败、错误、跳过，日志 `.agent_runtime/es-data-20261113-composed-linux-result.log`。range 与 user_store 是候选原始字节；两个 D0 host 模块仅包内 CRLF 与候选 LF 差异，规范化后哈希一致。此 88 项不包含六份 UI 及 Nginx 路由，不能代替实际入口验收。
+
+已从正式提交 `ca770903912651f430eeb2345dc82d7c9191fa10` 重建 24 目标候选，manifest SHA `ad400f1f7f7a2e260eb608b63b00abfbd016e03412ae100c84958865f4e891a7`，包 SHA `c3fbac57140e0bf7f00bdf47c9a0d355bef7ddbf9f43be2cf5cebb6818f1c0ed`。现场暂存目录 `/opt/fs-release-stage/fs-admin-es-ca77090-20261113`。原发布器 inspect 已返回 sourceCAS/protectedCAS passed、releaseReady true、mutations false；尚未 apply。正式 CI 和发布后真实入口仍须分别确认。
