@@ -28,6 +28,106 @@ def execution():
 
 
 class PlayerV3Followup(unittest.TestCase):
+    def test_confirmed_v6_queues_once_and_category_sync_uses_original_admin_receipt(self):
+        from fc_pricing_v3 import runtime
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        from fc_pricing_v3.financial import fingerprint
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
+        from test_curve_writer_v6 import PLATFORM, Transport, saved, setup_bundle, writer
+        from fc_pricing_v3.price_curve import curve_key
+
+        bundle, capability, before, recipient = setup_bundle()
+        target = deepcopy(bundle['action']['curves'][PLATFORM]['native_payload'])
+        target['more']['price'][0] = '10.20'
+        bundle['action']['curves'][PLATFORM] = saved(target, 'editor_candidate')
+        for action in ('before_action', 'action'):
+            bundle[action]['curves'][PLATFORM]['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        curve_proof = bundle['curve_proofs'][PLATFORM]
+        curve_proof['curve_key'] = curve_key(bundle['action']['curves'][PLATFORM])
+        curve_proof['proof_hash'] = fingerprint({k: v for k, v in curve_proof.items() if k != 'proof_hash'})
+        bundle.update(decision_bundle_id=COIN, snapshot_id=JOB, execution_authorized=True)
+        bundle['sha256'] = fingerprint({k: v for k, v in bundle.items() if k != 'sha256'})
+        item = dict(writer.curve_catalog_plan(bundle, PLATFORM, capability), operation_id=COIN)
+        audit = dict(execution_id=COIN, write_protocol=CURVE_WRITE_PROTOCOL, selected=[PLATFORM],
+                     status='RUNNING', sync_confirmed=False, curve_results={PLATFORM: item}, run_id=JOB,
+                     pricing_decision_receipt=bundle)
+        transport = Transport(before, recipient)
+        writer.drive_curve_catalog(transport, audit, lambda _: None, lambda _: None, {PLATFORM: capability})
+        self.assertEqual(audit['status'], 'CONFIRMED')
+        self.assertFalse(audit['sync_confirmed'])
+        self.assertEqual(transport.projection_writes, [])
+        operation = dict(operation_id=COIN, status='COMPLETED', bundle=bundle,
+                         readback=dict(status='CONFIRMED', write_protocol=CURVE_WRITE_PROTOCOL,
+                                       execution_id=COIN, curve_results=deepcopy(audit['curve_results'])))
+        config = dict(enabled=True, revision=10)
+        parent = dict(job_id=JOB, kind='v3_cycle', request=dict(v3_operation_id=COIN),
+                      result=dict(status='confirmed'), v3_outcome=operation)
+        tree = ast.parse((RELEASE/'source/fc27_cloud_worker.py').read_text(encoding='utf-8'))
+        names = {'_enqueue_player_sync_locked', 'v3_player_completion', 'handle'}
+        functions = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
+        manager = Mock()
+        manager.ensure.return_value = True
+        category = Mock()
+        with TemporaryDirectory() as folder, patch.object(runtime, 'ledger', return_value=Mock(
+                get=lambda *args: operation)):
+            root = Path(folder)
+            for name in ('jobs', 'executions', 'queue', 'player-sync'):
+                (root/name).mkdir()
+            (root/'executions'/(COIN+'.json')).write_text(json.dumps(audit), encoding='utf-8')
+            host_os = SimpleNamespace(open=os.open, fdopen=os.fdopen, fsync=os.fsync, O_WRONLY=os.O_WRONLY,
+                                      O_CREAT=os.O_CREAT, O_EXCL=os.O_EXCL, chown=lambda *args: None)
+            namespace = dict(ROOT=root, JOBS=root/'jobs', QUEUE=root/'queue', json=json, uuid=uuid, os=host_os,
+                             datetime=runtime.datetime, timezone=runtime.timezone,
+                             sync_directory=lambda *args: None, load_player_sync_policy=lambda: config)
+            exec(compile(ast.Module(body=functions, type_ignores=[]), 'curve-worker-followup', 'exec'), namespace)
+            queued = namespace['_enqueue_player_sync_locked'](parent)
+            self.assertEqual(queued['status'], 'queued')
+            self.assertEqual(namespace['_enqueue_player_sync_locked'](parent),
+                             dict(status='already_queued', job_id=queued['job_id']))
+            job = json.loads((root/'queue'/(queued['job_id']+'.json')).read_text(encoding='utf-8'))
+            request_proof = namespace['v3_player_completion'](COIN, JOB)
+            self.assertEqual(players.confirmed_curve_basis(audit, request_proof, COIN), {'PS': '0.102'})
+            for mutate in (lambda r: r.update(status='PARTIAL'),
+                           lambda r: r['pricing_decision_receipt']['action'].update(extra_price='9'),
+                           lambda r: r['curve_results'][PLATFORM]['actual_site266_curve']['tiers'][1].update(
+                               native_price_usd='99')):
+                tampered = deepcopy(audit)
+                mutate(tampered)
+                with self.assertRaisesRegex(ValueError, 'player_sync_curve_'):
+                    players.confirmed_curve_basis(tampered, request_proof, COIN)
+            with self.assertRaisesRegex(ValueError, 'player_sync_curve_rate_changed'):
+                players.confirmed_curve_basis(audit, dict(request_proof, confirmed_100k_rates={'PS': '0.2'}), COIN)
+
+            def dispatch(job, script, request, timeout):
+                self.assertEqual(request['v3_completion'], request_proof)
+                records = {players.REQUEST: request, players.EXECUTION: audit, players.POLICY: config}
+                output = io.StringIO()
+                with patch.object(players, 'ROOT', root/'player-sync'), patch.object(players, 'read',
+                        side_effect=lambda p: deepcopy(records[p])), patch.object(players, 'SessionManager',
+                        return_value=manager), patch.object(players, 'api',
+                        return_value=dict(adminInfo=dict(username='wulv'))), patch.object(players, 'list_models',
+                        return_value=[dict(id=1)]), patch.object(players, 'recalculate_category', category), redirect_stdout(output):
+                    try:
+                        players.bulk_main()
+                    except ValueError as exc:
+                        return 1, dict(status='blocked_before_write', reason=str(exc))
+                return 0, json.loads(output.getvalue())
+
+            namespace['run_writer_request'] = dispatch
+            with self.assertRaisesRegex(ValueError, 'player_sync_original_job_mismatch'):
+                namespace['handle'](dict(job, job_id=JOB))
+            result = namespace['handle'](job)
+            self.assertEqual((result['status'], result['sample_count']), ('confirmed', 0))
+            written = json.loads((root/'player-sync'/(queued['job_id']+'.json')).read_text(encoding='utf-8'))
+            self.assertEqual(written['confirmed_coin_100k_rates_usd_per_k'], {'PS': '0.102'})
+            self.assertEqual(written['price_verification'], 'disabled')
+            with self.assertRaisesRegex(ValueError, 'player_sync_not_confirmed'):
+                namespace['handle'](job)
+            operation['status'] = 'UNKNOWN'
+            with self.assertRaisesRegex(ValueError, 'player_sync_coin_not_confirmed'):
+                namespace['handle'](job)
+            category.assert_called_once_with(manager, observer=ANY)
+
     def test_three_platform_execution_requires_each_native_amount_and_contract(self):
         audit = execution()
         receipt = audit['pricing_decision_receipt']

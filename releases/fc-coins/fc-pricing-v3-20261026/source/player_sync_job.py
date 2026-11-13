@@ -35,6 +35,7 @@ TOLERANCE = Decimal("0.001")
 PUBLIC_PAGE = "https://www.mmoexp.com/Fc-27/Players.html"
 PUBLIC_API = "https://www.mmoexp.com/ajax/goods"
 PUBLIC_AREAS = {"PS": 21587, "XBOX": 21585, "PC": 21589}
+CURVE_WRITE_PROTOCOL = "fc27_curve_v6"
 
 
 def now():
@@ -484,13 +485,52 @@ def verified_v3_coin_execution(execution,completion=None):
     except (KeyError,ValueError,TypeError):return False
 
 
+def confirmed_curve_basis(execution, completion, coin_id):
+    """Bind the original Admin writer audit to the terminal V6 ledger proof."""
+    proof = completion or {}
+    bundle = execution.get('pricing_decision_receipt') or {}
+    results = execution.get('curve_results') or {}
+    platforms = set(bundle.get('affected_platforms') or ())
+    if (execution.get('execution_id') != coin_id or execution.get('status') != 'CONFIRMED'
+            or execution.get('write_protocol') != CURVE_WRITE_PROTOCOL
+            or bundle.get('decision_bundle_id') != coin_id or bundle.get('write_protocol') != CURVE_WRITE_PROTOCOL
+            or bundle.get('execution_authorized') is not True
+            or proof.get('write_protocol') != CURVE_WRITE_PROTOCOL or proof.get('status') != 'COMPLETED'
+            or proof.get('operation_id') != coin_id or not bundle.get('snapshot_id')
+            or proof.get('snapshot_id') != bundle['snapshot_id'] or execution.get('run_id') != bundle['snapshot_id']
+            or not bundle.get('sha256') or proof.get('bundle_sha256') != bundle['sha256']
+            or not platforms or platforms != set(results) or platforms != set(execution.get('selected') or ())
+            or not platforms <= set(PUBLIC_AREAS)):
+        raise ValueError('player_sync_curve_completion_invalid')
+    def digest(value):
+        return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest()
+
+    if (proof.get('curve_results_sha256') != digest(results)
+            or bundle['sha256'] != digest({key: value for key, value in bundle.items() if key != 'sha256'})):
+        raise ValueError('player_sync_curve_audit_changed')
+    rates = {}
+    for platform, result in results.items():
+        actual = result.get('actual_site266_curve') or {}
+        identity = actual.get('identity') or {}
+        tiers = [row for row in actual.get('tiers', []) if row.get('purchase_k') == '100']
+        if (identity.get('site_id') != str(MMOEXP_SITE) or identity.get('aid') != str(PUBLIC_AREAS[platform])
+                or identity.get('cid') != '9623' or identity.get('gid') != str(GID)
+                or identity.get('unit') != 'K' or len(tiers) != 1):
+            raise ValueError('player_sync_curve_100k_scope_invalid')
+        rates[platform] = str(decimal(tiers[0]['native_price_usd'], 'coin_sale_price') / 100)
+    if rates != proof.get('confirmed_100k_rates'):
+        raise ValueError('player_sync_curve_rate_changed')
+    return rates
+
+
 def bulk_main():
     """Submit the category action once; do not verify wiki/player selling prices."""
     request, execution, policy = read(REQUEST), read(EXECUTION), read(POLICY)
     job_id, coin_id = request["job_id"], request["coin_execution_id"]
     dry_run = request.get("dry_run") is True
-    verified_v3=verified_v3_coin_execution(execution,request.get('v3_completion'))
-    if execution.get('status') in ('ORDER_ADMIN_CONFIRMED','PUBLIC_CONFIRMED') and not request.get('automatic_basis') and job_id!=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc27-player-sync:'+coin_id)):
+    curve = execution.get('write_protocol') == CURVE_WRITE_PROTOCOL
+    verified_v3 = curve or verified_v3_coin_execution(execution, request.get('v3_completion'))
+    if (curve or execution.get('status') in ('ORDER_ADMIN_CONFIRMED','PUBLIC_CONFIRMED')) and not request.get('automatic_basis') and job_id!=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc27-player-sync:'+coin_id)):
         raise ValueError('player_sync_original_job_mismatch')
     if ((not policy.get("enabled") and not dry_run)
             or policy.get("revision") != request.get("config_revision")
@@ -498,11 +538,16 @@ def bulk_main():
             or (execution.get("status") != "CONFIRMED" and not verified_v3)
             or (execution.get("automatic") is not True and not request.get("automatic_basis") and not verified_v3)):
         raise ValueError("player_sync_preflight_changed")
-    if request.get('automatic_basis'):current_automatic_basis(request,execution,policy)
-    rate_rows = execution.get("after", {}).get("rows") or []
-    rates = {row["platform"]: decimal(row.get("b2c"), "coin_sale_price") for row in rate_rows}
-    if set(rates) != {"PS", "XBOX", "PC"} or len(rate_rows) != 3:
-        raise ValueError("coin_sale_prices_incomplete")
+    if curve:
+        if request.get('automatic_basis'):
+            raise ValueError('player_sync_curve_completion_invalid')
+        rates = confirmed_curve_basis(execution, request.get('v3_completion'), coin_id)
+    else:
+        if request.get('automatic_basis'):current_automatic_basis(request,execution,policy)
+        rate_rows = execution.get("after", {}).get("rows") or []
+        rates = {row["platform"]: decimal(row.get("b2c"), "coin_sale_price") for row in rate_rows}
+        if set(rates) != {"PS", "XBOX", "PC"} or len(rate_rows) != 3:
+            raise ValueError("coin_sale_prices_incomplete")
     manager = SessionManager(read_private_config())
     if not manager.ensure():
         raise ValueError("chenchao_auth_unavailable")
@@ -521,7 +566,8 @@ def bulk_main():
         print(json.dumps({"status": "preflight_ready", "mode": "category_all",
                           "model_count": len(models), "sample_count": len(samples),
                           "sample_model_ids": [row["id"] for row in samples],
-                          "model_ids_sha256": scope_digest, "coin_execution_id": coin_id}))
+                          "model_ids_sha256": scope_digest, "coin_execution_id": coin_id,
+                          **({"confirmed_coin_100k_rates_usd_per_k": rates} if curve else {})}))
         return
     ledger_path = ROOT / (job_id + ".json")
     if ledger_path.exists():
@@ -536,6 +582,8 @@ def bulk_main():
               "sample_verified_count": 0, "sample_verified_model_ids": [],
               "verified_count": 0,
               "active_model_id": None}
+    if curve:
+        ledger["confirmed_coin_100k_rates_usd_per_k"] = rates
     atomic(ledger_path, ledger)
     def observed(response):
         ledger["post_response"] = response
