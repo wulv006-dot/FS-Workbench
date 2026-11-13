@@ -24,7 +24,7 @@ assert.match(mainConsole,/立即采集只查价/);
 assert.match(mainConsole,/id="v3-curve-collect"[^>]*>采集并预览新定价/);
 assert.match(mainConsole,/id="v3-curve-status" role="status"/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-average/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-queue-status/);
 assert.match(script,/双20只按购买100K、实交100K这一档核算/);
 assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
 assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
@@ -73,13 +73,14 @@ const normalFetch = async (url, options = {}) => ({ ok: true, json: async () => 
 const executeBodies=[];
 const priceBodies=[];let priceFailure=false;
 const collectBodies=[],curvePreviews=[];
-let curveJob,curveSubmitLost=false,curveMissing=false,curveBadPlatform='',scheduledCurve;
+let curveJob,curveSubmitLost=false,curveQueueBusy=false,curveBadPlatform='',scheduledCurve;
 let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='queued',idSequence=0;
 const fetch=async (url,options={})=>{
   if(url.endsWith('/pricing/collect')){
     const body=JSON.parse(options.body);collectBodies.push(body);
     if(body.write_protocol){
-      if(!curveMissing)curveJob={job_id:body.client_event_id,kind:'collect',request:{write_protocol:body.write_protocol},status:'running'};
+      if(curveQueueBusy)return {ok:false,status:503,json:async()=>({error:'queue_mutation_busy',retryable:true,accepted:false})};
+      curveJob={job_id:body.client_event_id,kind:'collect',request:{write_protocol:body.write_protocol},status:'running'};
       if(curveSubmitLost)throw Error('fixture collect receipt lost');
       return {ok:true,json:async()=>({job_id:body.client_event_id})};
     }
@@ -301,10 +302,13 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(elements['v3-curve-status'].textContent,/三平台预览已读回.*本次未改价/);
   assert.equal(sessionStorage.getItem('fc-v3-curve-collect-job'),null);
   assert.equal(collectBodies.length,2);
-  curveMissing=true;curveJob=null;
+  curveQueueBusy=true;curveJob=null;
   await elements['v3-curve-collect'].events.click();
+  assert.equal(collectBodies.length,3,'a busy queue response only checks the original job');
+  assert.match(elements['v3-curve-status'].textContent,/采集队列暂忙，本次未入队.*可用原编号续办/);
+  assert.equal(sessionStorage.getItem('fc-v3-curve-collect-job'),collectBodies[2].client_event_id);
   assert.equal(elements['v3-curve-collect'].textContent,'续办原采集');
-  curveMissing=false;curveSubmitLost=false;
+  curveQueueBusy=false;curveSubmitLost=false;
   await elements['v3-curve-collect'].events.click();
   assert.equal(collectBodies[2].client_event_id,collectBodies[3].client_event_id,'confirmed absent retries use the same event ID');
   curveJob={...curveJob,status:'failed',error_detail:'fixture no quote'};
