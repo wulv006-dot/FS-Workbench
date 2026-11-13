@@ -227,6 +227,48 @@ def current_template_projection(cache,now):
     return project_cached_history(cache,templates,now)
 
 
+def recheck_curve_average(quote, receipt):
+    from fc_pricing_v3.average_discount_v6 import MODEL, average_discount
+    from fc_pricing_v3.business_source import TZ, shared_curve_attachment
+
+    sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
+    from shared_es_facts import read
+
+    now = datetime.now(timezone.utc)
+    cutoff = instant(quote['evidence']['checked_at'])
+    if cutoff.astimezone(TZ).date() != now.astimezone(TZ).date():
+        raise ValueError('pricing_average_history_changed_since_quote')
+    day = cutoff.astimezone(TZ).date()
+    scope = dict(site_id='266', gid='1327', start=(day-timedelta(days=8)).isoformat(),
+                 end=(day-timedelta(days=1)).isoformat())
+    averages = {platform: proof.get('average_discount') or {} for platform, proof in receipt['curve_proofs'].items()}
+    pins = {average.get('publication_id') for average in averages.values()}
+    if len(pins) != 1 or not next(iter(pins)):
+        raise ValueError('pricing_average_history_changed_since_quote')
+    pin = next(iter(pins))
+    current = read(scope)
+    coverage = current.get('coverage') or {}
+    attached = shared_curve_attachment(current, scope, as_of=now, code_names=None)
+    if attached is None or any(average.get('contract') != MODEL or average.get('status') != 'complete'
+            or average.get('source_revision') != coverage.get('source_revision')
+            for average in averages.values()):
+        raise ValueError('pricing_average_history_changed_since_quote')
+    if coverage.get('publication_id') != pin:
+        # A later publication can carry the exact same FC window; verify its
+        # pinned slice and native quantity projection before using it.
+        frozen_coverage = read(scope, publication_id=pin).get('coverage') or {}
+        if any(coverage.get(field) != frozen_coverage.get(field) for field in
+               ('day_revisions', 'source_revision', 'fc27_projection_revision')):
+            raise ValueError('pricing_average_history_changed_since_quote')
+    for platform, quoted in averages.items():
+        actual = average_discount(attached, platform, cutoff)
+        if {k: v for k, v in actual.items() if k not in ('publication_id','revision')} != {
+                k: v for k, v in quoted.items() if k not in ('publication_id','revision')}:
+            raise ValueError('pricing_average_history_changed_since_quote')
+    return dict(status='current_curve_proof_rechecked', publication_id=coverage['publication_id'],
+                average_source_revision=coverage['source_revision'], price_write_performed=False)
+
+
 def refresh_before_write(request,root=ROOT):
     from pricing_v2 import verify_quote,fresh
     from fc_pricing_v3.financial import required_history_ratio
@@ -245,6 +287,8 @@ def refresh_before_write(request,root=ROOT):
     protocol = write_protocol(receipt)
     if request.get('write_protocol') != protocol:
         raise ValueError('pricing_write_protocol_mismatch')
+    if protocol == CURVE_WRITE_PROTOCOL:
+        return recheck_curve_average(quote, receipt)
     public=json.loads((root/'monitor/storefront.json').read_text('utf-8'))
     if public.get('status')!='ok' or public.get('source')!='https://www.mmoexp.com/Fc-27/Coins.html' or public.get('currency')!='USD' or set(public.get('rows') or {})!={'PS','XBOX','PC'}:
         raise ValueError('pricing_current_public_required')
@@ -257,9 +301,6 @@ def refresh_before_write(request,root=ROOT):
     current=collect(public,persist=True,**(dict(catalog_only=True) if catalog_only else {}))
     if current['sha256']!=quote['evidence']['promotion_envelope']['sha256']:
         raise ValueError('pricing_promotions_changed_since_quote')
-    if protocol == CURVE_WRITE_PROTOCOL:
-        return dict(status='current_curve_proof_rechecked', promotion_sha256=current['sha256'],
-                    price_write_performed=False)
     from fc_pricing_v3.runtime import current_history_mix,current_history_cache
     now=datetime.now(timezone.utc)
     if catalog_only:
