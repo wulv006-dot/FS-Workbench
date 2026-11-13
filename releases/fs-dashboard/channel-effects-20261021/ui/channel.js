@@ -338,7 +338,7 @@ async function load(refresh = false) {
     const unchanged = sameView && snapshotKey(data) === snapshotKey(next);
     data = next;
     if (!unchanged || refresh) render();
-    renderedQuery = params().toString();
+    renderedQuery = applied.toString();
     exportPending = false;
     if (next.refreshing) poll = setTimeout(() => load(), 3000);
   } catch (error) {

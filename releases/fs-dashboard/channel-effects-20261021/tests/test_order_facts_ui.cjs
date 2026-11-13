@@ -111,6 +111,17 @@ const server=http.createServer((req,res)=>{
     await page.locator('[name=start]').fill(await page.locator('[name=end]').inputValue());
     assert.equal(await exportButton.isDisabled(),true);
     await page.locator('[name=start]').fill(oldStart);
+    // Editing a date while an older response is in flight must keep its export disabled.
+    let delayedRoute, reportHeld;
+    const held = new Promise(resolve => { reportHeld = resolve; });
+    await page.route('**/data.json?**', route => { delayedRoute = route; reportHeld(); }, {times:1});
+    await page.locator('#refresh').click(); await held;
+    await page.locator('[name=start]').fill(await page.locator('[name=end]').inputValue());
+    const oldResponse = page.waitForResponse(r => r.url().includes('/data.json?'));
+    await delayedRoute.continue(); await oldResponse;
+    await page.waitForFunction(() => !document.querySelector('#refresh').disabled);
+    assert.equal(await exportButton.isDisabled(),true,'in-flight edit cannot export the older scope');
+    await page.locator('[name=start]').fill(oldStart);
     state='mismatch';await page.locator('#refresh').click();
     await page.locator('#status[data-state=error]').waitFor();
     assert.match(await page.locator('#scope').innerText(),/FC27.*未知/);
