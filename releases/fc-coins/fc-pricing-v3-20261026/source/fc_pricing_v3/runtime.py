@@ -189,7 +189,7 @@ def smart_choices(evidence,plan,current,baseline,schedule,now):
     return variants,effective_probabilities,probabilities,choice
 
 
-def preview_curve(snapshot, platform, *, requested_snapshot_id=None):
+def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_state=None):
     """Read one platform's current saved catalogue without opening a pricing operation."""
     from coin_all_sync_job import PRODUCTS, read_row
     from fc_shared_admin import SessionManager, read_private_config
@@ -198,11 +198,20 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None):
     from .pricing_proof_v6 import CONTRACT, INCOMPLETE
 
     gaps = ['customer_checkout_unverified', 'offer_path_unverified', 'necessary_fee_unverified',
-            'validation_domain_unverified', 'procurement_time_unverified', 'planning_baskets_unverified',
-            'adopted_reference_curve_unavailable', 'comparison_episode_unavailable']
+            'validation_domain_unverified', 'procurement_time_unverified', 'planning_baskets_unverified']
+    decision = dict(financial_contract=CONTRACT, selected=None, gaps=gaps)
+    if strategy_state:
+        reference = strategy_state['reference']
+        episode = strategy_state['episode']
+        decision.update(reference_curve_id=reference['reference_curve_id'],
+                        comparison_episode_id=episode['comparison_episode_id'],
+                        initial_reference_curve_id=episode['initial_reference_curve_id'],
+                        reference_tiers=reference['reference_curve']['tiers'])
+    else:
+        gaps.extend(('adopted_reference_curve_unavailable', 'comparison_episode_unavailable'))
     result = dict(status=INCOMPLETE, write_protocol=CURVE_WRITE_PROTOCOL, platform=platform,
                   snapshot_id=requested_snapshot_id, snapshot_captured_at=None, current_catalogue=None,
-                  decision=dict(financial_contract=CONTRACT, selected=None, gaps=gaps),
+                  decision=decision,
                   execution_authorized=False, write_performed=False)
     if not snapshot:
         gaps.append('pricing_snapshot_unavailable')

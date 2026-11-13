@@ -309,15 +309,21 @@ def post(path,data,actor):
             raise ValueError('pricing_curve_preview_snapshot_id_invalid')
         store = STORE / 'control.sqlite3'
         snapshot = None
+        strategy_state = None
         if store.exists():
             with closing(sqlite3.connect(store.resolve().as_uri() + '?mode=ro', uri=True, timeout=5)) as conn:
+                from .curve_strategy_v6 import curve_strategy_key
+                conn.execute('BEGIN')
                 if snapshot_id is None:
                     snapshot = _latest_snapshot(conn)
                 else:
                     row = conn.execute('SELECT body FROM pricing_snapshots WHERE id=?', (snapshot_id,)).fetchone()
                     snapshot = json.loads(row[0]) if row else None
+                row = conn.execute('SELECT body FROM metadata WHERE id=?',
+                                   (curve_strategy_key(data['platform']),)).fetchone()
+                strategy_state = json.loads(row[0]) if row else None
         from .runtime import preview_curve
-        return preview_curve(snapshot, data['platform'], requested_snapshot_id=snapshot_id)
+        return preview_curve(snapshot, data['platform'], requested_snapshot_id=snapshot_id, strategy_state=strategy_state)
     if path=='interval':
         if not isinstance(data,dict) or set(data)!={'interval_minutes','expected_revision'}:
             raise ValueError('pricing_interval_request_invalid')

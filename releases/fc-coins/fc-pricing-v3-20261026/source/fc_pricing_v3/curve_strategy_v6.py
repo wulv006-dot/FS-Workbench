@@ -6,11 +6,28 @@ import json
 from .financial import fingerprint, instant
 from .price_curve import compile_curve, curve_key, quote_native, read_curve
 from .pricing_proof_v6 import CONTRACT as PROOF_CONTRACT, FAILED, INCOMPLETE, PROVEN
+from .admin_readback import GID_FC27, MID_FC27_COINS, PLATFORM_AID, SITE_MAIN
 
 
 ANCHORS = {'small': '100', 'large': '1000'}
 STEP = Decimal('.03')
 CENT = Decimal('.01')
+
+
+def curve_strategy_key(platform):
+    return 'owned-curve-strategy-v6:' + platform
+
+
+def primary_reference_curve(curve, platform):
+    from .regional_public import SKU_IDS
+
+    confirmed = _saved(curve)
+    identity = confirmed['identity']
+    if (identity['site_id'] != SITE_MAIN or identity['aid'] != PLATFORM_AID.get(platform)
+            or identity['mid'] != MID_FC27_COINS or identity['gid'] != GID_FC27 or identity['cid'] != '9623'
+            or identity['id'] != str(SKU_IDS.get(platform))):
+        raise ValueError('strategy_reference_scope_mismatch')
+    return confirmed
 
 
 def _saved(curve):
@@ -128,6 +145,12 @@ def build_candidates(confirmed_current_curve, reference, episode, selected_segme
     return result
 
 
+def curve_proof_bound(proof, key):
+    return (isinstance(proof, dict) and proof.get('contract') == PROOF_CONTRACT
+            and proof.get('curve_key') == key
+            and proof.get('proof_hash') == fingerprint({k: v for k, v in proof.items() if k != 'proof_hash'}))
+
+
 def choose_action(comparison, curve_proofs, *, preferred_label='CURRENT'):
     """Evaluate the caller's frozen F2 outputs. Runtime freshness is separate.
 
@@ -145,10 +168,7 @@ def choose_action(comparison, curve_proofs, *, preferred_label='CURRENT'):
     for candidate in comparison['candidates']:
         key = candidate['curve_key']
         proof = curve_proofs.get(key)
-        bound = (isinstance(proof, dict) and proof.get('contract') == PROOF_CONTRACT
-                 and proof.get('curve_key') == key
-                 and proof.get('proof_hash') == fingerprint({k: v for k, v in proof.items()
-                                                             if k != 'proof_hash'}))
+        bound = curve_proof_bound(proof, key)
         status = proof.get('status') if bound else INCOMPLETE
         result['candidate_proofs'][key] = status
         if preferred_label not in candidate['labels']:
@@ -198,8 +218,9 @@ def propose_adoption(reference, comparison, decision, evidence, *, operation_id)
     evidence_hash = fingerprint(revisions)
     history = reference.get('adoption_evidence') or {}
     prior_revisions = history.get('order_revisions', {})
+    seen_revisions = history.get('used_order_revisions', {})
     changed = {key: dict(before=prior_revisions.get(key), after=value) for key, value in revisions.items()
-               if prior_revisions.get(key) != value}
+               if prior_revisions.get(key) != value and value not in seen_revisions.get(key, ())}
     if not changed or evidence_hash in history.get('used_evidence_hashes', ()):
         raise ValueError('strategy_adoption_has_no_new_evidence')
     initial_prices = {tier['purchase_k']: tier['native_price_usd']
@@ -241,10 +262,17 @@ def confirm_adoption(reference, proposal, confirmed_current_curve, receipt):
     if reference['reference_curve_id'] != proposal['reference_curve_id']:
         raise ValueError('strategy_adoption_reference_changed')
     history = reference.get('adoption_evidence') or {}
-    revisions = dict(history.get('order_revisions', {}), **proposal['order_revisions'])
+    revisions = dict(history.get('order_revisions', {}))
+    seen = deepcopy(history.get('used_order_revisions', {}))
+    for order, delta in proposal['evidence_delta'].items():
+        used_order = seen.setdefault(order, [])
+        for revision in (revisions.get(order), delta['after']):
+            if revision is not None and revision not in used_order:
+                used_order.append(revision)
+        revisions[order] = delta['after']
     used = list(history.get('used_evidence_hashes', ())) + [proposal['evidence_hash']]
     return dict(reference_curve=confirmed, reference_curve_id=proposal['adoption_id'],
-                adoption_evidence=dict(order_revisions=revisions, used_evidence_hashes=used),
+                adoption_evidence=dict(order_revisions=revisions, used_evidence_hashes=used, used_order_revisions=seen),
                 comparison_episode_id=proposal['comparison_episode_id'],
                 initial_reference_curve_id=proposal['initial_reference_curve_id'],
                 adoption=deepcopy(proposal), confirmed_operation_id=receipt['operation_id'],

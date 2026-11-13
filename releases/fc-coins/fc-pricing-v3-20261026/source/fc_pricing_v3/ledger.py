@@ -29,7 +29,7 @@ def clock():
 
 def confirmed_curve_window(op):
     """Freeze the original writer's confirmed primary rows, never its proposal."""
-    from .price_curve import curve_key
+    from .price_curve import curve_key, read_curve
     from .business_source import _window_curve
     bundle, receipt = op['bundle'], op.get('readback') or {}
     if (receipt.get('write_protocol') != 'fc27_curve_v6' or receipt.get('status') != 'CONFIRMED'
@@ -42,7 +42,9 @@ def confirmed_curve_window(op):
         raise ValueError('curve_window_scope_missing')
     for platform in platforms:
         row = (receipt.get('curve_results') or {}).get(platform) or {}
-        target_key = curve_key(bundle['action']['curves'][platform])
+        target = bundle['action']['curves'][platform]
+        target = read_curve(target['native_payload'], target['identity'], target['native_contract'])
+        target_key = curve_key(target)
         if (row.get('operation_id') != op['operation_id'] or row.get('platform') != platform
                 or row.get('target_curve_key') != target_key
                 or (row.get('catalog') or {}).get('status') != 'confirmed'
@@ -56,7 +58,9 @@ def confirmed_curve_window(op):
         if (row.get('actual_site266_curve_key') != actual_key
                 or mapping.get('actual_site266_curve_key') != actual_key
                 or mapping.get('target_curve_key') != target_key
-                or mapping.get('basis') != 'full_prices_and_tier_specs_readback'):
+                or mapping.get('basis') != 'full_prices_and_tier_specs_readback'
+                or target['tiers'] != actual['tiers']
+                or target['unit_price_usd_per_k'] != actual['unit_price_usd_per_k']):
             raise ValueError('curve_window_primary_mapping_unconfirmed')
         action['curves'][platform] = actual
         decisions[platform] = target_key
@@ -144,6 +148,146 @@ class Ledger:
 
     def generation(self):
         return self.get('metadata', 'generation')
+
+    def curve_strategy_state(self, platform, db=None):
+        from .curve_strategy_v6 import curve_strategy_key
+        return self.get('metadata', curve_strategy_key(platform), db)
+
+    def start_curve_episode(self, platform, rule_revision, reason, *, expected_episode_id=None,
+                            initial_curve=None, readback_ref=None):
+        """Explicit internal setup from an adopted saved curve, or carry A into a new episode."""
+        from .curve_strategy_v6 import curve_strategy_key, primary_reference_curve
+        from .price_curve import curve_key
+
+        if (platform not in PLATFORMS or any(not isinstance(v, str) or not v.strip()
+                                            for v in (rule_revision, reason))):
+            raise ValueError('strategy_episode_scope_invalid')
+        key = curve_strategy_key(platform)
+        with self.transaction() as conn:
+            state = self.curve_strategy_state(platform, conn)
+            if state and initial_curve is None:
+                reference = state['reference']
+                episode = state['episode']
+                if rule_revision == episode['rule_revision']:
+                    return state
+                if expected_episode_id != episode['comparison_episode_id']:
+                    raise ValueError('strategy_comparison_episode_changed')
+            else:
+                if (expected_episode_id is not None or initial_curve is None
+                        or not isinstance(readback_ref, str) or not readback_ref.strip()):
+                    raise ValueError('strategy_initial_reference_evidence_required')
+                initial = primary_reference_curve(initial_curve, platform)
+                reference_id = fingerprint([key, curve_key(initial), readback_ref])
+                if state:
+                    first_episode = self.get('metadata', key + ':initial', conn)
+                    if (first_episode['initial_reference_curve_id'] == reference_id
+                            and first_episode['rule_revision'] == rule_revision and first_episode['reason'] == reason):
+                        return state
+                    raise ValueError('strategy_initial_reference_already_adopted')
+                reference = dict(reference_curve=initial, reference_curve_id=reference_id,
+                                 readback_ref=readback_ref, initial_adoption_reason=reason)
+            prior_id = state['episode']['comparison_episode_id'] if state else None
+            episode_id = fingerprint([key, prior_id, rule_revision, reference['reference_curve_id']])
+            episode = dict(comparison_episode_id=episode_id, initial_reference_curve=reference['reference_curve'],
+                           initial_reference_curve_id=reference['reference_curve_id'],
+                           rule_revision=rule_revision, reason=reason, opened_at=clock().isoformat(),
+                           prior_comparison_episode_id=prior_id)
+            if state is None:
+                self.put('metadata', key + ':initial', episode, conn)
+            else:
+                self.put('metadata', key + ':episode:' + prior_id, state['episode'], conn)
+            return self.put('metadata', key, dict(reference=reference, episode=episode), conn)
+
+    def _curve_adoption_input(self, adoption, operation_id, bundle, conn):
+        from .curve_strategy_v6 import curve_proof_bound
+        from .dispatch import CURVE_WRITE_PROTOCOL
+        from .pricing_proof_v6 import PROVEN
+
+        platform = adoption['platform']
+        proposal, proof = adoption['proposal'], adoption['proof']
+        body = {key: value for key, value in proposal.items() if key != 'adoption_id'}
+        if (bundle.get('write_protocol') != CURVE_WRITE_PROTOCOL
+                or platform not in bundle.get('affected_platforms', ())
+                or 'base:' + platform not in bundle.get('mutable_resources', ())
+                or proposal.get('operation_id') != operation_id or proposal.get('kind') != 'BUSINESS_ADOPT'
+                or proposal.get('adoption_id') != fingerprint(body)
+                or not curve_proof_bound(proof, proposal.get('target_curve_key'))
+                or proof.get('status') != PROVEN or proof['proof_hash'] != proposal.get('proof_hash')
+                or proof['scope'].get('platform') != platform or proof['scope'].get('curve_site_id') != '266'):
+            raise ValueError('strategy_adoption_operation_or_proof_invalid')
+        state = self.curve_strategy_state(platform, conn)
+        if (not state or proposal['reference_curve_id'] != state['reference']['reference_curve_id']
+                or proposal['comparison_episode_id'] != state['episode']['comparison_episode_id']
+                or proposal['initial_reference_curve_id'] != state['episode']['initial_reference_curve_id']):
+            raise ValueError('strategy_adoption_reference_or_episode_changed')
+        return state
+
+    def _record_curve_adoption(self, adoption, op, current, conn):
+        from .curve_strategy_v6 import confirm_adoption, curve_strategy_key, primary_reference_curve, propose_adoption
+        from .price_curve import curve_key
+
+        proposal = adoption['proposal']
+        ident = proposal['adoption_id']
+        key = 'owned-curve-adoption-v6:' + ident
+        prior = self.get('metadata', key, conn)
+        if prior:
+            return prior
+        result = dict(adoption_id=ident, operation_id=op['operation_id'], platform=adoption['platform'])
+        try:
+            state = self._curve_adoption_input(adoption, op['operation_id'], op['bundle'], conn)
+            current = primary_reference_curve(current, adoption['platform'])
+            current_key = curve_key(current)
+            candidate = dict(curve=current, curve_key=current_key)
+            comparison = dict(state['episode'], candidates=[candidate])
+            decision = dict(status='KEEP', selected=candidate, proof_hash=adoption['proof']['proof_hash'],
+                            reference_curve_id=proposal['reference_curve_id'],
+                            comparison_episode_id=proposal['comparison_episode_id'])
+            evidence = {field: proposal.get(field) for field in
+                        ('order_revisions', 'window_ids', 'window_start', 'window_end', 'cost_revision',
+                         'maturity', 'reason', 'changed_judgment', 'cumulative')}
+            if propose_adoption(state['reference'], comparison, decision, evidence,
+                                operation_id=op['operation_id']) != proposal:
+                raise ValueError('strategy_adoption_proposal_changed')
+            receipt = dict(operation_id=op['operation_id'], status=op['status'], complete_curve_readback=True,
+                           curve_key=current_key, readback_ref='readback_receipts/' + op['operation_id'])
+            adopted = confirm_adoption(state['reference'], proposal, current, receipt)
+        except ValueError as error:
+            # The writer's independently confirmed operation can still close.
+            result.update(status='NOT_ADOPTED', reason=str(error))
+        else:
+            self.put('metadata', curve_strategy_key(adoption['platform']),
+                     dict(state, reference=adopted), conn)
+            result.update(status='ADOPTED', reference_curve_id=adopted['reference_curve_id'])
+        return self.put('metadata', key, dict(result, proposal=proposal, proof=adoption['proof']), conn)
+
+    def adopt_confirmed_curve(self, adoption, *, current_curve):
+        """Apply a trusted same-round adoption to an existing confirmed operation."""
+        from .curve_strategy_v6 import primary_reference_curve
+        from .price_curve import curve_key
+
+        proposal, platform = adoption['proposal'], adoption['platform']
+        ident = proposal['operation_id']
+        with self.transaction() as conn:
+            prior = self.get('metadata', 'owned-curve-adoption-v6:' + proposal['adoption_id'], conn)
+            if prior:
+                if prior['proposal'] != proposal or prior['proof'] != adoption['proof'] or prior['platform'] != platform:
+                    raise ValueError('strategy_adoption_payload_conflict')
+                return prior
+            op = self.get('operations', ident, conn)
+            window = self.get('actual_price_windows', ident, conn)
+            resource = 'base:' + platform
+            leased = native_resources([row[0] for row in conn.execute('SELECT resource FROM resource_leases')])
+            if (not op or op['status'] not in ('COMPLETED', 'NO_CHANGE') or not window or window.get('closed_at')
+                    or resource not in window['resources'] or resource in window.get('resource_closed_at', {})
+                    or resource in leased):
+                raise ValueError('strategy_adoption_original_window_not_current')
+            if self.get('readback_receipts', ident, conn) != op.get('readback'):
+                raise ValueError('strategy_adoption_original_receipt_unconfirmed')
+            action, _ = confirmed_curve_window(op)
+            confirmed = action['curves'][platform]
+            if curve_key(confirmed) != curve_key(primary_reference_curve(current_curve, platform)):
+                raise ValueError('strategy_adoption_current_curve_changed')
+            return self._record_curve_adoption(adoption, op, confirmed, conn)
 
     def activate_generation(self, generation, retirement, unresolved=()):
         with self.transaction() as db:
@@ -606,6 +750,9 @@ class Ledger:
                 raise ValueError('pricing_plan_expired')
             if plan['state'] != 'ACTIVE':
                 raise ValueError('pricing_plan_inactive')
+            adoption = bundle.get('curve_adoption')
+            if adoption is not None:
+                self._curve_adoption_input(adoption, operation_id, bundle, db)
             for resource in bundle['resources']:
                 if db.execute('SELECT 1 FROM resource_leases WHERE resource=?', (resource,)).fetchone():
                     raise ValueError('pricing_resource_unresolved')
@@ -705,9 +852,14 @@ class Ledger:
                 raise ValueError('pricing_steps_unconfirmed')
             op.update(status='NO_CHANGE' if no_change else 'COMPLETED', readback=receipt,
                       completed_at=clock().isoformat())
-            self.put('operations', operation_id, op, db)
             self.put('readback_receipts', operation_id, receipt, db)
-            self.record_price_window(op,db,no_change=no_change)
+            action = self.record_price_window(op,db,no_change=no_change)
+            adoption = op['bundle'].get('curve_adoption')
+            if adoption is not None:
+                adoption_result = self._record_curve_adoption(adoption, op, action['curves'][adoption['platform']], db)
+                op['curve_adoption_result'] = {key: value for key, value in adoption_result.items()
+                                               if key not in ('proposal', 'proof')}
+            self.put('operations', operation_id, op, db)
             db.execute('DELETE FROM resource_leases WHERE operation_id=?', (operation_id,))
             return op
 
@@ -756,7 +908,7 @@ class Ledger:
                 if all(resource in normalize(closed) for resource in normalize(window.get('resources',[]))):window['closed_at']=max(closed.values())
                 self.put('actual_price_windows',row[0],window,db)
         if not remaining:
-            return
+            return actual_action
         self.put('actual_price_windows', operation_id, dict(operation_id=operation_id,plan_id=op.get('plan_id'),generation=op.get('generation'),
                  resources=[r for r in normalize(original_resources) if r in remaining],mutable_resources=[r for r in normalize(original_resources) if r in remaining],
                  assignment_id=op['bundle']['assignment_id'],action=actual_action,
@@ -764,6 +916,7 @@ class Ledger:
                  platforms=op['bundle'].get('affected_platforms',[]),assignment_probability=op['bundle'].get('assignment_probability'),
                  randomization_verified=not no_change and op['bundle'].get('randomization_verified',False),origin='confirmed_public_price_window',mode='production',
                  opened_at=opened,no_change=no_change,**curve_metadata), db)
+        return actual_action
 
 
     def finish_known_partial(self,operation_id,receipt,actual_action,reason,*,exit_pending=True):
