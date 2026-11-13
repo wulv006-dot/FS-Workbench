@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
+import sqlite3
 from time import monotonic
 
 from user_contract import TZ, canonical, digest, stamp
@@ -98,7 +99,7 @@ def stored_publication(store):
     return checked(json.loads(row[0]))
 
 
-def write_publication(store, value, previous, *, shared_revisions=None):
+def write_publication(store, value, previous, *, shared_revisions=None, shared_window=None):
     checked(value)
     with store.db() as db:
         db.execute('BEGIN IMMEDIATE')
@@ -112,6 +113,9 @@ def write_publication(store, value, previous, *, shared_revisions=None):
         if shared_revisions is not None:
             from shared_es_facts import bind_publication
             bind_publication(db, value, previous, shared_revisions)
+        if shared_window is not None:
+            from shared_es_facts import retain_pending
+            retain_pending(db, value, *shared_window)
         db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)', (META, canonical(value)))
 
 
@@ -194,13 +198,11 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly',
     state = small_state(root)
     if cadence not in ('daily', 'weekly'): raise ValueError('publication_cadence')
     latest = now.replace(hour=0, minute=0, second=0, microsecond=0) if cadence == 'daily' else monday(now)
-    shared_retry = bool(shared_es and state and state.get('shared_es_pending') and window(now)
-                        and (force or state.get('shared_es_result', {}).get('retryable', True)))
     retiring_backup = state is not None and state['phase'] == 'backup'
     calendar_review = bool(state and state.get('review_policy') in CALENDAR_POLICIES and state.get('review_start'))
     if state and not calendar_review and not retiring_backup and state.get('retryable') is False and not force:
         return dict(status='requires_reconciliation', reason=state.get('error'), cutoff=state['cutoff'], source_calls=0)
-    if state and not retiring_backup and (not window(now) or state['phase'] == 'complete' and stamp(state['cutoff']) >= latest and not shared_retry
+    if state and not retiring_backup and (not window(now) or state['phase'] == 'complete' and stamp(state['cutoff']) >= latest and not shared_es
                   or not calendar_review and state.get('retryable') is False and not force):
         return dict(status='reused', reason='weekly_idle', cutoff=state['cutoff'], source_calls=0)
     store = loader()
@@ -226,17 +228,16 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly',
             if published and state is None:
                 record_state(store, dict(contract='fs-users-weekly-work-v1', cutoff=published['cutoff'], phase='complete', cadence=published.get('cadence', 'weekly')))
             return dict(status='reused', reason='weekly_outside_window', source_calls=0)
-        if shared_retry and state and state['phase'] == 'complete':
-            started = clock()
-            retry_shared_es(store, state, published,
-                            lambda: clock() - started >= 360 or not window(now + timedelta(seconds=clock()-started)))
-            if stamp(state['cutoff']) >= latest:
-                return dict(status='reused', reason='weekly_already_published',
-                            cutoff=state['cutoff'], shared_es=state.get('shared_es_result'))
         if state is None or state['phase'] == 'complete':
             if published and stamp(published['cutoff']) >= latest:
-                record_state(store, dict(contract='fs-users-weekly-work-v1', cutoff=published['cutoff'], phase='complete', cadence=published.get('cadence', 'weekly')))
-                return dict(status='reused', reason='weekly_already_published', source_calls=0)
+                if state is None:
+                    record_state(store, dict(contract='fs-users-weekly-work-v1', cutoff=published['cutoff'], phase='complete', cadence=published.get('cadence', 'weekly')))
+                result = dict(status='reused', reason='weekly_already_published', source_calls=0)
+                if shared_es:
+                    started = clock()
+                    result['shared_es'] = retry_shared_es(
+                        store, lambda: clock() - started >= 360 or not window(now + timedelta(seconds=clock()-started)), force)
+                return result
             start = min(stamp(published['cutoff']), latest-timedelta(days=7)) if published else latest-timedelta(days=7)
             if cadence == 'daily':
                 # Date enumeration includes every order status. A weekly calendar-month
@@ -296,38 +297,30 @@ def snapshot_candidate(store, start, cutoff, now, cadence):
     return value, evidence
 
 
-def prepare_shared_es(store, value, start, cutoff, checkpoint):
-    from shared_es_facts import prepare_publication
+def retry_shared_es(store, checkpoint, force=False, *, publication_id=None):
+    from shared_es_facts import complete_pending, pending_publications, record_pending_error
 
-    return prepare_publication(store, value, stamp(start).date().isoformat(),
-                               (stamp(cutoff).date() - timedelta(days=1)).isoformat(),
-                               checkpoint=checkpoint)
-
-
-def update_shared_es(store, value, start, cutoff, checkpoint):
-    """Publish the shared reader independently of the already-complete user pin."""
-    from shared_es_facts import bind_publication
-
-    try:
-        revisions = prepare_shared_es(store, value, start, cutoff, checkpoint)
-        if revisions is None:
-            return dict(status='pending', reason='shared_es_job_budget', retryable=True)
-        with store.db() as db:
-            db.execute('BEGIN IMMEDIATE')
-            bind_publication(db, value, None, revisions)
-        return dict(status='complete', days=sorted(revisions), publication_id=value['publication_id'])
-    except (OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
-        evidence = error_state(error)
-        return dict(status='pending', reason=evidence['error'], retryable=evidence['retryable'])
-
-
-def retry_shared_es(store, state, published, checkpoint):
-    pending = state.get('shared_es_pending')
-    if pending and published and pending['publication_id'] == published['publication_id']:
-        state['shared_es_result'] = update_shared_es(store, published, pending['start'], pending['cutoff'], checkpoint)
-        if state['shared_es_result']['status'] == 'complete':
-            state.pop('shared_es_pending', None)
-        record_state(store, state)
+    results = {}
+    for pending in pending_publications(store):
+        ident = pending['pin']['publication_id']
+        if publication_id is not None and ident != publication_id:
+            continue
+        if not force and pending.get('retryable') is False:
+            results[ident] = dict(status='pending', reason=pending['error'], retryable=False)
+            continue
+        if checkpoint():
+            results[ident] = dict(status='pending', reason='shared_es_job_budget', retryable=True)
+            break
+        try:
+            days = complete_pending(store, pending, checkpoint)
+        except (OSError, ValueError, RuntimeError, KeyError, TypeError, sqlite3.Error) as error:
+            evidence = error_state(error)
+            record_pending_error(store, pending, evidence)
+            results[ident] = dict(status='pending', reason=evidence['error'], retryable=evidence['retryable'])
+        else:
+            results[ident] = (dict(status='complete', days=days) if days is not None else
+                              dict(status='pending', reason='shared_es_job_budget', retryable=True))
+    return results
 
 
 def advance_daily_during_review(store, state, published, now, checkpoint, *, shared_es=False):
@@ -363,11 +356,9 @@ def advance_daily_during_review(store, state, published, now, checkpoint, *, sha
     value['publication_id'] = 'uw_' + digest({k: v for k, v in value.items() if k != 'publication_id'})[:32]
     # Save the exact candidate before the CAS write so an interrupted response is reconciled.
     state['daily_publication_id'] = value['publication_id']; record_state(store, state)
-    write_publication(store, value, (published or {}).get('publication_id'))
+    shared_window = (start.date().isoformat(), cutoff.date().isoformat(), None) if shared_es else None
+    write_publication(store, value, (published or {}).get('publication_id'), shared_window=shared_window)
     state['base_publication'] = value['publication_id']
-    if shared_es:
-        state['shared_es_pending'] = dict(start=start.isoformat(), cutoff=cutoff.isoformat(),
-                                          publication_id=value['publication_id'])
     record_state(store, state)
     return None
 
@@ -386,8 +377,6 @@ def run(store, state, published, now, clock, force=False, *, shared_es=False):
     def checkpoint():
         record_state(store, state)
         return clock() >= deadline or not window(now + timedelta(seconds=clock()-started))
-    if shared_es and (force or state.get('shared_es_result', {}).get('retryable', True)):
-        retry_shared_es(store, state, published, checkpoint)
     if published and ((calendar_policy and state.get('final_publication_id') == published['publication_id'])
                       or not calendar_policy and published['cutoff'] == state['cutoff']):
         state['phase'] = 'backup'  # Reconcile a commit whose checkpoint was interrupted.
@@ -416,7 +405,10 @@ def run(store, state, published, now, clock, force=False, *, shared_es=False):
         if priority is not None:
             return priority
         state.pop('daily_error', None)
-        published = stored_publication(store)
+        latest_publication = stored_publication(store)
+        if shared_es and (latest_publication or {}).get('publication_id') != (published or {}).get('publication_id'):
+            retry_shared_es(store, checkpoint, force, publication_id=latest_publication['publication_id'])
+        published = latest_publication
         state['base_publication'] = (published or {}).get('publication_id')
         if state.get('review_complete'):
             state['publication_cutoff'] = published['cutoff']
@@ -501,23 +493,24 @@ def run(store, state, published, now, clock, force=False, *, shared_es=False):
         if value is None:
             state['phase'] = 'flags'; record_state(store, state)
             return dict(status='deferred', reason=evidence, cutoff=state['cutoff'])
-        shared_start = None
+        shared_window = None
         if shared_es:
-            shared_start = max(stamp(state['start']), cutoff - timedelta(days=1))
+            shared_start = stamp(state['start'])
+            shared_review = None
             if review_start is not None:
-                shared_start = max(stamp(state['start']), calendar_review_start(cutoff, CURRENT_MONTH_POLICY))
+                shared_review = max(shared_start, calendar_review_start(cutoff, CURRENT_MONTH_POLICY))
+                shared_start = min(stamp(state.get('initial_published_cutoff') or cutoff.isoformat()), shared_review)
+            if shared_start < cutoff:
+                shared_window = (shared_start.date().isoformat(), cutoff.date().isoformat(),
+                                 shared_review.date().isoformat() if shared_review else None)
         state.update(identity_evidence=evidence, publication_cutoff=publish_cutoff.isoformat(), final_publication_id=value['publication_id'])
-        if shared_start is not None:
-            state['shared_es_pending'] = dict(start=shared_start.isoformat(), cutoff=cutoff.isoformat(),
-                                              publication_id=value['publication_id'])
         record_state(store, state)
-        write_publication(store, value, state['base_publication'])
-        if shared_start is not None:
-            state['shared_es_result'] = update_shared_es(store, value, shared_start, cutoff, checkpoint)
-            if state['shared_es_result']['status'] == 'complete':
-                state.pop('shared_es_pending', None)
+        write_publication(store, value, state['base_publication'], shared_window=shared_window)
         state['phase'] = 'backup'; record_state(store, state)
-    return finish_week(store, state, stored_publication(store), at(), force=force)
+    result = finish_week(store, state, stored_publication(store), at(), force=force)
+    if shared_es:
+        result['shared_es'] = retry_shared_es(store, checkpoint, force)
+    return result
 
 
 def finalize_review_archive(store, state, published):

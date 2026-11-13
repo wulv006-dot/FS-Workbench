@@ -5,6 +5,8 @@ from pathlib import Path
 import sqlite3
 import sys
 import tempfile
+from threading import RLock
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -53,6 +55,7 @@ class SharedFacts(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.store = Store.__new__(Store)
+        self.store.root = Path(tmp.name)
         self.store.path = Path(tmp.name) / 'customers.sqlite3'
         self.store.read_only = False
         with closing(sqlite3.connect(self.store.path)) as db, db:
@@ -158,20 +161,23 @@ class SharedFacts(unittest.TestCase):
 
     def test_daily_publication_survives_independent_shared_mapping_failure(self):
         pub = publication(D2)
-        weekly.write_publication(self.store, pub, None)
+        weekly.write_publication(self.store, pub, None, shared_window=(D1, D2, None))
         with patch('shared_es_facts.prepare_publication', side_effect=OSError('fixture')):
-            result = weekly.update_shared_es(self.store, pub, D1, D2, lambda: False)
-        self.assertEqual(result, {'status': 'pending', 'reason': 'OSError', 'retryable': True})
+            result = weekly.retry_shared_es(self.store, lambda: False)
+        self.assertEqual(result[pub['publication_id']], {'status': 'pending', 'reason': 'OSError', 'retryable': True})
         self.assertEqual(weekly.stored_publication(self.store), pub)
         self.assertEqual(self.read()['status'], 'unavailable')
 
     def test_shared_publish_resume_after_commit_does_not_move_newer_active_pin(self):
         rev = self.stage(D1, archive(line('first', D1)), order('first', D1))
         first = publication(D2)
-        weekly.write_publication(self.store, first, None)
-        with patch('shared_es_facts.prepare_publication', return_value={D1: rev}):
-            committed = weekly.update_shared_es(self.store, first, D1, D2, lambda: False)
-            self.assertEqual(weekly.update_shared_es(self.store, first, D1, D2, lambda: False), committed)
+        weekly.write_publication(self.store, first, None, shared_window=(D1, D2, None))
+        with self.store.db() as db:
+            facts.bind_publication(db, first, None, {D1: rev})
+        with patch('shared_es_facts.prepare_publication', side_effect=AssertionError('shared day already committed')):
+            result = weekly.retry_shared_es(self.store, lambda: False)
+            self.assertEqual(result[first['publication_id']]['status'], 'complete')
+            self.assertEqual(weekly.retry_shared_es(self.store, lambda: False), {})
         later = publication(D3, 'b')
         with self.store.db() as db:
             facts.bind_publication(db, later, None, {})
@@ -182,4 +188,78 @@ class SharedFacts(unittest.TestCase):
                 facts.bind_publication(db, dict(first, data_version='2'), None, {D1: rev})
         self.assertEqual(facts.latest_publication(db=self.store.path)['publication_id'], later['publication_id'])
         self.assertEqual(self.read(ident=first['publication_id'])['rows'][0]['order_no'], 'first')
+
+    def test_cross_month_failed_days_keep_pins_and_catch_up_after_new_publication(self):
+        old_day, start, cutoff = '2026-10-31', '2026-11-01', '2026-11-02'
+        old = publication(start)
+        new = publication(cutoff, 'b')
+        weekly.write_publication(self.store, old, None, shared_window=(old_day, start, None))
+        old_rev = self.stage(old_day, archive(line('old', old_day)), order('old', old_day))
+        new_rev = self.stage(start, archive(line('new', start)), order('new', start))
+
+        def failed_old(store, value, start_day, end_day, **_):
+            if start_day == old_day:
+                self.assertEqual(value['flag_manifests'], old['flag_manifests'])
+                raise OSError('fixture')
+            self.assertEqual(value['flag_manifests'], new['flag_manifests'])
+            return {start: new_rev}
+
+        with patch('shared_es_facts.prepare_publication', side_effect=failed_old):
+            weekly.retry_shared_es(self.store, lambda: False)
+            weekly.write_publication(self.store, new, old['publication_id'], shared_window=(start, cutoff, None))
+            weekly.retry_shared_es(self.store, lambda: False)
+        self.assertEqual(weekly.stored_publication(self.store), new)
+        self.assertEqual(self.read(scope(old_day, start))['coverage']['missing_days'], [old_day])
+        self.assertEqual([pending['pin']['publication_id'] for pending in facts.pending_publications(self.store)],
+                         [old['publication_id']])
+        from user_customer_types import archive_reference_state
+        refs = archive_reference_state(self.store, self.store.root)
+        self.assertEqual(set(refs['manifests']), {old['flag_manifests'][0]['name'], new['flag_manifests'][0]['name']})
+        with patch('shared_es_facts.prepare_publication', return_value={old_day: old_rev}):
+            weekly.retry_shared_es(self.store, lambda: False)
+        current = self.read(scope(old_day, start))
+        self.assertEqual(current['status'], 'available')
+        self.assertEqual(current['coverage']['data_revision'], new['data_version'])
+        self.assertEqual(self.read(scope(old_day, start), ident=new['publication_id'])['coverage']['missing_days'], [old_day])
+        self.assertEqual(facts.pending_publications(self.store), [])
+
+    def test_multi_day_run_prepares_all_missing_dates_from_publication_start(self):
+        cutoff = '2026-11-13'
+        old = publication(D1)
+        candidate = publication(cutoff, 'b')
+        weekly.write_publication(self.store, old, None)
+        state = dict(contract='fs-users-weekly-work-v1', phase='publish', cadence='daily',
+                     start=stamp(D1).isoformat(), cutoff=stamp(cutoff).isoformat(), base_publication=old['publication_id'])
+        revisions = {day: self.stage(day, archive(line(day, day)), order(day, day)) for day in (D1, D2, D3)}
+        self.store.config = {'sites': {'266': {}}}
+        with patch.dict(sys.modules, user_jobs=Mock()), \
+                patch.object(self.store, 'coverage', return_value=[]), patch('user_lifecycle.covered', return_value=True), \
+                patch.object(weekly, 'snapshot_candidate', return_value=(candidate, {})), \
+                patch('shared_es_facts.prepare_publication', return_value=revisions) as prepare:
+            result = weekly.run(self.store, state, old, stamp(cutoff + 'T04:18:00+08:00'), lambda: 0, shared_es=True)
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(prepare.call_args.args[2:4], (D1, D3))
+        self.assertEqual(self.read(scope(D1, D3))['coverage']['missing_days'], [])
+
+    def test_closed_day_old_archive_receipt_uses_one_original_fresh_cycle(self):
+        from user_customer_types import closed_period_bundle
+        root = self.store.root
+        index, attempt, legacy = (root / name for name in ('old.json', 'orig.attempt', 'legacy.attempt'))
+        index.touch()
+        snapshot = dict(value=dict(captured_at=D1 + 'T15:48:00+08:00', quality=dict(source_origin='private_archive_reuse')))
+        es = SimpleNamespace(checked_query=lambda q: q, SERVER_LOCK=RLock(),
+                             _receipt_paths=Mock(return_value=(index, attempt, legacy)),
+                             _read_receipt=Mock(return_value=(dict(value=dict(status='available', snapshots=[snapshot])), 'fixture')),
+                             _server_bundle=Mock(), server_bundle_after=Mock(return_value={'status': 'pending'}))
+        query, cutoff = dict(start=D1, end=D1), stamp(D2)
+        with patch.dict(sys.modules, es_order_structure=es):
+            closed_period_bundle(query, cutoff, root)
+            first = es.server_bundle_after.call_args
+            closed_period_bundle(query, cutoff, root)
+            self.assertEqual(es.server_bundle_after.call_args, first)
+            es._server_bundle.assert_not_called()
+            attempt.touch()
+            closed_period_bundle(query, cutoff, root)
+        self.assertEqual(es.server_bundle_after.call_count, 2)
+        es._server_bundle.assert_called_once()
 
