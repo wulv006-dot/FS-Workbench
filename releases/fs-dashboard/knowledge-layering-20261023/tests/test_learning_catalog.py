@@ -265,14 +265,15 @@ class LearningCatalog(unittest.TestCase):
         self.assertIn('browser_connection_timeout', data)
         self.assertIn('不据此选A/B/C赢家', data)
 
-    def test_retired_rules_are_removed_without_changing_current_margin_constraints(self):
+    def test_current_v6_average_contract_replaces_legacy_margin_knowledge(self):
         entries = catalog()['entries']
         self.assertFalse(any(row['status']=='retired' for row in entries))
         self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'fc27_dual20_d9_d2_platform_100k_v4')
-        self.assertEqual(margin['source']['path'],'docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md')
+        self.assertEqual(margin['revision'], 'fc_v6_d8_d2_amount_weighted_discount_v1')
+        self.assertEqual(margin['source']['path'],'docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md')
+        self.assertIn('fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4',margin['supersedes'])
 
     def test_current_dashboard_uses_native_summary_and_shipping_without_loading_retired_rules(self):
         path = ROOT / 'knowledge/index.json'
