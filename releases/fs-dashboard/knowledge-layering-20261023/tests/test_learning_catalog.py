@@ -21,7 +21,8 @@ sys.path[:0] = [str(SOURCE), str(ROOT / 'releases/fs-dashboard/hermes-fc-pilot-2
 import knowledge_catalog as kc
 import business_context as bc
 
-BASE = '0e2d02efd7c894199ab0f62ca69a9c75ed7c2578'
+BASE = '416167951cfe261d55f2aba299e2cd020a082cf0'
+SHARED_REVISION = 'fs-fc-admin-es-shared-20261113-r1'
 BASELINE = 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'
 HISTORY = 'knowledge/history/fc-business-baseline-before-aion2-20261023.md'
 CURRENT_IDS = {'fs.orders.email_export', 'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'fc.marketing.attribution',
@@ -310,7 +311,7 @@ class LearningCatalog(unittest.TestCase):
                 self.assertEqual(row['effective_at_basis'], '2026-11-10 用户确认 ES 候选金额口径')
             elif row['id'] in {'fs.learning.methods','fs.pricing.parameter-identity'}:
                 self.assertEqual(row['effective_at'],'2026-11-10')
-                self.assertEqual(row['revision'],'20261110-three-platform-100k')
+                self.assertEqual(row['revision'],SHARED_REVISION if row['id']=='fs.learning.methods' else '20261110-three-platform-100k')
                 self.assertEqual(row['effective_at_basis'],'2026-11-10 用户确认三平台独立及100K实交基准')
             else:
                 self.assertEqual(row['effective_at'], '2026-10-23')
@@ -321,12 +322,36 @@ class LearningCatalog(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(lf(path)).hexdigest()
         current = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.marketing.attribution'], preview=True)
-        self.assertEqual(current['entries'][0]['revision'], 'fc-v3-20261026')
+        self.assertEqual(current['entries'][0]['revision'], SHARED_REVISION)
+        self.assertIn('fc.marketing.attribution@fc-v3-20261026', current['entries'][0]['supersedes'])
         self.assertIn('优惠码 `Aion2` 由 TikTok 改归**分销**', current['entries'][0]['content'])
         old = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.marketing.attribution'],
                         revision='v15-pmax-20261022', history=True, preview=True)
         self.assertEqual(old['entries'], [])
         self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'])['status'], 'not_published')
+
+    def test_shared_definitions_are_readable_candidates_and_email_contract_is_preserved(self):
+        value = catalog()
+        expected = {'fs.data.sources','fs.customer.identity','fs.finance.procurement',
+                    'fc.marketing.attribution','fs.learning.methods','fc.reporting.data'}
+        rows = {r['id']:r for r in value['entries']}
+        self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected)
+        for ident in expected:
+            self.assertEqual(rows[ident]['knowledge_updated_at'],'2026-11-13')
+            self.assertTrue(rows[ident]['supersedes'])
+        mail = rows['fs.orders.email_export']
+        self.assertEqual(mail['revision'],'order-email-defaults-20261111')
+        self.assertEqual(mail['source']['sha256'],'c98f7900d4e2b0b690e29ae48ca1a0de91f599bacfdb46481b72b48581a61bd3')
+        sha = hashlib.sha256(lf(ROOT/'knowledge/index.json')).hexdigest()
+        selection = kc.select(ROOT,'knowledge/index.json',sha,['FS','FC27','reporting'],sorted(expected),preview=True)
+        texts = {r['id']:r['content'] for r in selection['entries']}
+        for token in ('requested/effective_scope','unsupported_filters','pay_status=1','0/0','不是30/60/90日留存'):
+            self.assertIn(token,texts['fs.data.sources'])
+        for token in ('unknown','首访不当首购','后补不移动价格窗口','Admin已付金额非净收入'):
+            self.assertIn(token,texts['fc.marketing.attribution'])
+        self.assertIn('actual_cost需整单覆盖证据',texts['fs.finance.procurement'])
+        self.assertIn('候选知识／V6.1报价证明',texts['fc.reporting.data'])
+        self.assertEqual(kc.select(ROOT,'knowledge/index.json',sha,['FS','FC27'])['status'],'not_published')
 
     def test_real_baseline_methods_catalog_freeze_effective_input_budget_and_paginated_bodies(self):
         with tempfile.TemporaryDirectory() as tmp:
