@@ -112,7 +112,34 @@ def global_regions(plan):
     return True
 
 
+def quantity_market_quote(evidence, *, source, platform, purchase_k,
+                          promotion_eligibility, delivery_method, delivery_tier,
+                          currency, now, price_kind='regular'):
+    """Exact V6 observation selection, not a price action or all-cost comparison."""
+    from .competitor_offers import POLICY, normalize_offers, select_offer
+    if evidence.get('competitor_policy') != POLICY:
+        raise ValueError('pricing_quantity_policy_required')
+    row = select_offer(evidence.get('competitor_offers', []),source=source,platform=platform,purchase_k=purchase_k,
+        promotion_eligibility=promotion_eligibility,delivery_method=delivery_method,
+        delivery_tier=delivery_tier,currency=currency)
+    selected = normalize_offers([row], evidence['run_id'], now)
+    if len(selected) != 1:
+        raise ValueError('pricing_quantity_observation_invalid')
+    row = selected[0]
+    if price_kind not in ('regular','eligible_net'):
+        raise ValueError('pricing_quantity_price_kind')
+    price = row['regular_price' if price_kind=='regular' else 'eligible_net_price']
+    if not row['comparable'] or price is None or row['delivered_k'] is None:
+        raise ValueError('pricing_quantity_comparison_unverified')
+    return dict(row, selected_price=price,selected_price_kind=price_kind,
+        unit_price_per_100k=str(number(price)/number(row['delivered_k'])*100),
+        price_basis='observed_merchandise_amount; necessary_fees_and_tax_coverage_separate',
+        price_action_authorized=False)
+
+
 def market_quote(evidence, platform, source, now, region=None, *, plan=None):
+    if source not in ('Lootbar','ItemD2R','ArabUT'):
+        raise ValueError('pricing_market_source_unsupported:'+source)
     new_policy=primary_competitors(plan)
     if source == 'Lootbar':
         row = evidence.get('offers',{}).get(platform,{}).get('Lootbar')

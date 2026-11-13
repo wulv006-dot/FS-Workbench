@@ -1413,6 +1413,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B","-m","unittest","discover","-s",
                 str(ROOT/"releases/fc-coins/fc-pricing-v3-20261026/tests"),"-p","test_*.py"],
                 check=True,timeout=120,cwd=ROOT)
+            node("releases/fc-coins/fc-pricing-v3-20261026/tests/test_u7_quantity_dom.cjs")
         elif group=="fc-cycle-gate":
             units("releases/fc-coins/gate-cycle-20261014",["test_cycle_gate","test_publisher"])
         elif group=="fc-order-public":

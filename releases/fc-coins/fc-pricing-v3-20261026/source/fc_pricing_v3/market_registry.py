@@ -35,12 +35,13 @@ def arab_normal():
         SimpleNamespace(get=get, clock=lambda:datetime.now(timezone.utc)))
     rows = []
     for offer in result['offers']:
-        row = dict(source='ArabUT', platform=offer['platform'], region_id=offer['region_id'],
+        row = dict(source='ArabUT', status='valid', platform=offer['platform'], region_id=offer['region_id'],
             purchase_k='100', bonus_k='0', currency=offer['currency'],
             settlement_currency=offer['settlement_currency'], conversion_source=offer['conversion_source'],
             captured_at=offer['observed_at'], selection_verified=offer['selection_verified'],
             conditional=offer['conditional'], comparable=offer['comparable'],
-            price_basis=offer['price_basis'], auth_state=offer['auth_state'], discount_source=offer['discount_source'])
+            price_basis=offer['price_basis'], auth_state=offer['auth_state'], discount_source=offer['discount_source'],
+            delivery_method=offer['delivery_method'], coupon_excluded=offer['coupon_excluded'])
         row.update(arab_quote_details(offer))
         rows.append(row)
     return arab_status(rows, requested, result.get('platform_errors'))

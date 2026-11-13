@@ -145,6 +145,7 @@ class DailyProfit(unittest.TestCase):
             active=Mock(return_value=dict(plan_id='p'));db.active_plan=active
             for w in self.windows:db.put('actual_price_windows',w['operation_id'],w)
             for op in self.ops:db.put('operations',op['operation_id'],op)
+            self.online['marketing_context']=dict(status='partial',revision='es1',channels={'unknown':{'orders':2}})
             collected=dict(actual={'status':'complete'},online=self.online)
             proc=Mock(returncode=0,stdout=json.dumps(collected))
             def slow_collection(command,**kwargs):
@@ -155,6 +156,9 @@ class DailyProfit(unittest.TestCase):
                 result=daily.run(dict(local_date='2026-11-06'))
                 report=review.call_args.args[1]['daily_report']
                 self.assertEqual(report['actual_profit_summary'],result['actual_profit_summary'])
+                self.assertEqual(report['marketing_context'],self.online['marketing_context'])
+                rendered=json.loads(bridge.daily_review_text(review.call_args.args[1]).split('实际及影子摘要：',1)[1])
+                self.assertEqual(rendered['marketing_context'],report['marketing_context'])
                 self.assertEqual(report['actual_profit_summary']['review_day']['totals']['procurement_gross_usd'],'25')
                 self.assertEqual(db.get('metadata','latest_daily_review')['actual_profit_summary'],report['actual_profit_summary'])
                 daily.run(dict(local_date='2026-11-06'))

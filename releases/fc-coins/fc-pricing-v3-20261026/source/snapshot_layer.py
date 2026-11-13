@@ -118,6 +118,15 @@ def missing_competitors(run_id: str, reason: str) -> list[dict]:
 
 
 def public_snapshots(run_id: str, source: str, payload: dict) -> list[dict]:
+    if 'quantity_scope' in payload:
+        from fc_pricing_v3.competitor_offers import normalize_offers, quantities
+        if source!='U7Buy' or payload.get('source')!=source or payload.get('status')!='valid':
+            raise ValueError('quantity_collector_contract')
+        scope=quantities(payload['quantity_scope'])
+        rows=payload.get('offers')
+        if not isinstance(rows,list) or any(r.get('source')!=source or str(r.get('purchase_k')) not in scope for r in rows):
+            raise ValueError('quantity_collector_scope')
+        return normalize_offers(rows,run_id,datetime.now(timezone.utc))
     if payload.get("source") != source or payload.get("status") != "valid":
         raise ValueError("collector_incomplete")
     rows = payload.get("offers") or []
@@ -218,7 +227,9 @@ def collector_failure(pattern, before, source):
     return "collector_failed"
 
 
-def collect_once(run_id=None):
+def collect_once(run_id=None, competitor_policy=None):
+    from fc_pricing_v3.competitor_offers import POLICY, QUANTITIES, normalize_offers, quantity_coverage
+    if competitor_policy not in (None,POLICY):raise ValueError('competitor_policy_unknown')
     run_id = run_id or str(uuid.uuid4())
     if str(uuid.UUID(run_id)) != run_id:
         raise ValueError("invalid_run_id")
@@ -242,6 +253,20 @@ def collect_once(run_id=None):
             reason = "cost_not_connected"
     except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
         failures.append("Lootbar:" + (str(exc) if isinstance(exc, ValueError) else type(exc).__name__))
+    quantity_offers=[]
+    if competitor_policy==POLICY:
+        for row in snapshots:
+            if row.get('status')!='valid':continue
+            try:quantity_offers.extend(normalize_offers([row],run_id,datetime.now(timezone.utc)))
+            except ValueError as exc:failures.append('Lootbar:'+str(exc))
+        before=set(glob.glob(str(ROOT/'evidence/U7Buy-*.json')))
+        try:
+            process=subprocess.run([str(PUBLIC_COLLECTOR),'U7Buy',','.join(QUANTITIES)],capture_output=True,timeout=100)
+            if process.returncode:raise ValueError(collector_failure('U7Buy-*.json',before,'U7Buy'))
+            payload=newest_evidence('U7Buy-*.json',before)
+            quantity_offers.extend(public_snapshots(run_id,'U7Buy',payload))
+        except (OSError,ValueError,subprocess.TimeoutExpired,json.JSONDecodeError) as exc:
+            failures.append('U7Buy:'+(str(exc) if isinstance(exc,ValueError) else type(exc).__name__))
     reason = "cost_not_connected" if not failures else ";".join(failures)
     costs = [{"run_id": run_id, "platform": platform, "status": "missing",
               "reason": "cost_collector_failed"} for platform in PLATFORMS]
@@ -279,6 +304,7 @@ def collect_once(run_id=None):
     cost_count = sum(x["status"] == "valid" for x in costs)
     coverage = dict(ready=True,required_sources=[],optional_sources=['Lootbar'],
                     pricing_source_policy='current_available_quote_or_100k_margin_floor')
+    if competitor_policy==POLICY:coverage=quantity_coverage(quantity_offers)
     source_warnings = [failure for failure in failures
                        if failure.split(":", 1)[0] in ("Lootbar", "IGGM", "U4GM", "U7Buy")]
     for row in snapshots:
@@ -292,6 +318,9 @@ def collect_once(run_id=None):
                "reason": reason, "competitors": snapshots, "costs": costs,
                "fx": fx, "quote_status": "PENDING" if complete else "NO_QUOTE",
                "source_coverage": coverage, "source_warnings": source_warnings}
+    if competitor_policy==POLICY:
+        payload.update(competitor_policy=POLICY,competitor_offers=quantity_offers,
+            legacy_competitor_scope='100k_observed_only')
     if cost_failure is not None:
         payload['cost_failure'] = cost_failure
     run_path = ROOT / "runs" / f"{run_id}.json"
@@ -319,6 +348,7 @@ if __name__ == "__main__":
         except BlockingIOError:
             print(json.dumps({"status": "busy", "quote_status": "NO_QUOTE"}))
             sys.exit(75)
-        summary, success = collect_once(sys.argv[1] if len(sys.argv) > 1 else None)
+        summary, success = collect_once(sys.argv[1] if len(sys.argv) > 1 else None,
+            sys.argv[2] if len(sys.argv)>2 else None)
         print(json.dumps(summary))
         sys.exit(0 if success else 1)

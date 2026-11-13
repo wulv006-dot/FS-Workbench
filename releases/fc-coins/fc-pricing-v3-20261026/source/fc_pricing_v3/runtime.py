@@ -118,6 +118,7 @@ def context(evidence):
         if key!='history_cache':raise ValueError('pricing_private_source_update_invalid')
         db.put('metadata','seven_day_history_cache',value)
     result=dict(evidence,**envelope['context'])
+    result.pop('shared_order_facts',None)  # Private bridge input is never a quote/model payload.
     enrich_segments(result)
     target=db.get('monthly_targets','current')
     if target and 'monthly_target' in result:

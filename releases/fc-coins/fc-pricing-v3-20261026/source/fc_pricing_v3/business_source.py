@@ -960,7 +960,7 @@ def _window_regular(window, action, order, platform, quantity):
     return total
 
 
-def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None, query_complete=True,customer_keys=None):
+def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None, query_complete=True,customer_keys=None,shared_order_facts=None):
     """Server-local anonymous settlement records and window aggregates, never customer identities."""
     from .engine import replay_promotion
     from .platforms import action_key
@@ -1136,13 +1136,86 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                 randomization_verified=window.get('randomization_verified') is True,
                 inference='randomized' if window.get('randomization_verified') is True else 'observational; not_causal',
                 as_of=now.isoformat(), source_sha256=source))
-    return dict(budget_settlements=settlements, actual_outcomes=actual_outcomes, training_observations=training,
+    result = dict(budget_settlements=settlements, actual_outcomes=actual_outcomes, training_observations=training,
         learning_coverage=dict(status='available' if training else 'price_binding_coverage_pending',
             price_windows=len(valid), counts=dict(coverage), gaps=dict(failures), source_sha256=source,
             observed_at=now.isoformat(),blocked_price_groups=[dict(price_window_id=op,price_group=group) for op,group in sorted(blocked_groups)],
             gap_events=gap_events, unscoped_time_gaps=unscoped_time_gaps,
             query_complete=query_complete, customer_coverage=customer_coverage, binding='native_creation_epoch_and_display plus actual_regular_price; never payment_time_assignment',
             source_rows_returned=False, customer_identifiers_returned=False))
+    return attach_shared_marketing(result, shared_order_facts) if shared_order_facts is not None else result
+
+
+def attach_shared_marketing(context, facts):
+    """Enrich bound outcomes without rebinding prices or replacing cost evidence.
+
+    D2 payment-day facts are business context, not first-purchase attribution or
+    a price-window clock. Private raw fields stay in the original shared facts.
+    """
+    from copy import deepcopy
+    result = deepcopy(context)
+    scope = facts.get('input_scope', {}) if isinstance(facts, dict) else {}
+    valid = (isinstance(facts, dict) and facts.get('private') is True
+        and facts.get('version') == 'same-order-facts-20261113-v1'
+        and isinstance(scope,dict) and scope.get('site_id') == '266' and scope.get('gid') == '1327'
+        and isinstance(facts.get('orders'), list))
+    rows, conflicts = {}, set()
+    if valid:
+        for row in facts['orders']:
+            if (not isinstance(row,dict) or row.get('site_id') != '266' or row.get('gid') != '1327'
+                    or not isinstance(row.get('order_no'),str) or not row['order_no']):
+                valid = False
+                break
+            key = hashlib.sha256(('FC27:266:' + row['order_no']).encode()).hexdigest()
+            if key in rows and rows[key] != row:
+                conflicts.add(key)
+            rows[key] = row
+    sources = (facts.get('source_coverage') or {}) if valid else {}
+    if not isinstance(sources,dict):sources = {}
+    attribution = sources.get('attribution') or {}
+    if not isinstance(attribution,dict):attribution = {}
+    revisions = dict(admin=sources.get('source_revision'),
+        attribution=attribution.get('source_revision'), data=attribution.get('data_revision'))
+    buckets, matched, attributed = {}, 0, 0
+    for outcome in result.get('actual_outcomes', []):
+        row = rows.get(outcome['order_key']) if valid else None
+        reason = 'unmatched' if valid else 'shared_facts_scope_or_contract_invalid'
+        if outcome['order_key'] in conflicts:
+            row, reason = None, 'shared_order_revision_conflict'
+        if row is not None and (amount(row.get('admin_paid_usd')) is None
+                or amount(row.get('admin_paid_usd')) != amount(outcome.get('actual_net_usd'))):
+            row, reason = None, 'shared_order_amount_revision_mismatch'
+        fact = (row.get('marketing_attribution') or {}) if row is not None else {}
+        if not isinstance(fact,dict):fact = {}
+        if row is not None:matched += 1
+        channel = row.get('channel') if row is not None else 'unknown'
+        if channel not in ('SEO','Direct','PPC','Referral','Campaign') or fact.get('status') != 'available':
+            channel = 'unknown'
+        if channel != 'unknown':attributed += 1
+        outcome['marketing_attribution'] = dict(channel=channel,
+            status=fact.get('status',reason), source_revision=fact.get('source_revision'),
+            available_at=fact.get('available_at'), payment_at=row.get('paid_at') if row else None,
+            first_purchase_channel=None, first_purchase_status='not_proven',
+            basis='pinned_ES_order_channel_with_Admin_same_order_identity', raw_fields='retained_in_private_shared_facts')
+        bucket = buckets.setdefault(channel,dict(orders=0,known_paid_usd=Decimal(0),missing_revenue_orders=0))
+        bucket['orders'] += 1
+        revenue = amount(outcome.get('actual_net_usd'))
+        if revenue is None:bucket['missing_revenue_orders'] += 1
+        else:bucket['known_paid_usd'] += revenue
+    for bucket in buckets.values():bucket['known_paid_usd'] = str(bucket['known_paid_usd'])
+    total = len(result.get('actual_outcomes', []))
+    status = ('unavailable' if not valid or not attributed else
+              'available' if attributed == total and attribution.get('status') == 'available' else 'partial')
+    result['marketing_context'] = dict(status=status,
+        revisions=revisions, channels=buckets, scope='already_bound_Coins_outcomes_only',
+        source_status=attribution.get('status','unavailable'), matched_orders=matched,
+        attributed_orders=attributed, unmatched_orders=total-matched,
+        first_purchase_channel_status='not_proven', retention_status='mature_cohort_not_proven',
+        price_window_binding='unchanged_creation_and_price_evidence', fee_coverage='unknown')
+    result['marketing_context']['revision'] = fingerprint(dict(
+        revisions=revisions, outcomes=[dict(order_key=r['order_key'],marketing=r['marketing_attribution'])
+            for r in result.get('actual_outcomes',[])]))
+    return result
 
 
 def hourly_accounting(rows, logs, start, now, cost_since):
@@ -1521,7 +1594,7 @@ def _selective_closed_month_rollup(now):
 
 
 def collect_selective_business(session,pages,storefront,products,*,active_mode,scope=None,history_cache=None,
-                               source_signature=None,current_templates=None,online_context=None,now=None):
+                               source_signature=None,current_templates=None,online_context=None,now=None,shared_order_facts=None):
     from .selective_sources import source_plan,history_period,checked_history_cache,context_from_cache,seal_history_cache
     now=now or datetime.now(timezone.utc)
     plan=source_plan(active_mode,scope)
@@ -1560,6 +1633,8 @@ def collect_selective_business(session,pages,storefront,products,*,active_mode,s
             mtd_lower_bound=mtd,mtd_upper_bound=str(Decimal(upper)+Decimal(current['net_paid_usd'])) if upper is not None and complete_today else upper,
             through_date=today.isoformat() if complete_today else expected['end'],today=current,closed_day_rollup=closed,
             target_scope='site266_FC27_Coins',target_basis='net_paid_USD',status='target_not_configured')
+    if shared_order_facts is not None and online_context is not None:
+        online_context=attach_shared_marketing(online_context,shared_order_facts)
     context=context_from_cache(cache,plan,current_templates,now,monthly=monthly,online=online_context)
     return dict(context=context,private_updates=dict(history_cache=update) if update else {},source_plan=plan)
 

@@ -62,7 +62,7 @@ def exposure_scope(windows,date):
         attribution='only_orders_bound_by_creation_and_actual_price_are_effect_samples; full_day_orders_are_business_context; range_is_not_continuous_coverage_proof')
 
 
-def collect_outcomes(date,windows):
+def collect_outcomes(date,windows,*,shared_order_facts=None):
     """Admin/Order business reads only; no competitor, public price or write endpoint."""
     import sys
     sys.path.insert(0,'/opt/fs-hermes-fc')
@@ -81,12 +81,15 @@ def collect_outcomes(date,windows):
     learning_rows = dict(learning_rows or {}, **(selected or {}))
     try:online=online_window_context(session,pages,windows,now,learning_rows or {})
     finally:session.close()
+    if shared_order_facts is not None:
+        from .business_source import attach_shared_marketing
+        online=attach_shared_marketing(online,shared_order_facts)
     return dict(actual=hourly_actual(selected,coverage,date),online=online)
 
 
 def profit_summary(online,windows,operations,date,plan_id):
     """Freeze existing same-order outcomes; never collect or infer missing costs."""
-    rows=online.get('actual_outcomes',[])
+    rows=[{k:v for k,v in row.items() if k!='marketing_attribution'} for row in online.get('actual_outcomes',[])]
     by_window={w['operation_id']:w for w in windows}
     contexts={o['operation_id']:dict(plan_id=o.get('plan_id'),status=o.get('status'),completed_at=o.get('completed_at'),
         resources=((o.get('bundle') or {}).get('mutable_resources',o.get('resources',[])) if ((o.get('bundle') or {}).get('smart_assignment') or {}).get('strategy_version')=='smart-three-platform-v3' else (o.get('bundle') or {}).get('authorized_resources') or o.get('resources',[])),
@@ -164,6 +167,8 @@ def run(body):
             db.put('metadata','daily_online_context',outcomes['online'])
         for settlement in outcomes['online'].get('budget_settlements',[]):db.settle_order(settlement)
         record['learning_coverage']=outcomes['online'].get('learning_coverage')
+        if 'marketing_context' in outcomes['online']:
+            record['marketing_context']=outcomes['online']['marketing_context']
         record['actual_profit_summary']=profit_summary(outcomes['online'],db.all('actual_price_windows'),db.all('operations'),date,(db.active_plan() or {}).get('plan_id'))
         db.put('metadata',key,record)
     export_shadow_snapshot(db,force=True)
@@ -192,6 +197,7 @@ def run(body):
     report={k:record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
     # Existing submitted reviews keep their original frozen input and request ID.
     if 'actual_profit_summary' in record:report['actual_profit_summary']=record['actual_profit_summary']
+    if 'marketing_context' in record:report['marketing_context']=record['marketing_context']
     quote=dict(run_id=record['request_id'],daily_report=report,result=dict(decision_receipt=dict(sha256=fingerprint(report))))
     record['phase']='review_prepared'
     db.put('metadata',key,record);db.put('metadata','latest_daily_review',record)
@@ -262,4 +268,4 @@ def run_hourly(body):
 if __name__=='__main__':
     data=json.load(__import__('sys').stdin)
     print(json.dumps(collect_hourly_outcomes(data['windows'],data.get('previous',{})) if data.get('action')=='hourly_outcomes'
-                     else collect_outcomes(data['local_date'],data['windows'])))
+                     else collect_outcomes(data['local_date'],data['windows'],shared_order_facts=data.get('shared_order_facts'))))
