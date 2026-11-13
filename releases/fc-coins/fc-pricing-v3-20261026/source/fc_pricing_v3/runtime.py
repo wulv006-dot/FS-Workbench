@@ -410,18 +410,20 @@ def _same_hour_curve_performance(platform, online, now):
     for segment, sample in buckets.items():
         if not sample['current'] or not sample['previous']:
             continue
-        if any(row.get('actual_net_usd') is None or row.get('actual_contribution_usd') is None
-               for rows in sample.values() for row in rows):
+        population = sample['current'] + sample['previous']
+        if any(row.get('actual_net_usd') is None for row in population):
             continue
-        if any(row.get('cost_basis') != 'same_order_Order_shipping_CNY_margin_at_actual_USD_receipt'
-               for rows in sample.values() for row in rows):
-            continue
+        margin_known = all(row.get('actual_contribution_usd') is not None
+                           and row.get('cost_basis') == 'same_order_Order_shipping_CNY_margin_at_actual_USD_receipt'
+                           for row in population)
         totals = {}
         for name, rows in sample.items():
             totals[name] = dict(paid_orders=len(rows),
-                                net_paid_usd=str(sum(Decimal(row['actual_net_usd']) for row in rows)),
-                                procurement_gross_usd=str(sum(Decimal(row['actual_contribution_usd']) for row in rows)))
-        result[segment] = dict(totals, coverage_status='comparable', margin_basis='procurement_gross_usd',
+                                net_paid_usd=str(sum(Decimal(row['actual_net_usd']) for row in rows)))
+            if margin_known:
+                totals[name]['procurement_gross_usd'] = str(sum(Decimal(row['actual_contribution_usd']) for row in rows))
+        result[segment] = dict(totals, coverage_status='comparable',
+                               margin_basis='procurement_gross_usd' if margin_known else None,
                                source_sha256=coverage['source_sha256'], current_start=start.isoformat(),
                                current_end=end.isoformat(), previous_start=previous_start.isoformat(),
                                previous_end=previous_end.isoformat())
@@ -447,8 +449,11 @@ def collect_curve_catalogues(evidence, platforms):
         routes = {}
     db = ledger()
     paid_cutoff = evidence['checked_at']
+    job_path = ROOT / 'jobs' / (evidence['run_id'] + '.json')
+    job = json.loads(job_path.read_text()) if job_path.exists() else {}
+    plan_id = (job.get('request') or {}).get('v3_plan_id')
     with closing(db.connect()) as conn:
-        online = db.get('metadata', 'daily_online_context', conn) or {}
+        online = (db.get('metadata', 'curve-online-context:' + plan_id, conn) if plan_id else None) or {}
         # Live diagnostic uses the latest already archived exact window.
         # Historical preview retains the original attachment/snapshot binding.
         closed = _curve_preview_history(conn, dict(snapshot_id=evidence['run_id'], created_at=paid_cutoff), clock(),
@@ -575,7 +580,7 @@ def _curve_repair(current, current_proof, repair):
 
 def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, plan=None, decision_at=None):
     from coin_all_sync_job import curve_catalog_plan, curve_route_ready, curve_writer_capabilities, editable
-    from .curve_strategy_v6 import build_candidates, choose_action, primary_reference_curve
+    from .curve_strategy_v6 import build_candidates, choose_action, intermediate_candidates, primary_reference_curve
     from .price_curve import curve_key
     from .pricing_proof_v6 import FAILED, PROVEN
 
@@ -614,6 +619,23 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
     else:
         decision = choose_action(comparison, proofs, preferred_label=preference['label'])
         target, gaps = decision['selected'], decision['gaps']
+        outer_keys = {row['curve_key'] for row in comparison['candidates']}
+        available_steps = set(inputs.get('all_targets') or {}) - outer_keys
+        if not target and preference['label'] in ('B', 'C') and available_steps:
+            for candidate in intermediate_candidates(comparison, preference['label'],
+                                                      inputs.get('editor_contract') or current['native_contract'],
+                                                      tier_price_factors_verified=factors_verified):
+                key = candidate['curve_key']
+                if key not in available_steps:
+                    continue
+                frozen = inputs['primary_inputs'].get(key)
+                after = (inputs.get('all_targets') or {}).get(key)
+                all_frozen = (inputs.get('all_inputs') or {}).get(curve_key(after)) if after else None
+                if (frozen and all_frozen and _validated_curve(candidate['curve'], frozen)['status'] == PROVEN
+                        and _validated_curve(after, all_frozen)['status'] == PROVEN):
+                    target, gaps = candidate, candidate['write_gaps']
+                    preference = dict(preference, price_step='bounded_intermediate')
+                    break
         if not target and preference['label'] in ('A', 'B', 'C') and current_proof.get('status') == PROVEN:
             return dict(status='KEEP', current_key=comparison['confirmed_current_curve_key'], proof=current_proof,
                         selection=preference, gaps=gaps)
@@ -754,6 +776,17 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
         db.put('pricing_snapshots', evidence['run_id'], snapshot, conn)
         db.put('strategy_decisions', evidence['run_id'], {'curve': rows}, conn)
         if active:
+            for platform, decision in decisions.items():
+                if decision['status'] != 'KEEP':
+                    continue
+                data = frozen[platform]
+                observed = data.get('readbacks') or []
+                curve = data['primary_curve']
+                goods_path = '/admin/goods.Goods/edit?id=' + curve['identity']['id']
+                if any(row.get('path') == goods_path and row.get('http_status') == 200
+                       and row.get('response_code') == 1 and row.get('response_sha256') for row in observed):
+                    db.observe_curve_keep(plan, evidence['run_id'], platform, curve, data['captured_at'],
+                                          'curve-proof-inputs:' + evidence['run_id'] + ':' + fingerprint(observed), conn)
             db.put('metadata', 'latest_snapshot:' + plan['plan_id'],
                    dict(snapshot_id=evidence['run_id'], plan_id=plan['plan_id']), conn)
     return result

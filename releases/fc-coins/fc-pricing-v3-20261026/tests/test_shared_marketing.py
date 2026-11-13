@@ -117,14 +117,17 @@ class SharedMarketing(unittest.TestCase):
         from fc_pricing_v3 import daily
         online=source.bind_price_windows([self.order],[self.window],self.now)
         key=online['actual_outcomes'][0]['order_key']
-        publication=dict(cutoff='2026-10-28T00:00:00+08:00',publication_id='es1')
-        collect=Mock(return_value=self.facts)
-        runtime=SimpleNamespace(publication=Mock(return_value=publication),collect=collect)
-        with patch.dict(sys.modules,{'order_facts_runtime':runtime,'es_order_structure':SimpleNamespace(archived_dataset=Mock())}):
+        publication=dict(cutoff='2026-10-28',publication_id='es1')
+        facts = dict(self.facts, source_coverage=dict(self.facts['source_coverage'],
+                     publication_id='es1', admin_complete=True, day_revisions={'2026-10-27': 'revision1'}))
+        collect=Mock(return_value=facts)
+        runtime=SimpleNamespace(collect_shared=collect)
+        shared=SimpleNamespace(latest_publication=Mock(return_value=publication))
+        with patch.dict(sys.modules,{'order_facts_runtime':runtime, 'shared_es_facts':shared}):
             result=daily.collect_marketing_context('2026-10-28',online['actual_outcomes'],{key:'2026-10-27'})
             missing=daily.collect_marketing_context('2026-10-28',online['actual_outcomes'],{key:'2026-10-28'})
-        self.assertEqual(collect.call_args.args[0],dict(start='2026-10-27',end='2026-10-27',site_id='266',gid='1327'))
-        collect.assert_called_once()
+        collect.assert_called_once_with(dict(start='2026-10-27',end='2026-10-27',site_id='266',gid='1327'),
+                                       publication_id='es1')
         self.assertEqual(result['payment_date'],'2026-10-27')
         self.assertEqual(result['review_day_coverage'],'unavailable')
         self.assertEqual(result['channels']['SEO']['orders'],1)

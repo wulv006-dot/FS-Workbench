@@ -240,9 +240,9 @@ def refresh_before_write(request,root=ROOT):
         preview=json.loads((root/'previews'/(str(uuid.UUID(request['preview_id']))+'.json')).read_text('utf-8'))
         path=root/'quotes'/(str(uuid.UUID(preview['run_id']))+'.json')
     quote=json.loads(path.read_text('utf-8'));policy=load_policy()
-    verify_quote(quote,policy,request.get('platforms') or list(('PS','XBOX','PC')),for_execution=True)
+    receipt = verify_quote(quote,policy,request.get('platforms') or list(('PS','XBOX','PC')),for_execution=True)
     from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL, write_protocol
-    protocol = write_protocol(quote['result'].get('decision_receipt') or {})
+    protocol = write_protocol(receipt)
     if request.get('write_protocol') != protocol:
         raise ValueError('pricing_write_protocol_mismatch')
     public=json.loads((root/'monitor/storefront.json').read_text('utf-8'))

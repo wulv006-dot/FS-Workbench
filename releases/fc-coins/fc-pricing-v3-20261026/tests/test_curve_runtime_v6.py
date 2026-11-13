@@ -273,6 +273,52 @@ class CurveRuntime(unittest.TestCase):
     def test_cost_repair_advances_reference_only_after_original_writer_confirmation(self):
         self.run_verified_curve_cycle(cost_repair=True)
 
+    def test_proven_keep_opens_and_extends_only_readback_window(self):
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.price_curve import IDENTITY_FIELDS, curve_key, read_curve
+        from test_pricing_proof_v6 import fixture
+
+        self.prepare(large='100')
+        now = datetime.now(timezone.utc)
+        plan = self.db.get('pricing_plans', 'plan')
+        plan.update(mode='daily', write_protocol=CURVE_WRITE_PROTOCOL,
+                    starts_at=(now - timedelta(hours=1)).isoformat(), resources=['base:PS'])
+        self.db.put('pricing_plans', 'plan', plan)
+        row = self.transport.rows[writer.PRODUCTS[PLATFORM][1]]
+        curve = read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, EDITOR_CONTRACT)
+        self.db.start_curve_episode(PLATFORM, 'fixture-rules', 'Adopted readback', initial_curve=curve,
+                                    readback_ref='fixture-initial')
+        _, baskets, evidence, domain = fixture()
+        key = curve_key(curve)
+        domain['curve_key'] = evidence['curve_key'] = evidence['paths'][0]['curve_key'] = key
+        proof = dict(baskets=baskets, evidence=evidence, domain=domain)
+        first = '00000000-0000-4000-8000-000000000092'
+        second = '00000000-0000-4000-8000-000000000093'
+        for run, at in ((first, now), (second, now + timedelta(hours=1))):
+            source = dict(run_id=run, competitor_policy=POLICY)
+            observed = dict(captured_at=at.isoformat(), valid_until=(at + timedelta(minutes=10)).isoformat(),
+                            primary_curve=curve, primary_inputs={key: proof},
+                            readbacks=[dict(path='/admin/goods.Goods/edit?id=' + curve['identity']['id'],
+                                            http_status=200, response_code=1, response_sha256='fixture-site266')])
+            runtime.store_curve_proof_inputs(self.db, source, {PLATFORM: observed})
+            for _ in range(2):
+                result = runtime.calculate_curve_cycle(self.db, source, plan, {'v3_operation_id': OPERATION}, at)
+                self.assertEqual(result['status'], 'NO_PRICE_CHANGE')
+                self.assertNotIn('decision_receipt', result)
+        windows = self.db.all('actual_price_windows')
+        self.assertEqual(len(windows), 1)
+        window = windows[0]
+        self.assertEqual(window['origin'], 'observed_native_curve_window')
+        self.assertFalse(window['write_performed'])
+        self.assertFalse(window['randomization_verified'])
+        self.assertEqual(window['opened_at'], now.isoformat())
+        self.assertEqual(curve_key(window['action']['curves'][PLATFORM]), key)
+        self.assertEqual(len(window['continuations']), 1)
+        self.assertFalse(window['continuations'][0]['write_performed'])
+        self.assertEqual(self.db.all('operations'), [])
+        self.assertEqual(self.db.all('readback_receipts'), [])
+        self.assertEqual(self.transport.posts, [])
+
     def run_verified_curve_cycle(self, *, cost_repair=False):
         from fc_pricing_v3.competitor_offers import POLICY
         from fc_pricing_v3.price_curve import IDENTITY_FIELDS, curve_key, read_curve
@@ -426,6 +472,52 @@ class CurveRuntime(unittest.TestCase):
         self.assertIn(current_slot['label'], 'ABC')
         self.assertEqual(runtime._curve_preference('PS', current, {}, inputs, now,
                          plan=dict(plan, mode='revenue_sprint'), state=state)['label'], 'B')
+
+    def test_bounded_trial_falls_back_to_independently_proven_intermediate_price(self):
+        from fc_pricing_v3.curve_strategy_v6 import build_candidates, intermediate_candidates
+        from fc_pricing_v3.price_curve import curve_key, read_curve
+        from test_curve_strategy_v6 import candidate, fixture
+        from test_pricing_proof_v6 import fixture as proof_fixture
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        current, _, _ = fixture()
+        all_id = writer.PRODUCTS[PLATFORM][0]
+        before = read_curve(dict(current['native_payload'], id=all_id, site_id=0),
+                            dict(current['identity'], id=all_id, site_id=0), EDITOR_CONTRACT)
+        state = self.db.start_curve_episode(PLATFORM, 'test', 'A', initial_curve=current, readback_ref='fixture')
+        comparison = build_candidates(current, state['reference'], state['episode'], 'large')
+        outer = candidate(comparison, 'B')['curve']
+        points = intermediate_candidates(comparison, 'B', EDITOR_CONTRACT)
+        skipped, eligible = (next(points)['curve'] for _ in range(2))
+        all_target = runtime._all_curve_target(before, eligible)
+        refs = self.capability['source_revisions']
+        self.capability['tier_price_factors'] = True
+
+        def proof_input(curve, *, safe):
+            _, baskets, evidence, domain = proof_fixture()
+            key = curve_key(curve)
+            total = next(row['native_price_usd'] for row in curve['tiers'] if row['purchase_k'] == '1000')
+            domain.update(curve_key=key, source_revisions=refs, version=self.capability['domain_version'])
+            evidence['curve_key'] = key
+            evidence['paths'][0].update(curve_key=key, regular_usd=total, net_receipt_usd=total,
+                                         expected_cost_usd='74', safe_cost_usd=safe)
+            return dict(baskets=baskets, evidence=evidence, domain=domain)
+
+        data = dict(primary_curve=current, editor_contract=EDITOR_CONTRACT, preferred_label='B', segment='large',
+                    captured_at=now.isoformat(), valid_until=(now + timedelta(minutes=10)).isoformat(),
+                    all_before=before, all_targets={curve_key(eligible): all_target},
+                    primary_inputs={curve_key(current): proof_input(current, safe='76'),
+                                    curve_key(outer): proof_input(outer, safe='76'),
+                                    curve_key(skipped): proof_input(skipped, safe='74'),
+                                    curve_key(eligible): proof_input(eligible, safe='74')},
+                    all_inputs={curve_key(all_target): proof_input(all_target, safe='74')})
+        with patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
+            result = runtime._prove_curve_inputs(PLATFORM, data, self.db, now)
+        self.assertEqual(result['status'], 'READY', result)
+        self.assertEqual(result['selection']['price_step'], 'bounded_intermediate')
+        self.assertEqual(curve_key(result['target']), curve_key(all_target))
+        self.assertEqual(self.transport.posts, [])
 
     def test_native_catalogue_collection_produces_real_tiers_without_fabricating_checkout(self):
         from fc_pricing_v3.price_curve import curve_key, read_curve

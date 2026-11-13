@@ -437,6 +437,22 @@ class CurveWriter(unittest.TestCase):
         self.assertEqual(len(self.transport.posts), 1)
 
     def test_same_run_native_directory_opens_route_and_completion_still_needs_original_readback(self):
+        self.run_native_route_confirmation()
+
+    def test_high_tier_write_reports_preexisting_order_mismatch_without_projection(self):
+        from fc_pricing_v3.ledger import confirmed_curve_window
+
+        result = self.run_native_route_confirmation(order_rate='0.09')
+        projection = result['curve_results'][PLATFORM]['projection']
+        self.assertEqual(projection['status'], 'unchanged_mismatch')
+        self.assertEqual(projection['reason'], 'pricing_curve_order_preexisting_rate_mismatch')
+        self.assertEqual(projection['readback_rate'], '0.09')
+        self.assertEqual(Decimal(projection['expected_rate']), Decimal('0.10'))
+        action, _ = confirmed_curve_window(dict(operation_id=OPERATION, readback=dict(
+            result, write_protocol=CURVE_WRITE_PROTOCOL), bundle=self.bundle))
+        self.assertEqual(action['curves'][PLATFORM]['tiers'][1]['native_price_usd'], '103')
+
+    def run_native_route_confirmation(self, *, order_rate=None):
         native = writer.curve_writer_capabilities()[PLATFORM]
         self.assertEqual(native['order_projection']['path'], '/game/admin_game_price/itemEdit?ids=21942')
         self.assertEqual(native['catalogue_status'], 'native_route_directory_unavailable')
@@ -445,6 +461,8 @@ class CurveWriter(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'catalog_save_unverified'):
             writer.curve_catalog_plan(bundle, PLATFORM, native)
         self.prepare(propagate=False)
+        if order_rate is not None:
+            self.transport.projection_rate = order_rate
         original = self.transport.request
         rows = [self.transport.rows[ALL_ID], self.transport.rows[PRIMARY_ID]]
 
@@ -477,6 +495,7 @@ class CurveWriter(unittest.TestCase):
         self.assertEqual(result['status'], 'CONFIRMED')
         self.assertFalse(result['curve_results'][PLATFORM]['projection']['write_performed'])
         self.assertEqual(len(self.transport.posts), 1)
+        return result
 
     def test_legacy_protocol_cannot_take_curve_request(self):
         self.prepare()

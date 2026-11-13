@@ -58,6 +58,60 @@ class BusinessOutcome(unittest.TestCase):
             self.assertNotIn('arab_ut_status',scope['atomic_json'].call_args[0][1])
             self.assertEqual(result['quote_status'],'ready_for_preview')
 
+    def test_curve_no_feasible_passes_real_worker_and_completes_cycle_without_retry(self):
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        from fc_pricing_v3.competitor_offers import POLICY
+
+        source = SOURCE/'fc27_cloud_worker.py'
+        fn = next(node for node in ast.parse(source.read_text()).body
+                  if isinstance(node, ast.FunctionDef) and node.name == 'collect_quote')
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for child in ('runs', 'monitor', 'quotes'):
+                (root/child).mkdir()
+            db = Ledger(root/'control.sqlite3')
+            plan = dict(plan_id='p', generation='g', mode='daily', state='ACTIVE', revision=2,
+                        resources=['base:PS'], write_protocol=CURVE_WRITE_PROTOCOL)
+            db.put('pricing_plans', 'p', plan)
+            db.put('metadata', 'generation', {'id': 'g'})
+            with db.transaction() as conn:
+                conn.execute('INSERT INTO plan_ownership VALUES (?,?,?,?)', ('base:PS', 'p', 2, 'g'))
+            db.enqueue('cycle', 'original', NOW, dict(plan_id='p', revision=2))
+            with db.transaction() as conn:
+                conn.execute("UPDATE durable_jobs SET state='running' WHERE id='original'")
+                job = dict(conn.execute("SELECT * FROM durable_jobs WHERE id='original'").fetchone())
+            rows = [dict(platform='PS', status='NO_FEASIBLE_CURVE', gaps=['zero_line:fixture'])]
+            quote = dict(status='no_feasible_curve', result=dict(status='NO_FEASIBLE_CURVE', rows=rows))
+            platforms = ('PS', 'XBOX', 'PC')
+
+            def save_job(value):
+                ident = value['job_id']
+                (root/'runs'/(ident+'.json')).write_text(json.dumps(dict(run_id=ident, status='ready_for_quote')))
+                state = dict(collection_run_id=ident, status='ok', rows={p: {'status': 'ok'} for p in platforms})
+                (root/'monitor/storefront.json').write_text(json.dumps(state))
+                (root/'quotes'/(ident+'.json')).write_text(json.dumps(quote))
+
+            scope = dict(ROOT=root, APP=Path('/fixture'), PLATFORMS=platforms,
+                         local_collection=SimpleNamespace(pin=lambda _: {'mode': 'server'}), save_job=save_job,
+                         run=Mock(side_effect=[(0, dict(status='ready_for_quote')), (0, quote)]),
+                         refresh_storefront=Mock(return_value={'status':'ok'}), atomic_json=Mock(),
+                         os=SimpleNamespace(chown=Mock(), chmod=Mock()), json=json, datetime=datetime, timezone=timezone)
+            exec(compile(ast.Module(body=[fn], type_ignores=[]), str(source), 'exec'), scope)
+            worker = SimpleNamespace(collect_quote=scope['collect_quote'], save_job=save_job)
+            selected = dict(active_mode='daily', scope={'competitor_policy': POLICY})
+            policy = dict(system_enabled=True, mode='auto', revision=41, interval_minutes=60)
+            with patch.dict(sys.modules, {'fc27_cloud_worker': worker}), patch.object(scheduler, 'ledger', return_value=db), \
+                    patch.object(scheduler, 'ROOT', root), patch.object(runtime, 'ledger', return_value=db), \
+                    patch.object(runtime, 'collection_scope', return_value=selected), \
+                    patch.object(automation_policy, 'load_policy', return_value=policy), patch.object(scheduler, 'execute_run') as send:
+                scheduler.run_job(job)
+            send.assert_not_called()
+            with db.connect() as conn:
+                finished = conn.execute("SELECT state,attempt,body FROM durable_jobs WHERE id='original'").fetchone()
+            self.assertEqual((finished['state'], finished['attempt']), ('done', 0), finished['body'])
+            self.assertEqual(json.loads(finished['body'])['result'],
+                             dict(status='NO_FEASIBLE_CURVE', rows=rows, write_performed=False))
+
     def test_business_infeasible_finishes_normally_but_technical_failure_still_raises(self):
         plan=dict(mode='revenue_sprint',plan_id='p',state='ACTIVE',revision=2,resources=['base:console','base:pc'])
         for reason,business in [('pricing_v3_infeasible:NO_SAFE_COMMIT_PATH',True),('storefront_incomplete',False),('UNKNOWN',False)]:

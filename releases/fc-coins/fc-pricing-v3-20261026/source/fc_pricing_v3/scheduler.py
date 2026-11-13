@@ -364,6 +364,7 @@ def run_job(job):
 
 
 def tick(executors, running):
+    from .dispatch import CURVE_WRITE_PROTOCOL
     db=ledger()
     now=clock()
     for key,future in list(running.items()):
@@ -384,7 +385,7 @@ def tick(executors, running):
     for plan in plans:
       if plan and plan['state']=='ACTIVE':
         from .smart import STRATEGY_VERSION,policy_suffix
-        if plan.get('smart_strategy_version') in SMART_VERSIONS:
+        if plan.get('smart_strategy_version') in SMART_VERSIONS or plan.get('write_protocol') == CURVE_WRITE_PROTOCOL:
             with db.connect() as conn:
                 pending_outcomes=any(json.loads(row[0]).get('plan_id')==plan['plan_id'] and json.loads(row[0]).get('revision')==plan['revision'] for row in
                     conn.execute("SELECT body FROM durable_jobs WHERE kind='outcomes' AND state IN ('queued','running')"))

@@ -32,7 +32,7 @@ def evidence():
 
 
 class BidirectionalMarkets(unittest.TestCase):
-    def projected_source(self, currency='USD'):
+    def projected_source(self, currency='USD', *, curve_run=False):
         # Exercise the production projection and its USD guard, not a hand-built engine row.
         path=Path(__file__).resolve().parents[1]/'source/server_quote_job.py'
         fn=next(n for n in ast.parse(path.read_text(encoding='utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='_quote_for_run')
@@ -46,10 +46,14 @@ class BidirectionalMarkets(unittest.TestCase):
         data=evidence()
         scope=dict(snapshot=dict(competitors=rows),planned=dict(required_markets=['Lootbar','ArabUT']),
             PLATFORMS=engine.PLATFORMS,SITES=('Lootbar',),offers={p:{} for p in engine.PLATFORMS},
-            run_id='same',now=NOW,age_ok=age_ok)
+            run_id='same',now=NOW,age_ok=age_ok,curve_run=curve_run)
         exec(compile(ast.Module(body=[projection],type_ignores=[]),str(path),'exec'),scope)
         data['offers']=scope['offers']
         return data
+
+    def test_curve_quote_does_not_consume_legacy_scalar_offer_projection(self):
+        self.assertEqual(self.projected_source(curve_run=True)['offers'],
+                         {p: {} for p in engine.PLATFORMS})
 
     def test_verified_lootbar_USD_survives_real_quote_projection_and_remains_primary(self):
         data=self.projected_source()

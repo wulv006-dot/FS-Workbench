@@ -404,11 +404,15 @@ def curve_projection(item, projection, before_send, persist):
     if 'before_read_only_rate' in state:
         readback = money(projection['read'](platform))
         if readback == money(state['before_read_only_rate']):
-            state.update(status='confirmed', readback_rate=str(readback), write_performed=False)
-            state.pop('reason', None)
+            if readback == money(target_rate):
+                state.update(status='confirmed', readback_rate=str(readback), write_performed=False)
+                state.pop('reason', None)
+            else:
+                state.update(status='unchanged_mismatch', reason='pricing_curve_order_preexisting_rate_mismatch',
+                             readback_rate=str(readback), expected_rate=target_rate, write_performed=False)
         else:
             state.update(status='read_only_pending', reason='pricing_curve_order_projection_unexpected_change',
-                         readback_rate=str(readback), write_performed=False)
+                         readback_rate=str(readback), expected_rate=target_rate, write_performed=False)
         return
     if 'send_intent' not in state:
         if before_send is None:
@@ -453,7 +457,7 @@ def curve_result(audit, save_audit):
     started = any('send_intent' in item['catalog'] and item['catalog']['status'] != 'not_sent'
                   for item in values)
     if all(item['catalog']['status'] == 'confirmed' and item['propagation']['status'] == 'confirmed' and
-           item['projection']['status'] in ('confirmed', 'not_required') for item in values):
+           item['projection']['status'] in ('confirmed', 'not_required', 'unchanged_mismatch') for item in values):
         status, audit_status = 'CONFIRMED', 'CONFIRMED'
     elif any(item['catalog'].get('confirmed_at') for item in values):
         status, audit_status = 'PARTIAL', 'PARTIAL'

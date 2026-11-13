@@ -99,6 +99,32 @@ class HourlyOutcomesTest(unittest.TestCase):
             self.assertEqual(db.get('metadata','smart-outcome-source:'+policy_suffix(p)),result['state'])
             self.assertEqual(db.get('metadata','daily_online_context')['actual_outcomes'],online['actual_outcomes'])
 
+    def test_curve_daily_and_sprint_share_original_hourly_runner_and_keep_legacy_context(self):
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        from fc_pricing_v3.smart import policy_suffix
+
+        now, _, window = self.fixture()
+        online = {'actual_outcomes': [{'order_key': 'curve-order'}],
+                  'learning_coverage': {'query_complete': True, 'observed_at': now.isoformat(), 'gap_events': []}}
+        outcome = {'state': {'cursor_at': now.isoformat()}, 'online': online}
+        for mode in ('daily', 'revenue_sprint'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as folder:
+                db = Ledger(Path(folder)/'test.db')
+                plan = dict(plan_id='p', revision=1, mode=mode, state='ACTIVE', starts_at=window['opened_at'],
+                            write_protocol=CURVE_WRITE_PROTOCOL)
+                db.put('pricing_plans', 'p', plan)
+                db.put('actual_price_windows', 'op', dict(window, origin='observed_native_curve_window'))
+                legacy = {'actual_outcomes': [{'order_key': 'legacy-order'}]}
+                db.put('metadata', 'daily_online_context', legacy)
+                with patch.object(runtime, 'ledger', return_value=db), \
+                        patch.object(daily.subprocess, 'run', return_value=MagicMock(returncode=0, stdout=json.dumps(outcome))) as read:
+                    receipt = daily.run_hourly({'plan_id': 'p', 'revision': 1})
+                self.assertEqual(receipt['status'], 'updated')
+                self.assertEqual(json.loads(read.call_args.kwargs['input'])['action'], 'hourly_outcomes')
+                self.assertEqual(db.get('metadata', 'curve-outcome-source:'+policy_suffix(plan)), outcome['state'])
+                self.assertEqual(db.get('metadata', 'curve-online-context:p')['actual_outcomes'], online['actual_outcomes'])
+                self.assertEqual(db.get('metadata', 'daily_online_context'), legacy)
+
     def test_daily_profit_uses_independent_platform_label(self):
         import test_daily_profit
         fixture=test_daily_profit.DailyProfit();fixture.setUp()

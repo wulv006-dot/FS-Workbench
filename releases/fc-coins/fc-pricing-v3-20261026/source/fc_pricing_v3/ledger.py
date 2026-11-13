@@ -45,11 +45,17 @@ def confirmed_curve_window(op):
         target = bundle['action']['curves'][platform]
         target = read_curve(target['native_payload'], target['identity'], target['native_contract'])
         target_key = curve_key(target)
+        projection = row.get('projection') or {}
+        mismatch = (projection.get('status') == 'unchanged_mismatch'
+                    and projection.get('write_performed') is False
+                    and 'send_intent' not in projection
+                    and projection.get('before_read_only_rate') == projection.get('readback_rate')
+                    and row.get('before_rate') == row.get('target_rate') == projection.get('expected_rate'))
         if (row.get('operation_id') != op['operation_id'] or row.get('platform') != platform
                 or row.get('target_curve_key') != target_key
                 or (row.get('catalog') or {}).get('status') != 'confirmed'
                 or (row.get('propagation') or {}).get('status') != 'confirmed'
-                or (row.get('projection') or {}).get('status') not in ('confirmed', 'not_required')):
+                or projection.get('status') not in ('confirmed', 'not_required') and not mismatch):
             raise ValueError('curve_window_full_readback_unconfirmed')
         action['curves'][platform] = row.get('actual_site266_curve')
         actual = _window_curve(action, platform)
@@ -967,7 +973,42 @@ class Ledger:
             actual_action, curve_metadata = confirmed_curve_window(op)
         elif 'curves' in actual_action:
             raise ValueError('curve_window_protocol_missing')
-        opened=clock().isoformat()
+        return self._store_price_window(op, db, actual_action, curve_metadata, clock().isoformat(), no_change)
+
+    def observe_curve_keep(self, plan, snapshot_id, platform, curve, observed_at, evidence_ref, conn):
+        from .curve_strategy_v6 import primary_reference_curve
+        from .dispatch import CURVE_WRITE_PROTOCOL
+
+        resource = 'base:' + platform
+        current = self.get('pricing_plans', plan['plan_id'], conn)
+        if (not current or current['state'] != 'ACTIVE' or current['revision'] != plan['revision']
+                or current.get('write_protocol') != CURVE_WRITE_PROTOCOL or resource not in current['resources']
+                or conn.execute('SELECT 1 FROM resource_leases WHERE resource=?', (resource,)).fetchone()):
+            return
+        self.owns(current, [resource], conn)
+        curve = primary_reference_curve(curve, platform)
+        ident = 'observed-curve:' + snapshot_id + ':' + platform
+        if self.get('actual_price_windows', ident, conn):
+            return
+        for row in conn.execute('SELECT body FROM actual_price_windows'):
+            window = json.loads(row[0])
+            if resource not in native_resources(window.get('resources', [])):
+                continue
+            if instant(window['opened_at']) >= instant(observed_at):
+                return
+            for record in window.get('continuations', []):
+                if record.get('operation_id') == ident:
+                    return
+        observation = dict(operation_id=ident, plan_id=plan['plan_id'], generation=plan['generation'],
+                           resources=[resource], bundle=dict(mutable_resources=[resource],
+                               affected_platforms=[platform], assignment_id=snapshot_id))
+        meta = dict(origin='observed_native_curve_window', write_protocol=CURVE_WRITE_PROTOCOL,
+                    price_scope_contract=PRICE_SCOPE_CONTRACT, readback_ref=evidence_ref,
+                    observation_id=ident, write_performed=False)
+        self._store_price_window(observation, conn, {'curves': {platform: curve}}, meta, observed_at, True)
+
+    def _store_price_window(self, op, db, actual_action, curve_metadata, opened, no_change):
+        operation_id = op['operation_id']
         original_resources=op['bundle'].get('mutable_resources',op['resources'])
         normalize=native_resources if any(r in ('base:PS','base:XBOX','base:PC') for r in original_resources) else lambda resources:list(resources)
         remaining=set(normalize(original_resources))
@@ -992,7 +1033,11 @@ class Ledger:
                     same={r for r in affected if (same_curve(r) if 'curves' in window['action'] or 'curves' in actual_action else
                           value(window['action'],r)==value(actual_action,r) and catalog_matches(r))}
                     if same:
-                        window.setdefault('continuations',[]).append(dict(operation_id=operation_id,assignment_id=op['bundle']['assignment_id'],resources=sorted(same),at=opened))
+                        continuation = dict(operation_id=operation_id, assignment_id=op['bundle']['assignment_id'],
+                                            resources=sorted(same), at=opened)
+                        if curve_metadata.get('observation_id'):
+                            continuation.update(readback_ref=curve_metadata['readback_ref'], write_performed=False)
+                        window.setdefault('continuations', []).append(continuation)
                         if window.get('assignment_id')!=op['bundle']['assignment_id']:
                             window['randomization_verified']=False
                         remaining-=same
@@ -1011,7 +1056,7 @@ class Ledger:
                  assignment_id=op['bundle']['assignment_id'],action=actual_action,
                  catalog=op['bundle'].get('catalog',{}),budget_reference=op['bundle'].get('budget_reference',{}),
                  platforms=op['bundle'].get('affected_platforms',[]),assignment_probability=op['bundle'].get('assignment_probability'),
-                 randomization_verified=not no_change and op['bundle'].get('randomization_verified',False),origin='confirmed_public_price_window',mode='production',
+                 randomization_verified=not no_change and op['bundle'].get('randomization_verified',False),origin=curve_metadata.pop('origin','confirmed_public_price_window'),mode='production',
                  opened_at=opened,no_change=no_change,**curve_metadata), db)
         return actual_action
 

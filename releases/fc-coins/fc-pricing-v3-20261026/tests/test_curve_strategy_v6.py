@@ -6,7 +6,8 @@ import unittest
 from test_price_curve_v6 import EDITOR_CONTRACT, catalogue, read
 from test_pricing_proof_v6 import fixture as proof_fixture
 from fc_pricing_v3.curve_strategy_v6 import (
-    build_candidates, choose_action, confirm_adoption, market_preference, minimum_repair, propose_adoption,
+    build_candidates, choose_action, confirm_adoption, intermediate_candidates, market_preference,
+    minimum_repair, propose_adoption,
 )
 from fc_pricing_v3.price_curve import curve_key, read_curve
 from fc_pricing_v3.pricing_proof_v6 import validate_curve
@@ -82,6 +83,20 @@ class FixedCurveCandidates(unittest.TestCase):
         result = choose_action(comparison, {}, preferred_label='C')
         self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
 
+    def test_bounded_intermediate_steps_stay_on_original_reference(self):
+        current, reference, episode = fixture()
+        comparison = build_candidates(current, reference, episode, 'large')
+        steps = list(intermediate_candidates(comparison, 'B', EDITOR_CONTRACT,
+                                             tier_price_factors_verified=True))
+        self.assertGreater(len(steps), 1)
+        self.assertEqual(steps[0]['curve']['tiers'][4]['native_price_usd'], '92.16')
+        self.assertEqual(steps[-1]['curve']['tiers'][4]['native_price_usd'], '94.99')
+        self.assertTrue(all(step['curve']['tiers'][2] == current['tiers'][2] for step in steps))
+        outer = candidate(comparison, 'B')['curve']
+        again = build_candidates(saved(outer), reference, episode, 'large')
+        self.assertEqual([step['curve_key'] for step in steps],
+                         [step['curve_key'] for step in intermediate_candidates(again, 'B', EDITOR_CONTRACT)])
+
     def test_varying_discounts_do_not_flatten_selected_segment_beyond_bound(self):
         current, reference, episode = fixture()
         row = deepcopy(current['native_payload'])
@@ -132,6 +147,8 @@ class FixedCurveCandidates(unittest.TestCase):
         sample = dict(coverage_status='comparable', margin_basis='procurement_gross_usd',
                       current=weak, previous=stable)
         self.assertEqual(market_preference(current, 'PS', [offer], {'large': sample}, now)['label'], 'B')
+        self.assertEqual(market_preference(current, 'PS', [offer],
+                                           {'large': dict(sample, margin_basis=None)}, now)['label'], 'B')
         self.assertIsNone(market_preference(current, 'PS', [offer],
                                            {'large': dict(sample, current=stable)}, now))
         for changed in (dict(platform='PC'), dict(source='U7Buy'), dict(purchase_k='2000'),
@@ -142,6 +159,8 @@ class FixedCurveCandidates(unittest.TestCase):
         higher = dict(offer, regular_price='106')
         self.assertEqual(market_preference(current, 'PS', [higher],
                                            {'large': dict(sample, current=stable)}, now)['label'], 'C')
+        self.assertIsNone(market_preference(current, 'PS', [higher],
+                                           {'large': dict(sample, current=stable, margin_basis=None)}, now))
 
     def test_minimum_repair_changes_only_affected_segment_and_keeps_native_specs(self):
         current, reference, episode = fixture()
