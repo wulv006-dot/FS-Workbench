@@ -19,7 +19,7 @@ FIELDS = ('id','order_no','site_id','site','gid','game_format','paytime','pay_st
           'status_format','amount_usd_format','amount_rmb_format')
 MARKETING_FIELDS = ('discount_code','recommend_uid','country_code','country','paytype_display','paytype','device')
 PROMOTION_CHANNELS = {'seo':'SEO','谷歌广告':'PPC','kol':'Referral','tiktok':'Referral','tt':'Referral'}
-ATTRIBUTION_RULE = 'order-channel-priority-20261113-v4'
+ATTRIBUTION_RULE = 'order-channel-priority-20261113-v5'
 
 
 def admin_orders(scope, request, *, marketing=False):
@@ -257,6 +257,8 @@ def effective_attribution(order, native, archived, mapping):
         channel, basis, detail = 'pending_classification', 'unmapped_evidence', source or promotion_detail or fact.get('source_raw')
     else:
         channel, basis, detail = 'unknown', 'unknown', None
+    if channel=='pending_classification' and uid:
+        channel, basis, detail = 'Direct', 'pending_promoter_distribution', '分销'
     return dict(channel=channel, basis=basis, detail=detail, order_source=source,
         source_conflict=source_conflict,
         conflict=native_conflict or source_conflict or (has_code and promotion_conflict)
