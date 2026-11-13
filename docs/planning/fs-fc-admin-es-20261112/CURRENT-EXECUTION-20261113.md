@@ -24,3 +24,17 @@
 - `4793363` 固定A/episode沿原操作持久化，Windows72项、183最终27项全部通过；新候选展示接线仍进行中，尚未激活。
 - SEO生产候选：`seo-ui-c9e4111c43b04308`，8目标，manifest SHA256 `710aef6756fc22a68612bb5ce09feecf1cf2d3f7a06c418da89e0310168a05f4`，归档SHA256 `f4bd9e9201c5fadbf1166db61f742474900f8c09df7fbaa5b66839fb7cf7efec`。原发布器桥接和依赖已核。独立暂存 `/opt/fs-release-stage/fs-fc-admin-es-seo-ui-20261113-c9e4111c43b04308`。沿原 `release_ui.py inspect` 返回releaseReady=true、sourceCAS/protectedCAS passed、mutations=false。未apply，未部署或激活。首次脚本因Windows行尾导致inspect参数错误，只对同一目录改正确参数再只读检查，未重传/重放发布。
 - ES生产组合源码已取得，范围仅本批相关源/资产：现网3份业务JS和3份渠道资产与main7042eda一致；range_api/admin_summary保留线上额外功能后合成本轮增量；user_store现场未装版本索引，仅移植本次有界读必要差分。Sol正在编写薄适配原发布器的精确装配，主控统一实际发布。
+
+- `ca770903912651f430eeb2345dc82d7c9191fa10` 正式 CI run 43370394317 已成功；PR #1023 转为 ready 后，GitHub 自动触发 run 43371327822，首次合并请求因此返回必需检查进行中，未合并、未绕过。
+- ES 24目标已从该固定提交装配、183 88项通过，187暂存 `/opt/fs-release-stage/fs-admin-es-ca77090-20261113`；manifest `ad400f1f7f7a2e260eb608b63b00abfbd016e03412ae100c84958865f4e891a7`，现场inspect sourceCAS/protectedCAS通过，尚未apply。
+- D5后续增量已提交 `0d8b49cc47efb610a30b918b8a4ddf1a587e2a54`，62目标/95保护现场inspect通过，releaseReady=false。首次审核误依据早期不部署范围而拒绝暂存解包；补充最新直接授权并核原inspect调用链后获准，未修改现役知识。个人记忆与技能正文未复制，容量已以现场匿名统计核实。
+
+## 13 日生产发布及实际入口增量（覆盖上文历史候选状态）
+
+- PR #1023 两次必需 CI 均成功，已合并为 `bd8d438d6f12d6655258424a4b972a39a849d347`。第二次 run `43371327822` 完成后按正常规则合并，未绕过检查。
+- Admin/ES 固定 `ca770903912651f430eeb2345dc82d7c9191fa10` 24 目标沿原发布器已应用，release/备份 `nav-20261113T052800Z`。manifest `ad400f1f7f7a2e260eb608b63b00abfbd016e03412ae100c84958865f4e891a7`；应用前在途 requests、advisor jobs、FC daily jobs 均为 0。应用后 24/24 源码哈希、18/18 保护项一致，8931 health 正常；range、Hermes FC、Nginx 均 active。日志 `.agent_runtime/es-ca77090-{apply,readback}.log`。
+- Chrome 已真实读取渠道页默认 2026-11-06—12、MMOEXP、全部游戏：6,060 笔付款订单，USD 322,294.27；约 89 秒返回成功。归因发布未覆盖、完整成本 0/6060 明确保留未知；不能据观察成本声明完整毛利。此请求并非失败，另有独立复现的慢失败立即重试缺陷已修复为 `4b5932b`，24 项回归通过，尚未发布。CSV 实际下载尚未确认。
+- SEO UI 8 目标在 ES 后新基线发布，release/备份 `nav-20261113T053300Z`，版本 `seo-ui-c9e4111c43b04308`，manifest `33681c793ec387c66c1623e1e47be6dbb0d25d9b665bc13f4e865f631df3a53d`。8/8 目标、5/5 保护项、23/23 ES 非路由载荷一致；SEO web 和既有 daily timer 正常，未触发额外业务任务。日志 `.agent_runtime/seo-after-es-{apply,readback}.log`。此前 pre-ES 候选未应用且路由 CAS 已过期，不重放。
+- SEO 实际页面正常显示 `seo-2026-11-13` 快照，orders 后端来源尚未配置；现阶段仅 UI 上线，正在继续完成后端来源接入，不能宣称 D4 全部验收。
+- FC 两项预览问题已提交 `1ce0a57`：采用 A 后来源元数据不再误判目录结构变化，历史版本只比较最终截止时点冲突；125 项回归通过，未绕过真实数量/赠送/折扣变化。成本原生证据提交 `de27975`；真实完整采购时间、补单关联和费用仍缺，候选仍为 PROOF_INCOMPLETE。
+- D5 `0d8b49c` 及以上后续提交尚待下一 PR 的正式 CI。D5 只暂存并 inspect，现役知识未改变；FC 新版尚未部署/激活。总目标继续，以上是状态记录而非停止点。

@@ -169,5 +169,139 @@ class OverlayTest(unittest.TestCase):
             self.prepare()
 
 
+class SharedAdminESOverlayTest(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.snapshot = Path(temp.name) / 'snapshot'
+        self.output = Path(temp.name) / 'stage'
+        self.git = {}
+        for revision in (builder.SHARED_BASE_COMMIT, COMMIT):
+            entries = []
+            for identity in builder.SHARED_OVERLAYS:
+                path = 'canonical/' + identity + '.md'
+                data = b'## Anchor\n\n'
+                if revision == COMMIT:
+                    data += b'D5 shared method.\n\n'
+                data += b'Common context.\n\nCanonical method.\n'
+                item = row(identity, builder.SHARED_ADMIN_ES, path, data)
+                item['knowledge_updated_at'] = '2026-11-13'
+                entries.append(item)
+                self.git[revision, path] = data
+            self.git[revision, 'knowledge/index.json'] = builder.encoded(dict(
+                contract='fs-knowledge-index-v1', release=builder.SHARED_ADMIN_ES, release_state='candidate',
+                source_commit=None, base_commit=builder.SHARED_BASE_COMMIT, entries=entries))
+        baseline = b'Actual active FC rules.\n'
+        baseline_digest = builder.sha(baseline)
+        write(self.snapshot / 'business-baseline.md', baseline)
+        self.git[COMMIT, builder.BASELINE_SOURCE] = baseline
+        self.git[COMMIT, builder.BASELINE_SOURCE.replace('.md', '.provenance.json')] = builder.encoded(dict(
+            contract='fc-current-baseline-patch-v1', runtime_source=builder.BASELINE_SOURCE,
+            after_sha256=baseline_digest, canonical_sha256='b' * 64))
+        self.info = dict(captured_at='2026-11-13T05:05:52Z', protected={builder.BASELINE_TARGET: baseline_digest},
+                         immutable_directories=[], runtime={n: {'ActiveState': 'active'} for n in
+                                                          ('fs-hermes-fc.service', 'fs-business-range.service')})
+        routes = []
+        for number in range(2):
+            prefix = f'knowledge-releases/live-{number}'
+            catalog_path = prefix + '/index.json'
+            entries = []
+            shared = builder.SHARED_OVERLAYS if number == 0 else builder.SHARED_OVERLAYS[:-1]
+            for identity in (*shared, 'fs.learning.methods', 'fc.pricing.v3', builder.EMAIL):
+                path = 'entries/' + identity + '.md'
+                data = (f'## Anchor\n\nCommon context.\n\nOriginal live wording {number}.\n').encode()
+                item = row(identity, f'live-{number}', path, data)
+                item['unrelated_metadata'] = number
+                entries.append(item)
+                self.put_snapshot(prefix + '/sources/' + path, data)
+            self.put_snapshot(catalog_path, builder.encoded(dict(
+                contract='fs-knowledge-index-v1', release=f'live-{number}', release_state='published',
+                source_commit=COMMIT, source_root=prefix + '/sources', entries=entries)))
+            routes.append(dict(catalog=catalog_path, sha256=self.info['protected'][builder.FS_RUNTIME_ROOT + catalog_path],
+                               owner='original-owner', modules=['FS'],
+                               entry_ids=[e['id'] for e in entries],
+                               baseline_compatibility={'mode': 'retain_full_baseline', 'sha256': baseline_digest}))
+        self.policy = dict(contract='fs-knowledge-load-policy-v1', requests={'first': routes[0]},
+                           task_routes={'routes': [routes[1]]})
+        self.write_preflight()
+        patch = mock.patch.object(builder, 'git_bytes', side_effect=self.git_blob)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def git_blob(self, root, commit, name):
+        if (commit, name) in self.git:
+            return self.git[commit, name]
+        return (Path(root) / name).read_bytes()
+
+    def put_snapshot(self, name, data):
+        write(self.snapshot / name, data)
+        self.info['protected'][builder.FS_RUNTIME_ROOT + name] = builder.sha(data)
+
+    def write_preflight(self):
+        write(self.snapshot / 'policy.json', builder.encoded(self.policy))
+        write(self.snapshot / 'preflight.json', builder.encoded(self.info))
+
+    def prepare(self):
+        return builder.prepare(ROOT, self.snapshot, self.output, COMMIT, shared_admin_es=True)
+
+    def test_only_existing_shared_sections_overlay_and_live_baseline_stays_bound(self):
+        value = self.prepare()
+        manifest = value['manifest']
+        self.assertFalse(manifest['releaseReady'])
+        self.assertEqual(value['release'], builder.SHARED_ADMIN_ES + '-' + COMMIT)
+        self.assertIn(dict(path=builder.BASELINE_TARGET, sha256=self.info['protected'][builder.BASELINE_TARGET]),
+                      manifest['unchangedRequired'])
+        runtime = [r for r in manifest['files'] if r['candidate'].startswith('runtime/')]
+        self.assertEqual([r['candidate'] for r in runtime], ['runtime/knowledge-load-policy.json'])
+        self.assertEqual(runtime[0]['beforeSha256'], builder.sha((self.snapshot / 'policy.json').read_bytes()))
+        self.assertTrue(all(r['beforeSha256'] is None for r in manifest['files'] if r not in runtime))
+        staged = self.output / 'candidate'
+        policy = json.loads((staged / 'runtime/knowledge-load-policy.json').read_bytes())
+        for number, (before, after) in enumerate(zip(builder.routes(self.policy), builder.routes(policy))):
+            self.assertEqual({k: v for k, v in before.items() if k not in ('catalog', 'sha256')},
+                             {k: v for k, v in after.items() if k not in ('catalog', 'sha256')})
+            index = json.loads((staged / 'artifact' / '/'.join(after['catalog'].split('/')[2:])).read_bytes())
+            old = json.loads((self.snapshot / before['catalog']).read_bytes())
+            for previous, item in zip(old['entries'], index['entries']):
+                identity = item['id']
+                if identity not in builder.SHARED_OVERLAYS:
+                    self.assertEqual(item, previous)
+                    continue
+                self.assertEqual(item['revision'], builder.SHARED_ADMIN_ES)
+                self.assertEqual(item['unrelated_metadata'], number)
+                self.assertEqual(item['modules'], previous['modules'])
+                source = '/'.join(index['source_root'].split('/')[2:])
+                self.assertEqual((staged / 'artifact' / source / item['source']['path']).read_bytes(),
+                                 f'## Anchor\n\nD5 shared method.\n\nCommon context.\n\nOriginal live wording {number}.\n'.encode())
+            self.assertEqual('fc.reporting.data' in [r['id'] for r in index['entries']], number == 0)
+        proof = json.loads((self.output / 'retained-baseline-provenance.json').read_bytes())
+        self.assertEqual(proof['retained_sha256'], proof['existing_provenance']['after_sha256'])
+        self.assertEqual(len(proof['overlays']), 9)
+
+    def test_missing_merge_context_refuses_candidate(self):
+        name = self.policy['requests']['first']['catalog']
+        index = json.loads((self.snapshot / name).read_bytes())
+        row = index['entries'][0]
+        data = b'Diverged live context.\n'
+        row['source']['sha256'] = builder.sha(data)
+        self.put_snapshot(index['source_root'] + '/' + row['source']['path'], data)
+        self.put_snapshot(name, builder.encoded(index))
+        self.policy['requests']['first']['sha256'] = self.info['protected'][builder.FS_RUNTIME_ROOT + name]
+        self.write_preflight()
+        with self.assertRaisesRegex(ValueError, 'shared_admin_es_snapshot_merge_conflict:fs.data.sources'):
+            self.prepare()
+        self.assertFalse(self.output.exists())
+
+    def test_live_baseline_provenance_and_policy_binding_must_match(self):
+        self.policy['requests']['first']['baseline_compatibility']['sha256'] = '0' * 64
+        self.write_preflight()
+        with self.assertRaisesRegex(ValueError, 'shared_admin_es_baseline_binding_drift'):
+            self.prepare()
+        write(self.snapshot / 'business-baseline.md', b'Different active FC rules.\n')
+        with self.assertRaisesRegex(ValueError, 'shared_admin_es_retained_baseline_provenance_invalid'):
+            self.prepare()
+        self.assertFalse(self.output.exists())
+
+
 if __name__ == '__main__':
     unittest.main()

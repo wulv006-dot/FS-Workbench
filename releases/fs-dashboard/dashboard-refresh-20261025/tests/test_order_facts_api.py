@@ -201,6 +201,24 @@ class OrderFactsAPI(unittest.TestCase):
         self.service.source=lambda scope:facts(dict(scope,site_id='other'))
         self.assertEqual(self.complete()[0],503)
 
+    def test_slow_source_failure_returns_terminal_status_before_retry(self):
+        def timed_out(scope):
+            self.now += 180
+            raise TimeoutError('PRIVATE-ORDER-SECRET')
+        self.service.source = timed_out
+        self.assertEqual(self.service.get(params(),'alice')[0],202)
+        self.channels.pool.run()
+        for force in ({}, {'refresh':'1'}):
+            self.assertEqual(self.service.get(params(**force),'alice'),
+                             (503, {'status':'source_failed','retryAfter':60}))
+        self.assertFalse(self.channels.pool.calls)
+        self.assertFalse(self.channels.jobs)
+        self.now += 59
+        self.assertEqual(self.service.get(params(),'alice')[1]['retryAfter'],1)
+        self.now += 1
+        self.assertEqual(self.service.get(params(),'alice')[0],202)
+        self.assertEqual(len(self.channels.pool.calls),1)
+
     def test_refresh_reuses_key_waits_from_completion_then_captures_once(self):
         self.assertEqual(self.service.get(params(),'alice')[0],202)
         self.now+=80  # slow source: cooldown starts after completion, not submission

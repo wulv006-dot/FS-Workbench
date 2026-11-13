@@ -1,6 +1,8 @@
 """Read-only V6 candidate diagnostics over existing saved evidence."""
 from contextlib import ExitStack, closing
+from copy import deepcopy
 from datetime import datetime, timedelta
+from itertools import permutations
 import json
 from pathlib import Path
 import tempfile
@@ -109,6 +111,46 @@ class PreviewCandidatesV6(unittest.TestCase):
         self.assertIn('adopted_reference_curve_unavailable', decision['gaps'])
         self.assertEqual([item['labels'] for item in decision['candidates']], [['CURRENT']])
         self.assertIsNone(self.db.curve_strategy_state('PS'))
+
+    def test_real_saved_terms_changes_still_block_candidates(self):
+        self.db.start_curve_episode('PS', 'fixture-rules', 'Trusted approved fixture A',
+                                    initial_curve=self.current, readback_ref='original-A')
+        for field, index, changed in (('gold', 0, '51'), ('give', 2, '1'), ('discount', 2, '99')):
+            with self.subTest(field=field):
+                row = deepcopy(self.current['native_payload'])
+                row['more'][field][index] = changed
+                self.manager.request.return_value = (200, json.dumps(dict(code=1, data=dict(row=row))).encode())
+                decision = self.preview()['decision']
+                self.assertEqual([item['labels'] for item in decision['candidates']], [['CURRENT']])
+                self.assertEqual(decision['candidate_gaps'],
+                                 {label: ['current_reference_catalogue_terms_differ'] for label in 'ABC'})
+
+    def test_only_conflicts_at_final_visible_revision_matter(self):
+        rows = [('older-a', SNAPSHOT_AT), ('older-b', SNAPSHOT_AT),
+                ('latest', SNAPSHOT_AT + timedelta(seconds=1))]
+        for order in permutations(rows):
+            with self.subTest(order=order):
+                with closing(self.db.connect()) as conn:
+                    conn.execute('DELETE FROM historical_inputs')
+                    conn.commit()
+                for revision, at in order:
+                    self.store_history(revision, available=at)
+                self.store_history('future', available=NOW + timedelta(seconds=1))
+                with closing(self.db.connect()) as conn:
+                    history = api._curve_preview_history(conn, {'snapshot_id': SNAPSHOT_ID,
+                                                               'created_at': SNAPSHOT_AT.isoformat()}, NOW)
+                self.assertEqual(history['source_sha256'], 'latest')
+
+    def test_conflicting_final_visible_revision_is_rejected(self):
+        at = SNAPSHOT_AT + timedelta(seconds=1)
+        self.store_history('latest-a', available=at)
+        self.store_history('latest-b', available=at)
+        self.store_history('older', available=SNAPSHOT_AT)
+        self.store_history('future', available=NOW + timedelta(seconds=1))
+        with closing(self.db.connect()) as conn:
+            with self.assertRaisesRegex(ValueError, '^pricing_curve_preview_history_revision_conflict$'):
+                api._curve_preview_history(conn, {'snapshot_id': SNAPSHOT_ID,
+                                                 'created_at': SNAPSHOT_AT.isoformat()}, NOW)
 
     def test_old_snapshot_does_not_borrow_today_curve_as_historical_candidate(self):
         result = self.preview(snapshot_id=OLDER_ID)

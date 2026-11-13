@@ -32,10 +32,16 @@ class Pool:
 class ActualProfit(unittest.TestCase):
     def test_native_cost_reader_passes_distinct_order_game_and_exact_website(self):
         from channel_cost_source import collect
-        cells=['','1','订单发货','www.rsorders.com','A','2026-10-20 12:00:00','RS','1','0','35','35','70','50%','','','','','','']
+        cells=['','1','订单发货','www.rsorders.com','A','2026-10-20 12:00:00 改2026-10-20 12:01:00',
+               'RS','1','0','35','35','70','50%','','','','','已结算','']
         html='<table class="table-list"><thead><tr><th>商户订单号</th></tr></thead><tbody><tr>'+''.join('<td>'+x+'</td>' for x in cells)+'</tr></tbody></table>'
         session=Mock();session.get_order.return_value=(200,html)
-        self.assertEqual(collect(session,'2026-10-20','2026-10-20',source='www.rsorders.com',gid='506')[0]['cost_total'],'35')
+        native = collect(session,'2026-10-20','2026-10-20',source='www.rsorders.com',gid='506')[0]
+        self.assertEqual(native['cost_total'],'35')
+        self.assertEqual(native['trade_at'],'2026-10-20 12:00:00')
+        self.assertEqual(native['trade_amended_at'],'2026-10-20 12:01:00')
+        self.assertEqual(native['settle_status'],'已结算')
+        self.assertNotIn('completed_at', native)
         self.assertEqual(session.get_order.call_args.kwargs['source[]'],'www.rsorders.com');self.assertEqual(session.get_order.call_args.kwargs['gid'],'506')
         with self.assertRaises(ValueError):collect(session,'2026-10-20','2026-10-20',source='www.mmoexp.com')
         self.assertEqual(len(collect(session,'2026-10-20','2026-10-20',source='',gid='0')),1)

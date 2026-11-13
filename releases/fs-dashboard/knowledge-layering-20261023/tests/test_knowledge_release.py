@@ -52,6 +52,23 @@ class Release(unittest.TestCase):
             with patch('subprocess.run',side_effect=AssertionError('service operation forbidden')):
                 publisher.restart_for(manifest)
 
+    def test_shared_admin_es_identity_binds_full_commit_and_cannot_write_baseline(self):
+        commit = 'a' * 40
+        release = scope.SHARED_ADMIN_ES + '-' + commit
+        prefix = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + release + '/'
+        value = dict(scope=scope.SCOPE, knowledgeOnly=True, knowledgeRelease=release, sourceCommit=commit,
+                     businessWrites=False, timersChanged=False, files=[
+                         dict(candidate='runtime/knowledge-load-policy.json',
+                              target='/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'),
+                         dict(candidate='artifact/index.json', target=prefix + 'index.json')])
+        self.assertEqual(len(scope.targets(value)), 2)
+        for wrong in (release[:-1], scope.SHARED_ADMIN_ES + '-' + 'b' * 40):
+            with self.assertRaisesRegex(ValueError, 'knowledge_only_identity_or_authority'):
+                scope.targets(dict(value, knowledgeRelease=wrong))
+        with self.assertRaisesRegex(ValueError, 'knowledge_immutable_release_boundary'):
+            scope.targets(dict(value, files=value['files'] + [
+                dict(candidate='runtime/business-baseline.md', target='/opt/fs-hermes-fc/business-baseline.md')]))
+
     def test_existing_publisher_used_and_immutable_package_can_be_read(self):
         with tempfile.TemporaryDirectory() as tmp:
             stage=Path(tmp)/'stage'

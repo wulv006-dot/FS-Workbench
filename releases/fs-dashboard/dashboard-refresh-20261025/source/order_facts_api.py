@@ -200,9 +200,9 @@ class OrderFactsService:
                 if now-entry['finished'] < 60:
                     return 200, dict(deepcopy(entry['value']), refresh_deferred=True,
                         refresh_reason='recent_capture', retryAfter=math.ceil(60-(now-entry['finished'])))
-            if entry and 0 <= now-entry['started'] < 60:
+            if entry and entry['state'] != 'available' and 0 <= now-entry['finished'] < 60:
                 code = 403 if entry['state'] == 'denied' else 503
-                return code, {'status': entry['state'], 'retryAfter': 60}
+                return code, {'status': entry['state'], 'retryAfter': math.ceil(60-(now-entry['finished']))}
             active = sum(v in ACTIVE for v in self.channels.jobs.values()) + sum(
                 v in ACTIVE for v in getattr(self.channels, 'actual_jobs', {}).values())
             if active >= 2:

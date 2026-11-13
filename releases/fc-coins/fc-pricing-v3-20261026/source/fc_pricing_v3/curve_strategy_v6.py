@@ -41,17 +41,30 @@ def _saved(curve):
 
 
 def _shape(curve):
-    """Exclude editor pricing controls from the existing full native key."""
+    """Compare saved terms apart from editor price controls and provenance."""
     row = deepcopy(curve['native_payload'])
     more = row['more'] if isinstance(row['more'], dict) else json.loads(row['more'])
     more['price'] = ['1'] * len(more['gold'])
     more['discount'] = ['100'] * len(more['gold'])
     row.update(unit_price='1', more=more)
-    return curve_key(read_curve(row, curve['identity'], curve['native_contract']))
+    # Keep versioned semantics and unknown native controls in the terms key.
+    contract = {key: value for key, value in curve['native_contract'].items()
+                if key not in ('source', 'verified_domain', 'editor_asset_sha256', 'editor_handler_sha256')}
+    return curve_key(read_curve(row, curve['identity'], contract))
 
 
 def _group(quantity):
     return 'small' if Decimal(quantity) < 1000 else 'large'
+
+
+def _saved_discount_changed_at_same_price(current, adopted):
+    previous_tiers = {tier['purchase_k']: tier for tier in adopted['tiers']}
+    for tier in current['tiers']:
+        previous = previous_tiers.get(tier['purchase_k'])
+        if (previous and tier['native_price_usd'] == previous['native_price_usd']
+                and tier['native_discount'] != previous['native_discount']):
+            return True
+    return False
 
 
 def _candidate(curve, labels, current):
@@ -65,13 +78,15 @@ def _candidate(curve, labels, current):
 
 
 def build_candidates(confirmed_current_curve, reference, episode, selected_segment,
-                     *, unit_price_usd_per_k=None, editor_contract=None):
+                     *, unit_price_usd_per_k=None, editor_contract=None,
+                     check_saved_discount_terms=False):
     """Freeze one platform and compile only the requested segment off adopted A.
 
     Reference holds reference_curve/reference_curve_id. Episode holds
     comparison_episode_id and initial_reference_curve/initial_reference_curve_id.
     The caller supplies the evidence-appropriate editor base, when needed.
     Offline editor evidence can be separate from the saved curve's own contract.
+    A fresh saved preview also checks for discount edits with no price change.
     """
     anchor = ANCHORS.get(selected_segment)
     if anchor is None:
@@ -92,7 +107,8 @@ def build_candidates(confirmed_current_curve, reference, episode, selected_segme
                   initial_reference_curve_id=episode['initial_reference_curve_id'],
                   selected_segment=selected_segment, candidates=[], gaps={},
                   boundary_search_status='intermediate_native_steps_unsearched')
-    if _shape(current) != _shape(adopted):
+    if (_shape(current) != _shape(adopted)
+            or (check_saved_discount_terms and _saved_discount_changed_at_same_price(current, adopted))):
         result['candidates'] = [_candidate(current, ['CURRENT'], current)]
         result['gaps'] = {label: ['current_reference_catalogue_terms_differ'] for label in 'ABC'}
         return result

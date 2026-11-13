@@ -97,7 +97,8 @@ def build_order_facts(admin_orders, attribution_rows, deliveries, *, sites, scop
             continue
         record = dict(cost_record_id=did,site_id=site,order_no=sn,source=raw.get('source'),
                       cost_cny=amount(raw.get('cost_total')),order_sale_cny=amount(raw.get('sale_total')),
-                      trade_at=raw.get('trade_at'),quantity=raw.get('qty'),gift=raw.get('gift'),
+                      cost_unit_cny=amount(raw.get('cost_unit')),trade_at=raw.get('trade_at'),
+                      trade_amended_at=raw.get('trade_amended_at'),quantity=raw.get('qty'),gift=raw.get('gift'),
                       source_quantity_basis='ACTUAL_SHIPPED_K' if raw.get('quantity_unit')=='K' else 'unverified',
                       component='order_delivery',status=raw.get('settle_status'))
         token = (site,did)
