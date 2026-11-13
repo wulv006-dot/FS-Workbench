@@ -41,6 +41,9 @@ const server=http.createServer((req,res)=>{
     const breakdown={dimension:channel==='all'?'channel':'source_detail',denominator_orders:totals.orders,
       rows:empty?[]:selected?[sourceRow('未提供',1)]:ppc?[sourceRow('google-FC27-PMAX-Coins-US',1)]:referral?(filtered?[sourceRow('YouTube',1)]:[sourceRow('YouTube',2,.9),sourceRow('未提供',1,.1)]):
         [sourceRow('Referral（引荐）',3,.8),sourceRow('未知',1,.2)]};
+    if(state==='palette'){
+      breakdown.rows=Array.from({length:8},(_,index)=>sourceRow('颜色 '+(index+1),1,.125));
+    }
     const snapshot=state==='revision'?'revision-2':'revision-1';
     res.end(JSON.stringify({version:'order-facts-api-20261113-v1',status:missing?'unavailable':'available',admin_complete:!missing,
       ...(state==='deferred'?{refresh_deferred:true,refresh_reason:'recent_capture',retryAfter:60}:{}),
@@ -61,7 +64,7 @@ const server=http.createServer((req,res)=>{
     res.setHeader('Content-Type','text/javascript');res.end("window.FSTheme={get:()=>document.documentElement.dataset.fsTheme||'light',set:v=>{document.documentElement.dataset.fsTheme=v;dispatchEvent(new Event('fs-theme-change'))}};");return;
   }
   if(url.pathname.endsWith('.css')&&!url.pathname.endsWith('/channel.css')){
-    res.setHeader('Content-Type','text/css');res.end(':root{--fs-font:system-ui;--fs-line:#ddd;--fs-text:#123;--fs-surface:#fff;--fs-bg:#eee;--fs-brand:#075e60;--fs-surface-2:#eee}[data-fs-theme=dark]{--fs-brand:#61d2d1;--fs-surface-2:#293648}');return;
+    res.setHeader('Content-Type','text/css');res.end(fs.readFileSync(path.resolve(root,'../../../ui-system/tokens/fs-tokens.css')));return;
   }
   if(url.pathname.startsWith('/__hub/')){res.setHeader('Content-Type','text/javascript');res.end('');return;}
   const name=url.pathname.endsWith('/')?'index.html':url.pathname.split('/').pop();
@@ -231,11 +234,20 @@ const server=http.createServer((req,res)=>{
     await page.locator('#freshness').filter({hasText:'revision-2'}).waitFor();
     const [newDownload]=await Promise.all([page.waitForEvent('download'),exportButton.click()]);
     assert.match(fs.readFileSync(await newDownload.path(),'utf8'),/1327,all,revision-2/);
+    state='palette';await page.locator('#refresh').click();
+    await page.locator('#source-sales-chart li').filter({hasText:'其余来源'}).waitFor();
     for(const theme of ['dark','light']){
       await page.locator('#theme').selectOption(theme);
       assert.equal(await page.locator('html').getAttribute('data-fs-theme'),theme);
-      assert.equal(await page.locator('#source-attribution-chart .distribution-bar').first().evaluate(el=>getComputedStyle(el).fill),
-        theme==='dark'?'rgb(97, 210, 209)':'rgb(7, 94, 96)');
+      const colors=await page.locator('#source-sales-chart').evaluate(host=>({
+        stroke:[...host.querySelectorAll('circle')].map(el=>getComputedStyle(el).stroke),
+        legend:[...host.querySelectorAll('li')].map(el=>getComputedStyle(el,'::before').backgroundColor),
+        bar:getComputedStyle(document.querySelector('#source-attribution-chart .distribution-bar')).fill,
+      }));
+      assert.equal(new Set(colors.stroke).size,7);
+      assert.deepEqual(colors.stroke,colors.legend);
+      assert.equal(colors.bar,theme==='dark'?'rgb(77, 184, 176)':'rgb(31, 111, 115)');
+      assert.equal(colors.stroke[0],colors.bar);
     }
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.locator('#source-attribution .table-wrapper').getAttribute('role'),'region');
