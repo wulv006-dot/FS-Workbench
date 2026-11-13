@@ -50,15 +50,15 @@ def attachment(orders, *, observed=AS_OF, cost=None):
 
 def facts(orders, *, complete=False, captured=AS_OF, generated=None, cost='350',
           shipment_complete=True, site='266', cost_revision='cost-revision',
-          cost_period=None):
+          cost_period=None, delivery_fields=None):
     admins, deliveries, completed = [], [], []
     source = 'www.mmoexp.com' if site == '266' else 'www.rsorder.com'
     for i, (identity, paid, _) in enumerate(orders):
         admins.append(dict(site_id=site, order_no=identity, site={'full_title': source}, gid='1327',
                            paytime=paid.strftime('%Y-%m-%d %H:%M:%S'), pay_status='1', status_format='已完成'))
-        deliveries.append(dict(source=source, sn=identity, delivery_id=str(i), genre='1',
-                               cost_total=cost, qty='1100', quantity_unit='K',
-                               trade_at=(paid + timedelta(minutes=10)).isoformat()))
+        deliveries.append(dict(dict(source=source, sn=identity, delivery_id=str(i), genre='1',
+                                    cost_total=cost, qty='1100', quantity_unit='K',
+                                    trade_at=(paid + timedelta(minutes=10)).isoformat()), **(delivery_fields or {})))
         completed.append((site, identity))
     proof = dict(source_revision='Admin-revision', captured_at=captured.isoformat(), admin_complete=True,
                  cost=dict(source_revision=cost_revision, generated_at=(generated or captured).isoformat(),
@@ -110,6 +110,20 @@ class CostInputs(unittest.TestCase):
         self.assertNotIn(orders[0][0], str(result))
         result = run([original], revisions=[facts(orders, site='320')], rate=fx())
         self.assertEqual(result['selected_window']['known_partial_cost_cny'], Decimal('100'))
+
+    def test_same_order_coins_quantity_corroborates_cost_without_marking_it_complete(self):
+        orders = list(rows_for([1], quantity='2500K Coins + 60K Free x1 = $200'))
+        source = attachment(orders)
+        inputs = dict(qty='2560', gift='0', cost_unit='0.390000', quantity_unit=None)
+        good = run([source], revisions=[facts(orders, cost='998.40', delivery_fields=inputs)], rate=fx())
+        self.assertEqual(good['selected_window']['order_delivery_quantity_evidence'], {'matches_promised_delivered_k': 1})
+        self.assertEqual(good['selected_window']['known_partial_cost_cny'], Decimal('998.40'))
+        self.assertEqual(good['status'], 'PROOF_INCOMPLETE')
+        for fields in ({'qty':'1','gift':'2559'}, {'cost_unit':None}, {'qty':'2559'}):
+            with self.subTest(fields=fields):
+                result = run([source], revisions=[facts(orders, cost='998.40', delivery_fields=dict(inputs, **fields))], rate=fx())
+                self.assertEqual(result['selected_window']['order_delivery_quantity_evidence'], {'unverified': 1})
+                self.assertEqual(result['selected_window']['known_partial_cost_cny'], Decimal('998.40'))
 
     def test_window_widens_only_when_complete_comparable_samples_are_short(self):
         for recent_count, expected in [(9, 168), (10, 72)]:

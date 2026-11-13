@@ -14,7 +14,19 @@ from pathlib import Path
 from channel_effects import TZ
 
 
-def delivery_timestamp(value):
+_LXML_HTML = None
+
+
+def _lxml_html():
+    # Import once at startup to avoid concurrent initialization during collection.
+    global _LXML_HTML
+    if _LXML_HTML is None:
+        from lxml import html
+        _LXML_HTML = html
+    return _LXML_HTML
+
+
+def delivery_timestamps(value):
     parts = value.split('改')
     if len(parts) > 2: raise ValueError('delivery_date_format_changed')
     parsed = []
@@ -23,11 +35,15 @@ def delivery_timestamp(value):
             try: parsed.append(datetime.strptime(part.strip(), fmt).strftime('%Y-%m-%d %H:%M:%S')); break
             except ValueError: pass
         else: raise ValueError('delivery_date_format_changed')
-    return parsed[0]
+    return parsed[0], parsed[1] if len(parsed) == 2 else None
+
+
+def delivery_timestamp(value):
+    return delivery_timestamps(value)[0]
 
 
 def collect(session, start, end, progress=lambda page, total: None, until=None, since=None, source='www.mmoexp.com', gid='0'):
-    from lxml import html
+    html = _lxml_html()
     if not isinstance(source,str) or source and not __import__('re').fullmatch(r'www\.[a-z0-9.-]+',source) or not str(gid).isdigit():
         raise ValueError('invalid_delivery_scope')
     result, seen, page_count = [], set(), None
@@ -58,14 +74,17 @@ def collect(session, start, end, progress=lambda page, total: None, until=None, 
             if len(cells) == 1 and not cells[0].strip(): continue
             if len(cells) != len(headers): raise ValueError('delivery_columns_changed')
             record = dict(zip(headers, cells))
-            record['trade_at'] = delivery_timestamp(record['trade_at'])
+            record['trade_at'], amended_at = delivery_timestamps(record['trade_at'])
             did = record['delivery_id']
             if not did.isdigit() or did in seen: raise ValueError('delivery_duplicate_page')
             # All-site native lists contain unassigned records; they cannot join an Admin site/order pair.
             if source and record['source'] != source or not begin <= record['trade_at'] <= stop:
                 raise ValueError('delivery_filter_not_honored')
             seen.add(did)
-            result.append({k: record[k] for k in ('delivery_id', 'source', 'sn', 'trade_at', 'game', 'qty', 'gift', 'cost_unit', 'cost_total', 'sale_total')} | {'genre': 1})
+            public_fields = ('delivery_id', 'source', 'sn', 'trade_at', 'game', 'qty', 'gift',
+                             'cost_unit', 'cost_total', 'sale_total')
+            result.append({k: record[k] for k in public_fields} | {
+                'genre': 1, 'trade_amended_at': amended_at, 'settle_status': record['settle_status'] or None})
         progress(page, page_count)
         if page == page_count: return result
         if not rows or page >= 2000: raise ValueError('delivery_incomplete_pages')
@@ -100,3 +119,10 @@ def main():
 
 
 if __name__ == '__main__': main()
+
+
+try:
+    _lxml_html()
+except Exception:
+    # Preserve importability for callers that do not collect. collect() surfaces failures.
+    pass

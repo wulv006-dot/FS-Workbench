@@ -119,15 +119,35 @@ def _facts(revisions, as_of):
             actual = _number(row.get('actual_cost_cny'), zero=True)
             if actual != observed:
                 raise ValueError('cost_order_facts_complete_total_mismatch')
-        selected[key] = (paid, actual, observed, generated)
+        selected[key] = (paid, actual, observed, generated, records)
     return selected, dict(source_revision=revision, admin_revision=coverage['source_revision'],
                           available_at=available.isoformat(), generated_at=generated.isoformat(),
                           order_cost_complete=proof.get('order_cost_complete') is True)
 
 
+def _delivery_quantity_evidence(records, purchase, bonus):
+    """Corroborate a historical Coins quantity without inferring it from a CNY total."""
+    if not records or purchase is None or bonus is None:
+        return 'unverified'
+    total_quantity = Decimal(0)
+    for record in records:
+        quantity = _number(record.get('quantity'))
+        gift = _number(record.get('gift'), zero=True)
+        unit_cost = _number(record.get('cost_unit_cny'))
+        cost = _number(record.get('cost_cny'))
+        if quantity is None or gift is None or unit_cost is None or cost is None:
+            return 'unverified'
+        # The same-order native Coins evidence supports an already inclusive quantity
+        # with zero in the separate gift column. Nonzero gift requires separate proof.
+        if gift or abs(quantity * unit_cost - cost) > Decimal('.01'):
+            return 'unverified'
+        total_quantity += quantity
+    return 'matches_promised_delivered_k' if total_quantity == purchase + bonus else 'unverified'
+
+
 def _window(rows, layer, quantity_basis, *, start, end, proof, source_available, as_of,
             layer_matches, facts, rate):
-    samples, days, gaps, revisions = [], Counter(), Counter(), {}
+    samples, days, gaps, revisions, delivery_quantities = [], Counter(), Counter(), {}, Counter()
     lower = _instant(proof.get('paid_window_start'))
     upper = _instant(proof.get('paid_window_end_exclusive'))
     if not (lower and upper and lower <= start < end <= upper <= source_available
@@ -177,11 +197,12 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
         bonus = _number(row.get('bonus_k'), zero=True)
         actual, observed = None, _number(row.get('cost_cny'), zero=True)
         if key in facts:
-            d2_paid, d2_actual, d2_observed, d2_generated = facts[key]
+            d2_paid, d2_actual, d2_observed, d2_generated, d2_records = facts[key]
             if d2_paid != paid:
                 gaps['order_facts_paid_time_mismatch'] += 1
             elif d2_observed is not None and (observed is None or d2_generated >= source_at or d2_observed == observed):
                 actual, observed = d2_actual, d2_observed
+                delivery_quantities[_delivery_quantity_evidence(d2_records, purchase, bonus)] += 1
             elif d2_observed is not None:
                 gaps['order_cost_source_revision_mismatch'] += 1
         amount = actual if actual is not None else observed
@@ -200,6 +221,7 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
                             cost_usd=usd, cost_complete=complete, cost_kind='TOTAL'))
     return samples, dict(start=start.isoformat(), end_exclusive=end.isoformat(),
                          paid_by_beijing_day=dict(sorted(days.items())),
+                         order_delivery_quantity_evidence=dict(delivery_quantities),
                          complete_comparable_orders=complete_count, gap_counts=dict(gaps),
                          known_cost_cny=known_cny if cny_count else None,
                          known_partial_cost_cny=partial_cny if partial_count else None,
