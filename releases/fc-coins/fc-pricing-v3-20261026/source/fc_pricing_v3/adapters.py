@@ -16,7 +16,7 @@ def region_step(operation_id,step_id,*,write=False):
 
 
 def dispatch_base(operation):
-    from .dispatch import CURVE_WRITE_PROTOCOL, proven_not_sent, write_protocol
+    from .dispatch import CURVE_REJECTED, CURVE_WRITE_PROTOCOL, proven_not_sent, write_protocol
     from .runtime import ROOT,STORE,write_json
     import fc27_cloud_worker as worker
     context=operation['dispatch_context']
@@ -49,7 +49,7 @@ def dispatch_base(operation):
     if protocol == CURVE_WRITE_PROTOCOL:
         if (audit.get('execution_id') == operation['operation_id'] and audit.get('write_protocol') == protocol
                 and (audit.get('pricing_decision_receipt') or {}).get('sha256') == operation['bundle']['sha256']):
-            status = {'CONFIRMED':'CONFIRMED', 'PARTIAL':'PARTIAL'}.get(audit.get('status'), 'UNKNOWN')
+            status = {'CONFIRMED':'CONFIRMED', 'PARTIAL':'PARTIAL', CURVE_REJECTED:CURVE_REJECTED}.get(audit.get('status'), 'UNKNOWN')
             if proven_not_sent(audit):
                 status = 'NOT_SENT'
             return dict(result, status=status, write_protocol=protocol, execution_id=operation['operation_id'],

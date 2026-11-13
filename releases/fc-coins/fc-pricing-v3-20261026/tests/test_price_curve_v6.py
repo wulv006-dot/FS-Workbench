@@ -33,6 +33,25 @@ def read(row=None, contract=None):
 
 
 class NativeCurve(unittest.TestCase):
+    def test_two_band_price_array_changes_only_selected_selling_prices(self):
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
+        from fc_pricing_v3.average_discount_v6 import forecast_quotes
+
+        editor = dict(EDITOR_CONTRACT, price_edit_policy=TWO_BAND_PRICE_EDIT)
+        row = catalogue()
+        row.update(unit_price='0.0715')
+        row['more']['price'] = ['0.71','3.57','7.15','57.20','71.50','107.25','143','357.50']
+        original = read(row)
+        result = compile_curve(original, {'anchor_prices_usd': {'1000': '74.99'}}, editor)
+        expected = deepcopy(row)
+        expected['more']['price'][4:] = [74.99, 112.48, 149.98, 374.95]
+        self.assertEqual(result['native_payload'], expected)
+        with self.assertRaisesRegex(ValueError, 'editor_segment_anchor_invalid'):
+            compile_curve(original, {'anchor_prices_usd': {'2000': '149.98'}}, editor)
+        quotes = forecast_quotes(result, {Decimal(999), Decimal(1001)}, dict(revision='fixture',retained_ratio='1'))
+        self.assertEqual(quotes['999']['promised_bonus_k'], '0')
+        self.assertEqual(quotes['1001']['regular_usd'], '75.06')
+
     def test_forward_price_edit_accepts_native_derived_factor_above_direct_discount_limit(self):
         from fc_pricing_v3.price_curve import FORWARD_TIER_EDIT
         editor = dict(EDITOR_CONTRACT, price_edit_policy=FORWARD_TIER_EDIT)

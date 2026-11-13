@@ -120,6 +120,33 @@ class CurvePreviewV6(unittest.TestCase):
         self.assertIn('current_catalogue_identity_mismatch', result['decision']['gaps'])
         self.assertIsNone(result['decision']['selected'])
 
+    def test_active_curve_market_uses_owned_snapshot_and_never_scalar_basis(self):
+        from fc_pricing_v3 import engine
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.price_curve import curve_key, read_curve, IDENTITY_FIELDS
+
+        self.snapshot.update(write_protocol=CURVE_WRITE_PROTOCOL,plan_id='active-plan')
+        self.snapshot['evidence']['competitor_offers']=[dict(source='U7Buy',platform='PS',purchase_k='1000',bonus_k='30',
+            currency='USD',regular_price='85',comparable=True,private_field='not public')]
+        self.db.put('pricing_snapshots',SNAPSHOT_ID,self.snapshot)
+        self.db.put('metadata','latest_snapshot:active-plan',{'snapshot_id':SNAPSHOT_ID})
+        self.db.put('metadata','latest_snapshot_summary',{'snapshot_id':'unrelated-legacy-summary'})
+        curve=read_curve(self.row,{key:self.row[key] for key in IDENTITY_FIELDS},{})
+        entry=dict(primary_curve=curve,primary_inputs={curve_key(curve):{}})
+        plan=dict(plan_id='active-plan',write_protocol=CURVE_WRITE_PROTOCOL)
+        with patch.object(api,'ledger',return_value=self.db),patch.object(self.db,'active_plan',return_value=plan), \
+                patch.object(engine,'price_basis',side_effect=AssertionError('scalar price basis')), \
+                patch.object(runtime,'_curve_proof_inputs',return_value={'PS':entry,'PC':{'primary_curve':curve}}), \
+                patch.object(runtime,'_validated_curve',return_value=dict(status='PROVEN',
+                    average_discount={'retained_ratio':'0.91'},minimum_safe_procurement_margin='0.182')):
+            response=api.read('market')
+        self.assertEqual((response['snapshot_id'],response['write_protocol'],response['competitor_policy']),
+                         (SNAPSHOT_ID,CURVE_WRITE_PROTOCOL,POLICY))
+        self.assertEqual(response['price_basis']['rows']['PS']['minimum_safe_procurement_margin'],'0.182')
+        self.assertNotIn('PC',response['price_basis']['rows'])
+        self.assertEqual(response['competitor_offers'][0]['regular_price'],'85')
+        self.assertNotIn('private_field',json.dumps(response))
+
     def test_rejects_client_proof_invalid_platform_and_other_routes_before_state_access(self):
         for route, payload, error in (
                 ('preview', preview_request(evidence={'status': 'PROVEN'}), 'pricing_curve_preview_fields_invalid'),

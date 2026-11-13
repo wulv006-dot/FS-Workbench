@@ -1,5 +1,6 @@
 """Read-only projections for the existing FC monitor and shared Hermes watchdog."""
 from .platforms import PLATFORMS, native_resources, action_key
+from .dispatch import CURVE_REJECTED
 from contextlib import closing
 from datetime import datetime,timezone,timedelta
 import json
@@ -176,7 +177,7 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
     for job in jobs:
         if job['kind'] in ('cycle','postwrite_refresh') and job['body'].get('error'):
             issues.append(dict(level='warning',code='coin_v3_dependency_retry:'+str(job['body'].get('source_failure',{}).get('code') or job['body']['error'])))
-    pending=[op for op in operations if op['status'] not in ('COMPLETED','NO_CHANGE','REJECTED_PREWRITE','CANCELLED','CANCELLED_NOT_SENT','FAILED_BEFORE_WRITE','SUPERSEDED','KNOWN_PARTIAL_EXITED')]
+    pending=[op for op in operations if op['status'] not in ('COMPLETED','NO_CHANGE','REJECTED_PREWRITE','CANCELLED','CANCELLED_NOT_SENT','FAILED_BEFORE_WRITE','SUPERSEDED','KNOWN_PARTIAL_EXITED',CURVE_REJECTED)]
     for op in pending:
         if op['status'] in ('UNKNOWN','PARTIALLY_APPLIED'):issues.append(dict(level='critical',code='coin_v3_original_operation_'+op['status'].lower()+':'+op['operation_id']))
     next_at=min(cycle_times,default=None)

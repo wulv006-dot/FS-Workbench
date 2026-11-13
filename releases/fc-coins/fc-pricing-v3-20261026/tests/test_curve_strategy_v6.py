@@ -53,6 +53,22 @@ def evidence():
 
 
 class FixedCurveCandidates(unittest.TestCase):
+    def test_two_band_reference_restores_only_the_selected_large_band(self):
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
+
+        adopted, reference, episode = fixture()
+        editor = dict(EDITOR_CONTRACT, price_edit_policy=TWO_BAND_PRICE_EDIT)
+        current_row = deepcopy(adopted['native_payload'])
+        current_row['more']['price'][2] = 10.2
+        current_row['more']['price'][4] = 96
+        current = read_curve(current_row, adopted['identity'], editor)
+        comparison = build_candidates(current, reference, episode, 'large', editor_contract=editor)
+        for label, large_price in (('A', '95'), ('B', '92.15'), ('C', '97.85')):
+            proposed = candidate(comparison, label)['curve']
+            self.assertEqual(proposed['tiers'][2]['native_price_usd'], '10.2')
+            self.assertEqual(proposed['tiers'][4]['native_price_usd'], large_price)
+            self.assertEqual(proposed['native_payload']['more']['discount'], current_row['more']['discount'])
+
     def test_reference_not_rebased_by_competitor_or_temporary_b(self):
         current, reference, episode = fixture()
         first = build_candidates(current, reference, episode, 'large')

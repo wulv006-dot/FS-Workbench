@@ -23,9 +23,12 @@ assert.match(mainConsole,/id="collect"[^>]*>立即采集/);
 assert.match(mainConsole,/立即采集只查价/);
 assert.match(mainConsole,/id="v3-curve-collect"[^>]*>采集并预览新定价/);
 assert.match(mainConsole,/id="v3-curve-status" role="status"/);
+assert.match(mainConsole,/<details id="v3-curve-details"><summary>本轮调整详情<\/summary>/);
+assert.equal((html.match(/class="price-strip"/g)||[]).length,1);
+for (const platform of ['ps','xbox','pc']) assert(ids.includes('v3-price-large-'+platform));
 assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-activation/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-details/);
 assert.match(script,/双20只按购买100K、实交100K这一档核算/);
 assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
 assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
@@ -46,7 +49,10 @@ const marketTag = new Element();
 marketTag.textContent='Lootbar 无券 · ItemD2R · Saudi Arabia 普通发货';
 elements['v3-market-title'].parentElement={querySelector:selector=>selector==='.tag'?marketTag:null};
 elements['v3-mode'].value = 'daily';
-const document = { getElementById: id => elements[id], createElement: () => new Element(), activeElement: null, hidden: false };
+const pageEvents={},documentEvents={};
+const window={addEventListener:(name,fn)=>{pageEvents[name]=fn;}};
+const document = { getElementById: id => elements[id], createElement: () => new Element(), activeElement: null, hidden: false,
+  addEventListener:(name,fn)=>{documentEvents[name]=fn;} };
 const store = new Map();
 const sessionStorage = { getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) };
 const plan = { plan_id: 'plan-1', mode: 'daily', state: 'SUSPENDED', revision:3, resources:['base:PS','base:XBOX','base:PC'] };
@@ -60,14 +66,14 @@ const automation = { revision: 3, can_manage_v3: true, system_enabled:true,mode:
   last_cycle_at: '2026-10-26T13:00:00+08:00', last_source_checked_at: null, last_execution_stage: 'COMPLETED' } } };
 const monitor = { storefront: { rows: { PS: { package_usd: 8.51, checked_at: '2026-10-26T13:07:00+08:00' },
   XBOX: { package_usd: 8.51 }, PC: { package_usd: 8.59 } } }, publication: { status: 'matched' } };
-let marketError=false;
+let marketError=false,curveMarket;
 const market={snapshot_id:'snapshot-1',global_offers:{PS:{Lootbar:{usd_price:'9.18',base_k:'100',bonus_k:'5',checked_at:new Date().toISOString()}}},reference:{offers:[{platform:'PS',gross_usd:'8.14',purchase_k:'100',bonus_k:'0',status:'valid',captured_at:'2000-01-01T00:00:00Z'}]},arab:[]};
 market.saudi_missing_price_policy='follow_global';
 market.price_basis={rows:{PS:{historical_retained_ratio:'.9',cost_usd_per_1k:'.04',cost_cny_per_1k:'.28',package_cost_usd:'4.2',delivered_k:'105',regular_floor_usd:'5.30',average_floor_usd:'5.80',current_regular_margin_pct:'40',current_average_margin_pct:'30',cost_checked_at:'2026-10-27T00:00:00Z'}}};
 
 const normalFetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
   : url.endsWith('/pricing/v3/preview') ? {results:{smart:{status:'READY',selected:{action:{base_prices:{PS:'10',XBOX:'10.5',PC:'11'}}}}}}
-  : url.endsWith('/pricing/v3/market') ? (marketError?Promise.reject(Error('fixture unavailable')):market)
+  : url.endsWith('/pricing/v3/market') ? (marketError?Promise.reject(Error('fixture unavailable')):curveMarket||market)
   : url.endsWith('/pricing/collect') ? {job_id:'collect-test'} : url.endsWith('/jobs/collect-test') ? {status:'ready',result:{status:'INFEASIBLE'}}
   : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? (options.body?(intervalBody=JSON.parse(options.body),{revision:4}):{ ...automation, can_manage_v3: canWrite })
   : url.endsWith('/monitor') ? monitor : url.endsWith('/player-sync') ? { enabled: true, revision: 1 } : {} });
@@ -75,11 +81,15 @@ const executeBodies=[];
 const priceBodies=[];let priceFailure=false;
 const collectBodies=[],curvePreviews=[];
 let curveJob,curveSubmitLost=false,curveQueueBusy=false,curveBadPlatform='',scheduledCurve;
+let stateReads=0,stateReadGate;
+const progressTimers=new Map();let timerId=1;
+const tickProgress=()=>{const [id,fn]=progressTimers.entries().next().value;progressTimers.delete(id);return fn();};
 let curveProven=false,curveActivationResponse='',activationBodies=[];
 const previousCurveId='34454366-c016-46ae-89f6-ddccb64f377a';
 const curveCapturedAt=new Date().toISOString();
-let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='queued',idSequence=0;
+let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='done',idSequence=0;
 const fetch=async (url,options={})=>{
+  if(url.endsWith('/pricing/v3/state')){stateReads++;if(stateReadGate)await stateReadGate;}
   if(url.endsWith('/pricing/collect')){
     const body=JSON.parse(options.body);collectBodies.push(body);
     if(body.write_protocol){
@@ -110,8 +120,8 @@ const fetch=async (url,options={})=>{
     return {ok:true,json:async()=>({write_protocol:body.write_protocol,platform:body.platform,
       snapshot_id:curveBadPlatform===body.platform?'wrong-run':body.snapshot_id, snapshot_captured_at:curveCapturedAt,
       execution_authorized:false,write_performed:false,
-      current_catalogue:{quote_100k:{regular_usd:'8.50'}},decision:{candidates:[{
-        labels:[curveProven?'CURRENT':'A'],quote:{purchase_k:'1000',regular_usd:'79.25'},financial_proof:{status:curveProven?'PROVEN':'PROOF_INCOMPLETE',
+      current_catalogue:{quote_100k:{regular_usd:'8.50'},tiers:[{purchase_k:'1000',native_price_usd:'81.60',promised_bonus_k:'30'}]},decision:{candidates:[{
+        labels:[curveProven?'CURRENT':'A'],quote:body.segment==='small'?{purchase_k:'100',regular_usd:'8.40'}:{purchase_k:'1000',regular_usd:'79.25'},financial_proof:{status:curveProven?'PROVEN':'PROOF_INCOMPLETE',
           average_discount:{contract:'fc_v6_d8_d2_amount_weighted_discount_v1',retained_ratio:'0.935',
             eligible_orders:200,matched_orders:200},minimum_safe_procurement_margin:'0.215'}}]}})};
   }
@@ -130,8 +140,8 @@ const fetch=async (url,options={})=>{
   }
   return normalFetch(url,options);
 };
-vm.runInNewContext(script, { document, fetch, sessionStorage, crypto: { randomUUID: () => 'new-id-'+(++idSequence) }, AbortSignal: { timeout: () => null },
-  setInterval: (fn,ms) => {refreshIntervals.push(ms);}, setTimeout: fn=>{scheduledCurve=fn;return 1;}, clearTimeout:()=>{}, Intl, Date, console });
+vm.runInNewContext(script, { document, window, fetch, sessionStorage, crypto: { randomUUID: () => 'new-id-'+(++idSequence) }, AbortSignal: { timeout: () => null },
+  setInterval: (fn,ms) => {refreshIntervals.push(ms);}, setTimeout: (fn,ms)=>{if(ms===10000){scheduledCurve=fn;return 1;}assert.equal(ms,7000);progressTimers.set(++timerId,fn);return timerId;}, clearTimeout:id=>{progressTimers.delete(id);}, Intl, Date, console });
 const tick = () => new Promise(resolve => setTimeout(resolve, 5));
 (async () => {
   await tick();
@@ -308,10 +318,13 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   curveBadPlatform='PC';
   await scheduledCurve();
   assert.equal(collectBodies.length,2,'an unknown POST with an original job never submits again');
-  assert.deepEqual(curvePreviews.map(row=>row.platform),['PS','XBOX','PC']);
+  assert.deepEqual(curvePreviews.filter(row=>!row.segment).map(row=>row.platform),['PS','XBOX','PC']);
+  assert.deepEqual(curvePreviews.filter(row=>row.segment==='small').map(row=>row.platform),['PS','XBOX']);
   assert(curvePreviews.every(row=>row.snapshot_id===originalCurve&&row.write_protocol==='fc27_curve_v6'));
-  assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/\$79\.25.*证据待补/);
-  assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/D-8 至 D-2 平均优惠 6\.50%.*200\/200.*21\.50%/);
+  assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/\$79\.25.*证据待补.*\$2\.35/);
+  assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/\$8\.40.*证据待补.*\$0\.10/);
+  assert.equal(elements['v3-price-ps'].textContent,'$7.00');
+  assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/核算依据.*D-8 至 D-2 平均优惠 6\.50%.*200\/200.*21\.50%/);
   assert.doesNotMatch(JSON.stringify(elements['v3-curve-results'].children[2]),/79\.25/);
   assert.equal(elements['v3-curve-collect'].textContent,'重读原预览');
   curveBadPlatform='';
@@ -354,6 +367,21 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(elements['v3-curve-activation-status'].textContent,/新定价已启用.*版本 4/);
   assert.equal(elements['v3-curve-activate'].disabled,true);
   assert.equal(sessionStorage.getItem('fc-v3-curve-activation'),null);
+  assert.match(marketTag.textContent,/Lootbar.*U7Buy.*Arab-UT/);
+  assert.match(elements['v3-market-status'].textContent,/等待当前新定价/);
+  assert.doesNotMatch(elements['v3-price-basis-ps'].textContent,/双红线|双20/);
+  curveMarket={write_protocol:'fc27_curve_v6',snapshot_id:'curve-market-run',captured_at:curveCapturedAt,
+    price_basis:{rows:{PS:{average_discount:{retained_ratio:'.91'},minimum_safe_procurement_margin:'.182'}}},
+    catalogue_samples:{PS:{observed_at:curveCapturedAt,tiers:[{purchase_k:'100',native_price_usd:'8.51',promised_bonus_k:'0'},{purchase_k:'1000',native_price_usd:'81.60',promised_bonus_k:'30'}]}},
+    competitor_offers:[{source:'U7Buy',platform:'PS',purchase_k:'1000',bonus_k:'30',currency:'USD',regular_price:'85',comparable:true}]};
+  await elements['v3-refresh'].events.click();
+  assert.match(elements['v3-market-status'].textContent,/新定价采集.*curve-market-run/);
+  assert.equal(elements['v3-price-large-ps'].textContent,'$81.60');
+  assert.match(elements['v3-price-delivery-ps'].textContent,/赠 30K · 实交 1030K/);
+  assert.equal(elements['v3-price-large-xbox'].textContent,'现价待核');
+  assert.match(JSON.stringify(elements['v3-market-cards'].children),/U7Buy.*1000K.*\$85\.00/);
+  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/9\.00%.*18\.20%/);
+  curveMarket=undefined;
   assert.equal(executeBodies.length,0);
   delete plan.write_protocol;delete plan.curve_activation_snapshot_id;
   plan.state='ACTIVE';await elements['v3-refresh'].events.click();
@@ -366,8 +394,9 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   await elements['v3-execute'].events.click();
   assert.equal(executeBodies.length,1,'rapid clicks across both buttons produce one request');
   releaseExecution();await firstExecute;executeGate=null;
-  assert.match(elements['v3-result'].textContent,/改价任务已登记.*manual:/);
-  assert.match(elements['v3-result'].textContent,/实际结果以执行状态和读回为准/);
+  assert.match(elements['v3-result'].textContent,/改价任务已登记/);
+  assert.match(elements['v3-execution-job'].textContent,/^manual:/);
+  assert.match(elements['v3-execution-progress'].textContent,/本轮已结束.*操作回执/);
   assert.equal(elements['v3-execute-now'].disabled,false);
   assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),null,'confirmed acknowledgement ends this request intent');
   await elements['v3-execute'].events.click();
@@ -418,8 +447,37 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   executeStatus='confirmation_pending';await elements['v3-execute-now'].events.click();
   const pendingStatusKey=executeBodies.at(-1).request_key;
   assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),pendingStatusKey,'a job key with unknown state is not a confirmed receipt');
-  executeStatus='queued';await elements['v3-execute-now'].events.click();
+  executeStatus='done';await elements['v3-execute-now'].events.click();
   assert.equal(executeBodies.at(-1).request_key,pendingStatusKey);
+  executeStatus='queued';
+  await elements['v3-execute-now'].events.click();
+  const currentJob=elements['v3-execution-job'].textContent;
+  assert.match(elements['v3-execution-progress'].textContent,/已排队，等待采价/);
+  assert.equal(elements['v3-execute-now'].disabled,true);
+  assert.equal(progressTimers.size,1);
+  state.manual_execution={job_key:'manual:older-job',plan_id:'plan-1',status:'done',phase:'completed'};
+  await tickProgress();
+  assert.match(elements['v3-execution-progress'].textContent,/已排队/);
+  assert.equal(progressTimers.size,1);
+  state.manual_execution={job_key:currentJob,plan_id:'plan-1',status:'running',phase:'collecting'};
+  const readsBefore=stateReads;
+  let finishStateRead;
+  stateReadGate=new Promise(resolve=>{finishStateRead=resolve;});
+  const progressRead=tickProgress();
+  const normalRefresh=elements['v3-refresh'].events.click();
+  assert.equal(stateReads,readsBefore+1,'the full refresh waits for the in-flight state read');
+  stateReadGate=null;finishStateRead();await progressRead;await normalRefresh;
+  assert.match(elements['v3-execution-progress'].textContent,/正在采价/);
+  assert.equal(progressTimers.size,1);
+  document.hidden=true;documentEvents.visibilitychange();assert.equal(progressTimers.size,0);
+  document.hidden=false;documentEvents.visibilitychange();assert.equal(progressTimers.size,1);
+  pageEvents.pagehide();assert.equal(progressTimers.size,0);
+  pageEvents.pageshow();assert.equal(progressTimers.size,1);
+  state.manual_execution={...state.manual_execution,status:'done',phase:'original_operation_reconciliation_pending'};
+  await tickProgress();
+  assert.match(elements['v3-execution-progress'].textContent,/等待原操作对账，尚未开始新采价/);
+  assert.equal(progressTimers.size,0,'terminal receipt stops the short polling');
+  assert.equal(elements['v3-execute-now'].disabled,false);
   elements['v3-uplift-enabled'].checked=true;elements['v3-uplift-pct'].value='10';
   elements['v3-price-control-form'].events.input();
   assert.match(elements['v3-price-control-draft'].textContent,/未保存/);

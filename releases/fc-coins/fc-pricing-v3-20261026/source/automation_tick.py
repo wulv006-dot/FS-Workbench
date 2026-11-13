@@ -332,6 +332,10 @@ def proven_prewrite_timeout(job, revision):
 def resolved_execution(record):
     if record.get("status") in {"CONFIRMED", "RESTORED", "CHECK_ONLY"}:
         return True
+    from fc_pricing_v3.dispatch import CURVE_REJECTED
+    if record.get('status') == CURVE_REJECTED:
+        from fc_pricing_v3.order_close import ledger_operation_status
+        return bool(record.get('execution_id') and ledger_operation_status(record['execution_id'], root=ROOT) == CURVE_REJECTED)
     if record.get("status") in {"ORDER_ADMIN_CONFIRMED", "PUBLIC_CONFIRMED"}:
         try:
             from fc_pricing_v3.order_close import TERMINAL_LEDGER_STATUS,ledger_operation_status

@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 
 from fc_pricing_v3 import adapters, runtime
-from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL, prewrite_refusal
+from fc_pricing_v3.dispatch import CURVE_REJECTED, CURVE_WRITE_PROTOCOL, prewrite_refusal
 from fc_pricing_v3.financial import fingerprint
 from fc_pricing_v3.ledger import Ledger
 from test_curve_writer_v6 import OPERATION, PLATFORM, Transport, setup_bundle, writer
@@ -134,6 +134,40 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(len(self.transport.posts), 1)
         self.reconcile.assert_called_once()
         self.dispatch.assert_called_once()
+
+    def test_original_admin_rejection_closes_only_after_exact_no_change_readback(self):
+        self.prepare()
+        self.transport.rejection_code = 0
+        original_request = self.transport.request
+        recipient_id = writer.PRODUCTS[PLATFORM][1]
+
+        def drift_after_send(path, *, data, token):
+            if data is None and self.transport.posts and path.endswith('=' + str(recipient_id)):
+                raise TimeoutError
+            return original_request(path, data=data, token=token)
+
+        with patch.object(self.transport, 'request', side_effect=drift_after_send):
+            self.assertEqual(self.execute()['status'], 'UNKNOWN')
+        self.assertTrue(self.leased())
+        original = json.loads(self.audit_path.read_text())['curve_results'][PLATFORM]['catalog']['post_response']
+        closed = runtime.reconcile(OPERATION)
+        self.assertEqual(closed['status'], CURVE_REJECTED)
+        self.assertEqual(closed['readback']['curve_results'][PLATFORM]['catalog']['post_response'], original)
+        self.assertEqual(closed['steps'][0]['receipt_history'][-1]['state'], 'UNKNOWN')
+        self.assertFalse(self.leased())
+        self.assertIsNone(self.db.get('actual_price_windows', OPERATION))
+        self.assertEqual(runtime.reconcile(OPERATION), closed)
+        self.assertEqual(len(self.transport.posts), 1)
+        self.assertEqual(self.transport.projection_writes, [])
+        self.reconcile.assert_called_once()
+
+    def test_undocumented_reply_and_unchanged_prices_stay_unknown(self):
+        self.prepare()
+        self.transport.rejection_code = '0'
+        self.assertEqual(self.execute()['status'], 'UNKNOWN')
+        self.assertEqual(runtime.reconcile(OPERATION)['status'], 'UNKNOWN')
+        self.assertTrue(self.leased())
+        self.assertEqual(len(self.transport.posts), 1)
 
     def test_unknown_with_matching_current_prices_is_only_read_on_original_id(self):
         self.prepare()

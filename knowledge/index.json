@@ -392,7 +392,7 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v6_d8_d2_amount_weighted_discount_v1",
+      "revision": "fc_v61_native_all_two_band_20261113",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -401,10 +401,10 @@
       "effective_at": "2026-11-13",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "fa093f5fde9eb7c30e798be984fc404f2bc63992",
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "25db089744580d38fae7f117ddf8ac9d6178f8787b4c86cd29726c4927d554ec",
+        "sha256": "9451986945e60d2174d5dde0efe3d74810df9b8b944127858f65eb23031d9366",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -412,6 +412,7 @@
         }
       },
       "supersedes": [
+        "fc.pricing.constraints@fc_v6_d8_d2_amount_weighted_discount_v1",
         "fc.pricing.constraints@v13",
         "fc.pricing.constraints@v14",
         "fc.pricing.constraints@v15",
@@ -1174,7 +1175,7 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc_v6_d8_d2_amount_weighted_discount_v1",
+      "revision": "fc_v61_native_all_two_band_20261113",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1184,13 +1185,14 @@
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "fa093f5fde9eb7c30e798be984fc404f2bc63992",
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "25db089744580d38fae7f117ddf8ac9d6178f8787b4c86cd29726c4927d554ec",
+        "sha256": "9451986945e60d2174d5dde0efe3d74810df9b8b944127858f65eb23031d9366",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
+        "fc.pricing.v3@fc_v6_d8_d2_amount_weighted_discount_v1",
         "fc.pricing.reference-weighting@fc-reference-weighting-20261024-v2",
         "fc.pricing.v3@fc-v3-lag1-eight-day-20261029",
         "fc.pricing.v3@fc-v3-sprint-baseline-20261029",

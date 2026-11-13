@@ -18,6 +18,8 @@ EDITOR_CATALOGUE_ORIGIN = 'editor_candidate'
 EDITOR_ASSET_SHA256 = '859f07a7dadc48054b740ee09b66c494d11bcb0fef1faf5ecd0a9c6d0b98dfe7'
 EDITOR_HANDLER_SHA256 = 'c9341a511d39a79736e6d7e7147654c8c24202b928954e11b1a13ed7a612b451'
 FORWARD_TIER_EDIT = 'native_forward_tier_unit_rate'
+TWO_BAND_PRICE_EDIT = 'admin_two_band_price_array'
+COIN_BAND_ANCHORS = {'small': '100', 'large': '1000'}
 EDITOR_UNVERIFIED_DOMAINS = ('admin_save', 'all_site_propagation', 'order_projection',
                              'customer_checkout_quote', 'custom_quantity',
                              'cart_multiplier', 'offer_paths')
@@ -177,6 +179,39 @@ def _editor_target(value, places):
     return number
 
 
+def coin_quantity_band(purchase):
+    return 'small' if Decimal(purchase) < 1000 else 'large'
+
+
+def band_price_usd(anchor_price, anchor_quantity, purchase):
+    amount = float(anchor_price) / float(anchor_quantity) * float(purchase)
+    return Decimal(str(_editor_fixed(amount, 2)))
+
+
+def _compile_two_band_prices(checked, anchors, native_contract):
+    """Change one or both band rates while retaining all other native controls."""
+    payload = checked['native_payload']
+    more = _more(payload)
+    for index, tier in enumerate(checked['tiers']):
+        quantity = tier['purchase_k']
+        anchor = COIN_BAND_ANCHORS[coin_quantity_band(quantity)]
+        if anchor not in anchors:
+            continue
+        amount = band_price_usd(str(anchors[anchor]), anchor, quantity)
+        if amount <= 0:
+            return _editor_gap('editor_tier_price_outside_reader_domain', purchase_k=quantity)
+        more['price'][index] = float(amount)
+    if isinstance(payload['more'], str):
+        payload['more'] = json.dumps(more, ensure_ascii=False, separators=(',', ':'))
+    result = read_curve(payload, checked['identity'], dict(native_contract, catalogue_origin=EDITOR_CATALOGUE_ORIGIN))
+    base = next((Decimal(row['native_price_usd']) / 100 for row in result['tiers'] if row['purchase_k']=='100'), None)
+    return dict(result, compilation_status='EDITOR_CANDIDATE', discount_changes=[],
+                base_rate_usd_per_k=_number(base) if base else None,
+                base_rate_basis='candidate_100k_regular_usd_div_100',
+                forward_price_controls={key: _number(value) for key, value in anchors.items()},
+                unverified_domains=list(EDITOR_UNVERIFIED_DOMAINS))
+
+
 def _compile_forward_tiers(checked, anchors, native_contract, requested_unit):
     payload = checked['native_payload']
     more = _more(payload)
@@ -259,8 +294,11 @@ def compile_curve(current, segment_targets, native_contract):
     if not isinstance(requested, dict):
         raise ValueError('editor_segment_targets_invalid')
     anchors = {}
+    two_band = native_contract.get('price_edit_policy') == TWO_BAND_PRICE_EDIT
     for quantity, price in requested.items():
         quantity = _number(quantity, positive=True)
+        if two_band and quantity not in COIN_BAND_ANCHORS.values():
+            raise ValueError('editor_segment_anchor_invalid')
         if (native_contract.get('price_edit_policy') != FORWARD_TIER_EDIT
                 and quantity not in ('100', '1000', '2000') or quantity in anchors):
             raise ValueError('editor_segment_anchor_invalid')
@@ -275,6 +313,10 @@ def compile_curve(current, segment_targets, native_contract):
     for quantity in anchors:
         if quantity not in by_quantity:
             return _editor_gap('editor_segment_anchor_missing', anchor_k=quantity)
+    if two_band:
+        if 'unit_price_usd_per_k' in segment_targets:
+            raise ValueError('editor_two_band_unit_price_change_forbidden')
+        return _compile_two_band_prices(checked, anchors, native_contract)
     if native_contract.get('price_edit_policy') == FORWARD_TIER_EDIT and anchors:
         return _compile_forward_tiers(checked, anchors, native_contract, segment_targets.get('unit_price_usd_per_k'))
     payload = checked['native_payload']
