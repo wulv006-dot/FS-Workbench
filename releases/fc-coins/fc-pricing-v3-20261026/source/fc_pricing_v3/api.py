@@ -169,6 +169,87 @@ def shadow_projection(row):
     return value
 
 
+def catalogue_tiers(curve):
+    return [{key: tier[key] for key in ('purchase_k','promised_bonus_k','native_price_usd')}
+            for tier in (curve or {}).get('tiers', ()) if tier.get('purchase_k') in ('100','1000')]
+
+
+def catalogue_readbacks(operations):
+    observed = {}
+    for operation in operations:
+        if operation.get('status') != 'COMPLETED':
+            continue
+        receipt = operation.get('readback') or {}
+        if (receipt.get('write_protocol') != CURVE_WRITE_PROTOCOL or receipt.get('status') != 'CONFIRMED'
+                or receipt.get('execution_id') != operation['operation_id']):
+            continue
+        for platform, row in (receipt.get('curve_results') or {}).items():
+            propagation = row.get('propagation') or {}
+            if (platform not in PLATFORMS or platform in observed or propagation.get('status') != 'confirmed'
+                    or row.get('operation_id') != operation['operation_id']):
+                continue
+            tiers = catalogue_tiers(row.get('actual_site266_curve'))
+            if tiers and propagation.get('confirmed_at'):
+                observed[platform] = dict(tiers=tiers, observed_at=propagation['confirmed_at'], basis='confirmed_readback')
+    return observed
+
+
+def manual_execution_progress(db, operations):
+    """Project the original manual task, never a previous plan cycle."""
+    from .runtime import ROOT
+
+    with closing(db.connect()) as conn:
+        saved = conn.execute("""SELECT id,state,attempt,body FROM durable_jobs
+            WHERE kind='cycle' AND id LIKE 'manual:%' ORDER BY rowid DESC LIMIT 1""").fetchone()
+    if not saved:
+        return None
+    key, status, attempt, raw = saved
+    body = json.loads(raw)
+    result = body.get('result') or {}
+    progress = dict(job_key=key, plan_id=body.get('plan_id'), status=status, phase=status)
+    if result.get('status') == 'original_operation_reconciliation_pending':
+        return dict(progress, phase=result['status'])
+    operation_id = str(uuid.uuid5(uuid.NAMESPACE_URL, 'fc-v3-operation:' + key))
+    operation = next((row for row in operations if row['operation_id'] == operation_id), None)
+    run_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'fc-v3-collection:{key}:{attempt}'))
+    job = {}
+    if status == 'running':
+        try:
+            job = json.loads((ROOT / 'jobs' / (run_id + '.json')).read_text(encoding='utf-8'))
+        except (FileNotFoundError, PermissionError):
+            pass
+    if job.get('job_id') == run_id and job.get('request', {}).get('request_id') == key:
+        source = job.get('snapshot') or {}
+        if status == 'running' and job.get('status') == 'running':
+            progress['phase'] = 'pricing' if source.get('status') == 'ready_for_quote' else 'collecting'
+    with closing(db.connect()) as conn:
+        observation = conn.execute(
+            "SELECT json_extract(body, '$.evidence.checked_at') FROM pricing_snapshots WHERE id=?",
+            (run_id,)).fetchone()
+    if observation and observation[0]:
+        progress['source_checked_at'] = observation[0]
+    if operation:
+        stage = operation['status']
+        if stage == 'AUTHORIZED':
+            progress['phase'] = 'checked'
+        elif stage in ('DISPATCHED', 'RUNNING'):
+            progress['phase'] = 'writing'
+        elif stage == 'COMPLETED':
+            progress['phase'] = 'completed'
+        elif stage == 'NO_CHANGE':
+            progress['phase'] = 'no_change'
+        elif stage == 'REJECTED_NO_CHANGE':
+            progress['phase'] = 'rejected_no_change'
+        elif stage in ('BACKEND_CONFIRMED','CACHE_CONFIRMED','PUBLIC_PENDING','UNKNOWN','PARTIALLY_APPLIED',
+                        'KNOWN_PARTIAL_PUBLIC_PENDING'):
+            progress['phase'] = 'readback'
+        elif stage in ('FAILED_BEFORE_WRITE','REJECTED_PREWRITE','CANCELLED_NOT_SENT'):
+            progress['phase'] = 'failed'
+    elif result.get('status') in ('INFEASIBLE','REJECTED_PREWRITE','FAILED_BEFORE_WRITE'):
+        progress['phase'] = 'failed'
+    return progress
+
+
 def read(path):
     if path=='versions':
         folder=Path(__file__).parent
@@ -209,6 +290,9 @@ def read(path):
                     current_prices=(snapshot or {}).get('result',{}).get('rows',[]),
                     latest_market_observations=recent_market_observations(db),
                     daily_review=db.get('metadata','latest_daily_review'),retirement=db.all('retirement_inventory'),effect_status='long_term_business_effect_not_established')
+        if path=='state':
+            result['manual_execution']=manual_execution_progress(db,operations)
+            result['catalogue_readbacks']=catalogue_readbacks(operations)
         if path=='review-state':
             if daily_request:
                 with db.connect() as conn:
@@ -272,9 +356,14 @@ def read(path):
             evidence = current['evidence']
             offers = evidence.get('competitor_offers') or []
             inputs = _curve_proof_inputs(db, evidence)
-            rows = {}
+            rows, catalogues = {}, {}
             for platform, entry in inputs.items():
                 curve = entry.get('primary_curve')
+                tiers = catalogue_tiers(curve)
+                observed = next((row.get('received_at') for row in entry.get('readbacks', ())
+                                 if row.get('http_status') == 200 and row.get('response_code') == 1), None)
+                if tiers and observed:
+                    catalogues[platform] = dict(tiers=tiers, observed_at=observed, basis='admin_sample')
                 try:
                     frozen = (entry.get('primary_inputs') or {}).get(curve_key(curve)) if curve else None
                     proof = _validated_curve(curve, frozen) if frozen is not None else None
@@ -285,7 +374,7 @@ def read(path):
                 rows[platform] = dict(status=proof['status'], average_discount=proof.get('average_discount'),
                     minimum_safe_procurement_margin=proof['minimum_safe_procurement_margin'])
             return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY,
-                snapshot_id=current['snapshot_id'], captured_at=current['created_at'], price_basis={'rows':rows},
+                snapshot_id=current['snapshot_id'], captured_at=current['created_at'], price_basis={'rows':rows}, catalogue_samples=catalogues,
                 competitor_coverage=quantity_coverage(offers),
                 competitor_offers=[{key:row.get(key) for key in ('source','platform','purchase_k','bonus_k','currency',
                     'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier',

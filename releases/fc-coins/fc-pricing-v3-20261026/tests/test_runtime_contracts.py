@@ -5,6 +5,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+import uuid
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -395,6 +396,56 @@ class RuntimeContracts(unittest.TestCase):
             self.assertNotIn('replay_paths',json.dumps(state))
             self.assertLess(len(json.dumps(state).encode()),1024*1024)
             self.assertEqual(market['snapshot_id'],'large')
+
+    def test_manual_execution_progress_uses_only_the_original_task_run(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            db=Ledger(root/'control.db')
+            key='manual:exact'
+            operation_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-operation:'+key))
+            run_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-collection:'+key+':0'))
+            db.enqueue('cycle',key,datetime.now(timezone.utc),{'plan_id':'owner'})
+            db.put('operations','old',dict(operation_id='old',status='COMPLETED',created_at='2026-11-13'))
+            with patch.object(api,'ledger',return_value=db),patch.object(runtime,'ROOT',root):
+                self.assertEqual(api.read('state')['manual_execution']['phase'],'queued')
+                with db.transaction() as conn:
+                    conn.execute("UPDATE durable_jobs SET state='running' WHERE id=?",(key,))
+                (root/'jobs').mkdir()
+                (root/'jobs'/f'{run_id}.json').write_text(json.dumps(
+                    dict(job_id=run_id,request=dict(request_id=key),status='running')),encoding='utf-8')
+                self.assertEqual(api.read('state')['manual_execution']['phase'],'collecting')
+                self.assertNotIn('source_checked_at',api.read('state')['manual_execution'])
+                db.put('metadata','latest_snapshot_summary',dict(snapshot_id='older-scalar-run',
+                    source_checked_at='2026-11-13T11:50:00Z',created_at='2026-11-13T11:50:00Z',
+                    result=dict(rows=[]),evidence={}))
+                db.put('pricing_snapshots',run_id,dict(snapshot_id=run_id,created_at='2026-11-13T12:07:02Z',
+                    evidence=dict(checked_at='2026-11-13T12:06:19Z'),result=dict(rows=[])))
+                with db.transaction() as conn:
+                    conn.execute("UPDATE durable_jobs SET state='done' WHERE id=?",(key,))
+                (root/'jobs'/f'{run_id}.json').unlink()
+                db.put('operations',operation_id,dict(operation_id=operation_id,status='UNKNOWN',
+                    created_at='2026-11-13T12:08:00Z'))
+                progress=api.read('state')['manual_execution']
+                self.assertEqual((progress['phase'],progress['source_checked_at']),('readback','2026-11-13T12:06:19Z'))
+                with db.transaction() as conn:
+                    conn.execute("UPDATE durable_jobs SET state='done',body=? WHERE id=?",(
+                        json.dumps(dict(plan_id='owner',result=dict(status='original_operation_reconciliation_pending'))),key))
+                progress=api.read('state')['manual_execution']
+                self.assertEqual(progress['phase'],'original_operation_reconciliation_pending')
+                self.assertNotIn('source_checked_at',progress)
+
+    def test_catalogue_readback_projects_only_confirmed_original_native_tiers(self):
+        tiers=[dict(purchase_k=k,promised_bonus_k=bonus,native_price_usd=usd,private='omit')
+               for k,bonus,usd in [('100','0','8.51'),('1000','30','81.60'),('2000','60','162.50')]]
+        receipt=dict(write_protocol='fc27_curve_v6',status='CONFIRMED',execution_id='original',
+                     curve_results={'PS':dict(operation_id='original',
+                     propagation=dict(status='confirmed',confirmed_at='2026-11-13T12:07:02Z'),
+                     actual_site266_curve=dict(tiers=tiers))})
+        operation=dict(operation_id='original',status='COMPLETED',readback=receipt)
+        result=api.catalogue_readbacks([dict(operation,status='UNKNOWN'),operation])
+        self.assertEqual([row['purchase_k'] for row in result['PS']['tiers']],['100','1000'])
+        self.assertEqual(result['PS']['tiers'][1]['promised_bonus_k'],'30')
+        self.assertNotIn('private',json.dumps(result))
 
     def test_latest_fallback_uses_rowid_and_skips_postwrite_snapshot(self):
         with tempfile.TemporaryDirectory() as folder:
