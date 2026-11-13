@@ -274,7 +274,8 @@ def _preview_curve_candidates(curve, key, platform, strategy_state, segment, clo
     if strategy_state:
         comparison = build_candidates(curve, strategy_state['reference'], strategy_state['episode'], segment,
             editor_contract=dict(curve['native_contract'], editor_asset_sha256=EDITOR_ASSET_SHA256,
-                                 editor_handler_sha256=EDITOR_HANDLER_SHA256))
+                                 editor_handler_sha256=EDITOR_HANDLER_SHA256),
+            check_saved_discount_terms=True)
         candidates, candidate_gaps = comparison['candidates'], comparison['gaps']
         boundary_search_status = comparison['boundary_search_status']
     else:

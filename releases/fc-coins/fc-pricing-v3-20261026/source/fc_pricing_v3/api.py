@@ -99,6 +99,7 @@ def _curve_preview_history(conn, snapshot, as_of):
     snapshot_at = instant(snapshot['created_at'])
     window = historical_period('7d', now=snapshot_at)['paid_window']
     selected, selected_at = None, None
+    conflict = False
     for row in conn.execute('SELECT body FROM historical_inputs ORDER BY rowid DESC'):
         attachment = json.loads(row[0])
         if (attachment.get('schema_version') != 'fc-pricing-v3-history-input-v1'
@@ -106,10 +107,15 @@ def _curve_preview_history(conn, snapshot, as_of):
                 or snapshot['snapshot_id'] not in attachment.get('snapshot_ids', ())):
             continue
         available = instant(attachment['available_at'])
-        if available <= as_of and (selected_at is None or available > selected_at):
+        if available > as_of:
+            continue
+        if selected_at is None or available > selected_at:
             selected, selected_at = attachment, available
+            conflict = False
         elif available == selected_at and attachment['source_sha256'] != selected['source_sha256']:
-            raise ValueError('pricing_curve_preview_history_revision_conflict')
+            conflict = True
+    if conflict:
+        raise ValueError('pricing_curve_preview_history_revision_conflict')
     return selected
 
 

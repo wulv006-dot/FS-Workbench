@@ -14,7 +14,9 @@ from fc_pricing_v3 import api, runtime
 from fc_pricing_v3.curve_strategy_v6 import build_candidates, choose_action, confirm_adoption, propose_adoption
 from fc_pricing_v3.financial import fingerprint
 from fc_pricing_v3.ledger import Ledger
-from fc_pricing_v3.price_curve import curve_key
+from fc_pricing_v3.price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, curve_key, read_curve
+from fc_pricing_v3.pricing_proof_v6 import validate_curve
+from test_pricing_proof_v6 import basket, quote
 
 
 class AdoptionLedger(unittest.TestCase):
@@ -94,6 +96,54 @@ class AdoptionLedger(unittest.TestCase):
         self.assertEqual(self.db.adopt_confirmed_curve(request, current_curve=self.target), result)
         self.assertEqual(self.db.get('operations', OPERATION), original)
         self.assertEqual(len(self.run.transport.posts), 1)
+
+    def test_preview_after_original_writer_adopts_editor_provenance_curve(self):
+        metadata = dict(source='Admin Goods edit read only', verified_domain='native stored tiers only',
+                        editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256)
+        bundle = self.run.bundle
+        target = bundle['action']['curves'][PLATFORM]
+        target = read_curve(target['native_payload'], target['identity'],
+                            dict(metadata, catalogue_origin=target['native_contract']['catalogue_origin']))
+        target_key = curve_key(target)
+        domain = dict(bundle['curve_proofs'][PLATFORM]['scope'], curve_key=target_key,
+                      coverage_status='complete', coverage_gaps=[])
+        baskets = dict(main=basket('closed_bjt_7d', [('ordinary', '50')]),
+                       recent=basket('latest_24h', [('ordinary', '30')]))
+        path = quote('ordinary', target_key, regular_usd='103', net_receipt_usd='103')
+        bundle['curve_proofs'][PLATFORM] = validate_curve(target, baskets, dict(curve_key=target_key, paths=[path]), domain)
+        bundle['action']['curves'][PLATFORM] = target
+        bundle['sha256'] = fingerprint({k: v for k, v in bundle.items() if k != 'sha256'})
+        self.target = read_curve(self.target['native_payload'], self.target['identity'], metadata)
+        self.baseline = read_curve(self.baseline['native_payload'], self.baseline['identity'], metadata)
+        state = self.start()
+        self.attach(self.proposal(state))
+        self.assertEqual(self.run.execute()['status'], 'PARTIALLY_APPLIED')
+        self.run.transport.apply_recipient()
+        completed = runtime.reconcile(OPERATION)
+        self.assertEqual(completed['curve_adoption_result']['status'], 'ADOPTED')
+        adopted = self.db.curve_strategy_state(PLATFORM)['reference']
+        self.assertEqual(adopted['confirmed_operation_id'], OPERATION)
+        self.assertEqual(adopted['reference_curve']['native_contract']['editor_asset_sha256'], EDITOR_ASSET_SHA256)
+        self.assertEqual(adopted['reference_curve']['native_contract']['editor_handler_sha256'], EDITOR_HANDLER_SHA256)
+        self.assertEqual(adopted['reference_curve']['native_payload'], self.run.transport.rows[writer.PRODUCTS[PLATFORM][1]])
+        snapshot = dict(snapshot_id=SNAPSHOT_ID, origin='live_collector', mode='production',
+                        created_at=SNAPSHOT_TIME, evidence={'run_id': SNAPSHOT_ID,
+                        'storefront': {'rows': {PLATFORM: {'sku_id': str(writer.PRODUCTS[PLATFORM][1])}}}})
+        self.db.put('pricing_snapshots', SNAPSHOT_ID, snapshot)
+        with closing(self.db.connect()) as conn:
+            before = list(conn.iterdump())
+        with patch.object(api, 'STORE', self.db.path.parent), patch('fc_shared_admin.SessionManager', return_value=self.run.transport):
+            status, result = handler_post('preview', preview_request())
+        self.assertEqual(status, 202)
+        self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
+        self.assertIsNone(result['decision']['selected'])
+        self.assertFalse(result['execution_authorized'])
+        self.assertEqual(result['decision']['reference_curve_id'], adopted['reference_curve_id'])
+        self.assertIn('A', {label for row in result['decision']['candidates'] for label in row['labels']})
+        self.assertNotIn('current_reference_catalogue_terms_differ', json.dumps(result['decision']['candidate_gaps']))
+        self.assertEqual(len(self.run.transport.posts), 1)
+        with closing(self.db.connect()) as conn:
+            self.assertEqual(list(conn.iterdump()), before)
 
     def test_previous_original_requires_fresh_current_curve_and_unclosed_window(self):
         state = self.start()
