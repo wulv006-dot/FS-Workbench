@@ -480,7 +480,7 @@ def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=
         if quote['regular_usd'] is not None:
             path = dict(quote, path_id='catalogue:' + quantity)
             native = observed.get(quantity)
-            if (native and native.get('regular_usd') == quote['regular_usd']
+            if (native and number(native['regular_usd']) == number(quote['regular_usd'])
                     and native.get('promised_delivered_k') == quote['promised_delivered_k']):
                 path, matching = _checkout_cost_path(path, native, platform, recent or closed, order_rows,
                                                      paid_cutoff, now, facts, fx, current_cost, observed)
@@ -523,13 +523,15 @@ def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=
                 paths.extend(code_quotes)
             else:
                 paths.append(path)
-    domain_gaps = ['native_checkout_path_domain_unverified']
+    domain_gaps = [] if checkout else ['native_checkout_path_domain_unverified']
     domain_gaps.extend(checkout.get('coverage_gaps', ()))
+    if checkout and {tier['purchase_k'] for tier in curve['tiers']} != set(observed):
+        domain_gaps.append('fixed_checkout_quantities_unverified')
     domain_gaps.extend(coupons.get('coverage_gaps', ()))
     return dict(baskets=build_planning_baskets(platform, key, closed, recent, repriced,
                                                 paid_cutoff=paid_cutoff, as_of=now),
                 evidence=dict(curve_key=key, paths=paths),
-                domain=dict(platform=platform, curve_key=key, coverage_status='partial',
+                domain=dict(platform=platform, curve_key=key, coverage_status='partial' if domain_gaps else 'complete',
                             coverage_gaps=sorted(set(domain_gaps)),
                             site_paths={'266': [path['path_id'] for path in paths]}))
 

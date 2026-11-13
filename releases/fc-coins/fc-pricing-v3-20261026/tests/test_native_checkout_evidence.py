@@ -184,6 +184,62 @@ class CheckoutEvidenceTest(unittest.TestCase):
         self.assertEqual(failed['PS']['coverage_gaps'], ['native_guest_cart_tls_runtime_unavailable'])
         self.assertEqual(failed['PS']['lines'], [])
 
+    def test_complete_admin_public_catalogue_uses_cart_anchors_and_preserves_unmeasured_basis(self):
+        payload = self.current['native_payload']
+        payload['more'] = dict(gold=[100,500,1000], give=[0,0,30], discount=[100,100,100],
+                               price=['8.16','40.80','81.60'])
+        curve = read_curve(payload, self.current['identity'], self.current['native_contract'])
+        amounts = {'100':('8.16',0), '500':('40.80',0), '1000':('81.60',30)}
+        goods = json.loads(self.raw['goods_raw'])
+        goods['goods']['index']['list'][0]['goods_list'] = {quantity:dict(num=int(quantity),give=gift,
+            full_price_format=amount,discount=100) for quantity,(amount,gift) in amounts.items()}
+        raw = {k:value.replace(b'1001',b'1000').replace(b'81.68',b'81.60').replace(b'89.84',b'89.76')
+               for k,value in self.raw.items()}
+        raw['goods_raw'] = packed(goods)
+
+        def collect(values, current=curve, measured=None):
+            observed = build_anonymous_observation(RUN,'PS',current,captured_at=NOW,**values)
+            if measured is not None:
+                observed['lines'] = [line for line in observed['lines'] if line['purchase_k'] in measured]
+            evidence = dict(run_id=RUN, checked_at=NOW.isoformat(),
+                            native_checkout_observations=dict(run_id=RUN, platforms={'PS':observed}))
+            return collect_anonymous_observations(evidence,{'PS':current},{'PS':tuple(amounts)},as_of=NOW)['PS']
+
+        found = collect(raw)
+        by_quantity = {line['purchase_k']:line for line in found['lines']}
+        self.assertEqual(set(by_quantity),set(amounts))
+        self.assertEqual(by_quantity['100']['quote_basis'],'observed_native_cart')
+        self.assertEqual(by_quantity['500']['quote_basis'],native.FIXED_CATALOGUE)
+        self.assertEqual(by_quantity['500']['net_goods_usd'],'40.80')
+        self.assertEqual(by_quantity['500']['rounding_contract'],native.CATALOGUE_CENTS)
+        self.assertEqual((by_quantity['500']['gift_k'],by_quantity['500']['promised_delivered_k']),('0','500'))
+        self.assertIn('custom_quantities_unverified',found['coverage_gaps'])
+        self.assertNotIn('anonymous_guest_quantities_only',found['coverage_gaps'])
+        target = compile_curve(curve,dict(anchor_prices_usd={'100':'7.99'}),EDITOR)
+        projected = project_anonymous_fixed_tiers(curve,target,found)
+        self.assertEqual(next(line for line in projected['lines'] if line['purchase_k']=='500')['quote_basis'],
+                         'derived_candidate_fixed_catalogue')
+
+        for field, value in (('give',1),('full_price_format','40.79'),('discount',99)):
+            with self.subTest(field=field):
+                broken = deepcopy(goods)
+                broken['goods']['index']['list'][0]['goods_list']['500'][field] = value
+                mismatch = collect(dict(raw,goods_raw=packed(broken)))
+                self.assertEqual({line['purchase_k'] for line in mismatch['lines']},{'100','1000'})
+                self.assertIn('anonymous_guest_quantities_only',mismatch['coverage_gaps'])
+
+        missing_anchor = collect(raw, measured={'100'})
+        self.assertEqual([line['purchase_k'] for line in missing_anchor['lines']],['100'])
+        self.assertIn('anonymous_guest_quantities_only',missing_anchor['coverage_gaps'])
+
+        new_rule = deepcopy(goods)
+        new_rule['goods']['index']['list'][0]['goods_list']['500']['give'] = 5
+        payload['more']['give'][1] = 5
+        new_curve = read_curve(payload,curve['identity'],curve['native_contract'])
+        unmeasured_rule = collect(dict(raw,goods_raw=packed(new_rule)), current=new_curve)
+        self.assertEqual({line['purchase_k'] for line in unmeasured_rule['lines']},{'100','1000'})
+        self.assertIn('anonymous_guest_quantities_only',unmeasured_rule['coverage_gaps'])
+
     def test_candidate_and_all_projection_bind_new_amount_without_reusing_observed_checkout(self):
         observed = self.build()
         proposed = compile_curve(self.current, dict(anchor_prices_usd={'100':'7.99'}),EDITOR)
