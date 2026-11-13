@@ -100,6 +100,7 @@ def shared_es_native_day(day):
         del token
         start, end = day + ' 00:00:00', day + ' 23:59:59'
         rows = pages(session, PATH, [('pay_status', '=', '1'), ('paytime', 'RANGE', start + ',' + end)], 1000)
+        observed_at = datetime.now(TZ)
         ids = [int(row['id']) for row in rows]
         if ids != sorted(ids, reverse=True) or len(set(ids)) != len(ids):
             raise ValueError('shared_es_admin_order_sort')
@@ -111,6 +112,8 @@ def shared_es_native_day(day):
                     or str(row.get('pay_status')) not in ('1', '2')):
                 raise ValueError('shared_es_admin_scope')
             by_site[site].append(number)
+            if (projection := fc27_coins_projection(row, observed_at)) is not None:
+                row['fc27_coins'] = projection
 
         logs, seen, coupon_gaps = defaultdict(list), set(), set()
         for site, numbers in by_site.items():
@@ -136,6 +139,34 @@ def shared_es_native_day(day):
         from shared_es_facts import coupon_tracking
 
         return rows, coupon_tracking(rows, logs, clean, coupon_gaps)
+
+
+def fc27_coins_projection(raw, observed_at):
+    """Use native ordered K quantities only; keep buyer and title text out of the shared store."""
+    if str(raw.get('site_id')) != '266' or str(raw.get('gid')) != '1327':
+        return None
+    from pathlib import Path
+    module_root = '/opt/fc27-cloud-browser'
+    if Path(module_root).is_dir() and module_root not in sys.path:
+        sys.path.insert(0,module_root)
+    from fc_pricing_v3.business_source import _platform, _quantity
+    from user_contract import digest, money
+
+    quantity, platform = _quantity(raw), _platform(raw)
+    if not quantity or not platform:
+        return None
+    regional = str(raw.get('is_region_price'))
+    region = str(raw.get('region_price_lang_region_id') or '')
+    region_id = 0 if regional == '0' else int(region) if regional == '1' and region.isdecimal() and int(region)>0 else None
+    evidence = {key:raw.get(key) for key in ('id','order_no','site_id','gid','paytime','aid','content','show_game_pro',
+        'before_discount','discount','points','is_region_price','region_price_lang_region_id')}
+    at = observed_at if isinstance(observed_at,str) else observed_at.isoformat()
+    return dict(platform=platform, purchase_k=quantity['purchase_k'], bonus_k=quantity['bonus_k'],
+        delivered_k=quantity['delivered_k'],
+        single_line_unit_purchase=len(quantity['lines'])==1 and quantity['lines'][0]['multiplier']==1,
+        region_id=region_id, regular_usd=money(raw.get('before_discount')),
+        retained_percent=money(raw.get('discount')), points=money(raw.get('points')),
+        source_sha256=digest(evidence), observed_at=stamp(at).isoformat())
 
 
 def shared_discount_catalog():

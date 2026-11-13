@@ -70,6 +70,48 @@ class SharedFacts(unittest.TestCase):
     def read(self, query=None, ident=None):
         return facts.read(query or scope(), db=self.store.path, publication_id=ident)
 
+    def test_fc27_quantity_supplement_keeps_original_pin_and_exact_source_members(self):
+        from unittest.mock import patch
+        from user_source import fc27_coins_projection
+        old = publication(D2)
+        rev = self.stage(D1,archive(),order('existing',D1),order('missing',D1),
+                         order('other-site',D1,site='300'))
+        weekly.write_publication(self.store,old,None,shared_revisions={D1:rev})
+        previous = self.read()
+        raw = order('existing',D1)
+        raw.update(aid='21587',content='<span class="item">1000K Coins + 30K Free x1 = $50</span>',
+                   is_region_price='0',before_discount='50',discount='100',points='0')
+        with patch.object(sys,'path',[str(Path(__file__).resolve().parents[4]/
+                    'releases/fc-coins/fc-pricing-v3-20261026/source'),*sys.path]):
+            coins = fc27_coins_projection(raw,D2+'T05:00:00+08:00')
+            self.assertIsNone(fc27_coins_projection(dict(raw,site_id='300'),D2+'T05:00:00+08:00'))
+        self.assertEqual((coins['platform'],coins['purchase_k'],coins['bonus_k'],coins['delivered_k']),
+                         ('PS','1000','30','1030'))
+        row = dict(id=raw['id'],order_no=raw['order_no'],paid_at=raw['paytime'],fc27_coins=coins)
+        args = dict(publication_id=old['publication_id'],source_revision=previous['coverage']['source_revision'],
+                    scope=scope())
+        with self.assertRaisesRegex(ValueError,'shared_es_fc27_identity_mismatch'):
+            facts.store_fc27_projection(self.store,rows=[row,dict(row,order_no='missing',id=9)],**args)
+        self.assertEqual(facts.latest_publication(db=self.store.path)['publication_id'],old['publication_id'])
+        result = facts.store_fc27_projection(self.store,rows=[row],**args)
+        after = self.read()
+        self.assertEqual(after['coverage']['source_revision'],previous['coverage']['source_revision'])
+        self.assertEqual(after['coverage']['publication_id'],result['publication_id'])
+        self.assertIsNotNone(after['coverage']['fc27_projection_revision'])
+        by_no = {r['order_no']:r for r in after['rows']}
+        self.assertEqual(by_no['existing']['fc27_coins'],coins)
+        self.assertNotIn('content',by_no['existing'])
+        self.assertNotIn('fc27_coins',by_no['missing'])
+        self.assertNotIn('fc27_coins',self.read(ident=old['publication_id'])['rows'][0])
+        self.assertTrue(all('fc27_coins' not in r for r in self.read(scope(gid='all'))['rows']))
+        self.assertEqual(facts.store_fc27_projection(self.store,rows=[row],**args)['status'],'reused')
+        second = self.stage(D2,archive(),dict(order('normal-daily',D2),fc27_coins=coins))
+        next_pub = publication(D3,'b')
+        weekly.write_publication(self.store,next_pub,old['publication_id'],shared_revisions={D2:second})
+        later = self.read(scope(D1,D2))
+        self.assertEqual(sum('fc27_coins' in r for r in later['rows']),2)
+        self.assertNotEqual(later['coverage']['fc27_projection_revision'],after['coverage']['fc27_projection_revision'])
+
     def test_existing_channel_history_is_main_site_only_and_keeps_formal_revisions(self):
         formal = self.stage(D2, archive(line('fresh', D2)), order('fresh', D2))
         pub = publication(D3)
