@@ -41,6 +41,25 @@ def window(now):
     return (4, 18) <= (now.hour, now.minute) < (5, 0)
 
 
+def publish_yesterday_es(store, cutoff, now):
+    from shared_es_facts import seed
+    from user_customer_types import closed_period_bundle
+
+    day = (cutoff - timedelta(days=1)).date().isoformat()
+    preview = seed(store, day, day, now=now.isoformat())
+    if preview['already_indexed']:
+        return dict(status='reused', reason='shared_es_yesterday_published', day=day)
+    if preview['missing_es_days']:
+        closed_period_bundle(dict(profile='ALL', start=day, end=day,
+                                  group_by='new_customer', status='all'), cutoff)
+        # The exporter can finish asynchronously. Seed publishes only if the
+        # completed closed-day workbook is available on this attempt.
+    result = seed(store, day, day, apply=True, now=datetime.now(TZ).isoformat())
+    if result['already_indexed'] or result.get('indexed_days'):
+        return dict(status='complete', day=day, shared_es=result)
+    return dict(status='deferred', reason='shared_es_yesterday_archive_pending', day=day)
+
+
 def small_state(root):
     path = Path(root) / WORK
     safe(path)
@@ -198,11 +217,12 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly',
     state = small_state(root)
     if cadence not in ('daily', 'weekly'): raise ValueError('publication_cadence')
     latest = now.replace(hour=0, minute=0, second=0, microsecond=0) if cadence == 'daily' else monday(now)
+    midnight_archive = shared_es and cadence == 'daily' and now < latest + timedelta(hours=4, minutes=18)
     retiring_backup = state is not None and state['phase'] == 'backup'
     calendar_review = bool(state and state.get('review_policy') in CALENDAR_POLICIES and state.get('review_start'))
-    if state and not calendar_review and not retiring_backup and state.get('retryable') is False and not force:
+    if state and not midnight_archive and not calendar_review and not retiring_backup and state.get('retryable') is False and not force:
         return dict(status='requires_reconciliation', reason=state.get('error'), cutoff=state['cutoff'], source_calls=0)
-    if state and not retiring_backup and (not window(now) or state['phase'] == 'complete' and stamp(state['cutoff']) >= latest and not shared_es
+    if state and not midnight_archive and not retiring_backup and (not window(now) or state['phase'] == 'complete' and stamp(state['cutoff']) >= latest and not shared_es
                   or not calendar_review and state.get('retryable') is False and not force):
         return dict(status='reused', reason='weekly_idle', cutoff=state['cutoff'], source_calls=0)
     store = loader()
@@ -212,6 +232,8 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly',
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return dict(status='deferred', reason='user_job_active')
+        if midnight_archive:
+            return publish_yesterday_es(store, latest, now)
         state = small_state(root)
         try:
             published = publication(store, now)

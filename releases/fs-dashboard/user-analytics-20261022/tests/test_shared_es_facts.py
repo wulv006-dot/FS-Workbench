@@ -52,6 +52,39 @@ def publication(cutoff, suffix='a'):
 
 
 class SharedFacts(unittest.TestCase):
+    def test_midnight_tick_publishes_yesterday_ahead_of_blocked_customer_flags(self):
+        now = stamp('2026-11-14T00:03:00+08:00')
+        previous = dict(phase='flags', cutoff=stamp('2026-11-13').isoformat())
+        with patch.object(weekly, 'small_state', return_value=previous), \
+                patch.dict(sys.modules, {'fcntl': SimpleNamespace(LOCK_EX=2, LOCK_NB=4, flock=Mock())}), \
+                patch.object(facts, 'seed', side_effect=[
+                    dict(already_indexed=[], missing_es_days=[]),
+                    dict(already_indexed=[], indexed_days=['2026-11-13']),
+                ]) as seed, patch('user_customer_types.closed_period_bundle') as export, \
+                patch.object(weekly, 'run') as customer_job:
+            result = weekly.wake(self.store.root, lambda: self.store, now, cadence='daily', shared_es=True)
+        self.assertEqual((result['status'], result['day']), ('complete', '2026-11-13'))
+        self.assertEqual(seed.call_args.args, (self.store, '2026-11-13', '2026-11-13'))
+        self.assertTrue(seed.call_args.kwargs['apply'])
+        export.assert_not_called()
+        customer_job.assert_not_called()
+
+    def test_midnight_export_resumes_by_original_closed_period_until_indexed(self):
+        now = stamp('2026-11-14T00:03:00+08:00')
+        cutoff = stamp('2026-11-14')
+        with patch.object(facts, 'seed', side_effect=[
+            dict(already_indexed=[], missing_es_days=['2026-11-13']),
+            dict(already_indexed=[], indexed_days=[]),
+            dict(already_indexed=['2026-11-13'], missing_es_days=[]),
+        ]) as seed, patch('user_customer_types.closed_period_bundle') as export:
+            first = weekly.publish_yesterday_es(self.store, cutoff, now)
+            second = weekly.publish_yesterday_es(self.store, cutoff, now)
+        self.assertEqual(first['status'], 'deferred')
+        self.assertEqual(second['status'], 'reused')
+        export.assert_called_once_with(dict(profile='ALL', start='2026-11-13', end='2026-11-13',
+                                            group_by='new_customer', status='all'), cutoff)
+        self.assertEqual(seed.call_count, 3)
+
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
