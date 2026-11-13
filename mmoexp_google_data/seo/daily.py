@@ -1,7 +1,10 @@
 """Single nightly base batch. Optional AI has no import or synchronous callback here."""
 import datetime as dt
+from itertools import chain
 
-from .contracts import GAMES, make_daily_context, source_day_ended
+from .contracts import BUSINESS_TZ, GAMES, make_daily_context, source_day_ended
+from .order_reader import NativeOrderFactsReader
+from .order_source import OrderSource
 from . import snapshot
 
 
@@ -35,23 +38,39 @@ def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), ad
         blocked = set()
         # One batch, latest dates first across all games; no game's old backfill monopolizes the night.
         tasks.sort(key=lambda item: (bool(getattr(sources[item[1]],'is_observation',False)),-dt.date.fromisoformat(item[0]).toordinal(),item[1],GAMES.index(item[2])))
-        for day, index, scope, cursor in tasks:
+        deferred_indices = {index for index,source in enumerate(sources)
+            if isinstance(source,OrderSource) and isinstance(source.read,NativeOrderFactsReader)
+            and any(day==context.report_date and i==index for day,i,_,_ in tasks)
+            and source.read.defer_day(context.report_date)}
+        deferred = [task for task in tasks if task[0] == context.report_date and task[1] in deferred_indices]
+        immediate = [task for task in tasks if task not in deferred]
+        def may_continue():
+            now = clock()
+            local = now.astimezone(BUSINESS_TZ)
+            remaining = (local.replace(hour=6, minute=30, second=0, microsecond=0)-local).total_seconds()
+            return make_daily_context(now).publication_allowed and remaining > finish_margin_seconds and admit()
+        def deferred_orders():
+            checked = set()
+            for task in deferred:
+                day,index,_,_ = task
+                if index not in checked:
+                    if not may_continue():
+                        return
+                    sources[index].read.wait_for_day(day,may_continue)
+                    checked.add(index)
+                yield task
+        for day, index, scope, cursor in chain(immediate,deferred_orders()):
             source = sources[index]
             if source.name in blocked:
                 continue
-            local = clock().astimezone(dt.timezone(dt.timedelta(hours=8)))
-            remaining = (local.replace(hour=6, minute=30, second=0, microsecond=0)-local).total_seconds()
-            if not make_daily_context(clock()).publication_allowed or remaining <= finish_margin_seconds or not admit():
+            if not may_continue():
                 break
             if not getattr(source, 'is_observation', False) and not source_day_ended(day, source.timezone, clock()):
                 store.mark(source.name, scope, day, source.timezone, 'pending', clock().isoformat(), 'SOURCE_DAY_NOT_ENDED')
                 continue
             try:
                 pages=iter(source.pages(scope,day,cursor))
-                while True:
-                    local=clock().astimezone(dt.timezone(dt.timedelta(hours=8)))
-                    remaining=(local.replace(hour=6,minute=30,second=0,microsecond=0)-local).total_seconds()
-                    if not make_daily_context(clock()).publication_allowed or remaining<=finish_margin_seconds or not admit():break
+                while may_continue():
                     try:page=next(pages)
                     except StopIteration:break
                     store.ingest_page(source.name, scope, day, page, clock().isoformat())
