@@ -575,7 +575,9 @@ class CurveRuntime(unittest.TestCase):
         for row in source['historical_orders']:
             row['region_id'] = 0
         source['historical_orders'][0]['promotion_path'] = dict(kind='coupon', template_id='1327',
-                                                               evidence_ref='same-order-redemption')
+            evidence_ref='same-order-redemption', historical_regular_usd='10.22', historical_discount_usd='5.00')
+        source['historical_orders'][1]['promotion_path'] = dict(kind='code', code_ref='code-one-ref')
+        source['historical_orders'][2]['promotion_path'] = dict(kind='code', code_ref='code-two-ref')
         recent = dict(source, historical_orders_coverage=dict(source['historical_orders_coverage'],
                                                               paid_window_end_exclusive=CUT.isoformat()))
         cost_facts = facts(ordinary_orders, cost=str(Decimal(total) * Decimal('.39')),
@@ -595,13 +597,15 @@ class CurveRuntime(unittest.TestCase):
             '1323': terms('1323', dict(kind='ratio', threshold_usd='0', retained_ratio='.8', cap_usd='50')),
             '1331': terms('1331', dict(kind='fixed', threshold_usd='999', discount_usd='20', cap_usd=None)),
         })
+        code_rule = dict(kind='ratio', threshold_usd='0', retained_ratio='.92', cap_usd=None)
+        codes = {ref: dict(terms(ref, code_rule), aid='0') for ref in ('code-one-ref', 'code-two-ref')}
         proof_input = runtime._catalogue_proof_input(curve, 'PS', source, CUT.isoformat(), AS_OF,
-            recent=recent, checkout=checkout, facts=cost_facts, fx=fx(), coupons=coupons)
+            recent=recent, checkout=checkout, facts=cost_facts, fx=fx(), coupons=coupons, codes=codes)
         path = next(row for row in proof_input['evidence']['paths'] if row['purchase_k'] == purchase)
         self.assertEqual(path.get('cost_status'), 'verified', path)
         self.assertEqual(path['quote_basis'], 'observed_native_cart')
         self.assertAlmostEqual(Decimal(path['stress_cost_usd']), Decimal(total) * Decimal('.39') / 7)
-        self.assertEqual(proof_input['baskets']['main']['matched_orders'], 10)
+        self.assertEqual(proof_input['baskets']['main']['matched_orders'], 10, proof_input['baskets']['main'])
         self.assertEqual(proof_input['baskets']['recent']['selection'], 'main_fallback')
         result = runtime._validated_curve(curve, proof_input)
         receipt_paths = {row.get('coupon_template_id'): row for row in result['paths'] if row.get('coupon_template_id')}
@@ -612,8 +616,11 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(fixed['quote_basis'], 'derived_eligible_single_line_coupon_net_lower_bound')
         self.assertEqual(receipt_paths['1331']['net_receipt_usd'], str(Decimal(path['regular_usd']).normalize()))
         self.assertFalse(receipt_paths['1331']['coupon_subtotal_eligible'])
+        code_paths = [row for row in result['paths'] if row.get('discount_code_terms_revision')]
+        self.assertEqual(len(code_paths), 1)
+        self.assertEqual(code_paths[0]['discount_code_rule'], code_rule)
         weights = {row['path_id']: row['weight'] for row in proof_input['baskets']['main']['members']}
-        self.assertEqual(weights, {'catalogue:1000': '9', 'catalogue:1000:coupon:1327': '1'})
+        self.assertEqual(weights, {'catalogue:1000': '7', 'catalogue:1000:coupon:1327': '1', code_paths[0]['path_id']: '2'})
         self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
         self.assertIn('member_and_discount_allocation_unverified', result['scope']['coverage_gaps'])
         self.assertNotIn('procurement_time_unverified', result['gaps'])

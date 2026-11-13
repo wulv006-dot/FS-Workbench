@@ -21,6 +21,7 @@ CURVE_COUPON_ELIGIBILITY = {
     '1327': (3, 'voucher_event_eligible_member'),
     '1329': (3, 'voucher_event_eligible_member'),
     '1331': (3, 'voucher_event_eligible_member'),
+    '1303': (4, 'directed_fc_event_recipient'),
 }
 
 
@@ -179,20 +180,30 @@ def read_used_templates(session,pages,identities):
     return result
 
 
+class _CurveAdminRead:
+    def __init__(self, manager):
+        self.manager = manager
+
+    def get_admin(self, path, **params):
+        from urllib.parse import urlencode
+        status, raw = self.manager.request(path + '?' + urlencode(params))
+        return status, json.loads(raw)
+
+
+def _offer_time(value):
+    from .financial import instant
+    if value in (None, '', 0, '0', '~'):
+        return None
+    return (datetime.fromtimestamp(int(value), timezone.utc) if str(value).isdigit() else instant(value))
+
+
 def collect_curve_coupon_terms(manager, *, clock):
     """Read the current terms of the registration and observed Coins event templates once per run."""
-    from urllib.parse import urlencode
     from channel_source import pages
     from pricing_sources import active
-    from .financial import instant
-
-    class NativeAdmin:
-        def get_admin(self, path, **params):
-            status, raw = manager.request(path + '?' + urlencode(params))
-            return status, json.loads(raw)
 
     ids = ','.join(sorted(CURVE_COUPON_ELIGIBILITY))
-    rows = pages(NativeAdmin(), '/admin/market.Coupon/index', [('id', 'IN', ids)], 100)
+    rows = pages(_CurveAdminRead(manager), '/admin/market.Coupon/index', [('id', 'IN', ids)], 100)
     now = clock()
     by_id = {str(row['id']): row for row in rows}
     if len(by_id) != len(rows) or by_id.keys() - CURVE_COUPON_ELIGIBILITY.keys():
@@ -220,10 +231,9 @@ def collect_curve_coupon_terms(manager, *, clock):
             validity = str(row['time_effect'])
             end = None
             if validity == '1':
-                if row['start_time'] in ('', 0, '0', None) or row['end_time'] in ('', 0, '0', None):
+                start, end = (_offer_time(row[field]) for field in ('start_time', 'end_time'))
+                if not start or not end or end <= start:
                     raise ValueError('curve_coupon_absolute_window_missing')
-                end = (datetime.fromtimestamp(int(row['end_time']), timezone.utc)
-                       if str(row['end_time']).isdigit() else instant(row['end_time']))
                 if end <= now:
                     continue
             elif validity != '2' or not str(row['days']).isdigit() or int(row['days']) <= 0:
@@ -238,6 +248,52 @@ def collect_curve_coupon_terms(manager, *, clock):
         except (ArithmeticError, KeyError, TypeError, ValueError):
             gaps.append('current_coupon_terms_unverified:' + identity)
     return dict(terms=terms, coverage_gaps=gaps)
+
+
+def collect_curve_code_terms(manager, code_names, *, clock):
+    """Read each observed code's current rules with the original scoped Admin API."""
+    from channel_source import pages
+    from pricing_sources import active
+
+    names = sorted({name.casefold():name for name in sorted(code_names)
+                    if re.fullmatch(r'[A-Za-z0-9_-]{1,80}', name)}.values(), key=str.casefold)
+    source = _CurveAdminRead(manager)
+    by_code = defaultdict(list)
+    for offset in range(0, len(names), 75):
+        batch = names[offset:offset + 75]
+        wanted = {name.casefold() for name in batch}
+        filters = [('code', 'IN', ','.join(batch)), ('site_id', 'IN', '0,266')]
+        for row in pages(source, '/admin/market.Discount/index', filters, 100):
+            code = str(row['code']).casefold()
+            if code not in wanted or str(row.get('site_id')) not in ('0', '266'):
+                raise ValueError('curve_discount_code_query_scope_mismatch')
+            by_code[code].append(row)
+    now = clock()
+    output = {}
+    for name in names:
+        key = name.casefold()
+        current = [row for row in by_code[key] if active(row, now)]
+        if len(current) != 1:
+            continue
+        row = current[0]
+        categories = {part.strip() for part in str(row.get('cid') or '').split(',')}
+        aid = str(row.get('aid'))
+        if (str(row.get('type')) != '1' or not categories & {'-1', '0', '1', '9623'}
+                or aid not in {'0', *PLATFORM_AIDS}):
+            continue
+        retained, threshold = amount(row.get('discount')), amount(row.get('attain'))
+        if retained is None or not 0 < retained <= 100 or threshold is None or threshold < 0:
+            continue
+        end = _offer_time(row.get('timeend'))
+        if end and end <= now:
+            continue
+        path = dict(kind='ratio', retained_ratio=str(retained / 100), threshold_usd=str(threshold), cap_usd=None)
+        revision = fingerprint({field:row.get(field) for field in ('id', 'site_id', 'gid', 'exclude_gids',
+            'cid', 'aid', 'uid', 'type', 'discount', 'attain', 'status', 'timestart', 'timeend', 'repeat_qty')})
+        output[fingerprint(key)] = dict(path=path, aid=aid, source_revision=revision,
+                                        eligibility='same_observed_discount_code_eligible_order',
+                                        valid_until=end.isoformat() if end else None)
+    return output
 
 
 def _live_traces(session, pages, period, selected, *, reconcile_population=False, used_templates_only=False):
@@ -1830,7 +1886,31 @@ def historical_period(period, *, now=None):
                 paid_window_start=lower.isoformat(), paid_window_end_exclusive=upper.isoformat(), timezone='Asia/Shanghai')
 
 
-def shared_curve_attachment(shared, scope, *, as_of):
+def _curve_order_offer(retained, points, code, coupons, *, regular=None, discount=None, code_names=None):
+    """Use the native order and its shared same-order redemption record."""
+    if retained is None or points != 0 or not isinstance(coupons, list):
+        return None
+    if code and not coupons and 0 < retained < 100:
+        if re.fullmatch(r'[A-Za-z0-9_-]{1,80}', code):
+            if code_names is not None:
+                code_names.add(code)
+            return dict(kind='code', code_ref=fingerprint(code.casefold()))
+    elif not code and retained == 100 and len(coupons) == 1 and regular is not None and discount is not None:
+        redemption = coupons[0]
+        template = str(redemption.get('templateId'))
+        # The shared producer only includes original same-order logs with use_time.
+        # Older pins preserve the IDs and the ES cash discount without redundant log fields.
+        if (template in CURVE_COUPON_ELIGIBILITY and str(redemption.get('id', '')).isdigit()
+                and (redemption.get('status') in (None, '') or str(redemption['status']) == '1')
+                and 0 < discount <= regular):
+            return dict(kind='coupon', template_id=template, evidence_ref=fingerprint(redemption),
+                        historical_regular_usd=str(regular), historical_discount_usd=str(discount))
+    elif not code and retained == 100 and not coupons and discount == 0:
+        return {'kind':'none'}
+    return None
+
+
+def shared_curve_attachment(shared, scope, *, as_of, code_names=None):
     """Convert one fixed shared ES/Admin snapshot into private FC pricing inputs."""
     from .financial import instant
     from .planning_baskets_v6 import PAID_SCOPE
@@ -1882,35 +1962,25 @@ def shared_curve_attachment(shared, scope, *, as_of):
             projection = {}
             gaps['shared_native_coin_quantity_unavailable'] += 1
         tracking = order.get('tracking') or {}
-        no_deduction = (amount(projection.get('retained_percent')) == 100
-                        and amount(projection.get('points')) == 0 and not order.get('discount_code')
-                        and tracking.get('coupons') == [] and discounts[hashed] == {Decimal(0)})
-        coupon = None
-        applied = tracking.get('coupons')
-        regular = amount(projection.get('regular_usd'))
-        observed_discount = discounts[hashed]
-        if (isinstance(applied, list) and len(applied) == 1 and projection.get('single_line_unit_purchase') is True
-                and projection.get('region_id') == 0 and amount(projection.get('retained_percent')) == 100
-                and amount(projection.get('points')) == 0 and not order.get('discount_code') and not tracking.get('code')
-                and regular is not None and paid is not None and regular > paid >= 0
-                and len(observed_discount) == 1 and (deduction := next(iter(observed_discount))) is not None
-                and deduction > 0 and abs(regular - paid - deduction) <= Decimal('.02')):
-            redemption = applied[0]
-            template = str(redemption.get('templateId'))
-            if (template in CURVE_COUPON_ELIGIBILITY and str(redemption.get('status')) == '1'
-                    and str(redemption.get('id', '')).isdigit() and redemption.get('usedAt')):
-                coupon = dict(kind='coupon', template_id=template,
-                              evidence_ref=fingerprint(dict(redemption=redemption, order=hashed,
-                                                            revision=coverage['source_revision'])))
+        order_code = str(order.get('discount_code') or '').strip()
+        tracked_code = str(tracking.get('code') or '').strip()
+        promotion = None
+        if not order_code or not tracked_code or order_code.casefold() == tracked_code.casefold():
+            promotion = _curve_order_offer(amount(projection.get('retained_percent')), amount(projection.get('points')),
+                order_code or tracked_code, tracking.get('coupons'), regular=amount(projection.get('regular_usd')),
+                discount=next(iter(discounts[hashed])) if len(discounts[hashed]) == 1 else None, code_names=code_names)
+        if promotion and promotion['kind'] != 'none' and (projection.get('single_line_unit_purchase') is not True
+                or projection.get('region_id') != 0):
+            promotion = None
         row = dict(order_key=hashlib.sha256(('site266:FC27:Coins:' + number).encode()).hexdigest(),
                    paid_at=instant(order['paytime']).isoformat(),
                    available_at=max(capture, instant(projection['observed_at'])).isoformat() if projection else capture.isoformat(),
                    platform=projection.get('platform'), base_k=projection.get('purchase_k'),
                    bonus_k=projection.get('bonus_k'), delivered_k=projection.get('delivered_k'),
                    single_line_unit_purchase=projection.get('single_line_unit_purchase'),
-                   region_id=projection.get('region_id'), promotion_path={'kind':'none'} if no_deduction else coupon,
+                   region_id=projection.get('region_id'), promotion_path=promotion,
                    promotion_basis='Admin_ratio_points_code_same_order_coupon_log_and_ES_discount'
-                                   if no_deduction or coupon else None,
+                                   if promotion else None,
                    cost_cny=None, status=status)
         row['source_sha256'] = fingerprint(dict(row=row, shared_source_revision=coverage['source_revision'],
                                                native_projection=projection.get('source_sha256')))
@@ -1936,8 +2006,6 @@ def shared_curve_attachment(shared, scope, *, as_of):
 
 def collect_recent_curve_population(manager, closed, paid_cutoff):
     """Add only today's scoped native observations to the saved closed-day evidence."""
-    from urllib.parse import urlencode
-
     from channel_source import apply_cost_overrides, pages
     from channel_effects import fraud
     from .financial import instant
@@ -1959,17 +2027,12 @@ def collect_recent_curve_population(manager, closed, paid_cutoff):
         closed_rows = [row for row in closed_rows if row.get('paid_at')
                        and start <= instant(row['paid_at']) < midnight]
 
-    class NativeAdmin:
-        def get_admin(self, path, **params):
-            status, raw = manager.request(path + '?' + urlencode(params))
-            return status, json.loads(raw)
-
     settings = apply_cost_overrides(dict(sources={}))
     tests = settings['testOrders']
     rows, unknown, seen = [], 0, set()
     latest = cutoff.strftime('%Y-%m-%d %H:%M:%S')
     earliest = midnight.strftime('%Y-%m-%d %H:%M:%S')
-    batch = pages(NativeAdmin(), '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
+    batch = pages(_CurveAdminRead(manager), '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
                   ('pay_status', '=', '1'), ('paytime', 'RANGE', earliest + ',' + latest),
                   ('cid', '=', '1')], 100) if cutoff > midnight else []
     observed = _historical_provider_now()

@@ -65,7 +65,8 @@ class PlanningBaskets(unittest.TestCase):
         rows[1]['fc27_coins'] = dict(observations, observed_at=(AS_OF+timedelta(minutes=1)).isoformat())
         log = dict(id='42', templateId='1327', status='1', usedAt='2026-11-12 11:01:00')
         for row in rows[3:]:
-            row.update(amount_usd_format='5', tracking={'coupons':[log]})
+            row.update(amount_usd_format='5.67', tracking={'coupons':[log]})
+        rows[3]['tracking'] = {'coupons':[dict(id='42', templateId='1327')]}
         rows[4]['fc27_coins'] = dict(observations, single_line_unit_purchase=False)
         rows[5]['discount_code'] = 'STACKED'
         dataset = {'rows': [{'订单号': token, '产品类型': '货币(Gold)', '折扣金额': str(discount)}
@@ -89,6 +90,7 @@ class PlanningBaskets(unittest.TestCase):
         self.assertEqual(promotions[:3], [{'kind':'none'},None,None])
         self.assertEqual(promotions[3]['template_id'], '1327')
         self.assertEqual(len(promotions[3]['evidence_ref']), 64)
+        self.assertEqual(promotions[3]['historical_discount_usd'], '5')
         self.assertEqual(promotions[4:], [None, None])
         self.assertTrue(all(name not in str(result) for name in names))
 
@@ -99,7 +101,9 @@ class PlanningBaskets(unittest.TestCase):
         rows = [dict(row, id=1327), dict(row, id=1329, end_time='2026-11-12 00:00:00'),
                 dict(row, id=1331, is_open=1), dict(row, id=1323, mode_type=2, reduce='80', max_reduce='50'),
                 dict(row, id=1343, fetch_scene=1, mode_type=2, reduce='85', max_reduce='50', time_effect=2, days=7,
-                     scope_bindings='[{"game_id":1327,"category_ids":[]}]')]
+                     scope_bindings='[{"game_id":1327,"category_ids":[]}]'),
+                dict(row, id=1303, fetch_scene=4, mode_type=2, site_id=266, game_id=1327, reduce='80',
+                     max_reduce='0', time_effect=2, days=30)]
         calls = []
 
         def pages(session, path, filters, limit):
@@ -108,14 +112,39 @@ class PlanningBaskets(unittest.TestCase):
 
         with patch.dict(sys.modules, channel_source=SimpleNamespace(pages=pages)):
             result = business_source.collect_curve_coupon_terms(None, clock=lambda: AS_OF)
-        self.assertEqual(calls, [('/admin/market.Coupon/index', [('id', 'IN', '1323,1327,1329,1331,1343')], 100)])
-        self.assertEqual(set(result['terms']), {'1327', '1323', '1343'})
+        self.assertEqual(calls, [('/admin/market.Coupon/index', [('id', 'IN', '1303,1323,1327,1329,1331,1343')], 100)])
+        self.assertEqual(set(result['terms']), {'1327', '1323', '1343', '1303'})
         self.assertEqual(result['terms']['1327']['path'],
                          dict(kind='fixed', threshold_usd='10', cap_usd=None, discount_usd='5'))
         self.assertEqual(result['terms']['1323']['path']['retained_ratio'], '0.8')
         self.assertEqual(result['terms']['1343']['path']['cap_usd'], '50')
         self.assertIsNone(result['terms']['1343']['valid_until'])
         self.assertEqual(result['coverage_gaps'], ['current_coupon_terms_unverified:1331'])
+
+    def test_used_discount_codes_read_exact_current_scope_without_exposing_code(self):
+        row = dict(id=1, status=1, site_id=266, gid='725,833,1327', exclude_gids='', cid='-1', aid=0, type=1,
+                   discount='92', attain='0', timestart='2026-11-01 00:00:00', timeend='2026-12-31 00:00:00')
+        calls = []
+
+        def pages(session, path, filters, limit):
+            calls.append((path, filters, limit))
+            return [dict(row, code='sample-code'), dict(row, id=2, code='items-only', cid='2'),
+                    dict(row, id=3, code='expired', timeend='2026-11-12 00:00:00'),
+                    dict(row, id=4, code='other-game', gid='725,833'),
+                    dict(row, id=5, code='excludes-fc', exclude_gids='833,1327'),
+                    dict(row, id=6, code='future', timestart='2026-11-14 00:00:00')]
+
+        with patch.dict(sys.modules, channel_source=SimpleNamespace(pages=pages)):
+            result = business_source.collect_curve_code_terms(None,
+                {'sample-code', 'items-only', 'expired', 'other-game', 'excludes-fc', 'future'},
+                                                            clock=lambda: AS_OF)
+        self.assertEqual(calls, [('/admin/market.Discount/index',
+            [('code','IN','excludes-fc,expired,future,items-only,other-game,sample-code'), ('site_id','IN','0,266')], 100)])
+        self.assertEqual(len(result), 1)
+        code = business_source._curve_order_offer(business_source.amount('92'), business_source.amount('0'),
+                                                   'sample-code', [], discount=business_source.amount('2'))
+        self.assertEqual(result[code['code_ref']]['path']['retained_ratio'], '0.92')
+        self.assertNotIn('sample-code', str(result))
 
     def test_recent_combines_saved_days_and_only_the_current_day_native_read(self):
         historical = paid('closed-order', CUTOFF - timedelta(days=1))

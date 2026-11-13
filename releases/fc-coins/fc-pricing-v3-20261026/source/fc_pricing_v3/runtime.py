@@ -423,7 +423,7 @@ def ordinary_delivery_archives(scope, shared, *, root=None):
                                source_coverage=coverage, identity_catalog=shared['identity_catalog'])
 
 
-def _shared_curve_inputs(paid_cutoff, as_of):
+def _shared_curve_inputs(paid_cutoff, as_of, *, code_names):
     import sys
     from .business_source import historical_period, shared_curve_attachment
 
@@ -433,7 +433,7 @@ def _shared_curve_inputs(paid_cutoff, as_of):
     period = historical_period('7d', now=instant(paid_cutoff))['period']
     scope = dict(site_id='266', gid='1327', **period)
     shared = read(scope)
-    closed = shared_curve_attachment(shared, scope, as_of=as_of)
+    closed = shared_curve_attachment(shared, scope, as_of=as_of, code_names=code_names)
     if closed is None:
         return None, None
     try:
@@ -454,7 +454,7 @@ def _same_run_checkout(evidence, curves, as_of, *, live):
 
 
 def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=None, checkout=None,
-                           facts=None, fx=None, current_cost=None, coupons=None):
+                           facts=None, fx=None, current_cost=None, coupons=None, codes=None):
     from .planning_baskets_v6 import build_planning_baskets
     from .price_curve import curve_key, quote_native
 
@@ -465,6 +465,10 @@ def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=
     if checkout and checkout.get('platform') != platform:
         raise ValueError('curve_checkout_platform_mismatch')
     coupons = coupons or {}
+    codes = {key: terms for key, terms in (codes or {}).items() if terms['aid'] in ('0', curve['identity']['aid'])}
+    code_groups = {}
+    for code_ref, terms in codes.items():
+        code_groups.setdefault(fingerprint(terms['path']), []).append((code_ref, terms))
     observed = {row['purchase_k']: row for row in checkout.get('lines', [])
                 if row.get('proof_status') == 'verified' and row.get('offer_path') == 'anonymous_no_coupon'}
     order_rows = {row['order_key']: row for source in (closed, recent) if source
@@ -482,20 +486,41 @@ def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=
                                                      paid_cutoff, now, facts, fx, current_cost, observed)
                 coupon_paths = {identity: _coupon_quote_path(path, native, identity, terms)
                                 for identity, terms in coupons.get('terms', {}).items()}
+                code_paths, code_quotes = {}, []
+                for group, members in sorted(code_groups.items()):
+                    terms = dict(members[0][1], source_revision=fingerprint(sorted(
+                        entry['source_revision'] for _, entry in members)))
+                    adjusted = _promotion_quote_path(path, native, 'code:' + group, terms,
+                                                     'derived_eligible_single_line_discount_code_net_lower_bound')
+                    adjusted.update(discount_code_rule=terms['path'], discount_code_terms_revision=terms['source_revision'],
+                                    discount_code_eligibility=terms['eligibility'])
+                    code_quotes.append(adjusted)
+                    code_paths.update((code_ref, adjusted) for code_ref, _ in members)
                 repriced.update(matching)
+                eligible_coupons = set()
                 for identity, row in order_rows.items():
                     promotion = row.get('promotion_path') or {}
-                    selected = coupon_paths.get(promotion.get('template_id'))
-                    if (not selected or promotion.get('kind') != 'coupon' or not promotion.get('evidence_ref')
-                            or row.get('platform') != platform or row.get('base_k') != quantity
+                    if (row.get('platform') != platform or row.get('base_k') != quantity
                             or row.get('bonus_k') != native['gift_k'] or row.get('region_id') != 0
                             or row.get('single_line_unit_purchase') is not True):
                         continue
-                    eligible = fingerprint(dict(redemption=promotion['evidence_ref'],
-                                                current_coupon=selected['coupon_terms_revision']))
-                    repriced[identity] = _repriced_checkout_order(row, selected, native, now, eligible)
+                    if promotion.get('kind') == 'coupon':
+                        selected = coupon_paths.get(promotion.get('template_id'))
+                        if selected and promotion.get('evidence_ref'):
+                            eligible_coupons.add(promotion['template_id'])
+                            eligible = fingerprint(dict(redemption=promotion['evidence_ref'],
+                                                        current_coupon=selected['coupon_terms_revision']))
+                            repriced[identity] = _repriced_checkout_order(row, selected, native, now, eligible)
+                    elif promotion.get('kind') == 'code':
+                        code_ref = promotion.get('code_ref')
+                        selected = code_paths.get(code_ref)
+                        if selected:
+                            eligible = fingerprint(dict(order=row['source_sha256'], revision=codes[code_ref]['source_revision']))
+                            repriced[identity] = _repriced_checkout_order(row, selected, native, now, eligible)
                 paths.append(path)
-                paths.extend(coupon_paths.values())
+                paths.extend(quote for identity, quote in coupon_paths.items()
+                             if identity in eligible_coupons or quote['coupon_eligibility'] != 'directed_fc_event_recipient')
+                paths.extend(code_quotes)
             else:
                 paths.append(path)
     domain_gaps = ['native_checkout_path_domain_unverified']
@@ -509,20 +534,25 @@ def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=
                             site_paths={'266': [path['path_id'] for path in paths]}))
 
 
-def _coupon_quote_path(path, native, identity, terms):
+def _promotion_quote_path(path, native, suffix, terms, basis):
     from .engine import replay_promotion
 
     rule = terms['path']
-    regular = number(path['regular_usd'])
-    eligible_subtotal = regular >= number(rule['threshold_usd'], zero=True)
-    net = replay_promotion(regular, rule)
-    rounding = 'native_usd_subtotal_cent_and_coupon_deduction_upper_cent_v1'
+    net = replay_promotion(number(path['regular_usd']), rule)
+    rounding = 'native_usd_subtotal_cent_and_discount_deduction_upper_cent_v1'
     version = fingerprint(dict(native=native['offer_version'], terms=terms['source_revision']))
     quote_ref = fingerprint(dict(native=native['quote_ref'], offer_version=version, curve=path['curve_key'],
-                                 template=identity, amount=format(net, '.2f'), rounding=rounding))
-    return dict(path, path_id=path['path_id'] + ':coupon:' + identity, offer_version=version,
-                quote_ref=quote_ref, quote_basis='derived_eligible_single_line_coupon_net_lower_bound',
-                rounding_contract=rounding, net_receipt_usd=format(net, '.2f'), coupon_template_id=identity,
+                                 path=suffix, amount=format(net, '.2f'), rounding=rounding))
+    return dict(path, path_id=path['path_id'] + ':' + suffix, offer_version=version, quote_ref=quote_ref,
+                quote_basis=basis, rounding_contract=rounding, net_receipt_usd=format(net, '.2f'))
+
+
+def _coupon_quote_path(path, native, identity, terms):
+    rule = terms['path']
+    eligible_subtotal = number(path['regular_usd']) >= number(rule['threshold_usd'], zero=True)
+    adjusted = _promotion_quote_path(path, native, 'coupon:' + identity, terms,
+                                     'derived_eligible_single_line_coupon_net_lower_bound')
+    return dict(adjusted, coupon_template_id=identity,
                 coupon_eligibility=terms['eligibility'], coupon_terms_revision=terms['source_revision'],
                 coupon_subtotal_eligible=eligible_subtotal, coupon_rule=rule)
 
@@ -658,7 +688,7 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
     from coin_all_sync_job import PRODUCTS, read_curve_routes, read_row
     from fc_shared_admin import SessionManager, read_private_config
     from .api import _curve_preview_history
-    from .business_source import collect_curve_coupon_terms, collect_recent_curve_population
+    from .business_source import collect_curve_code_terms, collect_curve_coupon_terms, collect_recent_curve_population
     from .curve_strategy_v6 import ANCHORS, build_candidates
     from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, IDENTITY_FIELDS, curve_key, read_curve
 
@@ -711,8 +741,9 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
                                    all_targets=all_targets)
     if not collected:
         return {}
+    code_names = set()
     try:
-        shared_closed, facts = _shared_curve_inputs(paid_cutoff, clock())
+        shared_closed, facts = _shared_curve_inputs(paid_cutoff, clock(), code_names=code_names)
     except (ImportError, OSError, ValueError, TypeError, KeyError):
         shared_closed, facts = None, None
     if shared_closed is not None:
@@ -724,14 +755,21 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
     now = clock()
     checkout = _same_run_checkout(evidence, primary_curves, now, live=live_checkout) if primary_curves else {}
     coupons = {}
+    codes = {}
     if any(row.get('lines') for row in checkout.values()):
         try:
             coupons = collect_curve_coupon_terms(manager, clock=clock)
         except (ImportError, OSError, ValueError, TypeError, KeyError):
             coupons = dict(coverage_gaps=['current_coupon_terms_source_unavailable'])
+        if code_names:
+            try:
+                codes = collect_curve_code_terms(manager, code_names, clock=clock)
+            except (ImportError, OSError, ValueError, TypeError, KeyError):
+                coupons.setdefault('coverage_gaps', []).append('current_discount_code_terms_source_unavailable')
     now = clock()
+    offer_terms = (*coupons.get('terms', {}).values(), *codes.values())
     valid_until = min([now + timedelta(minutes=15)] + [instant(terms['valid_until'])
-        for terms in coupons.get('terms', {}).values() if terms['valid_until']])
+        for terms in offer_terms if terms['valid_until']])
     from .native_checkout_evidence import project_anonymous_fixed_tiers
 
     for platform, entry in collected.items():
@@ -745,7 +783,8 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
                     observation, curve_key=curve_key(curve), lines=[])
             return _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, recent=recent,
                                           checkout=native, facts=facts, fx=evidence.get('fx'),
-                                          current_cost=(evidence.get('costs') or {}).get(platform), coupons=coupons)
+                                          current_cost=(evidence.get('costs') or {}).get(platform), coupons=coupons,
+                                          codes=codes)
 
         entry.update(captured_at=now.isoformat(), valid_until=valid_until.isoformat(),
                      primary_inputs={key: proof(curve) for key, curve in entry.pop('candidates').items()},

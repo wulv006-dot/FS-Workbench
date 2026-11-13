@@ -146,6 +146,9 @@ def _evaluate_path(row, path_id, site_id, key, unavailable):
         result.update(coupon_template_id=row['coupon_template_id'], coupon_eligibility=row.get('coupon_eligibility'),
                       coupon_terms_revision=row.get('coupon_terms_revision'),
                       coupon_subtotal_eligible=row.get('coupon_subtotal_eligible'), coupon_rule=row.get('coupon_rule'))
+    if row.get('discount_code_terms_revision') is not None:
+        result.update(discount_code_terms_revision=row['discount_code_terms_revision'],
+                      discount_code_rule=row['discount_code_rule'], discount_code_eligibility=row['discount_code_eligibility'])
 
     values = {}
     for field in ('purchase_k', 'promised_bonus_k', 'promised_delivered_k', 'regular_usd',
