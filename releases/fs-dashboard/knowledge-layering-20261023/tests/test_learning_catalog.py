@@ -271,7 +271,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'fc_v61_native_all_two_band_20261113')
+        self.assertEqual(margin['revision'], 'fc_v61_100k_market_two_band_20261113')
         self.assertEqual(margin['source']['path'],'docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md')
         self.assertIn('fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4',margin['supersedes'])
         self.assertIn('fc.pricing.constraints@fc_v6_d8_d2_amount_weighted_discount_v1', margin['supersedes'])
@@ -312,9 +312,9 @@ class LearningCatalog(unittest.TestCase):
                 self.assertEqual(row['effective_at'], '2026-11-10')
                 self.assertEqual(row['effective_at_basis'], '2026-11-10 用户确认 ES 候选金额口径')
             elif row['id'] in {'fs.learning.methods','fs.pricing.parameter-identity'}:
-                self.assertEqual(row['effective_at'],'2026-11-10')
-                self.assertEqual(row['revision'],SHARED_REVISION if row['id']=='fs.learning.methods' else '20261110-three-platform-100k')
-                self.assertEqual(row['effective_at_basis'],'2026-11-10 用户确认三平台独立及100K实交基准')
+                self.assertEqual(row['effective_at'],'2026-11-13')
+                self.assertEqual(row['revision'],'fc_v61_100k_market_two_band_20261113')
+                self.assertEqual(row['effective_at_basis'],'2026-11-13 用户确认 V6 两段及仅100K竞品，清理现行旧规则冲突')
             else:
                 self.assertEqual(row['effective_at'], '2026-10-23')
                 self.assertEqual(row['effective_at_basis'], '本知识修订截至日')
@@ -346,7 +346,7 @@ class LearningCatalog(unittest.TestCase):
                          {'fc.reporting.data'})
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r5'},
                          {'fc.marketing.attribution'})
-        self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated-new)
+        self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated-new-{'fs.learning.methods'})
         for ident in expected:
             self.assertEqual(rows[ident]['knowledge_updated_at'],'2026-11-13')
             self.assertTrue(rows[ident]['supersedes'])

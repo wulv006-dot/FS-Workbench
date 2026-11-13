@@ -17,10 +17,14 @@ RUNTIME = {'runtime/' + n: '/opt/fs-hermes-fc/' + n for n in
 PREFIX = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + RELEASE + '/'
 SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r3'
 FC_V61 = 'fc-v61-average-discount-20261113-r1'
+BASELINE_CANDIDATE = 'runtime/business-baseline.md'
+BASELINE_TARGET = '/opt/fs-hermes-fc/business-baseline.md'
+BASELINE_PATCH_CONTRACT = 'fc-v61-current-baseline-patch-v1'
 
 
 def targets(manifest):
     runtime, prefix = RUNTIME, PREFIX
+    fc_v61_only = False
     if manifest.get('knowledgeOnly') is True:
         commit = manifest.get('sourceCommit', '')
         release = manifest.get('knowledgeRelease', '')
@@ -32,6 +36,23 @@ def targets(manifest):
             raise ValueError('knowledge_only_identity_or_authority')
         runtime = {'runtime/knowledge-load-policy.json': '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'}
         prefix = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + release + '/'
+        fc_v61_only = release == FC_V61 + '-' + commit
+    if 'baselinePatch' in manifest:
+        if not fc_v61_only:
+            raise ValueError('knowledge_baseline_patch_scope')
+        patch = manifest['baselinePatch']
+        if (not isinstance(patch, dict) or set(patch) != {'contract', 'before_sha256', 'after_sha256'} or
+                patch['contract'] != BASELINE_PATCH_CONTRACT):
+            raise ValueError('knowledge_baseline_patch_contract')
+        before, after = patch['before_sha256'], patch['after_sha256']
+        if (before == after or not all(isinstance(digest, str) and re.fullmatch('[a-f0-9]{64}', digest)
+                                      for digest in (before, after))):
+            raise ValueError('knowledge_baseline_patch_hash')
+        baseline = [row for row in manifest['files'] if row['candidate'] == BASELINE_CANDIDATE]
+        if (len(baseline) != 1 or (baseline[0].get('target'), baseline[0].get('beforeSha256'),
+                                   baseline[0].get('sha256')) != (BASELINE_TARGET, before, after)):
+            raise ValueError('knowledge_baseline_patch_binding')
+        runtime[BASELINE_CANDIDATE] = BASELINE_TARGET
     result = {r['candidate']: r['target'] for r in manifest['files']}
     if len(result) != len(manifest['files']) or not runtime.items() <= result.items():
         raise ValueError('knowledge_exact_runtime_targets')
@@ -55,8 +76,7 @@ def load_base():
     manifest = json.loads((HERE / 'approved-manifest.json').read_text(encoding='utf-8'))
     mapping = targets(manifest)
     adapter.HERE, adapter.SCOPE, adapter.TARGETS = HERE, SCOPE, mapping
-    runtime = {'runtime/knowledge-load-policy.json'} if manifest.get('knowledgeOnly') is True else set(RUNTIME)
-    adapter.NEW = frozenset(r['candidate'] for r in manifest['files'] if r['candidate'] not in runtime
+    adapter.NEW = frozenset(r['candidate'] for r in manifest['files'] if r['candidate'].startswith('artifact/')
                             or r['candidate'] == 'runtime/knowledge_catalog.py' and r['beforeSha256'] is None)
     base = adapter.load_base()
     original_group = base.approved_daily_group

@@ -36,7 +36,7 @@ class ReaderFence(unittest.TestCase):
     def setUpClass(cls):
         if os.geteuid()!=0:raise RuntimeError('publisher Linux tests must execute as root, never silently skip')
     @contextmanager
-    def fixture(self,knowledge_only=True):
+    def fixture(self,knowledge_only=True,baseline_patch=False):
         with tempfile.TemporaryDirectory(prefix='knowledge-publisher-test-') as temporary:
             root=Path(temporary)/'host';stage=Path(temporary)/'stage';root.mkdir();stage.mkdir()
             fs=root/'var/lib/fs-hermes-fc/fs';fs.mkdir(parents=True)
@@ -45,6 +45,7 @@ class ReaderFence(unittest.TestCase):
                 path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw);return path
             for name in ('admission.lock','reader-entry.lock','publication.lock'):os.chmod(put(fs/name,b''),0o600)
             old_release='knowledge-releases/fixture-old';release='fc-reporting-knowledge-20261105-aaaaaaaa'
+            if baseline_patch:release=scope.FC_V61+'-'+'a'*40
             def index(release_name,text,revision):
                 return dict(contract='fs-knowledge-index-v1',release=release_name,release_state='published',source_commit='a'*40,
                     source_root=release_name,entries=[dict(id='fc.rule',revision=revision,layer='current',status='effective',modules=['FC27'],effective_at='2026-11-05',owner='fixture',authority='git',provenance=['isolated-test'],supersedes=[],source=dict(path='rule.md',sha256=sha(text)))])
@@ -57,6 +58,12 @@ class ReaderFence(unittest.TestCase):
             prefix='/var/lib/fs-hermes-fc/fs/knowledge-releases/'+release+'/'
             payload={'artifact/index.json':new_raw,'artifact/rule.md':b'new rule','runtime/knowledge-load-policy.json':new_policy}
             targets={name:('/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json' if name.startswith('runtime/') else prefix+name[len('artifact/'):]) for name in payload}
+            baseline=root/scope.BASELINE_TARGET.lstrip('/')
+            old_baseline,new_baseline=b'old full baseline',b'new full baseline'
+            if baseline_patch:
+                put(baseline,old_baseline)
+                payload[scope.BASELINE_CANDIDATE]=new_baseline
+                targets[scope.BASELINE_CANDIDATE]=scope.BASELINE_TARGET
             if not knowledge_only:
                 payload={name:data for name,data in payload.items() if name.startswith('artifact/')}
                 targets={name:scope.PREFIX+name[len('artifact/'):] for name in payload}
@@ -78,6 +85,9 @@ class ReaderFence(unittest.TestCase):
                 rows.append(dict(candidate=name,target=targets[name],sha256=sha(data),beforeSha256=sha(target.read_bytes()) if target.exists() else None,owner='0:0',mode='0o644'))
             manifest=dict(schemaVersion=1,scope=scope.SCOPE,releaseReady=True,businessWrites=False,timersChanged=False,sourceCommit='a'*40,files=rows,unchangedRequired=guards,runtimeRequired={n:dict(ActiveState='active') for n in ('fs-business-range.service','fs-hermes-fc.service')},imageId='sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544')
             if knowledge_only:manifest.update(knowledgeOnly=True,knowledgeRelease=release)
+            if baseline_patch:
+                manifest['baselinePatch']=dict(contract=scope.BASELINE_PATCH_CONTRACT,
+                                               before_sha256=sha(old_baseline),after_sha256=sha(new_baseline))
             raw=encoded(manifest);put(stage/'approved-manifest.json',raw)
             for relative,schemas in [('/var/lib/fs-hermes-fc/fs/tasks.sqlite3',['CREATE TABLE requests(state TEXT)']),('/var/lib/fs-hermes-fc/fs/customer-tracking/tracking.db',['CREATE TABLE scan_jobs(state TEXT)','CREATE TABLE milestones(state TEXT)']),('/var/lib/fs-business-ranges/advisor/advisor.sqlite3',['CREATE TABLE jobs(state TEXT)']),('/var/lib/fs-business-ranges/fc-daily/daily.sqlite3',['CREATE TABLE jobs(state TEXT)'])]:
                 path=root/relative.lstrip('/');path.parent.mkdir(parents=True,exist_ok=True)
@@ -92,7 +102,7 @@ class ReaderFence(unittest.TestCase):
                 text='UnitFileState=disabled\nActiveState=inactive\n' if args[2].endswith('.timer') else 'ActiveState=active\n'
                 return types.SimpleNamespace(returncode=0,stdout=text)
             with patch('subprocess.run',side_effect=external):
-                yield types.SimpleNamespace(root=root,fs=fs,stage=stage,publisher=publisher,manifest=manifest,raw=raw,policy=policy,old_policy=old_policy,new_policy=new_policy,old_catalog=old_catalog,old_rule=old_rule,release=release,store=store)
+                yield types.SimpleNamespace(root=root,fs=fs,stage=stage,publisher=publisher,manifest=manifest,raw=raw,policy=policy,old_policy=old_policy,new_policy=new_policy,old_catalog=old_catalog,old_rule=old_rule,release=release,store=store,baseline=baseline,old_baseline=old_baseline,new_baseline=new_baseline)
 
     def apply(self,f):return f.publisher.apply(f.manifest,f.stage,sha(f.raw),f.raw,'nav-20261105T010101Z',f.root)
     def read_current(self,f):
@@ -154,6 +164,36 @@ class ReaderFence(unittest.TestCase):
             with retention.maintenance_reader(f.fs),patch.object(f.publisher,'atomic',side_effect=fail_once):
                 with self.assertRaisesRegex(OSError,'isolated failure'):self.apply(f)
             self.assertTrue(failed);self.assertEqual(f.policy.read_bytes(),f.old_policy);self.assertEqual(self.read_current(f),'old rule')
+            self.assertFalse((f.fs/'knowledge-releases'/f.release/'index.json').exists())
+
+    def test_fc_v61_baseline_and_policy_apply_and_restore_under_same_fence(self):
+        with self.fixture(baseline_patch=True) as f,patch.dict(sys.modules,{'cache_retention':retention}):
+            atomic=f.publisher.atomic
+            def observe(path,payload,mode):
+                if path in (f.baseline,f.policy):
+                    with self.guard()(f.fs/'admission.lock') as admitted:self.assertFalse(admitted)
+                if path==f.policy and payload==f.new_policy:
+                    self.assertEqual(f.baseline.read_bytes(),f.new_baseline)
+                return atomic(path,payload,mode)
+            with patch.object(f.publisher,'atomic',side_effect=observe):
+                result=self.apply(f)
+                self.assertEqual(result['businessWorkerTimerActions'],0)
+                self.assertEqual(f.baseline.read_bytes(),f.new_baseline)
+                self.assertEqual(self.read_current(f),'new rule')
+                backup=Path(result['backup'])
+                self.assertEqual((backup/'files'/scope.BASELINE_CANDIDATE).read_bytes(),f.old_baseline)
+                f.publisher.rollback(backup,sha(f.raw),f.root)
+            self.assertEqual(f.baseline.read_bytes(),f.old_baseline)
+            self.assertEqual(self.read_current(f),'old rule')
+            self.assertEqual(f.old_rule.read_bytes(),b'old rule')
+
+    def test_fc_v61_baseline_cas_refuses_drift_without_switching_policy(self):
+        with self.fixture(baseline_patch=True) as f:
+            f.baseline.write_bytes(b'concurrent baseline')
+            with self.assertRaisesRegex(ValueError,'target baseline drift'):
+                self.apply(f)
+            self.assertEqual(f.baseline.read_bytes(),b'concurrent baseline')
+            self.assertEqual(f.policy.read_bytes(),f.old_policy)
             self.assertFalse((f.fs/'knowledge-releases'/f.release/'index.json').exists())
 
     def test_real_policy_cas_race_is_preserved_and_old_frozen_source_survives(self):

@@ -130,9 +130,19 @@ class BaselineTests(unittest.TestCase):
             self.assertNotIn('STALE-DESKTOP-COST-RULE',text)
             self.assertNotIn('STALE-MEMORY-COST-RULE',text)
             self.assertIn('USER-PREFERENCE-KEPT',text)
-            for rule in ('business-baseline-fc-three-platform-100k-20261110', '100K已取消加赠',
-                         'Xbox不继承PS售价', '按金额加权', '原ID/CAS/UNKNOWN'):
-                self.assertIn(rule,text)
+            current = text.split('### FC27 Coins V6.1 候选价格与生效确认', 1)[1].split('\n### ', 1)[0]
+            for rule in ('低于 1000K 与 1000K 及以上', '仅采购买 100K',
+                         'D-8 至 D-2', 'Admin 优惠前商品金额', '组合利润率 18%',
+                         '25% 供经营比较', '重读 MMOEXP 主站完整表'):
+                self.assertIn(rule, current)
+            for old_rule in ('双20', 'D-9', '至少20%', '公开读回后才'):
+                self.assertNotIn(old_rule, current)
+            scalar = text.split('## FC27 旧标量协议', 1)[1].split('2026-10-29 归档', 1)[0]
+            for old_rule in ('business-baseline-fc-three-platform-100k-20261110',
+                             'D-9 至 D-2', '双20', '至少20%', '未迁移'):
+                self.assertIn(old_rule, scalar)
+            self.assertIn('按计划协议读取规则', text)
+            self.assertIn('原 ID／CAS／UNKNOWN', text)
             self.assertIn('excluded_refunded',text)
             self.assertIn('这一投影不改写原生经营总盘',text)
             self.assertIn('/admin/order.Order/index',text)
@@ -145,6 +155,8 @@ class BaselineTests(unittest.TestCase):
             self.assertNotIn('全Coins优惠结构用于各套餐条件估算',text)
             self.assertNotIn('预算公式中的 `P` 统一指 `P1`',text)
             self.assertEqual(files[-1]['path'],'runtime/business-baseline.md')
+            baseline = (SOURCE/'hermes'/'business-baseline.md').read_bytes()
+            self.assertEqual(files[-1]['sha256'], hashlib.sha256(baseline).hexdigest())
 
 
 if __name__=='__main__':unittest.main()

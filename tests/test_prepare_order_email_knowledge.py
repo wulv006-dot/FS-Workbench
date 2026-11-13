@@ -290,17 +290,33 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.git[COMMIT, path] = data
         entries = [row(identity, revision, path, data)
                    for identity, revision in zip(builder.FC_V61_OVERLAYS, revisions)]
+        if revisions == (builder.FC_V61_100K_MARKET_REVISION,) * 2:
+            entries.append(row(builder.FC_V61_PARAMETER_ID, revisions[0], path, data))
+            entries.append(row(builder.FC_V61_LEARNING_ID, revisions[0], path, data))
         self.git[COMMIT, 'knowledge/index.json'] = builder.encoded(dict(
             contract='fs-knowledge-index-v1', release=builder.FC_V61, release_state='candidate',
             source_commit=None, entries=entries))
         return path
 
     def test_fc_v61_two_band_replaces_previous_rules_and_keeps_their_artifact(self):
-        old_revision = 'fc_v6_d8_d2_amount_weighted_discount_v1'
-        new_revision = 'fc_v61_native_all_two_band_20261113'
+        self.assert_fc_revision_migration('fc_v6_d8_d2_amount_weighted_discount_v1',
+                                          'fc_v61_native_all_two_band_20261113')
+
+    def test_fc_v61_100k_market_keeps_previous_two_band_artifact(self):
+        self.assert_fc_revision_migration('fc_v61_native_all_two_band_20261113',
+                                          'fc_v61_100k_market_two_band_20261113')
+
+    def test_fc_v61_baseline_patch_preserves_original_and_updates_only_existing_binding(self):
+        self.assert_fc_revision_migration('fc_v61_native_all_two_band_20261113',
+                                          'fc_v61_100k_market_two_band_20261113', baseline_patch=True)
+
+    def assert_fc_revision_migration(self, old_revision, new_revision, baseline_patch=False):
         old_data = b'Original amount-weighted discount and ALL propagation.\n'
         new_data = b'Two native price bands and main catalogue readback.\n'
         canonical_path = self.set_fc_v61_candidate((new_revision, new_revision), new_data)
+        overlay_ids = set(builder.FC_V61_OVERLAYS)
+        if new_revision == builder.FC_V61_100K_MARKET_REVISION:
+            overlay_ids.update((builder.FC_V61_PARAMETER_ID, builder.FC_V61_LEARNING_ID))
         old_path = 'overlay/' + canonical_path
         before = list(builder.routes(self.policy))
         for number, route in enumerate(before):
@@ -308,29 +324,56 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             entries = index['entries']
             previous = next(r for r in entries if r['id'] == 'fc.pricing.v3')
             entries[entries.index(previous)] = row(previous['id'], old_revision, old_path, old_data)
+            if builder.FC_V61_LEARNING_ID in overlay_ids:
+                previous = next(r for r in entries if r['id'] == builder.FC_V61_LEARNING_ID)
+                entries[entries.index(previous)] = row(previous['id'], old_revision, old_path, old_data)
             if number == 0:
                 identity = 'fc.pricing.constraints'
                 entries.append(row(identity, old_revision, old_path, old_data))
                 route['entry_ids'].append(identity)
+                if builder.FC_V61_PARAMETER_ID in overlay_ids:
+                    identity = builder.FC_V61_PARAMETER_ID
+                    entries.append(row(identity, old_revision, old_path, old_data))
+                    route['entry_ids'].append(identity)
             self.put_snapshot(index['source_root'] + '/' + old_path, old_data)
             self.put_snapshot(route['catalog'], builder.encoded(index))
             route['sha256'] = self.info['protected'][builder.FS_RUNTIME_ROOT + route['catalog']]
         self.write_preflight()
+        if baseline_patch:
+            candidate = b'Current V6 rules; legacy scalar receipts retain their old protocol.\n'
+            self.git[COMMIT, builder.BASELINE_SOURCE] = candidate
+            proof_path = builder.BASELINE_SOURCE.replace('.md', '.provenance.json')
+            proof = json.loads(self.git[COMMIT, proof_path])
+            proof.update(before_sha256=proof['after_sha256'], after_sha256=builder.sha(candidate))
+            self.git[COMMIT, proof_path] = builder.encoded(proof)
+            del self.policy['task_routes']['routes'][0]['baseline_compatibility']
+            self.write_preflight()
+            before = copy.deepcopy(list(builder.routes(self.policy)))
 
         result = builder.prepare(ROOT, self.snapshot, self.output, COMMIT, fc_v61=True)
         self.assertEqual(result['release'], builder.FC_V61 + '-' + COMMIT)
         self.assertFalse(result['manifest']['releaseReady'])
         policy = json.loads((self.output / 'candidate/runtime/knowledge-load-policy.json').read_bytes())
+        if baseline_patch:
+            manifest = result['manifest']
+            self.assertEqual(manifest['baselinePatch']['before_sha256'], proof['before_sha256'])
+            self.assertEqual((self.output/'candidate/runtime/business-baseline.md').read_bytes(), candidate)
+            self.assertEqual((self.output/'candidate/artifact/originals/business-baseline.md').read_bytes(),
+                             (self.snapshot/'business-baseline.md').read_bytes())
+            self.assertNotIn(builder.BASELINE_TARGET, [r['path'] for r in manifest['unchangedRequired']])
         for old, new in zip(before, builder.routes(policy)):
-            self.assertEqual({k: v for k, v in old.items() if k not in ('catalog', 'sha256')},
+            expected = copy.deepcopy(old)
+            if baseline_patch and 'baseline_compatibility' in expected:
+                expected['baseline_compatibility']['sha256'] = proof['after_sha256']
+            self.assertEqual({k: v for k, v in expected.items() if k not in ('catalog', 'sha256')},
                              {k: v for k, v in new.items() if k not in ('catalog', 'sha256')})
             slot = new['catalog'].split(result['release'] + '/', 1)[1]
             artifact = self.output / 'candidate/artifact'
             index = json.loads((artifact / slot).read_bytes())
             sources = artifact / index['source_root'].split(result['release'] + '/', 1)[1]
             self.assertEqual((sources / old_path).read_bytes(), old_data)
-            selected = {r['id']: r for r in index['entries'] if r['id'] in builder.FC_V61_OVERLAYS}
-            self.assertEqual(set(selected), set(old['entry_ids']) & set(builder.FC_V61_OVERLAYS))
+            selected = {r['id']: r for r in index['entries'] if r['id'] in overlay_ids}
+            self.assertEqual(set(selected), set(old['entry_ids']) & overlay_ids)
             for identity, item in selected.items():
                 self.assertEqual(item['revision'], new_revision)
                 self.assertIn(identity + '@' + old_revision, item['supersedes'])
