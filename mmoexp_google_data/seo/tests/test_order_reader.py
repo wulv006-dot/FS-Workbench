@@ -1,12 +1,13 @@
 import datetime as dt
 import json
+import sqlite3
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from mmoexp_google_data.seo import runtime, store, snapshot
+from mmoexp_google_data.seo import daily, runtime, store, snapshot
 from mmoexp_google_data.seo.order_reader import NativeOrderFactsReader
 from mmoexp_google_data.seo.order_source import OrderSource
 from test_order_source import facts, DAY, NIGHT
@@ -14,6 +15,63 @@ import test_order_source as order_fixture
 
 
 class NativeReaderTests(unittest.TestCase):
+    def test_original_batch_collects_other_sources_before_waiting_for_shared_report_day(self):
+        from mmoexp_google_data.seo.contracts import BUSINESS_TZ, GAMES
+        from test_daily_snapshot import Source
+        timeline=[]
+        clock_value=dt.datetime.fromisoformat('2026-11-05T03:20:00+08:00')
+        day='2026-11-04'
+        target=clock_value.replace(hour=4,minute=18)
+        def readiness(when):
+            self.assertEqual(when,day)
+            return clock_value>=target
+        def wait(seconds):
+            nonlocal clock_value
+            timeline.append(('wait',seconds))
+            clock_value=target
+        class Early(Source):
+            name='admin'
+            timezone='Asia/Shanghai'
+            def pages(self, scope, when, cursor=0):
+                timeline.append(('admin',scope))
+                for page in super().pages(scope,when,cursor):
+                    yield dict(page,source_timezone=self.timezone)
+        def collect(scopes):
+            timeline.append(('orders',clock_value.astimezone(BUSINESS_TZ).strftime('%H:%M')))
+            return [facts(game,day) for game in GAMES]
+        reader=NativeOrderFactsReader(clock=lambda:clock_value,collect_many=collect,readiness=readiness,wait=wait)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(store.Store,'slices',return_value=[(day,0)]):
+            root=Path(tmp); order_source=OrderSource(reader)
+            receipt=daily.run_daily(store.Store(root),[Early(),order_source],clock=lambda:clock_value)
+            self.assertEqual(receipt['status'],'published')
+            self.assertEqual(timeline,[*(('admin',g) for g in GAMES),('wait',30),('orders','04:18')])
+            persisted=snapshot.read(root,receipt['snapshot_id'],'history','FC27')
+            self.assertEqual(persisted['rows'][-1]['metrics']['orders']['paid_orders'],1)
+            self.assertEqual(daily.run_daily(store.Store(root),[Early(),order_source],clock=lambda:clock_value)['snapshot_id'],
+                             receipt['snapshot_id'])
+
+    def test_wait_stops_at_0505_when_the_report_day_has_not_arrived(self):
+        now=dt.datetime.fromisoformat('2026-11-05T05:04:43+08:00')
+        def wait(seconds):
+            nonlocal now
+            now += dt.timedelta(seconds=seconds)
+        check=Mock(return_value=False)
+        read=NativeOrderFactsReader(clock=lambda:now,readiness=check,wait=wait)
+        read.wait_for_day('2026-11-04',lambda:True)
+        self.assertEqual(now.time(),dt.time(5,5))
+        self.assertEqual(check.call_count,2)
+
+    def test_busy_shared_probe_leaves_original_read_to_report_source_failure(self):
+        busy=sqlite3.OperationalError('private path or upstream detail')
+        read=NativeOrderFactsReader(clock=lambda:NIGHT,readiness=Mock(side_effect=busy),
+                                    collect_many=Mock(side_effect=busy),wait=Mock())
+        self.assertFalse(read.defer_day(DAY))
+        read.wait_for_day(DAY,lambda:True)
+        read.wait.assert_not_called()
+        with self.assertRaisesRegex(ValueError,'ORDER_FACTS_SHARED_DATABASE_UNAVAILABLE') as error:
+            read('FC27',DAY)
+        self.assertNotIn('private path',str(error.exception))
+
     def test_real_shared_projection_through_reader_to_nightly_snapshot(self):
         root = Path(__file__).resolve().parents[3]
         paths = [str(root/'releases/fs-dashboard/dashboard-refresh-20261025/source'),
