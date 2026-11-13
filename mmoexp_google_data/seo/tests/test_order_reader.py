@@ -21,6 +21,7 @@ class NativeReaderTests(unittest.TestCase):
         timeline=[]
         clock_value=dt.datetime.fromisoformat('2026-11-05T03:20:00+08:00')
         day='2026-11-04'
+        historical='2026-11-03'
         target=clock_value.replace(hour=4,minute=18)
         def readiness(when):
             self.assertEqual(when,day)
@@ -33,18 +34,22 @@ class NativeReaderTests(unittest.TestCase):
             name='admin'
             timezone='Asia/Shanghai'
             def pages(self, scope, when, cursor=0):
-                timeline.append(('admin',scope))
+                nonlocal clock_value
+                timeline.append(('admin',scope,when))
+                if when==historical:
+                    clock_value=clock_value.replace(hour=6,minute=20)
                 for page in super().pages(scope,when,cursor):
                     yield dict(page,source_timezone=self.timezone)
         def collect(scopes):
             timeline.append(('orders',clock_value.astimezone(BUSINESS_TZ).strftime('%H:%M')))
             return [facts(game,day) for game in GAMES]
         reader=NativeOrderFactsReader(clock=lambda:clock_value,collect_many=collect,readiness=readiness,wait=wait)
-        with tempfile.TemporaryDirectory() as tmp, patch.object(store.Store,'slices',return_value=[(day,0)]):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(store.Store,'slices',return_value=[(day,0),(historical,0)]):
             root=Path(tmp); order_source=OrderSource(reader)
-            receipt=daily.run_daily(store.Store(root),[Early(),order_source],clock=lambda:clock_value)
+            receipt=daily.run_daily(store.Store(root),[Early(),order_source],clock=lambda:clock_value,finish_margin_seconds=600)
             self.assertEqual(receipt['status'],'published')
-            self.assertEqual(timeline,[*(('admin',g) for g in GAMES),('wait',30),('orders','04:18')])
+            self.assertEqual(timeline,[*(('admin',g,day) for g in GAMES),('wait',30),
+                                       ('orders','04:18'),('admin','FC27',historical)])
             persisted=snapshot.read(root,receipt['snapshot_id'],'history','FC27')
             self.assertEqual(persisted['rows'][-1]['metrics']['orders']['paid_orders'],1)
             self.assertEqual(daily.run_daily(store.Store(root),[Early(),order_source],clock=lambda:clock_value)['snapshot_id'],

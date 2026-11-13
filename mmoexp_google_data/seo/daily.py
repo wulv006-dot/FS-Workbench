@@ -43,7 +43,12 @@ def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), ad
             and any(day==context.report_date and i==index for day,i,_,_ in tasks)
             and source.read.defer_day(context.report_date)}
         deferred = [task for task in tasks if task[0] == context.report_date and task[1] in deferred_indices]
-        immediate = [task for task in tasks if task not in deferred]
+        if deferred:
+            immediate = [task for task in tasks
+                         if task not in deferred and task[0] >= context.report_date]
+            backlog = [task for task in tasks if task[0] < context.report_date]
+        else:
+            immediate, backlog = tasks, []
         def may_continue():
             now = clock()
             local = now.astimezone(BUSINESS_TZ)
@@ -59,7 +64,7 @@ def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), ad
                     sources[index].read.wait_for_day(day,may_continue)
                     checked.add(index)
                 yield task
-        for day, index, scope, cursor in chain(immediate,deferred_orders()):
+        for day, index, scope, cursor in chain(immediate,deferred_orders(),backlog):
             source = sources[index]
             if source.name in blocked:
                 continue

@@ -28,8 +28,8 @@ const server=http.createServer((req,res)=>{
       res.end(JSON.stringify({snapshot_id,total:3,page:1,pages:1,orders:[{orderNo:'SYNTHETIC',channel:'Referral（引荐）',source:'YouTube',code:'synthetic-code',coupons:['Launch'],salesUsd:15}]}));return;
     }
     const missing=state==='shared-missing',empty=state==='empty'||missing,zero=state==='zero',channel=url.searchParams.get('channel'),selected=channel==='unknown';
-    const referral=channel==='Referral', filtered=url.searchParams.has('coupon_template');
-    const totals=summary(empty?0:selected||filtered?1:referral?3:4,empty||referral||filtered?0:1);
+    const referral=channel==='Referral', ppc=channel==='PPC', filtered=url.searchParams.has('coupon_template');
+    const totals=summary(empty?0:selected||filtered||ppc?1:referral?3:4,empty||referral||filtered||ppc?0:1);
     if(zero)Object.assign(totals,{missing_cost_orders:0,cost_covered_orders:2,procurement_gross_cny:'0',gross_covered_orders:2,admin_paid_usd:'0'});
     const scope=Object.fromEntries(['start','end','site_id','gid','channel','status','country','payment','project','coupon_template']
       .filter(k=>url.searchParams.has(k)).map(k=>[k,url.searchParams.get(k)]));
@@ -37,7 +37,7 @@ const server=http.createServer((req,res)=>{
       coupon:{known_orders:1,unknown_orders:0},coupon_templates:[{label:'Launch',orders:1}],promotion_projects:[],order_sources:[]};
     const sourceRow=(label,orders)=>({label,...summary(orders),associations,cost_records:0,order_share:orders/totals.orders});
     const breakdown={dimension:channel==='all'?'channel':'source_detail',denominator_orders:totals.orders,
-      rows:empty?[]:selected?[sourceRow('未提供',1)]:referral?(filtered?[sourceRow('YouTube',1)]:[sourceRow('YouTube',2),sourceRow('未提供',1)]):
+      rows:empty?[]:selected?[sourceRow('未提供',1)]:ppc?[sourceRow('google-FC27-PMAX-Coins-US',1)]:referral?(filtered?[sourceRow('YouTube',1)]:[sourceRow('YouTube',2),sourceRow('未提供',1)]):
         [sourceRow('Referral（引荐）',3),sourceRow('未知',1)]};
     const snapshot=state==='revision'?'revision-2':'revision-1';
     res.end(JSON.stringify({version:'order-facts-api-20261113-v1',status:missing?'unavailable':'available',admin_complete:!missing,
@@ -103,6 +103,21 @@ const server=http.createServer((req,res)=>{
     assert.equal(requests.at(-1).refresh,'1');
     assert.equal(requests.at(-1).site_id,'266');
     assert.equal(await page.locator('[name=gid] option[value="456"]').textContent(),'Diablo 4');
+    await page.setViewportSize({width:390,height:844});
+    await page.locator('[name=channel]').selectOption('PPC');
+    await page.locator('#source-attribution-title').filter({hasText:'PPC（谷歌广告）'}).waitFor();
+    const narrowLabel = await chart.locator('.distribution-label').evaluate(node=>{
+      const label=node.getBoundingClientRect(),bar=node.closest('g').querySelector('.distribution-bar').getBoundingClientRect();
+      return {gap:bar.left-label.right,ellipsis:getComputedStyle(node).textOverflow,
+        text:node.textContent,overflow:node.scrollWidth>node.clientWidth};
+    });
+    assert.ok(narrowLabel.gap>=1,JSON.stringify(narrowLabel));
+    assert.equal(narrowLabel.ellipsis,'ellipsis');
+    assert.equal(narrowLabel.overflow,true);
+    assert.equal(narrowLabel.text,'google-FC27-PMAX-Coins-US');
+    assert.match(await page.locator('#source-attribution tbody').innerText(),/google-FC27-PMAX-Coins-US/);
+    if(process.env.FS_CHANNEL_CHART_SCREENSHOT) await page.locator('.attribution-panel').screenshot({path:process.env.FS_CHANNEL_CHART_SCREENSHOT+'-narrow.png'});
+    await page.setViewportSize({width:1280,height:900});
     await page.locator('[name=channel]').selectOption('Referral');
     await page.locator('#source-attribution-title').filter({hasText:'Referral（引荐）'}).waitFor();
     assert.match(await page.locator('#source-attribution-note').innerText(),/所选渠道共 3 单/);

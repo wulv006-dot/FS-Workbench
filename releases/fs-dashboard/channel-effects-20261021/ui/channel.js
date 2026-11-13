@@ -250,9 +250,10 @@ function attributionBars(rows, title) {
   rows.forEach((row,index)=>{
     const y = index*37+12;
     const group = svgNode('g',{'aria-hidden':'true'});
-    const label = row.label.length>22 ? row.label.slice(0,20)+'…' : row.label;
+    const label = svgNode('foreignObject',{x:0,y,width:'34%',height:17});
+    label.append(text('div',row.label,'distribution-label'));
     group.append(svgNode('title',{},row.label),
-      svgNode('text',{x:0,y:y+13,class:'distribution-label'},label),
+      label,
       svgNode('rect',{x:'35%',y,width:`${(row.order_share??0)*48}%`,height:17,rx:3,class:'distribution-bar'}),
       svgNode('text',{x:'100%',y:y+13,'text-anchor':'end',class:'distribution-value'},pct(row.order_share)));
     chart.append(group);
