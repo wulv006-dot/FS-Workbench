@@ -332,6 +332,72 @@ class SharedFacts(unittest.TestCase):
         self.assertEqual(weekly.stored_publication(self.store), first)
         self.assertEqual(self.read()['coverage']['publication_id'], applied['publication_id'])
 
+    def test_scoped_fc27_archive_seed_preserves_historical_other_scopes_and_old_pin(self):
+        first = publication(D3)
+        weekly.write_publication(self.store, first, None)
+        coin, item = order('coin', D1), dict(order('item', D1), id=2)
+        other = order('other-game', D1, gid='3000')
+        legacy = [dict(row, tracking={'coupons': []}) for row in (coin, item, other)]
+        meta = dict(hashes=['b' * 64], status='partial', revision_conflicts=[],
+                    captured_at=first['published_at'], native_rows=3, es_lines=0, archive_site='266')
+        old_day = facts._stage(self.store, D1, 'old', facts._native(legacy, D1,
+                               {('266', row['order_no']): row['tracking'] for row in legacy}), [], meta)
+        newest_day = self.stage(D2, archive(line('new', D2)), order('new', D2))
+        historical = dict(first, publication_id='se_historical')
+        with self.store.db() as db:
+            facts.bind_publication(db, historical, None, {D1: old_day, D2: newest_day})
+            db.execute('CREATE TABLE orders(site,gid,paid_at,body)')
+            db.execute('CREATE TABLE jobs(site,start,end,state,body)')
+            db.execute('INSERT INTO jobs VALUES(?,?,?,?,?)',
+                       ('266', stamp(D1).isoformat(), stamp(D2).isoformat(), 'complete',
+                        json.dumps(dict(source_rows=3, status_counts={'0':0,'1':3,'2':0},
+                                        correction_coverage='complete_reenumeration_of_payment_window_only'))))
+            db.executemany('INSERT INTO orders VALUES(?,?,?,?)', [
+                ('266', row['gid'], stamp(row['paytime']).isoformat(), json.dumps(row))
+                for row in (coin, item, other)])
+        doc = self.store.root / ('a' * 64 + '.json')
+        doc.write_text(json.dumps(dict(query=dict(profile='ALL',status='all',start=D1,end=D1),
+            captured_at=D2+'T04:00:00+08:00', file_sha256=['a'*64],
+            file_set=dict(failed_files=0,declared_files=1))), encoding='utf-8')
+        pin = dict(name=doc.name,sha256=sha256(doc.read_bytes()).hexdigest())
+        workbooks = Mock(return_value=archive(
+            dict(line('coin',D1,'货币(Gold)'), 折扣金额='0.12'),
+            line('item',D1,'Items'),line('other-game',D1,'Items')))
+        opts = dict(now=D3+'T15:00:00+08:00', archive_root=self.store.root, archive=workbooks)
+        before = self.store.path.read_bytes()
+        with patch('user_customer_types.manifest_inventory',return_value=[pin]):
+            plan = facts.plan_fc27_archive_seed(self.store,D1,'se_historical',**opts)
+        self.assertEqual(self.store.path.read_bytes(),before)
+        self.assertEqual(len(plan['members']),2)
+        self.assertEqual(len(plan['coins']),1)
+        proof = dict(platform='PS',purchase_k='100',bonus_k='5',delivered_k='105',
+                     single_line_unit_purchase=True,region_id=0,regular_usd='6',retained_percent='98',points='0',
+                     source_sha256='c'*64,observed_at=opts['now'])
+        confirmed = [dict(coin,fc27_coins=proof),item]
+        with self.assertRaisesRegex(ValueError,'shared_es_fc27_archive_admin_identity'):
+            facts.apply_fc27_archive_seed(self.store,plan,confirmed+[dict(coin,site_id='300')],
+                                          response_revision='d'*64,observed_at=opts['now'])
+        self.assertEqual(self.store.path.read_bytes(),before)
+        result = facts.apply_fc27_archive_seed(self.store,plan,confirmed,
+                                             response_revision='d'*64,observed_at=opts['now'])
+        self.assertEqual(result['status'],'available')
+        again = facts.apply_fc27_archive_seed(self.store,plan,confirmed,
+                                            response_revision='d'*64,observed_at=opts['now'])
+        self.assertEqual(again['status'],'reused')
+        current = self.read(scope(D1,D2))
+        self.assertTrue(current['identity_catalog']['fc27_paid_scope_complete'])
+        self.assertFalse(current['identity_catalog']['complete'])
+        self.assertEqual(current['identity_catalog']['verified_days'],[D2])
+        self.assertEqual(len(current['dataset']['rows']),3)
+        self.assertEqual(next(row for row in current['rows'] if row['order_no']=='coin')['fc27_coins'],proof)
+        self.assertEqual(self.read(scope(gid='3000'))['rows'][0]['order_no'],'other-game')
+        self.assertEqual(self.read(scope(gid='3000'))['dataset']['rows'],[])
+        self.assertEqual(self.read(scope(site='all'))['coverage']['missing_days'],[D1])
+        original = self.read(ident='se_historical')
+        self.assertFalse(original['identity_catalog']['fc27_paid_scope_complete'])
+        self.assertEqual(original['dataset']['rows'],[])
+        self.assertEqual(weekly.stored_publication(self.store),first)
+
     def test_daily_publication_survives_independent_shared_mapping_failure(self):
         pub = publication(D2)
         weekly.write_publication(self.store, pub, None, shared_window=(D1, D2, None))
