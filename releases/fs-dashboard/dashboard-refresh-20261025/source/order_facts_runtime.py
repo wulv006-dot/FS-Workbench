@@ -83,7 +83,15 @@ def existing_costs(path=COSTS):
         shipment_window_complete=value.get('complete') is True, order_cost_complete=False)
 
 
-def collect(scope, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, dataset_reader=None):
+def collect(scope, **kwargs):
+    return collect_many([scope], **kwargs)[0]
+
+
+def collect_many(scopes, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, dataset_reader=None):
+    """One source revision for same-period consumers; no persistent private cache."""
+    if not scopes or any((s['start'], s['end']) != (scopes[0]['start'], scopes[0]['end']) for s in scopes):
+        raise ValueError('order_facts_batch_period')
+    scope = scopes[0]
     if request is None:
         from summary_bridge import dc_request
         request = dc_request
@@ -92,9 +100,6 @@ def collect(scope, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, dataset
         dataset_reader = archived_dataset
     rows = admin_orders(scope, request)
     revision = hashlib.sha256(json.dumps(rows, sort_keys=True,ensure_ascii=False).encode()).hexdigest()
-    selected = [r for r in rows if str(r.get('pay_status')) in ('1','2')
-        and (scope['site_id']=='all' or str(r['site_id'])==scope['site_id'])
-        and (scope['gid']=='all' or str(r.get('gid'))==scope['gid'])]
     pin = publication(db)
     dataset, attribution_status = None, 'publication_unavailable'
     if pin is not None:
@@ -105,8 +110,6 @@ def collect(scope, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, dataset
             attribution_status = 'published_pins'
         else:attribution_status = 'publication_does_not_cover_requested_end'
     deliveries, cost_proof = existing_costs(costs)
-    order_keys = {((r.get('site') or {}).get('full_title'),str(r['order_no'])) for r in selected}
-    deliveries = [r for r in deliveries if (r.get('source'),str(r.get('sn') or '')) in order_keys]
     coverage = dict(admin_complete=True,source_revision=revision,
         admin_date_basis='paytime',admin_snapshot=False,admin_source_rows=len(rows),
         admin_payment_membership='pay_status_1_or_2',cost=cost_proof,
@@ -114,5 +117,13 @@ def collect(scope, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, dataset
         captured_at=datetime.now(timezone.utc).isoformat())
     catalog = dict(rows=rows,complete=True,revision=revision,
         scope=dict(site='all',game='all',pay_status='1',start=scope['start'],end=scope['end']))
-    return project_order_facts(selected,dataset,deliveries,scope=scope,source_coverage=coverage,
-                               identity_catalog=catalog)
+    result = []
+    for scope in scopes:
+        selected = [r for r in rows if str(r.get('pay_status')) in ('1','2')
+            and (scope['site_id']=='all' or str(r['site_id'])==scope['site_id'])
+            and (scope['gid']=='all' or str(r.get('gid'))==scope['gid'])]
+        order_keys = {((r.get('site') or {}).get('full_title'),str(r['order_no'])) for r in selected}
+        selected_deliveries = [r for r in deliveries if (r.get('source'),str(r.get('sn') or '')) in order_keys]
+        result.append(project_order_facts(selected,dataset,selected_deliveries,scope=scope,
+            source_coverage=coverage,identity_catalog=catalog))
+    return result

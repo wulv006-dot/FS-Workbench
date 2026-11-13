@@ -12,7 +12,7 @@ from unittest.mock import Mock
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'source'),str(ROOT.parent/'cache-archive-retention-20261025/source')]
-from order_facts_runtime import admin_orders, collect, publication, existing_costs
+from order_facts_runtime import admin_orders, collect, collect_many, publication, existing_costs
 
 SCOPE=dict(start='2026-11-10',end='2026-11-10',site_id='266',gid='1327')
 def row(i=2,site=266,**kw):
@@ -23,6 +23,24 @@ def response(rows,total=None):
     return 200,json.dumps({'code':1,'data':{'list':rows,'total':len(rows) if total is None else total}}).encode()
 
 class Runtime(unittest.TestCase):
+    def test_shared_period_reads_once_and_preserves_distinct_game_facts(self):
+        d4 = row(1);d4['gid'] = 456
+        request = Mock(return_value=response([row(), d4]))
+        with tempfile.TemporaryDirectory() as root:
+            values = collect_many([SCOPE, dict(SCOPE,gid='456')], request=request,
+                db=Path(root)/'absent.db', costs=Path(root)/'absent.json', dataset_reader=Mock())
+        request.assert_called_once()
+        self.assertEqual([v['totals']['orders'] for v in values], [1,1])
+        self.assertEqual([v['orders'][0]['gid'] for v in values], ['1327','456'])
+        self.assertEqual(values[0]['source_coverage']['source_revision'],values[1]['source_coverage']['source_revision'])
+        self.assertEqual(values[0]['coverage']['unlinked_cost_records'],0)
+
+    def test_batch_rejects_mixed_dates_before_read(self):
+        request = Mock()
+        with self.assertRaisesRegex(ValueError,'batch_period'):
+            collect_many([SCOPE,dict(SCOPE,end='2026-11-11')],request=request)
+        request.assert_not_called()
+
     def test_all_site_pagination_keeps_identity_catalog(self):
         request=Mock(side_effect=[response([row()],2),response([row(1,320)],2)])
         result=admin_orders(SCOPE,request)
