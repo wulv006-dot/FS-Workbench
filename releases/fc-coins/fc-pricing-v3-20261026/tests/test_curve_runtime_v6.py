@@ -817,6 +817,76 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(curve_key(result['target']), curve_key(all_target))
         self.assertEqual(self.transport.posts, [])
 
+    def test_live_collection_freezes_viable_intermediate_for_automatic_selection(self):
+        self.assert_live_collection_selects_intermediate(primary_safe_cost='81', proof_builds=12)
+
+    def test_live_collection_checks_all_before_accepting_proven_primary_outer_trial(self):
+        self.assert_live_collection_selects_intermediate(primary_safe_cost='79.5', proof_builds=13)
+
+    def assert_live_collection_selects_intermediate(self, *, primary_safe_cost, proof_builds):
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.price_curve import (EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, IDENTITY_FIELDS,
+                                               TWO_BAND_PRICE_EDIT, curve_key, read_curve)
+        from test_pricing_proof_v6 import fixture as proof_fixture
+        from test_curve_writer_v6 import goods
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        all_id, primary_id, _ = writer.PRODUCTS[PLATFORM]
+        rows = {0: goods(all_id, 0), 266: goods(primary_id, 266)}
+        primary = rows[266]
+        editor = dict(price_edit_policy=TWO_BAND_PRICE_EDIT, editor_asset_sha256=EDITOR_ASSET_SHA256,
+                      editor_handler_sha256=EDITOR_HANDLER_SHA256, source='Admin Goods edit read only',
+                      verified_domain='native stored tiers only')
+        adopted = read_curve(primary, {key: primary[key] for key in IDENTITY_FIELDS}, editor)
+        self.db.start_curve_episode(PLATFORM, 'test', 'A', initial_curve=adopted, readback_ref='fixture')
+        plan = dict(self.db.get('pricing_plans', 'plan'), mode='revenue_sprint')
+        self.db.put('pricing_plans', 'plan', plan)
+        run_id = '00000000-0000-4000-8000-000000000075'
+        (runtime.ROOT / 'jobs' / (run_id + '.json')).write_text(json.dumps(
+            {'request': {'v3_plan_id': 'plan', 'v3_operation_id': OPERATION}}))
+        evidence = dict(run_id=run_id, checked_at=now.isoformat(), competitor_policy=POLICY)
+        self.capability['tier_price_factors'] = True
+        route = {'propagation_revision': self.capability['source_revisions']['propagation']}
+        performance = {'large': {'current': {'paid_orders': 8}}}
+
+        def freeze(curve, *args, **kwargs):
+            _, baskets, evidence, domain = proof_fixture()
+            key = curve_key(curve)
+            total = next(tier['native_price_usd'] for tier in curve['tiers'] if tier['purchase_k'] == '1000')
+            domain.update(curve_key=key, source_revisions=self.capability['source_revisions'],
+                          version=self.capability['domain_version'])
+            evidence['curve_key'] = key
+            safe_cost = primary_safe_cost if curve['identity']['site_id'] == '266' else '81'
+            evidence['paths'][0].update(curve_key=key, regular_usd=total, net_receipt_usd=total,
+                                         expected_cost_usd='79', safe_cost_usd=safe_cost, stress_cost_usd='81')
+            return dict(baskets=baskets, evidence=evidence, domain=domain)
+
+        with patch.object(runtime, 'clock', return_value=now), \
+                patch.object(writer, 'read_row', side_effect=lambda _, p, site, observer: rows[site]) as read, \
+                patch.object(writer, 'read_curve_routes', return_value={PLATFORM: route}) as routes, \
+                patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities), \
+                patch.object(runtime, '_shared_curve_inputs', return_value=(None, None)) as shared, \
+                patch('fc_pricing_v3.business_source.collect_recent_curve_population', return_value=None) as recent, \
+                patch('fc_shared_admin.SessionManager'), \
+                patch.object(runtime, '_same_hour_curve_performance', return_value=performance), \
+                patch.object(runtime, '_average_discount_proof_input', side_effect=freeze) as inputs:
+            collected = runtime.collect_curve_catalogues(evidence, [PLATFORM])
+            runtime.store_curve_proof_inputs(self.db, evidence, collected)
+            frozen = runtime._curve_proof_inputs(self.db, evidence)[PLATFORM]
+            result = runtime._prove_curve_inputs(PLATFORM, frozen, self.db, now, evidence=evidence, plan=plan)
+        self.assertEqual(result['status'], 'READY', result)
+        self.assertEqual(result['selection']['price_step'], 'bounded_intermediate')
+        self.assertEqual([tier['native_price_usd'] for tier in result['target']['tiers']], ['10', '99'])
+        self.assertEqual(result['proof']['status'], 'PROVEN')
+        self.assertEqual(read.call_count, 2)
+        routes.assert_called_once()
+        shared.assert_called_once()
+        recent.assert_called_once()
+        self.assertEqual(len(frozen['primary_inputs']), 6)
+        self.assertEqual(inputs.call_count, proof_builds)
+        self.assertEqual(self.transport.posts, [])
+
     def test_native_catalogue_collection_produces_real_tiers_without_fabricating_checkout(self):
         from fc_pricing_v3.price_curve import curve_key, read_curve
         from test_curve_strategy_v6 import fixture
