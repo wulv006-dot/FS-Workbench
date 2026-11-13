@@ -1,0 +1,58 @@
+{
+  "observed_at": "2026-11-13T02:19:00.773665+00:00",
+  "kind": "public_admin_goods_editor_static_evidence",
+  "files": [
+    {
+      "asset": "index-4a17c0fa.js",
+      "url": "https://admin.p2pah.cn/assets/index-4a17c0fa.js",
+      "bytes": 73652,
+      "sha256": "3e110c0b12e4525a1a12270dadb8a22bdb43f53b58f99a6bad1291995eac719d"
+    },
+    {
+      "asset": "router-1ba2bc4c.js",
+      "url": "https://admin.p2pah.cn/assets/router-1ba2bc4c.js",
+      "bytes": 143530,
+      "sha256": "76e55c4825f588b73b9ae11c180b1c121d84d30469e83f68242cc48933fef822"
+    },
+    {
+      "asset": "index-bf1c17ae.js",
+      "url": "https://admin.p2pah.cn/assets/index-bf1c17ae.js",
+      "bytes": 14883,
+      "sha256": "945c1c294d7fd8730ee8e97789606d10d3bda2d27b9b6c186076ff9bcf176501"
+    },
+    {
+      "asset": "popupForm-f688c89c.js",
+      "url": "https://admin.p2pah.cn/assets/popupForm-f688c89c.js",
+      "bytes": 55525,
+      "sha256": "859f07a7dadc48054b740ee09b66c494d11bcb0fef1faf5ecd0a9c6d0b98dfe7"
+    },
+    {
+      "asset": "index-0b960c58.js",
+      "url": "https://admin.p2pah.cn/assets/index-0b960c58.js",
+      "bytes": 2276103,
+      "sha256": "6b0a2c5ba35a94e0f2d2359f409d97dcf25d48e1a67db94a18b257cc0c1e57c6"
+    }
+  ],
+  "handler_excerpt": "const _e=r=>{const l=Number(r);if(!Number.isFinite(l))return 100;const m=Number(l.toFixed(2));return m>100&&m<=100.05?100:m},oe=(r,l,m)=>Number((r*l*(m/100)).toFixed(2)),W=r=>{for(let l=0;l<o.form.items.more.price.length;l++)o.form.items.more.price[l]=oe(r,o.form.items.more.gold[l],o.form.items.more.discount[l])};function je(){W(o.form.items.unit_price)}function ge(){var r=Q.value/ee.value;o.form.items.unit_price=Number(r.toFixed(8)),W(o.form.items.unit_price)}function We(){o.form.items.more.price.push(0),o.form.items.more.hot.push(!1),o.form.items.more.gold.push(0),o.form.items.more.give.push(0),o.form.items.more.delivery_time.push(\"\"),o.form.items.more.discount.length==0?o.form.items.more.discount.push(100):o.form.items.more.discount.push(o.form.items.more.discount[o.form.items.more.discount.length-1])}function qe(r){o.form.items.more.price[r]=oe(o.form.items.unit_price,o.form.items.more.gold[r],o.form.items.more.discount[r])}function Je(r){o.form.items.more.discount[r]=_e(o.form.items.more.discount[r]);for(let l=r+1;l<o.form.items.more.discount.length;l++)o.form.items.more.discount[l]=o.form.items.more.discount[r];W(o.form.items.unit_price)}function Ke(r){const l=o.form.items.unit_price,m=o.form.items.more.gold[r],n=l*m;if(!n)return;const b=o.form.items.more.price[r],h=oe(l,m,o.form.items.more.discount[r]);if(!(Math.abs(b-h)<.005)){o.form.items.more.discount[r]=_e(b/n*100);for(let y=r+1;y<o.form.items.more.discount.length;y++)o.form.items.more.discount[y]=o.form.items.more.discount[r];W(l)}}",
+  "handler_excerpt_sha256": "c9341a511d39a79736e6d7e7147654c8c24202b928954e11b1a13ed7a612b451",
+  "bindings": {
+    "unit_price": "onChange:je",
+    "gold": "onBlur:i=>qe(c)",
+    "discount": "onChange:i=>Je(c)",
+    "price": "onChange:i=>Ke(c)"
+  },
+  "rea": {
+    "parent_evidence_id": "ev_245bbfe47ccdef86b6c27233b79275dda730227ee8c1a72611c4b6dbb45327ff",
+    "summary_evidence_id": "ev_e790a4d428a380db49a397716af1adf3cef7ee6dc9435e14c6521fd4641955b0",
+    "parsed_files": 2,
+    "parse_failures": 0,
+    "semantic_status": "unknown",
+    "semantic_unknowns": 3261
+  },
+  "limitations": [
+    "Static publicly shipped editor only; no bundle execution, login, save or price mutation.",
+    "Initial shared-bundle analysis exhausted heap; focused two-file parse succeeded, semantic graph remains incomplete.",
+    "Backend save, ALL/site propagation, custom-quantity checkout and Order projection remain unverified.",
+    "Synthetic handler probes do not validate runtime/backend equivalence."
+  ]
+}
