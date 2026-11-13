@@ -3,6 +3,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import sys
 import unittest
 from unittest.mock import patch
@@ -156,6 +157,32 @@ class CheckoutEvidenceTest(unittest.TestCase):
             self.assertEqual(collect_anonymous_observations(
                 evidence, {'PS':self.current}, {}, as_of=NOW, live=True), {})
             live.assert_called_once()
+
+    def test_ssl_missing_uses_bounded_installed_runtime_for_live_cart_only(self):
+        observed = self.build()
+        evidence = dict(run_id=RUN, checked_at=observed['captured_at'])
+        as_of = native.instant(observed['captured_at'])
+        curves, quantities = {'PS':self.current}, {'PS':('100',)}
+        with patch.dict(sys.modules, ssl=None), patch.object(native, '_collect_live') as direct, \
+                patch.object(native.subprocess, 'run', return_value=SimpleNamespace(
+                    returncode=0, stdout=json.dumps({'PS':observed}))) as child, \
+                patch.object(native, 'datetime') as clock:
+            clock.now.return_value = as_of
+            found = collect_anonymous_observations(evidence, curves, quantities, as_of=as_of, live=True)
+        direct.assert_not_called()
+        child.assert_called_once()
+        self.assertEqual(child.call_args.args[0], ['/opt/python39/bin/python3', '-B', '-m', native.TLS_MODULE])
+        self.assertEqual(child.call_args.kwargs['timeout'], 120)
+        self.assertEqual(json.loads(child.call_args.kwargs['input']), dict(run_id=RUN, primary_curves=curves,
+                                                                         requested_quantities={'PS':['100']}))
+        self.assertEqual(found['PS']['lines'], [line for line in observed['lines'] if line['purchase_k']=='100'])
+
+        with patch.dict(sys.modules, ssl=None), patch.object(native.subprocess, 'run',
+                side_effect=native.subprocess.TimeoutExpired('isolated native cart', 120)) as child:
+            failed = collect_anonymous_observations(evidence, curves, quantities, as_of=as_of, live=True)
+        child.assert_called_once()
+        self.assertEqual(failed['PS']['coverage_gaps'], ['native_guest_cart_tls_runtime_unavailable'])
+        self.assertEqual(failed['PS']['lines'], [])
 
     def test_candidate_and_all_projection_bind_new_amount_without_reusing_observed_checkout(self):
         observed = self.build()
