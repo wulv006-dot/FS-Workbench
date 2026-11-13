@@ -100,6 +100,10 @@ def validate_curve_send(root, bundle, platform):
                 or (plan.get('plan_id'), plan.get('revision'), plan.get('generation'))
                 != (plan_id, revision, generation)):
             raise ValueError('pricing_curve_plan_revision_changed')
+        if (bundle.get('activation_revision') is not None
+                and (plan.get('write_protocol') != CURVE_WRITE_PROTOCOL
+                     or plan.get('activation_revision') != bundle['activation_revision'])):
+            raise ValueError('pricing_curve_plan_revision_changed')
         now = datetime.now(timezone.utc)
         if (plan.get('state') != 'ACTIVE' or now >= instant(bundle['valid_until'])
                 or plan.get('ends_at') and now >= instant(plan['ends_at'])):

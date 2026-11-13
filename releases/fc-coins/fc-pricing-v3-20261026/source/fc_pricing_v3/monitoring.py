@@ -50,11 +50,36 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
     from .financial import number,instant,required_history_ratio,fingerprint
     from .selective_sources import input_ratio as envelope_ratio
     from .engine import current_market_quotes
+    from .dispatch import CURVE_WRITE_PROTOCOL
     if not plans:return dict(status='not_required_without_active_plan',plans=[],issues=[])
     checks=[];issues=[]
     for plan in plans:
+        if (plan or {}).get('write_protocol') == CURVE_WRITE_PROTOCOL:
+            scoped = [row for row in snapshots if row.get('write_protocol') == CURVE_WRITE_PROTOCOL
+                      and row.get('plan_id') == plan['plan_id'] and row.get('plan_revision') == plan['revision']]
+            latest = max(scoped, key=lambda row: row['created_at'], default={})
+            evidence = latest.get('evidence') or {}
+            failures = []
+            if not latest:
+                failures.append('snapshot_missing')
+            else:
+                try:
+                    if not -5 <= (now-instant(evidence['checked_at'])).total_seconds() <= interval_minutes*60+900:
+                        failures.append('source_stale_or_clock_invalid')
+                except (KeyError, TypeError, ValueError):
+                    failures.append('source_fields_unverified')
+            result = latest.get('result') or {}
+            checks.append(dict(plan_id=plan['plan_id'], snapshot_id=latest.get('snapshot_id'), failures=failures,
+                               curve_proof_status=result.get('status'), curve_platforms=result.get('rows', []),
+                               competitive_sources=evidence.get('source_coverage', {})))
+            issues.extend(dict(level='critical', code='coin_v3_'+failure+':'+plan['plan_id']) for failure in failures)
+            issues.extend(dict(level='critical', code='coin_v3_curve_'+row['status'].lower()+':'+row['platform'])
+                          for row in result.get('rows', []) if row['status'] in
+                          ('PREFERRED_HARD_CONSTRAINT_FAILED', 'HARD_CONSTRAINT_FAILED', 'NO_FEASIBLE_CURVE'))
+            continue
         relevant=[row for row in snapshots if row.get('origin')=='live_collector' and row.get('mode')=='production' and
-                  not row.get('authorization_purpose') and (plan is None or row.get('result',{}).get('decision_receipt',{}).get('plan_id')==plan['plan_id'])]
+                  row.get('write_protocol') != CURVE_WRITE_PROTOCOL and not row.get('authorization_purpose')
+                  and (plan is None or row.get('result',{}).get('decision_receipt',{}).get('plan_id')==plan['plan_id'])]
         snapshot=max(relevant,key=lambda row:row.get('created_at',''),default=None)
         scope=(plan or {}).get('plan_id','current_collection')
         failures=[];competitive_sources={}

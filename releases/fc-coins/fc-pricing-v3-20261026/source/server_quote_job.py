@@ -191,8 +191,10 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     snapshot = json.loads(source.read_text(encoding="utf-8"))
     if snapshot.get("run_id") != run_id or snapshot.get("status") != "ready_for_quote":
         raise ValueError("snapshot_incomplete")
-    newest = max((p for p in (ROOT / "runs").glob("*.json")), key=lambda p: p.stat().st_mtime)
-    if newest != source:
+    from fc_pricing_v3.competitor_offers import POLICY as CURVE_COMPETITOR_POLICY
+    from fc_pricing_v3.runtime import latest_collection
+    curve_source = (snapshot.get('competitor_policy') or (snapshot.get('source_plan') or {}).get('competitor_policy')) == CURVE_COMPETITOR_POLICY
+    if latest_collection(ROOT, curve=curve_source) != source:
         raise ValueError("newer_run_exists")
     now = datetime.now(timezone.utc)
     if not age_ok(snapshot["created_at"], now):
@@ -215,7 +217,10 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     selection=collection_scope(ledger(),run_id)
     selection['scope']=dict(selection['scope'],catalog_only=True)
     planned=source_plan(selection['active_mode'],selection['scope'])
-    for offer in snapshot["competitors"]:
+    curve_run = planned.get('competitor_policy') == CURVE_COMPETITOR_POLICY
+    if curve_run != curve_source:
+        raise ValueError('pricing_curve_collection_scope_changed')
+    for offer in (() if curve_run else snapshot["competitors"]):
         if offer.get("source") not in planned["required_markets"]:continue
         platform, site = offer.get("platform"), offer.get("source")
         if platform not in PLATFORMS or site not in SITES or site in offers[platform]:
@@ -283,15 +288,23 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     if 'normalized_offers' in coverage:
         evidence['competitor_offers']=coverage.pop('normalized_offers')
     evidence['source_coverage']=coverage
+    if curve_run:
+        from fc_pricing_v3.runtime import collect_curve_catalogues, store_curve_proof_inputs
+        inputs = evidence.pop('curve_proof_inputs', None)
+        if inputs is None:
+            inputs = collect_curve_catalogues(evidence, planned['platforms'])
+        if inputs:
+            store_curve_proof_inputs(ledger(), evidence, inputs)
     result = calculate(evidence, edits)
-    if [row.get("platform") for row in result["rows"]] != list(PLATFORMS):
+    if not curve_run and [row.get("platform") for row in result["rows"]] != list(PLATFORMS):
         raise ValueError("quote_platform_invalid")
-    if any(row.get("proposal") is None or row.get("missing") for row in result["rows"]):
+    if not curve_run and any(row.get("proposal") is None or row.get("missing") for row in result["rows"]):
         raise ValueError("quote_not_ready")
     review = any(row.get("margin_below_minimum") or row.get("auto_blocked_reason")
                  for row in result["rows"])
     proposal = {"run_id": run_id, "created_at": now.isoformat(),
-                "status": "margin_review_required" if review else "ready_for_preview",
+                "status": (result['status'].lower() if curve_run and result['status'] != 'READY'
+                           else "margin_review_required" if review else "ready_for_preview"),
                 "automation_policy_revision": policy["revision"],
                 "snapshot_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                 "quote_engine_sha256": hashlib.sha256(ENGINE_FILE.read_bytes()).hexdigest(),

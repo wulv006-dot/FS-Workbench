@@ -436,17 +436,47 @@ class CurveWriter(unittest.TestCase):
         self.assertEqual(self.item['propagation']['site_outcomes']['575'], 'protected_fields_changed')
         self.assertEqual(len(self.transport.posts), 1)
 
-    def test_current_transports_do_not_infer_backend_proof(self):
+    def test_same_run_native_directory_opens_route_and_completion_still_needs_original_readback(self):
         native = writer.curve_writer_capabilities()[PLATFORM]
         self.assertEqual(native['order_projection']['path'], '/game/admin_game_price/itemEdit?ids=21942')
-        self.assertEqual(native['order_projection_status'], 'catalogue_side_effects_unverified')
-        bundle, capability, *_ = setup_bundle()
+        self.assertEqual(native['catalogue_status'], 'native_route_directory_unavailable')
+        self.assertEqual(native['order_projection_status'], 'native_route_ready')
+        bundle, _, *_ = setup_bundle()
         with self.assertRaisesRegex(ValueError, 'catalog_save_unverified'):
             writer.curve_catalog_plan(bundle, PLATFORM, native)
-        bundle, capability, *_ = setup_bundle(small='12')
-        capability['order_projection_status'] = native['order_projection_status']
-        with self.assertRaisesRegex(ValueError, 'order_projection_unverified'):
-            writer.curve_catalog_plan(bundle, PLATFORM, capability)
+        self.prepare(propagate=False)
+        original = self.transport.request
+        rows = [self.transport.rows[ALL_ID], self.transport.rows[PRIMARY_ID]]
+
+        def request(path, **kwargs):
+            if path.startswith('/admin/goods.Goods/index?'):
+                return 200, json.dumps(dict(code=1, data=dict(total=len(rows), list=rows)))
+            return original(path, **kwargs)
+
+        self.transport.request = request
+        routes = writer.read_curve_routes(self.transport)
+        self.assertEqual(routes[PLATFORM]['recipient_goods'], {'266': PRIMARY_ID})
+        capability = writer.curve_writer_capabilities(routes)[PLATFORM]
+        self.assertEqual(capability['catalogue_status'], 'native_route_ready')
+        with self.assertRaisesRegex(ValueError, 'native_evidence_mismatch'):
+            writer.curve_catalog_plan(self.bundle, PLATFORM, capability)
+        proof = self.bundle['curve_proofs'][PLATFORM]
+        proof['scope']['source_revisions']['propagation'] = routes[PLATFORM]['propagation_revision']
+        proof['proof_hash'] = fingerprint({key: value for key, value in proof.items() if key != 'proof_hash'})
+        self.bundle['curve_primary_before_hashes'] = {
+            PLATFORM: fingerprint(writer.editable(self.transport.rows[PRIMARY_ID]))}
+        capability['order_projection'] = self.transport.projection()
+        self.capabilities = {PLATFORM: capability}
+        self.audit['curve_results'][PLATFORM] = dict(writer.curve_catalog_plan(self.bundle, PLATFORM, capability),
+                                                    operation_id=OPERATION)
+        self.assertEqual(self.dispatch()['status'], 'PARTIAL')
+        self.assertEqual(len(self.transport.posts), 1)
+        self.assertEqual(self.transport.projection_writes, [])
+        self.transport.apply_recipient()
+        result = writer.reconcile_curve_catalog(self.transport, self.audit, self.saved, self.capabilities)
+        self.assertEqual(result['status'], 'CONFIRMED')
+        self.assertFalse(result['curve_results'][PLATFORM]['projection']['write_performed'])
+        self.assertEqual(len(self.transport.posts), 1)
 
     def test_legacy_protocol_cannot_take_curve_request(self):
         self.prepare()

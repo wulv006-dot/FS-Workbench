@@ -241,6 +241,10 @@ def refresh_before_write(request,root=ROOT):
         path=root/'quotes'/(str(uuid.UUID(preview['run_id']))+'.json')
     quote=json.loads(path.read_text('utf-8'));policy=load_policy()
     verify_quote(quote,policy,request.get('platforms') or list(('PS','XBOX','PC')),for_execution=True)
+    from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL, write_protocol
+    protocol = write_protocol(quote['result'].get('decision_receipt') or {})
+    if request.get('write_protocol') != protocol:
+        raise ValueError('pricing_write_protocol_mismatch')
     public=json.loads((root/'monitor/storefront.json').read_text('utf-8'))
     if public.get('status')!='ok' or public.get('source')!='https://www.mmoexp.com/Fc-27/Coins.html' or public.get('currency')!='USD' or set(public.get('rows') or {})!={'PS','XBOX','PC'}:
         raise ValueError('pricing_current_public_required')
@@ -253,6 +257,9 @@ def refresh_before_write(request,root=ROOT):
     current=collect(public,persist=True,**(dict(catalog_only=True) if catalog_only else {}))
     if current['sha256']!=quote['evidence']['promotion_envelope']['sha256']:
         raise ValueError('pricing_promotions_changed_since_quote')
+    if protocol == CURVE_WRITE_PROTOCOL:
+        return dict(status='current_curve_proof_rechecked', promotion_sha256=current['sha256'],
+                    price_write_performed=False)
     from fc_pricing_v3.runtime import current_history_mix,current_history_cache
     now=datetime.now(timezone.utc)
     if catalog_only:

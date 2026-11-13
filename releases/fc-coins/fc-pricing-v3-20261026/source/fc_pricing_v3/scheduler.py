@@ -123,6 +123,7 @@ def export_shadow_snapshot(db, target=SHADOW_EXPORT, *, force=False):
 def cycle(body=None):
     import fc27_cloud_worker as worker
     from automation_policy import load_policy
+    from .dispatch import CURVE_WRITE_PROTOCOL
     db=ledger()
     body=body or {}
     requested=db.get('pricing_plans',body['plan_id']) if body.get('plan_id') else db.active_plan()
@@ -153,9 +154,12 @@ def cycle(body=None):
         return dict(status='expired_cycle',scheduled_at=body['scheduled_at'])
     if not policy['system_enabled'] or not body.get('manual_requested') and policy['mode']!='auto':
         return dict(status='operator_paused')
+    curve_plan = requested.get('write_protocol') == CURVE_WRITE_PROTOCOL
+    if curve_plan and body.get('manual_preview_id'):
+        raise ValueError('pricing_curve_scalar_override_unsupported')
     from .business_source import history_ES_blocker
     from .selective_sources import history_period
-    blocked=history_ES_blocker(history_period(clock()))
+    blocked=None if curve_plan else history_ES_blocker(history_period(clock()))
     if blocked:
         db.incident(blocked['reason'],'ES_export',['FC27'],phase='source_precheck',error=blocked['reason'])
         raise ValueError(blocked['reason'])
@@ -171,6 +175,11 @@ def cycle(body=None):
         if body.get('scheduled_at') and clock()>=instant(body['scheduled_at'])+cycle_interval(policy):
             result=dict(status='expired_cycle',scheduled_at=body['scheduled_at'])
             job.update(status='ready',result=result,completed_at=clock().isoformat())
+            worker.save_job(job)
+            return result
+        if curve_plan and quote['result']['status'] != 'READY':
+            result = dict(status=quote['result']['status'], rows=quote['result']['rows'], write_performed=False)
+            job.update(status='ready', result=result, completed_at=clock().isoformat())
             worker.save_job(job)
             return result
         if body.get('manual_preview_id'):
@@ -276,6 +285,10 @@ def exit_plan(body):
                                  plan_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-exit:'+old['plan_id']+':'+str(old['revision']))))
         next_plan['parent_plan_id']=old['plan_id']
         next_plan['transition_reason']='EXIT'
+        if old.get('write_protocol'):
+            next_plan.update(write_protocol=old['write_protocol'], activation_revision=old['activation_revision'],
+                             curve_activation_snapshot_id=old['curve_activation_snapshot_id'])
+            next_plan['parameters'] = dict(next_plan['parameters'], competitor_policy=old['parameters']['competitor_policy'])
         from automation_policy import load_policy
         policy=load_policy()
         next_plan['last_cycle_at']=(next_cycle_at(db,old,policy)-cycle_interval(policy)).isoformat()

@@ -19,6 +19,7 @@ from pathlib import Path
 import sys
 import tempfile
 import time
+from urllib.parse import urlencode
 
 PRODUCTS = {'PS': (163329309, 163329311, 21587),
             'XBOX': (163329275, 163329277, 21585),
@@ -117,23 +118,83 @@ def read_row(manager, platform, site, observer=None, *, recipient_id=None):
     return row
 
 
-def curve_writer_capabilities():
-    """Expose native transports separately from verified backend behavior."""
+def read_curve_routes(manager):
+    """Bind native ALL and same-model recipient identities from one Admin index read."""
+    from fc_pricing_v3.financial import fingerprint
+
+    params = dict(page=1, limit=100)
+    for index, (name, value) in enumerate((('mid', 41217957), ('gid', 1327), ('cid', 9623), ('status', 1))):
+        params.update({f'search[{index}][field]': name, f'search[{index}][operator]': '=',
+                       f'search[{index}][val]': value})
+    observed = []
+    data = api(manager, '/admin/goods.Goods/index?' + urlencode(params), observer=observed.append)
+    rows = data.get('list') if isinstance(data, dict) else None
+    if not isinstance(rows, list) or str(data.get('total')) != str(len(rows)) or not rows:
+        raise ValueError('pricing_curve_native_route_directory_incomplete')
+    grouped = {p: {} for p in PRODUCTS}
+    by_aid = {str(ids[2]): p for p, ids in PRODUCTS.items()}
+    seen = set()
+    for row in rows:
+        if (not isinstance(row, dict) or any(str(row.get(name)) != value for name, value in
+                (('mid', '41217957'), ('gid', '1327'), ('cid', '9623'), ('status', '1')))):
+            raise ValueError('pricing_curve_native_route_directory_scope')
+        platform = by_aid.get(str(row.get('aid')))
+        if not platform:
+            continue
+        site, goods = str(row.get('site_id')), str(row.get('id'))
+        if (not site.isascii() or not site.isdecimal() or str(int(site)) != site
+                or not goods.isascii() or not goods.isdecimal() or int(goods) <= 0
+                or site in grouped[platform] or goods in seen):
+            raise ValueError('pricing_curve_native_route_identity_ambiguous')
+        grouped[platform][site] = int(goods)
+        seen.add(goods)
+    routes = {}
+    for platform, (all_id, main_id, _) in PRODUCTS.items():
+        members = grouped[platform]
+        if members.get('0') != all_id or members.get('266') != main_id:
+            continue
+        material = dict(platform=platform, all_goods_id=all_id,
+                        recipient_goods={site: goods for site, goods in members.items() if site != '0'})
+        routes[platform] = dict(material, propagation_revision=fingerprint(material), directory_read=observed[0])
+    return routes
+
+
+def curve_writer_capabilities(routes=None):
+    """Expose an evidenced send route while actual propagation awaits original readback."""
+    from fc_pricing_v3.financial import fingerprint
     from fc_pricing_v3.order_projection_v6 import OrderProjection
     from fc_pricing_v3.price_curve import EDITOR_ASSET_SHA256
 
     order = OrderProjection()
-    return {
-        platform: dict(
+    result = {}
+    for platform, ids in PRODUCTS.items():
+        route = (routes or {}).get(platform) or {}
+        directory = route.get('directory_read') or {}
+        recipients = route.get('recipient_goods') or {}
+        material = {key: route.get(key) for key in ('platform', 'all_goods_id', 'recipient_goods')}
+        ready = (route.get('platform') == platform and route.get('all_goods_id') == ids[0]
+                 and recipients.get('266') == ids[1] and directory.get('response_sha256')
+                 and directory.get('http_status') == 200 and directory.get('response_code') == 1
+                 and str(directory.get('path', '')).startswith('/admin/goods.Goods/index?')
+                 and route.get('propagation_revision') == fingerprint(material))
+        result[platform] = dict(
             evidence_ref='admin_goods_editor_sha256:' + EDITOR_ASSET_SHA256,
             catalogue_path='/admin/goods.Goods/edit?id=' + str(ids[0]),
-            catalogue_status='nonlinear_save_and_propagation_unverified',
+            catalogue_status='native_route_ready' if ready else 'native_route_directory_unavailable',
             order_projection=order.adapter(platform),
-            order_projection_status='catalogue_side_effects_unverified',
+            order_projection_status='native_route_ready',
             tier_price_factors=True,
         )
-        for platform, ids in PRODUCTS.items()
-    }
+        if ready:
+            result[platform].update(recipient_goods={int(site): goods for site, goods in recipients.items()},
+                                    propagation_revision=route['propagation_revision'],
+                                    directory_read=directory)
+    return result
+
+
+def curve_route_ready(capability):
+    return (capability.get('catalogue_status') in ('native_route_ready', 'verified')
+            and bool(capability.get('recipient_goods')))
 
 
 def curve_admin_manager():
@@ -184,14 +245,16 @@ def curve_catalog_plan(bundle, platform, capability):
             or scope.get('platform') != platform or scope.get('curve_site_id') != '0'
             or proof.get('proof_hash') != fingerprint({k: v for k, v in proof.items() if k != 'proof_hash'})):
         raise ValueError('pricing_curve_financial_proof_invalid')
-    if not capability or capability.get('catalogue_status') != 'verified' or not capability.get('recipient_goods'):
+    if not capability or not curve_route_ready(capability):
         raise ValueError('pricing_curve_catalog_save_unverified')
     recipients = capability['recipient_goods']
     priced_sites = {int(site) for site in scope.get('site_paths', {})}
-    revisions = capability['source_revisions']
-    if (not capability.get('evidence_ref') or not capability.get('domain_version')
-            or scope.get('version') != capability['domain_version']
-            or scope.get('source_revisions') != revisions
+    revisions = scope.get('source_revisions') or {}
+    native_route = capability.get('catalogue_status') == 'native_route_ready'
+    if (not capability.get('evidence_ref') or not scope.get('version')
+            or (native_route and revisions.get('propagation') != capability['propagation_revision'])
+            or (not native_route and (scope['version'] != capability.get('domain_version')
+                                      or revisions != capability.get('source_revisions')))
             or set(revisions) != set(DOMAIN_REVISIONS) or not all(revisions.values())
             or 266 not in priced_sites or not priced_sites.issubset(recipients)
             or recipients.get(266) != site_id or 0 in recipients
@@ -202,19 +265,25 @@ def curve_catalog_plan(bundle, platform, capability):
                                 for curve in (before, target))
     if before_rate is None or target_rate is None:
         raise ValueError('pricing_curve_100k_tier_missing')
-    if before_rate != target_rate and (capability.get('order_projection_status') != 'verified'
+    if before_rate != target_rate and (capability.get('order_projection_status') not in ('native_route_ready', 'verified')
                                       or not capability.get('order_projection')):
         raise ValueError('pricing_curve_order_projection_unverified')
+    primary_before_hash = (bundle.get('curve_primary_before_hashes') or {}).get(platform)
+    if native_route and not primary_before_hash:
+        raise ValueError('pricing_curve_primary_before_unbound')
     return dict(platform=platform, all_goods_id=all_id, before=before_row, target=editable(target_row),
                 before_hash=fingerprint(editable(before_row)), target_hash=fingerprint(editable(target_row)),
                 target_curve_key=curve_key(target), native_contract=target['native_contract'],
                 before_rate=str(before_rate), target_rate=str(target_rate), proof_hash=proof['proof_hash'],
                 domain_version=scope['version'], source_revisions=revisions, evidence_ref=capability['evidence_ref'],
+                catalogue_status=capability['catalogue_status'], directory_read=capability.get('directory_read'),
+                primary_before_hash=primary_before_hash,
                 tier_price_factors=tier_price_factors,
                 recipient_goods={str(site): goods for site, goods in recipients.items()},
                 required_recipient_sites=sorted(str(site) for site in priced_sites),
                 catalog={'status': 'pending'}, propagation={'status': 'pending'},
-                projection={'status': 'not_required' if before_rate == target_rate else 'pending'})
+                projection={'status': ('read_only_pending' if native_route else 'not_required')
+                            if before_rate == target_rate else 'pending'})
 
 
 def curve_prices_match(row, target):
@@ -321,7 +390,7 @@ def curve_receipt_matches(stage):
 
 
 def curve_projection(item, projection, before_send, persist):
-    """Use a proven non-propagating Order adapter supplied by the writer, if available."""
+    """Use the existing Order adapter and require the original response plus readback."""
     from fc_pricing_v3.financial import fingerprint
 
     state = item['projection']
@@ -332,6 +401,15 @@ def curve_projection(item, projection, before_send, persist):
             state.update(status='unverified', reason='pricing_curve_order_projection_unverified')
         return
     platform, target_rate = item['platform'], item['target_rate']
+    if 'before_read_only_rate' in state:
+        readback = money(projection['read'](platform))
+        if readback == money(state['before_read_only_rate']):
+            state.update(status='confirmed', readback_rate=str(readback), write_performed=False)
+            state.pop('reason', None)
+        else:
+            state.update(status='read_only_pending', reason='pricing_curve_order_projection_unexpected_change',
+                         readback_rate=str(readback), write_performed=False)
+        return
     if 'send_intent' not in state:
         if before_send is None:
             return
@@ -404,6 +482,10 @@ def drive_curve_catalog(manager, audit, save_audit, before_send, capabilities):
             raise ValueError('pricing_curve_catalog_already_dispatched')
         try:
             projection = capability.get('order_projection')
+            if item['projection']['status'] == 'read_only_pending':
+                if not projection:
+                    raise ValueError('pricing_curve_order_projection_unverified')
+                item['projection']['before_read_only_rate'] = str(money(projection['read'](platform)))
             if item['projection']['status'] == 'pending':
                 if not projection:
                     raise ValueError('pricing_curve_order_projection_unverified')
@@ -419,6 +501,9 @@ def drive_curve_catalog(manager, audit, save_audit, before_send, capabilities):
                         raise
                     continue
                 item['recipients_before'][site] = recipient
+                if site == '266' and item.get('primary_before_hash') and (
+                        fingerprint(editable(recipient)) != item['primary_before_hash']):
+                    raise ValueError('pricing_curve_primary_before_hash_changed')
                 if site in required and not curve_specs_match(recipient, item['before']):
                     raise ValueError('pricing_curve_recipient_specs_changed:' + site)
             live = read_row(manager, platform, 0)

@@ -1,5 +1,5 @@
 """Durable FC ownership, allocation, outcome accounting and original-operation recovery."""
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 from datetime import datetime, timezone, timedelta
 import json
@@ -154,7 +154,7 @@ class Ledger:
         return self.get('metadata', curve_strategy_key(platform), db)
 
     def start_curve_episode(self, platform, rule_revision, reason, *, expected_episode_id=None,
-                            initial_curve=None, readback_ref=None):
+                            initial_curve=None, readback_ref=None, db=None):
         """Explicit internal setup from an adopted saved curve, or carry A into a new episode."""
         from .curve_strategy_v6 import curve_strategy_key, primary_reference_curve
         from .price_curve import curve_key
@@ -163,7 +163,7 @@ class Ledger:
                                             for v in (rule_revision, reason))):
             raise ValueError('strategy_episode_scope_invalid')
         key = curve_strategy_key(platform)
-        with self.transaction() as conn:
+        with (self.transaction() if db is None else nullcontext(db)) as conn:
             state = self.curve_strategy_state(platform, conn)
             if state and initial_curve is None:
                 reference = state['reference']
@@ -259,6 +259,34 @@ class Ledger:
                      dict(state, reference=adopted), conn)
             result.update(status='ADOPTED', reference_curve_id=adopted['reference_curve_id'])
         return self.put('metadata', key, dict(result, proposal=proposal, proof=adoption['proof']), conn)
+
+    def _record_cost_repair(self, platform, selection, op, current, conn):
+        from .curve_strategy_v6 import curve_strategy_key, primary_reference_curve
+        from .price_curve import curve_key
+
+        key = curve_strategy_key(platform)
+        state = self.curve_strategy_state(platform, conn)
+        if (not state or state['reference']['reference_curve_id'] != selection['reference_curve_id']
+                or state['episode']['comparison_episode_id'] != selection['comparison_episode_id']):
+            return dict(status='NOT_ADOPTED', reason='strategy_repair_reference_or_episode_changed')
+        current = primary_reference_curve(current, platform)
+        prior = state['episode']
+        reference_id = fingerprint([op['operation_id'], platform, 'COST_REPAIR', curve_key(current)])
+        reference = dict(state['reference'], reference_curve=current, reference_curve_id=reference_id,
+                         event_type='COST_REPAIR', confirmed_operation_id=op['operation_id'],
+                         readback_ref='readback_receipts/' + op['operation_id'],
+                         failed_proof_hash=selection['failed_proof_hash'],
+                         repair_domain_ref=selection['repair_domain_ref'],
+                         repaired_proof_hash=op['bundle']['curve_proofs'][platform]['proof_hash'])
+        prior_id = prior['comparison_episode_id']
+        episode = dict(comparison_episode_id=fingerprint([key, prior_id, reference_id]),
+                       initial_reference_curve=current, initial_reference_curve_id=reference_id,
+                       prior_comparison_episode_id=prior_id, rule_revision=prior['rule_revision'],
+                       reason='COST_REPAIR', opened_at=op['completed_at'])
+        self.put('metadata', key + ':episode:' + prior_id, prior, conn)
+        self.put('metadata', key, dict(reference=reference, episode=episode), conn)
+        return dict(status='ADOPTED', reference_curve_id=reference_id,
+                    comparison_episode_id=episode['comparison_episode_id'])
 
     def adopt_confirmed_curve(self, adoption, *, current_curve):
         """Apply a trusted same-round adoption to an existing confirmed operation."""
@@ -404,6 +432,7 @@ class Ledger:
             if type(expected_revision) is not int or not plan or plan['revision']!=expected_revision:
                 raise ValueError('pricing_plan_revision_changed')
             if plan['mode']!='smart' or plan['state'] not in ('ACTIVE','SUSPENDED','DRAFT'):raise ValueError('pricing_smart_active_plan_required')
+            if plan.get('write_protocol'):raise ValueError('pricing_curve_plan_requires_curve_contract')
             if plan['state']!='DRAFT':self.owns(plan,plan['resources'],conn)
             elif (self.get('metadata','generation',conn) or {}).get('id')!=plan['generation']:raise ValueError('pricing_generation_retired')
             if plan.get('smart_strategy_version')==STRATEGY_VERSION and plan.get('financial_contract_version')==FINANCIAL_CONTRACT_VERSION and plan.get('price_scope_contract')==PRICE_SCOPE_CONTRACT and set(plan['resources'])==set(native_resources(plan['resources'])):return plan
@@ -472,6 +501,7 @@ class Ledger:
                 return self.get('pricing_plans',ident,db)
             plan=self.get('pricing_plans',ident,db)
             if not plan or type(expected_revision) is not int or plan['revision']!=expected_revision:raise ValueError('pricing_plan_revision_changed')
+            if plan.get('write_protocol'):raise ValueError('pricing_curve_plan_requires_curve_contract')
             if plan.get('financial_contract_version')==FINANCIAL_CONTRACT_VERSION and plan.get('history_window_contract')==HISTORY_WINDOW_CONTRACT and plan.get('budget_policy')=='none' and (plan['mode']!='revenue_sprint' or plan.get('parameters',{}).get('sprint_policy_version')==SPRINT_POLICY_VERSION):return plan
             if plan['state'] not in ('SUSPENDED','DRAFT'):raise ValueError('pricing_migration_requires_paused_plan')
             if plan.get('ends_at') and now>=instant(plan['ends_at']):raise ValueError('pricing_plan_expired')
@@ -523,7 +553,7 @@ class Ledger:
                 raise ValueError('pricing_plan_missing')
             if plan['mode'] not in POLICIES and plan['mode'] != 'smart':raise ValueError('pricing_strategy_retired')
             if plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:raise ValueError('pricing_financial_plan_migration_required')
-            if plan['mode'] in ('revenue_sprint','smart'):sprint_parameters(plan)
+            if plan['mode'] in ('revenue_sprint','smart') and not plan.get('write_protocol'):sprint_parameters(plan)
             if instant(plan['starts_at']) > now:
                 return plan
             if plan['ends_at'] and now >= instant(plan['ends_at']):
@@ -558,6 +588,67 @@ class Ledger:
                                (resource,ident,plan['revision'],plan['generation']))
             plan['state'] = 'ACTIVE'
             self.put('pricing_plans', ident, plan, db)
+            return plan
+
+    def activate_curve_plan(self, ident, expected_revision, actor, snapshot_id, check):
+        """Switch the original active plan under its existing ownership CAS."""
+        from .competitor_offers import POLICY
+        from .dispatch import CURVE_WRITE_PROTOCOL
+        from .scheduler import next_cycle_at
+
+        if type(expected_revision) is not int:
+            raise ValueError('pricing_plan_revision_changed')
+        key = 'curve-plan-activation:' + ident + ':' + str(expected_revision)
+        now = clock()
+        with self.transaction() as conn:
+            prior = self.get('metadata', key, conn)
+            if prior:
+                if (prior['actor'], prior['snapshot_id']) != (actor, snapshot_id):
+                    raise ValueError('pricing_curve_activation_request_conflict')
+                return prior['after']
+            plan = self.get('pricing_plans', ident, conn)
+            if (not plan or plan['state'] != 'ACTIVE' or plan['revision'] != expected_revision
+                    or plan.get('write_protocol') or plan.get('ends_at') and now >= instant(plan['ends_at'])):
+                raise ValueError('pricing_plan_revision_changed')
+            self.owns(plan, plan['resources'], conn)
+            before = deepcopy(plan)
+            resources = set(plan['resources'])
+            if any(set(native_resources([r[0]])) & resources for r in conn.execute('SELECT resource FROM resource_leases')):
+                raise ValueError('pricing_resource_unresolved')
+            for row in conn.execute('SELECT body FROM operations'):
+                operation = json.loads(row[0])
+                if (operation['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT',
+                                                'FAILED_BEFORE_WRITE','KNOWN_PARTIAL_EXITED')
+                        and set(native_resources(operation['resources'])) & resources):
+                    raise ValueError('pricing_resource_unresolved')
+            for row in conn.execute("SELECT body FROM durable_jobs WHERE kind='cycle' AND state='running'"):
+                if json.loads(row[0]).get('plan_id') == ident:
+                    raise ValueError('pricing_migration_cycle_running')
+            proof = check(conn, plan, now)
+            due = next_cycle_at(conn, plan)
+            plan.update(revision=expected_revision + 1, write_protocol=CURVE_WRITE_PROTOCOL,
+                        activation_revision=fingerprint([ident, expected_revision, snapshot_id, proof]),
+                        curve_activation_snapshot_id=snapshot_id)
+            plan['parameters'] = dict(plan.get('parameters') or {}, competitor_policy=POLICY, region_pricing='global')
+            if plan.get('baseline_plan'):
+                baseline = plan['baseline_plan']
+                baseline['parameters'] = dict(baseline.get('parameters') or {}, competitor_policy=POLICY, region_pricing='global')
+            conn.execute('UPDATE plan_ownership SET revision=? WHERE plan_id=? AND revision=?',
+                         (plan['revision'], ident, expected_revision))
+            self.put('pricing_plans', ident, plan, conn)
+            body = dict(plan_id=ident, revision=plan['revision'])
+            if plan.get('ends_at'):
+                self.enqueue('deadline', 'deadline:' + ident + ':' + str(plan['revision']), plan['ends_at'], body, conn)
+            cycle_id = 'cycle:' + ident + ':' + str(int(due.timestamp())) + ':r' + str(plan.get('resume_count', 0))
+            scheduled = dict(body, scheduled_at=due.isoformat())
+            existing = conn.execute('SELECT state,body FROM durable_jobs WHERE id=?', (cycle_id,)).fetchone()
+            if existing:
+                if existing[0] != 'queued' or json.loads(existing[1]).get('plan_id') != ident:
+                    raise ValueError('pricing_migration_slot_already_consumed')
+                conn.execute('UPDATE durable_jobs SET body=? WHERE id=?', (json.dumps(scheduled), cycle_id))
+            else:
+                self.enqueue('cycle', cycle_id, due, scheduled, conn)
+            self.put('metadata', key, dict(actor=actor, snapshot_id=snapshot_id, before=before, after=plan), conn)
             return plan
 
     def active_plan(self):
@@ -859,6 +950,12 @@ class Ledger:
                 adoption_result = self._record_curve_adoption(adoption, op, action['curves'][adoption['platform']], db)
                 op['curve_adoption_result'] = {key: value for key, value in adoption_result.items()
                                                if key not in ('proposal', 'proof')}
+            if not no_change and op['bundle'].get('write_protocol') == 'fc27_curve_v6':
+                repairs = {p: self._record_cost_repair(p, selection, op, action['curves'][p], db)
+                           for p, selection in (op['bundle'].get('curve_selection') or {}).items()
+                           if selection.get('label') == 'COST_REPAIR'}
+                if repairs:
+                    op['curve_cost_repair_result'] = repairs
             self.put('operations', operation_id, op, db)
             db.execute('DELETE FROM resource_leases WHERE operation_id=?', (operation_id,))
             return op
