@@ -136,7 +136,23 @@ class Runtime(unittest.TestCase):
         evidence=effective_attribution(base,{'discount_code':'KNOWN'},cached,mapping)
         self.assertEqual((evidence['channel'],evidence['basis']),('Referral','promotion'))
         evidence=effective_attribution(base,{'discount_code':''},dict(cached,project='运营',code=''),mapping)
-        self.assertEqual((evidence['channel'],evidence['promotion_project']),('unknown','运营'))
+        self.assertEqual((evidence['channel'],evidence['promotion_project']),('pending_classification','运营'))
+
+    def test_direct_only_explicit_and_referrer_code_stays_a_detail(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL')]},[],{})
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+                   channel='Direct',marketing_attribution={'channel_raw':'Direct','source_raw':'(direct)'})
+        for code, detail in (('Known','KOL'),('Unknown','待归类'),('', '(direct)')):
+            result=effective_attribution(order,{'discount_code':code},None,mapping)
+            self.assertEqual((result['channel'],result['detail']),('Direct',detail))
+        order.update(channel='unknown',marketing_attribution={})
+        self.assertEqual(effective_attribution(order,{},None,mapping)['channel'],'unknown')
+        result=effective_attribution(dict(order,pinned_order_source='direct'),{'discount_code':'Known'},None,mapping)
+        self.assertEqual((result['channel'],result['basis'],result['detail']),('Direct','order_source','KOL'))
+        for patch in (dict(pinned_order_source='unmapped-source'),dict(marketing_attribution={'channel_raw':'Other'})):
+            self.assertEqual(effective_attribution(dict(order,**patch),{},None,mapping)['channel'],'pending_classification')
 
     def test_mapped_code_owner_counts_as_promoter_with_native_zero_uid(self):
         from channel_effects import Attribution
@@ -174,7 +190,7 @@ class Runtime(unittest.TestCase):
             channel='unknown',marketing_attribution={},pinned_order_source='google-FC27-PMAX-Coins-US')
         archived=dict(sourceStatus='available',sourceRaw='Google organic',coupons=[])
         evidence=effective_attribution(order,{},archived,mapping)
-        self.assertEqual(evidence['channel'],'unknown')
+        self.assertEqual(evidence['channel'],'pending_classification')
         self.assertTrue(evidence['conflict'])
         corrected=dict(order,pinned_order_source_revision='uw_fixed',pinned_order_source_at='2026-11-12T00:00:00+08:00')
         evidence=effective_attribution(corrected,{},dict(archived,sourceCapturedAt='2026-11-11T00:00:00+08:00'),mapping)
@@ -191,7 +207,7 @@ class Runtime(unittest.TestCase):
         for patch in ({}, {'marketing_attribution':{'status':'empty'},'pinned_order_source_conflict':True}):
             with self.subTest(patch=patch):
                 evidence=effective_attribution(dict(order,**patch),{'discount_code':'known'},archived,mapping)
-                self.assertEqual(evidence['channel'],'unknown')
+                self.assertEqual(evidence['channel'],'pending_classification')
                 self.assertTrue(evidence['conflict'])
                 self.assertEqual(evidence['promotion_project'],'KOL')
         rows=[{'site_id':'266','order_no':'O2','订单来源':source} for source in ('first','second')]

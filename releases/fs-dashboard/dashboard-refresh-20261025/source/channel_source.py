@@ -9,7 +9,7 @@ from functools import lru_cache
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from channel_effects import Attribution, EMPTY_COST, SITE, TZ, delivery_index, normalize, money
+from channel_effects import Attribution, EMPTY_COST, SITE, TZ, delivery_index, normalize, money, number
 
 COLLECTOR = '/opt/sales-dashboard/collector'
 SALES = Path('/opt/sales-dashboard/data')
@@ -251,6 +251,53 @@ def enrich(data, force=False):
         cost_info['limitation'] = '已按固定发货截止 ' + cutoff.strftime('%Y-%m-%d %H:%M') + ' 完整分页读取；未匹配不补零，匹配不等于全部履约或最终结算。'
         data['sources']['cost'] = cost_info
     return data
+
+
+def shared_view(period, gid=None, *, read=None):
+    """Adapt one existing scoped ES publication to the original channel views."""
+    from order_facts_api import safe_detail
+    if read is None:
+        from order_facts_runtime import collect_dashboard as read
+    scope = dict(period,site_id=str(SITE),gid=gid or 'all')
+    result = read(scope)
+    coverage = result['source_coverage']
+    if result['status']=='unavailable':return None, coverage
+    deliveries, cost = load_costs()
+    costs = delivery_index(deliveries)
+    orders = []
+    for fact in result['orders']:
+        effective = fact['effective_attribution']
+        observed = effective['filter_row']
+        code, uid = observed.get('code') or '', effective.get('promoter_uid') or ''
+        project = observed.get('project') or '未归类'
+        flags = fact.get('pinned_customer_flag')
+        source = safe_detail(effective['order_source'])
+        orders.append(dict(orderNo=fact['order_no'], gid=fact['gid'], game=fact['game'] or '游戏未提供',
+            paidAt=fact['paid_at'], day=fact['paid_at'][:10], salesUsd=number(money(fact['admin_paid_usd'])),
+            adminSaleCny=number(money(fact['admin_paid_cny'])), status=fact['status'], payStatus=fact['pay_status'],
+            refunded=observed['refunded'], country=observed.get('country') or '国家未提供', payment=observed.get('payment') or '支付方式未提供',
+            customerType={'是':'新客','否':'老客'}.get(flags,'新老客未提供'),
+            sourceRaw=source, sourceStatus='available' if source and not effective.get('source_conflict') else 'unavailable',
+            code=code,codeKey=code.casefold(),project=project,promoter=observed.get('promoter') or '推广人未提供',promoterUid=uid,
+            attribution='折扣码' if code else '推荐人无码' if uid else '无推广归属', attributionSource=effective.get('promoter_basis'),
+            conflict=effective['conflict'],coupons=observed.get('coupons') or [],couponUnknown=observed.get('coupons') is None,
+            **costs.get(fact['order_no'],EMPTY_COST)))
+    unknown_coupons = sum(r['couponUnknown'] for r in orders)
+    mapping_path=Path(__file__).with_name('channel_mapping.json')
+    mapping=json.loads(mapping_path.read_bytes())
+    directory_path=SALES/'promoter_dir.json'
+    directory=json.loads(directory_path.read_bytes()) if directory_path.is_file() else {}
+    data=dict(period=period, generatedAt=coverage['captured_at'], orders=orders,
+        mapping={key:value for key,value in mapping.items() if key!='entries'},
+        codeCatalog=Attribution(mapping,[],directory).catalog(),
+        sources=dict(orders=dict(status='complete' if coverage['admin_complete'] else 'partial', source='共享ES订单库',
+                rows=len(orders), site='MMOEXP', dateBasis='paytime', currency='USD',
+                publication_id=coverage.get('publication_id'),missing_days=coverage.get('missing_days',[])),
+            coupons=dict(status='partial' if unknown_coupons else 'complete',source='共享ES订单库 · Admin用券记录',
+                         unknownOrders=unknown_coupons),cost=cost,
+            customer=dict(limitation='复用同单固定ES新老客字段；缺失保留未知'),
+            attribution=dict(source='共享ES订单库 + 现有推广映射',historical='当前映射回溯应用；未提供历史生效日期')))
+    return apply_cost_overrides(data), coverage
 
 
 def collect(period):

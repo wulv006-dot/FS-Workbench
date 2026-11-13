@@ -11,6 +11,7 @@ from user_contract import TZ, stamp
 from user_store import safe
 
 ARCHIVE = Path('/var/lib/fc27-es-exports')
+RECEIPTS = Path('/var/lib/fs-hermes-fc/fs/es-structures')
 
 
 def _read_flags(query, root=ARCHIVE):
@@ -170,6 +171,27 @@ def _read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False):
                         sourceVersion=hashlib.sha256(''.join(sorted(hashes)).encode()).hexdigest())
 
 
+def closed_period_bundle(query, cutoff, root=RECEIPTS):
+    """Use the original durable export when existing files cannot prove closed-day coverage."""
+    import es_order_structure as es
+
+    query = es.checked_query(query)
+    context = hashlib.sha256(('closed-period|' + query['start'] + '|' + cutoff.isoformat()).encode()).hexdigest()
+    with es.SERVER_LOCK:
+        index, attempt, legacy = es._receipt_paths(query, root)
+        if index.exists() and not any(path.exists() or path.is_symlink() for path in (attempt, legacy)):
+            receipt, _ = es._read_receipt(index)
+            value = receipt.get('value') or {}
+            snapshots = value.get('snapshots') or []
+            if value.get('status') == 'available' and not receipt.get('last_attempt') and len(snapshots) == 1:
+                item = snapshots[0]['value']
+                captured = item.get('captured_at')
+                origin = item.get('quality', {}).get('source_origin')
+                if captured and stamp(captured) < cutoff and origin == 'private_archive_reuse':
+                    return es.server_bundle_after(query, cutoff.isoformat(), 'closed_' + context, root=root)
+        return es._server_bundle(query, root, lambda q, deadline: es.api_dataset(q, deadline, capture_context=context))
+
+
 def ensure_period(start, end, now=None, daily=False, fresh_after=None, cycle_id=None):
     """A week crossing a month boundary needs both monthly export portions."""
     now = now or datetime.now(TZ)
@@ -190,9 +212,8 @@ def ensure_period(start, end, now=None, daily=False, fresh_after=None, cycle_id=
                 return dict(status='pending',source_status=value.get('status','unavailable'),reason=value.get('reason'))
         _, info = read_flags(query)
         if info['status'] != 'complete':
-            import es_order_structure as es
-            value = es.server_bundle(dict(profile='ALL', start=query['start'], end=(finish-timedelta(days=1)).date().isoformat(),
-                                          group_by='new_customer', status='all'))
+            value = closed_period_bundle(dict(profile='ALL', start=query['start'], end=(finish-timedelta(days=1)).date().isoformat(),
+                                              group_by='new_customer', status='all'), finish)
             reason = str(value.get('reason', '')).lower()
             if value.get('status') in ('failed', 'unavailable') and any(word in reason for word in ('permission', 'denied', 'invalid', 'contract', 'unsupported')):
                 raise ValueError('weekly_customer_type_source_contract')
@@ -230,11 +251,14 @@ def archive_reference_state(store,receipt_root=Path('/var/lib/fs-hermes-fc/fs/es
     provenance hashes do not require reopening original XLSX. Keep those stores intact.
     Caller retains the existing jobs/publication lock; no SERVER_LOCK is taken here.
     """
+    from shared_es_facts import pending_publications
     from user_weekly import stored_publication
     value=stored_publication(store)
     if not value:return dict(complete=False,publication_id='',manifests=[],file_hashes=[],inflight=[],reason='current_publication_missing')
-    result=dict(complete=True,publication_id=value['publication_id'],manifests=sorted({x['name'] for x in value['flag_manifests']}),file_hashes=[],inflight=[],
-                consumers=['current-user-publication','durable-es-attempts','embedded-user-recipes','embedded-report-projections'])
+    manifests={item['name'] for item in value['flag_manifests']}
+    manifests.update(item['name'] for pending in pending_publications(store) for item in pending['pin']['flag_manifests'])
+    result=dict(complete=True,publication_id=value['publication_id'],manifests=sorted(manifests),file_hashes=[],inflight=[],
+                consumers=['current-user-publication','durable-es-attempts','embedded-user-recipes','embedded-report-projections','pending-shared-es'])
     receipt_root=Path(receipt_root);safe(receipt_root)
     if not receipt_root.is_dir():
         result.update(complete=False,reason='es_receipt_root_missing');return result

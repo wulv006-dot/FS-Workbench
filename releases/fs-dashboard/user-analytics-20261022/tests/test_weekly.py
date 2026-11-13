@@ -613,7 +613,7 @@ class FlagPeriods(unittest.TestCase):
         export = Mock(return_value=dict(status='pending'))
         def reader(query):
             return {}, dict(status='partial' if query['start'] == '2026-11-01' else 'complete')
-        with patch.object(types, 'read_flags', side_effect=reader), patch.dict(sys.modules, {'es_order_structure': Mock(server_bundle=export)}):
+        with patch.object(types, 'read_flags', side_effect=reader), patch.object(types, 'closed_period_bundle', export):
             value = types.ensure_period('2026-10-26', '2026-11-02', MONDAY, daily=True)
         self.assertEqual(value['status'], 'pending')
         export.assert_called_once()
@@ -631,14 +631,14 @@ class FlagPeriods(unittest.TestCase):
 
     def test_missing_month_uses_existing_export_and_reports_pending(self):
         export = Mock(return_value=dict(status='pending'))
-        with patch.object(types, 'read_flags', return_value=({}, dict(status='partial'))), patch.dict(sys.modules, {'es_order_structure': Mock(server_bundle=export)}):
+        with patch.object(types, 'read_flags', return_value=({}, dict(status='partial'))), patch.object(types, 'closed_period_bundle', export):
             value = types.ensure_period('2026-10-26', '2026-11-02', MONDAY)
         self.assertEqual(value['status'], 'pending')
         self.assertEqual(export.call_args.args[0]['end'], '2026-10-31')
 
     def test_export_permission_error_is_not_automatically_polled(self):
         export = Mock(return_value=dict(status='failed',reason='permission_denied'))
-        with patch.object(types,'read_flags',return_value=({},dict(status='partial'))),patch.dict(sys.modules,{'es_order_structure':Mock(server_bundle=export)}):
+        with patch.object(types,'read_flags',return_value=({},dict(status='partial'))),patch.object(types,'closed_period_bundle',export):
             with self.assertRaisesRegex(ValueError,'weekly_customer_type_source_contract'):
                 types.ensure_period('2026-10-26','2026-11-02',MONDAY)
 

@@ -136,9 +136,8 @@ def dashboard_mapping():
 
 def tracked_channel(source):
     # Existing 2026-10-22 exact PMax campaign identity. A generic Google tag is ambiguous.
-    if isinstance(source,str) and source.strip().casefold() == 'google-fc27-pmax-coins-us':
-        return 'PPC'
-    return None
+    label = source.strip().casefold() if isinstance(source,str) else ''
+    return {'google-fc27-pmax-coins-us':'PPC','direct':'Direct','(direct)':'Direct','直接访问':'Direct'}.get(label)
 
 
 def pinned_source_correction(order, observed):
@@ -189,27 +188,35 @@ def effective_attribution(order, native, archived, mapping):
     promotion_channel = PROMOTION_CHANNELS.get((project or '').casefold())
     source_channel = tracked_channel(source)
     native_channel = order['channel'] if order['channel']!='unknown' else None
+    promotion_detail = project if project not in (None,'未归类','推荐人渠道待核','无推广归属') else None
     if native_conflict:
-        channel, basis, detail = 'unknown', 'native_conflict', None
+        channel, basis, detail = 'pending_classification', 'native_conflict', None
     elif native_channel:
         channel, basis, detail = native_channel, 'native_channel', fact.get('source_raw')
+        if native_channel=='Direct' and isinstance(code,str) and code.strip():
+            detail = promotion_detail or '待归类'
     elif source_conflict:
-        channel, basis, detail = 'unknown', 'order_source_conflict', None
+        channel, basis, detail = 'pending_classification', 'order_source_conflict', None
     elif source_channel:
         channel, basis, detail = source_channel, 'order_source', source
+        if channel=='Direct' and isinstance(code,str) and code.strip():
+            detail = promotion_detail or '待归类'
     elif promotion_channel:
         channel, basis, detail = promotion_channel, 'promotion', project
+    elif any(isinstance(label,str) and label.strip() for label in (fact.get('channel_raw'),fact.get('source_raw'),source,code,uid)):
+        channel, basis, detail = 'pending_classification', 'unmapped_evidence', source or promotion_detail or fact.get('source_raw')
     else:
         channel, basis, detail = 'unknown', 'unknown', None
     coupons = observed.get('coupons')
     return dict(channel=channel, basis=basis, detail=detail, order_source=source,
+        source_conflict=source_conflict,
         conflict=native_conflict or source_conflict or len({c for c in (native_channel,source_channel,promotion_channel) if c})>1,
         discount_code=bool(code.strip()) if isinstance(code,str) else None,
         promoter=True if uid else False if native_uid is not None or archived is not None else None,
         promoter_uid=uid or None, promoter_basis=promoter_basis,
         coupon=bool(coupons) if coupons is not None else None,
         coupon_templates=[item['title'] for item in coupons or () if isinstance(item,dict) and isinstance(item.get('title'),str)],
-        promotion_project=project if project not in (None,'未归类','推荐人渠道待核','无推广归属') else None,
+        promotion_project=promotion_detail,
         filter_row=dict(orderNo=order['order_no'],gid=order['gid'],
             refunded=order['pay_status']=='2' or order['status'].startswith('已退款'),
             country=clean(native.get('country_code') or native.get('country') or observed.get('country')) or None,

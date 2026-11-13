@@ -369,7 +369,7 @@ ACTUAL_PROFITS=None
 ORDER_FACTS=None
 if HERMES is not None:
  from channel_effects import ChannelService
- CHANNELS=ChannelService('/var/lib/fs-channel-effects',hermes_authorizer)
+ CHANNELS=ChannelService('/var/lib/fs-channel-effects',hermes_authorizer,shared=True)
  CHANNELS.admission=maintenance_admission
  from actual_profit import ActualProfitService
  ACTUAL_PROFITS=ActualProfitService(CHANNELS,PROFILE_MAP)

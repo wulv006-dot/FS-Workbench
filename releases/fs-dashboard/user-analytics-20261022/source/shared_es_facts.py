@@ -12,6 +12,7 @@ from user_contract import canonical, digest, stamp
 DB = Path('/var/lib/fs-user-analytics/customers.sqlite3')
 CONTRACT = 'shared-es-order-facts-v1'
 META = 'shared_es_publication'
+PENDING = 'shared_es_pending:'
 FIELDS = ('id', 'order_no', 'site_id', 'gid', 'game_format', 'paytime', 'pay_status',
           'status_format', 'amount_usd_format', 'amount_rmb_format', 'discount_code',
           'recommend_uid', 'country_code', 'country', 'paytype_display', 'paytype')
@@ -39,6 +40,7 @@ SCHEMA = (
            cutoff TEXT NOT NULL)''',
     '''CREATE TABLE IF NOT EXISTS shared_es_publication_days (
            publication_id TEXT NOT NULL, day TEXT NOT NULL, revision TEXT NOT NULL,
+           source_at TEXT NOT NULL,
            PRIMARY KEY(publication_id,day))''',
 )
 
@@ -191,7 +193,71 @@ def prepare_publication(store, value, start, end, *, reader=None, archive=None, 
     return revisions
 
 
-def bind_publication(db, value, previous, revisions):
+def retain_pending(db, value, start, cutoff, review_start):
+    """Keep the original date and archive pins in the customer publication transaction."""
+    pin = {key: value[key] for key in ('publication_id', 'data_version', 'cutoff', 'published_at', 'flag_manifests')}
+    pending = dict(pin=pin, start=start, cutoff=cutoff, review_start=review_start)
+    db.execute('INSERT INTO meta VALUES(?,?)', (PENDING + pin['publication_id'], canonical(pending)))
+
+
+def pending_publications(store):
+    with store.db() as db:
+        rows = db.execute('SELECT value FROM meta WHERE key GLOB ?', (PENDING + '*',))
+        return sorted((json.loads(row[0]) for row in rows), key=lambda item: item['pin']['published_at'], reverse=True)
+
+
+def record_pending_error(store, pending, evidence):
+    with store.db() as db:
+        db.execute('UPDATE meta SET value=? WHERE key=?',
+                   (canonical(dict(pending, **evidence)), PENDING + pending['pin']['publication_id']))
+
+
+def complete_pending(store, pending, checkpoint):
+    """Fill absent days or refresh older slices using the pinned archive, keeping newer readbacks intact."""
+    pin = pending['pin']
+    start, stop, review = pending['start'], pending['cutoff'], pending['review_start']
+    with store.db() as db:
+        covered = {}
+        if _exists(db):
+            covered = dict(db.execute('''SELECT d.day,d.source_at
+                FROM meta m JOIN shared_es_publication_days d ON d.publication_id=m.value
+                WHERE m.key=? AND d.day>=? AND d.day<?''', (META, start, stop)))
+    days = [day for day in _days(start, (date.fromisoformat(stop) - DAY).isoformat())
+            if day not in covered or review and day >= review and stamp(covered[day]) < stamp(pin['published_at'])]
+    # The archive reader verifies the digest of its inputs. Keep the original
+    # publication ID on the work record and bind it after sourcing the exact pins.
+    archive_value = {key: pin[key] for key in ('data_version', 'cutoff', 'published_at', 'flag_manifests')}
+    archive_value['contract'] = 'fs-users-weekly-publication-v1'
+    archive_value['publication_id'] = 'uw_' + digest(archive_value)[:32]
+    revisions = {}
+    while days:
+        if checkpoint():
+            return None
+        count = 1
+        while count < min(len(days), 31) and date.fromisoformat(days[count]) == date.fromisoformat(days[count-1]) + DAY:
+            count += 1
+        batch = prepare_publication(store, archive_value, days[0], days[count-1], checkpoint=checkpoint)
+        if batch is None:
+            return None
+        revisions.update(batch)
+        days = days[count:]
+    with store.db() as db:
+        db.execute('BEGIN IMMEDIATE')
+        if revisions:
+            active = db.execute('''SELECT p.publication_id,p.data_revision,p.captured_at,p.cutoff
+                FROM meta m JOIN shared_es_publications p ON p.publication_id=m.value WHERE m.key=?''', (META,)).fetchone()
+            value = pin
+            if active and (stamp(active[2]) > stamp(pin['published_at']) or stamp(active[3]) > stamp(pin['cutoff'])):
+                value = dict(data_version=active[1], published_at=max(stamp(active[2]), stamp(pin['published_at'])).isoformat(),
+                             cutoff=max(stamp(active[3]), stamp(pin['cutoff'])).isoformat())
+                value['publication_id'] = 'se_' + digest(dict(value, source=pin['publication_id'],
+                                                             base=active[0], revisions=revisions))[:32]
+            bind_publication(db, value, None, revisions, source_at=pin['published_at'])
+        db.execute('DELETE FROM meta WHERE key=?', (PENDING + pin['publication_id'],))
+    return sorted(revisions)
+
+
+def bind_publication(db, value, previous, revisions, *, source_at=None):
     """Bind updated days under the same transaction as the existing publication CAS."""
     if not _exists(db):
         if revisions:
@@ -218,13 +284,14 @@ def bind_publication(db, value, previous, revisions):
                (ident, value['data_version'], value['published_at'], shared_cutoff))
     if prior:
         db.execute('''INSERT INTO shared_es_publication_days
-                      SELECT ?,day,revision FROM shared_es_publication_days
+                      SELECT ?,day,revision,source_at FROM shared_es_publication_days
                       WHERE publication_id=? AND day<?''', (ident, prior, shared_cutoff))
     for day, revision in revisions.items():
         if (day >= cutoff or not db.execute(
                 'SELECT 1 FROM shared_es_slices WHERE day=? AND revision=?', (day, revision)).fetchone()):
             raise ValueError('shared_es_publication_stage_mismatch')
-        db.execute('INSERT OR REPLACE INTO shared_es_publication_days VALUES(?,?,?)', (ident, day, revision))
+        db.execute('INSERT OR REPLACE INTO shared_es_publication_days VALUES(?,?,?,?)',
+                   (ident, day, revision, source_at or value['published_at']))
     db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)', (META, ident))
 
 

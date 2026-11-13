@@ -44,7 +44,8 @@ def summarize(rows):
                 gross_covered_orders=len(gross),
                 gross_covered_revenue_cny=format(sum((Decimal(r['admin_paid_cny']) for r in gross),Decimal(0)),'f'),
                 unknown_channel_orders=sum(r['channel']=='unknown' for r in rows),
-                attributed_revenue_cny=format(sum((Decimal(r['admin_paid_cny']) for r in rows if r['channel']!='unknown' and r['admin_paid_cny'] is not None),Decimal(0)),'f'),
+                pending_channel_orders=sum(r['channel']=='pending_classification' for r in rows),
+                attributed_revenue_cny=format(sum((Decimal(r['admin_paid_cny']) for r in rows if r['channel'] not in ('unknown','pending_classification') and r['admin_paid_cny'] is not None),Decimal(0)),'f'),
                 accounting_basis=BASIS, fee_coverage='unknown', known_fee_contribution_cny=None,
                 amount_semantics='known subtotals; missing counts and cost coverage are not zero-imputation')
 
@@ -85,7 +86,7 @@ def build_order_facts(admin_orders, attribution_rows, deliveries, *, sites, scop
             unlinked_attrs.append(deepcopy(raw));continue
         fact = deepcopy(raw.get('marketing_attribution'))
         if fact is None:fact=normalize_order_attribution(raw,set(raw),{'fields':HEADERS})
-        context = (fact, raw.get('订单来源'))
+        context = (fact, raw.get('订单来源'), raw.get('是否新客户'))
         if context not in attrs[key]:attrs[key].append(context)
     seen, incomplete = {}, set()
     for raw in deliveries:
@@ -111,7 +112,7 @@ def build_order_facts(admin_orders, attribution_rows, deliveries, *, sites, scop
     for key, row in orders.items():
         contexts=attrs[key]
         choices=[]
-        for choice, _ in contexts:
+        for choice, _, _ in contexts:
             if choice not in choices:choices.append(choice)
         fact=(choices[0] if len(choices)==1 else normalize_order_attribution({},set(),{'fields':HEADERS}))
         if len(choices)>1:fact.update(status='conflict',variants=choices)
@@ -130,12 +131,14 @@ def build_order_facts(admin_orders, attribution_rows, deliveries, *, sites, scop
                    procurement_gross_cny=amount(accounting.get('profitCny')),
                    accounting_status=accounting['costStatus'],accounting_basis=BASIS,
                    fee_coverage='unknown',known_fee_contribution_cny=None)
-        sources = {source.strip() for _, source in contexts if isinstance(source,str) and source.strip()}
+        sources = {source.strip() for _, source, _ in contexts if isinstance(source,str) and source.strip()}
+        customer_flags = {flag for _, _, flag in contexts if flag in ('是','否')}
+        row['pinned_customer_flag'] = next(iter(customer_flags)) if len(customer_flags)==1 else None
         row['pinned_order_source'] = next(iter(sources)) if len(sources)==1 else None
         row['pinned_order_source_conflict'] = len(sources)>1
         if row['pinned_order_source']:
             row['pinned_order_source_revision'] = source_coverage.get('attribution',{}).get('source_revision')
-            observed = {choice.get('source_captured_at') for choice,source in contexts
+            observed = {choice.get('source_captured_at') for choice,source,_ in contexts
                         if isinstance(source,str) and source.strip()==row['pinned_order_source']}
             row['pinned_order_source_at'] = next(iter(observed)) if len(observed)==1 else None
         result.append(row)

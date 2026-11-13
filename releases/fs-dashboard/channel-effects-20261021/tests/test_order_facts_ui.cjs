@@ -83,8 +83,13 @@ const server=http.createServer((req,res)=>{
     assert.match(await page.locator('#source-attribution-title').innerText(),/各归因渠道订单占比/);
     assert.match(await page.locator('#source-attribution').innerText(),/未知/);
     assert.match(await page.locator('#source-attribution-note').innerText(),/共 4 单.*已归因 3 \/ 4 单/);
-    assert.match(await page.getByRole('list',{name:'各归因渠道订单占比'}).innerText(),/Referral（引荐）\s+75.0%.*未知\s+25.0%/s);
+    const chart=page.locator('#source-attribution-chart svg');
+    assert.equal(await page.getByRole('img',{name:'各归因渠道订单占比'}).count(),1);
+    assert.match(await chart.textContent(),/Referral（引荐） 75.0%.*未知 25.0%/s);
     assert.equal(await page.locator('#source-attribution-chart [aria-hidden=true]').count(),2);
+    const widths=await chart.locator('.distribution-bar').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));
+    assert.ok(widths[0]>200&&widths[1]>60&&Math.abs(widths[0]/widths[1]-3)<0.02);
+    if(process.env.FS_CHANNEL_CHART_SCREENSHOT) await page.locator('.attribution-panel').screenshot({path:process.env.FS_CHANNEL_CHART_SCREENSHOT+'-all.png'});
     assert.equal(await page.locator('#legacy-details').isVisible(),false);
     assert.equal(await page.locator('#trend svg').isVisible(),true);
     assert.equal(await page.locator('#trend .sales').count(),1);
@@ -101,7 +106,10 @@ const server=http.createServer((req,res)=>{
     await page.locator('[name=channel]').selectOption('Referral');
     await page.locator('#source-attribution-title').filter({hasText:'Referral（引荐）'}).waitFor();
     assert.match(await page.locator('#source-attribution-note').innerText(),/所选渠道共 3 单/);
-    assert.match(await page.locator('#source-attribution-chart').innerText(),/YouTube\s+66.7%.*未提供\s+33.3%/s);
+    assert.match(await chart.textContent(),/YouTube 66.7%.*未提供 33.3%/s);
+    const shares=await chart.locator('.distribution-bar').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));
+    assert.ok(shares[0]>180&&Math.abs(shares[0]/shares[1]-2)<0.02);
+    if(process.env.FS_CHANNEL_CHART_SCREENSHOT) await page.locator('.attribution-panel').screenshot({path:process.env.FS_CHANNEL_CHART_SCREENSHOT+'-referral.png'});
     const detailSummary=page.getByText('查看同一范围的订单、推广人、折扣码和优惠券',{exact:true});
     await detailSummary.click();
     await page.getByText('SYNTHETIC',{exact:true}).waitFor();
@@ -118,7 +126,7 @@ const server=http.createServer((req,res)=>{
     await page.waitForFunction(()=>document.querySelector('#scope').textContent.includes('美国（US）'));
     await page.locator('[name=coupon_template]').selectOption('7');
     await page.locator('#source-attribution-note').filter({hasText:'1 单筛选字段未核'}).waitFor();
-    assert.match(await page.locator('#source-attribution-chart').innerText(),/YouTube\s+100.0%/s);
+    assert.match(await chart.textContent(),/YouTube 100.0%/s);
     assert.equal(requests.at(-1).country,'US');
     assert.equal(requests.at(-1).coupon_template,'7');
     await page.getByText('查看同单关联的订单来源、优惠券和推广项目',{exact:true}).click();
@@ -183,7 +191,7 @@ const server=http.createServer((req,res)=>{
     await page.locator('#status').filter({hasText:'共享订单库暂未覆盖当前范围'}).waitFor();
     assert.match(await page.locator('#source-attribution-note').innerText(),/共享订单库缺 1 天/);
     assert.doesNotMatch(await page.locator('#kpis').innerText(),/\$0\.00/);
-    assert.equal(await page.locator('#source-attribution-chart li').count(),0);
+    assert.equal(await page.locator('#source-attribution-chart svg').count(),0);
     state='zero';await page.locator('[name=channel]').selectOption('all');
     await page.waitForFunction(()=>document.querySelector('#coverage').textContent.includes('完整成本 2 / 4'));
     assert.doesNotMatch(await page.locator('#kpis').innerText(),/—/);
@@ -194,7 +202,7 @@ const server=http.createServer((req,res)=>{
     for(const theme of ['dark','light']){
       await page.locator('#theme').selectOption(theme);
       assert.equal(await page.locator('html').getAttribute('data-fs-theme'),theme);
-      assert.equal(await page.locator('#source-attribution-chart .bar-fill').first().evaluate(el=>getComputedStyle(el).backgroundColor),
+      assert.equal(await page.locator('#source-attribution-chart .distribution-bar').first().evaluate(el=>getComputedStyle(el).fill),
         theme==='dark'?'rgb(97, 210, 209)':'rgb(7, 94, 96)');
     }
     await page.setViewportSize({width:390,height:844});
