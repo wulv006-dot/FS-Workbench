@@ -201,6 +201,23 @@ class Runtime(unittest.TestCase):
             evidence=effective_attribution(order,{'device':device},observed,mapping)
             self.assertEqual(evidence['device'],expected)
 
+    def test_conflicting_discount_code_is_direct_pending_review_not_operations(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='both',channel='KOL'),dict(code='both',channel='分销')]},[],{})
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+                   channel='unknown',marketing_attribution={})
+        coupons={'coupons':[{'title':'Launch'}],'discountOperatorProject':'运营'}
+        for patch,channel,detail in (
+                ({},'Direct','待核'),({'channel':'Direct'},'Direct','待核'),
+                ({'pinned_order_source':'direct'},'Direct','待核'),
+                ({'pinned_order_source':'google-FC27-PMAX-Coins-US'},'PPC','google-FC27-PMAX-Coins-US')):
+            with self.subTest(patch=patch):
+                result=effective_attribution(dict(order,**patch),{'discount_code':'both'},coupons,mapping)
+                self.assertEqual((result['channel'],result['detail'],result['conflict']),(channel,detail,True))
+        unmapped=effective_attribution(order,{'discount_code':'unknown'},None,mapping)
+        self.assertEqual((unmapped['channel'],unmapped['detail'],unmapped['conflict']),('Direct','运营',False))
+
     def test_dashboard_delivery_reuses_closed_day_and_refreshes_duplicate_id(self):
         from order_facts_runtime import dashboard_deliveries
         with tempfile.TemporaryDirectory() as folder:

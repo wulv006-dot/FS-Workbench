@@ -19,7 +19,7 @@ FIELDS = ('id','order_no','site_id','site','gid','game_format','paytime','pay_st
           'status_format','amount_usd_format','amount_rmb_format')
 MARKETING_FIELDS = ('discount_code','recommend_uid','country_code','country','paytype_display','paytype','device')
 PROMOTION_CHANNELS = {'seo':'SEO','谷歌广告':'PPC','kol':'Referral','tiktok':'Referral','tt':'Referral'}
-ATTRIBUTION_RULE = 'order-channel-priority-20261113-v3'
+ATTRIBUTION_RULE = 'order-channel-priority-20261113-v4'
 
 
 def admin_orders(scope, request, *, marketing=False):
@@ -205,8 +205,8 @@ def effective_attribution(order, native, archived, mapping):
     promoter_name = observed.get('promoter') if uid and same_archived_promotion else None
     if order['site_id']=='266' and (isinstance(code,str) or uid or archived is not None):
         resolved = mapping.resolve(dict(discount_code=code,recommend_uid=uid,gid=order['gid']))
-        promotion_conflict = resolved['conflict']
         archived_conflict = observed.get('conflict') is True
+        promotion_conflict = resolved['conflict'] or (same_archived_promotion and archived_conflict)
         if resolved.get('promoterUid') and not resolved['conflict']:
             uid = resolved['promoterUid']
             promoter_name = resolved.get('promoter')
@@ -229,7 +229,11 @@ def effective_attribution(order, native, archived, mapping):
     promotion_detail = project if project not in (None,'未归类','推荐人渠道待核','无推广归属','待核：映射冲突') else None
     code_detail = ('广告投放' if promotion_detail == '谷歌广告' else promotion_detail) if code_mapped else None
     coupons = observed.get('coupons')
-    direct_detail = (code_detail or '运营') if has_code else '新人/活动' if coupons and not promotion_channel else None
+    direct_detail = None
+    if has_code:
+        direct_detail = '待核' if promotion_conflict else code_detail or '运营'
+    elif coupons and not promotion_channel:
+        direct_detail = '新人/活动'
     if native_conflict:
         channel, basis, detail = 'pending_classification', 'native_conflict', None
     elif native_channel:
@@ -243,7 +247,8 @@ def effective_attribution(order, native, archived, mapping):
         if channel=='Direct' and direct_detail:
             detail = direct_detail
     elif has_code:
-        channel, basis, detail = 'Direct', 'mapped_discount_code' if code_detail else 'unmapped_discount_code', direct_detail
+        basis = 'discount_code_conflict' if promotion_conflict else 'mapped_discount_code' if code_detail else 'unmapped_discount_code'
+        channel, detail = 'Direct', direct_detail
     elif promotion_channel:
         channel, basis, detail = promotion_channel, 'promotion', project
     elif coupons:

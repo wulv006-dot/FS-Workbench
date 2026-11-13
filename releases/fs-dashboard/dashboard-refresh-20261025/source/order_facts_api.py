@@ -98,9 +98,11 @@ def detail_csv(rows):
 
 
 def order_profit(records):
+    if not records or None in records:
+        return dict(order_profit_cny=None,order_profit_rate=None)
     sale = sum((item[0] for item in records),Decimal(0))
     profit = sale - sum((item[1] for item in records),Decimal(0))
-    return dict(order_profit_cny=format(profit,'f') if records else None,
+    return dict(order_profit_cny=format(profit,'f'),
                 order_profit_rate=float(profit/sale) if sale else None)
 
 
@@ -108,8 +110,9 @@ def delivery_amounts(row, scope):
     for record in row['cost_records']:
         day = (record.get('trade_at') or '')[:10]
         sale, cost = record['order_sale_cny'], record['cost_cny']
-        if scope['start'] <= day <= scope['end'] and sale is not None and cost is not None:
-            yield day, (Decimal(sale), Decimal(cost))
+        if scope['start'] <= day <= scope['end']:
+            amounts = (Decimal(sale),Decimal(cost)) if sale is not None and cost is not None else None
+            yield day, amounts
 
 
 def scoped_summary(rows):

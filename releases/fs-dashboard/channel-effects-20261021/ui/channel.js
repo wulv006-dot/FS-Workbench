@@ -291,10 +291,68 @@ function salesPie(rows, title, complete) {
   if (!complete) host.append(text('p','占比按已知销售额计算。','hint'));
 }
 
+function countryRanking(countries) {
+  const host = $('fact-country-rank');
+  const ranked = countries.filter(row=>row.label && row.sales_usd != null)
+    .sort((a,b)=>Number(b.sales_usd)-Number(a.sales_usd)).slice(0,8);
+  if (!ranked.length) {
+    host.replaceChildren(text('p','当前范围没有可排名的地区销售额。','empty'));
+    return;
+  }
+  const list = text('ol',null,'country-rank');
+  const maxSales = Math.max(Number(ranked[0].sales_usd),1);
+  ranked.forEach((row,index)=>{
+    const item = text('li');
+    const line = text('div',null,'country-rank-line');
+    const rank = text('span',String(index+1),'country-rank-number');
+    rank.setAttribute('aria-hidden','true');
+    const values = text('span',null,'country-rank-values');
+    values.append(text('strong',count(row.orders)+' 单'),text('span',usd(row.sales_usd)));
+    line.append(rank,text('span',countryLabel(row.label)),values);
+    const track = text('span',null,'bar-track'), fill = text('span',null,'bar-fill');
+    track.setAttribute('aria-hidden','true');
+    fill.style.width = Math.max(0,100*Number(row.sales_usd)/maxSales)+'%';
+    track.append(fill);item.append(line,track);list.append(item);
+  });
+  host.replaceChildren(list);
+}
+
+function deviceDistribution(devices) {
+  const chart = $('fact-device-chart'), host = $('fact-devices');
+  chart.replaceChildren();
+  host.replaceChildren();
+  if (!devices.length) {
+    host.append(text('p','当前范围没有设备记录。','empty'));
+    return;
+  }
+  const colors = new Map([['PC','pc'],['移动端','mobile']]);
+  const track = text('div',null,'device-distribution');
+  track.setAttribute('role','img');
+  track.setAttribute('aria-label','支付设备订单占比：'+devices.map(row=>
+    `${row.label || '未知'} ${pct(row.order_share)}`).join('；'));
+  const cards = text('ul',null,'device-cards');
+  for (const row of devices) {
+    const device = colors.get(row.label) || 'unknown';
+    const share = text('span',row.order_share>=.08 ? pct(row.order_share) : '');
+    share.dataset.device = device;
+    share.style.flexBasis = 100*row.order_share+'%';
+    share.setAttribute('aria-hidden','true');
+    track.append(share);
+    const card = text('li',null,'device-card');
+    card.dataset.device = device;
+    card.append(text('span',row.label || '未知','device-card-label'),text('strong',count(row.orders)+' 单'),
+      text('span',`${pct(row.order_share)} · ${usd(row.sales_usd)}`,'device-card-values'));
+    cards.append(card);
+  }
+  chart.append(track);
+  host.append(cards);
+}
+
 function renderFactDimensions(dimensions) {
   const countries = dimensions?.country || [], devices = dimensions?.device || [];
   const map = $('fact-country-map');
   map.replaceChildren();
+  countryRanking(countries);
   const visible = countries.filter(row=>row.label && Object.hasOwn(WORLD.cent,row.label));
   if (visible.length) {
     const countriesByCode = new Map(visible.map(row=>[row.label,row]));
@@ -302,10 +360,12 @@ function renderFactDimensions(dimensions) {
       'aria-label':'订单国家 / 地区地图'});
     const land = [], maxOrders = Math.max(...visible.map(row=>row.orders),1);
     const maxSales = Math.max(...visible.map(row=>Number(row.sales_usd)||0),1);
+    const ramp = [1,.5,.18,.06,.015,.004,0];
     for (const [code,path] of Object.entries(WORLD.paths)) {
       const row = countriesByCode.get(code);
       if (row) {
-        const region = svgNode('path',{d:path,class:'map-region',opacity:row.sales_usd==null?.26:.26+.74*Math.max(0,row.sales_usd/maxSales)});
+        const level = row.sales_usd==null ? 'unknown' : ramp.findIndex(floor=>Math.max(0,row.sales_usd/maxSales)>=floor);
+        const region = svgNode('path',{d:path,class:'map-region','data-level':level});
         region.append(svgNode('title',{},`${countryLabel(code)} · ${count(row.orders)} 单 · ${usd(row.sales_usd)}`));
         svg.append(region);
       } else land.push(path);
@@ -315,15 +375,20 @@ function renderFactDimensions(dimensions) {
       const [cx,cy] = WORLD.cent[row.label];
       svg.append(svgNode('circle',{cx,cy,r:4+17*Math.sqrt(row.orders/maxOrders),class:'map-order-dot'}));
     }
-    map.append(svg,text('p','颜色表示销售额，圆点大小表示订单量。','hint'));
+    const legend = text('div',null,'country-map-legend');
+    const scale = text('span',null,'country-map-scale');
+    scale.setAttribute('aria-hidden','true');
+    for (const level of [6,5,4,3,2,1]) {
+      const swatch = text('i',null,'map-region'); swatch.dataset.level=level; scale.append(swatch);
+    }
+    legend.append(text('span','销售额 低'),scale,text('span','高'),text('span','圆点大小表示订单量。','country-map-key'));
+    map.append(svg,legend);
   } else {
     map.append(text('p','当前范围没有可绘制的地区数据。','empty'));
   }
   table('fact-countries',['国家 / 地区','订单数','订单占比','销售额 USD'],countries,
     row=>[row.label ? countryLabel(row.label) : '未知',count(row.orders),pct(row.order_share),usd(row.sales_usd)],'国家 / 地区订单排名');
-  attributionBars(devices.map(row=>({...row,label:row.label || '未知'})),'支付设备订单占比','fact-device-chart');
-  table('fact-devices',['支付设备','订单数','订单占比','销售额 USD'],devices,
-    row=>[row.label || '未知',count(row.orders),pct(row.order_share),usd(row.sales_usd)],'支付设备数据');
+  deviceDistribution(devices);
 }
 
 function factAssociations(rows) {
@@ -366,6 +431,7 @@ function renderFacts() {
   $('source-attribution-title').textContent = sourceDetail ? `${channel} · 来源明细占比` : '各归因渠道订单占比与销售额';
   $('distribution-charts').hidden = false;
   $('fact-dimensions').hidden = false;
+  $('kpis').dataset.mode = 'facts';
   $('definitions-title').textContent = '统计范围与利润来源';
   $('trend-title').textContent = '每日销售与 Order 原生利润';
   renderFactDimensions(data.dimensions);
@@ -429,6 +495,7 @@ function render() {
   if (data.version === 'order-facts-api-20261113-v1') { renderFacts(); return; }
   $('facts-detail').hidden = true;
   $('fact-dimensions').hidden = true;
+  delete $('kpis').dataset.mode;
   $('definitions-title').textContent = '统计范围与成本覆盖';
   $('trend-title').textContent = '每日销售与毛利趋势';
   $('legacy-details').hidden = false;

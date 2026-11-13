@@ -188,6 +188,35 @@ class OrderFactsAPI(unittest.TestCase):
                          {'PC':1,'移动端':1,None:1})
         self.assertIn('Order原生利润率',direct['aggregate_csv'])
 
+    def test_incomplete_native_delivery_leaves_only_affected_profit_and_rate_blank(self):
+        next_day = (datetime.fromisoformat(DAY) + timedelta(days=1)).date().isoformat()
+        scope=dict(start=DAY,end=next_day,site_id='266',gid='1327')
+        rows=[dict(site_id='266',order_no=sn,gid='1327',paytime=DAY+' 10:00:00',
+                   pay_status='1',amount_usd_format='50')
+              for sn in ('incomplete','complete')]
+        attrs=[dict(site_id='266',order_no=sn,**{'归因渠道':channel})
+               for sn,channel in (('incomplete','Direct'),('complete','SEO'))]
+        deliveries=[dict(source='www.mmoexp.com',genre='1',sn=sn,delivery_id=ident,
+                         trade_at=day+' 13:00:00',sale_total=sale,cost_total=cost)
+                     for sn,ident,day,sale,cost in (
+                         ('incomplete','a',DAY,100,80),('incomplete','b',DAY,100,None),
+                         ('complete','c',next_day,100,80),('complete','d','2020-01-01',None,2))]
+        facts=build_order_facts(rows,attrs,deliveries,sites={'266':'www.mmoexp.com'},scope=scope,
+                                source_coverage={'admin_complete':True})
+        details=[]
+        result=public(facts,dict(scope,channel='all'),detail_rows=details)
+        def profit(row):
+            return row['order_profit_cny'],row['order_profit_rate']
+        self.assertEqual(profit(result['totals']),(None,None))
+        by_channel={row['channel']:profit(row) for row in result['channels']}
+        self.assertEqual(by_channel,{'Direct':(None,None),'SEO':('20',.2)})
+        self.assertEqual([profit(row) for row in result['trend']],[(None,None),('20',.2)])
+        self.assertEqual([(row['orderProfitCny'],row['orderProfitRate']) for row in details],
+                         [(None,None),('20',.2)])
+        entries=list(csv.reader(io.StringIO(result['aggregate_csv'].lstrip('\ufeff'))))
+        self.assertEqual(entries[3][6:8],['',''])
+        self.assertEqual(entries[4][6:8],['20','0.2'])
+
     def test_trend_keeps_complete_zero_and_does_not_fill_missing_amount(self):
         q = selection(params())
         scope = {k:v for k,v in q.items() if k!='channel'}

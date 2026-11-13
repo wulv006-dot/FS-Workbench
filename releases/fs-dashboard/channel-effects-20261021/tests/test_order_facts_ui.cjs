@@ -51,8 +51,10 @@ const server=http.createServer((req,res)=>{
       snapshot_id:snapshot,aggregate_csv:`gid,channel,snapshot\r\n${scope.gid},${scope.channel},${snapshot}\r\n`,
       trend:[{day:scope.start,...totals,status:'available'},
         {day:scope.end,...summary(0),admin_paid_usd:null,observed_cost_cny:null,status:'partial'}],
-      totals,breakdown,dimensions:{country:empty?[]:[{label:'US',orders:totals.orders,order_share:1,sales_usd:'100'}],
-        device:empty?[]:[{label:null,orders:totals.orders,order_share:1,sales_usd:'100'}]},channels:[],keyword_applied:url.searchParams.has('q'),discount_code_applied:url.searchParams.has('code'),coupon_batch_applied:url.searchParams.has('coupon_batch'),
+      totals,breakdown,dimensions:{country:empty?[]:[{label:'US',orders:state==='palette'?3:totals.orders,order_share:state==='palette'?.75:1,sales_usd:state==='palette'?'90':'100'},
+        ...(state==='palette'?[{label:'DE',orders:1,order_share:.25,sales_usd:'10'}]:[])],
+        device:empty?[]:state==='palette'?[{label:'PC',orders:2,order_share:.5,sales_usd:'60'},
+          {label:'移动端',orders:2,order_share:.5,sales_usd:'40'}]:[{label:null,orders:totals.orders,order_share:1,sales_usd:'100'}]},channels:[],keyword_applied:url.searchParams.has('q'),discount_code_applied:url.searchParams.has('code'),coupon_batch_applied:url.searchParams.has('coupon_batch'),
       coverage:{unlinked_admin_rows:0,unlinked_attribution_rows:3,unverified_filter_orders:filtered?1:0,missing_days:missing?[scope.end]:[]},
       options:{games:[['1327','FC27'],['456','Diablo 4'],['1329','AION2']],country:['US'],payment:['PayPal'],coupon_templates:[['7','Launch']]},
       revisions:{attribution:{publication_id:state==='revision'?'revision-2':'revision-1'}}}));return;
@@ -87,6 +89,11 @@ const server=http.createServer((req,res)=>{
     state='available';await page.locator('#refresh').click();
     await page.locator('#results').waitFor({state:'visible'});
     assert.match(await page.locator('#source-attribution-title').innerText(),/各归因渠道订单占比/);
+    const panels=await page.locator('#results').evaluate(host=>['#kpis','.trend-panel','.attribution-panel','#fact-dimensions']
+      .map(selector=>[...host.children].indexOf(host.querySelector(selector))));
+    assert.deepEqual(panels,[1,2,3,4]);
+    assert.equal(await page.locator('#kpis').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),6);
+    if(process.env.FS_CHANNEL_CHART_SCREENSHOT) await page.locator('#results').screenshot({path:process.env.FS_CHANNEL_CHART_SCREENSHOT+'-overview.png'});
     assert.match(await page.locator('#source-attribution').innerText(),/未知/);
     assert.match(await page.locator('#source-attribution-note').innerText(),/共 4 单.*已归因 3 \/ 4 单/);
     const chart=page.locator('#source-attribution-chart svg');
@@ -104,9 +111,14 @@ const server=http.createServer((req,res)=>{
     assert.equal(panes[0][1],panes[1][1]);
     assert.ok(panes[0][0]<panes[1][0]);
     assert.equal(await page.getByRole('img',{name:'订单国家 / 地区地图'}).locator('.map-region').count(),1);
+    assert.match(await page.locator('#fact-country-rank').innerText(),/美国（US）/);
+    assert.equal(await page.locator('#fact-countries').isVisible(),false);
+    await page.getByText('查看全部国家 / 地区',{exact:true}).click();
     assert.match(await page.locator('#fact-countries').innerText(),/美国（US）/);
+    await page.getByText('查看全部国家 / 地区',{exact:true}).click();
     assert.match(await page.locator('#fact-devices').innerText(),/未知/);
     assert.doesNotMatch(await page.locator('#fact-devices').innerText(),/PC/);
+    assert.equal(await page.locator('.device-distribution span').getAttribute('data-device'),'unknown');
     if(process.env.FS_CHANNEL_CHART_SCREENSHOT) await page.locator('.attribution-panel').screenshot({path:process.env.FS_CHANNEL_CHART_SCREENSHOT+'-all.png'});
     assert.equal(await page.locator('#legacy-details').isVisible(),false);
     assert.equal(await page.locator('#trend svg').isVisible(),true);
@@ -248,11 +260,24 @@ const server=http.createServer((req,res)=>{
       assert.deepEqual(colors.stroke,colors.legend);
       assert.equal(colors.bar,theme==='dark'?'rgb(77, 184, 176)':'rgb(31, 111, 115)');
       assert.equal(colors.stroke[0],colors.bar);
+      const mapColors=await page.locator('svg .map-region').evaluateAll(nodes=>Object.fromEntries(
+        nodes.map(node=>[node.dataset.level,getComputedStyle(node).fill])));
+      const deviceColors=await page.locator('.device-distribution span').evaluateAll(nodes=>Object.fromEntries(
+        nodes.map(node=>[node.dataset.device,getComputedStyle(node).backgroundColor])));
+      assert.deepEqual(mapColors,theme==='dark'?{0:'rgb(128, 189, 255)',3:'rgb(67, 128, 189)'}:
+        {0:'rgb(0, 113, 227)',3:'rgb(121, 180, 236)'});
+      assert.deepEqual(deviceColors,theme==='dark'?{pc:'rgb(112, 181, 252)',mobile:'rgb(255, 158, 80)'}:
+        {pc:'rgb(0, 113, 227)',mobile:'rgb(232, 112, 12)'});
+      assert.match(await page.getByRole('img',{name:'支付设备订单占比：PC 50.0%；移动端 50.0%'}).innerText(),/50.0%/);
+      assert.equal(await page.locator('.device-card').count(),2);
+      assert.equal(await page.locator('.country-rank li').count(),2);
+      if(process.env.FS_CHANNEL_CHART_SCREENSHOT) await page.locator('#fact-dimensions').screenshot({path:process.env.FS_CHANNEL_CHART_SCREENSHOT+'-dimensions-'+theme+'.png'});
     }
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.locator('#source-attribution .table-wrapper').getAttribute('role'),'region');
     assert.equal(await page.locator('#source-attribution .table-wrapper').getAttribute('tabindex'),'0');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+    assert.equal(await page.locator('#kpis').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);
     const mobile=await page.locator('#distribution-charts > div').evaluateAll(nodes=>nodes.map(n=>[n.offsetLeft,n.offsetTop]));
     assert.equal(mobile[0][0],mobile[1][0]);
     assert.ok(mobile[0][1]<mobile[1][1]);
