@@ -187,6 +187,23 @@ class AdminDcTests(unittest.TestCase):
         self.assertEqual(len(targets.THREE_PLATFORM_NAMES),56)
         self.assertTrue(set(targets.THREE_PLATFORM_NAMES)<=stage)
 
+    def test_curve_modules_require_explicit_versioned_target_scope(self):
+        spec = importlib.util.spec_from_file_location('curve_candidate_target_map', SOURCE.parent / 'deploy/target_map.py')
+        targets = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(targets)
+        current = targets.three_platform_targets(SOURCE)
+        candidate = targets.curve_v6_targets(SOURCE)
+        modules = {'competitor_offers.py', 'cost_inputs_v6.py', 'cost_model.py', 'price_curve.py',
+                   'pricing_proof_v6.py', 'planning_baskets_v6.py', 'curve_strategy_v6.py'}
+        added = {prefix + 'fc_pricing_v3/' + name for prefix in ('', 'hermes-copy/') for name in modules}
+        self.assertEqual(set(targets.CURVE_V6_MODULES), modules)
+        self.assertEqual(set(candidate) - set(current), added)
+        self.assertEqual(targets.CURVE_V6_TARGET_COUNT, 43)
+        self.assertEqual(len(candidate), targets.CURVE_V6_TARGET_COUNT)
+        self.assertEqual({key: path for key, path in candidate.items() if key in current},
+                         {key: current[key] for key in candidate.keys() & current.keys()})
+        self.assertEqual(len(set(candidate.values())), len(candidate))
+
     def test_existing_rpg_empty_and_https_configs_keep_the_original_shared_adapter(self):
         # Production /opt/d4follow/_p2pah_srv/admin_cache_local.py uses these two configs.
         path = Path(__file__).parent / 'fixtures/legacy_shared_admin.py'

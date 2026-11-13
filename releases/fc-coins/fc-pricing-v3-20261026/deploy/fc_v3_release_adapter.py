@@ -17,6 +17,7 @@ from target_map import COUPON_DISPLAY_NAMES, COUPON_DISPLAY_SCOPE, COUPON_DISPLA
 from target_map import (THREE_PLATFORM_NAMES, THREE_PLATFORM_SCOPE, THREE_PLATFORM_EXTRA,
                         THREE_PLATFORM_NEW, three_platform_targets, MONITOR_SQLITE_CANDIDATE,
                         MONITOR_SQLITE_SHA, MONITOR_SQLITE_SOURCE)
+from target_map import CURVE_V6_SCOPE, CURVE_V6_NEW, curve_v6_targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -31,6 +32,7 @@ TARGETS = {'source/' + name: path for name, path in targets(SOURCE).items()}
 THREE_PLATFORM_TARGETS = {'source/'+name:path for name,path in three_platform_targets(SOURCE).items()
                           if 'source/'+name in THREE_PLATFORM_NAMES}
 THREE_PLATFORM_TARGETS.update(THREE_PLATFORM_EXTRA)
+CURVE_V6_TARGETS = {'source/' + name: path for name, path in curve_v6_targets(SOURCE).items()}
 BIDIRECTIONAL_TARGETS = {name: TARGETS[name] for name in BIDIRECTIONAL_NAMES}
 REPAIR_TARGETS = {name: TARGETS[name] for name in REPAIR_NAMES}
 QUOTE_FRAGMENT_TARGETS = {name: TARGETS[name] for name in QUOTE_FRAGMENT_NAMES}
@@ -45,6 +47,26 @@ DELTA_TARGETS = {name: TARGETS[name] for name in DELTA_NAMES}
 SHADOW_TARGETS = {name: TARGETS[name] for name in SHADOW_NAMES}
 OPERATING_TARGETS={name:TARGETS[name] for name in OPERATING_NAMES}
 COLLECTION_TARGETS={name:TARGETS[name] for name in COLLECTION_NAMES}
+SCOPED_TARGETS = {
+    CURVE_V6_SCOPE: CURVE_V6_TARGETS,
+    HISTORY_READ_SCOPE: HISTORY_READ_TARGETS,
+    LOOTBAR_CALLER_SCOPE: LOOTBAR_CALLER_TARGETS,
+    THREE_PLATFORM_SCOPE: THREE_PLATFORM_TARGETS,
+    COUPON_DISPLAY_SCOPE: COUPON_DISPLAY_TARGETS,
+    DAILY_SUMMARY_SCOPE: DAILY_SUMMARY_TARGETS,
+    DAILY_REPAIR_SCOPE: DAILY_REPAIR_TARGETS,
+    QUOTE_PREVIEW_SCOPE: QUOTE_PREVIEW_TARGETS,
+    QUOTE_FRAGMENT_SCOPE: QUOTE_FRAGMENT_TARGETS,
+    REPAIR_SCOPE: REPAIR_TARGETS,
+    BIDIRECTIONAL_SCOPE: BIDIRECTIONAL_TARGETS,
+    COLLECTION_SCOPE: COLLECTION_TARGETS,
+    DELTA_SCOPE: DELTA_TARGETS,
+    SHADOW_SCOPE: SHADOW_TARGETS,
+    OPERATING_SCOPE: OPERATING_TARGETS,
+    SCOPE: TARGETS,
+}
+SCOPED_NEW = {CURVE_V6_SCOPE: CURVE_V6_NEW, THREE_PLATFORM_SCOPE: THREE_PLATFORM_NEW,
+              OPERATING_SCOPE: OPERATING_NEW, DELTA_SCOPE: DELTA_NEW}
 BUNDLE_SOURCE=Path('/opt/fc27-pack-bundles/pack_bundles_server.py')
 BUNDLE_CONFIG=Path('/opt/fc27-pack-bundles/data/config.json')
 
@@ -213,15 +235,14 @@ def bundle_release_admission(base, root, manifest=None):
 def checked_manifest(value):
     rows = value.get('files', [])
     scope = value.get('scope')
-    expected = (HISTORY_READ_TARGETS if scope == HISTORY_READ_SCOPE else LOOTBAR_CALLER_TARGETS if scope == LOOTBAR_CALLER_SCOPE else THREE_PLATFORM_TARGETS if scope == THREE_PLATFORM_SCOPE else COUPON_DISPLAY_TARGETS if scope == COUPON_DISPLAY_SCOPE else DAILY_SUMMARY_TARGETS if scope == DAILY_SUMMARY_SCOPE else DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else
-                SHADOW_TARGETS if scope == SHADOW_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else {})
+    expected = SCOPED_TARGETS.get(scope)
     if not expected or len(rows) != len(expected) or \
             {r['candidate']: r['target'] for r in rows} != expected:
         raise ValueError('exact_fc_v3_targets_required')
-    new_targets=THREE_PLATFORM_NEW if scope==THREE_PLATFORM_SCOPE else OPERATING_NEW if scope==OPERATING_SCOPE else DELTA_NEW if scope==DELTA_SCOPE else frozenset()
+    new_targets = SCOPED_NEW.get(scope, frozenset())
     if sum(r.get('beforeSha256') is None for r in rows) != (54 if scope==SCOPE else len(new_targets)):
         raise ValueError('fc_v3_new_existing_target_boundary_changed')
-    if scope in (OPERATING_SCOPE,DELTA_SCOPE,THREE_PLATFORM_SCOPE) and {r['candidate'] for r in rows if r.get('beforeSha256') is None}!=new_targets:
+    if scope in SCOPED_NEW and {r['candidate'] for r in rows if r.get('beforeSha256') is None}!=new_targets:
         raise ValueError('fc_v3_operating_new_target_identity_changed')
     if any(r.get('owner') != '0:0' or r.get('mode') not in ('0o644', '0o700', '0o750', '0o755') for r in rows):
         raise ValueError('exact_fc_v3_target_metadata_required')
@@ -233,6 +254,13 @@ def checked_manifest(value):
         raise ValueError('code_release_does_not_change_business_or_timer_state')
     if value.get('releaseReady') is not True:
         raise ValueError('reviewed_code_release_required')
+    if scope == CURVE_V6_SCOPE:
+        by_name = {row['candidate']: row['sha256'] for row in rows}
+        if any(sha != by_name['source/' + name.removeprefix('source/hermes-copy/')]
+               for name, sha in by_name.items() if name.startswith('source/hermes-copy/')):
+            raise ValueError('curve_v6_module_copy_sha_mismatch')
+        if 'bundleBootstrap' in value:
+            raise ValueError('bundle_bootstrap_requires_three_platform_scope')
     if scope==THREE_PLATFORM_SCOPE:
         library=next(r for r in rows if r['candidate']==MONITOR_SQLITE_CANDIDATE)
         if library.get('sha256')!=MONITOR_SQLITE_SHA or {r.get('path'):r.get('sha256') for r in value.get('unchangedRequired',[])}.get(MONITOR_SQLITE_SOURCE)!=MONITOR_SQLITE_SHA:
@@ -255,7 +283,7 @@ def load_base():
         raise ValueError('frozen_publisher_drift')
     approved = checked_manifest(json.loads((HERE / 'approved-manifest.json').read_text('utf-8')))
     scope = approved['scope']
-    active_targets = HISTORY_READ_TARGETS if scope == HISTORY_READ_SCOPE else LOOTBAR_CALLER_TARGETS if scope == LOOTBAR_CALLER_SCOPE else THREE_PLATFORM_TARGETS if scope == THREE_PLATFORM_SCOPE else COUPON_DISPLAY_TARGETS if scope == COUPON_DISPLAY_SCOPE else DAILY_SUMMARY_TARGETS if scope == DAILY_SUMMARY_SCOPE else DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else SHADOW_TARGETS
+    active_targets = SCOPED_TARGETS[scope]
     new = frozenset(r['candidate'] for r in approved['files'] if r['beforeSha256'] is None)
     source = raw.decode('utf-8')
     anchor = "r.get('beforeSha256') is None for r in files if not ("
@@ -387,7 +415,7 @@ def load_base():
         if manifest.get('scope') == COLLECTION_SCOPE:
             return
         restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
-        if manifest.get('scope') in (SCOPE,DELTA_SCOPE,SHADOW_SCOPE,OPERATING_SCOPE,COLLECTION_SCOPE,BIDIRECTIONAL_SCOPE,REPAIR_SCOPE,QUOTE_FRAGMENT_SCOPE,QUOTE_PREVIEW_SCOPE,DAILY_REPAIR_SCOPE,DAILY_SUMMARY_SCOPE,COUPON_DISPLAY_SCOPE,THREE_PLATFORM_SCOPE):
+        if manifest.get('scope') in (SCOPE,DELTA_SCOPE,SHADOW_SCOPE,OPERATING_SCOPE,COLLECTION_SCOPE,BIDIRECTIONAL_SCOPE,REPAIR_SCOPE,QUOTE_FRAGMENT_SCOPE,QUOTE_PREVIEW_SCOPE,DAILY_REPAIR_SCOPE,DAILY_SUMMARY_SCOPE,COUPON_DISPLAY_SCOPE,THREE_PLATFORM_SCOPE,CURVE_V6_SCOPE):
             subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=30)
             for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service', 'fc-pricing-v3.service'):
                 subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)

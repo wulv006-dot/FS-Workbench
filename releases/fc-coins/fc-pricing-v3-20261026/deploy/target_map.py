@@ -1,7 +1,40 @@
-"""Exact V3 code targets; the knowledge catalog has a separate immutable release."""
-from pathlib import Path
+"""Exact FC code targets; the knowledge catalog has a separate release."""
+import ast
 
 TARGET_COUNT = 101
+
+# New curve modules belong to an explicit candidate scope. Merely adding a
+# source file must not silently expand a historical publisher's exact targets.
+CURVE_V6_SCOPE = 'fc-pricing-owned-curve-v6-20261113'
+CURVE_V6_BASE = '7042edaf90647cbd51ab7df3e35f7b4341f72b3f'
+CURVE_V6_MODULES = ('competitor_offers.py', 'cost_inputs_v6.py', 'cost_model.py', 'price_curve.py',
+                    'pricing_proof_v6.py', 'planning_baskets_v6.py', 'curve_strategy_v6.py')
+CURVE_V6_CHANGED_MODULES = (
+    'adapters.py', 'business_source.py', 'daily.py', 'dispatch.py', 'engine.py',
+    'ledger.py', 'market_registry.py', 'observations.py', 'runtime.py', 'selective_sources.py',
+    'sources.py',
+)
+CURVE_V6_TOP_LEVEL = (
+    'coin_all_sync_job.py', 'fc27_cloud_worker.py', 'price_writer.py', 'pricing_simulation.py',
+    'reconcile_original.py', 'server_quote_job.py', 'snapshot_layer.py',
+)
+CURVE_V6_SOURCE_NAMES = frozenset(CURVE_V6_TOP_LEVEL) | {
+    'fc_pricing_v3/' + name for name in CURVE_V6_CHANGED_MODULES + CURVE_V6_MODULES
+}
+CURVE_V6_NEW = frozenset(prefix + 'fc_pricing_v3/' + name
+    for prefix in ('source/', 'source/hermes-copy/') for name in CURVE_V6_MODULES)
+
+# The original V3 mapping must also be available from a partial V6 stage.
+BASE_MODULES = (
+    '__init__.py', 'adapters.py', 'admin_readback.py', 'api.py', 'business_source.py',
+    'daily.py', 'demand_model.py', 'dispatch.py', 'engine.py', 'financial.py', 'history.py',
+    'ledger.py', 'legacy_simulation/__init__.py', 'legacy_simulation/dual10_engine.py',
+    'legacy_simulation/dual10_financial.py', 'legacy_simulation/itemd2r_parity.py',
+    'legacy_simulation/weighted_80_15_5.py', 'market_registry.py', 'monitoring.py',
+    'observations.py', 'order_close.py', 'region_adapter.py', 'region_source.py',
+    'regional_public.py', 'runtime.py', 'scheduler.py', 'selective_sources.py',
+    'shadow_worker.py', 'simulation.py', 'smart.py', 'sources.py', 'uk_retirement.py',
+)
 
 LOOTBAR_CALLER_SCOPE='fc-lootbar-183-caller-20261111'
 LOOTBAR_CALLER_NAMES=tuple('source/'+n for n in ('snapshot_layer.py','server_quote_job.py','fc27_cloud_worker.py','collect_lootbar.sh'))
@@ -18,6 +51,7 @@ THREE_PLATFORM_SCOPE='fc-pricing-three-platform-20261110'
 THREE_PLATFORM_MODULES=('platforms.py','legacy_simulation/platform_v2_engine.py',
                         'legacy_simulation/platform_v2_financial.py')
 THREE_PLATFORM_TARGET_COUNT=TARGET_COUNT+2*len(THREE_PLATFORM_MODULES)
+CURVE_V6_TARGET_COUNT = len(CURVE_V6_TOP_LEVEL) + 2 * len(CURVE_V6_CHANGED_MODULES + CURVE_V6_MODULES)
 MONITOR_SQLITE_CANDIDATE='source/monitor-runtime/libsqlite3.so.0'
 MONITOR_SQLITE_SOURCE='/opt/auth-portal/registration-runtime-deps/sqlite-3.53.4/lib/libsqlite3.so.3.53.4'
 MONITOR_SQLITE_SHA='d3d896ba27628b174c67cfc6127c92f29c97b48dc3dfe70c84c5f6c28ca4c5f8'
@@ -104,7 +138,6 @@ OPERATING_NEW=frozenset(prefix+'fc_pricing_v3/'+name for prefix in ('source/','s
 
 
 def targets(source):
-    source = Path(source)
     rows = {}
     for name in ('collect_p2pah_cost.py', 'automation_policy.py', 'automation_tick.py', 'clear_cache_after_write.py',
                  'clear_cache_after_write.sh', 'coin_all_sync_job.py', 'execute_price.sh',
@@ -124,19 +157,63 @@ def targets(source):
         rows[name] = '/var/www/dashboard/' + name
     for name in ('fc-pricing-v3.service', 'fc-pricing-v3-shadow.service'):
         rows['systemd/' + name] = '/etc/systemd/system/' + name
-    for file in (source/'fc_pricing_v3').rglob('*.py'):
-        name = file.relative_to(source).as_posix()
-        if name.removeprefix('fc_pricing_v3/') in THREE_PLATFORM_MODULES:
-            continue
-        rows[name] = '/opt/fc27-cloud-browser/' + name
-        rows['hermes-copy/' + name] = '/opt/fs-hermes-fc/' + name
+    rows.update(module_targets(BASE_MODULES))
     return rows
 
 
 def three_platform_targets(source):
-    rows=targets(source)
-    for name in THREE_PLATFORM_MODULES:
-        relative='fc_pricing_v3/'+name
-        rows[relative]='/opt/fc27-cloud-browser/'+relative
-        rows['hermes-copy/'+relative]='/opt/fs-hermes-fc/'+relative
+    return {**targets(source), **module_targets(THREE_PLATFORM_MODULES)}
+
+
+def curve_v6_targets(source):
+    current = targets(source)
+    return {
+        **{name: current[name] for name in CURVE_V6_TOP_LEVEL},
+        **module_targets(CURVE_V6_CHANGED_MODULES + CURVE_V6_MODULES),
+    }
+
+
+def module_targets(modules):
+    rows = {}
+    for name in modules:
+        relative = 'fc_pricing_v3/' + name
+        rows[relative] = '/opt/fc27-cloud-browser/' + relative
+        rows['hermes-copy/' + relative] = '/opt/fs-hermes-fc/' + relative
     return rows
+
+
+def require_curve_scope_for_imports(name, payload):
+    if not name.endswith('.py'):
+        return
+    # Include local imports inside functions. A stage may import successfully
+    # at startup while still failing later on an enabled quote or writer path.
+    modules = {filename.removesuffix('.py') for filename in CURVE_V6_MODULES}
+    # These symbols live in existing files that have to move with V6 callers.
+    curve_symbols = {
+        'ledger': {'confirmed_curve_window'},
+        'dispatch': {'CURVE_WRITE_PROTOCOL', 'write_protocol', 'validate_curve_send'},
+        'coin_all_sync_job': {'curve_admin_manager', 'curve_catalog_plan', 'curve_result',
+                             'curve_writer_capabilities', 'reconcile_curve_catalog'},
+    }
+    watched = modules | set().union(*curve_symbols.values())
+    if not any(symbol.encode('ascii') in payload for symbol in watched):
+        return
+    for node in ast.walk(ast.parse(payload, filename=name)):
+        if isinstance(node, ast.ImportFrom):
+            aliases = {alias.name for alias in node.names}
+            module = node.module or ''
+            if module == 'fc_pricing_v3' or (node.level == 1 and not module):
+                missing = modules.intersection(aliases)
+            elif module == 'coin_all_sync_job' or module.startswith('fc_pricing_v3.') or (
+                    node.level == 1 and '/fc_pricing_v3/' in '/' + name):
+                module = module.removeprefix('fc_pricing_v3.')
+                missing = {module} if module in modules else curve_symbols.get(module, set()).intersection(aliases)
+            else:
+                missing = set()
+        elif isinstance(node, ast.Import):
+            missing = modules.intersection(alias.name.removeprefix('fc_pricing_v3.') for alias in node.names
+                                           if alias.name.startswith('fc_pricing_v3.'))
+        else:
+            continue
+        if missing:
+            raise ValueError('curve_v6_scope_required:' + name + ':' + ','.join(sorted(missing)))
