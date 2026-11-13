@@ -34,6 +34,8 @@ SHARED_BASE_COMMIT = '3110c1530ebc56a8cc51bcf56e3c2cb7d219ec49'
 SHARED_OVERLAYS = ('fc.marketing.attribution', 'fc.reporting.data')
 FC_V61 = 'fc-v61-average-discount-20261113-r1'
 FC_V61_OVERLAYS = ('fc.pricing.constraints', 'fc.pricing.v3')
+FC_V61_DISCOUNT_REVISION = 'fc_v6_d8_d2_amount_weighted_discount_v1'
+FC_V61_TWO_BAND_REVISION = 'fc_v61_native_all_two_band_20261113'
 FS_RUNTIME_ROOT = '/var/lib/fs-hermes-fc/fs/'
 BASELINE_TARGET = '/opt/fs-hermes-fc/business-baseline.md'
 BASELINE_SOURCE = 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
@@ -204,8 +206,10 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         if len(found) != 1:
             raise ValueError('canonical_current_required:' + identity)
         current[identity] = found[0]
-    if fc_v61 and any(row['revision'] != 'fc_v6_d8_d2_amount_weighted_discount_v1' for row in current.values()):
-        raise ValueError('exact_fc_v61_revision_required')
+    if fc_v61:
+        revision, full_revision = (current[identity]['revision'] for identity in FC_V61_OVERLAYS)
+        if revision not in (FC_V61_DISCOUNT_REVISION, FC_V61_TWO_BAND_REVISION) or full_revision != revision:
+            raise ValueError('exact_fc_v61_revision_required')
     policy_raw = bound(snapshot, 'policy.json').read_bytes()
     policy = json.loads(policy_raw)
     if policy.get('contract') != 'fs-knowledge-load-policy-v1':
@@ -302,7 +306,11 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 if sha(source_data) != source['sha256']:
                     raise ValueError('canonical_source_changed:' + identity)
                 catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
-                source.update(path='overlay/' + canonical_path, canonical_path=canonical_path)
+                overlay_root = 'overlay/'
+                if fc_v61 and row['revision'] == FC_V61_TWO_BAND_REVISION:
+                    # Retain the preceding snapshot's source at its original path.
+                    overlay_root += row['revision'] + '/'
+                source.update(path=overlay_root + canonical_path, canonical_path=canonical_path)
                 if fc_v61:
                     shared_rows.append(dict(catalog=old_name, id=identity, previous_revision=existing[0]['revision'],
                                             previous_source_sha256=existing[0]['source']['sha256'],

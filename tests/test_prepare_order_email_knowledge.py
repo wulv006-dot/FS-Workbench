@@ -285,6 +285,70 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assertEqual((self.output/'candidate/artifact/originals/policy.json').read_bytes(),
                          (self.snapshot/'policy.json').read_bytes())
 
+    def set_fc_v61_candidate(self, revisions, data):
+        path = 'canonical/HERMES-V61-CONTRACT.md'
+        self.git[COMMIT, path] = data
+        entries = [row(identity, revision, path, data)
+                   for identity, revision in zip(builder.FC_V61_OVERLAYS, revisions)]
+        self.git[COMMIT, 'knowledge/index.json'] = builder.encoded(dict(
+            contract='fs-knowledge-index-v1', release=builder.FC_V61, release_state='candidate',
+            source_commit=None, entries=entries))
+        return path
+
+    def test_fc_v61_two_band_replaces_previous_rules_and_keeps_their_artifact(self):
+        old_revision = 'fc_v6_d8_d2_amount_weighted_discount_v1'
+        new_revision = 'fc_v61_native_all_two_band_20261113'
+        old_data = b'Original amount-weighted discount and ALL propagation.\n'
+        new_data = b'Two native price bands and main catalogue readback.\n'
+        canonical_path = self.set_fc_v61_candidate((new_revision, new_revision), new_data)
+        old_path = 'overlay/' + canonical_path
+        before = list(builder.routes(self.policy))
+        for number, route in enumerate(before):
+            index = json.loads((self.snapshot / route['catalog']).read_bytes())
+            entries = index['entries']
+            previous = next(r for r in entries if r['id'] == 'fc.pricing.v3')
+            entries[entries.index(previous)] = row(previous['id'], old_revision, old_path, old_data)
+            if number == 0:
+                identity = 'fc.pricing.constraints'
+                entries.append(row(identity, old_revision, old_path, old_data))
+                route['entry_ids'].append(identity)
+            self.put_snapshot(index['source_root'] + '/' + old_path, old_data)
+            self.put_snapshot(route['catalog'], builder.encoded(index))
+            route['sha256'] = self.info['protected'][builder.FS_RUNTIME_ROOT + route['catalog']]
+        self.write_preflight()
+
+        result = builder.prepare(ROOT, self.snapshot, self.output, COMMIT, fc_v61=True)
+        self.assertEqual(result['release'], builder.FC_V61 + '-' + COMMIT)
+        self.assertFalse(result['manifest']['releaseReady'])
+        policy = json.loads((self.output / 'candidate/runtime/knowledge-load-policy.json').read_bytes())
+        for old, new in zip(before, builder.routes(policy)):
+            self.assertEqual({k: v for k, v in old.items() if k not in ('catalog', 'sha256')},
+                             {k: v for k, v in new.items() if k not in ('catalog', 'sha256')})
+            slot = new['catalog'].split(result['release'] + '/', 1)[1]
+            artifact = self.output / 'candidate/artifact'
+            index = json.loads((artifact / slot).read_bytes())
+            sources = artifact / index['source_root'].split(result['release'] + '/', 1)[1]
+            self.assertEqual((sources / old_path).read_bytes(), old_data)
+            selected = {r['id']: r for r in index['entries'] if r['id'] in builder.FC_V61_OVERLAYS}
+            self.assertEqual(set(selected), set(old['entry_ids']) & set(builder.FC_V61_OVERLAYS))
+            for identity, item in selected.items():
+                self.assertEqual(item['revision'], new_revision)
+                self.assertIn(identity + '@' + old_revision, item['supersedes'])
+                self.assertEqual(item['source']['canonical_path'], canonical_path)
+                self.assertEqual(item['source']['sha256'], builder.sha(new_data))
+                self.assertNotEqual(item['source']['path'], old_path)
+                self.assertEqual((sources / item['source']['path']).read_bytes(), new_data)
+
+    def test_fc_v61_rejects_mixed_or_unregistered_revisions(self):
+        old_revision = 'fc_v6_d8_d2_amount_weighted_discount_v1'
+        new_revision = 'fc_v61_native_all_two_band_20261113'
+        for revisions in ((old_revision, new_revision), ('unregistered', 'unregistered')):
+            with self.subTest(revisions=revisions):
+                self.set_fc_v61_candidate(revisions, b'Candidate.\n')
+                with self.assertRaisesRegex(ValueError, 'exact_fc_v61_revision_required'):
+                    builder.prepare(ROOT, self.snapshot, self.output, COMMIT, fc_v61=True)
+                self.assertFalse(self.output.exists())
+
     def test_only_existing_shared_sections_overlay_and_live_baseline_stays_bound(self):
         value = self.prepare()
         manifest = value['manifest']
