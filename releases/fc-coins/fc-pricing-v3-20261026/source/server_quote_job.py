@@ -248,14 +248,14 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     if fx.get("status") != "valid" or not age_ok(fx["checked_at"], now):
         raise ValueError("fx_missing_or_stale")
     storefront = snapshot.get("storefront") or {}
-    if (storefront.get("source") != "https://www.mmoexp.com/Fc-27/Coins.html"
+    if not curve_run and (storefront.get("source") != "https://www.mmoexp.com/Fc-27/Coins.html"
             or storefront.get("currency") != "USD"
             or storefront.get("collection_run_id") != run_id
             or storefront.get("status") != "ok"
             or storefront.get("package_k") != 100
             or set(storefront.get("rows") or {}) != set(PLATFORMS)):
         raise ValueError("storefront_contract_invalid")
-    for platform in PLATFORMS:
+    for platform in (() if curve_run else PLATFORMS):
         row = storefront["rows"][platform]
         if (row.get("platform") != platform or row.get("status") != "ok"
                 or row.get("base_k") != "100" or not age_ok(row["checked_at"], now)
@@ -279,10 +279,13 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
         from copy import deepcopy
         evidence['competitor_policy']=snapshot['competitor_policy']
         evidence['competitor_offers']=deepcopy(snapshot.get('competitor_offers',[]))
-    from pricing_sources import collect as collect_pricing_constraints
-    evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist,catalog_only=True)
-    from fc_pricing_v3.runtime import context
-    evidence=context(evidence)
+    if curve_run:
+        evidence['source_plan'] = planned
+    else:
+        from pricing_sources import collect as collect_pricing_constraints
+        evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist,catalog_only=True)
+        from fc_pricing_v3.runtime import context
+        evidence=context(evidence)
     coverage=planned_source_coverage(dict(snapshot,arab_ut_status=evidence['arab_ut_status']),evidence['source_plan'],datetime.now(timezone.utc),reference_market=reference_market)
     if not coverage['ready']:raise ValueError('coverage_incomplete')
     if 'normalized_offers' in coverage:
@@ -292,7 +295,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
         from fc_pricing_v3.runtime import collect_curve_catalogues, store_curve_proof_inputs
         inputs = evidence.pop('curve_proof_inputs', None)
         if inputs is None:
-            inputs = collect_curve_catalogues(evidence, planned['platforms'], live_checkout=persist)
+            inputs = collect_curve_catalogues(evidence, planned['platforms'])
         if inputs:
             store_curve_proof_inputs(ledger(), evidence, inputs)
     result = calculate(evidence, edits)

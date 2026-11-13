@@ -241,6 +241,7 @@ def run(body):
         plan=db.active_plan() or {}
         mix=evidence.get('historical_discount_mix') or {}
         record['decision_basis']=dict(snapshot_id=snapshot.get('snapshot_id'),mode=plan.get('mode'),plan_state=plan.get('state'),
+            write_protocol=plan.get('write_protocol'),
             snapshot_sha256=fingerprint(evidence) if snapshot.get('snapshot_id') and isinstance(snapshot.get('evidence'),dict) else None,
             parameters=plan.get('parameters'),budget_policy='none',financial_contract_version=((snapshot.get('result') or {}).get('decision_receipt') or {}).get('financial_contract_version'),
             history={k:mix.get(k) for k in ('period','net_order_usd','discount_usd','undiscounted_order_usd','by_platform','platform_contract','sha256')},

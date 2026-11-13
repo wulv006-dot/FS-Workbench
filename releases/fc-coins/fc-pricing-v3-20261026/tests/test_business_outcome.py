@@ -58,6 +58,38 @@ class BusinessOutcome(unittest.TestCase):
             self.assertNotIn('arab_ut_status',scope['atomic_json'].call_args[0][1])
             self.assertEqual(result['quote_status'],'ready_for_preview')
 
+    def test_public_storefront_429_keeps_original_v6_quote_path_only(self):
+        from fc_pricing_v3.competitor_offers import POLICY
+
+        source = SOURCE/'fc27_cloud_worker.py'
+        function = next(node for node in ast.parse(source.read_text()).body
+                        if isinstance(node, ast.FunctionDef) and node.name == 'collect_quote')
+        for scope_fields in ({'competitor_policy':POLICY}, {}):
+            with self.subTest(scope=scope_fields), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                (root/'runs').mkdir()
+                (root/'runs/original.json').write_text(json.dumps(dict(run_id='original',status='ready_for_quote')))
+                runner = Mock(side_effect=[(0,dict(status='ready_for_quote')), (0,dict(status='proof_incomplete'))])
+                scope = dict(ROOT=root,APP=Path('/fixture'),PLATFORMS=('PS','XBOX','PC'),
+                             local_collection=SimpleNamespace(pin=lambda _:dict(mode='server')),
+                             save_job=Mock(),run=runner,
+                             collect_reference_market=Mock(return_value={'status':'unavailable'}),
+                             refresh_storefront=Mock(return_value=dict(status='unavailable',reason='HTTP 429')),
+                             atomic_json=Mock(),os=SimpleNamespace(chown=Mock(),chmod=Mock()),json=json)
+                exec(compile(ast.Module(body=[function],type_ignores=[]),str(source),'exec'),scope)
+                with patch.object(runtime,'ledger'), patch.object(runtime,'collection_scope',return_value=dict(
+                        active_mode='smart',scope=scope_fields)):
+                    if scope_fields:
+                        result = scope['collect_quote'](dict(job_id='original'))
+                        self.assertEqual(result,dict(run_id='original',quote_status='proof_incomplete'))
+                        self.assertEqual(runner.call_count,2)
+                        self.assertEqual(scope['atomic_json'].call_args.args[1]['storefront'],
+                                         dict(status='unavailable', collection_run_id='original', reason='HTTP 429'))
+                    else:
+                        with self.assertRaisesRegex(ValueError,'storefront_incomplete'):
+                            scope['collect_quote'](dict(job_id='original'))
+                        self.assertEqual(runner.call_count,1)
+
     def test_curve_no_feasible_passes_real_worker_and_completes_cycle_without_retry(self):
         from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
         from fc_pricing_v3.competitor_offers import POLICY

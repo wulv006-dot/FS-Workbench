@@ -18,6 +18,7 @@ from target_map import (THREE_PLATFORM_NAMES, THREE_PLATFORM_SCOPE, THREE_PLATFO
                         THREE_PLATFORM_NEW, three_platform_targets, MONITOR_SQLITE_CANDIDATE,
                         MONITOR_SQLITE_SHA, MONITOR_SQLITE_SOURCE)
 from target_map import CURVE_V6_EXECUTABLES, CURVE_V6_SCOPE, CURVE_V6_NEW, curve_v6_targets
+from target_map import CURVE_AVERAGE_SCOPE, CURVE_AVERAGE_NEW, curve_average_targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -48,6 +49,7 @@ SHADOW_TARGETS = {name: TARGETS[name] for name in SHADOW_NAMES}
 OPERATING_TARGETS={name:TARGETS[name] for name in OPERATING_NAMES}
 COLLECTION_TARGETS={name:TARGETS[name] for name in COLLECTION_NAMES}
 SCOPED_TARGETS = {
+    CURVE_AVERAGE_SCOPE: {'source/' + name: path for name, path in curve_average_targets(SOURCE).items()},
     CURVE_V6_SCOPE: CURVE_V6_TARGETS,
     HISTORY_READ_SCOPE: HISTORY_READ_TARGETS,
     LOOTBAR_CALLER_SCOPE: LOOTBAR_CALLER_TARGETS,
@@ -65,7 +67,7 @@ SCOPED_TARGETS = {
     OPERATING_SCOPE: OPERATING_TARGETS,
     SCOPE: TARGETS,
 }
-SCOPED_NEW = {CURVE_V6_SCOPE: CURVE_V6_NEW, THREE_PLATFORM_SCOPE: THREE_PLATFORM_NEW,
+SCOPED_NEW = {CURVE_AVERAGE_SCOPE: CURVE_AVERAGE_NEW, CURVE_V6_SCOPE: CURVE_V6_NEW, THREE_PLATFORM_SCOPE: THREE_PLATFORM_NEW,
               OPERATING_SCOPE: OPERATING_NEW, DELTA_SCOPE: DELTA_NEW}
 BUNDLE_SOURCE=Path('/opt/fc27-pack-bundles/pack_bundles_server.py')
 BUNDLE_CONFIG=Path('/opt/fc27-pack-bundles/data/config.json')
@@ -254,7 +256,7 @@ def checked_manifest(value):
         raise ValueError('code_release_does_not_change_business_or_timer_state')
     if value.get('releaseReady') is not True:
         raise ValueError('reviewed_code_release_required')
-    if scope == CURVE_V6_SCOPE:
+    if scope in (CURVE_V6_SCOPE, CURVE_AVERAGE_SCOPE):
         if any(row['mode'] != '0o755' for row in rows if row['candidate'] in CURVE_V6_EXECUTABLES):
             raise ValueError('curve_v6_collectors_must_be_executable')
         by_name = {row['candidate']: row['sha256'] for row in rows}
@@ -403,6 +405,11 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
+        if manifest.get('scope') == CURVE_AVERAGE_SCOPE:
+            for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service', 'fc-pricing-v3.service'):
+                subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)
+                subprocess.run(['systemctl', 'is-active', '--quiet', name], check=True, timeout=10)
+            return
         if manifest.get('scope') == HISTORY_READ_SCOPE:
             # FC sources load this module in fresh subprocesses; only the shared
             # FS reader needs its existing admission-fenced reload.

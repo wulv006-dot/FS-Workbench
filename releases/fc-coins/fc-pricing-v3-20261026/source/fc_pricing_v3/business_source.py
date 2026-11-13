@@ -1927,7 +1927,8 @@ def shared_curve_attachment(shared, scope, *, as_of, code_names=None):
         token = row['订单号']
         labels[token].add(str(row.get('产品类型') or 'unknown'))
         discounts[token].add(amount(row.get('折扣金额')))
-    for row in (shared.get('identity_catalog') or {}).get('rows', ()):
+    identity_catalog = shared.get('identity_catalog') or {}
+    for row in identity_catalog.get('rows', ()):
         identities[hashlib.sha256(row['order_no'].encode()).hexdigest()].add(str(row['site_id']))
     from channel_effects import fraud
     from channel_source import apply_cost_overrides
@@ -1964,11 +1965,12 @@ def shared_curve_attachment(shared, scope, *, as_of, code_names=None):
         tracking = order.get('tracking') or {}
         order_code = str(order.get('discount_code') or '').strip()
         tracked_code = str(tracking.get('code') or '').strip()
+        es_discount = next(iter(discounts[hashed])) if len(discounts[hashed]) == 1 else None
         promotion = None
         if not order_code or not tracked_code or order_code.casefold() == tracked_code.casefold():
             promotion = _curve_order_offer(amount(projection.get('retained_percent')), amount(projection.get('points')),
                 order_code or tracked_code, tracking.get('coupons'), regular=amount(projection.get('regular_usd')),
-                discount=next(iter(discounts[hashed])) if len(discounts[hashed]) == 1 else None, code_names=code_names)
+                discount=es_discount, code_names=code_names)
         if promotion and promotion['kind'] != 'none' and (projection.get('single_line_unit_purchase') is not True
                 or projection.get('region_id') != 0):
             promotion = None
@@ -1981,6 +1983,8 @@ def shared_curve_attachment(shared, scope, *, as_of, code_names=None):
                    region_id=projection.get('region_id'), promotion_path=promotion,
                    promotion_basis='Admin_ratio_points_code_same_order_coupon_log_and_ES_discount'
                                    if promotion else None,
+                   merchandise_before_discount_usd=projection.get('regular_usd'),
+                   actual_es_discount_usd=str(es_discount) if es_discount is not None else None,
                    cost_cny=None, status=status)
         row['source_sha256'] = fingerprint(dict(row=row, shared_source_revision=coverage['source_revision'],
                                                native_projection=projection.get('source_sha256')))
@@ -1988,7 +1992,7 @@ def shared_curve_attachment(shared, scope, *, as_of, code_names=None):
     lower = instant(scope['start'] + ' 00:00:00')
     upper = instant(scope['end'] + ' 00:00:00') + timedelta(days=1)
     population_complete = bool(coverage.get('admin_complete') and not coverage.get('missing_days')
-        and (shared.get('identity_catalog') or {}).get('complete')
+        and (identity_catalog.get('complete') or identity_catalog.get('fc27_paid_scope_complete') is True)
         and settings['sources']['accounting']['status'] == 'available'
         and not gaps['shared_product_identity_unresolved'] and not gaps['shared_order_identity_ambiguous'])
     proof = dict(population_scope=PAID_SCOPE, population_status='complete' if population_complete else 'partial',

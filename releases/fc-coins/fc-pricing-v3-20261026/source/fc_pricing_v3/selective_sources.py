@@ -77,6 +77,9 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
         historical_orders_in_quote=False,long_window_collection=False)
     if v6:
         result.update(version='fc27-selective-source-quantity-v6.1',competitor_policy=POLICY,
+            hard_evidence=['current_cost','current_FX','same_run_native_admin_catalogue','D8_D2_weighted_discount'],
+            history='D_minus_8_through_D_minus_2_seven_closed_days_from_shared_ES',
+            own_public_price='optional_independent_diagnostic',
             auxiliary_markets=[],retired_automatic_sources=['ELD','U4GM','IGGM','ItemD2R'],
             quantity_scope=list(QUANTITIES),competitor_roles={'Lootbar':'core','U7Buy':'differentiation','ArabUT':'observation'},
             quantity_identity='source_platform_purchase_eligibility_delivery_currency',
@@ -103,7 +106,7 @@ def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
             seen[key]=row
         valid=[r for k,r in seen.items() if k not in conflicts]
         coverage=quantity_coverage(valid,plan['platforms'],plan['quantity_scope'])
-        return dict(coverage,gaps=gaps,conflicting_offers=len(conflicts),normalized_offers=valid,
+        return dict(coverage,ready=True,gaps=gaps,conflicting_offers=len(conflicts),normalized_offers=valid,
             retired_automatic_sources=plan['retired_automatic_sources'],missing=[],
             reference_sources={p:sorted({r['source'] for r in valid if r['platform']==p and r['source']!='Lootbar'}) for p in plan['platforms']})
     required=plan['market_platforms']

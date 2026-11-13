@@ -138,10 +138,13 @@ def _evaluate_path(row, path_id, site_id, key, unavailable):
         result[field] = row.get(field) if _reference(row.get(field)) else None
         if result[field] is None and field != 'fee_ref':
             gaps.append(f'missing_reference:{field}')
-    for field in ('proof_status', 'currency', 'amount_kind', 'cost_status', 'quantity_basis', 'fee_status'):
+    for field in ('proof_status', 'currency', 'amount_kind', 'cost_status', 'quantity_basis', 'fee_status',
+                  'receipt_status'):
         result[field] = row.get(field) if _reference(row.get(field)) else None
     if _reference(row.get('quote_basis')):
         result['quote_basis'] = row['quote_basis']
+    if _reference(row.get('gift_basis')):
+        result['gift_basis'] = row['gift_basis']
     if row.get('coupon_template_id') is not None:
         result.update(coupon_template_id=row['coupon_template_id'], coupon_eligibility=row.get('coupon_eligibility'),
                       coupon_terms_revision=row.get('coupon_terms_revision'),
@@ -280,6 +283,21 @@ def validate_curve(curve, baskets, evidence, validation_domain):
     key = curve_key(curve)
     with localcontext(Context(prec=80)):
         scope, required, gaps = _scope(curve, validation_domain)
+        from .average_discount_v6 import MODEL, forecast_receipt
+        average = evidence.get('average_discount')
+        retained = None
+        if average is not None:
+            if (not isinstance(average, dict) or average.get('contract') != MODEL
+                    or average.get('platform') != scope['platform'] or average.get('site_id') != SITE_MAIN
+                    or average.get('status') != 'complete'
+                    or average.get('revision') != fingerprint({k: v for k, v in average.items() if k != 'revision'})
+                    or scope.get('source_revisions', {}).get('offers') != average.get('revision')):
+                gaps.append('average_discount_source_unverified')
+            else:
+                retained = _decimal(average.get('retained_ratio'), zero=True)
+                if retained is None or retained > 1:
+                    gaps.append('average_discount_ratio_invalid')
+                    retained = None
         bound = evidence.get('curve_key') == validation_domain.get('curve_key') == key
         if not bound:
             gaps.append('curve_key_mismatch')
@@ -298,6 +316,13 @@ def validate_curve(curve, baskets, evidence, validation_domain):
             elif path_id not in rows:
                 unavailable = 'quote_path_missing'
             path = _evaluate_path(rows.get(path_id), path_id, site_id, key, unavailable)
+            if path.get('quote_basis') == MODEL:
+                regular = _decimal(path.get('regular_usd'), zero=True)
+                net = _decimal(path.get('net_receipt_usd'), zero=True)
+                if (retained is None or regular is None
+                        or net != forecast_receipt(regular, retained)):
+                    path['gaps'].append('average_discount_forecast_amount_mismatch')
+                    path['basket_input_complete'] = False
             paths[path_id] = path
             gaps.extend(f'path:{path_id}:{gap}' for gap in path['gaps'])
             if path['zero_line_status'] == FAILED:
@@ -323,5 +348,7 @@ def validate_curve(curve, baskets, evidence, validation_domain):
                       hard_margin=_decimal_string(HARD_MARGIN), target=_target(main), gaps=sorted(set(gaps)),
                       hard_failures=sorted(failures),
                       status=INCOMPLETE if gaps else FAILED if failures else PROVEN)
+        if average is not None:
+            result['average_discount'] = average
     result['proof_hash'] = fingerprint(result)
     return result

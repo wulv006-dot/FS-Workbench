@@ -265,10 +265,9 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
         )} for row in offers]
     _, goods_id, aid = PRODUCTS[platform]
     own = (evidence.get('storefront') or {}).get('rows', {}).get(platform) or {}
-    if str(own.get('sku_id')) != str(goods_id):
+    if own.get('sku_id') is not None and str(own['sku_id']) != str(goods_id):
         gaps.append('pricing_snapshot_goods_scope_unverified')
         return result
-
     source = 'Admin Goods edit read only'
     observations = []
     try:
@@ -300,12 +299,14 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
         frozen_inputs = None
     decision.update(_preview_curve_candidates(curve, key, platform, strategy_state, segment, closed_attachment,
                                               snapshot['created_at'], captured_at, evidence_as_of,
-                                              (frozen_inputs or {}).get('primary_inputs') or {}))
+                                              (frozen_inputs or {}).get('primary_inputs') or {},
+                                              editor=(frozen_inputs or {}).get('editor_contract'),
+                                              repair=(frozen_inputs or {}).get('repair')))
     return result
 
 
 def _preview_curve_candidates(curve, key, platform, strategy_state, segment, closed_attachment,
-                              snapshot_at, catalogue_at, evidence_as_of, frozen_candidates):
+                              snapshot_at, catalogue_at, evidence_as_of, frozen_candidates, *, editor=None, repair=None):
     from .admin_readback import SITE_MAIN
     from .curve_strategy_v6 import ANCHORS, build_candidates
     from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, quote_native
@@ -314,13 +315,18 @@ def _preview_curve_candidates(curve, key, platform, strategy_state, segment, clo
     boundary_search_status = None
     if strategy_state:
         comparison = build_candidates(curve, strategy_state['reference'], strategy_state['episode'], segment,
-            editor_contract=dict(curve['native_contract'], editor_asset_sha256=EDITOR_ASSET_SHA256,
+            editor_contract=editor or dict(curve['native_contract'], editor_asset_sha256=EDITOR_ASSET_SHA256,
                                  editor_handler_sha256=EDITOR_HANDLER_SHA256),
             check_saved_discount_terms=True)
         candidates, candidate_gaps = comparison['candidates'], comparison['gaps']
         boundary_search_status = comparison['boundary_search_status']
     else:
         candidates = [dict(curve=curve, curve_key=key, labels=['CURRENT'], write_gaps=[])]
+    if repair:
+        for row in repair['candidates']:
+            repaired_key = curve_key(row['curve'])
+            candidates.append(dict(curve=row['curve'], curve_key=repaired_key, labels=['COST_REPAIR'], write_gaps=[]))
+            frozen_candidates = {**frozen_candidates, repaired_key:row['inputs']}
 
     output = []
     for candidate in candidates:
@@ -425,12 +431,14 @@ def ordinary_delivery_archives(scope, shared, *, root=None):
 
 def _shared_curve_inputs(paid_cutoff, as_of, *, code_names):
     import sys
-    from .business_source import historical_period, shared_curve_attachment
+    from .business_source import shared_curve_attachment
 
     sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
     from shared_es_facts import read
 
-    period = historical_period('7d', now=instant(paid_cutoff))['period']
+    from .business_source import TZ
+    day = instant(paid_cutoff).astimezone(TZ).date()
+    period = dict(start=(day - timedelta(days=8)).isoformat(), end=(day - timedelta(days=1)).isoformat())
     scope = dict(site_id='266', gid='1327', **period)
     shared = read(scope)
     closed = shared_curve_attachment(shared, scope, as_of=as_of, code_names=code_names)
@@ -443,14 +451,93 @@ def _shared_curve_inputs(paid_cutoff, as_of, *, code_names):
     return closed, facts
 
 
-def _same_run_checkout(evidence, curves, as_of, *, live):
-    from .native_checkout_evidence import collect_anonymous_observations
+def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now, *,
+                                  average, route, facts, fx, current_cost):
+    from .average_discount_v6 import MODEL, forecast_quotes, quantity_group
+    from .cost_inputs_v6 import estimate_historical_cost
+    from .planning_baskets_v6 import build_planning_baskets
+    from .price_curve import curve_key
 
-    quantities = {platform: tuple(tier['purchase_k'] for tier in curve['tiers'])
-                  for platform, curve in curves.items()}
-    if live:
-        return collect_anonymous_observations(evidence, curves, quantities, as_of=as_of, live=True)
-    return collect_anonymous_observations(evidence, curves, quantities, as_of=as_of)
+    key = curve_key(curve)
+    tiers = {row['purchase_k'] for row in curve['tiers']}
+    orders = {row['order_key']: row for source in (closed, recent) if source
+              for row in source['historical_orders'] if row.get('platform') == platform}
+    quantities, observed_gifts = {}, {}
+    for identity, row in orders.items():
+        if row.get('base_k') is None or row.get('bonus_k') is None:
+            continue
+        purchase = number(row['base_k'])
+        if purchase == purchase.to_integral_value():
+            quantities[identity] = purchase
+            bonus = number(row['bonus_k'], zero=True)
+            observed_gifts[purchase] = max(bonus, observed_gifts.get(purchase, Decimal(0)))
+    quotes = forecast_quotes(curve, quantities.values(), average, observed_gifts=observed_gifts)
+    now_text = now.isoformat()
+    groups = {name: {} for name in ('small', 'large')}
+    repriced = {}
+    fulfilment = 'ordinary_native_coins_promised_delivered_k'
+    for identity, purchase in quantities.items():
+        row = orders[identity]
+        path = quotes[format(purchase.normalize(), 'f')]
+        ref = fingerprint(dict(order=row['source_sha256'], contract=fulfilment))
+        repriced[identity] = _repriced_checkout_order(row, path, dict(fulfilment_ref=ref), now,
+                                                       average['revision'])
+        # Compare only original ordinary single-product deliveries. Custom
+        # forecast gifts never replace the historical same-order gift quantity.
+        if row.get('single_line_unit_purchase') is not True:
+            continue
+        layer = dict(platform=platform, quantity_bucket=quantity_group(purchase),
+                     offer_version=MODEL, fulfilment_contract=fulfilment)
+        groups[layer['quantity_bucket']][identity] = dict(
+            layer=layer, available_at=now_text, order_revision=row['source_sha256'], evidence_ref=ref)
+
+    estimates = {}
+    for group, matches in groups.items():
+        if not matches or facts is None:
+            continue
+        layer = next(iter(matches.values()))['layer']
+        # Original closed archives stop at midnight. Recent today is basket
+        # structure; it is never assigned a cost from a future delivery.
+        cost_cutoff = instant(closed['historical_orders_coverage']['paid_window_end_exclusive']) if closed else None
+        if cost_cutoff is not None:
+            estimates[group] = estimate_historical_cost([closed], layer, 'PROMISED_DELIVERED_K',
+                as_of=now, paid_cutoff=cost_cutoff, layer_matches=matches, fact_revisions=[facts], fx=fx,
+                ordinary_forecast=True, selected_orders=tuple(matches), current_cost=current_cost)
+
+    paths = []
+    for quantity in sorted(tiers | {format(value.normalize(), 'f') for value in quantities.values()}, key=Decimal):
+        path = quotes[quantity]
+        estimate = estimates.get(quantity_group(number(quantity)))
+        if estimate and estimate['status'] == 'calculated':
+            units = estimate['diagnostic_estimate']
+            total = number(path['promised_delivered_k'])
+            path.update(cost_status='verified', quantity_basis='PROMISED_DELIVERED_K',
+                        cost_ref=fingerprint(dict(order_cost_source=estimate['order_cost_source'],
+                            attachment_revision=estimate['attachment_revision'], fx=estimate['forecast_fx'],
+                            upper_source=estimate['cost_upper_source'], current_source=estimate['current_cost_source'])),
+                        **{kind + '_cost_usd': str(total * units[kind + '_unit_usd'])
+                           for kind in ('expected', 'safe', 'stress')})
+        else:
+            path['ordinary_cost_gaps'] = (estimate['gaps'] if estimate else
+                                          ['ordinary_delivery_cost_sample_missing'])
+        paths.append(path)
+
+    propagation = (route or {}).get('propagation_revision')
+    domain_gaps = list(average['gap_counts'])
+    if not propagation:
+        domain_gaps.append('curve_native_route_unavailable')
+    quantity_revision = fingerprint(dict(model=MODEL, curve_key=key, paths=[p['quote_ref'] for p in paths]))
+    return dict(baskets=build_planning_baskets(platform, key, closed, recent, repriced,
+                                               paid_cutoff=paid_cutoff, as_of=now),
+                evidence=dict(curve_key=key, paths=paths, average_discount=average),
+                domain=dict(platform=platform, curve_key=key, version=MODEL,
+                            coverage_status='partial' if domain_gaps else 'complete',
+                            coverage_gaps=sorted(domain_gaps),
+                            source_revisions=dict(quantity=quantity_revision, offers=average['revision'],
+                                fulfilment=fingerprint(dict(model=MODEL, quantity_revision=quantity_revision,
+                                                           cost_refs=[p.get('cost_ref') for p in paths])),
+                                propagation=propagation),
+                            site_paths={'266': [path['path_id'] for path in paths]}))
 
 
 def _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, *, recent=None, checkout=None,
@@ -684,15 +771,17 @@ def _same_hour_curve_performance(platform, online, now):
     return result
 
 
-def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
+def collect_curve_catalogues(evidence, platforms):
     """Collect current saved Goods rows for the same run's private proof inputs."""
     from contextlib import closing
     from coin_all_sync_job import PRODUCTS, read_curve_routes, read_row
     from fc_shared_admin import SessionManager, read_private_config
     from .api import _curve_preview_history
-    from .business_source import collect_curve_code_terms, collect_curve_coupon_terms, collect_recent_curve_population
+    from .average_discount_v6 import MODEL, average_discount
+    from .business_source import collect_recent_curve_population
     from .curve_strategy_v6 import ANCHORS, build_candidates
-    from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, IDENTITY_FIELDS, curve_key, read_curve
+    from .price_curve import (EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, FORWARD_TIER_EDIT,
+                              IDENTITY_FIELDS, curve_key, read_curve)
 
     try:
         manager = SessionManager(read_private_config())
@@ -714,9 +803,9 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
         closed = _curve_preview_history(conn, dict(snapshot_id=evidence['run_id'], created_at=paid_cutoff), clock(),
                                         require_snapshot_binding=False)
     collected = {}
-    primary_curves = {}
     for platform in platforms:
-        if str(evidence['storefront']['rows'][platform]['sku_id']) != str(PRODUCTS[platform][1]):
+        public = (evidence.get('storefront') or {}).get('rows', {}).get(platform) or {}
+        if public.get('sku_id') is not None and str(public['sku_id']) != str(PRODUCTS[platform][1]):
             continue
         observed = []
         try:
@@ -727,8 +816,8 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
                                    for row in (primary, all_row))
         except (OSError, TypeError, ValueError):
             continue
-        primary_curves[platform] = current
-        editor = dict(contract, editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256)
+        editor = dict(contract, editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256,
+                      price_edit_policy=FORWARD_TIER_EDIT)
         candidates = {curve_key(current): current}
         state = db.curve_strategy_state(platform)
         if state:
@@ -743,9 +832,8 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
                                    all_targets=all_targets)
     if not collected:
         return {}
-    code_names = set()
     try:
-        shared_closed, facts = _shared_curve_inputs(paid_cutoff, clock(), code_names=code_names)
+        shared_closed, facts = _shared_curve_inputs(paid_cutoff, clock(), code_names=None)
     except (ImportError, OSError, ValueError, TypeError, KeyError):
         shared_closed, facts = None, None
     if shared_closed is not None:
@@ -755,43 +843,27 @@ def collect_curve_catalogues(evidence, platforms, *, live_checkout=False):
     except (ImportError, OSError, ValueError, TypeError, KeyError):
         recent = None
     now = clock()
-    checkout = _same_run_checkout(evidence, primary_curves, now, live=live_checkout) if primary_curves else {}
-    coupons = {}
-    codes = {}
-    if any(row.get('lines') for row in checkout.values()):
-        try:
-            coupons = collect_curve_coupon_terms(manager, clock=clock)
-        except (ImportError, OSError, ValueError, TypeError, KeyError):
-            coupons = dict(coverage_gaps=['current_coupon_terms_source_unavailable'])
-        if code_names:
-            try:
-                codes = collect_curve_code_terms(manager, code_names, clock=clock)
-            except (ImportError, OSError, ValueError, TypeError, KeyError):
-                coupons.setdefault('coverage_gaps', []).append('current_discount_code_terms_source_unavailable')
-    now = clock()
-    offer_terms = (*coupons.get('terms', {}).values(), *codes.values())
-    valid_until = min([now + timedelta(minutes=15)] + [instant(terms['valid_until'])
-        for terms in offer_terms if terms['valid_until']])
-    from .native_checkout_evidence import project_anonymous_fixed_tiers
+    valid_until = now + timedelta(minutes=15)
 
     for platform, entry in collected.items():
-        current = entry['primary_curve']
-        observation = checkout.get(platform)
+        average = average_discount(shared_closed, platform, paid_cutoff)
 
         def proof(curve):
-            native = observation
-            if native and curve_key(curve) != curve_key(current):
-                native = project_anonymous_fixed_tiers(current, curve, native) or dict(
-                    observation, curve_key=curve_key(curve), lines=[])
-            return _catalogue_proof_input(curve, platform, closed, paid_cutoff, now, recent=recent,
-                                          checkout=native, facts=facts, fx=evidence.get('fx'),
-                                          current_cost=(evidence.get('costs') or {}).get(platform), coupons=coupons,
-                                          codes=codes)
+            return _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now,
+                average=average, route=entry['native_route'], facts=facts, fx=evidence.get('fx'),
+                current_cost=(evidence.get('costs') or {}).get(platform))
 
-        entry.update(captured_at=now.isoformat(), valid_until=valid_until.isoformat(),
+        entry.update(captured_at=now.isoformat(), valid_until=valid_until.isoformat(), pricing_assumption=MODEL,
                      primary_inputs={key: proof(curve) for key, curve in entry.pop('candidates').items()},
                      all_inputs={curve_key(curve): proof(curve) for curve in entry['all_targets'].values()},
                      performance=_same_hour_curve_performance(platform, online, now))
+        current = entry['primary_curve']
+        current_proof = _validated_curve(current, entry['primary_inputs'][curve_key(current)])
+        if current_proof['status'] == 'HARD_CONSTRAINT_FAILED':
+            repair = _average_discount_repair(current, entry['all_before'], entry['editor_contract'],
+                                              current_proof, proof)
+            if repair:
+                entry['repair'] = repair
     return collected
 
 
@@ -844,6 +916,55 @@ def _validated_curve(curve, frozen):
     return validate_curve(curve, frozen['baskets'], frozen['evidence'], frozen['domain'])
 
 
+def _average_discount_repair(current, all_before, editor, current_proof, inputs_for):
+    from decimal import ROUND_CEILING
+    from .average_discount_v6 import CENT, quantity_group, repair_controls
+    from .price_curve import compile_curve
+    from .pricing_proof_v6 import PROVEN
+
+    floors, affected = repair_controls(current, current_proof)
+    if not floors:
+        return None
+    source = current['tiers']
+    # A low-tier control flows forward. An unaffected segment gets its
+    # original explicit controls back, so it does not pay for a repair elsewhere.
+    preserved = {row['purchase_k']: row['native_price_usd'] for row in source
+                 if Decimal(row['purchase_k']) > min(map(Decimal, floors))
+                 and quantity_group(Decimal(row['purchase_k'])) not in affected}
+    old_unit = Decimal(current['unit_price_usd_per_k'])
+
+    def try_controls(extra_cents):
+        anchors = {key: price + extra_cents * CENT for key, price in floors.items()}
+        needed = max([old_unit, *(amount / Decimal(quantity) for quantity, amount in anchors.items())])
+        choices = dict(anchor_prices_usd={**preserved, **{q: str(value) for q, value in anchors.items()}})
+        if needed > old_unit:
+            choices['unit_price_usd_per_k'] = str(needed.quantize(Decimal('.00000001'), rounding=ROUND_CEILING))
+        target = compile_curve(current, choices, editor)
+        if target['compilation_status'] != 'EDITOR_CANDIDATE':
+            return None
+        all_target = _all_curve_target(all_before, target)
+        frozen, all_frozen = inputs_for(target), inputs_for(all_target)
+        if (_validated_curve(target, frozen)['status'] != PROVEN
+                or _validated_curve(all_target, all_frozen)['status'] != PROVEN):
+            return None
+        return dict(curve=target, all_target=all_target, inputs=frozen, all_inputs=all_frozen)
+
+    # One cent per segment is the smallest visible adjustment at these controls.
+    # Further cent candidates allow for catalogue and net receipt rounding.
+    candidates = []
+    for extra in range(4):
+        candidate = try_controls(extra)
+        if candidate:
+            candidates.append(candidate)
+            break
+    if not candidates:
+        return None
+    source_ref = fingerprint(dict(proof=current_proof['proof_hash'], floors={q:str(v) for q,v in floors.items()}))
+    return dict(current_proof_hash=current_proof['proof_hash'], domain_status='complete', domain_ref=source_ref,
+                repair_search='average_model_cent_floor_and_native_rounding',
+                affected_segments=sorted(affected), candidates=candidates)
+
+
 def _curve_repair(current, current_proof, repair):
     from .curve_strategy_v6 import minimum_repair
     from .price_curve import curve_key
@@ -889,6 +1010,15 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
     if not inputs or not instant(inputs['captured_at']) <= now < instant(inputs['valid_until']):
         return dict(status='PROOF_INCOMPLETE', gaps=['curve_reference_or_fresh_execution_inputs_unavailable'])
     if not state:
+        from .average_discount_v6 import MODEL
+        if inputs.get('pricing_assumption') == MODEL:
+            current = inputs['primary_curve']
+            key = curve_key(current)
+            frozen = (inputs.get('primary_inputs') or {}).get(key)
+            if frozen:
+                proof = _validated_curve(current, frozen)
+                return dict(status='KEEP' if proof['status'] == PROVEN else proof['status'],
+                            current_key=key, proof=proof, gaps=proof['gaps'] + proof['hard_failures'])
         return dict(status='PROOF_INCOMPLETE', gaps=['adopted_reference_curve_unavailable'])
     current = primary_reference_curve(inputs['primary_curve'], platform)
     preference = _curve_preference(platform, current, evidence or {}, inputs, decision_at or now, plan=plan, state=state)
@@ -1024,7 +1154,7 @@ def activate_curve_plan(db, ident, expected_revision, actor, snapshot_id):
 
 
 def calculate_curve_cycle(db, evidence, plan, request, now):
-    from .pricing_proof_v6 import CONTRACT
+    from .pricing_proof_v6 import CONTRACT, FAILED
 
     active = bool(request.get('v3_operation_id') and plan and plan.get('write_protocol') == CURVE_WRITE_PROTOCOL
                   and plan['state'] == 'ACTIVE')
@@ -1038,6 +1168,8 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
                  selection=decisions[p].get('selection')) for p in platforms]
     status = ('READY' if active and ready else 'NO_PRICE_CHANGE'
               if all(decisions[p]['status'] == 'KEEP' for p in platforms) else 'PROOF_INCOMPLETE')
+    if not ready and any(decisions[p]['status'] == FAILED for p in platforms):
+        status = FAILED
     if not active and all(decisions[p]['status'] in ('KEEP', 'READY') for p in platforms):
         status = 'CURVE_CANDIDATE_PROVEN'
     result = dict(status=status, rows=rows, strategy_version=VERSION,

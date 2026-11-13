@@ -198,6 +198,30 @@ SimulationBridge(request=lambda *args: version).versions()
         with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):
             adapter.checked_manifest(value)
 
+    def test_average_stage_has_exact_changed_targets_and_two_new_matching_copies(self):
+        scope = target_map.CURVE_AVERAGE_SCOPE
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / 'average.tar.gz'
+            commands = patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, ''])
+            blobs = patch.object(build_stage, 'git_blob', side_effect=lambda _, path, commit: path.read_bytes())
+            with commands, blobs as read:
+                result = build_stage.build(ROOT, output, curve_average=True)
+            self.assertEqual(result['targets'], 24)
+            self.assertTrue(all(call.args[2]=='a' * 40 for call in read.call_args_list))
+            with tarfile.open(output) as bundle:
+                provenance = json.load(bundle.extractfile('fc-pricing-v3-20261026/source-manifest.json'))
+        self.assertEqual(provenance['scope'], scope)
+        self.assertEqual(set(provenance['files']), set(adapter.SCOPED_TARGETS[scope]))
+        manifest = dict(scope=scope, releaseReady=True, businessWrites=False, timersChanged=False, files=[
+            dict(candidate=name,target=path,sha256=provenance['files'][name],owner='0:0',mode='0o644',
+                 beforeSha256=None if name in target_map.CURVE_AVERAGE_NEW else 'b' * 64)
+            for name,path in adapter.SCOPED_TARGETS[scope].items()])
+        self.assertIs(adapter.checked_manifest(manifest),manifest)
+        new = next(row for row in manifest['files'] if row['candidate'] in target_map.CURVE_AVERAGE_NEW)
+        new['sha256'] = 'c' * 64
+        with self.assertRaisesRegex(ValueError,'module_copy_sha_mismatch'):
+            adapter.checked_manifest(manifest)
+
     def test_prepare_requires_exact_archive_and_uses_original_inspection(self):
         with tempfile.TemporaryDirectory() as folder:
             stage = Path(folder)

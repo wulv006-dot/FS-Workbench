@@ -8,6 +8,7 @@
   const purposes={smart:'三平台独立双向试验：每小时重算各平台基准，每3小时独立选择A基准、B合法降3%、C合法涨3%，受各自双20与竞品上界约束。同价合并；按同钟点累计有效对照复盘，低量不强判赢家。',daily:'PS、Xbox、PC分别按真实八日优惠核算财务底线；Lootbar为主锚、Arab-UT为次锚，双源缺失按本平台八日平均30%求最低合法价。',revenue_sprint:'三平台独立报价，Lootbar为主锚、Arab-UT为次锚，ItemD2R仅辅助。按本平台100K实交100K双20及5–10%竞争目标选价，地区继承全球。'};
   const primaryPolicy=plan=>plan?.parameters?.competitor_policy==='lootbar_primary_arabut_secondary_v1';
   function modePurpose(mode,plan){
+    if(plan?.write_protocol===curveProtocol)return 'PS、Xbox、PC 各自核价。按 D-8 至 D-2 的金额加权优惠估算，检查各档保本及平台组合采购毛利至少 18%，以 25% 为经营目标。';
     if(mode==='smart'&&plan?.smart_strategy_version==='smart-three-platform-v3')return purposes.smart;
     if(mode==='smart'&&plan?.smart_strategy_version==='smart-bidirectional-v2')return '历史双向试验v2：每小时重算冲额基准；Console与PC独立选择A基准、B合法降3%、C合法涨3%，同价候选合并；48小时为检查点，成熟度按有效对照判断。程序每小时执行，Hermes每日只读复盘；月目标仅为经营背景，不接入选价。';
     if(primaryPolicy(plan)&&mode==='daily')return 'Lootbar有效时保留原计划锚点；缺价按同平台ArabUT当轮实际交付价，低于双20则用合法底价。两源均缺的平台按八日平均30%求最低价；ItemD2R仅辅助观察。';
@@ -270,10 +271,20 @@
       }
       for(const candidate of candidates){
         const row=document.createElement('p'),proof=candidate.financial_proof,quote=candidate.quote;
-        const label=candidate.labels?.map(value=>value==='CURRENT'?'当前':value).join(' / ')||'候选';
+        const labels={CURRENT:'当前',COST_REPAIR:'成本底线修复'};
+        const label=candidate.labels?.map(value=>labels[value]||value).join(' / ')||'候选';
         const amount=quote?.regular_usd==null?'':` · ${quote.purchase_k}K ${usd(quote.regular_usd)}`;
         row.textContent=`${label}${amount} · ${proofLabels[proof?.status]||'证据待补'}`;
         card.append(row);
+        const average=proof?.average_discount;
+        if(average?.contract==='fc_v6_d8_d2_amount_weighted_discount_v1'){
+          const coverage=document.createElement('p'),retained=average.retained_ratio;
+          const rate=retained==null?'待补':`${((1-Number(retained))*100).toFixed(2)}%`;
+          const margin=proof.minimum_safe_procurement_margin;
+          const marginText=margin==null?'待核':`${(Number(margin)*100).toFixed(2)}%`;
+          coverage.textContent=`D-8 至 D-2 平均优惠 ${rate} · 已核 ${average.matched_orders}/${average.eligible_orders} 单 · 组合采购毛利 ${marginText}（底线 18%，目标 25%）`;
+          card.append(coverage);
+        }
       }
       return card;
     }));
