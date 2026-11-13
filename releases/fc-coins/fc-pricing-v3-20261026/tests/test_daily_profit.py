@@ -184,6 +184,76 @@ class DailyProfit(unittest.TestCase):
             self.assertEqual(result['marketing_context']['reason'],'shared_order_facts_timeout')
             self.assertEqual(review.call_count,1)
 
+    def test_daily_review_uses_confirmed_v6_operation_instead_of_newer_preview(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db = Ledger(Path(folder) / 'db')
+            db.active_plan = Mock(return_value=dict(
+                plan_id='p', state='ACTIVE', revision=4, generation='g',
+                mode='smart', write_protocol='fc27_curve_v6'))
+            source = '00000000-0000-4000-8000-000000000001'
+            operation_id = '00000000-0000-4000-8000-000000000002'
+            evidence = dict(source_plan={'version': 'v6-market'})
+            sha = runtime.fingerprint(evidence)
+            snapshot = dict(snapshot_id=source, plan_id='p', plan_revision=4,
+                            write_protocol='fc27_curve_v6', origin='live_collector', mode='production',
+                            created_at='2026-11-06T10:00:00+00:00', evidence=evidence, result={'status': 'READY'})
+            db.put('pricing_snapshots', source, snapshot)
+            db.put('pricing_snapshots', 'later-preview', dict(
+                snapshot, snapshot_id='later-preview', plan_id=None, plan_revision=None))
+            db.put('pricing_snapshots', 'later-owned-keep', dict(
+                snapshot, snapshot_id='later-owned-keep', result={'status': 'NO_PRICE_CHANGE'}))
+            db.put('metadata', 'latest_snapshot:p', {'snapshot_id': 'later-owned-keep'})
+            before = dict(tiers=[dict(purchase_k='100', native_price_usd='8.62', promised_bonus_k='0'),
+                                 dict(purchase_k='1000', native_price_usd='86.20', promised_bonus_k='30')])
+            actual = dict(tiers=[before['tiers'][0], dict(before['tiers'][1], native_price_usd='88.70')])
+            main = dict(status='PROVEN', selection='closed_bjt_7d', safe_procurement_margin='0.20',
+                        net_receipt_usd='500', safe_cost_usd='400', members=[{'path_id': 'private-member'}])
+            recent = dict(main, selection='latest_24h', safe_procurement_margin='0.18')
+            proof = dict(status='PROVEN', proof_hash='proof', baskets=dict(main=main, recent=recent),
+                         average_discount=dict(retained_ratio='0.91', start='2026-10-29', end_exclusive='2026-11-05'))
+            bundle = dict(write_protocol='fc27_curve_v6', snapshot_id=source, snapshot_sha256=sha,
+                          financial_contract_version='v6-finance', affected_platforms=['PS'],
+                          before_action={'curves': {'PS': before}}, curve_proofs={'PS': proof},
+                          curve_selection={'PS': {'segment': 'large', 'label': 'B'}})
+            receipt = dict(status='CONFIRMED', execution_id=operation_id, write_protocol='fc27_curve_v6',
+                           curve_results={'PS': {'actual_site266_curve': actual}})
+            operation = dict(operation_id=operation_id, plan_id='p', revision=4, generation='g',
+                             status='COMPLETED', completed_at='2026-11-06T10:02:00+00:00',
+                             bundle=bundle, readback=receipt)
+            db.put('operations', operation_id, operation)
+            db.put('operations', 'wrong-revision', dict(operation, operation_id='wrong-revision', revision=3,
+                completed_at='2026-11-06T11:00:00+00:00', readback=dict(receipt, execution_id='wrong-revision')))
+            db.put('operations', 'unconfirmed', dict(operation, operation_id='unconfirmed', status='UNKNOWN',
+                completed_at='2026-11-06T12:00:00+00:00'))
+            db.put('metadata', 'daily:2026-11-06', dict(
+                local_date='2026-11-06', request_id='original-review', phase='created', actual={}))
+            with patch.object(runtime, 'ledger', return_value=db), patch.object(scheduler, 'export_shadow_snapshot'), \
+                    patch.object(history, 'ensure_shadow', return_value={'status': 'completed', 'result': {}}), \
+                    patch.object(bridge, 'review', return_value={'phase': 'completed'}) as review:
+                result = daily.run({'local_date': '2026-11-06'})
+                basis = result['decision_basis']
+                self.assertEqual((basis['snapshot_id'], basis['snapshot_sha256'], basis['operation_id']),
+                                 (source, sha, operation_id))
+                self.assertEqual(basis['financial_contract_version'], 'v6-finance')
+                ps = basis['confirmed_platforms']['PS']
+                self.assertEqual(ps['confirmed_tiers'], actual['tiers'])
+                self.assertEqual(ps['before_tiers'], before['tiers'])
+                self.assertEqual(ps['selection'], {'segment': 'large', 'label': 'B'})
+                self.assertEqual(ps['planning_baskets']['main']['safe_procurement_margin'], '0.20')
+                self.assertEqual(ps['planning_baskets']['recent']['safe_procurement_margin'], '0.18')
+                self.assertNotIn('private-member', json.dumps(basis))
+                review_report = review.call_args.args[1]
+                self.assertEqual(review_report['daily_report']['decision_basis'], basis)
+                self.assertIn(operation_id, bridge.daily_review_text(review_report))
+                db.put('pricing_snapshots', source, dict(snapshot, evidence={}))
+                self.assertEqual(daily.run({'local_date': '2026-11-06'})['decision_basis'], basis)
+                self.assertEqual(review.call_count, 1)
+                db.put('metadata', 'daily:2026-11-07', dict(
+                    local_date='2026-11-07', request_id='next-review', phase='created', actual={}))
+                unavailable = daily.run({'local_date': '2026-11-07'})['decision_basis']
+                self.assertEqual(unavailable['status'], 'execution_snapshot_unavailable')
+                self.assertIsNone(unavailable['snapshot_id'])
+
     def test_prompt_carries_summary_preserves_precision_and_does_not_mutate_source(self):
         summary=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','p')
         quote=dict(daily_report=dict(actual_profit_summary=summary,actual=dict(hourly=[dict(hour=0,orders=1,net_paid_usd='100')]),decision_basis=dict(demand_model=dict(status='fit',groups={'pc':{'elasticity':'1.12345678','metrics':['detail']}}))))

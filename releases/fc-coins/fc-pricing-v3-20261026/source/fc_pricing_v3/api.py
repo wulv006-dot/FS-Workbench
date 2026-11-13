@@ -38,7 +38,8 @@ def original_restore_prices(operation_id):
     if not audit_path.exists():
         raise ValueError('pricing_restore_original_missing')
     audit=json.loads(audit_path.read_text())
-    if audit.get('execution_id')!=ident or audit.get('status')!='CONFIRMED' or audit.get('sync_confirmed') is not True:
+    if (audit.get('execution_id')!=ident or audit.get('status')!='CONFIRMED'
+            or audit.get('sync_confirmed') is not True or audit.get('write_protocol') is not None):
         raise ValueError('pricing_restore_original_unconfirmed')
     rows=(audit.get('before') or {}).get('rows') or []
     by={r['platform']:r for r in rows if r.get('platform') in ('PS','XBOX','PC') and r.get('b2c') is not None}
@@ -117,7 +118,8 @@ def _latest_snapshot(conn, *, curve=False):
     candidate = None
     for row in conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC'):
         snapshot = json.loads(row[0])
-        if snapshot.get('authorization_purpose') in ('original_unsent_ALL_steps_only','retire_uk_discount_v1'):
+        if (snapshot.get('authorization_purpose') in ('original_unsent_ALL_steps_only','retire_uk_discount_v1')
+                or snapshot.get('curve_restore_preview_id')):
             continue
         if snapshot.get('write_protocol') == CURVE_WRITE_PROTOCOL:
             if curve:
@@ -237,7 +239,10 @@ def manual_execution_progress(db, operations):
     progress = dict(job_key=key, plan_id=body.get('plan_id'), status=status, phase=status)
     if result.get('status') == 'original_operation_reconciliation_pending':
         return dict(progress, phase=result['status'])
-    operation_id = str(uuid.uuid5(uuid.NAMESPACE_URL, 'fc-v3-operation:' + key))
+    preview_id = body.get('manual_preview_id')
+    preview = db.get('manual_previews', preview_id) if preview_id else None
+    operation_id = ((preview or {}).get('operation_id')
+                    or str(uuid.uuid5(uuid.NAMESPACE_URL, 'fc-v3-operation:' + key)))
     operation = next((row for row in operations if row['operation_id'] == operation_id), None)
     run_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'fc-v3-collection:{key}:{attempt}'))
     job = {}
@@ -273,6 +278,8 @@ def manual_execution_progress(db, operations):
             progress['phase'] = 'failed'
     elif result.get('status') in ('INFEASIBLE','REJECTED_PREWRITE','FAILED_BEFORE_WRITE'):
         progress['phase'] = 'failed'
+    elif preview and preview.get('write_protocol') == CURVE_WRITE_PROTOCOL and result:
+        progress.update(phase=result['status'].lower(), rows=result.get('rows', []))
     return progress
 
 
@@ -705,8 +712,6 @@ def post(path,data,actor):
             if old['request_sha256']!=request_hash:
                 raise ValueError('pricing_manual_preview_payload_conflict')
             return old
-        if not snapshot:
-            raise ValueError('pricing_snapshot_required')
         reason=data.get('reason')
         if not isinstance(reason,str) or not 4<=len(reason.strip())<=200:
             raise ValueError('pricing_manual_reason_required')
@@ -716,19 +721,39 @@ def post(path,data,actor):
         plan=db.get('pricing_plans',data['plan_id']) if data.get('plan_id') else db.active_plan()
         if not plan:
             raise ValueError('pricing_plan_required')
-        prices=original_restore_prices(restore_id) if restore_id else data['explicit_prices']
-        if not isinstance(prices,dict) or not prices or set(prices)-{'PS','XBOX','PC'}:
-            raise ValueError('pricing_manual_price_fields')
-        if restore_id:
-            prices={group:value for group,value in prices.items() if 'base:'+group in plan['resources']}
-        if not prices:
-            raise ValueError('pricing_manual_scope_not_owned')
-        prices={group:str(number(value)) for group,value in prices.items()}
-        from .runtime import override_quote
-        proof=override_quote(snapshot['evidence'],prices,reason.strip(),restore_id,plan)
+        if plan.get('write_protocol') == CURVE_WRITE_PROTOCOL:
+            if not restore_id:
+                raise ValueError('pricing_curve_scalar_override_unsupported')
+            if plan['state'] != 'ACTIVE':
+                raise ValueError('pricing_plan_required')
+            restore_id = str(uuid.UUID(restore_id))
+            from .runtime import original_restore_curves
+            with db.connect() as conn:
+                db.owns(plan, plan['resources'], conn)
+                source = original_restore_curves(db, restore_id, plan, conn)
+            snapshot = _owned_curve_snapshot(db, plan)
+            proof = dict(plan_id=plan['plan_id'], revision=plan['revision'], write_protocol=CURVE_WRITE_PROTOCOL,
+                         valid_until=(clock() + timedelta(minutes=15)).isoformat(),
+                         restore_before_sha256=fingerprint(source),
+                         restore_tiers={p: [{k: row[k] for k in ('purchase_k', 'native_price_usd')}
+                                            for row in curve['tiers']] for p, curve in source.items()})
+        else:
+            if not snapshot:
+                raise ValueError('pricing_snapshot_required')
+            prices=original_restore_prices(restore_id) if restore_id else data['explicit_prices']
+            if not isinstance(prices,dict) or not prices or set(prices)-{'PS','XBOX','PC'}:
+                raise ValueError('pricing_manual_price_fields')
+            if restore_id:
+                prices={group:value for group,value in prices.items() if 'base:'+group in plan['resources']}
+            if not prices:
+                raise ValueError('pricing_manual_scope_not_owned')
+            prices={group:str(number(value)) for group,value in prices.items()}
+            from .runtime import override_quote
+            proof=override_quote(snapshot['evidence'],prices,reason.strip(),restore_id,plan)
+            proof['explicit_prices']=prices
         record=dict(proof,manual_preview_id=ident,operation_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-pricing-v3:manual-operation:'+ident)),
-                    request_sha256=request_hash,actor=actor,created_at=clock().isoformat(),snapshot_id=snapshot['snapshot_id'],
-                    explicit_prices=prices,reason=reason.strip(),restore_source_execution_id=restore_id,
+                    request_sha256=request_hash,actor=actor,created_at=clock().isoformat(),snapshot_id=(snapshot or {}).get('snapshot_id'),
+                    reason=reason.strip(),restore_source_execution_id=restore_id,
                     execution_authorized=False,write_performed=False)
         db.put('manual_previews',ident,record)
         return record
@@ -747,9 +772,13 @@ def post(path,data,actor):
             raise ValueError('pricing_plan_required')
         preview_id=data.get('manual_preview_id')
         if preview_id:
-            preview=db.get('manual_previews',str(uuid.UUID(preview_id)))
+            preview_id=str(uuid.UUID(preview_id))
+            preview=db.get('manual_previews',preview_id)
             if not preview or preview['actor']!=actor or preview['plan_id']!=plan['plan_id']:
                 raise ValueError('pricing_manual_preview_scope_invalid')
+            if (preview.get('revision') != plan['revision']
+                    or preview.get('write_protocol') != plan.get('write_protocol')):
+                raise ValueError('pricing_manual_preview_scope_changed')
             if clock()>=instant(preview['valid_until']):
                 raise ValueError('pricing_manual_preview_expired')
         body=dict(plan_id=plan['plan_id'],revision=plan['revision'],actor=actor,manual_requested=True,

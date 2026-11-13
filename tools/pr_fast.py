@@ -901,7 +901,9 @@ def select(paths):
         elif name.startswith("releases/fc-coins/player-price-verification-off-20261007/"):groups.add("player-price-rule")
         elif name=="fc27_quote_engine.py" or name=="test_fc27_quote_engine.py" or name.startswith("docs/fc27-coins/discount-config-release-20261005/tests/"):groups.add("engine")
         elif name.startswith("ops/hooks/"):groups.add("hooks")
+        elif name=="fc27_cloud_browser/fc_purchase_rate.py":groups.update(("fc-control","fc-evo-admin-session","fc27-pack-bundles","fc-sbc-admin-rate"))
         elif name.startswith("fc27_cloud_browser/"):groups.add("fc-control")
+        elif name.startswith("releases/fc-sbc/admin-100k-rate-20261113/"):groups.add("fc-sbc-admin-rate")
         elif name=="fc27_players_cloud/player_web/price_lock.py":groups.add("players")
         elif name.startswith("opt/d4follow/") or name.startswith("releases/iggm/local-first-20261109/") or name.startswith("aion2_dd373_local_collect_20261006/") or name=="tools/release_d4follow.py":groups.add("rpg")
         elif name.startswith("aion2_dashboard_20261004/"):groups.add("aion")
@@ -1398,7 +1400,7 @@ def main():
                 str(ROOT/release)],check=True,timeout=60,cwd=ROOT/release)
         elif group=="fc-control":
             if "engine" not in groups:units(".",["test_fc27_quote_engine"])
-            units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk","test_storefront_monitor"])
+            units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk","test_storefront_monitor","test_fc_purchase_rate"])
         elif group=="green-plan-review-fix":
             fix=ROOT/"releases/green-plan/20261009-review-fix"
             env=dict(os.environ,GREEN_AUTH_RUNTIME=str(ROOT/"registration_approval_runtime_v3_20261006"),
@@ -1438,6 +1440,8 @@ def main():
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/tests",["test_prepare","test_weekly_release"])
             units("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup",["test_render_compat","test_release_compat","test_inventory_negation","test_intel_selection"])
             node("releases/fs-dashboard/hermes-weekly-upgrade-20261015/followup/test_report_buttons.cjs")
+        elif group=="fc-sbc-admin-rate":
+            units("releases/fc-sbc/admin-100k-rate-20261113/tests", ["test_pricing_admin_100k"])
         elif group=="fc-sbc-security":
             units("releases/fc-sbc/security-20261015/tests",["test_security","test_publisher"])
         elif group=="news-weekly-schedule":

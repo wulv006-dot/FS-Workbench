@@ -74,7 +74,7 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                                curve_proof_status=result.get('status'), curve_platforms=result.get('rows', []),
                                competitive_sources=evidence.get('source_coverage', {})))
             issues.extend(dict(level='critical', code='coin_v3_'+failure+':'+plan['plan_id']) for failure in failures)
-            issues.extend(dict(level='critical', code='coin_v3_curve_'+row['status'].lower()+':'+row['platform'])
+            issues.extend(dict(level='critical', platform=row['platform'], code='coin_v3_curve_'+row['status'].lower()+':'+row['platform'])
                           for row in result.get('rows', []) if row['status'] in
                           ('PREFERRED_HARD_CONSTRAINT_FAILED', 'HARD_CONSTRAINT_FAILED', 'NO_FEASIBLE_CURVE'))
             continue
@@ -127,7 +127,10 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
             except (ValueError,KeyError,TypeError,StopIteration):failures.append('source_fields_unverified')
         checks.append(dict(plan_id=scope,snapshot_id=(snapshot or {}).get('snapshot_id'),failures=failures,competitive_sources=competitive_sources))
         issues += [dict(level='critical',code='coin_v3_'+failure+':'+scope) for failure in failures]
-    return dict(status='verified' if not issues else 'unverified',plans=checks,issues=issues)
+    # A valid platform proof may reject that platform's candidate. This is not
+    # a shared collection failure and must not suspend the other platforms.
+    shared_failure = any(issue.get('platform') not in PLATFORMS for issue in issues)
+    return dict(status='unverified' if shared_failure else 'verified',plans=checks,issues=issues)
 
 
 def projection(root=Path('/var/lib/fc27-cloud'),now=None):

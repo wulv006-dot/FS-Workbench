@@ -13,6 +13,7 @@ import time
 import uuid
 
 from .engine import POLICIES
+from .dispatch import CURVE_WRITE_PROTOCOL
 from .financial import fingerprint, instant
 from .ledger import clock
 from .runtime import ledger, ROOT, STORE, execute_run, reconcile, complete_player_followup
@@ -37,7 +38,8 @@ def next_cycle_at(db,plan,policy=None):
             completed=[]
             for row in conn.execute('SELECT body FROM operations'):
                 op=json.loads(row[0])
-                if op.get('plan_id')==plan['plan_id'] and op.get('status') in ('COMPLETED','NO_CHANGE') and op.get('completed_at'):
+                if (op.get('plan_id')==plan['plan_id'] and op.get('status') in ('COMPLETED','NO_CHANGE')
+                        and op.get('completed_at') and not op.get('bundle', {}).get('curve_restore_preview_id')):
                     completed.append(instant(op['completed_at']))
             return completed
         if isinstance(db,sqlite3.Connection):
@@ -65,6 +67,8 @@ def finish_cycle(db,conn,body,result,at):
     if result.get('status')=='superseded':return
     plan=db.get('pricing_plans',body.get('plan_id'),conn) if body.get('plan_id') else None
     if plan:
+        if plan.get('write_protocol') == CURVE_WRITE_PROTOCOL and body.get('manual_preview_id'):
+            return
         from .smart import STRATEGY_VERSION
         plan['last_cycle_at']=body['scheduled_at'] if body.get('scheduled_at') and plan.get('smart_strategy_version') in SMART_VERSIONS else at
         db.put('pricing_plans',plan['plan_id'],plan,conn)
@@ -123,7 +127,6 @@ def export_shadow_snapshot(db, target=SHADOW_EXPORT, *, force=False):
 def cycle(body=None):
     import fc27_cloud_worker as worker
     from automation_policy import load_policy
-    from .dispatch import CURVE_WRITE_PROTOCOL
     db=ledger()
     body=body or {}
     requested=db.get('pricing_plans',body['plan_id']) if body.get('plan_id') else db.active_plan()
@@ -139,11 +142,17 @@ def cycle(body=None):
     existing=db.get('operations',operation_id)
     if existing:
         return complete_player_followup(existing) if existing['status'] in ('COMPLETED','NO_CHANGE') else reconcile(operation_id)
+    manual=None
     if body.get('manual_preview_id'):
-        original=db.get('manual_previews',body['manual_preview_id'])
-        existing=db.get('operations',original['operation_id']) if original else None
+        manual=db.get('manual_previews',body['manual_preview_id'])
+        existing=db.get('operations',manual['operation_id']) if manual else None
         if existing:
             return reconcile(existing['operation_id']) if existing['status'] not in ('COMPLETED','NO_CHANGE') else complete_player_followup(existing)
+        if (not manual or manual['actor']!=body.get('actor') or manual['plan_id']!=requested['plan_id']
+                or manual['revision']!=requested['revision'] or manual.get('write_protocol')!=requested.get('write_protocol')):
+            raise ValueError('pricing_manual_preview_scope_changed')
+        if clock()>=instant(manual['valid_until']):
+            raise ValueError('pricing_manual_preview_expired')
     pending=[o for o in db.all('operations') if o['status'] in ('DISPATCHED','UNKNOWN','PARTIALLY_APPLIED','BACKEND_CONFIRMED','CACHE_CONFIRMED','PUBLIC_PENDING','KNOWN_PARTIAL_PUBLIC_PENDING') and set(o['resources'])&set(requested['resources'])]
     for op in pending:
         reconcile(op['operation_id'])
@@ -155,8 +164,10 @@ def cycle(body=None):
     if not policy['system_enabled'] or not body.get('manual_requested') and policy['mode']!='auto':
         return dict(status='operator_paused')
     curve_plan = requested.get('write_protocol') == CURVE_WRITE_PROTOCOL
-    if curve_plan and body.get('manual_preview_id'):
-        raise ValueError('pricing_curve_scalar_override_unsupported')
+    if curve_plan and manual:
+        if not body.get('manual_requested') or not manual.get('restore_source_execution_id'):
+            raise ValueError('pricing_curve_scalar_override_unsupported')
+        operation_id=manual['operation_id']
     from .business_source import history_ES_blocker
     from .selective_sources import history_period
     blocked=None if curve_plan else history_ES_blocker(history_period(clock()))
@@ -168,6 +179,9 @@ def cycle(body=None):
              created_at=clock().isoformat(),request=dict(policy_revision=policy['revision'],v3_plan_id=requested['plan_id'],
                  v3_operation_id=operation_id,manual_requested=bool(body.get('manual_requested')),request_id=root_key),
              engine_generation=db.generation()['id'])
+    if curve_plan and manual:
+        job['actor']=body['actor']
+        job['request']['curve_restore_preview_id']=manual['manual_preview_id']
     worker.save_job(job)
     try:
         collected=worker.collect_quote(job)
@@ -182,7 +196,7 @@ def cycle(body=None):
             job.update(status='ready', result=result, completed_at=clock().isoformat())
             worker.save_job(job)
             return result
-        if body.get('manual_preview_id'):
+        if manual and not curve_plan:
             manual=db.get('manual_previews',body['manual_preview_id'])
             if not manual or manual['actor']!=body.get('actor') or manual['plan_id']!=requested['plan_id'] or manual['revision']!=requested['revision']:
                 raise ValueError('pricing_manual_preview_scope_changed')
@@ -193,11 +207,12 @@ def cycle(body=None):
             db.put('strategy_decisions','before-manual:'+quote['result']['decision_receipt']['decision_bundle_id'],quote['result']['decision_receipt'])
             quote['result']=calculate(quote['evidence'],quote.get('edits'),selected_action=checked['selected']['action'],override_reason=manual['reason'],operation_id=manual['operation_id'])
             write_json(ROOT/'quotes'/(collected['run_id']+'.json'),quote)
-        job['decision_source']='program_current_strategy'
+        restore = curve_plan and manual
+        job['decision_source']='restore_original_price_table' if restore else 'program_current_strategy'
         worker.save_job(job)
         outcome=execute_run(collected['run_id'])
         plan=db.get('pricing_plans',outcome.get('plan_id') or quote['result']['decision_receipt']['plan_id'])
-        if plan and plan.get('parent_plan_id') and outcome.get('status') in ('COMPLETED','NO_CHANGE'):
+        if not restore and plan and plan.get('parent_plan_id') and outcome.get('status') in ('COMPLETED','NO_CHANGE'):
             with db.transaction() as conn:
                 old=db.get('pricing_plans',plan['parent_plan_id'],conn)
                 old.update(state='ENDED',ended_at=clock().isoformat(),exit_operation_id=outcome['operation_id'])
@@ -345,6 +360,10 @@ def run_job(job):
         code=str(exc)
         terminal=('INFEASIBLE','CAPACITY_UNRESOLVED','pricing_generation_retired','pricing_resource_taken_over',
                   'pricing_plan_expired','pricing_plan_scope','pricing_competitive_band','pricing_review_pending')
+        if kind == 'cycle' and body.get('manual_preview_id'):
+            terminal += ('pricing_manual_preview_expired', 'pricing_manual_preview_scope_changed',
+                         'pricing_curve_restore_preview_invalid', 'pricing_restore_original_before_unbound',
+                         'pricing_restore_original_unconfirmed', 'pricing_restore_original_missing')
         if any(t.lower() in code.lower() for t in terminal):
             with db.transaction() as conn:
                 body.update(result=dict(status='INFEASIBLE' if 'INFEASIBLE' in code.upper() or 'CAPACITY_UNRESOLVED' in code.upper() else 'REJECTED_PREWRITE',reason=code))
@@ -364,7 +383,6 @@ def run_job(job):
 
 
 def tick(executors, running):
-    from .dispatch import CURVE_WRITE_PROTOCOL
     db=ledger()
     now=clock()
     for key,future in list(running.items()):
@@ -395,7 +413,9 @@ def tick(executors, running):
         due_at=next_cycle_at(db,plan)
         with db.connect() as conn:
             pending=any(cycle_matches_plan(db,plan,json.loads(row['body']),row['id'],conn) for row in
-                        conn.execute('SELECT id,body FROM durable_jobs WHERE kind=\'cycle\' AND state IN (\'queued\',\'running\')'))
+                        conn.execute("SELECT id,body FROM durable_jobs WHERE kind='cycle' AND state IN ('queued','running') "
+                                     "AND (id NOT LIKE 'manual:%' OR ? != ?)",
+                                     (plan.get('write_protocol') or '', CURVE_WRITE_PROTOCOL)))
         if not pending and now>=due_at:
             from .smart import STRATEGY_VERSION, strategy_start
             scheduled={}

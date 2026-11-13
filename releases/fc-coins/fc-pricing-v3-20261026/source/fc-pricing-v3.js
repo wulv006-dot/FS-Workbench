@@ -105,8 +105,13 @@
       pricing:'采价完成，正在核算',checked:'核算完成，等待写入',writing:'正在写价',
       readback:'写价结果待核对',completed:'已完成读回',no_change:'本轮无需改价',
       failed:'本轮未完成',done:'本轮已结束，实际改价见操作回执',
+      no_price_change:'原价已在使用',proof_incomplete:'恢复条件待核，未写价',
+      hard_constraint_failed:'恢复价未通过财务复核，未写价',
       original_operation_reconciliation_pending:'等待原操作对账，尚未开始新采价'};
     $('v3-execution-progress').textContent=`${labels[receipt.phase||receipt.status]||'已登记，等待当前任务进度'} · 任务 ${receipt.job_key.replace(/^manual:/,'').slice(0,8)}${receipt.source_checked_at?` · 本轮采价 ${when(receipt.source_checked_at)}`:''}`;
+    if(receipt.rows?.some(row=>row.gaps?.includes('pricing_restore_quantity_or_offer_changed'))){
+      $('v3-execution-progress').textContent+=' · 当前商品规格或优惠与原表不一致';
+    }
     $('v3-execution-job').textContent=receipt.job_key;
     $('v3-execution-reference').hidden=false;
   }
@@ -976,6 +981,13 @@
     if(restore)data.restore_source_execution_id=restore;
     else{data.explicit_prices=Object.fromEntries(platforms.filter(p=>$('v3-manual-'+p.toLowerCase()).value).map(p=>[p,$('v3-manual-'+p.toLowerCase()).value]));}
     manualPreview=await request('manual-previews',data);clearKey('manual-preview');
+    if(manualPreview.restore_tiers){
+      const tiers=Object.entries(manualPreview.restore_tiers).map(([platform,rows])=>
+        `${platform==='XBOX'?'Xbox':platform}：${rows.map(row=>`${row.purchase_k}K ${usd(row.native_price_usd)}`).join(' · ')}`);
+      $('v3-manual-result').textContent=tiers.concat(
+        `原操作 ${manualPreview.restore_source_execution_id}。有效至 ${manualPreview.valid_until}。执行时按当前规格、成本和优惠复核 0% / 18%。`).join('\n');
+      return;
+    }
     const action=manualPreview.selected?.action?.base_prices||manualPreview.explicit_prices;
     const regions=Object.entries(manualPreview.selected?.action?.region_coefficients||{}).map(([key,factor])=>`${key} 系数 ${factor}`).join('；');
     const averageWindow=['fc27_dual20_d9_d2_v2','fc27_dual20_d9_d2_platform_100k_v4'].includes(manualPreview.selected?.financial_proof?.financial_contract_version)?'八日金额结构':'历史七日结构';
@@ -985,6 +997,10 @@
   $('v3-manual-execute').addEventListener('click',()=>action(async()=>{
     if(!manualPreview||Date.now()>=Date.parse(manualPreview.valid_until))throw Error('人工预览已过期，请重新核算');
     const result=await request('execute',{request_key:'manual-'+manualPreview.manual_preview_id,manual_preview_id:manualPreview.manual_preview_id,plan_id:manualPreview.plan_id});
+    if(manualPreview.restore_tiers){
+      executeReceipt={...result,plan_id:manualPreview.plan_id};
+      renderExecutionProgress();
+    }
     $('v3-manual-result').textContent=`已登记原请求 ${result.job_key}；等待同一新鲜来源重证与原操作读回。`;
     manualPreview=null;
   }));

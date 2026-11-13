@@ -126,10 +126,66 @@ class Sources(unittest.TestCase):
   self.assertEqual(len(calls),1);self.assertEqual(calls[0][0],'saved-snapshot')
   self.assertEqual(value['original_engine_baseline']['status'],'available')
   self.assertEqual(value['original_engine_baseline']['calculation'],{'historical':'isolated'})
+ def test_v6_review_preserves_current_proof_and_optional_market_gaps(self):
+  self.pending=False;read=self.book.call
+  def call(name,args):
+   row=read(name,args)
+   if name=='fc.query_market_snapshot':
+    self.book.evidence[row['evidence_id']]['data'].update(
+        status='partial',write_protocol='fc27_curve_v6',snapshot_id='active-v6',
+        price_basis={'rows':{'PS':{'status':'PROVEN','minimum_safe_procurement_margin':'0.20'}}},
+        catalogue_samples={'PS':{'tiers':[{'purchase_k':'100'},{'purchase_k':'1000'}]}},
+        competitor_coverage={'quantity_coverage_complete':False,'optional_missing':['ArabUT']})
+   return row
+  self.book.call=call
+  self.flow.bridge.baseline=lambda: self.fail('V6 does not depend on the legacy scalar policy')
+  result=self.flow(self.q)
+  self.assertEqual(result['write_protocol'],'fc27_curve_v6')
+  self.assertEqual(result['status'],'partial')
+  self.assertEqual(result['current_v6_pricing']['snapshot_id'],'active-v6')
+  self.assertEqual(result['current_v6_pricing']['price_basis']['rows']['PS']['minimum_safe_procurement_margin'],'0.20')
+  self.assertIn('competitor_100k_coverage_partial',result['gaps'])
+  self.assertNotIn('current_package_accounting',result)
+  self.assertNotIn('minimum_estimated_average_margin_pct',result)
+  self.assertNotIn('original_engine_baseline',result)
+  self.assertFalse(result['execution_authorized'])
+  count=len(self.calls);self.assertEqual(self.flow(self.q),result);self.assertEqual(len(self.calls),count)
+
+ def test_missing_v6_snapshot_is_retried_without_using_scalar_policy(self):
+  self.pending=False;read=self.book.call;status=['unavailable','partial']
+  def call(name,args):
+   row=read(name,args)
+   if name=='fc.query_market_snapshot':
+    current=status.pop(0)
+    self.book.evidence[row['evidence_id']]['data'].update(
+        status=current,write_protocol='fc27_curve_v6',
+        snapshot_id=None if current=='unavailable' else 'active-v6',reason='active_curve_snapshot_missing')
+   return row
+  self.book.call=call
+  self.flow.bridge.baseline=lambda: self.fail('V6 snapshot missing does not imply scalar pricing')
+  first=self.flow(self.q);self.assertIn('active_curve_snapshot_missing',first['gaps'])
+  second=self.flow(self.q);self.assertEqual(second['current_v6_pricing']['snapshot_id'],'active-v6')
+  self.assertEqual(status,[])
+
+ def test_unavailable_market_does_not_activate_legacy_workflow(self):
+  self.pending=False;read=self.book.call
+  def call(name,args):
+   row=read(name,args)
+   if name=='fc.query_market_snapshot':
+    self.book.evidence[row['evidence_id']]['data'].update(
+        status='unavailable',write_protocol_status='unverified',reason='pricing_market_read_failed')
+   return row
+  self.book.call=call
+  self.flow.bridge.baseline=lambda: self.fail('unknown protocol must not use legacy pricing rules')
+  result=self.flow(self.q)
+  self.assertEqual(result['status'],'unavailable')
+  self.assertEqual(result['gaps'],['pricing_market_read_failed'])
+  self.assertFalse(result['execution_authorized'])
+
  def test_strict_tool_boundary(self):
   for q in (dict(self.q,url='http://bad'),dict(self.q,action='write'),dict(self.q,case=case()),dict(self.q,action='scenario'),dict(self.q,profile='ALL')):
    with self.assertRaises(ValueError):self.flow(q)
-  v=self.flow(dict(self.q,action='scenario',case=case()));self.assertEqual(v['source_kind'],'declared_hypothesis');self.assertEqual(schema()['function']['name'],'mcp__fcro__fc_run_pricing_workflow')
+  v=self.flow(dict(self.q,action='scenario',case=case()));self.assertEqual(v['source_kind'],'declared_hypothesis');self.assertEqual(v['pricing_protocol_scope'],'historical_scalar_scenario');self.assertEqual(schema()['function']['name'],'mcp__fcro__fc_run_pricing_workflow')
 
 class Learning(unittest.TestCase):
  def setUp(self):
@@ -194,6 +250,36 @@ class Learning(unittest.TestCase):
   self.assertEqual(status,409);self.assertEqual(result['error'],'experience_business_baseline_conflict');self.assertEqual(registry.manifest(self.db,'wulv','FS',self.now)['experiences'],[])
 
 class Wiring(unittest.TestCase):
+ def test_market_adapter_uses_authenticated_get_and_preserves_missing_v6_sources(self):
+  tree=ast.parse((HERE/'source/fs_evidence.py').read_text('utf8'))
+  ns={}
+  exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='current_pricing_market'],type_ignores=[]),'market-adapter-test','exec'),ns)
+  source=dict(write_protocol='fc27_curve_v6',snapshot_id='active-v6',captured_at='2026-11-13T14:39:00Z',
+      competitor_policy='v6_1_three_source_quantity_v1',
+      competitor_offers=[dict(source='U7Buy',platform='PS',purchase_k='100',bonus_k='0',currency='USD',
+                             regular_price='8.82',delivery_method='comfort_trade',delivery_tier='estimated:0.5-1Hour')],
+      competitor_coverage=dict(quantity_scope=['100'],quantity_coverage_complete=False,optional_missing=[{'source':'ArabUT'}]))
+  calls=[]
+  def request(path,owner):
+   calls.append((path,owner))
+   return source
+  read=ns['current_pricing_market'];args={'profile':'FC27'}
+  def legacy(_):return {'status':'available','legacy':True}
+  result=read(args,'real-owner',request,legacy)
+  self.assertEqual(calls,[('/pricing/v3/market','real-owner')])
+  self.assertEqual(result['status'],'partial')
+  self.assertEqual(result['competitor_offers'],source['competitor_offers'])
+  self.assertEqual(result['competitor_coverage'],source['competitor_coverage'])
+  self.assertNotIn('fee_pct',result)
+  self.assertFalse(result['execution_authorized'])
+  self.assertFalse(result['write_performed'])
+  complete = dict(source, competitor_coverage=dict(source['competitor_coverage'], quantity_coverage_complete=True))
+  self.assertEqual(read(args,'real-owner',lambda *_: complete,legacy)['status'],'available')
+  self.assertEqual(read(args,'real-owner',lambda *_: {'global_offers':None},legacy)['legacy'],True)
+  self.assertEqual(read(args,'real-owner',lambda *_: {'write_protocol':'fc27_curve_v6','snapshot_id':None},legacy)['status'],'unavailable')
+  def unavailable(*_):raise OSError('loopback unavailable')
+  self.assertEqual(read(args,'real-owner',unavailable,legacy)['write_protocol_status'],'unverified')
+
  def test_native_reader_accepts_paid_contract_and_rejects_completed_only_summary(self):
   tree=ast.parse((HERE/'source/fs_evidence.py').read_text('utf8'))
   ns=dict(datetime=datetime,timezone=timezone,authoritative_native_fields=lambda *args:{'orders':{'value':2}})

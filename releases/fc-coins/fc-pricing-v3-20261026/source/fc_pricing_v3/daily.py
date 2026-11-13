@@ -9,6 +9,7 @@ import subprocess
 import sys
 import uuid
 
+from .dispatch import CURVE_WRITE_PROTOCOL
 from .financial import fingerprint,instant
 
 LOCAL=timezone(timedelta(hours=8))
@@ -186,6 +187,75 @@ def profit_summary(online,windows,operations,date,plan_id):
         source_sha256=fingerprint(dict(date=date,plan_id=plan_id,rows=rows,windows=windows,contexts=contexts)))
 
 
+def curve_decision_basis(db, plan):
+    from .api import catalogue_tiers
+
+    basis = dict(write_protocol=CURVE_WRITE_PROTOCOL, plan_id=plan['plan_id'],
+                 plan_revision=plan['revision'], plan_state=plan['state'], mode=plan.get('mode'),
+                 parameters=plan.get('parameters'), budget_policy='none',
+                 status='confirmed_execution_unavailable', snapshot_id=None, snapshot_sha256=None,
+                 operation_id=None)
+    confirmed = []
+    for operation in db.all('operations'):
+        bundle, receipt = operation.get('bundle') or {}, operation.get('readback') or {}
+        if (operation.get('status') == 'COMPLETED' and operation.get('completed_at')
+                and (operation.get('plan_id'), operation.get('revision'), operation.get('generation')) ==
+                (plan['plan_id'], plan['revision'], plan['generation'])
+                and bundle.get('write_protocol') == CURVE_WRITE_PROTOCOL
+                and receipt.get('status') == 'CONFIRMED' and receipt.get('write_protocol') == CURVE_WRITE_PROTOCOL
+                and receipt.get('execution_id') == operation['operation_id']):
+            confirmed.append(operation)
+    if not confirmed:
+        return basis
+
+    operation = max(confirmed, key=lambda row: instant(row['completed_at']))
+    bundle = operation['bundle']
+    basis.update(operation_id=operation['operation_id'], completed_at=operation['completed_at'],
+                 financial_contract_version=bundle.get('financial_contract_version'))
+    if bundle.get('restore_source_execution_id'):
+        basis['restore_source_execution_id'] = bundle['restore_source_execution_id']
+    snapshot_id = bundle.get('snapshot_id')
+    snapshot = db.get('pricing_snapshots', snapshot_id) if snapshot_id else None
+    evidence = (snapshot or {}).get('evidence')
+    if (not snapshot or snapshot.get('snapshot_id') != snapshot_id
+            or (snapshot.get('plan_id'), snapshot.get('plan_revision')) != (plan['plan_id'], plan['revision'])
+            or snapshot.get('write_protocol') != CURVE_WRITE_PROTOCOL
+            or snapshot.get('origin') != 'live_collector' or snapshot.get('mode') != 'production'
+            or not isinstance(evidence, dict) or fingerprint(evidence) != bundle.get('snapshot_sha256')):
+        return dict(basis, status='execution_snapshot_unavailable')
+
+    basket_fields = ('status', 'selection', 'net_receipt_usd', 'safe_cost_usd',
+                     'safe_procurement_margin', 'evidence_ref')
+    discount_fields = ('contract', 'status', 'start', 'end_exclusive', 'eligible_orders',
+                       'matched_orders', 'merchandise_before_discount_usd', 'actual_discount_usd',
+                       'retained_ratio', 'publication_id', 'revision')
+    before = bundle['before_action']['curves']
+    results = operation['readback']['curve_results']
+    platforms = {}
+    for platform in bundle['affected_platforms']:
+        proof = bundle['curve_proofs'][platform]
+        selection = bundle['curve_selection'][platform]
+        chosen = {key: selection[key] for key in ('segment', 'label', 'reference_curve_id',
+                                                 'comparison_episode_id') if key in selection}
+        actual_label = (selection.get('assignment') or {}).get('actual_label')
+        if actual_label is not None:
+            chosen['actual_label'] = actual_label
+        baskets = proof['baskets']
+        discount = proof.get('average_discount')
+        platforms[platform] = dict(
+            before_tiers=catalogue_tiers(before[platform]),
+            confirmed_tiers=catalogue_tiers(results[platform]['actual_site266_curve']),
+            selection=chosen, proof_hash=proof['proof_hash'], proof_status=proof['status'],
+            hard_margin=proof.get('hard_margin'), target=proof.get('target'),
+            planning_baskets={name: {key: baskets[name][key] for key in basket_fields if key in baskets[name]}
+                              for name in ('main', 'recent')},
+            average_discount={key: discount[key] for key in discount_fields if key in discount}
+            if discount else None)
+    return dict(basis, status='confirmed_execution', snapshot_id=snapshot_id,
+                snapshot_sha256=bundle['snapshot_sha256'], source_plan=evidence.get('source_plan'),
+                planning_basis='forecast_from_original_execution_proof', confirmed_platforms=platforms)
+
+
 def run(body):
     from .runtime import ledger,write_json,ROOT
     from .scheduler import export_shadow_snapshot
@@ -233,20 +303,23 @@ def run(body):
         return record
     record['shadow']=dispatched.get('result') or dispatched
     if 'decision_basis' not in record:
-        with db.connect() as conn:
-            row=conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC LIMIT 1').fetchone()
-        snapshot=json.loads(row[0]) if row else {}
-        evidence=snapshot.get('evidence') or {}
-        model=evidence.get('demand_model') or {}
         plan=db.active_plan() or {}
-        mix=evidence.get('historical_discount_mix') or {}
-        record['decision_basis']=dict(snapshot_id=snapshot.get('snapshot_id'),mode=plan.get('mode'),plan_state=plan.get('state'),
-            write_protocol=plan.get('write_protocol'),
-            snapshot_sha256=fingerprint(evidence) if snapshot.get('snapshot_id') and isinstance(snapshot.get('evidence'),dict) else None,
-            parameters=plan.get('parameters'),budget_policy='none',financial_contract_version=((snapshot.get('result') or {}).get('decision_receipt') or {}).get('financial_contract_version'),
-            history={k:mix.get(k) for k in ('period','net_order_usd','discount_usd','undiscounted_order_usd','by_platform','platform_contract','sha256')},
-            demand_model={k:model.get(k) for k in ('status','elasticity','groups','observed_window_hours','rate_window_hours')},
-            source_plan=evidence.get('source_plan'),basis_is_latest_saved_input=True)
+        if plan.get('write_protocol') == CURVE_WRITE_PROTOCOL:
+            record['decision_basis'] = curve_decision_basis(db, plan)
+        else:
+            with db.connect() as conn:
+                row=conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC LIMIT 1').fetchone()
+            snapshot=json.loads(row[0]) if row else {}
+            evidence=snapshot.get('evidence') or {}
+            model=evidence.get('demand_model') or {}
+            mix=evidence.get('historical_discount_mix') or {}
+            record['decision_basis']=dict(snapshot_id=snapshot.get('snapshot_id'),mode=plan.get('mode'),plan_state=plan.get('state'),
+                write_protocol=plan.get('write_protocol'),
+                snapshot_sha256=fingerprint(evidence) if snapshot.get('snapshot_id') and isinstance(snapshot.get('evidence'),dict) else None,
+                parameters=plan.get('parameters'),budget_policy='none',financial_contract_version=((snapshot.get('result') or {}).get('decision_receipt') or {}).get('financial_contract_version'),
+                history={k:mix.get(k) for k in ('period','net_order_usd','discount_usd','undiscounted_order_usd','by_platform','platform_contract','sha256')},
+                demand_model={k:model.get(k) for k in ('status','elasticity','groups','observed_window_hours','rate_window_hours')},
+                source_plan=evidence.get('source_plan'),basis_is_latest_saved_input=True)
     report={k:record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
     # Existing submitted reviews keep their original frozen input and request ID.
     if 'actual_profit_summary' in record:report['actual_profit_summary']=record['actual_profit_summary']
@@ -284,7 +357,6 @@ def collect_hourly_outcomes(windows,previous):
 
 def run_hourly(body):
     from .runtime import ledger,clock
-    from .dispatch import CURVE_WRITE_PROTOCOL
     from .smart import STRATEGY_VERSION,policy_suffix,strategy_start
     db=ledger();plan=db.get('pricing_plans',body['plan_id'])
     curve = (plan or {}).get('write_protocol') == CURVE_WRITE_PROTOCOL

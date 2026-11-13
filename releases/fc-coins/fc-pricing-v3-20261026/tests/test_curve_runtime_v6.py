@@ -241,6 +241,141 @@ class CurveRuntime(unittest.TestCase):
         self.reconcile.assert_called_once()
         self.dispatch.assert_called_once()
 
+    def test_manual_restore_uses_confirmed_non_linear_before_and_rechecks_current_proof(self):
+        from copy import deepcopy
+        from fc_pricing_v3 import api, scheduler
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.price_curve import IDENTITY_FIELDS, TWO_BAND_PRICE_EDIT, curve_key, read_curve
+        from test_pricing_proof_v6 import basket, quote
+
+        self.prepare()
+        contract = dict(EDITOR_CONTRACT, price_edit_policy=TWO_BAND_PRICE_EDIT)
+
+        def read(row):
+            return read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, contract)
+
+        all_id, site_id, _ = writer.PRODUCTS[PLATFORM]
+        for row in self.transport.rows.values():
+            row['more']['gold'].append('1500')
+            row['more']['price'].append('149.95')
+            row['more']['give'].append('55')
+            row['more']['discount'].append('100')
+            row['more']['delivery_time'].append('10')
+            row['more']['hot'].append('0')
+        old = read(self.transport.rows[all_id])
+        changed_row = deepcopy(old['native_payload'])
+        changed_row['more']['price'] = ['10', '103', '154.50']
+        changed = read(changed_row)
+        self.bundle['before_action']['curves'][PLATFORM] = old
+        self.bundle['action']['curves'][PLATFORM] = changed
+
+        def frozen(curve, cost):
+            key = curve_key(curve)
+            domain = dict(self.bundle['curve_proofs'][PLATFORM]['scope'], curve_key=key,
+                          coverage_status='complete', coverage_gaps=[])
+            path = quote('ordinary', key, regular_usd='149.95', net_receipt_usd='149.95',
+                         safe_cost_usd=cost, expected_cost_usd='115', stress_cost_usd='130')
+            return dict(baskets=dict(main=basket('closed_bjt_7d', [('ordinary', '50')]),
+                                     recent=basket('latest_24h', [('ordinary', '30')])),
+                        evidence=dict(curve_key=key, paths=[path]), domain=domain)
+
+        self.bundle['curve_proofs'][PLATFORM] = runtime._validated_curve(changed, frozen(changed, '120'))
+        self.bundle['sha256'] = fingerprint({key: value for key, value in self.bundle.items() if key != 'sha256'})
+        quote_path = self.root / 'quotes/run.json'
+        original_quote = json.loads(quote_path.read_text())
+        original_quote['result']['decision_receipt'] = self.bundle
+        quote_path.write_text(json.dumps(original_quote))
+        self.assertEqual(self.execute()['status'], 'COMPLETED')
+        self.assertEqual(len(self.transport.posts), 1)
+
+        now = datetime.now(timezone.utc)
+        plan = self.db.get('pricing_plans', 'plan')
+        plan.update(mode='smart', write_protocol=CURVE_WRITE_PROTOCOL, activation_revision=1,
+                    resources=['base:PS'], starts_at=(now - timedelta(hours=1)).isoformat())
+        self.db.put('pricing_plans', 'plan', plan)
+        preview_body = dict(request_key='restore-before', plan_id='plan', reason='Restore exact prior table',
+                            restore_source_execution_id=OPERATION)
+        with patch.object(api, 'ledger', return_value=self.db):
+            preview = api.post('manual-previews', preview_body, 'wulv')
+            self.assertEqual(preview, api.post('manual-previews', preview_body, 'wulv'))
+            self.assertEqual(preview['restore_tiers']['PS'][-1]['native_price_usd'], '149.95')
+            self.assertFalse(preview['execution_authorized'])
+            execute = dict(request_key='restore-confirm', plan_id='plan', manual_preview_id=preview['manual_preview_id'])
+            accepted = api.post('execute', execute, 'wulv')
+            self.assertEqual(api.post('execute', execute, 'wulv'), accepted)
+        with closing(self.db.connect()) as conn:
+            queue = json.loads(conn.execute('SELECT body FROM durable_jobs WHERE id=?', (accepted['job_key'],)).fetchone()[0])
+        run_id = '00000000-0000-4000-8000-000000000085'
+        evidence = dict(run_id=run_id, competitor_policy=POLICY)
+        primary = read(self.transport.rows[site_id])
+        before = read(self.transport.rows[all_id])
+        after = runtime._curve_restore_target(before, old)
+        inputs = dict(captured_at=now.isoformat(), valid_until=(now + timedelta(minutes=10)).isoformat(),
+                      primary_curve=primary, all_before=before,
+                      all_inputs={curve_key(after): frozen(after, '120')})
+        with patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
+            proved = runtime._prove_curve_restore('PS', inputs, old, OPERATION, now)
+            self.assertEqual(proved['status'], 'READY', proved)
+        drifted = deepcopy(before['native_payload'])
+        drifted['more']['give'][2] = '99'
+        with self.assertRaisesRegex(ValueError, 'pricing_restore_quantity_or_offer_changed'):
+            runtime._curve_restore_target(read(drifted), old)
+        unsafe = dict(inputs, all_inputs={curve_key(after): frozen(after, '130')})
+        self.assertEqual(runtime._prove_curve_restore('PS', unsafe, old, OPERATION, now)['status'],
+                         'HARD_CONSTRAINT_FAILED')
+        runtime.store_curve_proof_inputs(self.db, evidence, {'PS': inputs})
+        (self.root/'config').mkdir()
+        (self.root/'config/v3-control.json').write_text(json.dumps(dict(generation='generation', enabled=True)))
+        policy = dict(revision=7, interval_minutes=60, system_enabled=True, mode='manual', platforms=['PS'])
+
+        def collect(job):
+            self.assertEqual(job['actor'], 'wulv')
+            self.assertEqual(job['request']['v3_operation_id'], preview['operation_id'])
+            (self.root/'jobs'/(run_id+'.json')).write_text(json.dumps(job))
+            result = runtime.calculate(evidence)
+            self.assertEqual(result['status'], 'READY', result)
+            self.bundle = result['decision_receipt']
+            curve_quote = dict(result=result, evidence=evidence, automation_policy_revision=7,
+                               snapshot_sha256='restore-fixture-run', quote_engine_sha256='fixture-engine')
+            (self.root/'quotes'/(run_id+'.json')).write_text(json.dumps(curve_quote))
+            self.assertEqual(runtime.verify_quote(curve_quote, policy, ['PS'], for_execution=True), self.bundle)
+            return dict(run_id=run_id)
+
+        def send(operation):
+            ident = operation['operation_id']
+            item = writer.curve_catalog_plan(self.bundle, PLATFORM, self.capability)
+            audit = dict(execution_id=ident, write_protocol=CURVE_WRITE_PROTOCOL,
+                         pricing_decision_receipt=self.bundle, selected=['PS'],
+                         curve_results={'PS': dict(item, operation_id=ident)}, status='RUNNING',
+                         sync_confirmed=False, changed=[], business_dispatch_started=False)
+            path = self.root/'executions'/(ident+'.json')
+            return writer.drive_curve_catalog(self.transport, audit, lambda value: path.write_text(json.dumps(value)),
+                                              lambda _: None, self.capabilities)
+
+        self.worker.save_job = Mock()
+        self.worker.collect_quote = Mock(side_effect=collect)
+        self.dispatch.side_effect = send
+        with patch.object(scheduler, 'ledger', return_value=self.db), patch.object(scheduler, 'ROOT', self.root), \
+                patch('automation_policy.load_policy', return_value=policy), \
+                patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
+            outcome = scheduler.cycle(queue)
+            self.assertEqual(outcome['status'], 'confirmed')
+            self.assertEqual(outcome['execution_id'], preview['operation_id'])
+            self.assertEqual(scheduler.cycle(queue)['status'], 'COMPLETED')
+        self.assertEqual(self.worker.collect_quote.call_count, 1)
+        self.assertEqual(len(self.transport.posts), 2)
+        self.assertEqual(self.transport.projection_writes, [])
+        posted = self.transport.posts[-1][1]
+        self.assertEqual(posted['more']['price'], ['10', '100', '149.95'])
+        for key in ('gold', 'give', 'discount'):
+            self.assertEqual(posted['more'][key], old['native_payload']['more'][key])
+        operation = self.db.get('operations', preview['operation_id'])
+        self.assertEqual(operation['bundle']['restore_source_execution_id'], OPERATION)
+        self.assertEqual(operation['readback']['curve_results']['PS']['actual_site266_curve']['tiers'][-1]['native_price_usd'],
+                         '149.95')
+        self.assertIsNone(self.db.get('metadata', 'latest_snapshot:plan'))
+        self.assertEqual(self.dispatch.call_count, 2)
+
     def test_original_admin_rejection_closes_only_after_exact_no_change_readback(self):
         self.prepare()
         self.transport.rejection_code = 0
@@ -393,7 +528,7 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(coverage['plans'][0]['curve_proof_status'], 'PROOF_INCOMPLETE')
         snapshot['result']['rows'][0]['status'] = 'HARD_CONSTRAINT_FAILED'
         self.assertEqual(source_coverage([snapshot], [plan], now)['issues'],
-                         [dict(level='critical', code='coin_v3_curve_hard_constraint_failed:PS')])
+                         [dict(level='critical', platform='PS', code='coin_v3_curve_hard_constraint_failed:PS')])
 
     def test_newer_diagnostic_collection_does_not_supersede_legacy_run(self):
         from fc_pricing_v3.competitor_offers import POLICY

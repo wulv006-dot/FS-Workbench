@@ -52,7 +52,7 @@ def tool_schemas():
     product_schema=product_orders_schema()
     for schema in (discount_schema,product_schema):schema['function']['parameters']['properties']['evidence_id']={'type':'string','description':'Exact ws_ aggregate archive from FS workspace; read this evidence without another source query'}
     customer_schema={'type':'function','function':{'name':'mcp__fcro__fc_query_customer_tracking',
-        'description':'Read only anonymized paid-order aggregates for an existing administrator-owned FC27 customer tracking ID. Never accepts email, UID, order number or arbitrary search. Includes source coverage and separates selected game from other games and pre/post enrollment. No creation, outreach, coupon or order write.',
+        'description':'Read authorized customer email, UID, original order numbers and stored business order detail for an existing administrator-owned FC27 customer tracking ID, together with paid-order aggregates and source coverage. Separates selected game from other games and pre/post enrollment. Credentials are excluded. No creation, outreach, coupon or order write.',
         'parameters':{'type':'object','properties':{'tracking_id':{'type':'string','pattern':'^[a-f0-9]{32}$'}},
             'required':['tracking_id'],'additionalProperties':False}}}
     evidence_schema={'type':'function','function':{'name':'mcp__fcro__fc_read_evidence','description':'Read an existing evidence ID owned by this task using a /data JSON pointer. Large objects return content_index paths; arrays return next_offset. Omitted output is not unavailable source data. No filesystem, SQL, URL, new source query or cross-task access. Calculations still reference original evidence paths.','parameters':{'type':'object','properties':{'evidence_id':string,'path':string,'offset':{'type':'integer','minimum':0}},'required':['evidence_id'],'additionalProperties':False}}}
@@ -64,7 +64,7 @@ def tool_schemas():
                 'parameters':{'type':'object','properties':p,'required':[k for k in p if k!='section_id' and not (n=='fc.read_history' and k in ('page','source','chunk','section','item'))],'additionalProperties':False}}}
             for n,p,description in zip(RESEARCH_NAMES[:9],properties,descriptions)]+[tool_schema(), {
                 'type':'function','function':{'name':'mcp__fcro__fc_query_market_snapshot',
-                'description':'Read existing current FC27 Coins 100K collector observations: four competitors, platform transaction cost, MMOEXP public product and BOC CNY/USD. Read times, scope, freshness, login/coupon status and explicit missing fields. No new collection or price write; not historical COGS or a complete comparable quote.',
+                'description':'Read the existing FC27 Coins market snapshot. Active V6 returns only 100K observations from Lootbar, U7Buy and Arab-UT, with quote conditions and explicit missing sources. Use the returned protocol, source times and coverage. Older scalar pricing retains its original source projection. Read-only; no collection or price write.',
                 'parameters':{'type':'object','properties':{'profile':{'type':'string','enum':['FC27']}},'required':['profile'],'additionalProperties':False}}}, {
                 'type':'function','function':{'name':'mcp__fcro__fc_query_official_intelligence',
                 'description':'Read current official EA FC27 articles through the existing trusted collector. Bounded current index, including outside-window context; publication, retrieval and event dates are distinct. Pending means poll this same query. No arbitrary URL, model call or schedule. Use returned source URLs and observed_at with the evidence ID in report intel.',
@@ -304,7 +304,7 @@ class ResearchBook:
                 'history_available':self.history is not None,'history_index':self.history_index,'reference_available':self.reference is not None,
                 'capabilities':{'tool':'fc.query_capability','kinds':['native_loss','product_sales','fulfillment_samples'],'status':'on_demand' if self.capability else 'not_wired','native_and_product_scope':'FC27/main/Admin game1327/site266; inclusive dates up to31days','fulfillment_scope':'current main Order problem-pool samples; quantity/events do not establish full history or verified cost','product_completeness':'partial paging; duplicate/changed total/unknown units explicit','unprojected_is_not_backend_missing':True},
                 'external_intelligence':{'tool':'fc.query_official_intelligence','status':'on_demand' if self.official else 'not_wired','scope':'EA official FC27 current news index and up to six article bodies; no arbitrary URLs','claim_policy':'Read the registered tool; distinguish publication, event and observed dates. Bounded/failed search does not establish no events.'},
-                'market_snapshot':{'tool':'fc.query_market_snapshot','status':'on_demand' if self.market else 'not_wired','scope':'current FC27 Coins PS/XBOX/PC 100K; four existing competitors, Order platform cost, MMOEXP public product, BOC CNY/USD','not_historical_order_cost':True,'complete_offer_conditions':False},
+                'market_snapshot':{'tool':'fc.query_market_snapshot','status':'on_demand' if self.market else 'not_wired','scope':'FC27 Coins PS/XBOX/PC 100K. Active V6 uses Lootbar, U7Buy and Arab-UT with observed quote conditions and coverage. Scalar pricing retains its original source projection.','not_historical_order_cost':True,'complete_offer_conditions':False},
                 'es_order_structure':{'tool':'fc.query_es_order_structure','status':'on_demand' if self.es_structure else 'not_wired','scope':'Admin ES导出文件集合；原状态与USD订单金额结构，非Admin主盘；站点/分销/时区及上游完整性未核实','dimensions':['game','source_game','product','country','payment','new_customer','status']},
                 'discount_analysis':{'tool':'fc.query_discount_analysis','status':'on_demand' if self.es_structure else 'not_wired','scope':'same ES file set; group_by=channel for versioned coupon promotion classification (not site or causal attribution); actual 折扣金额 uniformly USD, final user confirmation 2026-10-18; original states and new/old flags; exclusive campaign attribution/refund reversals/rate base unverified'},
                 'product_orders':{'tool':'fc.query_product_orders','status':'on_demand' if self.product_orders else 'not_wired','scope':'MMOEXP site266 game plus product ID order query; legacy FC27 model lookup remains compatible; whole-order USD distinct from original-currency item lines; observed paytime filter despite UI 下单时间 label'},
@@ -361,7 +361,13 @@ class ResearchBook:
             from market_snapshot import checked_query
             checked_query(args)
             value=self.market(args) if self.market else {'status':'not_available','reason':'market_adapter_missing'}
-            return self.register(name,args,value,'FC27现有采集只读投影：竞品/Order平台成交成本/MMOEXP公开商品/中行汇率；非历史成本账',value.get('captured_at'))
+            if value.get('write_protocol') == 'fc27_curve_v6':
+                source = 'FC27 V6 现役快照：100K竞品、Admin主站档位及已保存价格证明'
+            elif value.get('write_protocol_status') == 'unverified':
+                source = 'FC27市场只读快照，当前协议未核实'
+            else:
+                source = 'FC27现有采集只读投影：竞品/Order平台成交成本/MMOEXP公开商品/中行汇率；非历史成本账'
+            return self.register(name,args,value,source,value.get('captured_at'))
         if name=='fc.query_capability':
             from admin_order_capabilities_20261014.capabilities import checked_query
             checked_query(args,self.config)

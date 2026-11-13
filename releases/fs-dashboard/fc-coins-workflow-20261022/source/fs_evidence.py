@@ -67,6 +67,30 @@ class SourcePins:
         return read
 
 
+def current_pricing_market(args, owner, request, legacy):
+    """Read the existing authenticated price console projection for the active protocol."""
+    try:
+        market = request('/pricing/v3/market', owner)
+    except (OSError, ValueError) as error:
+        return dict(status='unavailable', reason='pricing_market_read_failed',
+                    write_protocol_status='unverified', error_type=type(error).__name__,
+                    http_status=getattr(error, 'code', None))
+    if isinstance(market, dict) and market.get('write_protocol') == 'fc27_curve_v6':
+        fields = ('write_protocol', 'snapshot_id', 'captured_at', 'competitor_policy',
+                  'competitor_coverage', 'competitor_offers', 'price_basis', 'catalogue_samples')
+        result = {key: market[key] for key in fields if key in market}
+        result.update(http_status=200, profile='FC27', basis='active_plan_100k_market',
+                      execution_authorized=False, write_performed=False)
+        if not market.get('snapshot_id'):
+            return dict(result, status='unavailable', reason='active_curve_snapshot_missing')
+        complete = (market.get('competitor_coverage') or {}).get('quantity_coverage_complete') is True
+        return dict(result, status='available' if complete else 'partial')
+    if isinstance(market, dict) and market.get('write_protocol') is None and 'global_offers' in market:
+        return legacy(args)
+    return dict(status='unavailable', reason='pricing_market_protocol_unverified',
+                write_protocol_status='unverified')
+
+
 def shared_news(args):
     """Read the operator-installed shared snapshot adapter; never fetch a source."""
     from importlib.util import spec_from_file_location, module_from_spec
@@ -310,9 +334,12 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
     capability=CapabilityProvider(config,detail.pool,admin_read,lambda q:order_read(q,detail.config,'/var/www/dashboard/fs-home/transactions'))
     pins=SourcePins()
     from market_snapshot import MarketReader
+    from pricing_operations import native as pricing_read
     from marketing_snapshot import MarketingReader
     from official_intelligence import OfficialReader, checked_query as checked_official_query
-    pinned_market=pins.wrap(MarketReader(),'FC27-existing-market')
+    legacy_market = MarketReader()
+    pinned_market = pins.wrap(lambda args: current_pricing_market(args, owner, pricing_read, legacy_market),
+                              'FC27-existing-market')
     marketing_reader=MarketingReader(owner=owner)
     from es_order_structure import reader_for
     pinned_es=pins.wrap(lambda q:reader_for(detail).get(q),'Admin-ES-file-set')

@@ -1342,25 +1342,26 @@
     },
     {
       "id": "fc.reporting.methods",
-      "revision": "20261105-2",
+      "revision": "20261113-v61-reporting-entry",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-05",
+      "effective_at": "2026-11-13",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/README.md",
-        "sha256": "6e06c0fc201ea06a69ca2aacddc1658b3f038186dd0d5a4d016edc304d350fe8",
+        "sha256": "0855e1783eefd93d61a291d0cef28c536e95acd2f9f0c7a2a10ded37b2e39804",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
-        "fc.reporting.methods@20261105-1"
+        "fc.reporting.methods@20261105-1",
+        "fc.reporting.methods@20261105-2"
       ],
       "provenance": [
         {
@@ -1377,30 +1378,37 @@
           "date": "2026-11-05",
           "path": "docs/planning/es-monthly-archive-20261105/README.md",
           "scope": "daily yesterday increments; Monday current and previous two calendar months; proven redundant export cleanup after publication; Git knowledge only, FS frozen knowledge and new-session learning not deployed"
+        },
+        {
+          "kind": "direct_user_v61_admin_only_price_write",
+          "date": "2026-11-13",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "报告导航指向V6.1及当月ES共享更新现行合同"
         }
       ],
       "consumers": [
         "Codex",
         "Hermes after original review and target-profile readback"
-      ]
+      ],
+      "knowledge_updated_at": "2026-11-13"
     },
     {
       "id": "fc.reporting.data",
-      "revision": "fs-fc-admin-es-shared-20261113-r4",
+      "revision": "20261113-v61-reporting-data",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-07",
+      "effective_at": "2026-11-13",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "42b26f65a00e71a36f5943ccdf71690c3bee1b03a4b7046013ddb3ced37f8ec2",
+        "sha256": "162a9710dc807437adce3694065dddb1ca0493c1b7e10f4f4a56f4eccb65b65a",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1412,7 +1420,8 @@
         "fc.reporting.data@20261107-time-attribution",
         "fc.reporting.data@fs-fc-admin-es-shared-20261113-r1",
         "fc.reporting.data@fs-fc-admin-es-shared-20261113-r2",
-        "fc.reporting.data@fs-fc-admin-es-shared-20261113-r3"
+        "fc.reporting.data@fs-fc-admin-es-shared-20261113-r3",
+        "fc.reporting.data@fs-fc-admin-es-shared-20261113-r4"
       ],
       "provenance": [
         {
@@ -1481,6 +1490,12 @@
           "date": "2026-11-13",
           "decision": "无更高归属时未映射折扣码归Direct/运营；仅优惠券归Direct/新人/活动。渠道使用Order原生利润及加权利润率，展示订单与销售占比、地区和设备。",
           "implementation_status": "candidate; production acceptance pending"
+        },
+        {
+          "kind": "direct_user_v61_admin_only_price_write",
+          "date": "2026-11-13",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "V6复盘采用原协议、原执行、主近期篮子与固定参考A，旧标量留历史"
         }
       ],
       "consumers": [
@@ -1527,27 +1542,28 @@
     },
     {
       "id": "fc.reporting.business",
-      "revision": "20261110-three-platform-100k",
+      "revision": "20261113-v61-reporting-business",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-10",
+      "effective_at": "2026-11-13",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/BUSINESS.md",
-        "sha256": "47b8859dfec7de8490be5fe494f72ce8b70d4ee47ddf77a4c698f8038a993697",
+        "sha256": "5d3f3a3ae0ac3cdf1abddec0b4b7709693c996cb0cbfa6af7ffe2f832d8dcd52",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fc.reporting.business@20261105-1",
         "fc.reporting.business@20261106-current",
-        "fc.reporting.business@20261106-clean"
+        "fc.reporting.business@20261106-clean",
+        "fc.reporting.business@20261110-three-platform-100k"
       ],
       "provenance": [
         {
@@ -1574,12 +1590,19 @@
           "date": "2026-11-10",
           "decision": "docs/planning/fc-three-platform-20261110/CONTRACT.md",
           "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
+        },
+        {
+          "kind": "direct_user_v61_admin_only_price_write",
+          "date": "2026-11-13",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "按活动write_protocol使用现行V6.1规则，保留标量历史口径"
         }
       ],
       "consumers": [
         "Codex",
         "Hermes after original review and target-profile readback"
-      ]
+      ],
+      "knowledge_updated_at": "2026-11-13"
     },
     {
       "id": "fc.reporting.maintenance",

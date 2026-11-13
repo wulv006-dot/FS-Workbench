@@ -6,10 +6,10 @@
 |---|---|---|
 | 销售、订单、毛利从哪里取，如何调用 | [取数与计算](DATA.md) | [团队规范第4—6节](../../../docs/planning/report-methods-20261102/01-团队经营报告取数与分析规范.md) |
 | 广告 CAC、新客价值、回本期怎么判断 | [取数与计算：获客](DATA.md#获客与客户价值) | [获客成本与客户价值方法](../../../docs/planning/report-methods-20261102/04-获客成本与客户价值复盘方法.md) |
-| 昨日新单如何补入，退款等旧单变化与重复档案如何处理 | [取数与计算：订单日更与月复核](DATA.md#订单日更与月复核) | [ES月复核与清理合同](../../../docs/planning/es-monthly-archive-20261105/README.md) |
+| 昨日新单如何补入，退款等旧单变化与重复档案如何处理 | [取数与计算：订单日更与月复核](DATA.md#订单日更与月复核) | [ES共享存储与更新合同](../../../docs/planning/fs-fc-admin-es-20261112/SHARED-ES-STORE-20261113.md) |
 | GA4 流量、自然购买与 GSC 怎样区分 | [取数与计算：自然搜索](DATA.md#自然搜索与页面购买) | [获客成本与客户价值方法第1、6节](../../../docs/planning/report-methods-20261102/04-获客成本与客户价值复盘方法.md) |
 | 月报怎样从全盘走到行动，哪些内容值得展开 | [分析与表达](REPORT.md) | [报告审核核心](../../../docs/planning/operator-report-review-20261025/REVIEW-STANDARD.md) |
-| Coins／Players／SBC／活动／自动化怎样解释 | [FC业务知识](BUSINESS.md) | [当前项目规则](../../../AGENTS.md)、现行定价基准 |
+| Coins／Players／SBC／活动／自动化怎样解释 | [FC业务知识](BUSINESS.md) | [当前项目规则](../../../AGENTS.md)、[FC27 V6.1 经营与执行合同](../../../docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md) |
 | 怎样更新、处理冲突并验证真实学习 | [维护与接入](MAINTENANCE.md) | [知识收尾入口](../../../docs/planning/knowledge-layering-20261023/CLOSEOUT.md) |
 
 ## 依据与复用方式

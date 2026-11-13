@@ -722,6 +722,65 @@ def _all_curve_target(all_before, primary_target):
     return read_curve(payload, all_before['identity'], primary_target['native_contract'])
 
 
+def original_restore_curves(db, operation_id, plan, conn=None):
+    """Use the exact ALL before tables from one completed, fully read-back operation."""
+    from coin_all_sync_job import editable
+    from .price_curve import read_curve
+
+    original = db.get('operations', operation_id, conn)
+    if not original:
+        raise ValueError('pricing_restore_original_missing')
+    bundle = original['bundle']
+    if (original['operation_id'] != operation_id or original['status'] != 'COMPLETED'
+            or write_protocol(bundle) != CURVE_WRITE_PROTOCOL or bundle['decision_bundle_id'] != operation_id):
+        raise ValueError('pricing_restore_original_unconfirmed')
+    confirmed_curve_window(original)
+    before = bundle['before_action']['curves']
+    items = original['readback']['curve_results']
+    owned = {p: before[p] for p in bundle['affected_platforms'] if 'base:' + p in plan['resources']}
+    if not owned:
+        raise ValueError('pricing_manual_scope_not_owned')
+    for platform, curve in owned.items():
+        item = items[platform]
+        # Bind the coordinator's original before to the writer's actual CAS record.
+        if (item.get('before') != curve['native_payload']
+                or item.get('before_hash') != fingerprint(editable(curve['native_payload']))):
+            raise ValueError('pricing_restore_original_before_unbound')
+    return {p: read_curve(curve['native_payload'], curve['identity'], curve['native_contract'])
+            for p, curve in owned.items()}
+
+
+def _curve_restore_target(current, original):
+    from .price_curve import EDITOR_CATALOGUE_ORIGIN, _more, read_curve
+
+    # Tier order belongs to the native editor. Every retained quantity, gift,
+    # discount, and compatibility unit price must match the original table.
+    saved = original['native_payload']
+    live = current['native_payload']
+    spec = ('purchase_k', 'promised_bonus_k', 'native_discount')
+    if (current['identity'] != original['identity']
+            or current['unit_price_usd_per_k'] != original['unit_price_usd_per_k']
+            or live.get('discount') != saved.get('discount')
+            or [tuple(row[k] for k in spec) for row in current['tiers']]
+            != [tuple(row[k] for k in spec) for row in original['tiers']]):
+        raise ValueError('pricing_restore_quantity_or_offer_changed')
+    payload = dict(live, more=dict(_more(live), price=_more(saved)['price']))
+    contract = dict(current['native_contract'], catalogue_origin=EDITOR_CATALOGUE_ORIGIN)
+    return read_curve(payload, current['identity'], contract)
+
+
+def _curve_restore_intent(db, plan, preview_id, operation_id, now, conn=None):
+    intent = db.get('manual_previews', preview_id, conn)
+    if (not intent or intent.get('write_protocol') != CURVE_WRITE_PROTOCOL
+            or intent['operation_id'] != operation_id or intent['plan_id'] != plan['plan_id']
+            or intent['revision'] != plan['revision'] or now >= instant(intent['valid_until'])):
+        raise ValueError('pricing_curve_restore_preview_invalid')
+    source = original_restore_curves(db, intent['restore_source_execution_id'], plan, conn)
+    if fingerprint(source) != intent['restore_before_sha256']:
+        raise ValueError('pricing_restore_original_before_unbound')
+    return intent, source
+
+
 def _same_hour_curve_performance(platform, online, now):
     """Use already-bound FC outcomes from two closed equal clock-hour slots."""
     coverage = online.get('learning_coverage') or {}
@@ -800,8 +859,11 @@ def collect_curve_catalogues(evidence, platforms):
     job = json.loads(job_path.read_text()) if job_path.exists() else {}
     request = job.get('request') or {}
     plan_id = request.get('v3_plan_id')
+    restore_id = request.get('curve_restore_preview_id')
     with closing(db.connect()) as conn:
         plan = db.get('pricing_plans', plan_id, conn) if plan_id and request.get('v3_operation_id') else None
+        restore = (_curve_restore_intent(db, plan, restore_id, request['v3_operation_id'], clock(), conn)[1]
+                   if restore_id else {})
         online = (db.get('metadata', 'curve-online-context:' + plan_id, conn) if plan_id else None) or {}
         # Live diagnostic uses the latest already archived exact window.
         # Historical preview retains the original attachment/snapshot binding.
@@ -809,6 +871,8 @@ def collect_curve_catalogues(evidence, platforms):
                                         require_snapshot_binding=False)
     collected = {}
     for platform in platforms:
+        if restore and platform not in restore:
+            continue
         public = (evidence.get('storefront') or {}).get('rows', {}).get(platform) or {}
         if public.get('sku_id') is not None and str(public['sku_id']) != str(PRODUCTS[platform][1]):
             continue
@@ -825,7 +889,7 @@ def collect_curve_catalogues(evidence, platforms):
             continue
         editor = contract
         candidates = {curve_key(current): current}
-        state = db.curve_strategy_state(platform)
+        state = db.curve_strategy_state(platform) if not restore else None
         if state:
             for segment in ANCHORS:
                 comparison = build_candidates(current, state['reference'], state['episode'], segment,
@@ -836,6 +900,13 @@ def collect_curve_catalogues(evidence, platforms):
         collected[platform] = dict(primary_curve=current, all_before=all_before, editor_contract=editor,
                                    native_route=routes.get(platform), candidates=candidates, readbacks=observed,
                                    all_targets=all_targets)
+        if restore:
+            try:
+                target = _curve_restore_target(all_before, restore[platform])
+            except ValueError:
+                # The same exact mismatch will be surfaced by the proof stage.
+                continue
+            all_targets[curve_key(target)] = target
     if not collected:
         return {}
     try:
@@ -868,6 +939,8 @@ def collect_curve_catalogues(evidence, platforms):
         state = db.curve_strategy_state(platform)
         if learning_windows and state:
             entry['learning'] = curve_learning(plan, platform, state, online, learning_windows, now, current)
+        if restore:
+            continue
         current_proof = _validated_curve(current, entry['primary_inputs'][curve_key(current)])
         if current_proof['status'] == 'HARD_CONSTRAINT_FAILED':
             repair = _average_discount_repair(current, entry['all_before'], entry['editor_contract'],
@@ -1167,6 +1240,44 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
                 selection=preference, native_route=route, primary_before_hash=before_hash)
 
 
+def _prove_curve_restore(platform, inputs, original, source_id, now):
+    from coin_all_sync_job import curve_catalog_plan, curve_writer_capabilities, editable
+    from .price_curve import curve_key
+    from .pricing_proof_v6 import PROVEN
+
+    if not inputs or not instant(inputs['captured_at']) <= now < instant(inputs['valid_until']):
+        return dict(status='PROOF_INCOMPLETE', gaps=['curve_restore_fresh_inputs_unavailable'])
+    current, before = inputs['primary_curve'], inputs['all_before']
+    if (before['tiers'], before['unit_price_usd_per_k']) != (current['tiers'], current['unit_price_usd_per_k']):
+        return dict(status='PROOF_INCOMPLETE', gaps=['curve_current_all_primary_mismatch'])
+    try:
+        after = _curve_restore_target(before, original)
+    except ValueError as error:
+        return dict(status='PROOF_INCOMPLETE', gaps=[str(error)])
+    key = curve_key(after)
+    frozen = inputs['all_inputs'].get(key)
+    if not frozen:
+        return dict(status='PROOF_INCOMPLETE', gaps=['curve_target_all_proof_unavailable'])
+    proof = _validated_curve(after, frozen)
+    if proof['status'] != PROVEN:
+        return dict(status=proof['status'], gaps=proof['gaps'] + proof['hard_failures'])
+    if key == curve_key(before):
+        return dict(status='KEEP')
+    route = inputs.get('native_route')
+    capability = (curve_writer_capabilities({platform: route}) if route else curve_writer_capabilities()).get(platform)
+    before_hash = fingerprint(editable(current['native_payload'])) if route else None
+    selection = dict(label='RESTORE')
+    bundle = dict(before_action={'curves': {platform: before}}, action={'curves': {platform: after}},
+                  curve_proofs={platform: proof}, curve_primary_before_hashes={platform: before_hash},
+                  restore_source_execution_id=source_id)
+    try:
+        curve_catalog_plan(bundle, platform, capability)
+    except ValueError as error:
+        return dict(status='PROOF_INCOMPLETE', gaps=[str(error)])
+    return dict(status='READY', before=before, target=after, proof=proof,
+                selection=selection, native_route=route, primary_before_hash=before_hash)
+
+
 def activate_curve_plan(db, ident, expected_revision, actor, snapshot_id):
     from coin_all_sync_job import curve_route_ready, curve_writer_capabilities
     from .competitor_offers import POLICY as CURVE_COMPETITOR_POLICY
@@ -1217,9 +1328,20 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
     platforms = ([p for p in PLATFORMS if 'base:' + p in plan['resources']] if active else list(PLATFORMS))
     control = db.price_control()
     frozen = {} if control['manual_enabled'] or control['uplift_enabled'] else _curve_proof_inputs(db, evidence)
-    decisions = {p: _prove_curve_inputs(p, frozen.get(p), db, now, evidence=evidence,
-                                       plan=plan if active else None) for p in platforms}
+    restore_id = request.get('curve_restore_preview_id')
+    if restore_id:
+        if not active or not request.get('manual_requested'):
+            raise ValueError('pricing_curve_restore_preview_invalid')
+        restore_intent, restore = _curve_restore_intent(db, plan, restore_id, request['v3_operation_id'], now)
+        platforms = list(restore)
+        decisions = {p: _prove_curve_restore(p, frozen.get(p), restore[p],
+                                             restore_intent['restore_source_execution_id'], now) for p in platforms}
+    else:
+        decisions = {p: _prove_curve_inputs(p, frozen.get(p), db, now, evidence=evidence,
+                                           plan=plan if active else None) for p in platforms}
     ready = [p for p in platforms if decisions[p]['status'] == 'READY']
+    if restore_id and any(decisions[p]['status'] not in ('READY', 'KEEP') for p in platforms):
+        ready = []
     rows = [dict(platform=p, status=decisions[p]['status'], gaps=decisions[p].get('gaps', []),
                  selection=decisions[p].get('selection')) for p in platforms]
     status = ('READY' if active and ready else 'NO_PRICE_CHANGE'
@@ -1239,6 +1361,8 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
     if status == 'READY':
         resources = ['base:' + p for p in ready]
         deadline = [instant(plan['ends_at'])] if plan.get('ends_at') else []
+        if restore_id:
+            deadline.append(instant(restore_intent['valid_until']))
         valid_until = min([now + timedelta(minutes=15)] + [instant(frozen[p]['valid_until']) for p in ready] + deadline)
         receipt = dict(schema_version=VERSION, write_protocol=CURVE_WRITE_PROTOCOL,
             decision_bundle_id=request['v3_operation_id'], snapshot_id=evidence['run_id'],
@@ -1257,15 +1381,21 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
             curve_primary_before_hashes={p: decisions[p]['primary_before_hash'] for p in ready
                                          if decisions[p]['primary_before_hash']},
             execution_authorized=True)
+        if restore_id:
+            receipt.update(curve_restore_preview_id=restore_id,
+                           restore_source_execution_id=restore_intent['restore_source_execution_id'],
+                           curve_decision_policy='v6_restore_original_price_table')
         receipt['sha256'] = fingerprint(receipt)
         result['decision_receipt'] = receipt
     snapshot = dict(snapshot_id=evidence['run_id'], origin='live_collector', mode='production',
                     plan_id=plan['plan_id'] if active else None, plan_revision=plan['revision'] if active else None,
                     write_protocol=CURVE_WRITE_PROTOCOL, created_at=now.isoformat(), evidence=evidence, result=result)
+    if restore_id:
+        snapshot['curve_restore_preview_id'] = restore_id
     with db.transaction() as conn:
         db.put('pricing_snapshots', evidence['run_id'], snapshot, conn)
         db.put('strategy_decisions', evidence['run_id'], {'curve': rows}, conn)
-        if active:
+        if active and not restore_id:
             for platform, decision in decisions.items():
                 if decision['status'] != 'KEEP':
                     continue
@@ -1759,6 +1889,7 @@ def verify_curve_quote(quote, receipt, policy, selected, now, for_execution, pur
 
     evidence = quote.get('evidence') or {}
     if (purpose is not None or receipt.get('schema_version') != VERSION
+            or bool(receipt.get('curve_restore_preview_id')) != bool(receipt.get('restore_source_execution_id'))
             or quote['result'].get('strategy_version') != VERSION
             or receipt.get('financial_contract_version') != CONTRACT
             or evidence.get('competitor_policy') != CURVE_COMPETITOR_POLICY
@@ -1795,10 +1926,24 @@ def verify_curve_quote(quote, receipt, policy, selected, now, for_execution, pur
         if price_control != receipt['price_control'] or price_control['manual_enabled'] or price_control['uplift_enabled']:
             raise ValueError('pricing_price_control_revision_changed')
         frozen = _curve_proof_inputs(db, evidence, conn)
+        restore_id = receipt.get('curve_restore_preview_id')
+        if restore_id:
+            intent, restore = _curve_restore_intent(db, plan, restore_id, receipt['decision_bundle_id'], now, conn)
+            source_id = intent['restore_source_execution_id']
+            if receipt.get('restore_source_execution_id') != source_id:
+                raise ValueError('pricing_curve_restore_preview_invalid')
+            restored = {p: _prove_curve_restore(p, frozen.get(p), before, source_id, now)
+                        for p, before in restore.items()}
+            if (set(changed) != {p for p in restored if restored[p]['status'] == 'READY'}
+                    or any(row['status'] not in ('READY', 'KEEP') for row in restored.values())):
+                raise ValueError('pricing_curve_execution_proof_unverified')
         for platform in changed:
-            proof = _prove_curve_inputs(platform, frozen.get(platform), db, now, conn, evidence=evidence,
-                                        plan=plan, decision_at=instant(receipt['created_at']),
-                                        paired_bands=receipt.get('curve_decision_policy') == CURVE_DECISION_POLICY)
+            if restore_id:
+                proof = restored[platform]
+            else:
+                proof = _prove_curve_inputs(platform, frozen.get(platform), db, now, conn, evidence=evidence,
+                                            plan=plan, decision_at=instant(receipt['created_at']),
+                                            paired_bands=receipt.get('curve_decision_policy') == CURVE_DECISION_POLICY)
             if (proof['status'] != 'READY' or proof['before'] != receipt['before_action']['curves'][platform]
                     or proof['target'] != receipt['action']['curves'][platform]
                     or proof['proof'] != receipt['curve_proofs'][platform]

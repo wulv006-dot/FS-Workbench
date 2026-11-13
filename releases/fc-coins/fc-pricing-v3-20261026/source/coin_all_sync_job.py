@@ -240,6 +240,9 @@ def curve_catalog_plan(bundle, platform, capability):
     if before_row.get('title') != 'coins' or target_row.get('title') != 'coins':
         raise ValueError('coin_product_scope_changed')
     two_band = target['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
+    restore = bundle.get('restore_source_execution_id')
+    if restore and not two_band:
+        raise ValueError('pricing_curve_two_band_policy_missing')
     from fc_pricing_v3.average_discount_v6 import MODEL
     proof = bundle['curve_proofs'][platform]
     if (capability and capability.get('catalogue_status') == 'native_route_ready' and not two_band
@@ -250,9 +253,9 @@ def curve_catalog_plan(bundle, platform, capability):
     if protected(before_row, tier_price_factors=tier_price_factors) != protected(
             target_row, tier_price_factors=tier_price_factors):
         raise ValueError('pricing_curve_non_price_field_changed')
-    if two_band:
-        if before['unit_price_usd_per_k'] != target['unit_price_usd_per_k']:
-            raise ValueError('pricing_curve_two_band_unit_price_changed')
+    if two_band and before['unit_price_usd_per_k'] != target['unit_price_usd_per_k']:
+        raise ValueError('pricing_curve_two_band_unit_price_changed')
+    if two_band and not restore:
         for anchor in COIN_BAND_ANCHORS.values():
             tiers = [(old,new) for old,new in zip(before['tiers'],target['tiers'])
                      if COIN_BAND_ANCHORS[coin_quantity_band(new['purchase_k'])] == anchor]

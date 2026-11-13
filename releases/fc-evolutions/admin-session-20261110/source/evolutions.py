@@ -136,12 +136,10 @@ class Backend:
     def __init__(self):
         sys.path.insert(0, '/opt/fc27-pack-bundles/vendor')
         from admin_api_client import build_query
-        import p2pah_price
         sys.path.insert(0, '/opt/fc27-cloud-browser')
         from fc_shared_admin import SessionManager, read_private_config
         self.admin = SessionManager(read_private_config())
         self.query = build_query
-        self.price_reader = p2pah_price
 
     def _admin_request(self, path, *, params=None, data=None, require_success=True):
         if not self.admin.ensure():
@@ -207,17 +205,10 @@ class Backend:
         return models, products
 
     def rates(self):
-        data = self.price_reader.fetch_rows(user=None, password=None, gid=1322, timeout=60)
-        if data.get('ok') is not True:
-            raise ValueError('全局Order取价失败')
-        rates = {}
-        for row in data.get('rows', []):
-            platform = row.get('area', '').strip().upper()
-            if row.get('gid') != 1322 or platform not in PLATFORMS.values() or platform in rates:
-                raise ValueError('Order游戏或平台单价行不唯一')
-            rates[platform] = str(number(row['b2c']))
-        if set(rates) != set(PLATFORMS.values()):
-            raise ValueError('Order平台单价缺失')
+        from fc_purchase_rate import read_purchase_rates
+        rates, errors = read_purchase_rates(self.admin)
+        if errors or set(rates) != set(PLATFORMS.values()):
+            raise ValueError('Admin主站100K平台售价缺失')
         return rates
 
     def write(self, row, price):
