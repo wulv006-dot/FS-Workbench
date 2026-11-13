@@ -39,7 +39,8 @@ paths=[K,P,R,F,V,C,W,PILOT,'releases/fs-dashboard/nightly-reschedule-20261025/so
        'releases/fs-dashboard/hermes-report-repair-20261019/source',
        'releases/fs-dashboard/hermes-market-sources-20261015/source',
        'releases/fs-dashboard/hermes-fs-research-integration-20261015/source',
-       'releases/fs-dashboard/management-november-20261103/source']
+       'releases/fs-dashboard/management-november-20261103/source',
+       'releases/fs-dashboard/dashboard-refresh-20261025/source']
 sys.path[:0]=[str(HERE/p) for p in paths]+[str(REF/p) for p in paths]
 sys.path.insert(len(paths)*2,str(REF))
 sys.dont_write_bytecode=True
