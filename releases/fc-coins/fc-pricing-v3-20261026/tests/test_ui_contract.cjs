@@ -21,8 +21,10 @@ for(const id of ['v3-system-enabled','v3-auto-enabled','v3-manual-enabled','v3-u
 assert.match(mainConsole,/id="v3-execute-now"[^>]*>立即执行一轮改价/);
 assert.match(mainConsole,/id="collect"[^>]*>立即采集/);
 assert.match(mainConsole,/立即采集只查价/);
+assert.match(mainConsole,/id="v3-curve-collect"[^>]*>采集并预览新定价/);
+assert.match(mainConsole,/id="v3-curve-status" role="status"/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261110-three-platform/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261113-curve-preview/);
 assert.match(script,/双20只按购买100K、实交100K这一档核算/);
 assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
 assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
@@ -70,8 +72,29 @@ const normalFetch = async (url, options = {}) => ({ ok: true, json: async () => 
   : url.endsWith('/monitor') ? monitor : url.endsWith('/player-sync') ? { enabled: true, revision: 1 } : {} });
 const executeBodies=[];
 const priceBodies=[];let priceFailure=false;
+const collectBodies=[],curvePreviews=[];
+let curveJob,curveSubmitLost=false,curveMissing=false,curveBadPlatform='',scheduledCurve;
 let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='queued',idSequence=0;
 const fetch=async (url,options={})=>{
+  if(url.endsWith('/pricing/collect')){
+    const body=JSON.parse(options.body);collectBodies.push(body);
+    if(body.write_protocol){
+      if(!curveMissing)curveJob={job_id:body.client_event_id,kind:'collect',request:{write_protocol:body.write_protocol},status:'running'};
+      if(curveSubmitLost)throw Error('fixture collect receipt lost');
+      return {ok:true,json:async()=>({job_id:body.client_event_id})};
+    }
+  }
+  if(url.includes('/jobs/new-id-')){
+    if(!curveJob)return {ok:false,status:404,json:async()=>({error:'not_found'})};
+    return {ok:true,json:async()=>curveJob};
+  }
+  if(url.endsWith('/pricing/v3/preview')&&JSON.parse(options.body).write_protocol){
+    const body=JSON.parse(options.body);curvePreviews.push(body);
+    return {ok:true,json:async()=>({write_protocol:body.write_protocol,platform:body.platform,
+      snapshot_id:curveBadPlatform===body.platform?'wrong-run':body.snapshot_id,execution_authorized:false,write_performed:false,
+      current_catalogue:{quote_100k:{regular_usd:'8.50'}},decision:{candidates:[{
+        labels:['A'],quote:{purchase_k:'1000',regular_usd:'79.25'},financial_proof:{status:'PROOF_INCOMPLETE'}}]}})};
+  }
   if(url.endsWith('/pricing/v3/price-control')){
     const body=JSON.parse(options.body);priceBodies.push(body);
     if(priceFailure)throw Error('fixture price save result unknown');
@@ -88,7 +111,7 @@ const fetch=async (url,options={})=>{
   return normalFetch(url,options);
 };
 vm.runInNewContext(script, { document, fetch, sessionStorage, crypto: { randomUUID: () => 'new-id-'+(++idSequence) }, AbortSignal: { timeout: () => null },
-  setInterval: (fn,ms) => {refreshIntervals.push(ms);}, Intl, Date, console });
+  setInterval: (fn,ms) => {refreshIntervals.push(ms);}, setTimeout: fn=>{scheduledCurve=fn;return 1;}, clearTimeout:()=>{}, Intl, Date, console });
 const tick = () => new Promise(resolve => setTimeout(resolve, 5));
 (async () => {
   await tick();
@@ -241,6 +264,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(elements['v3-execute'].disabled, true);
   assert.equal(elements['v3-execute-now'].disabled,true,'top execute follows writer permission');
   assert.equal(elements['collect'].disabled, true);
+  assert.equal(elements['v3-curve-collect'].disabled,true);
   assert.match(elements['v3-state'].textContent, /仅可查看/);
   state.snapshot_id='fresh-infeasible-snapshot';
   state.strategies.revenue_sprint={status:'INFEASIBLE',candidates:[],selected:null,failures:Array.from({length:200},(_,i)=>({code:['NO_SAFE_COMMIT_PATH','pricing_required_market_missing:ArabUT:PC','pricing_regional_competitive_band'][i%3],scope:'candidate:'+i}))};
@@ -253,6 +277,37 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   canWrite=true;await elements['v3-refresh'].events.click();await elements.collect.events.click();
   assert.match(elements['v3-result'].textContent,/采集已完成；当前策略无可执行报价，未写价/);
   assert.equal(sessionStorage.getItem('fc-v3-collect-job'),null);
+  assert.deepEqual(Object.keys(collectBodies[0]),['client_event_id'],'original collect stays on the scalar protocol');
+  curveSubmitLost=true;
+  await elements['v3-curve-collect'].events.click();
+  const originalCurve=curveJob.job_id;
+  assert.equal(sessionStorage.getItem('fc-v3-curve-collect-job'),originalCurve);
+  assert.match(elements['v3-curve-status'].textContent,/正在采集三平台/);
+  assert.equal(elements['v3-curve-collect'].disabled,true);
+  curveJob={...curveJob,status:'ready',result:{run_id:originalCurve,quote_status:'proof_incomplete'}};
+  curveBadPlatform='PC';
+  await scheduledCurve();
+  assert.equal(collectBodies.length,2,'an unknown POST with an original job never submits again');
+  assert.deepEqual(curvePreviews.map(row=>row.platform),['PS','XBOX','PC']);
+  assert(curvePreviews.every(row=>row.snapshot_id===originalCurve&&row.write_protocol==='fc27_curve_v6'));
+  assert.match(JSON.stringify(elements['v3-curve-results'].children[0]),/\$79\.25.*证据待补/);
+  assert.doesNotMatch(JSON.stringify(elements['v3-curve-results'].children[2]),/79\.25/);
+  assert.equal(elements['v3-curve-collect'].textContent,'重读原预览');
+  curveBadPlatform='';
+  await elements['v3-curve-collect'].events.click();
+  assert.match(elements['v3-curve-status'].textContent,/三平台预览已读回.*本次未改价/);
+  assert.equal(sessionStorage.getItem('fc-v3-curve-collect-job'),null);
+  assert.equal(collectBodies.length,2);
+  curveMissing=true;curveJob=null;
+  await elements['v3-curve-collect'].events.click();
+  assert.equal(elements['v3-curve-collect'].textContent,'续办原采集');
+  curveMissing=false;curveSubmitLost=false;
+  await elements['v3-curve-collect'].events.click();
+  assert.equal(collectBodies[2].client_event_id,collectBodies[3].client_event_id,'confirmed absent retries use the same event ID');
+  curveJob={...curveJob,status:'failed',error_detail:'fixture no quote'};
+  await scheduledCurve();
+  assert.match(elements['v3-curve-status'].textContent,/未能生成预览/);
+  assert.equal(executeBodies.length,0);
   plan.state='ACTIVE';await elements['v3-refresh'].events.click();
   assert.equal(elements['v3-execute-now'].disabled,false);
   executeGate=new Promise(resolve=>{releaseExecution=resolve;});
