@@ -236,7 +236,8 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly',
                 if shared_es:
                     started = clock()
                     result['shared_es'] = retry_shared_es(
-                        store, lambda: clock() - started >= 360 or not window(now + timedelta(seconds=clock()-started)), force)
+                        store, lambda: clock() - started >= 360 or not window(now + timedelta(seconds=clock()-started)),
+                        force, now=now)
                 return result
             start = min(stamp(published['cutoff']), latest-timedelta(days=7)) if published else latest-timedelta(days=7)
             if cadence == 'daily':
@@ -297,8 +298,8 @@ def snapshot_candidate(store, start, cutoff, now, cadence):
     return value, evidence
 
 
-def retry_shared_es(store, checkpoint, force=False, *, publication_id=None):
-    from shared_es_facts import complete_pending, pending_publications, record_pending_error
+def retry_shared_es(store, checkpoint, force=False, *, publication_id=None, now=None):
+    from shared_es_facts import complete_pending, pending_publications, record_pending_error, refresh_discounts_due
 
     results = {}
     for pending in pending_publications(store):
@@ -320,6 +321,8 @@ def retry_shared_es(store, checkpoint, force=False, *, publication_id=None):
         else:
             results[ident] = (dict(status='complete', days=days) if days is not None else
                               dict(status='pending', reason='shared_es_job_budget', retryable=True))
+    if now is not None and window(now) and not checkpoint():
+        results['discount_catalog'] = refresh_discounts_due(store,now.isoformat())
     return results
 
 
@@ -407,7 +410,7 @@ def run(store, state, published, now, clock, force=False, *, shared_es=False):
         state.pop('daily_error', None)
         latest_publication = stored_publication(store)
         if shared_es and (latest_publication or {}).get('publication_id') != (published or {}).get('publication_id'):
-            retry_shared_es(store, checkpoint, force, publication_id=latest_publication['publication_id'])
+            retry_shared_es(store, checkpoint, force, publication_id=latest_publication['publication_id'], now=at())
         published = latest_publication
         state['base_publication'] = (published or {}).get('publication_id')
         if state.get('review_complete'):
@@ -509,7 +512,7 @@ def run(store, state, published, now, clock, force=False, *, shared_es=False):
         state['phase'] = 'backup'; record_state(store, state)
     result = finish_week(store, state, stored_publication(store), at(), force=force)
     if shared_es:
-        result['shared_es'] = retry_shared_es(store, checkpoint, force)
+        result['shared_es'] = retry_shared_es(store, checkpoint, force, now=at())
     return result
 
 

@@ -18,7 +18,7 @@ FIELDS = ('id','order_no','site_id','site','gid','game_format','paytime','pay_st
           'status_format','amount_usd_format','amount_rmb_format')
 MARKETING_FIELDS = ('discount_code','recommend_uid','country_code','country','paytype_display','paytype')
 PROMOTION_CHANNELS = {'seo':'SEO','谷歌广告':'PPC','kol':'Referral','tiktok':'Referral','tt':'Referral'}
-ATTRIBUTION_RULE = 'order-channel-priority-20261113-v1'
+ATTRIBUTION_RULE = 'order-channel-priority-20261113-v2'
 
 
 def admin_orders(scope, request, *, marketing=False):
@@ -167,41 +167,54 @@ def effective_attribution(order, native, archived, mapping):
     native_uid = native.get('recommend_uid')
     archived_uid = positive_id(observed.get('promoterUid'))
     uid = positive_id(native_uid) if native_uid is not None else archived_uid
+    has_code = isinstance(code,str) and bool(code.strip())
     same_archived_promotion = ((not isinstance(native_code,str) or code==observed.get('code'))
                                and (native_uid is None or uid==archived_uid))
     promoter_basis = 'recommend_uid' if positive_id(native_uid) else 'tracked_order' if uid else None
     project = None
+    promotion_conflict = False
+    code_mapped = False
     promoter_name = observed.get('promoter') if uid and same_archived_promotion else None
     if order['site_id']=='266' and (isinstance(code,str) or uid or archived is not None):
         resolved = mapping.resolve(dict(discount_code=code,recommend_uid=uid,gid=order['gid']))
+        promotion_conflict = resolved['conflict']
+        archived_conflict = observed.get('conflict') is True
         if resolved.get('promoterUid') and not resolved['conflict']:
             uid = resolved['promoterUid']
             promoter_name = resolved.get('promoter')
             if resolved['attributionSource']!='none':promoter_basis = resolved['attributionSource']
         if not resolved['conflict']:
             project = resolved['project']
+            code_mapped = has_code and project not in ('未归类','推荐人渠道待核','无推广归属')
             # The existing same-order projection may include verified configuration owners.
             archived_project = observed.get('project')
             if (project in ('未归类','推荐人渠道待核','无推广归属') and archived_project
-                    and not observed.get('conflict') and same_archived_promotion):
+                    and not archived_conflict and same_archived_promotion):
                 project = archived_project
+                code_mapped = has_code and project not in ('未归类','推荐人渠道待核','无推广归属','待核：映射冲突')
+    if has_code and not promotion_conflict and not code_mapped and observed.get('discountOperatorProject'):
+        project = observed['discountOperatorProject']
+        code_mapped = True
     promotion_channel = PROMOTION_CHANNELS.get((project or '').casefold())
     source_channel = tracked_channel(source)
     native_channel = order['channel'] if order['channel']!='unknown' else None
-    promotion_detail = project if project not in (None,'未归类','推荐人渠道待核','无推广归属') else None
+    promotion_detail = project if project not in (None,'未归类','推荐人渠道待核','无推广归属','待核：映射冲突') else None
+    code_detail = ('广告投放' if promotion_detail == '谷歌广告' else promotion_detail) if code_mapped else None
     if native_conflict:
         channel, basis, detail = 'pending_classification', 'native_conflict', None
     elif native_channel:
         channel, basis, detail = native_channel, 'native_channel', fact.get('source_raw')
-        if native_channel=='Direct' and isinstance(code,str) and code.strip():
-            detail = promotion_detail or '待归类'
+        if native_channel=='Direct' and has_code:
+            detail = code_detail or '待归类'
     elif source_conflict:
         channel, basis, detail = 'pending_classification', 'order_source_conflict', None
     elif source_channel:
         channel, basis, detail = source_channel, 'order_source', source
-        if channel=='Direct' and isinstance(code,str) and code.strip():
-            detail = promotion_detail or '待归类'
-    elif promotion_channel:
+        if channel=='Direct' and has_code:
+            detail = code_detail or '待归类'
+    elif has_code and code_detail:
+        channel, basis, detail = 'Direct', 'mapped_discount_code', code_detail
+    elif promotion_channel and not has_code:
         channel, basis, detail = promotion_channel, 'promotion', project
     elif any(isinstance(label,str) and label.strip() for label in (fact.get('channel_raw'),fact.get('source_raw'),source,code,uid)):
         channel, basis, detail = 'pending_classification', 'unmapped_evidence', source or promotion_detail or fact.get('source_raw')
@@ -210,7 +223,8 @@ def effective_attribution(order, native, archived, mapping):
     coupons = observed.get('coupons')
     return dict(channel=channel, basis=basis, detail=detail, order_source=source,
         source_conflict=source_conflict,
-        conflict=native_conflict or source_conflict or len({c for c in (native_channel,source_channel,promotion_channel) if c})>1,
+        conflict=native_conflict or source_conflict or (has_code and promotion_conflict)
+            or len({c for c in (native_channel,source_channel,promotion_channel) if c})>1,
         discount_code=bool(code.strip()) if isinstance(code,str) else None,
         promoter=True if uid else False if native_uid is not None or archived is not None else None,
         promoter_uid=uid or None, promoter_basis=promoter_basis,
@@ -264,7 +278,8 @@ def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, read
                 raw = native[(order['site_id'],order['order_no'])]
                 order['effective_attribution'] = effective_attribution(order,raw,raw.get('tracking'),mapping)
             value['source_coverage']['effective_attribution'] = dict(rule=ATTRIBUTION_RULE,
-                mapping_revision=mapping_revision,day_revisions=coverage.get('day_revisions',{}))
+                mapping_revision=mapping_revision,discount_mapping_revision=coverage.get('discount_mapping_revision'),
+                day_revisions=coverage.get('day_revisions',{}))
         results.append(value)
     return results
 

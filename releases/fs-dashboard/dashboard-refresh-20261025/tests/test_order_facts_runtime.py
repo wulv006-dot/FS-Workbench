@@ -134,7 +134,7 @@ class Runtime(unittest.TestCase):
         self.assertEqual((evidence['channel'],evidence['basis']),('PPC','order_source'))
         cached['sourceRaw']='google'
         evidence=effective_attribution(base,{'discount_code':'KNOWN'},cached,mapping)
-        self.assertEqual((evidence['channel'],evidence['basis']),('Referral','promotion'))
+        self.assertEqual((evidence['channel'],evidence['basis'],evidence['detail']),('Direct','mapped_discount_code','KOL'))
         evidence=effective_attribution(base,{'discount_code':''},dict(cached,project='运营',code=''),mapping)
         self.assertEqual((evidence['channel'],evidence['promotion_project']),('pending_classification','运营'))
 
@@ -153,6 +153,32 @@ class Runtime(unittest.TestCase):
         self.assertEqual((result['channel'],result['basis'],result['detail']),('Direct','order_source','KOL'))
         for patch in (dict(pinned_order_source='unmapped-source'),dict(marketing_attribution={'channel_raw':'Other'})):
             self.assertEqual(effective_attribution(dict(order,**patch),{},None,mapping)['channel'],'pending_classification')
+
+    def test_admin_discount_operator_fills_direct_only_and_keeps_legacy_map_first(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        from order_facts_api import public
+        from order_facts import build_order_facts
+        mapping=Attribution({'entries':[dict(code='old',channel='KOL')]},[],{})
+        native=row(discount_code='new-code', recommend_uid='0')
+        result=build_order_facts([native],[],[],sites={'266':'www.mmoexp.com'},scope=SCOPE,
+                                 source_coverage=dict(admin_complete=True))
+        fact=result['orders'][0]
+        for project in ('KOL','广告投放','分销','TikTok','SEO','运营'):
+            evidence=effective_attribution(fact,native,dict(discountOperatorProject=project,coupons=[]),mapping)
+            self.assertEqual((evidence['channel'],evidence['basis'],evidence['detail']),
+                             ('Direct','mapped_discount_code',project))
+        fact['effective_attribution']=evidence
+        value=public(result,dict(SCOPE,channel='Direct'))
+        self.assertEqual(value['breakdown']['denominator_orders'],1)
+        self.assertEqual(value['breakdown']['rows'][0]['label'],'运营')
+        self.assertEqual(effective_attribution(fact,native,{},mapping)['channel'],'pending_classification')
+        self.assertEqual(effective_attribution(fact,dict(native,discount_code='old'),
+                         dict(discountOperatorProject='运营'),mapping)['detail'],'KOL')
+        self.assertEqual(effective_attribution(dict(fact,pinned_order_source='google-FC27-PMAX-Coins-US'),native,
+                         dict(discountOperatorProject='SEO'),mapping)['channel'],'PPC')
+        self.assertEqual(effective_attribution(dict(fact,channel='Referral'),native,
+                         dict(discountOperatorProject='SEO'),mapping)['channel'],'Referral')
 
     def test_mapped_code_owner_counts_as_promoter_with_native_zero_uid(self):
         from channel_effects import Attribution

@@ -138,6 +138,23 @@ def shared_es_native_day(day):
         return rows, coupon_tracking(rows, logs, clean, coupon_gaps)
 
 
+def shared_discount_catalog():
+    """Read the main site's discount inventory once through the existing Admin session."""
+    from contextlib import closing
+    from channel_source import COLLECTOR, pages
+
+    sys.path.insert(0, COLLECTOR)
+    import p2pah_auth as auth
+
+    with closing(auth.Session()) as session:
+        token, _ = auth.admin_token_from_service()
+        if not token:
+            raise RuntimeError('admin_shared_source_unavailable')
+        session.bind_admin_token(token)
+        del token
+        return pages(session, '/admin/market.Discount/index', [('site_id', '=', '266')])
+
+
 def targeted_windows(store, site, requested):
     """Locate only selected primary keys, then group bounded payment-date slices."""
     days = {}

@@ -262,7 +262,8 @@ def public(data, q, games=(), *, detail_rows=None, snapshot_binding=None):
         if type(attribution.get(k)) in (str, int)}
     if 'effective_attribution' in source:
         proof = source['effective_attribution']
-        revisions['effective_attribution'] = {k:proof[k] for k in ('rule','mapping_revision') if isinstance(proof.get(k),str)}
+        revisions['effective_attribution'] = {k:proof[k] for k in ('rule','mapping_revision','discount_mapping_revision')
+                                               if isinstance(proof.get(k),str)}
         revisions['effective_attribution']['day_revisions'] = {day:digest for day,digest in proof.get('day_revisions',{}).items()
             if re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}',day) and re.fullmatch(r'[a-f0-9]{64}',digest)}
     bridge = {k: v for k, v in attribution.get('bridge_counts', {}).items()
