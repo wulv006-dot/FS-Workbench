@@ -15,7 +15,8 @@ class DataMethodsTests(unittest.TestCase):
     def test_method_sources_and_operations_are_real_and_scope_is_business_data(self):
         catalog = Catalog(lambda *_: 200)
         listing = catalog.list(self.principal)
-        self.assertEqual(len(listing['operations']), 113)
+        self.assertEqual(len(listing['operations']), 114)
+        self.assertIn('channels.facts', {row['name'] for row in listing['operations']})
         self.assertFalse(any(name.startswith(('conversations.', 'reports.')) for name in catalog.operations))
         self.assertFalse({'hermes-conversation', 'brain', 'weekly'} & {row['module'] for row in listing['coverage']})
         for name in ('customer_tracking.detail', 'campaigns.report', 'knowledge.read'):

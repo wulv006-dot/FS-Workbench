@@ -1,0 +1,58 @@
+{
+  "base_commit": "8839b2f661502717071532f488011149d62bbbb6",
+  "defect": "minute/hour ready summary rejected by day-only date.fromisoformat in full_period",
+  "fix": "full_period returns False for non-day grain; default day behavior unchanged",
+  "red": {
+    "tests": 3,
+    "errors": 4,
+    "skipped": 0,
+    "cases": [
+      "minute",
+      "minute+country",
+      "hour",
+      "hour+country"
+    ],
+    "error": "ValueError: Invalid isoformat string: '2026-11-11 00:30' (minute); '2026-11-11 00:00' (hour)"
+  },
+  "windows_incremental": {
+    "tests": 11,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0
+  },
+  "linux_incremental": {
+    "host": "183",
+    "python": "3.9.18",
+    "tests": 28,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "modules": [
+      "test_filter_contract.SummaryArchiveBoundary",
+      "test_filter_contract.FilterContract",
+      "test_summary_fast",
+      "test_existing_archive"
+    ],
+    "isolation": "unchanged offline/read-only/nobody/0.25cpu/256MiB/128MiB tmpfs; no production mounts"
+  },
+  "source_sha256": {
+    "releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py": "df3a2a34510ac6dc8d5e4730e9308cfc7c5f98bb2bf5f93eece49e9520f814c2",
+    "releases/fs-dashboard/dashboard-refresh-20261025/tests/test_filter_contract.py": "262fa1a1cc5baa32cf9205fbd1fe59296227b167ad406c2909c6874ce808959b"
+  },
+  "overlay_sha256": "50aae84237a24040ad19497ad018ce06a3df3a75fdd7457a598c241ae1a16035",
+  "log_sha256": {
+    "d1-minute-red.log": "0eaeac7693924fb09c77e2c1fa6a0940dfeadfc4daf4aee9c19bab1f9cbd7a63",
+    "d1-minute-green.log": "b12d4c915b9411cd494ad89585744d7b54aec8e2ae7424491f95b0490135cb80",
+    "d1-minute-linux.log": "6f5de854e6ad2ca76279b6c5e681e261073058beb4a85224bfb0953831113514"
+  },
+  "unchanged_evidence": "Other D1 and D0 checks reused; no full-group rerun; previous evidence is not proof of this formerly missing wrapper case",
+  "not_executed": [
+    "push",
+    "deployment",
+    "production writes",
+    "formal CI",
+    "next work package"
+  ]
+}

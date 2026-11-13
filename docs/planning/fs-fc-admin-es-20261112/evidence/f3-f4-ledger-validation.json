@@ -1,0 +1,43 @@
+{
+  "tests_final": 98,
+  "valid_batches": [
+    80,
+    15,
+    1,
+    2
+  ],
+  "new_curve_tests": 42,
+  "python": "3.9.18",
+  "initial_bundle_sha256": "e401ca70ee5a6299590c7f766bdc93d2d199d7a0aa26367b7747274f45b1f3ee",
+  "final_bundle_sha256": "6044ea59a369b14e213f32af652dceaa6989dda5bb6e27270676d782effbf12e",
+  "files": {
+    "releases/fc-coins/fc-pricing-v3-20261026/source/coin_all_sync_job.py": "c10f217f84866c4cbef6b5204d37e183a23b536061f1a3bf01b82ca2f6a87ce7",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/price_writer.py": "45f250004dd32522e992ef318825e774ba291989ac021b14b869bb96cc5961f6",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/reconcile_original.py": "58d18e5490666caaa254bf5058d69e041593cb3d57cf2f9f0e1d4affa816a16c",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/adapters.py": "e270cb86e76b6d879544cd0e2440b1e9deadb52f9e719612842557fef02f621f",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/dispatch.py": "f187364c9c38ff3bf8e166464791de893e7e194677241f1038e2565ea3b40fbc",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/ledger.py": "d6acc1ddef3c57e4cd35d1e36c595b244bf0f94afa7436fb86d044a57806fefc",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/business_source.py": "79188bc337183bd12e0c81b6edd9c2bf96e0ca2a75c96ee4bbb02a98f67427f9",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/curve_strategy_v6.py": "e073b491e91c0c1a7fcd354ef236107d7c982b4b77599cea1ab2af13e4d7f7ba",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_curve_strategy_v6.py": "b4596a69cce8665b7a5312c89046e1495b014daca1d8db0cfa085c64253287eb",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_curve_writer_v6.py": "9b1fca7c1ad2d0657592153f24df70e449023c61e6c9d5140e6a32f903cc07bc",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_curve_window_receipts_v6.py": "8fb2f177f828c5641a49ec8d0c5f73ca242b8d732a9a7191b9a76e8bac341339",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_curve_price_windows_v6.py": "e4386a907483ea2ed03427ceb616df637ff9ae4d108c097cb0272bf880798ebf"
+  },
+  "scope_files_match_at_checkpoint": true,
+  "formal_ci": false,
+  "production_actions_executed": false,
+  "special_tests": {
+    "count": 2,
+    "uid": 0,
+    "tmp": "rw,exec",
+    "network": "none",
+    "rootfs": "read-only",
+    "capabilities": "ALL dropped",
+    "cpu": ".25",
+    "memory_mib": 256,
+    "production_mounts": false
+  },
+  "prior_failures_preserved": true,
+  "runtime_and_manifest_followup_pending": true
+}

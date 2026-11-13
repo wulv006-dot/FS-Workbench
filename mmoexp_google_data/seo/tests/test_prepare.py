@@ -3,11 +3,12 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from mmoexp_google_data.seo import prepare,release
 
 
 class Prepare(unittest.TestCase):
-    def test_exact_scope_and_existing_navigation_are_preserved(self):
+    def release_inputs(self):
         repo=Path(__file__).resolve().parents[3]
         nav=dict(schemaVersion=1,sections=[dict(id='analytics',ids=['unified-business'])],tools=[dict(id='unified-business',path='/dashboard/analytics/')])
         raw=(json.dumps(nav)+'\n').encode();formal=b'# Existing unrelated FS routes\n'
@@ -15,6 +16,10 @@ class Prepare(unittest.TestCase):
         gb=1024**3
         config=dict(data_root='/var/lib/fs-seo',control_root='/var/lib/fs-seo-control',ai_root='/var/lib/fs-seo-ai',web_port=8957,
                     resource_policy=dict(warning_bytes=4*gb,operating_ceiling_bytes=16*gb,emergency_stop_bytes=24*gb,host_reserve_bytes=40*gb,measured_basis='test fixture'),memory_policy={'measured_basis':'test'},sources={'admin':True})
+        return repo,baseline,formal,raw,config,nav
+
+    def test_exact_scope_and_existing_navigation_are_preserved(self):
+        repo,baseline,formal,raw,config,nav=self.release_inputs()
         with tempfile.TemporaryDirectory() as tmp:
             output=Path(tmp)/'release'
             result=prepare.build(repo,baseline,formal,raw,config,output)
@@ -44,3 +49,45 @@ class Prepare(unittest.TestCase):
             self.assertIn('127.0.0.1:8958',amended)
             self.assertNotIn('127.0.0.1:8957',amended)
             self.assertEqual(json.loads((second/'candidate/navigation.json').read_text()),actual)
+
+    def test_explicit_order_facts_candidate_packages_both_reader_modules(self):
+        repo,baseline,formal,raw,config,_=self.release_inputs()
+        config['sources']['orders']={'enabled':True}
+        with tempfile.TemporaryDirectory() as tmp:
+            output=Path(tmp)/'order-facts'
+            prepare.build(repo,baseline,formal,raw,config,output)
+            manifest=json.loads((output/'manifest.json').read_text())
+            release.publisher(output,manifest).validate(manifest,output)
+            self.assertEqual(json.loads((output/'candidate/config.json').read_text())['sources'],
+                             {'admin':True,'orders':{'enabled':True}})
+            for name in ('order_reader.py','order_source.py'):
+                candidate='runtime/mmoexp_google_data/seo/'+name
+                self.assertEqual((output/'candidate'/candidate).read_bytes(),
+                                 (repo/'mmoexp_google_data/seo'/name).read_bytes())
+                missing=dict(manifest,files=[row for row in manifest['files'] if row['candidate']!=candidate])
+                with self.assertRaisesRegex(ValueError,'SEO_ORDER_FACTS_MODULES_REQUIRED'):
+                    release.publisher(output,missing).validate(missing,output)
+            reader=repo/'mmoexp_google_data/seo/order_reader.py'
+            glob=Path.glob
+            with patch.object(Path,'glob',lambda path,pattern: (p for p in glob(path,pattern) if p!=reader)):
+                with self.assertRaisesRegex(ValueError,'SEO_ORDER_FACTS_MODULES_REQUIRED'):
+                    prepare.build(repo,baseline,formal,raw,config,Path(tmp)/'missing-source')
+            bad_config=output/'candidate/config.json'
+            bad_config.write_text(json.dumps(dict(config,sources={'admin':True,'orders':{'enabled':'true'}})))
+            with self.assertRaisesRegex(ValueError,'SEO_ORDER_FACTS_CONFIGURATION_INVALID'):
+                release.publisher(output,manifest).validate(manifest,output)
+            bad_config.write_text(json.dumps(dict(config,sources={'admin':False,'orders':{'enabled':True}})))
+            with self.assertRaisesRegex(ValueError,'NATIVE_ADMIN_ESTIMATE_REQUIRED'):
+                release.publisher(output,manifest).validate(manifest,output)
+            self.assertEqual((output/'candidate/units/fs-seo-daily.timer').read_text(),
+                             prepare.units('/unused')['fs-seo-daily.timer'])
+
+    def test_unknown_order_source_configuration_does_not_expand_candidate(self):
+        repo,baseline,formal,raw,config,_=self.release_inputs()
+        with tempfile.TemporaryDirectory() as tmp:
+            output=Path(tmp)/'order-facts'
+            for invalid in (True,{'enabled':'true'},{'enabled':True,'source':'custom'}):
+                with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError,'SEO_ORDER_FACTS_CONFIGURATION_INVALID'):
+                    config['sources']['orders']=invalid
+                    prepare.build(repo,baseline,formal,raw,config,output)
+                self.assertFalse(output.exists())

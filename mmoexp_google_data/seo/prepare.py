@@ -5,6 +5,7 @@ import json
 import shutil
 from pathlib import Path
 
+from .release import ORDER_FACTS_MODULES, order_facts_enabled
 from .retention import ResourcePolicy
 
 FORMAL = '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'
@@ -44,13 +45,14 @@ def build(repo, baseline, formal, navigation, config, output):
     ResourcePolicy(**config['resource_policy'])
     if not config.get('memory_policy') or config.get('sources',{}).get('admin') is not True:
         raise ValueError('CALIBRATED_NATIVE_ADMIN_CONFIG_REQUIRED')
-    if config.get('sources',{}).get('orders'):
-        raise ValueError('INITIAL_ESTIMATE_RELEASE_USES_NATIVE_SUMMARY')
+    orders_enabled = order_facts_enabled(config)
     if hashlib.sha256(formal).hexdigest()!=baseline['target_hashes'][FORMAL] or hashlib.sha256(navigation).hexdigest()!=baseline['target_hashes'][NAV]:
         raise ValueError('CAPTURED_BASELINE_HASH_MISMATCH')
     payloads = {}
     for path in sorted((repo/'mmoexp_google_data/seo').glob('*.py')):
         payloads['mmoexp_google_data/seo/'+path.name] = path.read_bytes()
+    if orders_enabled and not ORDER_FACTS_MODULES <= payloads.keys():
+        raise ValueError('SEO_ORDER_FACTS_MODULES_REQUIRED')
     plan='mmoexp_google_data/seo/calendar.fc27.user-provided.json'
     payloads[plan]=(repo/plan).read_bytes()
     for name in ('collect_details.py','game_dimensions.py','game_mapping_20261019.json'):

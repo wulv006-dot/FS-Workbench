@@ -1,0 +1,51 @@
+{
+  "base": "f15ef6c2ac89d940f2311c05316a3333e43a10c5",
+  "d2_windows": {
+    "tests": 27,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "linux_python": "3.9.18",
+  "linux_d2": {
+    "tests": 27,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "linux_fc": {
+    "tests": 18,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "linux_bundle_sha256": "c294328a663a6f2dcf103d0872c973fccd0c059428161fd550621767e48fef3d",
+  "seo_windows_groups": [
+    {
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "ui": {
+    "new_and_legacy_playwright": "passed by delegated implementation agent",
+    "refresh_incremental": "passed after refresh fix"
+  },
+  "dispatcher_selfcheck": "passed",
+  "formal_ci": "not_run",
+  "deployed": false,
+  "production_prices_modified": false,
+  "limitations": [
+    "SEO Linux and production reader binding unverified",
+    "native quote/compile/save propagation unverified",
+    "no whole-order cost completeness proof",
+    "two subagents hit usage limit"
+  ]
+}

@@ -13,7 +13,7 @@ from .sources import GoogleSource, GoogleTransport
 from .store import Store
 
 
-def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
+def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc), *, order_reader=None):
     context = make_daily_context(clock())
     if not context.collection_allowed:
         return dict(status='outside_night_window')
@@ -36,6 +36,12 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
         from .admin_summary import NativeSummaryReader, AdminSummarySource
         summary_reader = NativeSummaryReader(clock=clock)
         sources.append(AdminSummarySource(summary_reader))
+    if isinstance(configured.get('orders'), dict) and configured['orders'].get('enabled') is True:
+        if order_reader is None:
+            missing.append('orders')
+        else:
+            from .order_source import OrderSource
+            sources.append(OrderSource(order_reader))
     if configured.get('pages'):
         from .pages import PageSource
         sources.append(PageSource(configured['pages']['urls'], clock=clock,
@@ -72,7 +78,7 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
         result = run_daily(core, sources, clock=clock, admit=admit, finish_margin_seconds=margin)
     finally:
         transport.close()
-    result.update(missing_sources=missing, upstream_requests=transport.calls+(summary_reader.calls if summary_reader else 0)+(serp_transport.calls+serp_transport.resolution_calls if serp_transport else 0)+(calendar_source.calls if calendar_source else 0), resource_states=decisions)
+    result.update(missing_sources=missing, upstream_requests=transport.calls+(summary_reader.calls if summary_reader else 0)+(serp_transport.calls+serp_transport.resolution_calls if serp_transport else 0)+(calendar_source.calls if calendar_source else 0)+getattr(order_reader,'calls',0), resource_states=decisions)
     maintenance = {}
     try:
         maintenance['cleanup'] = cleanup_owned_data(core,dt.date.fromisoformat(context.publication_date))
@@ -96,7 +102,12 @@ def main():
     parser.add_argument('--config', required=True)
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text(encoding='utf-8'))
-    receipt = run(config)
+    order_reader = None
+    orders = config.get('sources', {}).get('orders')
+    if isinstance(orders, dict) and orders.get('enabled') is True:
+        from .order_reader import NativeOrderFactsReader
+        order_reader = NativeOrderFactsReader()
+    receipt = run(config, order_reader=order_reader)
     print(json.dumps(receipt, ensure_ascii=False, sort_keys=True))
     return 0 if receipt['status'] == 'published' else 1
 

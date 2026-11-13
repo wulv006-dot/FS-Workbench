@@ -44,6 +44,8 @@ def closed(query, today=None):
 
 
 def full_period(query, period):
+    # Only whole-day queries can be published to the daily archive.
+    if query.get('grain', 'day') != 'day': return False
     return period == {'start': query['start'] + ' 00:00',
                       'end': (date.fromisoformat(query['end']) + timedelta(days=1)).isoformat() + ' 00:00'}
 
@@ -194,7 +196,7 @@ class Archive:
 
 
 def summary_key(query):
-    return {k: query[k] for k in ('profile', 'start', 'end', 'grain', 'contractId', 'rs_site', 'rs_server', 'rs_category', 'rs_profit_source', 'profit_site', 'profit_category', 'profit_source','profit_basis','admin_site') if k in query}
+    return {k: query[k] for k in ('profile', 'start', 'end', 'grain', 'contractId', 'rs_site', 'rs_server', 'rs_category', 'rs_profit_source', 'profit_site', 'profit_category', 'profit_source','profit_basis','admin_site','country_code','admin_only','authorization_scope','channel','customer_type','payment','device','platform','product','unsupported_filters') if k in query}
 
 
 def native_key(query, definition=None):
@@ -208,6 +210,11 @@ def native_key(query, definition=None):
 
 
 def complete_summary(value):
+    if value.get('query',{}).get('admin_only'):
+        return (value.get('status')=='available' and value.get('stale') is False
+                and value.get('profile',{}).get('supplement',{}).get('status')=='available'
+                and value.get('sources',{}).get('Admin',{}).get('status')=='available'
+                and full_period(value['query'],value['profile']['period']))
     if value.get('query',{}).get('profit_basis')=='actual':
         q=value['query'];required={'Admin'} if q['profile']=='RS' else {'Admin','Order'}
         sources=value.get('sources',{})
@@ -239,6 +246,7 @@ def complete_native(value):
 
 def derive_summary(query):
     """Only same-contract additive facts; unique customers and native rates stay unknown."""
+    if query.get('admin_only'):return None # No additive fallback with unmatched Order scope.
     if not closed(query): return None
     lo, hi = (date.fromisoformat(query[k]) for k in ('start','end'))
     values = []
@@ -266,6 +274,10 @@ def derive_summary(query):
         source.update(period=result['query']['period'],capturedAt=min(s['capturedAt'] for s in sources),sourceDataAsOf=None)
         for key in ('orders','revenueUsd'):source[key]=total([scalar(s,key) for s in sources])
         source['newCustomers']=None
+        # Do not carry a single day's new D1 native/local percentage into a period sum.
+        for field in ('admin_repeat_rate_raw','native_repeat_rate','local_repeat_rate','requested_scope','effective_scope','coverage','actual_cutoff'):
+            source.pop(field,None)
+        source['reconciliation_status']='not_aligned'
         source['dimensions']={'period':source['period'],'source':'daily-archive-derived'}
         source['charts'],source['rows'],source['nativeSeries']=[],[],[]
         for key,metric in source.get('metrics',{}).items():

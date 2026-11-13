@@ -82,6 +82,9 @@ def daily_metrics(db, scope, day):
         first = next(values,None)
         zero = source == 'orders' and coverage and coverage[0] == 'available' and quality.get('expected_total') == 0
         measures[source] = compute_metrics(itertools.chain([first],values),source) if first is not None else compute_metrics([],source) if zero else None
+        if zero and quality.get('contract') == 'admin-recorded-order-attribution-v1':
+            from .order_source import recorded_metrics
+            measures[source] = recorded_metrics([])
     from .estimates import calculate
     return dict(source_date=day,metrics=measures,source_status=states,estimate=calculate(measures['ga4'],measures['admin']))
 

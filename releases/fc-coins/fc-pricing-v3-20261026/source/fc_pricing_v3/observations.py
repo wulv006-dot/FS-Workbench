@@ -35,7 +35,7 @@ def observe(run_id):
     reference=evidence.get('reference_market')
     if 'ItemD2R' in (evidence.get('source_plan') or {}).get('auxiliary_markets',[]):
         reference=collect_reference_market(run_id)
-    result.update(retired_automatic_sources=['ELD','U4GM','IGGM','U7Buy'],reference_market=reference,
+    result.update(retired_automatic_sources=(evidence.get('source_plan') or {}).get('retired_automatic_sources',['ELD','U4GM','IGGM','U7Buy']),reference_market=reference,
                   arab_ut_status=evidence.get('arab_ut_status'),status='observed',completed_at=datetime.now(timezone.utc).isoformat(),
                   authority='independent_observation_only_no_old_weighted_scenarios')
     db.put('market_observations',run_id,result)

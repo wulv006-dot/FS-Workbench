@@ -37,7 +37,8 @@ def build(profiles, order_call, dimension_map, web):
             return collect(q, profiles[q['profile']])
         game = profiles[q['profile']][3]
         from admin_summary import collect as dc_collect
-        return dc_collect(dc_request, str(game), q['period']['start'], q['period']['end'])
+        return dc_collect(dc_request, str(game), q['period']['start'], q['period']['end'],
+                          **({'country_code':q['country_code']} if q.get('country_code') else {}))
 
     def order(q):
         import fcntl

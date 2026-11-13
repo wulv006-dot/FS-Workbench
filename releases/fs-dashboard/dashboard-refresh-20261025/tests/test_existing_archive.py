@@ -217,11 +217,14 @@ class Consumers(unittest.TestCase):
         for day,orders,revenue in [(first,2,20),(self.args['end'],3,45)]:
             q=query({k:[v] for k,v in dict(self.args,start=day,end=day,mode='summary').items()},profiles)
             source=dict(status='available',period=q['period'],capturedAt=datetime.now(timezone.utc).isoformat(),system='fixture',currency='USD',normalisedScope='same',metrics={k:dict(value=v,status='available') for k,v in [('orders',orders),('revenueUsd',revenue),('pureSalesUsd',revenue),('newCustomers',5),('repeatRatePct',50),('profitMarginPct',20)]})
+            source.update(admin_repeat_rate_raw='50%',native_repeat_rate={'value':50},local_repeat_rate={'value':50},effective_scope={'period':q['period']})
             value=dict(status='available',stale=False,query=q,profile=dict(primary=source,supplement=source,period=q['period']),generatedAt=source['capturedAt'],sources={k:dict(status='available',stale=False,capturedAt=source['capturedAt']) for k in ('Admin','Order')})
             archive.save('summary',archive.summary_key(q),value)
         selector=dict(archive.summary_key(q),start=first)
         result=archive.derive_summary(selector)
         self.assertEqual(result['profile']['supplement']['revenueUsd'],65)
+        for field in ('admin_repeat_rate_raw','native_repeat_rate','local_repeat_rate','effective_scope'):
+            self.assertNotIn(field,result['profile']['supplement'])
         self.assertEqual(result['profile']['supplement']['orders'],5)
         self.assertEqual(result['profile']['metrics']['orders']['value'],5)
         self.assertIsNone(result['profile']['supplement']['metrics']['newCustomers']['value'])

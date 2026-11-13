@@ -1,0 +1,126 @@
+{
+  "scope": {
+    "start": "2026-11-11",
+    "end": "2026-11-11",
+    "site_id": "266",
+    "gid": "1327"
+  },
+  "totals": {
+    "orders": 293,
+    "admin_paid_usd": "20509.56",
+    "admin_paid_cny": "137108.40",
+    "missing_admin_usd_orders": 0,
+    "missing_admin_cny_orders": 0,
+    "observed_cost_cny": "103608.47",
+    "cost_records": 281,
+    "cost_covered_orders": 0,
+    "missing_cost_orders": 293,
+    "covered_revenue_cny": "0",
+    "missing_cost_revenue_cny": "137108.40",
+    "procurement_gross_cny": null,
+    "gross_covered_orders": 0,
+    "gross_covered_revenue_cny": "0",
+    "unknown_channel_orders": 293,
+    "attributed_revenue_cny": "0",
+    "accounting_basis": "same_order_admin_cny",
+    "fee_coverage": "unknown",
+    "known_fee_contribution_cny": null,
+    "amount_semantics": "known subtotals; missing counts and cost coverage are not zero-imputation"
+  },
+  "channels": [
+    {
+      "channel": "unknown",
+      "orders": 293,
+      "admin_paid_usd": "20509.56",
+      "admin_paid_cny": "137108.40",
+      "missing_admin_usd_orders": 0,
+      "missing_admin_cny_orders": 0,
+      "observed_cost_cny": "103608.47",
+      "cost_records": 281,
+      "cost_covered_orders": 0,
+      "missing_cost_orders": 293,
+      "covered_revenue_cny": "0",
+      "missing_cost_revenue_cny": "137108.40",
+      "procurement_gross_cny": null,
+      "gross_covered_orders": 0,
+      "gross_covered_revenue_cny": "0",
+      "unknown_channel_orders": 293,
+      "attributed_revenue_cny": "0",
+      "accounting_basis": "same_order_admin_cny",
+      "fee_coverage": "unknown",
+      "known_fee_contribution_cny": null,
+      "amount_semantics": "known subtotals; missing counts and cost coverage are not zero-imputation"
+    }
+  ],
+  "coverage": {
+    "linked_orders": 293,
+    "unlinked_admin_rows": 0,
+    "unlinked_attribution_rows": 62,
+    "unlinked_cost_records": 0,
+    "duplicate_admin_rows": 0,
+    "duplicate_cost_rows": 0
+  },
+  "attribution": {
+    "status": "available",
+    "selected_scope": {
+      "start": "2026-11-11",
+      "end": "2026-11-11"
+    },
+    "publication_id": "uw_1e37cd11ecac2a6b6468a720ef4fa5b8",
+    "source_revision": "uw_1e37cd11ecac2a6b6468a720ef4fa5b8",
+    "data_revision": "2460",
+    "available_at": "2026-11-12T04:18:26.082665+08:00",
+    "hashes": [
+      "b335d7e41120cbde5581e4ba75f865cd2c9cd5f86495bfafe34efe25beeaa6fd"
+    ],
+    "revision_selection": "published_pins",
+    "effective_scope": {
+      "start": "2026-11-11",
+      "end": "2026-11-11",
+      "site_verified": false,
+      "game_filter_applied": false,
+      "status_filter_applied": false
+    },
+    "identity_status": "complete",
+    "identity_revision": "c05ef8ca392729776cfd81691819b38a161a0a837b446097afd7e14dc238a880",
+    "identity_scope": {
+      "site": "all",
+      "game": "all",
+      "pay_status": "1",
+      "start": "2026-11-11",
+      "end": "2026-11-11"
+    },
+    "bridge_counts": {
+      "linked": 242,
+      "order_status_revision_mismatch": 51,
+      "identity_unmatched": 11
+    },
+    "excluded_source_rows": 546
+  },
+  "admin_source_rows": 839,
+  "source_revision": "c05ef8ca392729776cfd81691819b38a161a0a837b446097afd7e14dc238a880",
+  "cost_source": {
+    "status": "observed_only",
+    "source_revision": "dcfc88697a2fd8010e07c2ee1b7b7589fe4b59cb2bf512b96aded955dda558a8",
+    "generated_at": "2026-11-13T09:02:50.236784+08:00",
+    "period": {
+      "start": "2026-11-11",
+      "end": "2026-11-13",
+      "until": "2026-11-13 09:00"
+    },
+    "shipment_window_complete": true,
+    "order_cost_complete": false
+  },
+  "candidate_source_sha256": {
+    "order_facts.py": "3da967af58583033c44cf81cc68942c261aacb53d6934154c4b5c8e3e930d3b7",
+    "order_facts_source.py": "b56e6eec8925c2a0d31179bd2c96b5548dc782d20ee3a09859d02f76d83760a4",
+    "order_facts_runtime.py": "01efb405dd8156edfcfae844262a2d593fa89b93acf3368e39b384c28446f533",
+    "channel_effects.py": "8cc448d2fc1c5dcadb4e37f0762c2b824577165faa69dbe6ed64f668de3cf650",
+    "channel_source.py": "ed5e438ad5b1ea7125ae15bbd0d0e9d4426e6bf0d4484d658b8397fde857eb97",
+    "order_attribution.py": "f92fb5f36d6755f815cfba64c20bdfedc89940c43241a4d7147f806b62cf4c2b",
+    "es_order_structure.py": "83a83a4ccc2ba92a4772af05c84484780c1a8a3047113d80fc1a76b6115c8394",
+    "admin_discount_analysis.py": "bf84091977c6915a7577fe3422d2cb44d3f907f7bbec28a1c6f347efba2b2dd5",
+    "coupon_channels.py": "f733067ea2e1e98b50ec04e16d5e104ebb0145318650c4720583d69e05e051c9"
+  },
+  "mode": "candidate modules in memory; existing Admin GET, pinned archive read, cost cache read; no publish/export or price writes"
+}

@@ -1,0 +1,35 @@
+{
+  "change_id": "KL-fabb2537048b4d6c1f6305d8",
+  "plan_sha256": "a4a3d73c3b110b8ae21f7b0242fea0e8abe7e66550a020dbf906342d75503452",
+  "catalog_sha256": "a6ab6dd2d10dc662b4b5a93ef6b35c8ed16f1a39f3daf3e5af6c680b6501df23",
+  "affected_ids": [
+    "fc.marketing.attribution",
+    "fc.reporting.data",
+    "fs.customer.identity",
+    "fs.data.currency",
+    "fs.data.sources",
+    "fs.finance.procurement",
+    "fs.learning.methods",
+    "fs.pricing.parameter-identity",
+    "fs.procurement.inputs",
+    "fs.product.identity"
+  ],
+  "blocking_conflicts": [],
+  "requires_restart": false,
+  "steps": [
+    "git_version",
+    "server_publish",
+    "load_readback",
+    "notion_sync"
+  ],
+  "business_rule_confirmation_required": true,
+  "production_confirmation_required": true,
+  "tests": {
+    "run": 106,
+    "passed": 99,
+    "skipped": 7,
+    "failures": 0,
+    "errors": 0
+  },
+  "production_actions_executed": false
+}

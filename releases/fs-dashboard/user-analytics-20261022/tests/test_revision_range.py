@@ -83,6 +83,23 @@ class RevisionRange(unittest.TestCase):
             db.execute('UPDATE user_version_index_state SET target=2')
         self.compare([2,3],[('2026-10-01','2026-11-01')])
 
+    def test_current_bounded_read_uses_date_index_and_never_replays_unindexed_history(self):
+        self.change(2,[fact('first',2,'2026-10-01'),fact('outside',2,'2026-10-02'),
+                       fact('invalid',2,'2026-10-01',valid=0)])
+        self.store.read_only=True
+        window=('2026-10-01','2026-10-02')
+        before=self.store.path.read_bytes()
+        self.assertEqual([r['order_key'] for r in self.store.read_at('2',*window,bounded_only=True)],['first'])
+        self.assertEqual(self.store.path.read_bytes(),before)
+        self.store.read_only=False
+        self.change(3,[fact('first',3,'2026-10-02')])
+        self.assertEqual([r['order_key'] for r in self.store.read_at('2',*window)],['first'])
+        self.assertIsNone(self.store.read_at('2',*window,bounded_only=True))
+        self.migrate()
+        self.store.config['revision_range_index']=True
+        self.store.read_only=True
+        self.assertEqual([r['order_key'] for r in self.store.read_at('2',*window,bounded_only=True)],['first'])
+
     def test_interrupted_migration_resume_and_source_change_refusal(self):
         self.change(2,[fact('a',2,'2026-10-02')])
         self.change(3,[fact('a',3,'2026-09-02')])

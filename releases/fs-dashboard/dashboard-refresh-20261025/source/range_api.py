@@ -175,6 +175,8 @@ from live_summary import query as summary_query
 from summary_bridge import build as build_summary
 SUMMARY=build_summary(PROFILE_MAP,call,dimensions,WEB)
 SUMMARY.admission=maintenance_admission
+LOCAL_REPEAT_CACHE={}
+LOCAL_REPEAT_LOCK=RLock()
 from profit_queries import ProfitQueries
 RS_PROFITS={}
 SHIPPING_PROFITS={}
@@ -187,12 +189,20 @@ RS_BACKLOG=RSBacklog(SUMMARY.pools['Admin'])
 from fc_daily import DailyReports
 FC_DAILY=DailyReports(FC_DETAIL,CACHE/'fc-daily')
 
-def get_range(params):
+def get_range(params, *, summary_actor=None):
  if params.get('mode')==['archive-catalog']:
   if set(params)!={'mode'}:raise ValueError('invalid_archive_catalog_parameters')
   from daily_archive import Archive
   return 200,{'status':'available','datasets':Archive().catalog(),'coverage':'bounds may contain gaps; validate exact requested coverage'}
  from daily_archive import read,save,native_key,complete_native,rebind_native
+ if params.get('mode')==['summary']:
+  scope='actor:'+hashlib.sha256(summary_actor.encode()).hexdigest() if summary_actor else 'internal-service'
+  q=summary_query(params,PROFILE_MAP,authorization_scope=scope)
+  status,value=SUMMARY.get(q)
+  if status==200 and summary_actor and USERS is not None:
+   from local_repeat_source import attach
+   value=attach(value,q,summary_actor,USERS,LOCAL_REPEAT_CACHE,LOCAL_REPEAT_LOCK)
+  return status,value
  if 'mode' in params:return get_range_live(params)
  force=params.get('refresh')==['true']
  if 'refresh' in params and not force:raise ValueError('invalid_archive_refresh')
@@ -217,6 +227,7 @@ def get_range_live(params,force=False):
  if params.get('mode')==['summary']:return SUMMARY.get(summary_query(params,PROFILE_MAP))
  if params.get('mode')==['profit-history']:
   q=summary_query({**params,'mode':['summary']},PROFILE_MAP)
+  if q.get('country_code') or q.get('unsupported_filters'):raise ValueError('unsupported_profit_filters')
   if q['grain']!='day':raise ValueError('complete_daily_history_required')
   profit=PROFIT
   if q['profile']=='RS':
@@ -355,12 +366,17 @@ if HERMES is not None:
  CONVERSATION.customer_tracking=CUSTOMER_TRACKING
 CHANNELS=None
 ACTUAL_PROFITS=None
+ORDER_FACTS=None
 if HERMES is not None:
  from channel_effects import ChannelService
  CHANNELS=ChannelService('/var/lib/fs-channel-effects',hermes_authorizer)
  CHANNELS.admission=maintenance_admission
  from actual_profit import ActualProfitService
  ACTUAL_PROFITS=ActualProfitService(CHANNELS,PROFILE_MAP)
+ from order_facts_api import OrderFactsService
+ from order_facts_runtime import collect as collect_order_facts
+ ORDER_FACTS=OrderFactsService(CHANNELS,collect_order_facts,
+  games=[(str(row[3]),row[1]) for row in PROFILES if str(row[3]).isdigit() and int(row[3])>0])
 ADVISOR=Advisor(snapshot,get_range,FC_DAILY,CACHE/'advisor',deep=DEEP)
 USERS=None;USERS_ERROR=None
 try:
@@ -390,7 +406,7 @@ class Handler(BaseHTTPRequestHandler):
    if CHANNELS is None:self.reply(503,{'error':'channels_not_enabled'});return
    try:
     params=parse_qs(uri.query,keep_blank_values=True,max_num_fields=16)
-    service=ACTUAL_PROFITS if params.get('mode')==['actual-profit'] else CHANNELS
+    service=ORDER_FACTS if params.get('mode')==['order-facts'] else ACTUAL_PROFITS if params.get('mode')==['actual-profit'] else CHANNELS
     status,data=service.get(params,self.headers.get('X-Auth-User'));self.reply(status,data)
    except (ValueError,LookupError):self.reply(422,{'error':'invalid_channel_request'})
    except Exception as exc:
@@ -422,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
    try:status,data=FC_DAILY.get(params,self.headers.get('X-Auth-User'),self.headers);self.reply(status,data)
    except Exception:self.reply(503,{'error':'daily_report_unavailable'})
    return
-  try:status,data=get_range(parse_qs(uri.query,keep_blank_values=True));self.reply(status,data)
+  try:status,data=get_range(params,**({'summary_actor':self.headers.get('X-Auth-User')} if params.get('mode')==['summary'] else {}));self.reply(status,data)
   except LookupError:self.reply(409,{'error':'catalog_changed'})
   except (ValueError,KeyError,AssertionError):self.reply(422,{'error':'invalid_or_uncovered_range'})
   except Exception:self.reply(503,{'error':'query_unavailable'})

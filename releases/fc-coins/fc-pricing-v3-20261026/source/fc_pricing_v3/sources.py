@@ -58,7 +58,7 @@ def collect_context(evidence):
         except (ValueError,TypeError,AttributeError):
             pass
     done=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.sources'],
-        input=json.dumps(dict(storefront=evidence['storefront'],arab_ut_status=evidence.get('arab_ut_status'),price_windows=evidence.get('price_windows',[]),active_mode=evidence.get('active_mode'),scope=evidence.get('active_scope'),history_cache=evidence.get('history_cache'),history_signature=evidence.get('history_signature'),online_context=evidence.get('online_context'),collection_context=parent,collection_mode=evidence.get('collection_mode'))),capture_output=True,text=True,
+        input=json.dumps(dict(storefront=evidence['storefront'],arab_ut_status=evidence.get('arab_ut_status'),price_windows=evidence.get('price_windows',[]),active_mode=evidence.get('active_mode'),scope=evidence.get('active_scope'),history_cache=evidence.get('history_cache'),history_signature=evidence.get('history_signature'),online_context=evidence.get('online_context'),shared_order_facts=evidence.get('shared_order_facts'),collection_context=parent,collection_mode=evidence.get('collection_mode'))),capture_output=True,text=True,
         timeout=240,cwd='/opt/fc27-cloud-browser')
     try:
         value=json.loads(done.stdout)
@@ -82,7 +82,7 @@ def _regional_history(replay,region_id,platforms):
     return dict(platform_contract=replay.get('platform_contract'),by_platform=histories)
 
 
-def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mode=None,scope=None,history_cache=None,history_signature=None,online_context=None,collection_context=None,collection_mode=None):
+def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mode=None,scope=None,history_cache=None,history_signature=None,online_context=None,collection_context=None,collection_mode=None,shared_order_facts=None):
     from .market_registry import arab_normal
     def read_arab():
         routing=Path('/var/lib/fc27-cloud/collection-access/routing.json')
@@ -120,7 +120,8 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mo
             known_regions={r['lang_region_id'] for r in rules if r['status']==1 and any(_rule_matches_product(r,p) for key,p in native_scopes.items() if key in requested_platforms)}
             selective_plan=source_plan(active_mode,scope,known_region_ids=known_regions)
             business_envelope=collect_selective_business(session,pages,storefront,products,active_mode=active_mode,scope=scope,
-                history_cache=history_cache,source_signature=history_signature,online_context=online_context)
+                history_cache=history_cache,source_signature=history_signature,online_context=online_context,
+                **(dict(shared_order_facts=shared_order_facts) if shared_order_facts is not None else {}))
             business=business_envelope['context']
     finally:
         session.close()
@@ -204,7 +205,7 @@ if __name__=='__main__':
         data=json.load(sys.stdin)
         if data.get('action')=='historical':
             print(json.dumps(collect_historical_source(data),ensure_ascii=False));raise SystemExit(0)
-        print(json.dumps(shared_context(data['storefront'],data.get('arab_ut_status'),data.get('price_windows'),active_mode=data.get('active_mode'),scope=data.get('scope'),history_cache=data.get('history_cache'),history_signature=data.get('history_signature'),online_context=data.get('online_context'),collection_context=data.get('collection_context'),collection_mode=data.get('collection_mode')),ensure_ascii=False))
+        print(json.dumps(shared_context(data['storefront'],data.get('arab_ut_status'),data.get('price_windows'),active_mode=data.get('active_mode'),scope=data.get('scope'),history_cache=data.get('history_cache'),history_signature=data.get('history_signature'),online_context=data.get('online_context'),collection_context=data.get('collection_context'),collection_mode=data.get('collection_mode'),shared_order_facts=data.get('shared_order_facts')),ensure_ascii=False))
     except Exception as exc:
         print(json.dumps(dict(error=str(exc) if isinstance(exc,ValueError) else type(exc).__name__)))
         raise SystemExit(1)

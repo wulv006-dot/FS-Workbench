@@ -29,7 +29,7 @@ for(const variant of ['business.js','home-business.js','legacy-business.js']){
  assert.match(empty,/data-fc-incomplete-chart/);assert.doesNotMatch(empty,/class="fc-donut"|100\.0%/);
 }
 console.log('FC ring: complete, known-subset, missing-subtotal and all-missing cases passed for three actual renderers');
-let deny=false,revision=0,partial=false,failRefresh=false,missingMoney=false;
+let deny=false,revision=0,partial=false,failRefresh=false,missingMoney=false,exportConflict=false;
 function fixture(q){
  const product=q.product||'all',n=product==='Other'?0:product==='all'?10:product==='Coins'?7:3;
  const row={orders:n,revenue_usd:n*20,shipping_sales_cny:null,cost_cny:null,gross_profit_cny:null,gross_margin_pct:null};
@@ -52,6 +52,7 @@ function fixture(q){
    if(deny)return route.fulfill({status:403,json:{error:'denied'}});
    if(failRefresh)return route.fulfill({status:503,json:{error:'temporary_unavailable'}});
    const data=fixture(q);if(q.product==='Coins')await new Promise(r=>setTimeout(r,150));
+   if(q.format==='csv'&&(exportConflict||q.snapshot_id!==data.snapshot_id))return route.fulfill({status:409,json:{error:'fc_export_snapshot_changed'}});
    return route.fulfill({json:q.format==='csv'?{...data,csv:'product,orders\n'+q.product+',1'}:data});
   });
   await page.goto(url);await page.waitForFunction(()=>window.api&&window.lastState?.b_profile==='MMOEXP');
@@ -78,6 +79,17 @@ function fixture(q){
   await page.waitForTimeout(250);assert.equal(await page.locator('[data-metric=orders] strong').innerText(),'3');
   assert.equal(await page.locator('#crossSec').isVisible(),false);
   assert.deepEqual(await host.locator('[data-fc-content=structure] [data-fc-chart-dimension=product]').evaluateAll(nodes=>nodes.map(node=>node.dataset.fcChartKey)),['Players']);
+  const exportButton=host.locator('[data-fc-csv]');
+  const [download]=await Promise.all([page.waitForEvent('download'),exportButton.click()]);
+  assert.equal(queries.at(-1).snapshot_id,'fictional-Players-'+revision);
+  assert.equal(queries.at(-1).product,'Players');
+  assert.match(download.suggestedFilename(),/fictional-Players-/);
+  assert.match(fs.readFileSync(await download.path(),'utf8'),/Players,1/);
+  exportConflict=true;
+  const [conflict]=await Promise.all([page.waitForResponse(r=>r.url().includes('format=csv'),{timeout:5000}),exportButton.click()]);
+  assert.equal(conflict.status(),409);
+  await host.locator('[data-fc-export-status]').filter({hasText:'导出快照已变化'}).waitFor({timeout:5000});
+  exportConflict=false;
   await host.locator('[data-fc-view=user]').click();assert.match(await host.locator('[data-fc-content=consumption]').innerText(),/用户累计消费/);
   await host.locator('[data-fc-view=order]').click();await host.locator('[data-fc-drill]').first().click();
   await host.locator('.fc-drawer-content [data-fc-order]').waitFor();assert.equal(queries.at(-1).product,'Players');

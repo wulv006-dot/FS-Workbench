@@ -66,6 +66,11 @@ def collect_quote(job):
     run_id = job["job_id"]
     cfg = local_collection.pin(job)
     save_job(job)
+    from fc_pricing_v3.runtime import collection_scope,ledger
+    from fc_pricing_v3.selective_sources import source_plan
+    from fc_pricing_v3.competitor_offers import POLICY as QUANTITY_POLICY
+    selection=collection_scope(ledger(),run_id)
+    planned=source_plan(selection['active_mode'],selection['scope'])
     if cfg['mode'] == 'local':
         job['storefront'] = {'status': 'unavailable', 'reason': 'local_collection_pending'}
         save_job(job)
@@ -98,11 +103,9 @@ def collect_quote(job):
                               'source_warnings': evidence['snapshot']['source_warnings'], 'valid_costs': 3, 'fx_status': 'valid',
                               'quote_status': 'PENDING', 'collection_location': 'local'}
     else:
-        code, snapshot = run(["python3", str(APP / "snapshot_layer.py"), run_id], 480)
-    from fc_pricing_v3.runtime import collection_scope,ledger
-    from fc_pricing_v3.selective_sources import source_plan
-    selection=collection_scope(ledger(),run_id)
-    planned=source_plan(selection['active_mode'],selection['scope'])
+        command=["python3", str(APP / "snapshot_layer.py"), run_id]
+        if planned.get('competitor_policy')==QUANTITY_POLICY:command.append(QUANTITY_POLICY)
+        code, snapshot = run(command, 580 if planned.get('competitor_policy')==QUANTITY_POLICY else 480)
     if cfg['mode']=='server' and 'ItemD2R' in planned['required_markets']+planned.get('auxiliary_markets',[]):
         reference=collect_reference_market(run_id)
         job['reference_competitors']=reference

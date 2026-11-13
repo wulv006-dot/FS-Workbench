@@ -15,19 +15,34 @@ ROOT = Path(__file__).resolve().parents[4]
 BUILDER = ROOT / 'releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge/build_stage.py'
 
 
-# A transport unit test must not imply that today's canonical/runtime migration is
-# complete. Use the last attested canonical bytes, pinned by the real provenance;
-# the separate unmocked CLI test below keeps the actual release failure visible.
+# The V3 publisher has a fixed candidate identity. Bind its transport fixtures
+# to the last V3 catalog before D5 replaced the candidate in the shared index.
+V3_CATALOG_COMMIT = '416167951cfe261d55f2aba299e2cd020a082cf0'
+V3_CANDIDATE_RELEASE = 'fc-three-platform-100k-20261110'
 ATTESTED_BASELINE_COMMIT = '9114a564b26ae1c1d91fa5dc0c063aebbfed7a6a'
+CATALOG = 'knowledge/index.json'
 CANONICAL_BASELINE = 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'
+RUNTIME_BASELINE = 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
+RUNTIME_PROVENANCE = RUNTIME_BASELINE.replace('.md', '.provenance.json')
+
+
+def committed_blob(checkout, relative, commit):
+    return subprocess.check_output(['git', 'show', f'{commit}:{relative}'], cwd=checkout)
+
+
+def legacy_v3_index():
+    return json.loads(committed_blob(ROOT, CATALOG, V3_CATALOG_COMMIT))
 
 
 def transport_fixture_blob(checkout, path):
     relative = path.relative_to(checkout).as_posix()
+    if relative.startswith('releases/fc-coins/fc-pricing-v3-20261026/deploy/'):
+        return committed_blob(checkout, relative, 'HEAD')
     if relative == CANONICAL_BASELINE:
-        return subprocess.check_output(['git', 'show', ATTESTED_BASELINE_COMMIT + ':' + relative], cwd=checkout)
-    raw = subprocess.check_output(['git', 'show', 'HEAD:' + relative], cwd=checkout)
-    if relative == 'knowledge/index.json':
+        return committed_blob(checkout, relative, ATTESTED_BASELINE_COMMIT)
+    raw = committed_blob(checkout, relative, V3_CATALOG_COMMIT)
+    if relative == CATALOG:
+        # Supply the last attested canonical bytes only in the success fixture.
         index = json.loads(raw)
         canonical = transport_fixture_blob(checkout, checkout / CANONICAL_BASELINE).replace(b'\r\n', b'\n')
         for row in index['entries']:
@@ -75,7 +90,7 @@ class KnowledgeStageTransportTest(unittest.TestCase):
     def test_verified_git_experience_is_incremental_without_a_total_inventory_cap(self):
         from copy import deepcopy
         module=self.prepare_module()
-        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        index=legacy_v3_index()
         row=deepcopy(next(r for r in index['entries'] if r['id']=='fc.evolutions.experience.current-state-cutover'))
         row['id']='fc.experience.future-verified-learning'
         index['entries'].append(row)
@@ -117,7 +132,7 @@ class KnowledgeStageTransportTest(unittest.TestCase):
     def test_prepare_uses_same_inventory_and_exact_published_source_root(self):
         from copy import deepcopy
         module=self.prepare_module();commit='a'*40
-        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        index=legacy_v3_index()
         release='fc-three-platform-100k-knowledge-20261110-'+commit
         index.update(release=release,release_state='published',source_commit=commit,
                      source_root='knowledge-releases/'+release+'/sources')
@@ -129,7 +144,7 @@ class KnowledgeStageTransportTest(unittest.TestCase):
 
     def test_prepare_payload_contract_keeps_all_experiences_and_rejects_missing_or_extra_files(self):
         module=self.prepare_module()
-        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        index=legacy_v3_index()
         expected=module.catalog_payload_names(index)
         for identity in ('fc.evolutions.experience.current-state-cutover','fc.pricing.experience.lootbar-source-availability'):
             row=next(r for r in index['entries'] if r['id']==identity)
@@ -166,7 +181,7 @@ class KnowledgeStageTransportTest(unittest.TestCase):
         sys.path.insert(0, str(BUILDER.parent))
         spec=importlib.util.spec_from_file_location('knowledge_stage_validation',BUILDER)
         build_stage=importlib.util.module_from_spec(spec);spec.loader.exec_module(build_stage)
-        index=json.loads(subprocess.check_output(['git','show','HEAD:knowledge/index.json'],cwd=ROOT))
+        index=legacy_v3_index()
         entry=next(row for row in index['entries'] if row['id']=='fc.reporting.methods')
         entry['id']='unexpected.reporting.methods'
         with patch.object(build_stage.subprocess,'check_output',return_value='a'*40), \
@@ -178,7 +193,7 @@ class KnowledgeStageTransportTest(unittest.TestCase):
         sys.path.insert(0,str(BUILDER.parent))
         spec=importlib.util.spec_from_file_location('knowledge_stage_revision',BUILDER)
         builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
-        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        index=legacy_v3_index()
         next(row for row in index['entries'] if row['id']=='fc.pricing.constraints')['revision']='fc27_dual20_d9_d2_v2'
         with patch.object(builder.subprocess,'check_output',return_value='a'*40),patch.object(builder,'blob',return_value=json.dumps(index).encode()) as blob:
             with self.assertRaisesRegex(ValueError,'v3_current_knowledge_revision_invalid'):
@@ -189,26 +204,47 @@ class KnowledgeStageTransportTest(unittest.TestCase):
         sys.path.insert(0,str(BUILDER.parent))
         spec=importlib.util.spec_from_file_location('knowledge_stage_effective',BUILDER)
         builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
-        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        index=legacy_v3_index()
         next(row for row in index['entries'] if row['id']=='fc.pricing.decision.three-platform-100k')['id']='unreviewed.decision'
         with patch.object(builder.subprocess,'check_output',return_value='a'*40),patch.object(builder,'blob',return_value=json.dumps(index).encode()):
             with self.assertRaisesRegex(ValueError,'v3_effective_knowledge_selection_invalid'):
                 builder.build(ROOT,'a'*40,ROOT/'unused.tar.gz')
 
-    def test_actual_head_requires_attested_runtime_migration(self):
+    def test_legacy_v3_candidate_requires_attested_runtime_migration(self):
+        sys.path.insert(0, str(BUILDER.parent))
+        spec = importlib.util.spec_from_file_location('knowledge_legacy_unattested', BUILDER)
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
         commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-        canonical = subprocess.check_output(['git', 'show', 'HEAD:' + CANONICAL_BASELINE], cwd=ROOT).replace(b'\r\n', b'\n')
-        runtime = 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
-        provenance = json.loads(subprocess.check_output(['git', 'show', 'HEAD:' + runtime.replace('.md', '.provenance.json')], cwd=ROOT))
+
+        def read(checkout, path):
+            return committed_blob(checkout, path.relative_to(checkout).as_posix(), V3_CATALOG_COMMIT)
+
+        with tempfile.TemporaryDirectory() as folder, patch.object(builder, 'blob', side_effect=read):
+            archive = Path(folder) / 'legacy-unattested.tgz'
+            with self.assertRaisesRegex(ValueError, '^runtime_baseline_patch_provenance_invalid$'):
+                builder.build(ROOT, commit, archive)
+            self.assertFalse(archive.exists())
+
+    def test_actual_head_requires_legacy_identity_and_attested_runtime_migration(self):
+        commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+        candidate = json.loads(committed_blob(ROOT, CATALOG, commit))
+        canonical = committed_blob(ROOT, CANONICAL_BASELINE, commit).replace(b'\r\n', b'\n')
+        provenance = json.loads(committed_blob(ROOT, RUNTIME_PROVENANCE, commit))
         with tempfile.TemporaryDirectory() as folder:
             archive = Path(folder) / 'actual-head.tgz'
             result = subprocess.run([sys.executable, str(BUILDER), str(ROOT), commit, str(archive)], capture_output=True, text=True)
-            if provenance['canonical_sha256'] != hashlib.sha256(canonical).hexdigest():
+            if candidate['release'] != V3_CANDIDATE_RELEASE:
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn('runtime_baseline_patch_provenance_invalid', result.stderr)
+                self.assertIn('ValueError: exact_v3_candidate_index_required', result.stderr)
+                self.assertFalse(archive.exists())
+            elif provenance['canonical_sha256'] != hashlib.sha256(canonical).hexdigest():
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('ValueError: runtime_baseline_patch_provenance_invalid', result.stderr)
                 self.assertFalse(archive.exists())
             else:
                 self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(archive.is_file())
 
     def test_stage_publisher_equals_committed_blob(self):
         commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
@@ -226,7 +262,7 @@ class KnowledgeStageTransportTest(unittest.TestCase):
                 release = prefix.removesuffix('deploy/')
                 catalog = json.load(bundle.extractfile(release + 'candidate/artifact/index.json'))
                 self.assertFalse(any(row['status'] == 'retired' for row in catalog['entries']))
-                committed_catalog=json.loads(subprocess.check_output(['git','show',commit+':knowledge/index.json'],cwd=ROOT))
+                committed_catalog=legacy_v3_index()
                 self.assertEqual({r['id'] for r in catalog['entries'] if r['layer']=='current'},
                                  {r['id'] for r in committed_catalog['entries'] if r['layer']=='current'})
                 for identity in ('fc.evolutions.experience.current-state-cutover','fc.pricing.experience.lootbar-source-availability'):
@@ -238,9 +274,8 @@ class KnowledgeStageTransportTest(unittest.TestCase):
                     self.assertEqual(hashlib.sha256(body).hexdigest(),row['source']['sha256'])
                 self.assertEqual(next(r for r in catalog['entries'] if r['id']=='fc.pricing.v3')['revision'],'20261111-lootbar-no-coupon')
                 baseline = bundle.extractfile(release + 'candidate/runtime/business-baseline.md').read()
-                runtime='releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
-                self.assertEqual(baseline,subprocess.check_output(['git','show','HEAD:'+runtime],cwd=ROOT))
-                provenance=json.loads(subprocess.check_output(['git','show','HEAD:'+runtime.replace('.md','.provenance.json')],cwd=ROOT))
+                self.assertEqual(baseline,committed_blob(ROOT,RUNTIME_BASELINE,V3_CATALOG_COMMIT))
+                provenance=json.loads(committed_blob(ROOT,RUNTIME_PROVENANCE,V3_CATALOG_COMMIT))
                 self.assertEqual(provenance['after_sha256'],hashlib.sha256(baseline).hexdigest())
                 expected={row['source']['sha256'] for row in catalog['entries']
                           if row['source']['path']=='docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'}

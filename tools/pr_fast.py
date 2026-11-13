@@ -242,6 +242,9 @@ def selfcheck():
         raise RuntimeError("game_monitor_sop_checks_missing")
     if select(["releases/fc-coins/fc-pricing-v2-20261022/source/pricing_v2.py"]) != ["fc-pricing-v2"]:
         raise RuntimeError("fc_pricing_v2_checks_missing")
+    for probe in ("check-native-editor.cjs", "check-native-quantity.cjs"):
+        if select(["docs/planning/fs-fc-admin-es-20261112/evidence/"+probe]) != ["fc-native-evidence", "fc-pricing-v3"]:
+            raise RuntimeError("fc_native_evidence_checks_missing:"+probe)
     if select(["releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/runtime.py"]) != ["fc-pricing-v3"]:
         raise RuntimeError("fc_pricing_v3_checks_missing")
     if select(['releases/fc-coins/fc-pricing-v2-20261022/source/conversation_service.py']) != ['fc-pricing-v2','hermes-conversation']:
@@ -757,6 +760,9 @@ def select(paths):
             groups.add("fs-on-demand");continue
         if name.startswith("releases/fc-coins/lock-gate-hardening-20261013/"):
             groups.add("fc-lock-gate-hardening");continue
+        if name in ("docs/planning/fs-fc-admin-es-20261112/evidence/check-native-editor.cjs",
+                    "docs/planning/fs-fc-admin-es-20261112/evidence/check-native-quantity.cjs"):
+            groups.update(("fc-native-evidence", "fc-pricing-v3"));continue
         if name.startswith("releases/fc-coins/fc-pricing-v3-20261026/"):
             groups.add("fc-pricing-v3");continue
         if name.startswith("releases/fc-evolutions/admin-session-20261110/"):
@@ -956,7 +962,7 @@ def main():
             units('fs_mcp_connector/tests', ['test_auth', 'test_portal', 'test_backend', 'test_server', 'test_catalog_extended', 'test_knowledge', 'test_documents', 'test_g2g', 'test_players', 'test_gallery', 'test_accounts', 'test_consent', 'test_sales', 'test_evolutions', 'test_tracking', 'test_redaction', 'test_data_methods', 'test_response_view'], python=python)
             continue
         if group=='seo-daily':
-            units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime','test_estimate','test_web','test_prepare'])
+            units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime','test_order_source','test_order_reader','test_estimate','test_web','test_prepare'])
             for script in (ROOT/'ui-system/modules/seo').glob('*.mjs'):
                 subprocess.run(['node','--check',str(script)],check=True,timeout=30)
             node('ui-system/modules/seo/test_model.cjs')
@@ -1119,7 +1125,7 @@ def main():
             units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="cache-archive-retention":
-            units("releases/fs-dashboard/cache-archive-retention-20261025/tests",["test_retention","test_admin_sharing","test_direct_es_api","test_monthly_archive"])
+            units("releases/fs-dashboard/cache-archive-retention-20261025/tests",["test_retention","test_admin_sharing","test_direct_es_api","test_monthly_archive","test_order_attribution"])
         elif group=="fc-coins-evidence":
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="daily-archive":
@@ -1127,7 +1133,7 @@ def main():
         elif group=="business-dashboard-refresh":
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_summary_first.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_home_summary.cjs")
-            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_summary_fast","test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_direct_admin","test_fc_dashboard_release","test_fc_maintenance","test_concurrent_ranges","test_admission_fairness","test_admission_rollout"])
+            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_summary_fast","test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_filter_contract","test_es_data_release","test_order_facts","test_order_facts_source","test_order_facts_runtime","test_order_facts_api","test_direct_admin","test_fc_dashboard_release","test_fc_maintenance","test_concurrent_ranges","test_admission_fairness","test_admission_rollout"])
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_actual_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_shipping_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_fc_dashboard.cjs")
@@ -1164,6 +1170,7 @@ def main():
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui","test_pmax_es_projection","test_mapping_reclassification"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")
+            node("releases/fs-dashboard/channel-effects-20261021/tests/test_order_facts_ui.cjs")
         elif group=="admin-session-continuity":
             units("admin_session_continuity_20261021",["test_continuity"])
             units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
@@ -1408,10 +1415,16 @@ def main():
             units("mlb_admin_import_20261012/tests",["test_admin_write_channel"])
         elif group=="fc-lock-gate-hardening":
             units("releases/fc-coins/lock-gate-hardening-20261013",["test_hardening"])
+        elif group=="fc-native-evidence":
+            node("docs/planning/fs-fc-admin-es-20261112/evidence/check-native-editor.cjs")
+            # Full quantity replay needs locally captured pinned public bytes; CI checks syntax only.
+            subprocess.run(["node", "--check", str(ROOT/"docs/planning/fs-fc-admin-es-20261112/evidence/check-native-quantity.cjs")],
+                           check=True, timeout=30, cwd=ROOT)
         elif group=="fc-pricing-v3":
             subprocess.run([sys.executable,"-I","-B","-m","unittest","discover","-s",
                 str(ROOT/"releases/fc-coins/fc-pricing-v3-20261026/tests"),"-p","test_*.py"],
                 check=True,timeout=120,cwd=ROOT)
+            node("releases/fc-coins/fc-pricing-v3-20261026/tests/test_u7_quantity_dom.cjs")
         elif group=="fc-cycle-gate":
             units("releases/fc-coins/gate-cycle-20261014",["test_cycle_gate","test_publisher"])
         elif group=="fc-order-public":

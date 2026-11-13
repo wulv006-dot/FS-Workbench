@@ -1,0 +1,311 @@
+{
+  "status": "assembled_offline_source_candidate",
+  "base": "e1b88316f8f72fb7bd207aa8a635a39b5e74e2ae",
+  "production_manifest": false,
+  "new_channel_asset_directory": "/var/lib/fs-navigation-formal-static/channel-effects-ce0d682c4b59/",
+  "new_fc_asset_directory": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-45fa7168afaa/",
+  "files": [
+    {
+      "group": "D0 host",
+      "source": "releases/fs-dashboard/cache-archive-retention-20261025/source/es_order_structure.py",
+      "target": "/opt/fs-hermes-fc/es_order_structure.py",
+      "sha256": "83a83a4ccc2ba92a4772af05c84484780c1a8a3047113d80fc1a76b6115c8394",
+      "bytes": 71231,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D0 host",
+      "source": "releases/fs-dashboard/cache-archive-retention-20261025/source/order_attribution.py",
+      "target": "/opt/fs-hermes-fc/order_attribution.py",
+      "sha256": "f92fb5f36d6755f815cfba64c20bdfedc89940c43241a4d7147f806b62cf4c2b",
+      "bytes": 9708,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D0 session",
+      "source": "releases/fs-dashboard/cache-archive-retention-20261025/source/session_es_order_structure.py",
+      "target": "/usr/local/bin/es_order_structure.py",
+      "sha256": "3e5d8e33281ea2f6b6cfe362a65cc3ecd5d37e18c2208e31f04aa010f016f969",
+      "bytes": 43545,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D0 session",
+      "source": "releases/fs-dashboard/cache-archive-retention-20261025/source/order_attribution.py",
+      "target": "/usr/local/bin/order_attribution.py",
+      "sha256": "f92fb5f36d6755f815cfba64c20bdfedc89940c43241a4d7147f806b62cf4c2b",
+      "bytes": 9708,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D0 session",
+      "source": "releases/fs-dashboard/cache-archive-retention-20261025/source/Dockerfile.session",
+      "target": "existing session build context/Dockerfile.session",
+      "sha256": "47ed0bab5cb2b14e0659058f8dc4d3a27b5b9266faa6ff52f1ee9b84d0de4571",
+      "bytes": 183,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/admin_scope.py",
+      "target": "/opt/fs-exact-range-20261001/admin_scope.py",
+      "sha256": "c3c9963a7760699a13026b45e293c6062f1f143e2f8c72899854f21c4fa25cdd",
+      "bytes": 5991,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py",
+      "target": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "sha256": "572ab07e4e8b3fd7ca0eebbb3eff7c851cb290ca725aac281191bd0c874fabd5",
+      "bytes": 19322,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/live_summary.py",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "sha256": "9e29045940c33ac2e43ee34efdd4881d1c8a6c5acea92ea4befc564f75c841c8",
+      "bytes": 21911,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/site_summary.py",
+      "target": "/opt/fs-exact-range-20261001/site_summary.py",
+      "sha256": "e47a8e22939a435c3abd8a579b7ce8e327b22bfd0a6f736268c7809579db7bfa",
+      "bytes": 1959,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/summary_bridge.py",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "sha256": "f8fcbd5724942894836e902d2da89ba78e6efe383f47050ea2456cf081bebfa6",
+      "bytes": 2945,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/admin_summary.py",
+      "target": "/opt/fs-exact-range-20261001/admin_summary.py",
+      "sha256": "1801d8eec729af1ce4ea3afe0b682c1c1b89aeeb95a1a3f48fab84ee079146b6",
+      "bytes": 2763,
+      "handling": "git_merge_input_only"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "90860689c75bfdc0fd8d25021504f34f79dd66e08f91d540e1513b0732e990c0",
+      "bytes": 30452,
+      "handling": "git_merge_input_only"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/order_facts.py",
+      "target": "/opt/fs-exact-range-20261001/order_facts.py",
+      "sha256": "3da967af58583033c44cf81cc68942c261aacb53d6934154c4b5c8e3e930d3b7",
+      "bytes": 8996,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/order_facts_api.py",
+      "target": "/opt/fs-exact-range-20261001/order_facts_api.py",
+      "sha256": "4a4ff47d30550cbb5062eaccc0753fd3fdf18cc54e38e3bce1c98665b7e18ef3",
+      "bytes": 12906,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/order_facts_runtime.py",
+      "target": "/opt/fs-exact-range-20261001/order_facts_runtime.py",
+      "sha256": "5dfee2525a763922eb17ff3e3aac31240875a0f87988beb47f53e012e86a2dba",
+      "bytes": 6756,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D1/D2 range",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/order_facts_source.py",
+      "target": "/opt/fs-exact-range-20261001/order_facts_source.py",
+      "sha256": "b56e6eec8925c2a0d31179bd2c96b5548dc782d20ee3a09859d02f76d83760a4",
+      "bytes": 6963,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 channel",
+      "source": "releases/fs-dashboard/channel-effects-20261021/ui/index.html",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-ce0d682c4b59/index.html",
+      "sha256": "6795fb8092dda992aabaadc11524c0a1e616152db63770f8a8283d942915e554",
+      "bytes": 6835,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 channel",
+      "source": "releases/fs-dashboard/channel-effects-20261021/ui/channel.js",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-ce0d682c4b59/channel.js",
+      "sha256": "7535c57481d1cd92a245e119ff18973f9bb1f2dd380d058808200ef17a9810b7",
+      "bytes": 34751,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 channel",
+      "source": "releases/fs-dashboard/channel-effects-20261021/ui/channel.css",
+      "target": "/var/lib/fs-navigation-formal-static/channel-effects-ce0d682c4b59/channel.css",
+      "sha256": "b38273488bf6943c0efa8a74604f7e4163cf41085b7332f75455b7289dfbd269",
+      "bytes": 6993,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-45fa7168afaa/business.js",
+      "sha256": "32cba0a7a841d511f174ec716b5716fef58184788ffb565c8e2090da4560d2ab",
+      "bytes": 756544,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-45fa7168afaa/home-business.js",
+      "sha256": "c061fe6eb99e84b5e8c407bbcb241cd1d405eaf0dbdd2095b22f10d12f109e1e",
+      "bytes": 756544,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-45fa7168afaa/legacy-business.js",
+      "sha256": "6680514c2a63ff4b9f8005af6ed2459b0c92d419d20d4718b364b63661a17ae7",
+      "bytes": 756961,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-45fa7168afaa/shell.js",
+      "sha256": "8c2d065850cec9a358ab5f7b11ee3bbed6173d8b88c86d0797fb72eb5393e252",
+      "bytes": 29473,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/home-shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-45fa7168afaa/home-shell.js",
+      "sha256": "2885288ea4a17802350f158f7dda9affd0c6f4e14932a9752749fe68350ea9c0",
+      "bytes": 27831,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/legacy-shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-45fa7168afaa/legacy-shell.js",
+      "sha256": "f0b765c7de6003d7d5aa2d001a9e98079bf3e9deb541cdc9c8342bceb47adc42",
+      "bytes": 26912,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "ui-system/modules/native/business.css",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-45fa7168afaa/business.css",
+      "sha256": "57291f25989fa4d15bc2b766d04f20b433ec7178f5a6651145327262d696bb07",
+      "bytes": 62327,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "sha256": "7874e6ca9bf3dfa75328e789367d38d61ee3ca13f0c17cb3dab12d51efb595a2",
+      "bytes": 11517,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail_reader.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
+      "sha256": "7c79c69466ef9e3ed12075d443efcf09330f2fd3d1c4d2f520a35c1c3499f44b",
+      "bytes": 15500,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail_model.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail_model.py",
+      "sha256": "406fffbd9b1adb7d5afcd9cfeebb5195b68513daa52ac6531f00972ea0ac66a5",
+      "bytes": 17884,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D3 business",
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_dashboard.py",
+      "target": "/opt/fs-exact-range-20261001/fc_dashboard.py",
+      "sha256": "b6ab5cc575b73f2659ced914b279a308c635c27ca697c8da0193ff89fab2c7ca",
+      "bytes": 27510,
+      "handling": "candidate_payload"
+    },
+    {
+      "group": "D4 SEO delta",
+      "source": "mmoexp_google_data/seo/metrics.py",
+      "target": "/opt/fs-seo/releases/{seo-package}/mmoexp_google_data/seo/metrics.py",
+      "sha256": "76fc880f0e746c4ff21364dcc289ceecf0d496f071552fe152b58c7b6bd14f14",
+      "bytes": 3420,
+      "handling": "existing_seo_package_input"
+    },
+    {
+      "group": "D4 SEO delta",
+      "source": "mmoexp_google_data/seo/order_reader.py",
+      "target": "/opt/fs-seo/releases/{seo-package}/mmoexp_google_data/seo/order_reader.py",
+      "sha256": "e4d6ae060d2ae82e5541bb007df9ec6059d2b34d2b5d493b4e8ddf95c98911a9",
+      "bytes": 2450,
+      "handling": "existing_seo_package_input"
+    },
+    {
+      "group": "D4 SEO delta",
+      "source": "mmoexp_google_data/seo/order_source.py",
+      "target": "/opt/fs-seo/releases/{seo-package}/mmoexp_google_data/seo/order_source.py",
+      "sha256": "98947edaf8164f55e1475686cbf53ad183d08ae96189667064ef82ada4025c4d",
+      "bytes": 6169,
+      "handling": "existing_seo_package_input"
+    },
+    {
+      "group": "D4 SEO delta",
+      "source": "mmoexp_google_data/seo/runtime.py",
+      "target": "/opt/fs-seo/releases/{seo-package}/mmoexp_google_data/seo/runtime.py",
+      "sha256": "cd0fcf6d5659938299023f7af4d52947e21b428df9865bb75bba593277c8fd23",
+      "bytes": 6343,
+      "handling": "existing_seo_package_input"
+    },
+    {
+      "group": "D4 SEO delta",
+      "source": "mmoexp_google_data/seo/snapshot.py",
+      "target": "/opt/fs-seo/releases/{seo-package}/mmoexp_google_data/seo/snapshot.py",
+      "sha256": "9e04e9094266c82b7531e272696d99cdeb86e382b6b785dfc32f4cc39da28952",
+      "bytes": 14158,
+      "handling": "existing_seo_package_input"
+    },
+    {
+      "group": "D5 MCP delta",
+      "source": "fs_mcp_connector/catalog.json",
+      "target": "existing fs_mcp_connector package/catalog.json",
+      "sha256": "51f4b12e2e649d18b519c2d5103f2c5a118b016ff34cbb3c5a3f298650f42b34",
+      "bytes": 179950,
+      "handling": "existing_connector_package_input"
+    }
+  ],
+  "generated_on_release": [
+    "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf"
+  ],
+  "preserved_runtime_dependencies": [
+    "/opt/fs-exact-range-20261001/fc_detail_config.json",
+    "/opt/fs-exact-range-20261001/supplement_fields.py",
+    "/opt/fs-hermes-fc/channel_effects.py",
+    "/opt/fs-hermes-fc/channel_source.py",
+    "/opt/fs-hermes-fc/coupon_channels.py",
+    "/opt/fs-hermes-fc/coupon_channels.json",
+    "/opt/fs-hermes-fc/admin_discount_analysis.py"
+  ],
+  "archive_sha256": "ff8db8fb3d3454d7e35ded1134c03d3c9d04605e92a180cd70d91fb408c9ca89",
+  "archive_members": 36
+}

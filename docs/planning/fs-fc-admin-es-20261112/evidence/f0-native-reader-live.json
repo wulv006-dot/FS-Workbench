@@ -1,0 +1,108 @@
+{
+  "candidate_sha256": "d4f25f4a0816ffcff18728cfe648031fef8cfb3feb615a5d68725c4b1409e5fd",
+  "mode": "six existing Goods GET; no save or quote request",
+  "results": [
+    {
+      "platform": "PS",
+      "identity": {
+        "id": 163329309,
+        "mid": 41217957,
+        "gid": 1327,
+        "cid": 9623,
+        "site_id": 0,
+        "aid": 21587,
+        "unit": "K",
+        "status": 1
+      },
+      "tiers": 15,
+      "curve_key": "eb21eb1eaff6cdf765e27932c2d634ad9da9dc6e545c3d6f99405caa915f4cae",
+      "quotation_status": "native_semantics_not_evaluated",
+      "raw_retained": true
+    },
+    {
+      "platform": "PS",
+      "identity": {
+        "id": 163329311,
+        "mid": 41217957,
+        "gid": 1327,
+        "cid": 9623,
+        "site_id": 266,
+        "aid": 21587,
+        "unit": "K",
+        "status": 1
+      },
+      "tiers": 15,
+      "curve_key": "905816257a657efa914768328019dc5f95015ee8ce09bdc13a424431d096ca0c",
+      "quotation_status": "native_semantics_not_evaluated",
+      "raw_retained": true
+    },
+    {
+      "platform": "XBOX",
+      "identity": {
+        "id": 163329275,
+        "mid": 41217957,
+        "gid": 1327,
+        "cid": 9623,
+        "site_id": 0,
+        "aid": 21585,
+        "unit": "K",
+        "status": 1
+      },
+      "tiers": 15,
+      "curve_key": "525ef324ac8768e42af2a36163e31d04b54edafb5ecadcc6bc7b9a39ae43d317",
+      "quotation_status": "native_semantics_not_evaluated",
+      "raw_retained": true
+    },
+    {
+      "platform": "XBOX",
+      "identity": {
+        "id": 163329277,
+        "mid": 41217957,
+        "gid": 1327,
+        "cid": 9623,
+        "site_id": 266,
+        "aid": 21585,
+        "unit": "K",
+        "status": 1
+      },
+      "tiers": 15,
+      "curve_key": "99f68057ec17107dcf4dc829f4920ceada9ede753ea952f9371856321fb8abee",
+      "quotation_status": "native_semantics_not_evaluated",
+      "raw_retained": true
+    },
+    {
+      "platform": "PC",
+      "identity": {
+        "id": 163329343,
+        "mid": 41217957,
+        "gid": 1327,
+        "cid": 9623,
+        "site_id": 0,
+        "aid": 21589,
+        "unit": "K",
+        "status": 1
+      },
+      "tiers": 15,
+      "curve_key": "65b050f27f4894c209449cd08b4affe399af8f9813b3fc6294b5999586d3dd66",
+      "quotation_status": "native_semantics_not_evaluated",
+      "raw_retained": true
+    },
+    {
+      "platform": "PC",
+      "identity": {
+        "id": 163329345,
+        "mid": 41217957,
+        "gid": 1327,
+        "cid": 9623,
+        "site_id": 266,
+        "aid": 21589,
+        "unit": "K",
+        "status": 1
+      },
+      "tiers": 15,
+      "curve_key": "6ab394dfda7bbabbe8aec4e6fe4d3628ab0a6d269c585192b699d2117ac584df",
+      "quotation_status": "native_semantics_not_evaluated",
+      "raw_retained": true
+    }
+  ]
+}

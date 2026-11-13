@@ -270,12 +270,18 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
                 "storefront": storefront, "reference_market": reference_market,
                 "competitor_diagnostics":snapshot.get('source_warnings',[]),
                 "arab_ut_status": snapshot.get('arab_ut_status')}
+    if snapshot.get('competitor_policy'):
+        from copy import deepcopy
+        evidence['competitor_policy']=snapshot['competitor_policy']
+        evidence['competitor_offers']=deepcopy(snapshot.get('competitor_offers',[]))
     from pricing_sources import collect as collect_pricing_constraints
     evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist,catalog_only=True)
     from fc_pricing_v3.runtime import context
     evidence=context(evidence)
     coverage=planned_source_coverage(dict(snapshot,arab_ut_status=evidence['arab_ut_status']),evidence['source_plan'],datetime.now(timezone.utc),reference_market=reference_market)
     if not coverage['ready']:raise ValueError('coverage_incomplete')
+    if 'normalized_offers' in coverage:
+        evidence['competitor_offers']=coverage.pop('normalized_offers')
     evidence['source_coverage']=coverage
     result = calculate(evidence, edits)
     if [row.get("platform") for row in result["rows"]] != list(PLATFORMS):

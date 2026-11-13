@@ -92,6 +92,14 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
     if(scenario==='wrong-order-status')a.filters.order_status='3';
     if(scenario==='wrong-endpoint')a.endpoint='/admin/order.Order/unrelated';
     if(scenario==='missing-share')a.metrics.newCustomerSharePct={value:null,status:'not_provided',source:'Admin',scope:a.scopeLabel};
+    if(scenario==='split-repeat'){
+     a.metrics.repeatRatePct.value=4.33;
+     a.native_repeat_rate={value:4.33,status:'available'};
+     a.reconciliation_status='not_aligned';
+     a.effective_scope={site:main?'266':'all',game:'1327',country_code:'all',period:a.period};
+     a.local_repeat_rate={value:100*13/280,numerator:13,denominator:280,status:'available',
+      scope:{scope:'site',scope_id:'266',game:'1327',start:'2026-10-17T00:00:00+08:00',end_exclusive:'2026-10-24T00:00:00+08:00'}};
+    }
     return route.fulfill({json:response});
    }
    return route.continue();
@@ -115,6 +123,25 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
   });
   await check('matching MMOEXP main-site period retains three Admin-native customer KPIs',async()=>{
    await choose({b_site:'mmoexp',b_fc_site_group:'main'});assert.deepEqual(await values(),expected);
+  });
+  await check('native rate and identified period-cohort ratio stay distinct',async()=>{
+   await choose({b_site:'mmoexp',b_fc_site_group:'main'},'split-repeat');
+   const card=page.locator('[data-metric=repeatRatePct]');
+   assert.equal(await card.locator('span').innerText(),'Admin原生复购率');
+   assert.equal(await card.locator('strong').innerText(),'4.33%');
+   const audit=page.locator('.metric-audit');
+   await audit.locator('summary').click();
+   assert.match(await audit.innerText(),/区间复购用户占比 4.64%（13 \/ 280 人）.*MMOEXP主站.*FC 27|区间复购用户占比 4.64%（13 \/ 280 人）.*MMOEXP主站.*FC27/);
+   assert.match(await audit.textContent(),/仍待对账/);
+  });
+  await check('FC platform and website selections cannot present a whole-game local rate as their own',async()=>{
+   for(const filters of [{b_site:'mmoexp',b_fc_site_group:'main',b_fc_platform:'PC'},
+                         {b_site:'all',b_fc_site_group:'all'}]){
+    await choose(filters,'split-repeat');
+    const audit=page.locator('.metric-audit');
+    await audit.evaluate(node=>{node.open=true;});
+    assert.doesNotMatch(await audit.innerText(),/4\.64%|13 \/ 280/);
+   }
   });
   for(const [label,changes]of [
    ['specified product',{b_fc_product:'Players'}],['specified platform',{b_fc_platform:'PC'}],

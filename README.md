@@ -3,6 +3,7 @@
 吴律与陈超的私有协作源码仓库。
 
 - [唯一执行规则](docs/ops/HOTFIX.md)：定位、最小改动、相关检查、备份发布、真实使用确认；资料后补。
+- [183／187 服务器访问封装导航](docs/ops/SERVER-ACCESS.md)：本机入口定位与逐机映射；发现入口不代表服务器操作授权。
 - [AI入口](AGENTS.md) / [协作操作入口](docs/collaboration/OPERATION-GUIDE.md)。
 - [状态快照](docs/collaboration/CURRENT-STATUS.md)、[负责人](docs/collaboration/OWNERS.json)、[来源映射](docs/collaboration/SOURCE-MAP.json)。
 - [注册权限源码/发布/验收索引](docs/collaboration/REGISTRATION-INDEX.md)：通过固定commit、文件SHA和本地模块ID查找；原始现场证据保留本地。

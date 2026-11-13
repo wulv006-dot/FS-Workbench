@@ -91,9 +91,11 @@ def protected(row):
     return value
 
 
-def read_row(manager, platform, site, observer=None):
+def read_row(manager, platform, site, observer=None, *, recipient_id=None):
     all_id, site_id, aid = PRODUCTS[platform]
-    product_id = all_id if site == 0 else site_id
+    product_id = all_id if site == 0 else site_id if site == 266 else recipient_id
+    if type(product_id) is not int or product_id <= 0:
+        raise ValueError('coin_product_scope_changed')
     result = api(manager, '/admin/goods.Goods/edit?id=' + str(product_id), observer=observer)
     row = result.get('row') if isinstance(result, dict) else None
     expected = {'id':product_id, 'mid':41217957, 'gid':1327, 'cid':9623,
@@ -110,6 +112,289 @@ def read_row(manager, platform, site, observer=None):
     for price in more['price']:
         money(price)
     return row
+
+
+def curve_writer_capabilities():
+    """Only code-backed native contracts belong here, never request-provided claims."""
+    # The existing receipts cover linear site266→ALL. Nonlinear ALL save and
+    # propagation, active recipients and isolated Order rate need F7 evidence.
+    return {}
+
+
+def curve_admin_manager():
+    sys.path.insert(0, '/usr/local/bin')
+    from p2pah_session_service import SessionManager, read_private_config
+
+    manager = SessionManager(read_private_config())
+    if not manager.ensure():
+        raise ValueError('coin_auth_unavailable')
+    return manager
+
+
+def curve_catalog_plan(bundle, platform, capability):
+    """Freeze price-only changes and bind them to the original proof and Goods rows."""
+    from fc_pricing_v3.financial import fingerprint
+    from fc_pricing_v3.price_curve import curve_key, read_curve
+    from fc_pricing_v3.pricing_proof_v6 import CONTRACT, PROVEN, DOMAIN_REVISIONS
+
+    before = bundle['before_action']['curves'][platform]
+    target = bundle['action']['curves'][platform]
+    all_id, site_id, aid = PRODUCTS[platform]
+    identity = dict(id=all_id, mid=41217957, gid=1327, cid=9623,
+                    site_id=0, aid=aid, unit='K', status=1)
+    before = read_curve(before['native_payload'], identity, before['native_contract'])
+    target = read_curve(target['native_payload'], identity, target['native_contract'])
+    before_row, target_row = before['native_payload'], target['native_payload']
+    if before_row.get('title') != 'coins' or target_row.get('title') != 'coins':
+        raise ValueError('coin_product_scope_changed')
+    if protected(before_row) != protected(target_row):
+        raise ValueError('pricing_curve_non_price_field_changed')
+    if curve_prices_match(before_row, target_row):
+        raise ValueError('pricing_curve_price_payload_unchanged')
+    proof = bundle['curve_proofs'][platform]
+    scope = proof.get('scope', {})
+    if (proof.get('contract') != CONTRACT or proof.get('status') != PROVEN
+            or proof.get('curve_key') != curve_key(target)
+            or scope.get('platform') != platform or scope.get('curve_site_id') != '0'
+            or proof.get('proof_hash') != fingerprint({k: v for k, v in proof.items() if k != 'proof_hash'})):
+        raise ValueError('pricing_curve_financial_proof_invalid')
+    if not capability:
+        raise ValueError('pricing_curve_catalog_save_unverified')
+    recipients = capability['recipient_goods']
+    revisions = capability['source_revisions']
+    if (not capability.get('evidence_ref') or not capability.get('domain_version')
+            or scope.get('version') != capability['domain_version']
+            or scope.get('source_revisions') != revisions
+            or set(revisions) != set(DOMAIN_REVISIONS) or not all(revisions.values())
+            or set(recipients) != {int(site) for site in scope.get('site_paths', {})}
+            or recipients.get(266) != site_id or 0 in recipients
+            or all_id in recipients.values() or len(set(recipients.values())) != len(recipients)):
+        raise ValueError('pricing_curve_native_evidence_mismatch')
+    before_rate, target_rate = (next((Decimal(tier['native_price_usd'] + 'e-2')
+                                    for tier in curve['tiers'] if tier['purchase_k'] == '100'), None)
+                                for curve in (before, target))
+    if before_rate is None or target_rate is None:
+        raise ValueError('pricing_curve_100k_tier_missing')
+    return dict(platform=platform, all_goods_id=all_id, before=before_row, target=editable(target_row),
+                before_hash=fingerprint(editable(before_row)), target_hash=fingerprint(editable(target_row)),
+                target_curve_key=curve_key(target), native_contract=target['native_contract'],
+                before_rate=str(before_rate), target_rate=str(target_rate), proof_hash=proof['proof_hash'],
+                domain_version=scope['version'], source_revisions=revisions, evidence_ref=capability['evidence_ref'],
+                recipient_goods={str(site): goods for site, goods in recipients.items()},
+                catalog={'status': 'pending'}, propagation={'status': 'pending'},
+                projection={'status': 'not_required' if before_rate == target_rate else 'pending'})
+
+
+def curve_prices_match(row, target):
+    return (money(row['unit_price']) == money(target['unit_price'])
+            and list(map(money, row['more']['price'])) == list(map(money, target['more']['price'])))
+
+
+def curve_specs_match(row, target):
+    return all([Decimal(str(value)) for value in row['more'][key]] ==
+               [Decimal(str(value)) for value in target['more'][key]]
+               for key in ('gold', 'give', 'discount'))
+
+
+def curve_readback(manager, item):
+    """Read the original Goods only and distinguish price, receipt and propagation."""
+    from fc_pricing_v3.financial import fingerprint
+    from fc_pricing_v3.price_curve import CATALOGUE_ORIGIN_FIELD, IDENTITY_FIELDS, curve_key, read_curve
+
+    platform = item['platform']
+    catalog = item['catalog']
+    if 'send_intent' not in catalog or catalog['status'] == 'not_sent':
+        return False
+    catalog['status'] = 'readback_pending' if curve_receipt_matches(catalog) else 'unknown'
+    propagation = item['propagation']
+    propagation['status'] = 'readback_pending'
+    all_row = read_row(manager, platform, 0)
+    item.setdefault('observed_rows', {})['0'] = all_row
+    if not curve_receipt_matches(catalog):
+        catalog['status'] = 'unknown'
+        catalog['reason'] = 'pricing_curve_original_receipt_unavailable'
+        return False
+    if not (curve_prices_match(all_row, item['target']) and
+            unchanged(item['before'], all_row, platform, True)):
+        catalog['reason'] = 'pricing_curve_all_readback_mismatch'
+        catalog['status'] = 'readback_pending'
+        return False
+    catalog.setdefault('confirmed_at', datetime.now(timezone.utc).isoformat())
+    catalog.update(status='confirmed', actual_hash=fingerprint(editable(all_row)))
+    catalog.pop('reason', None)
+    for site, goods in item['recipient_goods'].items():
+        row = read_row(manager, platform, int(site), recipient_id=goods)
+        item['observed_rows'][site] = row
+        if not (unchanged(item['recipients_before'][site], row, platform, True)
+                and curve_specs_match(row, item['target'])
+                and curve_prices_match(row, item['target'])):
+            propagation.update(status='readback_pending', reason='pricing_curve_recipient_readback_mismatch:' + site)
+            return False
+    observed = item['observed_rows']['266']
+    native_contract = {key: value for key, value in item['native_contract'].items()
+                       if key != CATALOGUE_ORIGIN_FIELD}
+    actual = read_curve(
+        observed, {key: observed[key] for key in IDENTITY_FIELDS}, native_contract)
+    actual_key = curve_key(actual)
+    item.update(actual_site266_curve=actual, actual_site266_curve_key=actual_key)
+    propagation.setdefault('confirmed_at', datetime.now(timezone.utc).isoformat())
+    propagation.update(status='confirmed', actual_hashes={site: fingerprint(editable(item['observed_rows'][site]))
+                                                          for site in item['recipient_goods']},
+                       curve_mapping=dict(target_curve_key=item['target_curve_key'],
+                                          actual_site266_curve_key=actual_key,
+                                          basis='full_prices_and_tier_specs_readback'))
+    propagation.pop('reason', None)
+    return True
+
+
+def curve_receipt_matches(stage):
+    receipt = stage.get('post_response') or {}
+    intent = stage['send_intent']
+    return (receipt.get('http_status') == 200 and type(receipt.get('response_code')) is int
+            and receipt['response_code'] == 1
+            and bool(receipt.get('response_sha256'))
+            and receipt.get('path') == intent.get('path')
+            and receipt.get('intent_hash') == intent['intent_hash'])
+
+
+def curve_projection(item, projection, before_send, persist):
+    """Use a proven non-propagating Order adapter supplied by the writer, if available."""
+    from fc_pricing_v3.financial import fingerprint
+
+    state = item['projection']
+    if state['status'] in ('not_required', 'confirmed'):
+        return
+    if not projection:
+        if 'send_intent' not in state:
+            state.update(status='unverified', reason='pricing_curve_order_projection_unverified')
+        return
+    platform, target_rate = item['platform'], item['target_rate']
+    if 'send_intent' not in state:
+        if before_send is None:
+            return
+        # The proven adapter performs the Order before-rate CAS at its own transport boundary.
+        intent = dict(path=projection['path'], evidence_ref=projection['evidence_ref'], platform=platform,
+                      operation_id=item['operation_id'], before_rate=item['before_rate'], target_rate=target_rate)
+        intent['intent_hash'] = fingerprint(intent)
+        state.update(status='dispatching', send_intent=intent)
+        persist()
+
+        def observe(meta):
+            state['post_response'] = dict(meta, intent_hash=intent['intent_hash'])
+            persist()
+
+        try:
+            before_send(platform)
+        except (OSError, ValueError):
+            state.pop('send_intent')
+            state['status'] = 'pending'
+            raise
+        projection['write'](platform, item['before_rate'], target_rate, observe)
+    elif (projection['evidence_ref'], projection['path']) != (
+            state['send_intent']['evidence_ref'], state['send_intent']['path']):
+        raise ValueError('pricing_curve_projection_evidence_changed')
+    if not curve_receipt_matches(state):
+        state.update(status='unknown', reason='pricing_curve_original_projection_receipt_unavailable')
+    elif money(projection['read'](platform)) == money(target_rate):
+        state.update(status='confirmed', confirmed_at=datetime.now(timezone.utc).isoformat(),
+                     readback_rate=target_rate)
+        state.pop('reason', None)
+    else:
+        state.update(status='readback_pending', reason='pricing_curve_order_projection_mismatch')
+
+
+def curve_result(audit, save_audit):
+    values = audit['curve_results'].values()
+    if not values:
+        raise ValueError('pricing_curve_original_scope_missing')
+    started = any('send_intent' in item['catalog'] and item['catalog']['status'] != 'not_sent'
+                  for item in values)
+    if all(item['catalog']['status'] == 'confirmed' and item['propagation']['status'] == 'confirmed' and
+           item['projection']['status'] in ('confirmed', 'not_required') for item in values):
+        status, audit_status = 'CONFIRMED', 'CONFIRMED'
+    elif any(item['catalog'].get('confirmed_at') for item in values):
+        status, audit_status = 'PARTIAL', 'PARTIAL'
+    elif started:
+        status, audit_status = 'UNKNOWN', 'UNCERTAIN'
+    else:
+        status, audit_status = 'NOT_SENT', 'FAILED_BEFORE_WRITE'
+    audit.update(status=audit_status, stage='curve_result', business_dispatch_started=started)
+    save_audit(audit)
+    return dict(status=status, execution_id=audit['execution_id'], write_protocol=audit['write_protocol'],
+                curve_results=audit['curve_results'], price_posts_retried=0, sync_replayed=False)
+
+
+def drive_curve_catalog(manager, audit, save_audit, before_send, capabilities):
+    """Use the original writer lock to dispatch each exact ALL target once."""
+    from fc_pricing_v3.financial import fingerprint
+
+    def persist():
+        save_audit(audit)
+
+    for item in audit['curve_results'].values():
+        platform = item['platform']
+        capability = capabilities[platform]
+        catalog = item['catalog']
+        if 'send_intent' in catalog:
+            raise ValueError('pricing_curve_catalog_already_dispatched')
+        try:
+            item['recipients_before'] = {site: read_row(manager, platform, int(site), recipient_id=goods)
+                                         for site, goods in item['recipient_goods'].items()}
+            for site, recipient in item['recipients_before'].items():
+                if not curve_specs_match(recipient, item['target']):
+                    raise ValueError('pricing_curve_recipient_specs_changed:' + site)
+            live = read_row(manager, platform, 0)
+            if fingerprint(editable(live)) != item['before_hash']:
+                raise ValueError('pricing_curve_before_hash_changed')
+            path = '/admin/goods.Goods/edit?id=' + str(item['all_goods_id'])
+            intent = dict(path=path, before_hash=item['before_hash'], target_hash=item['target_hash'],
+                          operation_id=item['operation_id'])
+            intent['intent_hash'] = fingerprint(intent)
+            catalog.update(status='dispatching', send_intent=intent)
+            audit['business_dispatch_started'] = True
+            persist()
+
+            def observe(meta):
+                catalog['post_response'] = dict(meta, intent_hash=intent['intent_hash'])
+                persist()
+
+            try:
+                before_send(platform)
+            except (OSError, ValueError):
+                catalog['status'] = 'not_sent'
+                raise
+            api(manager, path, item['target'], observer=observe)
+            if curve_readback(manager, item):
+                persist()
+                curve_projection(item, capability.get('order_projection'), before_send, persist)
+                if item['projection']['status'] == 'confirmed':
+                    curve_readback(manager, item)
+        except (OSError, ValueError) as error:
+            item['last_error'] = str(error) if isinstance(error, ValueError) else type(error).__name__
+            if catalog['status'] == 'dispatching':
+                catalog['status'] = 'readback_pending' if curve_receipt_matches(catalog) else 'unknown'
+            if item['projection']['status'] == 'dispatching':
+                item['projection']['status'] = ('readback_pending' if curve_receipt_matches(item['projection'])
+                                                 else 'unknown')
+        persist()
+    return curve_result(audit, save_audit)
+
+
+def reconcile_curve_catalog(manager, audit, save_audit, capabilities):
+    """Retry GETs on the original intent, retaining an unknown write if its receipt is lost."""
+    def persist():
+        save_audit(audit)
+
+    for platform, item in audit['curve_results'].items():
+        try:
+            if curve_readback(manager, item):
+                capability = capabilities.get(platform, {})
+                curve_projection(item, capability.get('order_projection'), None, persist)
+                item.pop('last_error', None)
+        except (OSError, ValueError) as error:
+            item['last_error'] = str(error) if isinstance(error, ValueError) else type(error).__name__
+        persist()
+    return curve_result(audit, save_audit)
 
 
 def wait_sources(manager, audit, policy, record, persist, read_policy,

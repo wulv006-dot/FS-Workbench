@@ -1,0 +1,14 @@
+{
+  "fresh_worktree": "D:\\codex\\FC27\\fs-d0-navigation-check-20261112",
+  "head": "0658e3acb723b572b9b16f8a85c84299a7ca3b9f",
+  "ordinary_rg_files_discovers_nav": true,
+  "root_readme_link": true,
+  "relative_links_resolve": 4,
+  "local_wrapper_exists": [
+    true,
+    true
+  ],
+  "ssh_or_auth_executed": false,
+  "clean": true,
+  "probe_initial_failure": "Windows default GBK decode of rg UTF-8 filenames; explicit UTF-8 corrected"
+}

@@ -285,6 +285,78 @@ def confirm_sync_recipient(record):
     raise ValueError('sync_recipient_unstable' if previous is not None else 'sync_recipient_price_unconfirmed')
 
 
+def execute_curve(request):
+    from coin_all_sync_job import (PRODUCTS, atomic, curve_admin_manager, curve_catalog_plan,
+                                  curve_writer_capabilities, drive_curve_catalog)
+    from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL, validate_curve_send, validate_dispatch
+
+    execution_id = parse_uuid(request['execution_id'])
+    preview_id = parse_uuid(request['preview_id'])
+    actor, selected = request['actor'], request['platforms']
+    automatic = request.get('automatic') is True
+    revision = request.get('policy_revision')
+    if not re.fullmatch(r'[A-Za-z0-9_.-]{1,60}', actor):
+        raise ValueError('actor_invalid')
+    if not selected or len(selected) != len(set(selected)) or any(p not in PRODUCTS for p in selected):
+        raise ValueError('platform_selection_invalid')
+    if request.get('check_only') or request.get('v3_operation_id') != execution_id:
+        raise ValueError('pricing_curve_original_dispatch_invalid')
+    bundle = validate_dispatch(execution_id, preview_id, selected, protocol=CURVE_WRITE_PROTOCOL)
+    _, quote = load_authorized(preview_id)
+    if bundle['decision_bundle_id'] != execution_id or bundle.get('execution_authorized') is not True:
+        raise ValueError('pricing_curve_original_dispatch_invalid')
+    if quote.get('automation_policy_revision') != revision or quote['result']['decision_receipt'] != bundle:
+        raise ValueError('automation_policy_changed_since_quote')
+    if sorted(selected) != sorted(r.removeprefix('base:') for r in bundle['mutable_resources']):
+        raise ValueError('pricing_curve_original_dispatch_scope_changed')
+
+    # Legacy unknowns share the existing Order sync. V6 catalog leases use exact
+    # Goods (ALL and verified propagation receivers) within that same writer lock.
+    capabilities = curve_writer_capabilities()
+    items = {p: dict(curve_catalog_plan(bundle, p, capabilities.get(p)), operation_id=execution_id)
+             for p in selected}
+    goods = {item['all_goods_id'] for item in items.values()}
+    goods.update(goods_id for item in items.values() for goods_id in item['recipient_goods'].values())
+    path = ROOT/'executions'/(execution_id+'.json')
+    for candidate in path.parent.glob('*.json'):
+        if candidate == path:
+            continue
+        state = read_json(candidate)
+        if not execution_is_unresolved(state, ledger_operation_status(
+                candidate.stem, require_order_admin_close=state.get('status') == 'PUBLIC_CONFIRMED')):
+            continue
+        other = state.get('curve_goods_ids')
+        if (state.get('write_protocol') != CURVE_WRITE_PROTOCOL or not other
+                or state.get('execution_id') != candidate.stem or goods.intersection(other)):
+            raise ValueError('unresolved_execution_exists')
+    record = dict(execution_id=execution_id, preview_id=preview_id, run_id=bundle['snapshot_id'],
+                  actor=actor, selected=selected, automation_policy_revision=revision, automatic=automatic,
+                  pricing_decision_receipt=bundle, write_protocol=CURVE_WRITE_PROTOCOL,
+                  curve_goods_ids=sorted(goods), curve_results=items, sync_confirmed=False, changed=[],
+                  business_dispatch_started=False, status='RUNNING', stage='curve_preflight',
+                  created_at=datetime.now(timezone.utc).isoformat())
+    if path.exists():
+        previous = read_json(path)
+        record['previous_attempts'] = previous.get('previous_attempts', []) + [
+            {k: v for k, v in previous.items() if k != 'previous_attempts'}]
+
+    def before_send(platform):
+        policy = load_policy()
+        if revision != policy['revision']:
+            raise ValueError('automation_policy_changed')
+        if not policy['system_enabled'] or platform not in policy['platforms']:
+            raise ValueError('automation_platform_disabled')
+        if automatic and policy['mode'] != 'auto':
+            raise ValueError('automation_mode_changed')
+        validate_curve_send(ROOT, bundle, platform)
+
+    for platform in selected:
+        before_send(platform)
+    manager = curve_admin_manager()
+    atomic(path, record)
+    return drive_curve_catalog(manager, record, lambda value: atomic(path, value), before_send, capabilities)
+
+
 def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, check_only=False,
             margin_reason="", policy_revision=None, automatic=False):
     global BUSINESS_DISPATCH_STARTED
@@ -437,17 +509,33 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
 
 
 if __name__ == "__main__":
+    request = {}
     try:
         request = json.loads(Path("/run/request.json").read_text(encoding="utf-8"))
-        result = execute(request["preview_id"], request["execution_id"], request["actor"],
-                         request["platforms"], request.get("margin_confirmed_platforms") or [],
-                          request.get("check_only") is True,
-                          request.get("margin_exception_reason", ""),
-                          request.get("policy_revision"), request.get("automatic") is True)
+        if request.get('write_protocol') == 'fc27_curve_v6':
+            result = execute_curve(request)
+        elif 'write_protocol' in request:
+            raise ValueError('pricing_write_protocol_invalid')
+        else:
+            result = execute(request["preview_id"], request["execution_id"], request["actor"],
+                             request["platforms"], request.get("margin_confirmed_platforms") or [],
+                             request.get("check_only") is True,
+                             request.get("margin_exception_reason", ""),
+                             request.get("policy_revision"), request.get("automatic") is True)
         print(json.dumps(result))
     except Exception as exc:
         reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
-        result = {"status": "FAILED" if BUSINESS_DISPATCH_STARTED else "NOT_SENT", "reason": reason[:100],"business_dispatch_started":BUSINESS_DISPATCH_STARTED}
+        started = BUSINESS_DISPATCH_STARTED
+        if request.get('write_protocol') == 'fc27_curve_v6':
+            try:
+                audit = read_json(ROOT/'executions'/(parse_uuid(request['execution_id'])+'.json'))
+                started = audit.get('business_dispatch_started') is not False
+            except FileNotFoundError:
+                started = False
+            except (OSError, ValueError, KeyError):
+                started = True
+        result = {"status": "FAILED" if started else "NOT_SENT", "reason": reason[:100],
+                  "business_dispatch_started": started}
         if isinstance(exc, ModuleNotFoundError):
             result["missing_module"] = exc.name
         print(json.dumps(result))

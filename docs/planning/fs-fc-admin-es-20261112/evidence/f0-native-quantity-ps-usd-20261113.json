@@ -1,0 +1,266 @@
+{
+  "version": "f0-native-quantity-ps-usd-20261113-v1",
+  "captured_at": "2026-11-13T04:15:14.300695+00:00",
+  "capture_status": "verification_failed",
+  "capture_error": "goods_response_usd_currency_structure_unverified",
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://www.mmoexp.com/Fc-27/Coins.html?cy=USD",
+      "status": 200,
+      "file": "landing.html",
+      "bytes": 893822,
+      "sha256": "31ff85e8e6ace48bf1b92053d01a3c2264c3ba6f0abd490d53642f278cb1a716"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.mmoexp.com/mmoexp-v250528/js/goods/mlb26-landing.min.js?1794475594",
+      "status": 200,
+      "file": "quantity-script.js",
+      "bytes": 25016,
+      "sha256": "77a707f72b3debdf880529fe76d85276f1902a8e0ede4ed0beff37ddb141e618"
+    },
+    {
+      "method": "POST",
+      "purpose": "anonymous_catalogue_read",
+      "url": "https://www.mmoexp.com/ajax/goods",
+      "form": {
+        "Game_id": 1327,
+        "top_cid": 1,
+        "aid": 21587,
+        "cid": 9623,
+        "site_id": 266
+      },
+      "status": 200,
+      "file": "goods.json",
+      "bytes": 12563,
+      "sha256": "5c68f21e0875469e3ceeefb232103a4ae12aa56c70fdfad55e0ab67cfeb1392f"
+    }
+  ],
+  "page": {
+    "currency_status": "verified",
+    "selected_header": "US | USD",
+    "currency": {
+      "code": "USD",
+      "rate": 1,
+      "sign": "$"
+    },
+    "currency_source": "plConfig.common.currency.current",
+    "display_rate_consumer": "getMount(plConfig) assigns listRate",
+    "input_data_min": "10",
+    "initial_static_promo_off": "1",
+    "initial_promo_claimed": false
+  },
+  "ajax": {
+    "independent_merchandise_currency_status": "unavailable",
+    "root_keys": [
+      "goods",
+      "about",
+      "common"
+    ],
+    "common_keys": [
+      "thememode"
+    ],
+    "coupon_display_currency": "USD",
+    "coupon_currency_basis": "coupon_display[0].currency; coupon object scope",
+    "consumer": "getAxios replaces tableData and retains listRate from getMount"
+  },
+  "product": {
+    "platform": "PS",
+    "identity": {
+      "id": 163329311,
+      "mid": 41217957,
+      "site_id": 266,
+      "gid": 1327,
+      "top_cid": 1,
+      "cid": 9623,
+      "sid": 7645,
+      "aid": 21587,
+      "unit": "K",
+      "status": 1
+    },
+    "rows_per_source": 1,
+    "region_factor": 1,
+    "min_qty": 1,
+    "unit_price": "0.08040000",
+    "unit_price_type": "string",
+    "tier_keys": [
+      "10",
+      "50",
+      "80",
+      "100",
+      "200",
+      "300",
+      "500",
+      "600",
+      "800",
+      "1000",
+      "1500",
+      "2000",
+      "3000",
+      "4000",
+      "5000"
+    ],
+    "tier_value_types": {
+      "num": "number",
+      "price": "number",
+      "discount": "number",
+      "give": "number",
+      "full_price_format": "string",
+      "price_discount_format": "string"
+    },
+    "page_ajax_catalogue_match": "strict identity, raw unit_price and all 15 goods_list entries"
+  },
+  "replay": {
+    "status": "16_assertions_passed",
+    "basis": "same_capture_page_initializer_unclaimed_single_item_blur_with_dom_stub",
+    "columns": [
+      "raw_input",
+      "normalized_k",
+      "displayed_regular_usd",
+      "displayed_buy_usd",
+      "displayed_gift_k",
+      "promo_dom_off_pct"
+    ],
+    "samples": [
+      [
+        "9",
+        "10",
+        "0.80",
+        "0.68",
+        0,
+        15
+      ],
+      [
+        "010",
+        "10",
+        "0.80",
+        "0.68",
+        0,
+        15
+      ],
+      [
+        "1e2",
+        "10",
+        "0.80",
+        "0.68",
+        0,
+        15
+      ],
+      [
+        "99",
+        "99",
+        "7.96",
+        "7.96",
+        0,
+        1
+      ],
+      [
+        "100",
+        "100",
+        "8.04",
+        "6.83",
+        0,
+        15
+      ],
+      [
+        "101",
+        "101",
+        "8.12",
+        "8.12",
+        0,
+        1
+      ],
+      [
+        "999",
+        "999",
+        "80.32",
+        "80.32",
+        0,
+        1
+      ],
+      [
+        "1000",
+        "1000",
+        "80.40",
+        "68.34",
+        30,
+        15
+      ],
+      [
+        "1001",
+        "1001",
+        "80.48",
+        "80.48",
+        30,
+        1
+      ],
+      [
+        "1999",
+        "1999",
+        "160.72",
+        "160.72",
+        45,
+        1
+      ],
+      [
+        "2000",
+        "2000",
+        "160.80",
+        "136.68",
+        60,
+        15
+      ],
+      [
+        "2001",
+        "2001",
+        "160.88",
+        "160.88",
+        60,
+        1
+      ],
+      [
+        "4999",
+        "4999",
+        "401.92",
+        "401.92",
+        120,
+        1
+      ],
+      [
+        "5000",
+        "5000",
+        "402.00",
+        "352.00",
+        150,
+        15
+      ],
+      [
+        "5001",
+        "5001",
+        "402.08",
+        "402.08",
+        150,
+        1
+      ],
+      [
+        "500001",
+        "500000",
+        "40200.00",
+        "40200.00",
+        150,
+        1
+      ]
+    ]
+  },
+  "unverified": [
+    "independent_ajax_merchandise_currency",
+    "backend_sellable_quantity_domain",
+    "checkout_receipts",
+    "backend_gift",
+    "coupon_eligibility_caps_and_exclusivity",
+    "necessary_fees",
+    "cart_multipliers_and_allocation",
+    "candidate_curve_projection"
+  ]
+}

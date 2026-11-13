@@ -1,0 +1,29 @@
+{
+  "bundle_sha256": "217e54126c465d540045dac011fbb171935c216abf1a84595ac6c898a02479de",
+  "tests": 39,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "python": "3.9.18",
+  "isolation": "network none; readonly; nobody; 0.25CPU; 256MiB; no production mounts",
+  "bash_syntax_exit": 0,
+  "files": {
+    "fc27_cloud_browser/collect_competitor_browser.py": "405e01b42998698197d6681e9470bf4a5e1ad8f05d053b4688aeacac9fb63a2c",
+    "fc27_cloud_browser/collect_competitor.sh": "6494769b30374f3cd6f99602a8456c28a89f44287bdf48d771873e7a89e7da26",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/competitor_offers.py": "6b24cddf3ff0b00465ca0236d26b1e5e80ec37feb00b7634e923ea9fce20a4f2",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/market_registry.py": "78d0e25a23b28e768a844e852ffcc7677695fb99dbac0888a0e002fe234cb9e5",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/selective_sources.py": "881ee4627d956c3b6f03f4de8db91e40d73640d2ea2029463c10ed85df69fe82",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/engine.py": "ab93ebee23751e04f7950c9a165881bd3f15ac839aed72a3de5d9b72eeb29f16",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/business_source.py": "7b9632df98a5a5e4ab510eb04e0a17bae05dec5fbc6971446cab74aec8e51b77",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/daily.py": "7f8a9b63759175e30bafc003a5bdaa3a1b18f17dd85e3461983b02011e1ecab3",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/runtime.py": "648b53b5995797fdb37c47a48b9574f6757be3194fdd3eb6e20dc752600ff6d0",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/sources.py": "ac2d7666e4286f2b310f937e61f224fb74524ba13f102ba164b8f71d9f43a343",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/server_quote_job.py": "2581222a104cbf85957b7dcf4bad7eb0ec8610a232f4b2930700365b45e74e7e",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_competitor_offers_v6.py": "0138215a50076134de6983c568e85df4d094c98e435eb5270a9083e2ebeaf8a3",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_quantity_market_quote.py": "c09f95ad4c16c4e4a308632732fb59c48abe5b84662a8c1246c0364fbc96e086",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_shared_marketing.py": "8f1c6f37e8e7d1b06399e673d932fa8042fc021f568b040b3abc09cffde54319",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_daily_profit.py": "3a8f8941bfaa762d7ccaf4c58c0a7b90d15071f7e66fcd7be130bc0cb58d5c84"
+  },
+  "current_files_match": true,
+  "production_actions_executed": false
+}

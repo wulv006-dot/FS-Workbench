@@ -1,0 +1,77 @@
+{
+  "checked_at_utc": "2026-11-12T15:32:00Z",
+  "source_commit": "8a97fdfdfdc2d66974b1878fc28112d35f8dccca",
+  "linux": {
+    "host": "183",
+    "python": "3.9.18",
+    "image_id": "ef0f72a55bd2",
+    "testsRun": 80,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "entry": "unchanged tools/pr_fast.py units cache-archive-retention group",
+    "bundle_sha256": "31d176450bf04ecb4767cb3b078f360a869dd0032b30cfdd0c26cb167a2a9266",
+    "isolation": {
+      "network": "none",
+      "rootfs": "read-only",
+      "user": "65534:65534",
+      "cpus": 0.25,
+      "memory_mib": 256,
+      "tmpfs_mib": 128,
+      "production_mounts": false
+    },
+    "first_attempt": {
+      "tmpfs_mib": 32,
+      "errors": 3,
+      "reason": "es_archive_disk_reserve; existing 64MiB reserve; only tmpfs capacity corrected"
+    }
+  },
+  "assembly": [
+    {
+      "validation_build_exit": 0,
+      "production_session_base_available": false,
+      "base_substitution": "python:3.9.18-slim; NOT production session image acceptance",
+      "source_sha256": {
+        "order_attribution.py": "f92fb5f36d6755f815cfba64c20bdfedc89940c43241a4d7147f806b62cf4c2b",
+        "admin_discount_analysis.py": "bb26b285676beee1b44612bdd5cc993454d4245d4a8c63f15755a6560390589f",
+        "coupon_channels.py": "e08f248277ee166e83f3dec9f36c92c8fb0ef5d7741f589faad640c4aaef01c7",
+        "es_order_structure.py": "5ce5dfe50b8fa52f6f98cb7fd5e50e560cc9936914d2aea0c3bb5de16967ec75",
+        "session_es_order_structure.py": "eeda656beb5c07a7f5602d1ed90bbf5dea24cfe90942ef222cfe436025ee8813"
+      }
+    },
+    {
+      "layout": "/opt/fs-hermes-fc",
+      "reader_import": true,
+      "lazy_helper_import": true,
+      "make_dataset": true,
+      "helper_sha256": "f92fb5f36d6755f815cfba64c20bdfedc89940c43241a4d7147f806b62cf4c2b"
+    },
+    {
+      "layout": "/usr/local/bin",
+      "reader_import": true,
+      "lazy_helper_import": true,
+      "make_dataset": true,
+      "helper_sha256": "f92fb5f36d6755f815cfba64c20bdfedc89940c43241a4d7147f806b62cf4c2b"
+    }
+  ],
+  "independent_review": {
+    "source": "user-authorized delegation reporting 老D independent review; not rerun by this author",
+    "commit": "8a97fdfdfdc2d66974b1878fc28112d35f8dccca",
+    "blocking_defects_confirmed": 0,
+    "synthetic_counterexamples_passed": 8,
+    "production_evidence": false
+  },
+  "not_done": [
+    "GitHub CI",
+    "production session base image build",
+    "production deployment or activation",
+    "real authorized published revision consumption"
+  ],
+  "logs": {
+    "d0-linux.log": "0ba4afb1897bf0e00529f9ecbc9b455dd009ce9b128a26ca89785761bea20a4c",
+    "d0-linux-128m.log": "013bdc2d4d02034d9771876a5bb337fdba790c188a898cb8af846399b5170aad",
+    "d0-assembly.log": "79c95a1f4954f96a4f5ab1089a15306ed73f259af546d2d196d0aab67a7c9a9e",
+    "d0-real-samples.log": "a80babca9b8ff7533b22ad413868bf9902ef095efe2b6190ad35bec27f7fbeb2"
+  }
+}

@@ -125,7 +125,11 @@ class LootbarRelease(unittest.TestCase):
     def test_explicit_stage_and_prepare_use_exact_six_and_protect_other_98(self):
         checkout=DEPLOY.parents[3]
         def git(command,**kwargs):return 'a'*40 if 'rev-parse' in command else ''
-        with tempfile.TemporaryDirectory() as folder,patch.object(build_stage.subprocess,'check_output',side_effect=git),patch.object(build_stage,'git_blob',side_effect=lambda c,p:Path(p).read_bytes().replace(b'\r\n',b'\n')):
+        def historical_blob(checkout, path):
+            if path.name in {'snapshot_layer.py', 'server_quote_job.py', 'fc27_cloud_worker.py'}:
+                return b'# Original Lootbar caller without V6 imports\n'
+            return path.read_bytes().replace(b'\r\n', b'\n')
+        with tempfile.TemporaryDirectory() as folder,patch.object(build_stage.subprocess,'check_output',side_effect=git),patch.object(build_stage,'git_blob',side_effect=historical_blob):
             archive=Path(folder)/'stage.tgz';built=build_stage.build(checkout,archive,lootbar=True)
             self.assertEqual(built['targets'],104)
             with tarfile.open(archive) as tar:tar.extractall(Path(folder)/'unpacked')

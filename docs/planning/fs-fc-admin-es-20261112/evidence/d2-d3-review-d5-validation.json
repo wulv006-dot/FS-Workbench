@@ -1,0 +1,32 @@
+{
+  "base": "c09a8b4c8578923ee6a2e3b28a731aae3ad56e98",
+  "independent_findings": [
+    "cost_revision_lost_in_public_projection",
+    "first_order_facts_view_game_options_missing"
+  ],
+  "windows_incremental": {
+    "tests": 18,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "linux_incremental": {
+    "python": "3.9.18",
+    "tests": 18,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "bundle_sha256": "e72e00bff8c7eeee5d2b20791d7bd411f7fd8760550137abe2371223da4df2c5"
+  },
+  "ui": "direct Playwright passed including first-view Diablo4 selection and preserved gid",
+  "connector": {
+    "python": "3.12.14",
+    "related_tests": 47,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "cost_revision_incremental_tests": 2
+  },
+  "formal_ci": "not_run",
+  "deployed": false
+}

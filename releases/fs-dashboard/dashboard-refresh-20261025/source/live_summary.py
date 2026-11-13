@@ -11,11 +11,13 @@ HISTORY_TTL = 604800
 CAPTURE_MAX_AGE = 120
 STALE_GRACE = 180
 STALE_LIMIT = TTL + STALE_GRACE
-CONTRACT = 'admin-paid-order-labelled-supplement-v2'
+CONTRACT = 'admin-paid-order-labelled-supplement-v3-scope-repeat'
 SITE = 'www.mmoexp.com'
 
-def query(params, profiles, now=None):
-    if set(params) - {'mode', 'profile', 'start', 'end', 'grain', 'refresh', 'rs_site', 'rs_server', 'rs_category', 'profit_site', 'profit_category', 'profit_basis'} or any(len(v) != 1 for v in params.values()):
+def query(params, profiles, now=None, *, authorization_scope=None):
+    from admin_scope import UNSUPPORTED
+    import re
+    if set(params) - {'mode', 'profile', 'start', 'end', 'grain', 'refresh', 'rs_site', 'rs_server', 'rs_category', 'profit_site', 'profit_category', 'profit_basis', 'country_code', *UNSUPPORTED} or any(len(v) != 1 for v in params.values()):
         raise ValueError('invalid_parameters')
     p = {k: v[0] for k, v in params.items()}
     if p.get('mode') != 'summary' or p.get('profile') not in profiles:
@@ -39,10 +41,24 @@ def query(params, profiles, now=None):
             raise ValueError('invalid_hour')
         lo, hi = begin.date(), last.date()
         stop = last + timedelta(hours=1)
+    elif grain == 'minute':
+        begin = datetime.strptime(start, '%Y-%m-%d %H:%M').replace(tzinfo=SHANGHAI)
+        stop = datetime.strptime(end, '%Y-%m-%d %H:%M').replace(tzinfo=SHANGHAI)
+        if begin.strftime('%Y-%m-%d %H:%M')!=start or stop.strftime('%Y-%m-%d %H:%M')!=end:raise ValueError('invalid_minute')
+        lo, hi = begin.date(), stop.date()
     else:
         raise ValueError('invalid_grain')
     if stop <= begin or begin >= now or hi > now.date() or (hi - lo).days > 365:
         raise ValueError('invalid_period')
+    country=p.get('country_code','')
+    if country and not re.fullmatch('[A-Z]{2}',country):raise ValueError('invalid_country_code')
+    unsupported=[k for k in UNSUPPORTED if p.get(k) not in (None,'','all')]
+    if p['profile']=='RS' and (country or grain=='minute'):raise ValueError('rs_filter_not_verified')
+    extension={k:p[k] for k in UNSUPPORTED if k in unsupported}
+    if unsupported:extension['unsupported_filters']=unsupported
+    if country:extension['country_code']=country
+    if country or grain=='minute':extension['admin_only']=True
+    if authorization_scope is not None:extension['authorization_scope']=authorization_scope
     from rs_admin import selection, FIELDS, SITES
     rs = selection(p) if p['profile']=='RS' else {}
     if p['profile']!='RS' and any(k in p for k in FIELDS): raise ValueError('rs_filters_require_rs')
@@ -52,7 +68,7 @@ def query(params, profiles, now=None):
     admin_main = not rs and p.get('profit_site')=='main'
     explicit_site = not rs and 'profit_site' in p
     profit={'profit_site':shipping['site'],'profit_category':shipping['cid'],'profit_source':'order-shipping-v1'} if shipping else {}
-    return {**({'profit_basis':p['profit_basis']} if 'profit_basis' in p else {}), **profit, **rs, **({'rs_profit_source':'order-shipping-rs-v1'} if rs else {}), 'profile': p['profile'], 'start': start, 'end': end, 'grain': grain,
+    return {**extension, **({'profit_basis':p['profit_basis']} if 'profit_basis' in p else {}), **profit, **rs, **({'rs_profit_source':'order-shipping-rs-v1'} if rs else {}), 'profile': p['profile'], 'start': start, 'end': end, 'grain': grain,
             'site': SITES[rs['rs_site']][1] if rs else SITE if admin_main or not explicit_site else 'all-websites',
             **({'admin_site':'266' if admin_main else 'all'} if explicit_site else {}), 'contractId': CONTRACT, 'timezone': 'Asia/Shanghai',
             **({'refresh': True} if p.get('refresh') == 'true' else {}),
@@ -137,6 +153,9 @@ class SummaryCache:
                 'readSeconds': round(max(0, (finished if finished is not None else now) - started), 3) if started is not None else 0}
 
     def get(self, q):
+        if q.get('unsupported_filters'):
+            return 422,dict(status='unsupported',requested_scope=copy.deepcopy(q),effective_scope=None,
+                            unsupported_filters=q['unsupported_filters'],coverage={'status':'not_requested'})
         from daily_archive import read, save, summary_key, complete_summary, derive_summary
         selector = summary_key(q)
         archived = None
@@ -189,6 +208,9 @@ class SummaryCache:
                     self.entries.pop(victim)
                     self.coherent.pop(victim, None)
                 entry = self.entries[key] = {n: {'state': 'new', 'at': -float('inf'), 'value': None} for n in self.readers if n!='Shipping' or q['profile']!='RS'}
+                if q.get('admin_only'):
+                    for name in entry:
+                        if name!='Admin':entry[name].update(state='not_requested',phase='unsupported_scope',at=now)
                 if q.get('profit_basis')=='actual':
                     for name in entry:
                         if name=='Shipping' or name=='Order' and q['profile']=='RS':
@@ -274,6 +296,8 @@ class SummaryCache:
             # Completed fresh source omissions are authoritative; prior metrics are not filled in.
             if o is None or o.get('period') != a['period'] or (not retained and (order['state'] == 'unavailable' or (origin == 'live-cache' and order_age >= ttl))):
                 o = missing('order.p2pah.cn', a['period'], 'pending' if order['state'] == 'pending' else 'unavailable')
+            if q.get('admin_only'):
+                o.update(status='unsupported',unsupported_filters=['country_code'] if q.get('country_code') else ['minute_period'],effective_scope=None)
             o['stale'] = origin == 'historical-snapshot' or retained or o['status'] != 'available' or order_age >= ttl
             o['readPhase'] = 'period-mismatch' if o['status'] == 'unavailable' and order['state'] == 'available' else self.progress(order)['phase']
             shipping_slot=entry.get('Shipping')
@@ -283,6 +307,8 @@ class SummaryCache:
                 if shipping is None or shipping.get('period')!=a['period'] or age>=stale_limit:shipping={'status':'pending' if shipping_slot['state']=='pending' else 'unavailable','period':a['period'],'metrics':{},'capturedAt':None}
                 shipping['stale']=shipping_slot['state']!='available' or age>=ttl
                 shipping['readPhase']=self.progress(shipping_slot)['phase']
+            if q.get('admin_only') and shipping is not None:
+                shipping.update(status='unsupported',unsupported_filters=['country_code'] if q.get('country_code') else ['minute_period'],effective_scope=None)
             profile = {'key': q['profile'], 'name': self.profiles[q['profile']][1], 'period': a['period'], 'cachePolicy': q.get('cachePolicy'),
                        'primary': o, 'supplement': a, 'shipping':shipping, 'metrics': o.get('metrics', {}), 'dimensions': o.get('dimensions', {})}
             records={'Admin':a,'Order':o,'Shipping':shipping or {}}

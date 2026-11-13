@@ -401,10 +401,12 @@ class Store:
         row['body'] = canonical({'amount_usd': body.get('amount_usd'), 'order_no_hash': hashlib.sha256(str(body.get('order_no') or '').encode()).hexdigest()})
         return row
 
-    def read_at(self, version, start=None, end=None):
-        """One batch replay; validity and payment dates are filtered after revision selection."""
+    def read_at(self, version, start=None, end=None, *, bounded_only=False):
+        """Replay a fixed revision. Return None if a bounded read would require a full scan."""
         if not isinstance(version, str) or not version.isdecimal() or str(int(version)) != version or (start is None) != (end is None):
             raise ValueError('snapshot_replay_version')
+        if bounded_only and start is None:
+            raise ValueError('analytics_period_required')
         target = int(version)
         if start is not None:
             start, end = stamp(start).isoformat(), stamp(end).isoformat()
@@ -421,9 +423,15 @@ class Store:
             current = int(db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0])
             if target > current:
                 raise ValueError('snapshot_replay_future_version')
+            if target == current and start is not None:
+                return [self.analytics_row_v1(row) for row in db.execute(
+                    'SELECT * FROM orders WHERE paid_at>=? AND paid_at<? AND valid=1 ORDER BY paid_at,order_key',
+                    (start,end))]
             if self.config.get('revision_range_index') is True and user_version_index.ready(db, current):
                 return sorted((self.analytics_row_v1(row) for row in user_version_index.read(db, target, start=start, end=end)
                                if row['valid']), key=lambda row: (row['paid_at'], row['order_key']))
+            if bounded_only:
+                return None
             for row in db.execute('SELECT * FROM orders WHERE revision<=?', (target,)):
                 include(dict(row))
             for row in db.execute('SELECT body FROM revisions WHERE id>? ORDER BY id', (target,)):

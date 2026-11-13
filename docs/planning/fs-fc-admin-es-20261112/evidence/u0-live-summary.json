@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "base_commit": "7042edaf90647cbd51ab7df3e35f7b4341f72b3f",
+  "scope": "Read-only U0 incremental evidence; selected fields, not a full runtime dump",
+  "automation": {
+    "operation": "coins.automation",
+    "provenance": {
+      "source": "fc27_cloud_browser/fc27_cloud_api.py",
+      "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+      "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+      "route_prefix": "/api/fc27/cloud/",
+      "route_observed_date": "2026-11-09",
+      "path": "/api/fc27/cloud/automation",
+      "method": "GET"
+    },
+    "checked_at": "2026-11-12T14:46:47.291854+00:00",
+    "interval_minutes": 60,
+    "active_plans": [
+      {
+        "plan_id": "5cecacfd-19f7-584a-8845-16adbef9b13d",
+        "revision": 3,
+        "mode": "smart",
+        "state": "ACTIVE",
+        "resources": [
+          "base:PC",
+          "base:PS",
+          "base:XBOX",
+          "region:21:PC",
+          "region:21:PS",
+          "region:21:XBOX"
+        ],
+        "ends_at": null
+      }
+    ],
+    "schedule": {
+      "status": "waiting",
+      "next_at": "2026-11-12T15:36:56.589500+00:00",
+      "next_cycle_at": "2026-11-12T15:36:56.589500+00:00",
+      "cycle_interval_minutes": 60,
+      "last_cycle_at": "2026-11-12T14:46:13.834352+00:00",
+      "last_snapshot_at": "2026-11-12T14:45:44.645029+00:00",
+      "last_source_checked_at": "2026-11-12T14:44:46.007810+00:00",
+      "last_execution_stage": "NO_CHANGE",
+      "active_plan_state": "ACTIVE",
+      "background_next_at": null,
+      "collection_status": "v3_durable_due_queue"
+    },
+    "pending_operations": [],
+    "issues": [],
+    "source_coverage": {
+      "status": "verified",
+      "plans": [
+        {
+          "plan_id": "5cecacfd-19f7-584a-8845-16adbef9b13d",
+          "snapshot_id": "0ba39332-9e87-53a7-8dcb-242bba94cd62",
+          "failures": [],
+          "competitive_sources": {
+            "PS": {
+              "available": [
+                "Lootbar",
+                "ArabUT"
+              ],
+              "missing": [],
+              "margin_floor_only": false,
+              "price_driver_source": null,
+              "price_driver_platform": null,
+              "item_target_met": null,
+              "item_target_unmet_reason": null,
+              "reference_difference_pct": null,
+              "average_margin_target_pct": "20"
+            },
+            "PC": {
+              "available": [
+                "Lootbar",
+                "ArabUT"
+              ],
+              "missing": [],
+              "margin_floor_only": false,
+              "price_driver_source": null,
+              "price_driver_platform": null,
+              "item_target_met": null,
+              "item_target_unmet_reason": null,
+              "reference_difference_pct": null,
+              "average_margin_target_pct": "20"
+            },
+            "XBOX": {
+              "available": [
+                "Lootbar",
+                "ArabUT"
+              ],
+              "missing": [],
+              "margin_floor_only": false,
+              "price_driver_source": null,
+              "price_driver_platform": null,
+              "item_target_met": null,
+              "item_target_unmet_reason": null,
+              "reference_difference_pct": null,
+              "average_margin_target_pct": "20"
+            }
+          }
+        }
+      ],
+      "issues": []
+    }
+  },
+  "monitor": {
+    "operation": "coins.monitor",
+    "provenance": {
+      "source": "fc27_cloud_browser/fc27_cloud_api.py",
+      "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+      "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+      "route_prefix": "/api/fc27/cloud/",
+      "route_observed_date": "2026-11-09",
+      "path": "/api/fc27/cloud/monitor",
+      "method": "GET"
+    },
+    "generated_at": "2026-11-12T14:47:38.635409+00:00",
+    "latest_attempt": {
+      "run_id": "0ba39332-9e87-53a7-8dcb-242bba94cd62",
+      "status": "ready_for_quote",
+      "created_at": "2026-11-12T14:44:46.007810+00:00",
+      "reason": null
+    },
+    "storefront_status": "ok",
+    "publication": {
+      "status": "matched",
+      "execution_id": "554f89ab-7675-5a10-a32e-6521a30e40c2",
+      "basis": "confirmed_write_and_matching_backend_preview",
+      "backend_checked_at": "2026-11-12T14:46:01.942478+00:00",
+      "backend_written_at": "2026-11-12T13:39:40.436782+00:00",
+      "write_mode": "automatic",
+      "platforms": [
+        {
+          "platform": "PS",
+          "status": "matched",
+          "public_checked_at": "2026-11-12T14:46:09.522311+00:00"
+        },
+        {
+          "platform": "XBOX",
+          "status": "matched",
+          "public_checked_at": "2026-11-12T14:46:10.041795+00:00"
+        },
+        {
+          "platform": "PC",
+          "status": "matched",
+          "public_checked_at": "2026-11-12T14:46:10.557700+00:00"
+        }
+      ]
+    },
+    "health": {
+      "api": "ok",
+      "worker": "ok",
+      "browser": "ok",
+      "order_session": "ok",
+      "automation_timer": "active",
+      "queue_depth": 0,
+      "incomplete_executions": 0
+    }
+  },
+  "limitations": [
+    "Separate live reads, not an atomic snapshot.",
+    "The original 15:36 durable cycle terminal state is not exposed by these operations.",
+    "Monitor latest_collection remains dated 2026-10-26; not current quote evidence.",
+    "No source file hashes, notification receipts, 183 deployment or V6 activation proven."
+  ]
+}

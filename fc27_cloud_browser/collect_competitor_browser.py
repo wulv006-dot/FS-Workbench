@@ -47,10 +47,11 @@ def stable(page, reader, attempts=12, arg=None):
     raise ValueError("selector_or_value_unstable")
 
 
-def checked_offer(source, platform, url, price, base, bonus, *, conditional=False):
+def checked_offer(source, platform, url, price, base, bonus, *, conditional=False, quantities=(100,)):
     amount = positive(price)
-    if Decimal(str(base)) != 100:
-        raise ValueError("not_100k")
+    purchase = Decimal(str(base))
+    if purchase not in {Decimal(str(v)) for v in quantities} or purchase not in (100,1000,2000,5000):
+        raise ValueError("unsupported_native_quantity")
     try:
         bonus_value = Decimal(str(bonus))
     except (InvalidOperation, TypeError):
@@ -59,9 +60,9 @@ def checked_offer(source, platform, url, price, base, bonus, *, conditional=Fals
         raise ValueError("invalid_bonus")
     return {"source": source, "platform": platform,
             "captured_at": datetime.now(timezone.utc).isoformat(), "url": url,
-            "currency": "USD", "purchase_k": "100", "bonus_k": str(bonus_value),
+            "currency": "USD", "purchase_k": str(purchase), "bonus_k": str(bonus_value),
             "gross_usd": str(amount),
-            "effective_usd_per_k": str(amount / (Decimal(100) + bonus_value)),
+            "effective_usd_per_k": str(amount / (purchase + bonus_value)),
             "coupon_excluded": True, "auth_state": "public",
             "conditional": conditional, "comparable": not conditional,
             "status": "valid", "reason": None}
@@ -204,6 +205,51 @@ def collect_u7buy(context):
         page.close()
 
 
+U7BUY_QUANTITIES_READ = """({label,quantities}) => {
+  const active=[...document.querySelectorAll('.radio-select.active')].map(e=>e.textContent.trim());
+  const offers=[],missing=[];
+  for(const quantity of quantities){
+    const cards=[...document.querySelectorAll('.players-reactive-table-content-wrapper')].filter(card=>
+      [...card.querySelectorAll('.coins-name')].some(e=>e.innerText.trim()===`${quantity}K Safe Coins ${label}`));
+    const content=cards.length===1?cards[0].innerText:'';
+    const prices=[...content.matchAll(/([\\d,.]+)\\s*USD/g)].map(m=>m[1]);
+    if(cards.length!==1||prices.length!==1){missing.push({purchase_k:quantity,reason:cards.length>1||prices.length>1?'native_card_ambiguous':'native_quantity_not_observed'});continue;}
+    const gift=content.match(/Newcomer\\s*\\+\\s*(\\d+(?:\\.\\d+)?)K/i);
+    offers.push({purchase_k:quantity,price:prices[0],bonus:gift?.[1]||'0',conditional:!!gift});
+  }
+  return {ready:active.length===1&&active[0]===label,active,offers,missing};
+}"""
+
+
+def collect_u7buy_quantities(context, quantities):
+    """One native page read per platform; absent large cards remain unknown."""
+    requested=tuple(str(v) for v in quantities)
+    if not requested or len(set(requested))!=len(requested) or set(requested)-{'100','1000','2000','5000'}:
+        raise ValueError('unsupported_native_quantity')
+    page=open_page(context,URLS['U7Buy'])
+    try:
+        offers=[];missing=[]
+        for platform,label in (('PS','PS4/PS5'),('XBOX','XBOX'),('PC','PC')):
+            page.locator('.radio-select').filter(has_text=label).click(timeout=5000)
+            data=stable(page,U7BUY_QUANTITIES_READ,arg=dict(label=label,quantities=requested))
+            if data['active']!=[label]:raise ValueError('platform_mismatch')
+            for raw in data['offers']:
+                row=checked_offer('U7Buy',platform,URLS['U7Buy'],raw['price'],raw['purchase_k'],raw['bonus'],
+                    conditional=raw['conditional'],quantities=requested)
+                displayed = row.pop('gross_usd')
+                row.pop('effective_usd_per_k')
+                newcomer = raw['conditional']
+                row.update(promotion_eligibility=dict(status='unknown', advertised_for='new_customer') if newcomer else 'all_customers',
+                    display_price=displayed, regular_price=None if newcomer else displayed,
+                    eligible_net_price=None,coupon_cap=None,usage_limit=None,
+                    necessary_fees=None,tax_bearer=None,delivery_method=None,delivery_tier=None,
+                    selection_verified=True,observation_basis='native_visible_card')
+                offers.append(row)
+            missing.extend(dict(source='U7Buy',platform=platform,**row) for row in data['missing'])
+        return dict(source='U7Buy',status='valid',offers=offers,missing=missing,quantity_scope=list(requested))
+    finally:page.close()
+
+
 COLLECTORS = {"IGGM": collect_iggm, "U4GM": collect_u4gm, "U7Buy": collect_u7buy}
 
 
@@ -230,6 +276,11 @@ def main() -> int:
                 timeout=8000, no_defaults=True)
             if len(browser.contexts) != 1:
                 raise ValueError("browser_context_ambiguous")
+            quantities=sys.argv[2].split(',') if len(sys.argv)>2 else None
+            if quantities is not None:
+                if source!='U7Buy':raise ValueError('quantity_collector_not_supported')
+                result=collect_u7buy_quantities(browser.contexts[0],quantities)
+                print(json.dumps(result));return 0
             rows = COLLECTORS[source](browser.contexts[0])
         if [row["platform"] for row in rows] != list(PLATFORMS):
             raise ValueError("platform_coverage_incomplete")
