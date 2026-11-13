@@ -12,6 +12,16 @@ PIN = '5548d9c8411eb5bb888672b0e58246bfd9043a5e519decb1f8407d2da9e71357'
 FORMAL = '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'
 NAV = '/var/www/dashboard/fs-home/navigation.json'
 UNITS = ('fs-seo-web.service','fs-seo-daily.service','fs-seo-daily.timer')
+ORDER_FACTS_MODULES = frozenset('mmoexp_google_data/seo/'+name for name in ('order_reader.py','order_source.py'))
+
+
+def order_facts_enabled(config):
+    orders = config.get('sources', {}).get('orders')
+    if not orders:
+        return False
+    if not isinstance(orders, dict) or set(orders) != {'enabled'} or type(orders['enabled']) is not bool:
+        raise ValueError('SEO_ORDER_FACTS_CONFIGURATION_INVALID')
+    return orders['enabled']
 
 
 def targets(manifest):
@@ -47,8 +57,10 @@ def publisher(stage, manifest):
         config=json.loads((Path(stage)/'candidate/config.json').read_text())
         if any(config.get(k)!=v for k,v in dict(data_root='/var/lib/fs-seo',control_root='/var/lib/fs-seo-control',ai_root='/var/lib/fs-seo-ai').items()):
             raise ValueError('SEO_OWNED_DATA_ROOT_REQUIRED')
-        if config.get('sources',{}).get('admin') is not True or config.get('sources',{}).get('orders'):
+        if config.get('sources',{}).get('admin') is not True:
             raise ValueError('NATIVE_ADMIN_ESTIMATE_REQUIRED')
+        if order_facts_enabled(config) and not {'runtime/'+name for name in ORDER_FACTS_MODULES} <= set(allowed):
+            raise ValueError('SEO_ORDER_FACTS_MODULES_REQUIRED')
         return original_validate(m, stage)
     def guards(m, root):
         original_guards(m,root)
