@@ -341,7 +341,7 @@ def read(path):
     if path=='market':
         plan=db.active_plan() or {}
         if plan.get('write_protocol') == CURVE_WRITE_PROTOCOL:
-            from .competitor_offers import POLICY, quantity_coverage
+            from .competitor_offers import CURRENT_QUANTITIES, POLICY, quantity_coverage
             from .runtime import _curve_proof_inputs, _validated_curve
             from .price_curve import curve_key
 
@@ -352,7 +352,8 @@ def read(path):
                     or current.get('plan_id') not in (None, plan['plan_id'])):
                 return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY, snapshot_id=None)
             evidence = current['evidence']
-            offers = evidence.get('competitor_offers') or []
+            offers = [row for row in evidence.get('competitor_offers') or []
+                      if row.get('purchase_k') in CURRENT_QUANTITIES]
             inputs = _curve_proof_inputs(db, evidence)
             rows, catalogues = {}, {}
             for platform, entry in inputs.items():
@@ -373,7 +374,7 @@ def read(path):
                     minimum_safe_procurement_margin=proof['minimum_safe_procurement_margin'])
             return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY,
                 snapshot_id=current['snapshot_id'], captured_at=current['created_at'], price_basis={'rows':rows}, catalogue_samples=catalogues,
-                competitor_coverage=quantity_coverage(offers),
+                competitor_coverage=quantity_coverage(offers, requested=CURRENT_QUANTITIES),
                 competitor_offers=[{key:row.get(key) for key in ('source','platform','purchase_k','bonus_k','currency',
                     'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier',
                     'captured_at')} for row in offers])

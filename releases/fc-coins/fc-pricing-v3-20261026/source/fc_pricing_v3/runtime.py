@@ -228,7 +228,7 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
     from .admin_readback import GID_FC27, MID_FC27_COINS, SITE_MAIN
     from .price_curve import curve_key, quote_native, read_curve
     from .pricing_proof_v6 import CONTRACT, INCOMPLETE
-    from .competitor_offers import POLICY as CURVE_COMPETITOR_POLICY, quantity_coverage
+    from .competitor_offers import CURRENT_QUANTITIES, POLICY as CURVE_COMPETITOR_POLICY, quantity_coverage
 
     gaps = ['customer_checkout_unverified', 'offer_path_unverified', 'necessary_fee_unverified',
             'validation_domain_unverified', 'ordinary_delivery_cost_unverified', 'planning_baskets_unverified']
@@ -257,8 +257,10 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
         return result
     result.update(snapshot_id=snapshot['snapshot_id'], snapshot_captured_at=snapshot['created_at'])
     if evidence.get('competitor_policy') == CURVE_COMPETITOR_POLICY:
-        offers = [row for row in evidence.get('competitor_offers', []) if row['platform'] == platform]
-        decision['competitor_quantity_coverage'] = quantity_coverage(offers, platforms=(platform,))
+        offers = [row for row in evidence.get('competitor_offers', [])
+                  if row['platform'] == platform and row['purchase_k'] in CURRENT_QUANTITIES]
+        decision['competitor_quantity_coverage'] = quantity_coverage(offers, platforms=(platform,),
+                                                                     requested=CURRENT_QUANTITIES)
         decision['competitor_offers'] = [{k: row.get(k) for k in (
             'source', 'purchase_k', 'bonus_k', 'currency', 'regular_price', 'eligible_net_price',
             'comparable', 'delivery_method', 'delivery_tier', 'promotion_eligibility', 'captured_at',

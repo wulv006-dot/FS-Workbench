@@ -174,12 +174,13 @@ class CompetitorOffersV6(unittest.TestCase):
         self.assertNotIn('U7Buy',plan['retired_automatic_sources'])
         coverage=planned_source_coverage(dict(run_id='same',competitors=[]),plan,NOW)
         self.assertTrue(coverage['ready']);self.assertEqual(coverage['missing'],[])
-        self.assertEqual(len(coverage['optional_missing']),36)
+        self.assertEqual(len(coverage['optional_missing']),9)
         self.assertNotIn('floor',coverage['pricing_source_policy'])
-        with_one=planned_source_coverage(dict(run_id='same',competitor_offers=[raw()]),plan,NOW)
-        self.assertEqual(len(with_one['optional_missing']),35)
+        with_one=planned_source_coverage(dict(run_id='same',competitor_offers=[raw(),raw('5000')]),plan,NOW)
+        self.assertEqual(len(with_one['optional_missing']),8)
+        self.assertEqual(len(with_one['normalized_offers']),1)
         self.assertEqual(with_one['normalized_offers'][0]['purchase_k'],'100')
-        self.assertTrue(any(r['source']=='U7Buy' and r['purchase_k']=='5000' for r in with_one['optional_missing']))
+        self.assertTrue(all(r['purchase_k']=='100' for r in with_one['optional_missing']))
 
     def test_quantity_snapshot_keeps_native_rows_and_rejects_forged_scope(self):
         module=snapshot_module()
@@ -201,14 +202,14 @@ class CompetitorOffersV6(unittest.TestCase):
              patch.object(module,'atomic_json') as save,patch.object(module.os,'chown',create=True),patch.object(module.os,'chmod'):
             summary,ready=module.collect_once('00000000-0000-4000-8000-000000000099',POLICY)
         self.assertTrue(ready)
-        self.assertEqual(run.call_args_list[1].args[0][-2:],['U7Buy',','.join(QUANTITIES)])
+        self.assertEqual(run.call_args_list[1].args[0][-2:],['U7Buy','100'])
         self.assertNotIn('ItemD2R',str(run.call_args_list))
         stored=save.call_args.args[1]
         self.assertEqual(stored['competitor_offers'],[])
         self.assertEqual(stored['legacy_competitor_scope'],'100k_observed_only')
         self.assertEqual(summary['status'],'ready_for_quote')
 
-    def test_snapshot_keeps_native_lootbar_tiers_out_of_the_legacy_offer_list(self):
+    def test_snapshot_only_requests_and_records_100k_lootbar_rows(self):
         module=snapshot_module()
         offers={p:dict(platform=p,base_k='100',bonus_k='5',usd_price='9',coupon_excluded=False) for p in module.PLATFORMS}
         events=[dict(stage='ps_restored'),dict(stage='complete',read_only=True,checked_at=NOW.isoformat(),
@@ -227,14 +228,11 @@ class CompetitorOffersV6(unittest.TestCase):
              patch.object(module,'atomic_json') as save,patch.object(module.os,'chown',create=True),patch.object(module.os,'chmod'):
             _,ready=module.collect_once('00000000-0000-4000-8000-000000000099',POLICY)
         self.assertTrue(ready)
-        self.assertIn('--native-quantities',run.call_args_list[0].args[0])
+        self.assertNotIn('--native-quantities',run.call_args_list[0].args[0])
         stored=save.call_args.args[1]
         self.assertEqual([row['purchase_k'] for row in stored['competitors']],['100']*3)
-        large=[row for row in stored['competitor_offers'] if row['purchase_k']!='100']
-        self.assertEqual([(row['platform'],row['purchase_k'],row['regular_price'],row['delivered_k']) for row in large],
-                         [('PS','1000','79.38','1050')])
-        self.assertTrue(large[0]['comparable'])
-        self.assertIsNone(large[0]['eligible_net_price'])
+        self.assertEqual([row['purchase_k'] for row in stored['competitor_offers']],['100']*3)
+        self.assertEqual(stored['source_coverage']['quantity_scope'],['100'])
 
     def test_u7_reader_requests_each_platform_once_preserves_absent_quantities(self):
         file=REPO/'fc27_cloud_browser/collect_competitor_browser.py'

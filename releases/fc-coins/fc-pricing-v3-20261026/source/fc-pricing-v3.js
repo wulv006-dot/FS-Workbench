@@ -93,6 +93,9 @@
     const receipt=executionReceipt(state);
     if(!receipt)return;
     if(receipt.job_key===executeReceipt?.job_key)executeReceipt=receipt;
+    if(receipt.phase==='collecting')marketActivity('pending','正在采集竞品 100K 报价；卡片为最近保存的快照。');
+    else if(receipt.phase==='failed')marketActivity('failed','本轮执行未完成；卡片保留原采价时点。');
+    else if(!curvePending)marketActivity(null);
     const labels={rejected_no_change:'后台已拒绝，实际价格未变',queued:'已排队，等待采价',running:'执行中，等待当前任务进度',collecting:'正在采价',
       pricing:'采价完成，正在核算',checked:'核算完成，等待写入',writing:'正在写价',
       readback:'写价结果待核对',completed:'已完成读回',no_change:'本轮无需改价',
@@ -244,11 +247,33 @@
     cards.append(card);
     $('v3-decision-basis').textContent=`本轮快照 ${state.snapshot_id||'尚无'} · ${names[mode]} · ${r?.selected?'已形成候选；执行前仍需新鲜财务与市场重证':'当前没有可执行的同策略候选'}。`;
   }
+  function priceDifference(after,before){
+    if(after==null||before==null)return null;
+    const difference=Math.round(Number(after)*100)-Math.round(Number(before)*100);
+    return Number.isFinite(difference)?difference:null;
+  }
+  function priceChange(target,difference,caption){
+    target.hidden=difference===null;
+    target.dataset.trend=difference>0?'up':difference<0?'down':'same';
+    target.textContent=difference===null?'':`${caption} ${difference>0?'+':difference<0?'−':''}${usd(Math.abs(difference)/100)}`;
+  }
+  function platformCard(platform){
+    const card=node('article');
+    card.className='market-platform';
+    card.dataset.platform=platform.toLowerCase();
+    const title=node('h3',platform==='XBOX'?'Xbox':platform);
+    title.className='platform-name';
+    card.append(title);
+    return card;
+  }
   function renderCatalogue(samples={}){
     const rows=lastMonitor?.storefront?.rows||{};
     const verified=current?.catalogue_readbacks||{};
     const unresolved=(current?.operations||[]).some(operation=>['UNKNOWN','PARTIALLY_APPLIED'].includes(operation.status));
     $('v3-catalogue-status').textContent=unresolved?'保存未确认，以下为最后读到的价格。':'';
+    const completed=(current?.operations||[]).find(operation=>operation.status==='COMPLETED'
+      &&operation.readback?.write_protocol===curveProtocol&&operation.readback.execution_id===operation.operation_id
+      &&operation.readback.status==='CONFIRMED');
     for(const platform of platforms){
       const slug=platform.toLowerCase(),readback=verified[platform],sample=samples[platform];
       const catalogue=sample&&(!readback||Date.parse(sample.observed_at)>Date.parse(readback.observed_at))?sample:readback;
@@ -256,9 +281,25 @@
       const large=catalogue?.tiers.find(tier=>tier.purchase_k==='1000');
       const publicRow=rows[platform],usePublic=publicRow?.package_usd!=null&&(!small||
         Date.parse(publicRow.checked_at)>Date.parse(catalogue.observed_at));
-      $('v3-price-'+slug).textContent=usePublic?usd(publicRow.package_usd):small?usd(small.native_price_usd):'现价待核';
-      $('v3-price-large-'+slug).textContent=large?usd(large.native_price_usd):'现价待核';
-      $('v3-price-delivery-'+slug).textContent=large?`赠 ${large.promised_bonus_k}K · 实交 ${Number(large.purchase_k)+Number(large.promised_bonus_k)}K · ${when(catalogue.observed_at)}`:'后台档位待核';
+      const smallPrice=usePublic?publicRow.package_usd:small?.native_price_usd;
+      const priceSmall=$('v3-price-'+slug),priceLarge=$('v3-price-large-'+slug);
+      priceSmall.textContent=smallPrice==null?'现价待核':usd(smallPrice);
+      priceLarge.textContent=large?usd(large.native_price_usd):'现价待核';
+      priceSmall.dataset.missing=String(smallPrice==null);
+      priceLarge.dataset.missing=String(!large);
+      const delivery=tier=>tier?`赠 ${tier.promised_bonus_k}K · 实交 ${Number(tier.purchase_k)+Number(tier.promised_bonus_k)}K`:'';
+      $('v3-price-small-delivery-'+slug).textContent=usePublic?'公开套餐':delivery(small);
+      $('v3-price-delivery-'+slug).textContent=delivery(large);
+      const sampleLabel=catalogue?.basis==='confirmed_readback'?'后台已确认':'后台采样';
+      $('v3-price-source-'+slug).textContent=catalogue?`${sampleLabel} · ${when(catalogue.observed_at)}`
+        :usePublic?`公开采样 · ${when(publicRow.checked_at)}`:'来源待核';
+      const receipt=completed?.readback.curve_results?.[platform];
+      const sameReadback=catalogue?.basis==='confirmed_readback'&&receipt&&receipt.operation_id===completed.operation_id
+        &&receipt?.propagation?.status==='confirmed'&&receipt.propagation.confirmed_at===catalogue.observed_at;
+      const before=sameReadback?receipt?.recipients_before?.['266']?.more:null;
+      const previous=quantity=>before?.price?.[before?.gold?.findIndex(value=>Number(value)===quantity)];
+      priceChange($('v3-price-change-'+slug),usePublic?null:priceDifference(smallPrice,previous(100)),'最近确认');
+      priceChange($('v3-price-change-large-'+slug),priceDifference(large?.native_price_usd,previous(1000)),'最近确认');
     }
   }
   function renderOverview(state,automation,monitor){
@@ -273,20 +314,23 @@
     $('v3-current-plan').textContent=plan?`${active.length>1?`${active.length} 个受控计划 · 当前查看 `:''}${names[plan.mode]||plan.mode} · ${statusText(plan.state)}`:'无活动计划';
     $('v3-next-cycle').textContent=schedule.next_cycle_at?when(schedule.next_cycle_at):(schedule.active_plan_state==='SUSPENDED'||plan?.state==='SUSPENDED'?'已暂停，无下一自然写价轮':'暂无已排定自然轮');
     $('v3-source-time').textContent=schedule.last_source_checked_at?when(schedule.last_source_checked_at):'当前计划来源待核';
-    const latest=state.operations?.[0],orderAdminLabel=latest?.status==='COMPLETED'&&latest?.order_close?.reason==='order_write_confirmed_admin_price_matched'?'Order与Admin已确认':null;
+    const latest=state.operations?.[0],curveConfirmed=latest?.status==='COMPLETED'&&latest?.readback?.write_protocol===curveProtocol
+      &&latest.readback.execution_id===latest.operation_id&&latest.readback.status==='CONFIRMED';
+    const orderAdminLabel=curveConfirmed?'Admin 主站完整价表已确认':
+      latest?.status==='COMPLETED'&&latest?.order_close?.reason==='order_write_confirmed_admin_price_matched'?'Order与Admin已确认':null;
     const stageLabel=orderAdminLabel&&(!schedule.last_execution_stage||schedule.last_execution_stage==='COMPLETED')?orderAdminLabel:statusText(schedule.last_execution_stage||latest?.status);
     $('v3-stage').textContent=`${stageLabel}${schedule.last_cycle_at?` · ${when(schedule.last_cycle_at)}`:''}`;
     renderExecutionProgress(state);
     const rows=monitor?.storefront?.rows||{};
     renderCatalogue();
     const publication=monitor?.publication?.status;
-    $('v3-public-status').textContent=`公开读回：${publication==='matched'?'已核实':publication?statusText(publication):'待核'}。上述为最近公开采样，时点 ${when(rows.PS?.checked_at||rows.PC?.checked_at)}；不以候选报价代替。`;
+    $('v3-public-status').textContent=`公开网页独立核验：${publication==='matched'?'已核实':publication?statusText(publication):'待核'} · 最近公开采样 ${when(rows.PS?.checked_at||rows.PC?.checked_at)}`;
     const receipt=latest?.bundle||{},source=receipt.decision_source;
     const reviewLabel=receipt.maintenance_purpose==='retire_uk_discount_v1'?'用户授权英国临时折扣退出；程序已核财务与地区规则':receipt.review_contract==='program_pricing_with_daily_hermes_review_v3'?'当前规则：程序逐轮定价，Hermes 每日效果复盘':(source==='v3_model_reviewed_this_cycle'||source==='v3_reviewed_assignment')&&receipt.review_approved===true?'本轮 Hermes 实际选择并审核':
       source==='v3_model_reviewed_this_cycle'?'模型选择回执与批准状态不一致，待核':
       source==='v3_inherited_reviewed_business_strategy'?'沿用先前已审经营策略，本轮程序重证':
       source==='v3_explicit_deterministic_feasible_assignment'||receipt.review_approved===false?'历史原操作当时使用程序路径，未获模型审核；当前规则无需逐轮审核':'审核来源待核';
-    $('v3-review-source').textContent=latest?`最近原操作 ${latest.operation_id}：${orderAdminLabel||statusText(latest.status)}。${reviewLabel}；${orderAdminLabel?'公开读回状态单独列示':'真实生效以后台、缓存及公开读回为准'}。`:'尚无 V3 原操作。程序负责正常定价，Hermes 每日提供效果评估。';
+    $('v3-review-source').textContent=latest?`最近原操作 ${latest.operation_id}：${orderAdminLabel||statusText(latest.status)}。${reviewLabel}；${orderAdminLabel?'公开网页核验单独列示':'以原操作回执核对实际结果'}。`:'尚无 V3 原操作。程序负责正常定价，Hermes 每日提供效果评估。';
     const daily=state.daily_review;
     $('v3-daily-status').textContent=daily?`${daily.local_date} · ${statusText(daily.phase)} · 专用定价通道；不会自动切换策略`:'尚无每日结果；每天 02:20 复盘前一日，保存的分时段输入不足会列为缺项。';
     const replies=(daily?.hermes?.evaluation?.turns||[]).map(t=>t.reply).filter(Boolean);
@@ -378,7 +422,14 @@
     });
   }
 
-  function curveStatus(text,id){
+  function marketActivity(state,label=''){
+    const status=$('v3-market-activity');
+    status.hidden=!state;
+    status.dataset.state=state||'';
+    if(status.textContent!==label)status.textContent=label;
+  }
+  function curveStatus(text,id,marketState){
+    if(marketState)marketActivity(marketState,marketState==='pending'?`${text}；卡片为最近保存的快照。`:text);
     const status=$('v3-curve-status'),reference=$('v3-curve-reference');
     const label=id?`${text} · 任务 ${id.slice(0,8)}`:text;
     if(status.textContent!==label)status.textContent=label;
@@ -398,45 +449,49 @@
     const output=$('v3-curve-results');
     const proofLabels={PROVEN:'核算通过',HARD_CONSTRAINT_FAILED:'未达到财务底线',PROOF_INCOMPLETE:'证据待补',NOT_EVALUABLE:'暂无法核算'};
     output.replaceChildren(...previews.map((item,index)=>{
-      const platform=platforms[index],card=document.createElement('section'),title=document.createElement('h3');
-      card.className='market-platform';
-      title.textContent=platform==='XBOX'?'Xbox':platform;
-      card.append(title);
+      const card=platformCard(platforms[index]);
+      const caption=node('p',item?`候选预览 · ${when(item.snapshot_captured_at)}`:'预览暂不可读');
+      caption.className='candidate-caption';
+      card.append(caption);
       const catalogue=item?.current_catalogue,currentQuote=catalogue?.quote_100k;
-      const large=catalogue?.tiers?.find(tier=>tier.purchase_k==='1000');
-      card.append(node('p',!item?'本平台预览暂不可读':currentQuote?.regular_usd!=null
-        ?`后台现价 · 100K ${usd(currentQuote.regular_usd)}`:'后台现价待核'));
-      if(large)card.append(node('p',`后台现价 · 1000K ${usd(large.native_price_usd)} · 赠 ${large.promised_bonus_k}K`));
       const candidates=[...(item?.small?.decision?.candidates||[]),...(item?.decision?.candidates||[])];
       if(item&&!candidates.length){
         const gap=item.decision?.gaps?.at(-1);
         card.append(node('p',`暂无候选报价${gap?` · ${errorText({message:gap})}`:''}`));
       }
+      const proofDetails=node('details');
+      proofDetails.className='candidate-basis';
+      proofDetails.append(node('summary','核算依据'));
       for(const candidate of candidates){
         const proof=candidate.financial_proof,quote=candidate.quote;
         const labels={CURRENT:'当前方案',COST_REPAIR:'成本底线修复'};
         const label=candidate.labels?.map(value=>labels[value]||value).join(' / ')||'候选';
         const row=node('div');row.className='curve-quote';
-        row.append(node('span',label),node('strong',quote?.regular_usd==null?'待核':`${quote.purchase_k}K ${usd(quote.regular_usd)}`));
-        card.append(row);
+        const heading=node('div');heading.className='quote-heading';
+        heading.append(node('span',label),node('strong',quote?.regular_usd==null?'待核':`${quote.purchase_k}K ${usd(quote.regular_usd)}`));
         const quantity=Number(quote?.purchase_k);
         const currentPrice=quantity===100?currentQuote?.regular_usd
           :catalogue?.tiers?.find(tier=>Number(tier.purchase_k)===quantity)?.native_price_usd;
-        const difference=currentPrice!=null&&quote?.regular_usd!=null?Number(quote.regular_usd)-Number(currentPrice):null;
-        const comparison=difference==null?'':` · 同档较现价 ${difference>0?'+':difference<0?'−':''}${usd(Math.abs(difference))}`;
-        const result=node('p',`${proofLabels[proof?.status]||'证据待补'}${comparison}`);result.className='curve-proof';
-        card.append(result);
+        const result=node('p',proofLabels[proof?.status]||'证据待补');result.className='quote-meta';
+        const change=node('p');change.className='price-change';
+        priceChange(change,priceDifference(quote?.regular_usd,currentPrice),'同档较现价');
+        row.append(heading,result,change);
+        if(quote?.promised_bonus_k!=null&&quote?.promised_delivered_k!=null){
+          const delivery=node('p',`赠 ${quote.promised_bonus_k}K · 实交 ${quote.promised_delivered_k}K`);
+          delivery.className='quote-meta';
+          row.append(delivery);
+        }
+        card.append(row);
         const average=proof?.average_discount;
         if(average?.contract==='fc_v6_d8_d2_amount_weighted_discount_v1'){
           const retained=average.retained_ratio,margin=proof.minimum_safe_procurement_margin;
           const rate=retained==null?'待补':`${((1-Number(retained))*100).toFixed(2)}%`;
           const marginText=margin==null?'待核':`${(Number(margin)*100).toFixed(2)}%`;
-          const details=node('details');
-          details.append(node('summary','核算依据'),node('p',`D-8 至 D-2 平均优惠 ${rate} · 已核 ${average.matched_orders}/${average.eligible_orders} 单`),
+          proofDetails.append(node('p',`${quote?.purchase_k??'待核'}K · ${label} · D-8 至 D-2 平均优惠 ${rate} · 已核 ${average.matched_orders}/${average.eligible_orders} 单`),
             node('p',`组合采购毛利 ${marginText}（底线 18%，目标 25%）`));
-          card.append(details);
         }
       }
+      if(proofDetails.children.length>1)card.append(proofDetails);
       return card;
     }));
     output.hidden=false;
@@ -471,12 +526,12 @@
         return;
       }
       if(job.status==='failed'||job.result?.status==='INFEASIBLE'){
-        curveStatus(`未能生成预览。${errorText({message:job.error_detail||job.result?.reason||job.error||'原因待核'})}`,id);
+        curveStatus(`未能生成预览。${errorText({message:job.error_detail||job.result?.reason||job.error||'原因待核'})}`,id,job.status==='failed'&&!curveReadOnly?'failed':null);
         finishCurve();
         return;
       }
       if(job.status!=='ready'){
-        curveStatus(job.status==='queued'?'已排队，等待采价':job.status==='running'?'正在采集三平台报价':'等待原任务进度',id);
+        curveStatus(job.status==='queued'?'已排队，等待采价':job.status==='running'?'正在采集三平台报价':'等待原任务进度',id,curveReadOnly?null:'pending');
         retry=true;
         return;
       }
@@ -485,7 +540,7 @@
         curveStatus('预览快照待核，可重读原任务。',id);
         return;
       }
-      curveStatus('采价完成，正在读取核算结果',id);
+      curveStatus('采价完成，正在读取核算结果',id,curveReadOnly?null:'success');
       const results=await Promise.allSettled(platforms.map(async platform=>{
         const preview=await request('preview',{write_protocol:curveProtocol,platform,snapshot_id:id});
         if(preview.snapshot_id!==id||preview.platform!==platform||preview.write_protocol!==curveProtocol
@@ -565,6 +620,8 @@
   }
   async function renderMarketEvidence(){
     const output=$('v3-market-cards'),summary=$('v3-market-status');output.setAttribute('aria-busy','true');
+    summary.dataset.state='pending';
+    $('v3-market-reference').hidden=true;
     const curveActive=(current?.plan?.write_protocol===curveProtocol);
     for(const platform of ['ps','xbox','pc'])$('v3-price-basis-'+platform).textContent=curveActive?'新定价核算待核':'采购成本 / 双红线待核';
     try{
@@ -575,26 +632,44 @@
       if(curveActive){
         if(market.write_protocol!==curveProtocol){summary.textContent='正在等待当前新定价的市场与财务证据。';return;}
         for(const platform of platforms){
-          const label=platform==='XBOX'?'Xbox':platform, column=node('article');column.className='market-platform';column.append(node('h3',label));
+          const column=platformCard(platform);
           const details=$('v3-price-basis-'+platform.toLowerCase()),basis=market.price_basis?.rows?.[platform];
           const retained=basis?.average_discount?.retained_ratio,margin=basis?.minimum_safe_procurement_margin;
           if(retained!=null)details.replaceChildren(node('p',`D-8 至 D-2 平均优惠 ${((1-Number(retained))*100).toFixed(2)}%`),
             node('p',`采集时估算组合采购毛利 ${margin==null?'待核':(Number(margin)*100).toFixed(2)+'%'}`));
           for(const source of ['Lootbar','U7Buy','ArabUT']){
             const card=node('section');card.className='market-quote';card.append(node('h4',source==='ArabUT'?'Arab-UT':source));
-            const offers=(market.competitor_offers||[]).filter(row=>row.source===source&&row.platform===platform);
-            if(!offers.length)card.append(node('p','本轮未取得报价'));
+            const offers=(market.competitor_offers||[]).filter(row=>row.source===source&&row.platform===platform&&Number(row.purchase_k)===100);
+            if(!offers.length){
+              card.dataset.state='failed';
+              const empty=node('p','该快照未取得 100K 报价');empty.className='quote-state';card.append(empty);
+            }
             for(const offer of offers){
               const amount=offer.regular_price??offer.eligible_net_price??offer.display_price;
-              const price=amount==null?'价格待核':`${offer.currency==='USD'?usd(amount):offer.currency+' '+amount}`;
-              const method=offer.delivery_tier?` · ${offer.delivery_tier}`:'';
-              card.append(node('p',`${offer.purchase_k}K${offer.bonus_k==null?'':` + ${offer.bonus_k}K`} · ${price}${method}${offer.comparable?'':' · 口径待核'}`));
+              const price=node('p',amount==null?'价格待核':offer.currency==='USD'?usd(amount):offer.currency+' '+amount);
+              price.className='market-amount';
+              const age=Date.now()-Date.parse(offer.captured_at);
+              const knownTime=Number.isFinite(age)&&age>=0;
+              const status=amount==null?'failed':!knownTime||!offer.comparable||age>15*60000?'pending':'success';
+              const label=amount==null?'报价未取得':!knownTime?'采价时间待核':age>15*60000?'历史报价 · 已过 15 分钟':
+                !offer.comparable?'口径待核':'已采 · 15 分钟内';
+              const evidence=node('p',label);evidence.className='quote-state';evidence.dataset.state=status;
+              const timestamp=node('p',`采价 ${when(offer.captured_at)}`);timestamp.className='quote-meta';
+              const detail=node('details');detail.className='market-details';
+              const gift=offer.bonus_k==null?'赠送待核':`赠 ${offer.bonus_k}K`;
+              const method=offer.delivery_tier||offer.delivery_method;
+              detail.append(node('summary','报价详情'),node('p',`购买 100K · ${gift}${method?` · ${method}`:''}`));
+              card.append(price,evidence,timestamp,detail);
             }
             column.append(card);
           }
           output.append(column);
         }
-        summary.textContent=`新定价采集 ${when(market.captured_at)} · 快照 ${market.snapshot_id}。`;return;
+        summary.dataset.state='success';
+        summary.textContent=`新定价采集快照 · ${when(market.captured_at)}`;
+        $('v3-market-reference').hidden=false;
+        $('v3-market-snapshot').textContent=market.snapshot_id;
+        return;
       }
       if(market.snapshot_id!==current?.snapshot_id){summary.textContent='来源快照与本轮决策不一致，等待统一状态更新。';return;}
       const newPolicy=primaryPolicy(chosenPlan());
@@ -612,7 +687,7 @@
           node('p',`成本采集 ${when(basis.cost_checked_at)}；${market.price_basis.pricing_scope==='100k_package_only'?'双20只按购买100K、实交100K这一档核算，地区实际售价另核。':'此为旧范围成本快照，等待100K新口径采集。'}`));
       }
       for(const platform of ['PS','XBOX','PC']){
-        const column=node('article');column.className='market-platform';column.append(node('h3',platform==='XBOX'?'Xbox':platform));
+        const column=platformCard(platform);
         const loot=market.global_offers?.[platform]?.Lootbar;
         const item=(market.reference?.offers||[]).find(row=>row.platform===platform);
         const arab=(market.arab||[]).find(row=>row.platform===platform&&(!newPolicy||row.delivery===(platform==='PC'?'standard':'normal')));
@@ -639,8 +714,9 @@
         }
         output.append(column);
       }
+      summary.dataset.state='success';
       summary.textContent=`快照 ${market.snapshot_id} · 采集时间均为北京时间。卡片展示保存的来源证据，不表示当前可直接执行。`;
-    }catch(error){output.replaceChildren();summary.textContent=`竞品价格暂无法读取：${errorText(error)}；下次更新重试。`;}
+    }catch(error){output.replaceChildren();summary.dataset.state='failed';summary.textContent=`竞品价格暂无法读取：${errorText(error)}；下次更新重试。`;}
     finally{output.removeAttribute('aria-busy');}
   }
   function render(state){
@@ -652,7 +728,7 @@
     if(!plans.some(p=>p.plan_id===selectedPlanId))selectedPlanId=state.active_plans?.[0]?.plan_id||plans[0]?.plan_id||null;
     list.value=selectedPlanId||'';
     const plan=chosenPlan(),active=(state.active_plans||[]).find(p=>p.plan_id===selectedPlanId)||state.active_plans?.[0]||state.plan;
-    marketTag.textContent=state.plan?.write_protocol===curveProtocol?'Lootbar · U7Buy · Arab-UT（同平台同档观察）':primaryPolicy(plan)?'Lootbar 主锚 · Arab-UT 次锚（主机Normal / PC标准）· ItemD2R 辅助':legacyMarketTag;
+    marketTag.textContent=state.plan?.write_protocol===curveProtocol?'Lootbar · U7Buy · Arab-UT · 100K':primaryPolicy(plan)?'Lootbar 主锚 · Arab-UT 次锚（主机Normal / PC标准）· ItemD2R 辅助':legacyMarketTag;
     if(firstRender&&active?.mode&&names[active.mode]){$('v3-mode').value=active.mode;displayedMode=active.mode;setMode(active.mode);}
     $('v3-state').textContent=(active?`${names[active.mode]} · ${statusText(active.state)} · 数据 ${state.captured_at||'尚未取得'} · ${state.generation?'统一控制权已登记':'尚未切换'}`:'无活动计划；历史价格与原操作保留')+
       (permissionKnown?(canWrite?' · 当前账户可操作':' · 当前账户仅可查看'):' · 操作权限待核');

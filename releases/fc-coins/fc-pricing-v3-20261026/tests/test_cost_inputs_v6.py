@@ -217,6 +217,31 @@ class CostInputs(unittest.TestCase):
         self.assertEqual(upper['cny_per_basis_k'], '0.43')
         self.assertNotIn(orders[-1][0], str(result))
 
+    def test_completed_overdelivery_raises_existing_bound_using_promised_quantity(self):
+        orders = list(rows_for([2, 3, 4], quantity='5000K Coins + 250K Free x1 = $400'))
+        source = attachment(orders)
+        data = facts(orders, cost='1942.50', delivery_fields=dict(qty='5250', gift='0', cost_unit='.37'))
+        over = data['orders'][-1]
+        over.update(observed_cost_cny='2025')
+        over['cost_records'][0].update(quantity='6750', cost_cny='2025', cost_unit_cny='.30')
+        before = deepcopy(data)
+        options = dict(rate=fx(), basis='PROMISED_DELIVERED_K', ordinary_forecast=True)
+        result = run([source], revisions=[data], **options)
+        self.assertEqual(result['status'], 'calculated', result['gaps'])
+        self.assertEqual(result['selected_window']['ordinary_delivery_orders'], 2)
+        self.assertEqual(result['diagnostic_estimate']['incomplete_cost_orders'], 1)
+        self.assertAlmostEqual(result['diagnostic_estimate']['expected_unit_usd'], Decimal('.37') / 7)
+        self.assertEqual(result['diagnostic_estimate']['known_partial_usd'], Decimal('2025') / 7)
+        self.assertAlmostEqual(result['diagnostic_estimate']['stress_unit_usd'], Decimal('2025') / 5250 / 7)
+        self.assertEqual(result['cost_upper_source']['source'], 'same_layer_ordinary_delivery_observed_partial_floor')
+        self.assertEqual(data, before)
+        for status, unit in [('处理中', '.30'), ('已完成', '.31')]:
+            invalid = deepcopy(data)
+            invalid['orders'][-1]['status'] = status
+            invalid['orders'][-1]['cost_records'][0]['cost_unit_cny'] = unit
+            blocked = run([source], revisions=[invalid], **options)
+            self.assertIn('upper_below_known_partial', blocked['gaps'])
+
     def test_attachment_amount_is_cny_observation_and_never_rewrites_actuals(self):
         orders = list(rows_for([1]))
         original = attachment(orders, cost='70')

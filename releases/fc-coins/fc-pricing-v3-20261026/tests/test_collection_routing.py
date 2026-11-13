@@ -271,27 +271,23 @@ class Routing(unittest.TestCase):
 
 class SourceWiring(unittest.TestCase):
     def test_original_branch_needs_no_controller_install_but_configured_route_receives_parent(self):
-        from types import SimpleNamespace
-        path = Path(__file__).resolve().parents[1] / 'source/fc_pricing_v3/sources.py'
-        shared = next(n for n in ast.parse(path.read_text()).body if isinstance(n, ast.FunctionDef) and n.name == 'shared_context')
-        reader = next(n for n in shared.body if isinstance(n, ast.FunctionDef) and n.name == 'read_arab')
+        from fc_pricing_v3 import sources
         config = Mock()
         config.exists.return_value = False
         config.is_symlink.return_value = False
         local = Mock(return_value='legacy')
         parent = dict(run_id='original')
-        scope = dict(Path=lambda _: config, sys=SimpleNamespace(path=[]), arab_normal=local,
-                     collection_context=parent, collection_mode=dict(mode='server'))
-        exec(compile(ast.Module(body=[reader], type_ignores=[]), str(path), 'exec'), scope)
-        with patch('fc_collection.client.arab_normal', return_value='routed') as remote:
-            self.assertEqual(scope['read_arab'](), 'legacy')
+        with patch.object(sources, 'Path', return_value=config), \
+                patch.object(sources.sys, 'path', list(sources.sys.path)), \
+                patch('fc_pricing_v3.market_registry.arab_normal', local), \
+                patch('fc_collection.client.arab_normal', return_value='routed') as remote:
+            self.assertEqual(sources._read_arab(parent, dict(mode='server')), 'legacy')
             remote.assert_not_called()
             config.exists.return_value = True
-            self.assertEqual(scope['read_arab'](), 'routed')
+            self.assertEqual(sources._read_arab(parent, dict(mode='server')), 'routed')
             remote.assert_called_once_with(local, parent, pinned=dict(mode='server'))
             remote.reset_mock()
-            scope['collection_mode'] = dict(mode='local')
-            self.assertEqual(scope['read_arab'](), 'routed')
+            self.assertEqual(sources._read_arab(parent, dict(mode='local')), 'routed')
             remote.assert_called_once_with(local,parent,pinned=dict(mode='local'))
 
     def test_real_quote_evidence_preserves_snapshot_time_and_local_pin_through_source_subprocess(self):
@@ -308,12 +304,10 @@ class SourceWiring(unittest.TestCase):
         environment = dict(snapshot=snapshot, run_id='real-run', costs=[], offers=[], fx={}, storefront={}, reference_market={})
         exec(compile(ast.Module(body=[assignment], type_ignores=[]), str(root / 'server_quote_job.py'), 'exec'), environment)
         evidence = environment['evidence']
-        function = next(n for n in ast.parse((root / 'fc_pricing_v3/sources.py').read_text()).body
-                        if isinstance(n, ast.FunctionDef) and n.name == 'collect_context')
+        from fc_pricing_v3 import sources
         process = Mock(return_value=SimpleNamespace(returncode=0, stdout='{}'))
-        scope = dict(subprocess=SimpleNamespace(run=process), json=json, datetime=datetime, timedelta=timedelta, timezone=timezone)
-        exec(compile(ast.Module(body=[function], type_ignores=[]), str(root / 'fc_pricing_v3/sources.py'), 'exec'), scope)
-        scope['collect_context'](evidence)
+        with patch.object(sources.subprocess, 'run', process):
+            sources.collect_context(evidence)
         data = json.loads(process.call_args.kwargs['input'])
         self.assertEqual(data['collection_mode'], snapshot['collection_mode'])
         self.assertEqual(data['collection_context']['created_at'], snapshot['created_at'])
@@ -323,23 +317,39 @@ class SourceWiring(unittest.TestCase):
     def test_source_subprocess_receives_only_minimal_parent_and_pinned_local_mode(self):
         from datetime import datetime, timezone
         from types import SimpleNamespace
-        path = Path(__file__).resolve().parents[1] / 'source/fc_pricing_v3/sources.py'
-        function = next(n for n in ast.parse(path.read_text()).body if isinstance(n, ast.FunctionDef) and n.name == 'collect_context')
+        from fc_pricing_v3 import sources
         process = Mock(return_value=SimpleNamespace(returncode=0, stdout='{}'))
-        scope = dict(subprocess=SimpleNamespace(run=process), json=json, datetime=datetime, timedelta=timedelta, timezone=timezone)
-        exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), 'exec'), scope)
         created = datetime.now(timezone.utc)
         deadline = created + timedelta(seconds=30)
         evidence = dict(run_id='original-run', created_at=created.isoformat(), storefront={},
                         collection_mode=dict(mode='local', revision=7), collection_deadline_at=deadline.isoformat(),
                         credential='must-not-forward', writer='must-not-forward')
-        scope['collect_context'](evidence)
+        with patch.object(sources.subprocess, 'run', process):
+            sources.collect_context(evidence)
         payload = json.loads(process.call_args.kwargs['input'])
         self.assertEqual(payload['collection_mode'], evidence['collection_mode'])
         self.assertEqual(payload['collection_context'], dict(run_id='original-run', created_at=created.isoformat(), deadline_at=deadline.isoformat()))
         self.assertNotIn('credential', payload)
         self.assertNotIn('writer', payload)
         self.assertEqual(process.call_args.kwargs['timeout'], 240)
+
+    def test_curve_arab_100k_uses_existing_source_runtime_and_same_parent(self):
+        from datetime import datetime, timezone
+        from types import SimpleNamespace
+        from fc_pricing_v3 import sources
+
+        created = datetime.now(timezone.utc)
+        deadline = created + timedelta(seconds=30)
+        quote = dict(status='available', offers=[dict(source='ArabUT', platform='PC', purchase_k='100')])
+        snapshot = dict(run_id='original-run', created_at=created.isoformat(), collection_deadline_at=deadline.isoformat(),
+                        collection_mode=dict(mode='server', revision=7))
+        with patch.object(sources.subprocess, 'run', return_value=SimpleNamespace(
+                returncode=0, stdout=json.dumps(quote))) as process:
+            self.assertEqual(sources.collect_arab_100k(snapshot), quote)
+        self.assertEqual(process.call_args.args[0], ['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.sources'])
+        self.assertEqual(json.loads(process.call_args.kwargs['input']), dict(
+            action='arab_100k', collection_mode=snapshot['collection_mode'], collection_context=dict(
+                run_id='original-run', created_at=created.isoformat(), deadline_at=deadline.isoformat())))
 
     def test_private_routing_requires_regular_root_owned_private_file(self):
         from types import SimpleNamespace

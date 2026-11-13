@@ -155,28 +155,31 @@ class FixedCurveCandidates(unittest.TestCase):
         current, _, _ = fixture()
         now = datetime(2026, 11, 13, 6, tzinfo=timezone.utc)
         stamp = (now - timedelta(minutes=2)).isoformat()
-        offer = dict(source='Lootbar', platform='PS', purchase_k='1000', delivered_k='1000',
-                     regular_price='85', currency='USD', promotion_eligibility='all_customers',
+        offer = dict(source='Lootbar', platform='PS', purchase_k='100', delivered_k='100',
+                     regular_price='8.5', currency='USD', promotion_eligibility='all_customers',
                      comparable=True, conditional=False, captured_at=stamp)
         weak = dict(paid_orders=9, net_paid_usd='90', procurement_gross_usd='15')
         stable = dict(paid_orders=10, net_paid_usd='100', procurement_gross_usd='20')
         sample = dict(coverage_status='comparable', margin_basis='procurement_gross_usd',
                       current=weak, previous=stable)
-        self.assertEqual(market_preference(current, 'PS', [offer], {'large': sample}, now)['label'], 'B')
+        self.assertEqual(market_preference(current, 'PS', [offer], {'small': sample}, now)['label'], 'B')
         self.assertEqual(market_preference(current, 'PS', [offer],
-                                           {'large': dict(sample, margin_basis=None)}, now)['label'], 'B')
+                                           {'small': dict(sample, margin_basis=None)}, now)['label'], 'B')
         self.assertIsNone(market_preference(current, 'PS', [offer],
-                                           {'large': dict(sample, current=stable)}, now))
+                                           {'small': dict(sample, current=stable)}, now))
         for changed in (dict(platform='PC'), dict(source='U7Buy'), dict(purchase_k='2000'),
                         dict(conditional=True), dict(region_id=39),
                         dict(captured_at=(now - timedelta(hours=1)).isoformat())):
             with self.subTest(changed=changed):
-                self.assertIsNone(market_preference(current, 'PS', [dict(offer, **changed)], {'large': sample}, now))
-        higher = dict(offer, regular_price='106')
+                self.assertIsNone(market_preference(current, 'PS', [dict(offer, **changed)], {'small': sample}, now))
+        high_tier = dict(offer, purchase_k='1000', delivered_k='1000', regular_price='85')
+        self.assertIsNone(market_preference(current, 'PS', [high_tier], {'large': sample}, now))
+        self.assertEqual(market_preference(current, 'PS', [offer, high_tier], {'small': sample, 'large': sample}, now)['segment'], 'small')
+        higher = dict(offer, regular_price='10.6')
         self.assertEqual(market_preference(current, 'PS', [higher],
-                                           {'large': dict(sample, current=stable)}, now)['label'], 'C')
+                                           {'small': dict(sample, current=stable)}, now)['label'], 'C')
         self.assertIsNone(market_preference(current, 'PS', [higher],
-                                           {'large': dict(sample, current=stable, margin_basis=None)}, now))
+                                           {'small': dict(sample, current=stable, margin_basis=None)}, now))
 
     def test_minimum_repair_changes_only_affected_segment_and_keeps_native_specs(self):
         current, reference, episode = fixture()

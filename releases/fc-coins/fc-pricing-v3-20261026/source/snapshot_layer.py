@@ -120,12 +120,14 @@ def missing_competitors(run_id: str, reason: str) -> list[dict]:
             for source in SITES for platform in PLATFORMS]
 
 
-def public_snapshots(run_id: str, source: str, payload: dict) -> list[dict]:
+def public_snapshots(run_id: str, source: str, payload: dict, *, requested=None) -> list[dict]:
     if 'quantity_scope' in payload:
         from fc_pricing_v3.competitor_offers import normalize_offers, quantities
         if source!='U7Buy' or payload.get('source')!=source or payload.get('status')!='valid':
             raise ValueError('quantity_collector_contract')
         scope=quantities(payload['quantity_scope'])
+        if requested is not None and scope != tuple(requested):
+            raise ValueError('quantity_collector_scope')
         rows=payload.get('offers')
         if not isinstance(rows,list) or any(r.get('source')!=source or str(r.get('purchase_k')) not in scope for r in rows):
             raise ValueError('quantity_collector_scope')
@@ -231,7 +233,7 @@ def collector_failure(pattern, before, source):
 
 
 def collect_once(run_id=None, competitor_policy=None):
-    from fc_pricing_v3.competitor_offers import POLICY, QUANTITIES, normalize_offers, quantity_coverage
+    from fc_pricing_v3.competitor_offers import CURRENT_QUANTITIES, POLICY, normalize_offers, quantity_coverage
     if competitor_policy not in (None,POLICY):raise ValueError('competitor_policy_unknown')
     run_id = run_id or str(uuid.uuid4())
     if str(uuid.UUID(run_id)) != run_id:
@@ -241,11 +243,8 @@ def collect_once(run_id=None, competitor_policy=None):
     status, reason = "incomplete", None
     failures = []
     before = {p for p in glob.glob(str(ROOT / "evidence/lootbar-*.jsonl"))}
-    events = []
     try:
         command = [str(COLLECTOR), run_id]
-        if competitor_policy == POLICY:
-            command.append('--native-quantities')
         result = subprocess.run(command, capture_output=True, timeout=230)
         if result.returncode:
             failures.append("Lootbar:" + collector_failure("lootbar-*.jsonl", before, "Lootbar"))
@@ -262,24 +261,16 @@ def collect_once(run_id=None, competitor_policy=None):
         failures.append("Lootbar:" + (str(exc) if isinstance(exc, ValueError) else type(exc).__name__))
     quantity_offers=[]
     if competitor_policy==POLICY:
-        rows = list(snapshots)
-        if events and events[-1].get('stage') == 'complete' and any(row['status'] == 'valid' for row in snapshots):
-            extra_offers = events[-1].get('quantity_offers', [])
-            for extra in extra_offers if isinstance(extra_offers,list) else ():
-                try:
-                    rows.append(_lootbar_row(run_id, extra['platform'], extra, events[-1]['checked_at'], (1000,2000,5000)))
-                except (KeyError, TypeError, ValueError):
-                    failures.append('Lootbar:quantity_offer_invalid')
-        for row in rows:
+        for row in snapshots:
             if row.get('status')!='valid':continue
             try:quantity_offers.extend(normalize_offers([row],run_id,datetime.now(timezone.utc)))
             except ValueError as exc:failures.append('Lootbar:'+str(exc))
         before=set(glob.glob(str(ROOT/'evidence/U7Buy-*.json')))
         try:
-            process=subprocess.run([str(PUBLIC_COLLECTOR),'U7Buy',','.join(QUANTITIES)],capture_output=True,timeout=100)
+            process=subprocess.run([str(PUBLIC_COLLECTOR),'U7Buy',','.join(CURRENT_QUANTITIES)],capture_output=True,timeout=100)
             if process.returncode:raise ValueError(collector_failure('U7Buy-*.json',before,'U7Buy'))
             payload=newest_evidence('U7Buy-*.json',before)
-            quantity_offers.extend(public_snapshots(run_id,'U7Buy',payload))
+            quantity_offers.extend(public_snapshots(run_id,'U7Buy',payload,requested=CURRENT_QUANTITIES))
         except (OSError,ValueError,subprocess.TimeoutExpired,json.JSONDecodeError) as exc:
             failures.append('U7Buy:'+(str(exc) if isinstance(exc,ValueError) else type(exc).__name__))
     reason = "cost_not_connected" if not failures else ";".join(failures)
@@ -319,7 +310,7 @@ def collect_once(run_id=None, competitor_policy=None):
     cost_count = sum(x["status"] == "valid" for x in costs)
     coverage = dict(ready=True,required_sources=[],optional_sources=['Lootbar'],
                     pricing_source_policy='current_available_quote_or_100k_margin_floor')
-    if competitor_policy==POLICY:coverage=quantity_coverage(quantity_offers)
+    if competitor_policy==POLICY:coverage=quantity_coverage(quantity_offers, requested=CURRENT_QUANTITIES)
     source_warnings = [failure for failure in failures
                        if failure.split(":", 1)[0] in ("Lootbar", "IGGM", "U4GM", "U7Buy")]
     for row in snapshots:

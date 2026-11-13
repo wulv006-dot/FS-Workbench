@@ -45,7 +45,7 @@ def _public_matches(observed,region_id,platform,product,factor):
     return Decimal(offer['coefficient'])==Decimal(str(factor))
 
 
-def collect_context(evidence):
+def _collection_parent(evidence):
     parent=None
     original_created=evidence.get('checked_at') or evidence.get('created_at')
     if evidence.get('run_id') and original_created:
@@ -57,9 +57,12 @@ def collect_context(evidence):
             parent=dict(run_id=evidence['run_id'],created_at=original_created,deadline_at=deadline.isoformat())
         except (ValueError,TypeError,AttributeError):
             pass
+    return parent
+
+
+def _read_source(data, *, timeout):
     done=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.sources'],
-        input=json.dumps(dict(storefront=evidence['storefront'],arab_ut_status=evidence.get('arab_ut_status'),price_windows=evidence.get('price_windows',[]),active_mode=evidence.get('active_mode'),scope=evidence.get('active_scope'),history_cache=evidence.get('history_cache'),history_signature=evidence.get('history_signature'),online_context=evidence.get('online_context'),shared_order_facts=evidence.get('shared_order_facts'),collection_context=parent,collection_mode=evidence.get('collection_mode'))),capture_output=True,text=True,
-        timeout=240,cwd='/opt/fc27-cloud-browser')
+        input=json.dumps(data),capture_output=True,text=True,timeout=timeout,cwd='/opt/fc27-cloud-browser')
     try:
         value=json.loads(done.stdout)
     except ValueError:
@@ -67,6 +70,33 @@ def collect_context(evidence):
     if done.returncode:
         raise ValueError(value.get('error','pricing_v3_shared_source_unavailable'))
     return value
+
+
+def collect_context(evidence):
+    return _read_source(dict(storefront=evidence['storefront'],arab_ut_status=evidence.get('arab_ut_status'),price_windows=evidence.get('price_windows',[]),active_mode=evidence.get('active_mode'),scope=evidence.get('active_scope'),history_cache=evidence.get('history_cache'),history_signature=evidence.get('history_signature'),online_context=evidence.get('online_context'),shared_order_facts=evidence.get('shared_order_facts'),collection_context=_collection_parent(evidence),collection_mode=evidence.get('collection_mode')), timeout=240)
+
+
+def collect_arab_100k(evidence):
+    """Reuse the existing TLS runtime and source lease for a single 100K read."""
+    try:
+        parent = _collection_parent(evidence)
+        if parent is None:
+            raise ValueError('collection_parent_required')
+        return _read_source(dict(action='arab_100k', collection_context=parent,
+                                 collection_mode=evidence.get('collection_mode')), timeout=100)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        return dict(status='unavailable',reason=str(exc) if isinstance(exc,ValueError) else type(exc).__name__,offers=[])
+
+
+def _read_arab(collection_context, collection_mode):
+    from .market_registry import arab_normal
+
+    routing=Path('/var/lib/fc27-cloud/collection-access/routing.json')
+    if not routing.exists() and not routing.is_symlink():
+        return arab_normal()
+    sys.path.insert(0,'/opt/fs-fc-control/code')
+    from fc_collection.client import arab_normal as routed
+    return routed(arab_normal,collection_context,pinned=collection_mode)
 
 
 def _regional_history(replay,region_id,platforms):
@@ -83,19 +113,7 @@ def _regional_history(replay,region_id,platforms):
 
 
 def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mode=None,scope=None,history_cache=None,history_signature=None,online_context=None,collection_context=None,collection_mode=None,shared_order_facts=None):
-    from .market_registry import arab_normal
-    def read_arab(*, price_table=False):
-        routing=Path('/var/lib/fc27-cloud/collection-access/routing.json')
-        if not routing.exists() and not routing.is_symlink():
-            if price_table:
-                return dict(status='unavailable',reason='arab_price_table_requires_source_lease',offers=[])
-            return arab_normal()
-        sys.path.insert(0,'/opt/fs-fc-control/code')
-        from fc_collection.client import arab_normal as routed
-        if price_table:
-            return routed(arab_normal,collection_context,pinned=collection_mode,price_table=True)
-        return routed(arab_normal,collection_context,pinned=collection_mode)
-    try:arab=(arab_ut_status if isinstance(arab_ut_status,dict) else read_arab()) if active_mode is None else dict(status='not_required',offers=[])
+    try:arab=(arab_ut_status if isinstance(arab_ut_status,dict) else _read_arab(collection_context,collection_mode)) if active_mode is None else dict(status='not_required',offers=[])
     except Exception as exc:arab=dict(status='unavailable',reason=type(exc).__name__,offers=[])
     sys.path.insert(0,'/opt/fs-hermes-fc')
     from channel_source import pages,COLLECTOR
@@ -130,9 +148,7 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mo
     finally:
         session.close()
     if active_mode is not None and 'ArabUT' in selective_plan['required_markets']:
-        from .competitor_offers import POLICY
-        try:arab=arab_ut_status if isinstance(arab_ut_status,dict) else read_arab(
-            price_table=selective_plan.get('competitor_policy') == POLICY)
+        try:arab=arab_ut_status if isinstance(arab_ut_status,dict) else _read_arab(collection_context,collection_mode)
         except Exception as exc:arab=dict(status='unavailable',reason=type(exc).__name__,offers=[])
     aids={'PS':21587,'XBOX':21585,'PC':21589}
     product_scopes=_admin_product_scopes(storefront,products)
@@ -211,6 +227,8 @@ if __name__=='__main__':
         data=json.load(sys.stdin)
         if data.get('action')=='historical':
             print(json.dumps(collect_historical_source(data),ensure_ascii=False));raise SystemExit(0)
+        if data.get('action')=='arab_100k':
+            print(json.dumps(_read_arab(data['collection_context'],data.get('collection_mode')),ensure_ascii=False));raise SystemExit(0)
         print(json.dumps(shared_context(data['storefront'],data.get('arab_ut_status'),data.get('price_windows'),active_mode=data.get('active_mode'),scope=data.get('scope'),history_cache=data.get('history_cache'),history_signature=data.get('history_signature'),online_context=data.get('online_context'),collection_context=data.get('collection_context'),collection_mode=data.get('collection_mode'),shared_order_facts=data.get('shared_order_facts')),ensure_ascii=False))
     except Exception as exc:
         print(json.dumps(dict(error=str(exc) if isinstance(exc,ValueError) else type(exc).__name__)))

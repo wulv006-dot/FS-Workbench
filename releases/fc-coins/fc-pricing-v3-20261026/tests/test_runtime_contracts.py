@@ -397,6 +397,36 @@ class RuntimeContracts(unittest.TestCase):
             self.assertLess(len(json.dumps(state).encode()),1024*1024)
             self.assertEqual(market['snapshot_id'],'large')
 
+    def test_v6_market_projects_only_current_100k_without_rewriting_frozen_snapshots(self):
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+
+        offers = [dict(source='Lootbar', platform='PS', purchase_k='100', bonus_k='5',
+                       currency='USD', regular_price='8.75', comparable=True),
+                  dict(source='U7Buy', platform='PS', purchase_k='1000', bonus_k='30',
+                       currency='USD', regular_price='85', comparable=True),
+                  dict(source='ArabUT', platform='PC', purchase_k='100', bonus_k='0',
+                       currency='SAR', regular_price='35', comparable=False)]
+        with tempfile.TemporaryDirectory() as folder:
+            db = Ledger(Path(folder) / 'control.db')
+            snapshot = dict(snapshot_id='curve', created_at='2026-11-13T13:00:00Z', plan_id='owner',
+                            write_protocol=CURVE_WRITE_PROTOCOL, evidence={'competitor_offers': offers})
+            db.put('pricing_snapshots', 'curve', snapshot)
+            db.put('metadata', 'latest_snapshot:owner', {'snapshot_id': 'curve'})
+            plan = dict(plan_id='owner', write_protocol=CURVE_WRITE_PROTOCOL)
+            with patch.object(api, 'ledger', return_value=db), patch.object(db, 'active_plan', return_value=plan), \
+                    patch.object(runtime, '_curve_proof_inputs', return_value={}):
+                market = api.read('market')
+            self.assertEqual(market['snapshot_id'], 'curve')
+            self.assertEqual([(row['source'], row['purchase_k']) for row in market['competitor_offers']],
+                             [('Lootbar', '100'), ('ArabUT', '100')])
+            coverage = market['competitor_coverage']
+            self.assertEqual(coverage['quantity_scope'], ['100'])
+            self.assertEqual(coverage['observations'], 2)
+            self.assertEqual(coverage['comparable_observations'], 1)
+            self.assertTrue(all(row['purchase_k'] == '100'
+                                for field in ('quantities', 'optional_missing') for row in coverage[field]))
+            self.assertEqual(db.get('pricing_snapshots', 'curve'), snapshot)
+
     def test_manual_execution_progress_uses_only_the_original_task_run(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
