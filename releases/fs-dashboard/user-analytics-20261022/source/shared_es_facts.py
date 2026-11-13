@@ -201,6 +201,16 @@ def bind_publication(db, value, previous, revisions):
     prior = active[0] if active else previous
     ident = value['publication_id']
     cutoff = stamp(value['cutoff']).date().isoformat()
+    existing = db.execute(
+        'SELECT data_revision,captured_at,cutoff FROM shared_es_publications WHERE publication_id=?',
+        (ident,)).fetchone()
+    if existing:
+        recorded = dict(db.execute('SELECT day,revision FROM shared_es_publication_days WHERE publication_id=?',
+                                   (ident,)))
+        if ((existing[0], existing[1]) != (value['data_version'], value['published_at']) or existing[2] < cutoff
+                or any(day >= cutoff or recorded.get(day) != revision for day, revision in revisions.items())):
+            raise ValueError('shared_es_publication_replay_conflict')
+        return
     carry = (db.execute('SELECT cutoff FROM shared_es_publications WHERE publication_id=?', (prior,)).fetchone()
              if prior else None)
     shared_cutoff = max(cutoff, carry[0]) if carry else cutoff

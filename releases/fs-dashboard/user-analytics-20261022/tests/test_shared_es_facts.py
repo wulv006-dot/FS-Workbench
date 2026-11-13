@@ -165,3 +165,21 @@ class SharedFacts(unittest.TestCase):
         self.assertEqual(weekly.stored_publication(self.store), pub)
         self.assertEqual(self.read()['status'], 'unavailable')
 
+    def test_shared_publish_resume_after_commit_does_not_move_newer_active_pin(self):
+        rev = self.stage(D1, archive(line('first', D1)), order('first', D1))
+        first = publication(D2)
+        weekly.write_publication(self.store, first, None)
+        with patch('shared_es_facts.prepare_publication', return_value={D1: rev}):
+            committed = weekly.update_shared_es(self.store, first, D1, D2, lambda: False)
+            self.assertEqual(weekly.update_shared_es(self.store, first, D1, D2, lambda: False), committed)
+        later = publication(D3, 'b')
+        with self.store.db() as db:
+            facts.bind_publication(db, later, None, {})
+            facts.bind_publication(db, first, None, {D1: rev})
+            with self.assertRaisesRegex(ValueError, 'shared_es_publication_replay_conflict'):
+                facts.bind_publication(db, first, None, {D1: 'different'})
+            with self.assertRaisesRegex(ValueError, 'shared_es_publication_replay_conflict'):
+                facts.bind_publication(db, dict(first, data_version='2'), None, {D1: rev})
+        self.assertEqual(facts.latest_publication(db=self.store.path)['publication_id'], later['publication_id'])
+        self.assertEqual(self.read(ident=first['publication_id'])['rows'][0]['order_no'], 'first')
+
