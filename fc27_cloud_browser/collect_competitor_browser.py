@@ -207,6 +207,7 @@ def collect_u7buy(context):
 
 U7BUY_QUANTITIES_READ = """({label,quantities}) => {
   const active=[...document.querySelectorAll('.radio-select.active')].map(e=>e.textContent.trim());
+  const method=/Delivery method:\\s*Comfort Trade\\./i.test(document.body.innerText)?'comfort_trade':null;
   const offers=[],missing=[];
   for(const quantity of quantities){
     const cards=[...document.querySelectorAll('.players-reactive-table-content-wrapper')].filter(card=>
@@ -215,7 +216,9 @@ U7BUY_QUANTITIES_READ = """({label,quantities}) => {
     const prices=[...content.matchAll(/([\\d,.]+)\\s*USD/g)].map(m=>m[1]);
     if(cards.length!==1||prices.length!==1){missing.push({purchase_k:quantity,reason:cards.length>1||prices.length>1?'native_card_ambiguous':'native_quantity_not_observed'});continue;}
     const gift=content.match(/Newcomer\\s*\\+\\s*(\\d+(?:\\.\\d+)?)K/i);
-    offers.push({purchase_k:quantity,price:prices[0],bonus:gift?.[1]||'0',conditional:!!gift});
+    const estimate=content.match(/Complete Time:\\s*([0-9]+(?:\\.[0-9]+)?(?:\\s*-\\s*[0-9]+(?:\\.[0-9]+)?)?\\s*Hours?)/i);
+    offers.push({purchase_k:quantity,price:prices[0],bonus:gift?.[1]||'0',conditional:!!gift,
+      delivery_method:method,delivery_estimate:estimate?.[1]||null});
   }
   return {ready:active.length===1&&active[0]===label,active,offers,missing};
 }"""
@@ -242,7 +245,9 @@ def collect_u7buy_quantities(context, quantities):
                 row.update(promotion_eligibility=dict(status='unknown', advertised_for='new_customer') if newcomer else 'all_customers',
                     display_price=displayed, regular_price=None if newcomer else displayed,
                     eligible_net_price=None,coupon_cap=None,usage_limit=None,
-                    necessary_fees=None,tax_bearer=None,delivery_method=None,delivery_tier=None,
+                    necessary_fees=None,tax_bearer=None,delivery_method=raw.get('delivery_method'),
+                    delivery_tier=('estimated:'+raw['delivery_estimate']) if raw.get('delivery_estimate') else None,
+                    delivery_estimate=raw.get('delivery_estimate'),
                     selection_verified=True,observation_basis='native_visible_card')
                 offers.append(row)
             missing.extend(dict(source='U7Buy',platform=platform,**row) for row in data['missing'])

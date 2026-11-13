@@ -28,6 +28,14 @@ const card=(q,price,label='PS4/PS5',extra='')=>`<div class="players-reactive-tab
     assert.equal(conflict.missing[0].reason,'native_card_ambiguous');
     assert.equal(conflict.missing[1].reason,'native_card_ambiguous');
     assert.equal((await page.evaluate(reader,{...input,label:'PC'})).ready,false);
+    await page.setContent('<div class="radio-select active">PS4/PS5</div><p>Delivery method: Comfort Trade.</p>'+card(100,'8.82','PS4/PS5','Complete Time: 0.5-1Hour'));
+    const delivery=await page.evaluate(reader,{label:'PS4/PS5',quantities:['100']});
+    assert.equal(delivery.offers[0].delivery_method,'comfort_trade');
+    assert.equal(delivery.offers[0].delivery_estimate,'0.5-1Hour');
+    await page.setContent('<div class="radio-select active">PS4/PS5</div>'+card(100,'8.82'));
+    const absent=await page.evaluate(reader,{label:'PS4/PS5',quantities:['100']});
+    assert.equal(absent.offers[0].delivery_method,null);
+    assert.equal(absent.offers[0].delivery_estimate,null);
     console.log('U7 quantity DOM: native values, missing large tier, conditional newcomer, duplicates, multiple prices, platform selection passed');
   }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
