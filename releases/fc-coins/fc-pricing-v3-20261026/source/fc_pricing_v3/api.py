@@ -93,6 +93,26 @@ def _latest_snapshot(conn):
     return None
 
 
+def _curve_preview_history(conn, snapshot, as_of):
+    from .business_source import historical_period
+
+    snapshot_at = instant(snapshot['created_at'])
+    window = historical_period('7d', now=snapshot_at)['paid_window']
+    selected, selected_at = None, None
+    for row in conn.execute('SELECT body FROM historical_inputs ORDER BY rowid DESC'):
+        attachment = json.loads(row[0])
+        if (attachment.get('schema_version') != 'fc-pricing-v3-history-input-v1'
+                or attachment.get('paid_window') != window
+                or snapshot['snapshot_id'] not in attachment.get('snapshot_ids', ())):
+            continue
+        available = instant(attachment['available_at'])
+        if available <= as_of and (selected_at is None or available > selected_at):
+            selected, selected_at = attachment, available
+        elif available == selected_at and attachment['source_sha256'] != selected['source_sha256']:
+            raise ValueError('pricing_curve_preview_history_revision_conflict')
+    return selected
+
+
 def recent_market_observations(db):
     with closing(db.connect()) as conn:
         return [json.loads(row[0]) for row in conn.execute(
@@ -300,30 +320,37 @@ def post(path,data,actor):
             path == 'preview' or data['write_protocol'] == CURVE_WRITE_PROTOCOL):
         if path != 'preview':
             raise ValueError('pricing_curve_preview_route_required')
+        segment = data.get('segment', 'large')
         if (data['write_protocol'] != CURVE_WRITE_PROTOCOL or data.get('platform') not in PLATFORMS
-                or set(data) - {'write_protocol', 'platform', 'snapshot_id'}):
+                or segment not in ('small', 'large') or set(data) - {'write_protocol', 'platform', 'snapshot_id', 'segment'}):
             raise ValueError('pricing_curve_preview_fields_invalid')
         snapshot_id = data.get('snapshot_id')
         if 'snapshot_id' in data and (not isinstance(snapshot_id, str) or
                 re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', snapshot_id) is None):
             raise ValueError('pricing_curve_preview_snapshot_id_invalid')
+        from .runtime import preview_curve
+        evidence_as_of = clock()
         store = STORE / 'control.sqlite3'
-        snapshot = None
-        strategy_state = None
+        snapshot, strategy_state, history = None, None, None
+        latest_selected = False
         if store.exists():
             with closing(sqlite3.connect(store.resolve().as_uri() + '?mode=ro', uri=True, timeout=5)) as conn:
                 from .curve_strategy_v6 import curve_strategy_key
                 conn.execute('BEGIN')
-                if snapshot_id is None:
-                    snapshot = _latest_snapshot(conn)
-                else:
+                newest = _latest_snapshot(conn)
+                latest_selected = newest is not None and (snapshot_id is None or snapshot_id == newest['snapshot_id'])
+                if latest_selected:
+                    snapshot = newest
+                    row = conn.execute('SELECT body FROM metadata WHERE id=?',
+                                       (curve_strategy_key(data['platform']),)).fetchone()
+                    strategy_state = json.loads(row[0]) if row else None
+                    history = _curve_preview_history(conn, snapshot, evidence_as_of)
+                elif snapshot_id is not None:
                     row = conn.execute('SELECT body FROM pricing_snapshots WHERE id=?', (snapshot_id,)).fetchone()
                     snapshot = json.loads(row[0]) if row else None
-                row = conn.execute('SELECT body FROM metadata WHERE id=?',
-                                   (curve_strategy_key(data['platform']),)).fetchone()
-                strategy_state = json.loads(row[0]) if row else None
-        from .runtime import preview_curve
-        return preview_curve(snapshot, data['platform'], requested_snapshot_id=snapshot_id, strategy_state=strategy_state)
+        return preview_curve(snapshot, data['platform'], requested_snapshot_id=snapshot_id, strategy_state=strategy_state,
+                             segment=segment, closed_attachment=history, latest_selected=latest_selected,
+                             evidence_as_of=evidence_as_of)
     if path=='interval':
         if not isinstance(data,dict) or set(data)!={'interval_minutes','expected_revision'}:
             raise ValueError('pricing_interval_request_invalid')

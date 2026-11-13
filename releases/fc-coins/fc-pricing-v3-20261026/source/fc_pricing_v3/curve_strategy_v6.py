@@ -65,12 +65,13 @@ def _candidate(curve, labels, current):
 
 
 def build_candidates(confirmed_current_curve, reference, episode, selected_segment,
-                     *, unit_price_usd_per_k=None):
+                     *, unit_price_usd_per_k=None, editor_contract=None):
     """Freeze one platform and compile only the requested segment off adopted A.
 
     Reference holds reference_curve/reference_curve_id. Episode holds
     comparison_episode_id and initial_reference_curve/initial_reference_curve_id.
     The caller supplies the evidence-appropriate editor base, when needed.
+    Offline editor evidence can be separate from the saved curve's own contract.
     """
     anchor = ANCHORS.get(selected_segment)
     if anchor is None:
@@ -123,7 +124,8 @@ def build_candidates(confirmed_current_curve, reference, episode, selected_segme
         targets = dict(anchor_prices_usd={anchor: str(target)})
         if unit_price_usd_per_k is not None:
             targets['unit_price_usd_per_k'] = unit_price_usd_per_k
-        compiled = compile_curve(adopted, targets, current['native_contract'])
+        compiled = compile_curve(adopted, targets, current['native_contract']
+                                 if editor_contract is None else editor_contract)
         if compiled['compilation_status'] != 'EDITOR_CANDIDATE':
             result['gaps'][label] = compiled['gaps']
             continue

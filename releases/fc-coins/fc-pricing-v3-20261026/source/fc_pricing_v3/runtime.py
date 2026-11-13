@@ -189,7 +189,8 @@ def smart_choices(evidence,plan,current,baseline,schedule,now):
     return variants,effective_probabilities,probabilities,choice
 
 
-def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_state=None):
+def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_state=None,
+                  segment='large', closed_attachment=None, latest_selected=True, evidence_as_of=None):
     """Read one platform's current saved catalogue without opening a pricing operation."""
     from coin_all_sync_job import PRODUCTS, read_row
     from fc_shared_admin import SessionManager, read_private_config
@@ -199,7 +200,7 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
 
     gaps = ['customer_checkout_unverified', 'offer_path_unverified', 'necessary_fee_unverified',
             'validation_domain_unverified', 'procurement_time_unverified', 'planning_baskets_unverified']
-    decision = dict(financial_contract=CONTRACT, selected=None, gaps=gaps)
+    decision = dict(financial_contract=CONTRACT, selected=None, gaps=gaps, candidates=[], selected_segment=segment)
     if strategy_state:
         reference = strategy_state['reference']
         episode = strategy_state['episode']
@@ -247,7 +248,61 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
     result['current_catalogue'] = dict(status='saved_tier', source=source, captured_at=captured_at,
         response_sha256=observations[0]['response_sha256'], identity=curve['identity'], tiers=curve['tiers'],
         curve_key=key, quote_100k=quote)
+    if not latest_selected:
+        gaps.append('historical_snapshot_frozen_curve_unavailable')
+        return result
+
+    evidence_as_of = evidence_as_of or instant(captured_at)
+    if instant(snapshot['created_at']) > evidence_as_of:
+        gaps.append('pricing_snapshot_clock_invalid')
+        return result
+    decision.update(_preview_curve_candidates(curve, key, platform, strategy_state, segment, closed_attachment,
+                                              snapshot['created_at'], captured_at, evidence_as_of))
     return result
+
+
+def _preview_curve_candidates(curve, key, platform, strategy_state, segment, closed_attachment,
+                              snapshot_at, catalogue_at, evidence_as_of):
+    from .admin_readback import SITE_MAIN
+    from .curve_strategy_v6 import ANCHORS, build_candidates
+    from .planning_baskets_v6 import build_planning_baskets
+    from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, quote_native
+    from .pricing_proof_v6 import validate_curve
+
+    candidate_gaps = {}
+    boundary_search_status = None
+    if strategy_state:
+        comparison = build_candidates(curve, strategy_state['reference'], strategy_state['episode'], segment,
+            editor_contract=dict(curve['native_contract'], editor_asset_sha256=EDITOR_ASSET_SHA256,
+                                 editor_handler_sha256=EDITOR_HANDLER_SHA256))
+        candidates, candidate_gaps = comparison['candidates'], comparison['gaps']
+        boundary_search_status = comparison['boundary_search_status']
+    else:
+        candidates = [dict(curve=curve, curve_key=key, labels=['CURRENT'], write_gaps=[])]
+
+    output = []
+    for candidate in candidates:
+        proposed = candidate['curve']
+        candidate_key = candidate['curve_key']
+        quote = quote_native(proposed, dict(purchase_k=ANCHORS[segment], multiplier=1,
+                                             site_id=SITE_MAIN, currency='USD'))
+        paths = []
+        if quote.get('regular_usd') is not None:
+            paths.append(dict(quote, path_id='catalogue_anchor:' + ANCHORS[segment]))
+        domain = dict(platform=platform, curve_key=candidate_key, coverage_status='partial',
+                      coverage_gaps=['native_checkout_path_domain_unverified'],
+                      site_paths={SITE_MAIN: [path['path_id'] for path in paths]})
+        baskets = build_planning_baskets(platform, candidate_key, closed_attachment, None, {},
+                                         paid_cutoff=snapshot_at, as_of=evidence_as_of)
+        proof = validate_curve(proposed, baskets, dict(curve_key=candidate_key, paths=paths), domain)
+        output.append(dict(curve_key=candidate_key, labels=candidate['labels'],
+                           catalogue_basis='offline_admin_editor_model'
+                           if quote['catalogue_status'] == 'editor_candidate_tier' else 'saved_catalogue',
+                           tiers=proposed['tiers'], quote=quote, write_gaps=candidate['write_gaps'],
+                           planning_baskets=baskets, financial_proof=proof))
+    return dict(candidates=output, candidate_gaps=candidate_gaps, boundary_search_status=boundary_search_status,
+                historical_evidence_as_of=evidence_as_of.isoformat(),
+                catalogue_captured_at=catalogue_at)
 
 
 def calculate(evidence, edits=None, *, selected_action=None,override_reason=None,operation_id=None):
