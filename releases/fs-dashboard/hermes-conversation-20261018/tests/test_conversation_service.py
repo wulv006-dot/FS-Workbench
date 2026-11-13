@@ -10,6 +10,9 @@ import threading
 import types
 import unittest
 from unittest.mock import patch
+from urllib import request as http
+from urllib.error import HTTPError
+from urllib.response import addinfourl
 
 
 SOURCE = Path(__file__).resolve().parents[1] / "source"
@@ -314,9 +317,6 @@ class ServiceTests(unittest.TestCase):
         import io
         import re
         from email.message import Message
-        from urllib import request as http
-        from urllib.error import HTTPError
-        from urllib.response import addinfourl
         root = Path(__file__).resolve().parents[4]
         active = root / 'releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py'
         tree = ast.parse(active.read_bytes())
@@ -383,6 +383,7 @@ class ServiceTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, '^runtime_response_size$'):call('GET', '/v1/capabilities')
                 options.update(large=False, status=302);before = len(requests)
                 with self.assertRaises(HTTPError) as denied:call('GET', '/v1/capabilities')
+                self.addCleanup(denied.exception.close)
                 self.assertEqual(denied.exception.code, 302)
                 self.assertEqual(len(requests), before + 1)
 

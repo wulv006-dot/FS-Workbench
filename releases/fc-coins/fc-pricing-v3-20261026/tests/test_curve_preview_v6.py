@@ -126,8 +126,11 @@ class CurvePreviewV6(unittest.TestCase):
         from fc_pricing_v3.price_curve import curve_key, read_curve, IDENTITY_FIELDS
 
         self.snapshot.update(write_protocol=CURVE_WRITE_PROTOCOL,plan_id='active-plan')
-        self.snapshot['evidence']['competitor_offers']=[dict(source='U7Buy',platform='PS',purchase_k='1000',bonus_k='30',
-            currency='USD',regular_price='85',comparable=True,private_field='not public')]
+        self.snapshot['evidence']['competitor_offers']=[
+            dict(source='U7Buy',platform='PS',purchase_k='100',bonus_k='0',
+                 currency='USD',regular_price='8.5',comparable=True,private_field='not public'),
+            dict(source='U7Buy',platform='PS',purchase_k='1000',bonus_k='30',
+                 currency='USD',regular_price='85',comparable=True,private_field='not public')]
         self.db.put('pricing_snapshots',SNAPSHOT_ID,self.snapshot)
         self.db.put('metadata','latest_snapshot:active-plan',{'snapshot_id':SNAPSHOT_ID})
         self.db.put('metadata','latest_snapshot_summary',{'snapshot_id':'unrelated-legacy-summary'})
@@ -144,7 +147,9 @@ class CurvePreviewV6(unittest.TestCase):
                          (SNAPSHOT_ID,CURVE_WRITE_PROTOCOL,POLICY))
         self.assertEqual(response['price_basis']['rows']['PS']['minimum_safe_procurement_margin'],'0.182')
         self.assertNotIn('PC',response['price_basis']['rows'])
-        self.assertEqual(response['competitor_offers'][0]['regular_price'],'85')
+        self.assertEqual(len(response['competitor_offers']), 1)
+        self.assertEqual(response['competitor_offers'][0]['purchase_k'],'100')
+        self.assertEqual(response['competitor_offers'][0]['regular_price'],'8.5')
         self.assertNotIn('private_field',json.dumps(response))
 
     def test_rejects_client_proof_invalid_platform_and_other_routes_before_state_access(self):
