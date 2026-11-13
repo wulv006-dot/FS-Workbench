@@ -263,6 +263,51 @@ class CompetitorOffersV6(unittest.TestCase):
         self.assertIsNone(normalize_offers([raw(conditional=True)], 'same', NOW)[0]['regular_price'])
         page.close.assert_called_once()
 
+    def test_browser_read_retry_preserves_legacy_and_v6_result_contracts(self):
+        file = REPO/'fc27_cloud_browser/collect_competitor_browser.py'
+        tree = ast.parse(file.read_text(encoding='utf-8'))
+        names = {'main', 'timeout_diagnostic'}
+        nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
+
+        class CollectorTimeoutError(Exception):
+            pass
+
+        for selected, outcome in (
+                (None, ('valid', 2, 'Page.goto', 20)),
+                (QUANTITIES, ('valid', 2, 'Page.goto', 20)),
+                (QUANTITIES, ('missing', 1, 'Page.goto', 48)),
+                (QUANTITIES, ('missing', 1, 'Page.close', 20))):
+            with self.subTest(selected=selected, outcome=outcome):
+                status, calls, method, elapsed = outcome
+                platforms = ('PS', 'XBOX', 'PC')
+                rows = [dict(platform=p) for p in platforms]
+                result = dict(source='U7Buy',status='valid',offers=rows,missing=[],quantity_scope=list(QUANTITIES))
+                error = CollectorTimeoutError(method + ': private page details')
+                legacy = Mock(side_effect=[error, rows])
+                native = Mock(side_effect=[error, result])
+                reader = native if selected else legacy
+                display = Mock()
+                browser = SimpleNamespace(contexts=[object()])
+                playwright = SimpleNamespace(chromium=SimpleNamespace(connect_over_cdp=Mock(return_value=browser)))
+                time = SimpleNamespace(monotonic=Mock(side_effect=[0,elapsed]),sleep=Mock())
+                argv = ['collector','U7Buy'] + ([','.join(selected)] if selected else [])
+                scope = dict(COLLECTORS={'U7Buy':legacy}, PLATFORMS=platforms, collect_u7buy_quantities=native,
+                             time=time, sys=SimpleNamespace(argv=argv), os=SimpleNamespace(environ={}), json=json,
+                             CollectorTimeoutError=CollectorTimeoutError, print=display,
+                             sync_playwright=lambda:nullcontext(playwright))
+                exec(compile(ast.Module(body=nodes,type_ignores=[]),str(file),'exec'),scope)
+                self.assertEqual(scope['main'](),0 if status=='valid' else 1)
+                self.assertEqual(reader.call_count,calls)
+                value = json.loads(display.call_args.args[0])
+                self.assertEqual(value['status'],status)
+                self.assertNotIn('private page details',str(value))
+                self.assertEqual(len(value['read_retries']),calls-1)
+                if calls==2:
+                    self.assertEqual(value['read_retries'][0]['price_actions'],0)
+                    time.sleep.assert_called_once_with(1)
+                    self.assertEqual(value['offers'],rows)
+                    self.assertEqual(value.get('quantity_scope'),list(selected) if selected else None)
+
     def test_v6_observer_does_not_call_item_reader(self):
         from fc_pricing_v3 import observations,runtime
         from fc_pricing_v3.ledger import Ledger

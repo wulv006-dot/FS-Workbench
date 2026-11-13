@@ -14,7 +14,7 @@ from target_map import COUPON_DISPLAY_NAMES, COUPON_DISPLAY_SCOPE, COUPON_DISPLA
 from target_map import (THREE_PLATFORM_SCOPE, THREE_PLATFORM_NAMES, THREE_PLATFORM_NEW,
     THREE_PLATFORM_EXTRA, THREE_PLATFORM_REPOSITORY_SOURCES, THREE_PLATFORM_TARGET_COUNT, three_platform_targets,
     MONITOR_SQLITE_CANDIDATE, MONITOR_SQLITE_SOURCE, MONITOR_SQLITE_SHA, MONITOR_SQLITE_PROVENANCE)
-from target_map import (CURVE_V6_BASE, CURVE_V6_SCOPE, CURVE_V6_NEW, CURVE_V6_TARGET_COUNT,
+from target_map import (CURVE_V6_BASE, CURVE_V6_SCOPE, CURVE_V6_NEW, CURVE_V6_TARGET_COUNT, CURVE_V6_PROTECTED,
                         CURVE_V6_REPOSITORY_SOURCES,
                         curve_v6_targets, require_curve_scope_for_imports)
 
@@ -117,6 +117,7 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     if curve_v6:
         protected.update(set(three_platform_targets(source).values()) - changed)
         protected.update(COUPON_DISPLAY_PROTECTED)
+        protected.update(CURVE_V6_PROTECTED)
         protected.update(THREE_PLATFORM_EXTRA[name] for name in ('source/monitor-hooks.py', 'source/monitor-collector.py'))
     rows = []
     for name, target in sorted(expected.items()):

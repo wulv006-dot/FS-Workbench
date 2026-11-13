@@ -37,14 +37,14 @@ class CurveV6Release(unittest.TestCase):
         self.assertEqual(len(base), 101)
         self.assertEqual(len(three), 107)
         self.assertEqual(len(adapter.THREE_PLATFORM_TARGETS), 56)
-        self.assertEqual(len(adapter.CURVE_V6_TARGETS), 58)
+        self.assertEqual(len(adapter.CURVE_V6_TARGETS), 60)
 
     def test_candidate_sources_build_both_copies_with_baseline_dependencies(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             archive = root / 'candidate.tar.gz'
             result = self.build_candidate(archive)
-            self.assertEqual(result['targets'], 58)
+            self.assertEqual(result['targets'], 60)
             browser = root / 'browser'
             hermes = root / 'hermes'
             baseline = self.git('ls-tree', '-r', '--name-only', BASE, '--',
@@ -176,11 +176,12 @@ SimulationBridge(request=lambda *args: version).versions()
 
         value = fixture()
         self.assertIs(adapter.checked_manifest(value), value)
-        self.assertEqual(len(target_map.CURVE_V6_NEW), 16)
-        value = fixture()
-        value['files'] = [r for r in value['files'] if r['candidate'] != 'source/collect_competitor.sh']
-        with self.assertRaisesRegex(ValueError, 'exact_fc_v3_targets_required'):
-            adapter.checked_manifest(value)
+        self.assertEqual(len(target_map.CURVE_V6_NEW), 18)
+        for missing in ('source/collect_competitor.sh', 'source/hermes-copy/fc_pricing_v3/native_checkout_evidence.py'):
+            with self.subTest(missing=missing), self.assertRaisesRegex(ValueError, 'exact_fc_v3_targets_required'):
+                value = fixture()
+                value['files'] = [r for r in value['files'] if r['candidate'] != missing]
+                adapter.checked_manifest(value)
         value = fixture()
         value['files'].append(dict(value['files'][0], candidate='source/fc_pricing_v3/extra.py'))
         with self.assertRaisesRegex(ValueError, 'exact_fc_v3_targets_required'):
@@ -248,12 +249,13 @@ SimulationBridge(request=lambda *args: version).versions()
                 self.assertEqual(raw, (deploy / 'approved-manifest.json').read_bytes())
                 manifest = json.loads(raw)
                 inspect.assert_called_once_with(manifest, stage)
-                self.assertEqual(result['files'], 58)
+                self.assertEqual(result['files'], 60)
                 self.assertEqual(result['existing'], 42)
-                self.assertEqual(result['new'], 16)
+                self.assertEqual(result['new'], 18)
                 self.assertIn('fc-pricing-v3.service', manifest['runtimeRequired'])
                 protected = {row['path'] for row in manifest['unchangedRequired']}
                 self.assertTrue(set(target_map.COUPON_DISPLAY_PROTECTED).issubset(protected))
+                self.assertTrue(set(target_map.CURVE_V6_PROTECTED).issubset(protected))
                 self.assertIn('/opt/fc-ops-readonly-monitor/hooks.py', protected)
 
 

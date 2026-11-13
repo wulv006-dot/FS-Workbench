@@ -269,30 +269,44 @@ def main() -> int:
     source = sys.argv[1]
     if source not in COLLECTORS:
         raise SystemExit(2)
-    try:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.connect_over_cdp(
-                os.environ.get("FC27_CDP_ENDPOINT", "http://127.0.0.1:9225"),
-                timeout=8000, no_defaults=True)
-            if len(browser.contexts) != 1:
-                raise ValueError("browser_context_ambiguous")
-            quantities=sys.argv[2].split(',') if len(sys.argv)>2 else None
-            if quantities is not None:
-                if source!='U7Buy':raise ValueError('quantity_collector_not_supported')
-                result=collect_u7buy_quantities(browser.contexts[0],quantities)
-                print(json.dumps(result));return 0
-            rows = COLLECTORS[source](browser.contexts[0])
-        if [row["platform"] for row in rows] != list(PLATFORMS):
-            raise ValueError("platform_coverage_incomplete")
-        print(json.dumps({"source": source, "status": "valid", "offers": rows}))
-        return 0
-    except Exception as exc:
-        reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
-        diagnostic = {}
-        if isinstance(exc, CollectorTimeoutError):
-            reason, diagnostic = timeout_diagnostic(exc)
-        print(json.dumps({"source": source, "status": "missing", "reason": reason[:60], "diagnostic": diagnostic}))
-        return 1
+    quantities = sys.argv[2].split(',') if len(sys.argv) > 2 else None
+    # Keep the original wrapper's 95-second hard budget; only repeat public reads.
+    deadline = time.monotonic() + 90
+    retries = []
+    for attempt in range(2):
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.connect_over_cdp(
+                    os.environ.get("FC27_CDP_ENDPOINT", "http://127.0.0.1:9225"),
+                    timeout=8000, no_defaults=True)
+                if len(browser.contexts) != 1:
+                    raise ValueError("browser_context_ambiguous")
+                context = browser.contexts[0]
+                if quantities is not None:
+                    if source != 'U7Buy':
+                        raise ValueError('quantity_collector_not_supported')
+                    result = collect_u7buy_quantities(context, quantities)
+                else:
+                    rows = COLLECTORS[source](context)
+                    if [row["platform"] for row in rows] != list(PLATFORMS):
+                        raise ValueError("platform_coverage_incomplete")
+                    result = dict(source=source, status='valid', offers=rows)
+            print(json.dumps(dict(result, read_retries=retries)))
+            return 0
+        except Exception as exc:
+            reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+            diagnostic = {}
+            if isinstance(exc, CollectorTimeoutError):
+                reason, diagnostic = timeout_diagnostic(exc)
+            retryable = reason in {'browser_connection_timeout', 'page_create_timeout', 'page_navigation_timeout',
+                                   'page_read_timeout', 'platform_click_timeout'}
+            if attempt == 0 and isinstance(exc, CollectorTimeoutError) and retryable and time.monotonic() + 44 < deadline:
+                retries.append(dict(reason=reason, diagnostic=diagnostic, price_actions=0))
+                time.sleep(1)
+                continue
+            print(json.dumps(dict(source=source, status='missing', reason=reason[:60], diagnostic=diagnostic,
+                                  read_retries=retries)))
+            return 1
 
 
 if __name__ == "__main__":
