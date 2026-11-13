@@ -13,9 +13,10 @@ from pathlib import Path
 import uuid
 
 from . import VERSION, PROGRAM_CONTRACT
+from .dispatch import CURVE_WRITE_PROTOCOL, proven_not_sent, write_protocol
 from .engine import evaluate, financial, competition, commit_path, impacted_regions, proof_regions, GROUPS, PLATFORMS, market_quote, sprint_parameters, SPRINT_POLICY_VERSION
 from .financial import fingerprint, number, instant, MARGIN_BASIS, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION, LEGACY_FINANCIAL_CONTRACT_VERSION, HISTORY_WINDOW_CONTRACT, required_history_ratio
-from .ledger import Ledger, clock
+from .ledger import Ledger, clock, confirmed_curve_window
 from .engine import controlled_candidate, current_action
 
 ROOT = Path(os.environ.get('FC27_V3_ROOT','/var/lib/fc27-cloud'))
@@ -466,6 +467,8 @@ def override_quote(evidence,explicit_prices,reason,restore_source_execution_id=N
 def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpose=None):
     now=now or clock()
     receipt=quote['result'].get('decision_receipt') or {}
+    if for_execution and write_protocol(receipt) == CURVE_WRITE_PROTOCOL:
+        raise ValueError('pricing_curve_execution_verifier_unavailable')
     if receipt.get('authorization_purpose')!=purpose:
         raise ValueError('pricing_authorization_purpose_mismatch')
     if quote['evidence'].get('mode')=='shadow' or quote['evidence'].get('simulation_kind') or receipt.get('financial_proof',{}).get('execution_eligible') is not True:
@@ -664,6 +667,24 @@ def attach_review(run_id,review):
     return quote
 
 
+def curve_dispatch_platforms(bundle):
+    from .price_curve import curve_key
+
+    before = bundle['before_action'].get('curves') or {}
+    target = bundle['action'].get('curves') or {}
+    if not before or set(before) != set(target) or set(before) - set(PLATFORMS):
+        raise ValueError('pricing_curve_scope_missing')
+    selected = [p for p in PLATFORMS if p in target and curve_key(before[p]) != curve_key(target[p])]
+    if selected:
+        if ([s['kind'] for s in bundle['steps']] != ['base']
+                or set(bundle['mutable_resources']) != {'base:' + p for p in selected}
+                or set(bundle['affected_platforms']) != set(selected)):
+            raise ValueError('pricing_curve_original_dispatch_scope_changed')
+    elif bundle['steps']:
+        raise ValueError('pricing_curve_original_dispatch_scope_changed')
+    return selected
+
+
 def execute_run(run_id):
     import fc27_cloud_worker as worker
     db=ledger()
@@ -674,14 +695,17 @@ def execute_run(run_id):
     existing=db.get('operations',bundle['decision_bundle_id'])
     if existing:
         return complete_player_followup(existing) if existing['status'] in ('COMPLETED','NO_CHANGE') else reconcile(existing['operation_id'])
+    if write_protocol(bundle) == CURVE_WRITE_PROTOCOL:
+        selected = curve_dispatch_platforms(bundle)
+    else:
+        selected=[p for p in PLATFORMS if number(quote['evidence']['storefront']['rows'][p]['package_usd'])!=number(bundle['action']['base_prices'][p])]
+        if set(selected)&{'PS','XBOX'}:
+            selected=[p for p in PLATFORMS if p in set(selected)|{'PS','XBOX'}]
     code,preview=worker.run([str(worker.APP/'preview_backend.sh'),run_id],85)
     if code or preview.get('status')!='review_only':
         raise ValueError('pricing_backend_preview_failed')
     job=json.loads((ROOT/'jobs'/(run_id+'.json')).read_text())
     automatic=not job.get('request',{}).get('manual_requested')
-    selected=[p for p in PLATFORMS if number(quote['evidence']['storefront']['rows'][p]['package_usd'])!=number(bundle['action']['base_prices'][p])]
-    if set(selected)&{'PS','XBOX'}:
-        selected=[p for p in PLATFORMS if p in set(selected)|{'PS','XBOX'}]
     operation=db.prepare(plan,bundle,dispatch_context=dict(preview=preview,selected=selected,automatic=automatic,
                          actor=job['actor'] if not automatic else 'system-automation',policy_revision=load_policy()['revision']))
     if not bundle['steps']:
@@ -694,7 +718,13 @@ def _verify_nochange(operation,preview):
     from .adapters import verify_nochange
     db=ledger();operation=db.get('operations',operation['operation_id'])
     if operation['status'] in TERMINAL_CLOSE_STATUS:return complete_player_followup(operation)
-    receipt=verify_nochange(operation,preview)
+    if write_protocol(operation.get('bundle') or {}) == CURVE_WRITE_PROTOCOL:
+        curve_dispatch_platforms(operation['bundle'])
+        receipt = dict(status='PUBLIC_PENDING', write_protocol=CURVE_WRITE_PROTOCOL,
+                       execution_id=operation['operation_id'], preview=preview,
+                       reason='pricing_curve_current_full_readback_unavailable', write_performed=False)
+    else:
+        receipt=verify_nochange(operation,preview)
     if receipt['status']!='PUBLIC_CONFIRMED':
         operation.update(status='PUBLIC_PENDING',readback=receipt)
         db.put('operations',operation['operation_id'],operation)
@@ -714,6 +744,9 @@ def _drive_steps(operation,quote):
     operation_id=operation['operation_id']
     if db.get('operations',operation_id)['status'] in TERMINAL_CLOSE_STATUS:
         return _reconcile(operation_id)
+    curve = write_protocol(operation['bundle']) == CURVE_WRITE_PROTOCOL
+    if curve and curve_dispatch_platforms(operation['bundle']) != operation['dispatch_context']['selected']:
+        raise ValueError('pricing_curve_original_dispatch_scope_changed')
     for original in operation['steps']:
         current=db.get('operations',operation_id)
         step=next(s for s in current['steps'] if s['step_id']==original['step_id'])
@@ -721,7 +754,9 @@ def _drive_steps(operation,quote):
             continue
         if step.get('dispatched_at'):
             return _reconcile(operation_id)
-        verify_quote(quote,load_policy(),list(PLATFORMS),for_execution=True)
+        checked = verify_quote(quote,load_policy(),list(PLATFORMS),for_execution=True)
+        if curve and checked != current['bundle']:
+            raise ValueError('pricing_curve_original_dispatch_invalid')
         if step['kind']=='region':
             previous=[s for s in current['steps'][:current['steps'].index(step)] if s['kind']=='region' and s['state']=='CONFIRMED']
             if previous:
@@ -730,6 +765,9 @@ def _drive_steps(operation,quote):
         claimed=db.claim_dispatch(operation_id,step['step_id'])
         if claimed is None:return _reconcile(operation_id)
         result=dispatch_base(db.get('operations',operation_id)) if step['kind']=='base' else region_step(operation_id,step['step_id'],write=True)
+        if curve:
+            op = db.step_result(operation_id, step['step_id'], 'UNKNOWN', result)
+            return _reconcile_curve(op, retry_readback=False)
         db.step_result(operation_id,step['step_id'],'CONFIRMED' if result.get('status')=='CONFIRMED' else 'UNKNOWN',result)
         if result.get('status')!='CONFIRMED':return db.get('operations',operation_id)
     return _reconcile(operation_id)
@@ -828,8 +866,11 @@ def complete_player_followup(operation,job=None):
                 (job.get('request') or {}).get('v3_operation_id')!=original['operation_id']):raise ValueError('player_sync_parent_mismatch')
         import fc27_cloud_worker as worker
         config=worker.load_player_sync_policy()
+        receipt = original.get('readback') or {}
+        platforms = (list(receipt['curve_results']) if receipt.get('write_protocol') == CURVE_WRITE_PROTOCOL
+                     else receipt.get('public', {}).get('platforms', []))
         job.update(status='ready',v3_outcome=original,result=dict(status='confirmed',execution_id=original['operation_id'],
-                   platforms=original.get('readback',{}).get('public',{}).get('platforms',[])))
+                   platforms=platforms))
         job.setdefault('completed_at',clock().isoformat())
         intent=job.setdefault('player_sync_intent',dict(enabled=config['enabled'],revision=config['revision']))
         worker.save_job(job)
@@ -852,6 +893,8 @@ def close_on_order_admin(op,audit):
     收尾后同步推进执行审计文件，避免只释放账本一侧。
     """
     from .order_close import build_receipt,evaluate_close,order_write_confirmed
+    if write_protocol(op.get('bundle') or {}) == CURVE_WRITE_PROTOCOL or (audit or {}).get('write_protocol') == CURVE_WRITE_PROTOCOL:
+        return op
     db=ledger();ident=op['operation_id']
     if not order_write_confirmed(audit):return op
     note=None
@@ -902,13 +945,39 @@ def close_on_order_admin(op,audit):
     return complete_player_followup(result) if audit_close.get('status')=='written' else result
 
 
-def unified_close_entry(op,audit):
-    """Order+Admin 统一收尾入口。
+def _original_curve_audit(op, audit):
+    return bool(isinstance(audit, dict) and audit.get('execution_id') == op['operation_id']
+                and audit.get('write_protocol') == CURVE_WRITE_PROTOCOL
+                and audit.get('pricing_decision_receipt') == op['bundle']
+                and audit.get('selected') == op['dispatch_context']['selected'])
 
-    不看旧的 ``all_baseline`` / 公开页状态：只要拿到 Order 成功反馈就尝试收尾，
-    公开页仅作为回执里的记录。这样「Order 与 ALL 都成功但公开页没确认」也能收尾
-    （PR #588 review #2）。
+
+def unified_close_entry(op,audit):
+    """Use the original operation's write protocol to close confirmed work.
+
+    V6 uses the original F4 catalog, propagation and projection receipt.
+    Scalar operations retain the Order+Admin proof from PR #588.
     """
+    if write_protocol(op.get('bundle') or {}) == CURVE_WRITE_PROTOCOL:
+        if op['status'] in TERMINAL_CLOSE_STATUS:
+            return complete_player_followup(op)
+        if not _original_curve_audit(op, audit) or audit.get('status') != 'CONFIRMED':
+            return None
+        step, = op['steps']
+        if not step.get('dispatched_at'):
+            return None
+        ident = op['operation_id']
+        results = audit.get('curve_results') or {}
+        if set(results) != set(op['bundle']['affected_platforms']) or set(results) != set(audit['selected']):
+            raise ValueError('pricing_curve_original_readback_scope_changed')
+        receipt = dict(status='CONFIRMED', operation_id=ident, execution_id=ident,
+                       write_protocol=CURVE_WRITE_PROTOCOL, confirmation_scope=CURVE_WRITE_PROTOCOL,
+                       curve_results=results)
+        confirmed_curve_window(dict(op, readback=receipt))
+        db = ledger()
+        if step['state'] != 'CONFIRMED' or step.get('receipt') != receipt:
+            db.step_result(ident, step['step_id'], 'CONFIRMED', receipt)
+        return db.finish(ident, receipt)
     from .order_close import order_write_confirmed
     if not audit or not order_write_confirmed(audit):
         return None
@@ -927,6 +996,8 @@ def exit_or_close(op,audit,reason):
     先按 Order 反馈 + Admin 单价核对收尾，收不了才退回原有退出流程。
     收尾只记录既成事实，不授权任何新的写入。
     """
+    if write_protocol(op.get('bundle') or {}) == CURVE_WRITE_PROTOCOL:
+        return _reconcile_curve(op, retry_readback=False)
     try:
         closed=unified_close_entry(op,audit)
     except Exception:
@@ -941,6 +1012,80 @@ def reconcile(operation_id):
         return _reconcile(operation_id)
 
 
+def _reconcile_curve(op, *, retry_readback=True):
+    """Recover claimed work from the original F4 audit and read-only transport."""
+    from .adapters import reconcile_base
+
+    db = ledger()
+    ident = op['operation_id']
+    if not op['steps']:
+        return _verify_nochange(op, op['dispatch_context']['preview'])
+    step, = op['steps']
+    if not step.get('dispatched_at'):
+        if retry_readback:
+            quote = json.loads((ROOT/'quotes'/(op['bundle']['snapshot_id']+'.json')).read_text())
+            return _drive_steps(op, quote)
+        return op
+    path = ROOT/'executions'/(ident+'.json')
+    recovered = None
+    audit = None
+    try:
+        audit = json.loads(path.read_text()) if path.exists() else None
+        if (retry_readback and _original_curve_audit(op, audit)
+                and audit.get('status') in ('RUNNING', 'UNCERTAIN', 'PARTIAL')):
+            recovered = reconcile_base(op)
+            updated = json.loads(path.read_text())
+            if _original_curve_audit(op, updated):
+                audit = updated
+            else:
+                recovered = dict(status='UNKNOWN', reason='pricing_curve_original_audit_changed')
+    except (OSError, ValueError) as exc:
+        recovered = dict(status='UNKNOWN', reason='pricing_curve_original_audit_unavailable',
+                         error=type(exc).__name__)
+
+    prior = step.get('receipt') or {}
+    original = _original_curve_audit(op, audit)
+    results = audit.get('curve_results') if original else None
+    audited_not_sent = (original and proven_not_sent(audit) and isinstance(results, dict)
+                        and set(results) == set(audit['selected']) and all(
+        isinstance(row, dict) and row.get('operation_id') == ident and row.get('platform') == platform
+        and isinstance(row.get('catalog'), dict) and isinstance(row.get('projection'), dict)
+        and ('send_intent' not in row['catalog'] or row['catalog'].get('status') == 'not_sent')
+        and 'post_response' not in row['catalog'] and 'send_intent' not in row['projection']
+        for platform, row in results.items()))
+    refused_before_send = (audit is None and recovered is None and prior.get('status') == 'NOT_SENT'
+                           and prior.get('write_protocol') == CURVE_WRITE_PROTOCOL
+                           and prior.get('execution_id', ident) == ident
+                           and (prior.get('business_dispatch_started') is False or prior.get('exit_code') == 75))
+    if (audited_not_sent or refused_before_send) and not step.get('transport_claimed_at'):
+        receipt = dict(prior, status='NOT_SENT', write_protocol=CURVE_WRITE_PROTOCOL, execution_id=ident,
+                       business_dispatch_started=False)
+        db.step_result(ident, step['step_id'], 'UNKNOWN', receipt)
+        return db.cancel_not_sent(ident, prior.get('reason') or 'pricing_curve_original_not_sent')
+
+    receipt = dict(status='UNKNOWN', write_protocol=CURVE_WRITE_PROTOCOL, execution_id=ident,
+                   reason='pricing_curve_original_audit_unconfirmed')
+    if original:
+        try:
+            closed = unified_close_entry(op, audit)
+        except (KeyError, TypeError, ValueError) as exc:
+            receipt['reason'] = str(exc) if isinstance(exc, ValueError) else 'pricing_curve_original_receipt_invalid'
+        else:
+            if closed is not None:
+                return complete_player_followup(closed)
+        receipt['curve_results'] = results or {}
+        if audit.get('status') == 'PARTIAL':
+            receipt.update(status='PARTIAL', reason='pricing_curve_original_partial')
+    elif prior.get('status') == 'PARTIAL':
+        receipt.update(status='PARTIAL', curve_results=prior.get('curve_results') or {})
+    if recovered is not None:
+        receipt['recovery'] = recovered
+    state = 'PARTIALLY_APPLIED' if receipt['status'] == 'PARTIAL' else 'UNKNOWN'
+    if step['state'] == state and prior == receipt:
+        return op
+    return db.step_result(ident, step['step_id'], state, receipt)
+
+
 def _reconcile(operation_id):
     """Never repeat a base save or sync; recover only original post-write stages."""
     db=ledger()
@@ -948,6 +1093,8 @@ def _reconcile(operation_id):
     if not op:
         raise ValueError('pricing_operation_missing')
     if op['status'] in ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED'):return complete_player_followup(op)
+    if write_protocol(op.get('bundle') or {}) == CURVE_WRITE_PROTOCOL:
+        return _reconcile_curve(op)
     audit_path=ROOT/'executions'/(operation_id+'.json')
     audit=json.loads(audit_path.read_text()) if audit_path.exists() else None
     if op['status']=='KNOWN_PARTIAL_PUBLIC_PENDING':return exit_or_close(op,audit,op['stop_unissued_reason'])
@@ -956,7 +1103,6 @@ def _reconcile(operation_id):
     from .adapters import region_step,dispatch_base,reconcile_base
     for step in op['steps']:
         if step['kind']=='base' and step.get('dispatched_at') and step['state']!='CONFIRMED':
-            from .dispatch import proven_not_sent
             if step.get('receipt',{}).get('status')=='NOT_SENT' or proven_not_sent(audit):
                 path=ROOT/'quotes'/(op['bundle']['snapshot_id']+'.json')
                 from automation_policy import load_policy

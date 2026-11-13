@@ -245,6 +245,19 @@ class CurveWriter(unittest.TestCase):
         self.assertFalse(self.audit['business_dispatch_started'])
         self.assertEqual(self.transport.posts, [])
 
+    def test_recipient_gift_drift_refuses_before_any_write(self):
+        self.prepare()
+        self.transport.rows[PRIMARY_ID]['more']['give'][1] = '300'
+        self.assertEqual(self.dispatch()['status'], 'NOT_SENT')
+        self.assertEqual(self.audit['status'], 'FAILED_BEFORE_WRITE')
+        self.assertFalse(self.audit['business_dispatch_started'])
+        self.assertEqual(self.item['last_error'], 'pricing_curve_recipient_specs_changed:266')
+        self.assertNotIn('send_intent', self.item['catalog'])
+        self.assertNotIn('actual_site266_curve', self.item)
+        self.assertEqual(self.transport.posts, [])
+        self.assertEqual(self.transport.projection_writes, [])
+        self.assertEqual(self.transport.rows[PRIMARY_ID]['more']['price'], ['10', '100'])
+
     def test_restore_prior_curve_is_new_price_only_target_with_current_proof(self):
         self.prepare(large='103', before_large='107')
         self.assertEqual(self.dispatch()['status'], 'CONFIRMED')

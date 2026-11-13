@@ -340,6 +340,9 @@ def drive_curve_catalog(manager, audit, save_audit, before_send, capabilities):
         try:
             item['recipients_before'] = {site: read_row(manager, platform, int(site), recipient_id=goods)
                                          for site, goods in item['recipient_goods'].items()}
+            for site, recipient in item['recipients_before'].items():
+                if not curve_specs_match(recipient, item['target']):
+                    raise ValueError('pricing_curve_recipient_specs_changed:' + site)
             live = read_row(manager, platform, 0)
             if fingerprint(editable(live)) != item['before_hash']:
                 raise ValueError('pricing_curve_before_hash_changed')

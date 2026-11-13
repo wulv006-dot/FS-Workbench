@@ -1,0 +1,28 @@
+{
+  "base": "b27cb62a251419e16c6fcbafe1e37e208d605942",
+  "windows": {
+    "writer_runtime_window_pass": 33,
+    "runtime_contracts_pass": 35
+  },
+  "linux_initial": {
+    "run": 107,
+    "passed": 106,
+    "errors": 1,
+    "skipped": 0
+  },
+  "linux_fixed_increment": {
+    "run": 2,
+    "passed": 2,
+    "errors": 0,
+    "skipped": 0
+  },
+  "formal_ci": false,
+  "production_actions": false,
+  "files": {
+    "releases/fc-coins/fc-pricing-v3-20261026/source/coin_all_sync_job.py": "1c1818592ff9fa2ba2265d754a600581e7fe66226f73f7f34bbc8b78fcad1c78",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/pricing_simulation.py": "2f465541da992451e55fa7693a7749cbe09e5243d35c758a291b00216444ff12",
+    "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/runtime.py": "57ec39a3c6ee47ce5474343f33ca36a9306fcfdc917a86242d4f4b8728bec515",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_curve_writer_v6.py": "1cbf01052d662921de8763c2a975a267ec7657d24029cbb5eeb1d49814c48ec2",
+    "releases/fc-coins/fc-pricing-v3-20261026/tests/test_curve_runtime_v6.py": "e367c24323bb45b281f2490bac2dddeed637ed79a62105e47abccfa5a05ff3b1"
+  }
+}
