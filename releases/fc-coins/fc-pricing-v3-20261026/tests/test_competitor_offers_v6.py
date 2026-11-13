@@ -240,7 +240,8 @@ class CompetitorOffersV6(unittest.TestCase):
         names={'positive','checked_offer','collect_u7buy_quantities'}
         nodes=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in names]
         from decimal import Decimal, InvalidOperation
-        page=Mock();read=Mock(side_effect=[dict(active=[label],offers=[dict(purchase_k='100',price='10',bonus='0',conditional=False),
+        page=Mock();read=Mock(side_effect=[dict(active=[label],offers=[dict(purchase_k='100',price='10',bonus='0',conditional=False,
+             delivery_method='comfort_trade',delivery_estimate='0.5-1Hour'),
              dict(purchase_k='2000',price='135',bonus='50',conditional=True)],
              missing=[dict(purchase_k=q,reason='native_quantity_not_observed') for q in ('1000','5000')]) for label in ('PS4/PS5','XBOX','PC')])
         scope=dict(Decimal=Decimal,InvalidOperation=InvalidOperation,datetime=datetime,timezone=timezone,
@@ -253,6 +254,11 @@ class CompetitorOffersV6(unittest.TestCase):
         self.assertEqual([r['purchase_k'] for r in result['offers']],['100','2000']*3)
         normal, newcomer = normalize_offers(result['offers'], 'same', datetime.now(timezone.utc))[:2]
         self.assertEqual(normal['regular_price'], '10')
+        self.assertTrue(normal['comparable'])
+        self.assertEqual(normal['delivery_method'], 'comfort_trade')
+        self.assertEqual(normal['delivery_tier'], 'estimated:0.5-1Hour')
+        self.assertEqual(normal['delivery_estimate'], '0.5-1Hour')
+        self.assertEqual(normalize_offers([normal], 'same', datetime.now(timezone.utc)), [normal])
         self.assertEqual(newcomer['display_price'], '135')
         self.assertIsNone(newcomer['regular_price'])
         self.assertIsNone(newcomer['eligible_net_price'])

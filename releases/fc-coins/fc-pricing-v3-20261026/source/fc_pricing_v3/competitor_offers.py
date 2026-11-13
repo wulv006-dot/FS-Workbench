@@ -119,7 +119,8 @@ def normalize_offers(rows, run_id, now, *, max_age=900):
         row.update({k:deepcopy(raw[k]) for k in ('region_id','settlement_currency','conversion_source',
             'original_currency','original_amount_minor','price_version','priced_at',
             'original_platform','original_market','original_delivery','source_region_id',
-            'reference_scope','observation_id','price_basis','discount_source','raw_coupon_excluded') if k in raw})
+            'reference_scope','observation_id','price_basis','discount_source','raw_coupon_excluded',
+            'delivery_estimate') if k in raw})
         row['comparable'] = (row['comparable'] and row['bonus_k'] is not None
             and (row['regular_price'] is not None or row['eligible_net_price'] is not None)
             and (lootbar_merchandise or row['delivery_method'] not in (None,'unknown') and tier not in (None,'unknown')))
