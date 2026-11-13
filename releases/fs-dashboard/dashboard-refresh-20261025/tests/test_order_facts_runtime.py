@@ -138,6 +138,38 @@ class Runtime(unittest.TestCase):
         evidence=effective_attribution(base,{'discount_code':''},dict(cached,project='运营',code=''),mapping)
         self.assertEqual((evidence['channel'],evidence['promotion_project']),('pending_classification','运营'))
 
+    def test_google_paid_campaigns_keep_safe_label_and_higher_priority_attribution(self):
+        from channel_effects import Attribution
+        from order_facts import build_order_facts
+        from order_facts_api import detail_csv, public
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[]},[],{})
+        native=row(i=1,discount_code='',recommend_uid='0')
+        source='google-D4-SN-Items&private-key=PRIVATE-QUERY'
+        data=build_order_facts([native],[],[],sites={'266':'www.mmoexp.com'},scope=SCOPE,
+                              source_coverage={'admin_complete':True})
+        order=data['orders'][0]
+        evidence=effective_attribution(dict(order,pinned_order_source=source),native,None,mapping)
+        self.assertEqual((evidence['channel'],evidence['detail'],evidence['order_source']),
+                         ('PPC','google-D4-SN-Items','google-D4-SN-Items'))
+        self.assertEqual(evidence['order_source_raw'],source)
+        order['effective_attribution']=evidence
+        detail=[]
+        result=public(data,dict(SCOPE,channel='PPC'),detail_rows=detail)
+        self.assertEqual(result['breakdown']['rows'][0]['label'],'google-D4-SN-Items')
+        self.assertEqual(detail[0]['source'],'google-D4-SN-Items')
+        self.assertNotIn('PRIVATE-QUERY',json.dumps(result))
+        self.assertNotIn('PRIVATE-QUERY',detail_csv(detail))
+        for label in ('google-FC27-SN-UK-Coins','google-A2-PMAX-Kinah-US','google-FC27-VIDEO-DEM-EN',
+                      'google-POE2-US-Discovery-NB','google-ARCR-Items','google-ARCR-Blueprints'):
+            self.assertEqual(effective_attribution(dict(order,pinned_order_source=label),native,None,mapping)['channel'],'PPC')
+        for label in ('Google','google organic','https://www.google.com/search','google-unknown-campaign',
+                      'bing-D4-SN-Bing','youtube-Krasikol'):
+            self.assertEqual(effective_attribution(dict(order,pinned_order_source=label),native,None,mapping)['channel'],'pending_classification')
+        for higher in ('SEO','Direct','Campaign'):
+            value=effective_attribution(dict(order,channel=higher,pinned_order_source=source),native,None,mapping)
+            self.assertEqual((value['channel'],value['basis']),(higher,'native_channel'))
+
     def test_direct_only_explicit_and_referrer_code_stays_a_detail(self):
         from channel_effects import Attribution
         from order_facts_runtime import effective_attribution
