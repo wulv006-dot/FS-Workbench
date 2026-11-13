@@ -177,6 +177,7 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.output = Path(temp.name) / 'stage'
         self.git = {}
         for revision in (builder.SHARED_BASE_COMMIT, COMMIT):
+            release = builder.SHARED_BASE_RELEASE if revision == builder.SHARED_BASE_COMMIT else builder.SHARED_ADMIN_ES
             entries = []
             for identity in builder.SHARED_OVERLAYS:
                 path = 'canonical/' + identity + '.md'
@@ -184,12 +185,12 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                 if revision == COMMIT:
                     data += b'D5 shared method.\n\n'
                 data += b'Common context.\n\nCanonical method.\n'
-                item = row(identity, builder.SHARED_ADMIN_ES, path, data)
+                item = row(identity, release, path, data)
                 item['knowledge_updated_at'] = '2026-11-13'
                 entries.append(item)
                 self.git[revision, path] = data
             self.git[revision, 'knowledge/index.json'] = builder.encoded(dict(
-                contract='fs-knowledge-index-v1', release=builder.SHARED_ADMIN_ES, release_state='candidate',
+                contract='fs-knowledge-index-v1', release=release, release_state='candidate',
                 source_commit=None, base_commit=builder.SHARED_BASE_COMMIT, entries=entries))
         baseline = b'Actual active FC rules.\n'
         baseline_digest = builder.sha(baseline)
@@ -207,10 +208,13 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             catalog_path = prefix + '/index.json'
             entries = []
             shared = builder.SHARED_OVERLAYS if number == 0 else builder.SHARED_OVERLAYS[:-1]
-            for identity in (*shared, 'fs.learning.methods', 'fc.pricing.v3', builder.EMAIL):
-                path = ('overlay/' if identity in shared else 'entries/') + identity + '.md'
+            current_r2 = (*shared, 'fs.data.sources')
+            for identity in (*current_r2, 'fs.learning.methods', 'fc.pricing.v3', builder.EMAIL):
+                revision = builder.SHARED_BASE_RELEASE if identity in current_r2 else f'live-{number}'
+                prefix_path = 'overlay/' + revision + '/' if identity in current_r2 else 'entries/'
+                path = prefix_path + identity + '.md'
                 data = (f'## Anchor\n\nCommon context.\n\nOriginal live wording {number}.\n').encode()
-                item = row(identity, f'live-{number}', path, data)
+                item = row(identity, revision, path, data)
                 item['unrelated_metadata'] = number
                 entries.append(item)
                 self.put_snapshot(prefix + '/sources/' + path, data)
@@ -262,10 +266,13 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                              {k: v for k, v in after.items() if k not in ('catalog', 'sha256')})
             index = json.loads((staged / 'artifact' / '/'.join(after['catalog'].split('/')[2:])).read_bytes())
             old = json.loads((self.snapshot / before['catalog']).read_bytes())
+            self.assertEqual([item['id'] for item in index['entries']], [item['id'] for item in old['entries']])
             for previous, item in zip(old['entries'], index['entries']):
                 identity = item['id']
-                if identity not in builder.SHARED_OVERLAYS:
+                if identity not in {'fc.marketing.attribution', 'fc.reporting.data'}:
                     self.assertEqual(item, previous)
+                    if identity == 'fs.data.sources':
+                        self.assertEqual(item['revision'], 'fs-fc-admin-es-shared-20261113-r2')
                     continue
                 self.assertEqual(item['revision'], builder.SHARED_ADMIN_ES)
                 self.assertEqual(item['unrelated_metadata'], number)
@@ -279,7 +286,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             self.assertEqual('fc.reporting.data' in [r['id'] for r in index['entries']], number == 0)
         proof = json.loads((self.output / 'retained-baseline-provenance.json').read_bytes())
         self.assertEqual(proof['retained_sha256'], proof['existing_provenance']['after_sha256'])
-        self.assertEqual(len(proof['overlays']), 5)
+        self.assertEqual([item['id'] for item in proof['overlays']],
+                         ['fc.marketing.attribution', 'fc.reporting.data', 'fc.marketing.attribution'])
+        self.assertEqual({item['previous_revision'] for item in proof['overlays']},
+                         {'fs-fc-admin-es-shared-20261113-r2'})
 
     def test_missing_merge_context_refuses_candidate(self):
         name = self.policy['requests']['first']['catalog']
@@ -291,7 +301,19 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.put_snapshot(name, builder.encoded(index))
         self.policy['requests']['first']['sha256'] = self.info['protected'][builder.FS_RUNTIME_ROOT + name]
         self.write_preflight()
-        with self.assertRaisesRegex(ValueError, 'shared_admin_es_snapshot_merge_conflict:fs.data.sources'):
+        with self.assertRaisesRegex(ValueError, 'shared_admin_es_snapshot_merge_conflict:fc.marketing.attribution'):
+            self.prepare()
+        self.assertFalse(self.output.exists())
+
+    def test_affected_live_entry_must_be_at_r2(self):
+        route = self.policy['requests']['first']
+        name = route['catalog']
+        index = json.loads((self.snapshot / name).read_bytes())
+        index['entries'][0]['revision'] = 'fs-fc-admin-es-shared-20261113-r1'
+        self.put_snapshot(name, builder.encoded(index))
+        route['sha256'] = self.info['protected'][builder.FS_RUNTIME_ROOT + name]
+        self.write_preflight()
+        with self.assertRaisesRegex(ValueError, 'shared_admin_es_snapshot_revision_invalid:fc.marketing.attribution'):
             self.prepare()
         self.assertFalse(self.output.exists())
 

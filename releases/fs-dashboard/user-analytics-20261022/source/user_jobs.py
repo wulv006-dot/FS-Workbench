@@ -381,7 +381,7 @@ def main():
     store = load_store()
     if args.action == 'shared-es-seed' and not args.apply:
         from shared_es_facts import seed
-        print(canonical(seed(store, args.start, args.end, now=now)), flush=True)
+        print(canonical(seed(store, args.start, args.end, now=now.isoformat())), flush=True)
         return
     with (store.root / 'jobs.lock').open('a+b') as lock:
         try:
@@ -390,7 +390,7 @@ def main():
             print('{"status":"deferred","reason":"user_job_active"}'); return
         if args.action == 'shared-es-seed':
             from shared_es_facts import seed
-            print(canonical(seed(store, args.start, args.end, apply=True, now=now)), flush=True)
+            print(canonical(seed(store, args.start, args.end, apply=True, now=now.isoformat())), flush=True)
             return
         if args.action in ('backup-plan', 'backup-verify'):
             from user_backup_retention import plan, verify_existing

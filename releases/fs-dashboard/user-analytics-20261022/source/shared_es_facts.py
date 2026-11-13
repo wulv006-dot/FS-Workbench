@@ -7,12 +7,18 @@ import json
 from pathlib import Path
 import sqlite3
 
-from user_contract import canonical, digest, stamp
+from user_contract import canonical, digest, money, stamp
 
 DB = Path('/var/lib/fs-user-analytics/customers.sqlite3')
 CONTRACT = 'shared-es-order-facts-v1'
 META = 'shared_es_publication'
 PENDING = 'shared_es_pending:'
+HISTORICAL_CHANNEL_SITE = '266'
+HISTORICAL_CHANNEL_ROOT = Path('/var/lib/fs-channel-effects/days')
+DISCOUNT_OWNER_PROJECTS = {
+    '张玲玲':'KOL', '董文鑫':'广告投放', '陈宝':'广告投放', '刘晓辰':'分销', '尹岚':'分销',
+    '张皓':'TikTok', '王修权':'SEO',
+}
 FIELDS = ('id', 'order_no', 'site_id', 'gid', 'game_format', 'paytime', 'pay_status',
           'status_format', 'amount_usd_format', 'amount_rmb_format', 'discount_code',
           'recommend_uid', 'country_code', 'country', 'paytype_display', 'paytype')
@@ -43,6 +49,14 @@ SCHEMA = (
            source_at TEXT NOT NULL,
            PRIMARY KEY(publication_id,day))''',
 )
+DISCOUNT_SCHEMA = (
+    '''CREATE TABLE IF NOT EXISTS shared_es_discount_revisions (
+           revision TEXT PRIMARY KEY, captured_at TEXT NOT NULL)''',
+    '''CREATE TABLE IF NOT EXISTS shared_es_discount_codes (
+           revision TEXT NOT NULL, code TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(revision,code))''',
+    '''CREATE TABLE IF NOT EXISTS shared_es_discount_pins (
+           publication_id TEXT PRIMARY KEY, revision TEXT NOT NULL)''',
+)
 
 
 def _days(start, end):
@@ -59,6 +73,78 @@ def _exists(db):
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='shared_es_publication_days'").fetchone() is not None
 
 
+def _has_discount_catalog(db):
+    return db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='shared_es_discount_pins'").fetchone() is not None
+
+
+def _discount_catalog(rows):
+    selected = defaultdict(set)
+    for row in rows:
+        code = row.get('code')
+        owner = row.get('admins')
+        if str(row.get('site_id')) != HISTORICAL_CHANNEL_SITE:
+            raise ValueError('shared_es_discount_scope')
+        if not isinstance(code,str) or not 0 < len(code.strip()) <= 160:
+            raise ValueError('shared_es_discount_code')
+        owner_id = str(row.get('admin_id') or '')
+        nickname = (owner or {}).get('nickname') if isinstance(owner,dict) else None
+        nickname = nickname.strip() if isinstance(nickname,str) else ''
+        valid_owner = (owner_id.isdecimal() and int(owner_id) > 0 and nickname
+                       and str(owner.get('id')) == owner_id and any(ch.isalpha() for ch in nickname)
+                       and nickname.casefold() not in ('无','未知','未设置','none','unknown'))
+        project = DISCOUNT_OWNER_PROJECTS.get(nickname,'运营') if valid_owner else None
+        def game_ids(field):
+            values = {part.strip() for part in str(row.get(field) or '').split(',')} - {'','0'}
+            if any(not gid.isdecimal() for gid in values):
+                raise ValueError('shared_es_discount_game_scope')
+            return sorted(values)
+        selected[code.strip().casefold()].add(canonical(dict(project=project,games=game_ids('gid'),
+                                                             excluded_games=game_ids('exclude_gids'))))
+    return {key:sorted(variants) for key, variants in selected.items()}
+
+
+def _store_discounts(db, catalog, captured_at):
+    for statement in DISCOUNT_SCHEMA:
+        db.execute(statement)
+    revision = digest(catalog)
+    if not db.execute('SELECT 1 FROM shared_es_discount_revisions WHERE revision=?',(revision,)).fetchone():
+        db.execute('INSERT INTO shared_es_discount_revisions VALUES(?,?)',(revision,captured_at))
+        db.executemany('INSERT INTO shared_es_discount_codes VALUES(?,?,?)',
+                       ((revision,key,canonical([json.loads(item) for item in variants])) for key, variants in catalog.items()))
+    return revision
+
+
+def _discount_revision(db, publication_id):
+    if not _has_discount_catalog(db):
+        return None
+    row = db.execute('SELECT revision FROM shared_es_discount_pins WHERE publication_id=?',(publication_id,)).fetchone()
+    return row[0] if row else None
+
+
+def _scoped_discount_projects(db, rows, revision):
+    if not revision:
+        return
+    codes = sorted({r['discount_code'].strip().casefold() for r in rows
+                    if r['site_id'] in (266,'266') and isinstance(r.get('discount_code'),str) and r['discount_code'].strip()})
+    entries = {}
+    for offset in range(0,len(codes),400):
+        group = codes[offset:offset+400]
+        placeholders = ','.join('?' for _ in group)
+        entries.update((code,json.loads(body)) for code,body in db.execute(
+            'SELECT code,body FROM shared_es_discount_codes WHERE revision=? AND code IN ('+placeholders+')',
+            (revision,*group)))
+    for row in rows:
+        code = row.get('discount_code')
+        if str(row['site_id']) != HISTORICAL_CHANNEL_SITE or not isinstance(code,str):
+            continue
+        gid = str(row['gid'])
+        projects = {item['project'] for item in entries.get(code.strip().casefold(),())
+                    if (not item['games'] or gid in item['games']) and gid not in item['excluded_games']}
+        if len(projects)==1 and None not in projects:
+            row.setdefault('tracking',{})['discountOperatorProject'] = next(iter(projects))
+
+
 def _order_hash(order_no):
     return hashlib.sha256(order_no.encode()).hexdigest()
 
@@ -69,7 +155,8 @@ def coupon_tracking(rows, logs, clean, gaps=()):
         key = (str(row['site_id']), row['order_no'])
         coupons = None if key in gaps else [dict(id=str(log['id']), templateId=str(log.get('coupon_id') or 'unknown'),
                         title=clean(log.get('title')) or '未命名优惠券',
-                        batch=clean((log.get('memberCoupon') or {}).get('grant_batch_no')) or '批次未提供')
+                        batch=clean((log.get('memberCoupon') or {}).get('grant_batch_no')) or '批次未提供',
+                        usedAt=clean(log.get('use_time')), status=clean(log.get('status')))
                    for log in logs.get(key, ())]
         out[key] = dict(code=clean(row.get('discount_code')), promoterUid=clean(row.get('recommend_uid')),
                         country=clean(row.get('country_code') or row.get('country')),
@@ -129,7 +216,14 @@ def stage_day(store, day, manifest_key, dataset, native_rows, tracking, captured
     meta = dict(contract=CONTRACT, hashes=dataset['hashes'], status=dataset['status'],
                 revision_conflicts=dataset.get('revision_conflicts', []),
                 captured_at=captured_at, native_rows=len(native), es_lines=len(lines))
-    revision = digest(dict(day=day, native=native, lines=lines, hashes=meta['hashes']))
+    return _stage(store, day, manifest_key, native, lines, meta)
+
+
+def _stage(store, day, manifest_key, native, lines, meta):
+    evidence = dict(day=day, native=native, lines=lines, hashes=meta['hashes'])
+    if 'archive_site' in meta:
+        evidence['archive_site'] = meta['archive_site']
+    revision = digest(evidence)
     with store.db() as db:
         db.execute('BEGIN IMMEDIATE')
         for statement in SCHEMA:
@@ -219,9 +313,11 @@ def complete_pending(store, pending, checkpoint):
     with store.db() as db:
         covered = {}
         if _exists(db):
-            covered = dict(db.execute('''SELECT d.day,d.source_at
+            stored = db.execute('''SELECT d.day,d.source_at,s.body
                 FROM meta m JOIN shared_es_publication_days d ON d.publication_id=m.value
-                WHERE m.key=? AND d.day>=? AND d.day<?''', (META, start, stop)))
+                JOIN shared_es_slices s ON s.day=d.day AND s.revision=d.revision
+                WHERE m.key=? AND d.day>=? AND d.day<?''', (META, start, stop))
+            covered = {day:source_at for day,source_at,body in stored if 'archive_site' not in json.loads(body)}
     days = [day for day in _days(start, (date.fromisoformat(stop) - DAY).isoformat())
             if day not in covered or review and day >= review and stamp(covered[day]) < stamp(pin['published_at'])]
     # The archive reader verifies the digest of its inputs. Keep the original
@@ -257,7 +353,7 @@ def complete_pending(store, pending, checkpoint):
     return sorted(revisions)
 
 
-def bind_publication(db, value, previous, revisions, *, source_at=None):
+def bind_publication(db, value, previous, revisions, *, source_at=None, discount_revision=None):
     """Bind updated days under the same transaction as the existing publication CAS."""
     if not _exists(db):
         if revisions:
@@ -286,6 +382,9 @@ def bind_publication(db, value, previous, revisions, *, source_at=None):
         db.execute('''INSERT INTO shared_es_publication_days
                       SELECT ?,day,revision,source_at FROM shared_es_publication_days
                       WHERE publication_id=? AND day<?''', (ident, prior, shared_cutoff))
+    discount_revision = discount_revision or (_discount_revision(db,prior) if prior else None)
+    if discount_revision:
+        db.execute('INSERT INTO shared_es_discount_pins VALUES(?,?)',(ident,discount_revision))
     for day, revision in revisions.items():
         if (day >= cutoff or not db.execute(
                 'SELECT 1 FROM shared_es_slices WHERE day=? AND revision=?', (day, revision)).fetchone()):
@@ -293,6 +392,48 @@ def bind_publication(db, value, previous, revisions, *, source_at=None):
         db.execute('INSERT OR REPLACE INTO shared_es_publication_days VALUES(?,?,?,?)',
                    (ident, day, revision, source_at or value['published_at']))
     db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)', (META, ident))
+
+
+def refresh_discount_catalog(store, *, reader=None, now=None):
+    """Publish one central inventory revision without reacquiring order or coupon membership."""
+    if reader is None:
+        from user_source import shared_discount_catalog as reader
+    base = latest_publication(db=store.path)
+    if base is None:
+        raise ValueError('shared_es_discount_publication_unavailable')
+    catalog = _discount_catalog(reader())
+    captured_at = stamp(now).isoformat() if now is not None else datetime.now(stamp(base['captured_at']).tzinfo).isoformat()
+    with store.db() as db:
+        db.execute('BEGIN IMMEDIATE')
+        current = db.execute('SELECT value FROM meta WHERE key=?',(META,)).fetchone()
+        if current is None or current[0] != base['publication_id']:
+            raise ValueError('shared_es_discount_publication_changed')
+        revision = _store_discounts(db,catalog,captured_at)
+        if revision == _discount_revision(db,current[0]):
+            publication_id = current[0]
+        else:
+            publication_id = 'se_' + digest(dict(base=current[0],discount_revision=revision))[:32]
+            value = dict(publication_id=publication_id,data_version=base['data_revision'],
+                         published_at=max(stamp(captured_at),stamp(base['captured_at'])).isoformat(),cutoff=base['cutoff'])
+            bind_publication(db,value,current[0],{},discount_revision=revision)
+        db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)',('shared_es_discount_checked_day',stamp(captured_at).date().isoformat()))
+    return dict(status='available',publication_id=publication_id,discount_revision=revision,
+                code_count=len(catalog),captured_at=captured_at)
+
+
+def refresh_discounts_due(store, now, *, reader=None):
+    day = stamp(now).date().isoformat()
+    with store.db() as db:
+        last = db.execute('SELECT value FROM meta WHERE key=?',('shared_es_discount_checked_day',)).fetchone()
+    if last and last[0] >= day:
+        return dict(status='reused')
+    if latest_publication(db=store.path) is None:
+        return dict(status='deferred',reason='shared_publication_unavailable')
+    try:
+        return refresh_discount_catalog(store,reader=reader,now=now)
+    except (OSError,ValueError,RuntimeError,KeyError,TypeError,sqlite3.Error) as error:
+        # Inventory can be temporarily denied while all closed-day order facts remain available.
+        return dict(status='partial',reason=type(error).__name__)
 
 
 def seed(store, start, end, *, apply=False, now=None, archive_root=None, reader=None, archive=None):
@@ -368,6 +509,103 @@ def seed(store, start, end, *, apply=False, now=None, archive_root=None, reader=
         bind_publication(db, value, base, ready)
     return dict(result, status='partial' if missing else 'available', publication_id=value['publication_id'],
                 indexed_days=sorted(ready))
+
+
+def _historical_channel_day(path, day):
+    raw = path.read_bytes()
+    value = json.loads(raw)
+    orders = value['orders']
+    sources = value['sources']
+    admin, coupons = sources['orders'], sources['coupons']
+    if (value.get('contract') != 'channel-day-v1' or value['period'] != dict(start=day,end=day)
+            or (admin['status'], admin['site'], admin['dateBasis'], admin['currency'], admin['rows'])
+            != ('complete', 'MMOEXP', 'paytime', 'USD', len(orders))
+            or coupons['status'] != 'complete'
+            or coupons['rows'] != sum(len(row['coupons']) for row in orders)):
+        raise ValueError('shared_es_history_source')
+    stamp(value['generatedAt'])
+    observed_at = (sources.get('orderSource') or {}).get('generatedAt')
+    native_rows, tracking = [], {}
+    for row in orders:
+        order_no = row['orderNo']
+        paid = row['paidAt']
+        usd = money(row['salesUsd'])
+        if row['day'] != day or stamp(paid).date().isoformat() != day or usd is None:
+            raise ValueError('shared_es_history_order')
+        native_rows.append(dict(order_no=order_no, site_id=HISTORICAL_CHANNEL_SITE, gid=row['gid'],
+            game_format=row['game'], paytime=paid, pay_status=row['payStatus'], status_format=row['status'],
+            amount_usd_format=usd, amount_rmb_format=money(row['adminSaleCny']), discount_code=row['code'],
+            recommend_uid=row['promoterUid'], country_code=row['country'], paytype_display=row['payment'],
+            site={'full_title':'www.mmoexp.com'}))
+        tracked = {key:row[key] for key in ('code','project','promoterUid','promoter','country','payment',
+                   'coupons','conflict','sourceRaw','sourceStatus','customerType') if key in row}
+        if observed_at and tracked.get('sourceStatus') == 'available':
+            tracked['sourceCapturedAt'] = observed_at
+        tracking[(HISTORICAL_CHANNEL_SITE, order_no)] = tracked
+    native = _native(native_rows, day, tracking)
+    sha = hashlib.sha256(raw).hexdigest()
+    return sha, native, value['generatedAt'], coupons['rows']
+
+
+def import_channel_history(store, expected_publication_id, *, root=HISTORICAL_CHANNEL_ROOT, apply=False,
+                           expected_source=None, now=None):
+    """Import only missing closed days from the verified existing MMOEXP daily archive."""
+    root = Path(root)
+    if any(p.is_symlink() for p in (root, *root.parents)):
+        raise ValueError('shared_es_history_archive_link')
+    if not root.is_dir():
+        raise ValueError('shared_es_history_archive_missing')
+    active = latest_publication(db=store.path)
+    if not active or active['publication_id'] != expected_publication_id:
+        raise ValueError('shared_es_history_publication_changed')
+    with closing(_read_db(store.path)) as db:
+        covered = dict(db.execute('SELECT day,revision FROM shared_es_publication_days WHERE publication_id=?',
+                                  (expected_publication_id,)))
+    selected, counts, already = {}, dict(orders=0, coupons=0), []
+    for path in sorted(root.glob('????-??-??.json')):
+        day = date.fromisoformat(path.stem).isoformat()
+        if day >= active['cutoff']:
+            continue
+        if day in covered:
+            already.append(day)
+            continue
+        if path.is_symlink():
+            raise ValueError('shared_es_history_archive_link')
+        sha, native, _, coupon_count = _historical_channel_day(path, day)
+        counts['orders'] += len(native)
+        counts['coupons'] += coupon_count
+        selected[day] = sha
+    source_revision = digest(selected)
+    if apply and source_revision != expected_source:
+        raise ValueError('shared_es_history_source_changed')
+    result = dict(status='preview', base_publication_id=expected_publication_id, selected_days=sorted(selected),
+                  already_indexed=already, source_revision=source_revision, **counts)
+    if not apply or not selected:
+        return result
+    captured_at = stamp(now).isoformat() if now is not None else datetime.now(stamp(active['captured_at']).tzinfo).isoformat()
+    if stamp(captured_at) < stamp(active['captured_at']):
+        raise ValueError('shared_es_history_publication_time')
+    revisions = {}
+    for day, expected in selected.items():
+        path = root / (day + '.json')
+        if path.is_symlink():
+            raise ValueError('shared_es_history_archive_link')
+        sha, native, source_at, _ = _historical_channel_day(path, day)
+        if sha != expected:
+            raise ValueError('shared_es_history_source_changed')
+        meta = dict(contract=CONTRACT, hashes=[sha], status='partial', revision_conflicts=[],
+                    captured_at=source_at, native_rows=len(native), es_lines=0,
+                    archive_site=HISTORICAL_CHANNEL_SITE)
+        revisions[day] = _stage(store, day, sha, native, [], meta)
+    value = dict(data_version=active['data_revision'], published_at=captured_at, cutoff=active['cutoff'])
+    value['publication_id'] = 'se_' + digest(dict(base=expected_publication_id, revisions=revisions))[:32]
+    with store.db() as db:
+        db.execute('BEGIN IMMEDIATE')
+        current = db.execute('SELECT value FROM meta WHERE key=?', (META,)).fetchone()
+        if current is None or current[0] != expected_publication_id:
+            raise ValueError('shared_es_history_publication_changed')
+        bind_publication(db, value, expected_publication_id, revisions)
+    return dict(result, status='available', publication_id=value['publication_id'])
 
 
 def _unavailable(days, publication_id=None):
@@ -468,32 +706,66 @@ def read(scope, *, db=DB, publication_id=None):
                JOIN shared_es_slices s ON s.day=p.day AND s.revision=p.revision
                WHERE p.publication_id=? AND p.day BETWEEN ? AND ? ORDER BY p.day''',
             (publication_id, start, end)).fetchall()
-        day_revisions = {day: revision for day, revision, _ in slices if day < cutoff}
+        slices = [(day, revision, json.loads(body)) for day, revision, body in slices if day < cutoff]
+        visible = [(day, revision, info) for day, revision, info in slices if info.get('archive_site') in (None, site)]
+        day_revisions = {day: revision for day, revision, _ in visible}
         missing = [day for day in days if day not in day_revisions]
         if not day_revisions:
             return _unavailable(missing, publication_id)
         rows, lines, identities = _scoped_rows(connection, day_revisions, site, gid, publication_id)
-    metadata = [json.loads(body) for day, _, body in slices if day in day_revisions]
+        discount_revision = _discount_revision(connection,publication_id)
+        _scoped_discount_projects(connection,rows,discount_revision)
+    metadata = [info for _, _, info in visible]
     for row in lines:
         row['marketing_attribution']['available_at'] = captured_at
     hashes = sorted({value for item in metadata for value in item['hashes']})
     line_orders = {row.get('订单号') for row in lines}
     conflicts = sorted({value for item in metadata for value in item['revision_conflicts'] if value in line_orders})
     complete = not missing
+    historical = [day for day, _, info in visible if 'archive_site' in info]
+    full_attribution = complete and not historical and not conflicts
     revision = digest(day_revisions)
     coverage = dict(complete=complete, missing_days=missing, day_revisions=day_revisions, source_revision=revision,
                     publication_id=publication_id, data_revision=version, captured_at=captured_at, cutoff=cutoff,
                     admin_complete=complete, admin_date_basis='paytime', admin_snapshot=True,
                     admin_source_rows=sum(item['native_rows'] for item in metadata),
-                    order_facts_status='available' if complete and not conflicts else 'partial',
+                    order_facts_status='available' if full_attribution else 'partial',
+                    historical_channel_days=historical,
+                    discount_mapping_revision=discount_revision,
                     admin_payment_membership='pay_status_1_or_2', attribution_availability='published_pins')
-    dataset = dict(_private_dataset=True, status='available' if complete and not conflicts else 'partial',
+    dataset = dict(_private_dataset=True, status='available' if full_attribution else 'partial',
                    origin='shared_es_facts', rows=lines, hashes=hashes, source_revision=publication_id,
                    publication_id=publication_id, data_revision=version, available_at=captured_at,
                    revision_selection='published_pins', revision_conflicts=conflicts,
                    effective_scope=dict(start=start, end=end))
-    identity_catalog = dict(complete=complete, revision=revision, rows=identities,
+    identity_catalog = dict(complete=complete and not historical, revision=revision, rows=identities,
+                            verified_days=[day for day, _, info in visible if 'archive_site' not in info],
                             scope=dict(start=start, end=end, site='all', game='all', pay_status='1'))
     return dict(status=dataset['status'], rows=rows, dataset=dataset, identity_catalog=identity_catalog,
                 coverage=coverage)
+
+
+if __name__ == '__main__':
+    import argparse
+    import fcntl
+    from user_runtime import load_store
+
+    parser = argparse.ArgumentParser(description='Import existing closed MMOEXP channel days once.')
+    parser.add_argument('--publication-id')
+    parser.add_argument('--apply-source', help='Exact source_revision reported by preview.')
+    parser.add_argument('--refresh-discounts', action='store_true')
+    args = parser.parse_args()
+    if args.refresh_discounts == bool(args.publication_id) or args.refresh_discounts and args.apply_source:
+        parser.error('select either --publication-id or --refresh-discounts')
+    store = load_store()
+    if args.apply_source or args.refresh_discounts:
+        with (store.root / 'jobs.lock').open('a+b') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if args.refresh_discounts:
+                result = refresh_discount_catalog(store)
+            else:
+                result = import_channel_history(store, args.publication_id, apply=True, expected_source=args.apply_source)
+    else:
+        result = import_channel_history(store, args.publication_id)
+    print(canonical(result), flush=True)
 

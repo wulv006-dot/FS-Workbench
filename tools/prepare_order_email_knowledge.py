@@ -26,9 +26,10 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULE = 'releases/fs-dashboard/knowledge-layering-20261023'
 EMAIL = 'fs.orders.email_export'
 OVERLAYS = (EMAIL, 'fs.data.sources')
-SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r2'
-SHARED_BASE_COMMIT = '33689877152c20e05f8400fc71e35494892ed406'
-SHARED_OVERLAYS = ('fs.data.sources', 'fc.marketing.attribution', 'fc.reporting.data')
+SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r3'
+SHARED_BASE_RELEASE = 'fs-fc-admin-es-shared-20261113-r2'
+SHARED_BASE_COMMIT = '3110c1530ebc56a8cc51bcf56e3c2cb7d219ec49'
+SHARED_OVERLAYS = ('fc.marketing.attribution', 'fc.reporting.data')
 FS_RUNTIME_ROOT = '/var/lib/fs-hermes-fc/fs/'
 BASELINE_TARGET = '/opt/fs-hermes-fc/business-baseline.md'
 BASELINE_SOURCE = 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
@@ -87,11 +88,15 @@ def shared_changes(root, commit, catalog, canonical, current):
             or canonical.get('source_commit') is not None or canonical.get('base_commit') != SHARED_BASE_COMMIT):
         raise ValueError('exact_shared_admin_es_candidate_required')
     prior = json.loads(git_bytes(root, SHARED_BASE_COMMIT, 'knowledge/index.json'))
+    if prior['release'] != SHARED_BASE_RELEASE:
+        raise ValueError('shared_admin_es_base_release_invalid')
     changes = {}
     for identity, row in current.items():
         if row['revision'] != SHARED_ADMIN_ES:
             raise ValueError('shared_admin_es_revision_invalid:' + identity)
         previous = next(r for r in prior['entries'] if r['id'] == identity and r['layer'] == 'current')
+        if previous['revision'] != SHARED_BASE_RELEASE:
+            raise ValueError('shared_admin_es_base_revision_invalid:' + identity)
         selected = []
         for revision, template in ((SHARED_BASE_COMMIT, previous), (commit, row)):
             source = template['source']
@@ -262,6 +267,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False):
             if shared_admin_es:
                 if not existing:
                     continue
+                if existing[0]['revision'] != SHARED_BASE_RELEASE:
+                    raise ValueError('shared_admin_es_snapshot_revision_invalid:' + identity)
                 row = copy.deepcopy(existing[0])
                 original_source = existing[0]['source']
                 body = payloads['artifact/' + sources + original_source['path']]

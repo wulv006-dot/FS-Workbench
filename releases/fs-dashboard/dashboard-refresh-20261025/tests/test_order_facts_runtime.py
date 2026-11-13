@@ -134,7 +134,7 @@ class Runtime(unittest.TestCase):
         self.assertEqual((evidence['channel'],evidence['basis']),('PPC','order_source'))
         cached['sourceRaw']='google'
         evidence=effective_attribution(base,{'discount_code':'KNOWN'},cached,mapping)
-        self.assertEqual((evidence['channel'],evidence['basis']),('Referral','promotion'))
+        self.assertEqual((evidence['channel'],evidence['basis'],evidence['detail']),('Direct','mapped_discount_code','KOL'))
         evidence=effective_attribution(base,{'discount_code':''},dict(cached,project='运营',code=''),mapping)
         self.assertEqual((evidence['channel'],evidence['promotion_project']),('pending_classification','运营'))
 
@@ -153,6 +153,32 @@ class Runtime(unittest.TestCase):
         self.assertEqual((result['channel'],result['basis'],result['detail']),('Direct','order_source','KOL'))
         for patch in (dict(pinned_order_source='unmapped-source'),dict(marketing_attribution={'channel_raw':'Other'})):
             self.assertEqual(effective_attribution(dict(order,**patch),{},None,mapping)['channel'],'pending_classification')
+
+    def test_admin_discount_operator_fills_direct_only_and_keeps_legacy_map_first(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        from order_facts_api import public
+        from order_facts import build_order_facts
+        mapping=Attribution({'entries':[dict(code='old',channel='KOL')]},[],{})
+        native=row(discount_code='new-code', recommend_uid='0')
+        result=build_order_facts([native],[],[],sites={'266':'www.mmoexp.com'},scope=SCOPE,
+                                 source_coverage=dict(admin_complete=True))
+        fact=result['orders'][0]
+        for project in ('KOL','广告投放','分销','TikTok','SEO','运营'):
+            evidence=effective_attribution(fact,native,dict(discountOperatorProject=project,coupons=[]),mapping)
+            self.assertEqual((evidence['channel'],evidence['basis'],evidence['detail']),
+                             ('Direct','mapped_discount_code',project))
+        fact['effective_attribution']=evidence
+        value=public(result,dict(SCOPE,channel='Direct'))
+        self.assertEqual(value['breakdown']['denominator_orders'],1)
+        self.assertEqual(value['breakdown']['rows'][0]['label'],'运营')
+        self.assertEqual(effective_attribution(fact,native,{},mapping)['channel'],'pending_classification')
+        self.assertEqual(effective_attribution(fact,dict(native,discount_code='old'),
+                         dict(discountOperatorProject='运营'),mapping)['detail'],'KOL')
+        self.assertEqual(effective_attribution(dict(fact,pinned_order_source='google-FC27-PMAX-Coins-US'),native,
+                         dict(discountOperatorProject='SEO'),mapping)['channel'],'PPC')
+        self.assertEqual(effective_attribution(dict(fact,channel='Referral'),native,
+                         dict(discountOperatorProject='SEO'),mapping)['channel'],'Referral')
 
     def test_mapped_code_owner_counts_as_promoter_with_native_zero_uid(self):
         from channel_effects import Attribution
@@ -245,14 +271,20 @@ class Runtime(unittest.TestCase):
         unavailable=dict(status='unavailable',rows=[],dataset=None,identity_catalog=None,
             coverage=dict(complete=False,admin_complete=False,admin_date_basis='paytime',admin_snapshot=True,
                 source_revision='revision-4',publication_id=None,day_revisions={},missing_days=[SCOPE['start']]))
-        drift=dict(unavailable,coverage=dict(unavailable['coverage'],source_revision='revision-5'))
+        first=dict(unavailable,coverage=dict(unavailable['coverage'],publication_id='se_pinned'))
+        scoped=dict(first,coverage=dict(first['coverage'],source_revision='other-scope-revision'))
+        drift=dict(scoped,coverage=dict(scoped['coverage'],publication_id='se_changed'))
         with tempfile.TemporaryDirectory() as folder:
             kwargs=dict(db=Path(folder)/'shared.db',costs=Path(folder)/'absent.json')
             [value]=collect_shared_many([SCOPE],reader=Mock(return_value=unavailable),**kwargs)
             self.assertEqual(value['status'],'unavailable')
             self.assertEqual(value['source_coverage']['missing_days'],[SCOPE['start']])
+            reader=Mock(side_effect=[first,scoped])
+            a,b=collect_shared_many([SCOPE,dict(SCOPE,site_id='all')],reader=reader,**kwargs)
+            self.assertNotEqual(a['source_coverage']['source_revision'],b['source_coverage']['source_revision'])
+            self.assertEqual(reader.call_args.kwargs['publication_id'],'se_pinned')
             with self.assertRaisesRegex(ValueError,'order_facts_shared_revision_changed'):
-                collect_shared_many([SCOPE,dict(SCOPE,gid='456')],reader=Mock(side_effect=[unavailable,drift]),**kwargs)
+                collect_shared_many([SCOPE,dict(SCOPE,gid='456')],reader=Mock(side_effect=[first,drift]),**kwargs)
     def test_existing_http_route_dispatches_facts_without_changing_old_modes(self):
         tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'))
         handler=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Handler')

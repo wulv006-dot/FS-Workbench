@@ -39,7 +39,7 @@ def _identities(catalog, start, end):
     if catalog is None:
         return index, 'unavailable'
     span = catalog.get('scope') or {}
-    if (catalog.get('complete') is not True or not catalog.get('revision')
+    if (not catalog.get('revision')
             or span.get('site') != 'all' or span.get('game') != 'all'
             or span.get('pay_status') != '1'
             or not span.get('start') or not span.get('end')):
@@ -47,12 +47,15 @@ def _identities(catalog, start, end):
     lo, hi = _period(span)
     if not lo <= start <= end <= hi:
         return index, 'coverage_unverified'
+    verified_days = set(catalog.get('verified_days', ()))
+    if catalog.get('complete') is not True and not verified_days:
+        return index, 'coverage_unverified'
     for row in catalog['rows']:
         site, sn = str(row.get('site_id') or '').strip(), str(row.get('order_no') or '').strip()
         if not site or not sn:
             return defaultdict(set), 'identity_missing'
         index[hashlib.sha256(sn.encode()).hexdigest()].add((site, sn))
-    return index, 'complete'
+    return index, 'complete' if catalog.get('complete') is True else 'partial'
 
 
 def project_order_facts(admin_orders, dataset, deliveries, *, scope,
@@ -81,6 +84,7 @@ def project_order_facts(admin_orders, dataset, deliveries, *, scope,
         if status:
             statuses[key].add(status)
     index, identity_status = _identities(identity_catalog, start, end)
+    verified_days = set((identity_catalog or {}).get('verified_days', ()))
     coverage = deepcopy(source_coverage)
     attrs, excluded = [], 0
     bridge_counts = defaultdict(int)
@@ -112,7 +116,7 @@ def project_order_facts(admin_orders, dataset, deliveries, *, scope,
             item.pop('order_no', None)
             # D0's hash algorithm is retained; never reverse it or replace it in storage.
             matches = index.get(row.get('订单号'), set())
-            if identity_status != 'complete':
+            if identity_status != 'complete' and not (identity_status == 'partial' and paid.date().isoformat() in verified_days):
                 reason = 'identity_coverage_unverified'
             elif len(matches) > 1:
                 reason = 'cross_site_ambiguous'

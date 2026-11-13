@@ -833,6 +833,34 @@ class Users(unittest.TestCase):
             self.assertEqual(source.call_count, int(recheck))
             self.assertEqual(self.store.coverage(), original)
 
+    def test_shared_es_seed_cli_passes_real_date_contract_to_preview_and_apply(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from user_jobs import main
+        from user_weekly import CONTRACT, write_publication
+        from user_contract import digest
+
+        class Clock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return NOW
+
+        cutoff = stamp('2026-10-22').isoformat()
+        candidate = dict(contract=CONTRACT, cadence='daily', cutoff=cutoff, published_at=NOW.isoformat(),
+                         captured_at=NOW.isoformat(), data_version='0', config=self.config, jobs=[],
+                         flag_manifests=[], refresh_health={}, coverage_context={}, source_status_rule_versions=[])
+        candidate['publication_id'] = 'uw_' + digest(candidate)[:32]
+        write_publication(self.store, candidate, None)
+        args = ['user_jobs', 'shared-es-seed', '--start', '2026-10-21', '--end', '2026-10-21']
+        for extra in ([], ['--apply']):
+            with patch.object(sys, 'argv', args + extra), patch('user_jobs.load_store', return_value=self.store), \
+                    patch('user_jobs.datetime', Clock), patch('user_customer_types.manifest_inventory', return_value=[]), \
+                    redirect_stdout(StringIO()) as output:
+                main()
+            result = json.loads(output.getvalue())
+            self.assertEqual(result['status'], 'preview')
+            self.assertEqual(result['missing_es_days'], ['2026-10-21'])
+
     def test_partial_old_day_heals_through_full_enumeration_without_promoting_old_proof(self):
         from user_jobs import tick_windows
         first = order(1, '2026-10-01T06:00:00+08:00')
