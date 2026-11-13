@@ -5,7 +5,8 @@
 #source-attribution-chart{padding:0 18px}
 .attribution-bars{display:block;overflow:visible;font-family:var(--fs-font);font-size:12px;font-variant-numeric:tabular-nums}
 .distribution-axis{stroke:var(--fs-line)}.distribution-bar{fill:var(--fs-brand)}
-.distribution-label,.distribution-value{fill:var(--fs-text)}.distribution-tick{fill:var(--fs-muted);font-size:11px}
+.distribution-label{color:var(--fs-text);line-height:17px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.distribution-value{fill:var(--fs-text)}.distribution-tick{fill:var(--fs-muted);font-size:11px}
 .distribution-value{font-weight:600}
 .attribution-associations{padding:12px 18px}
 @media(max-width:520px){.distribution-label{font-size:10px}.distribution-tick{font-size:9px}}
