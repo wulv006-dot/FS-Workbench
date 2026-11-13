@@ -222,12 +222,10 @@ def manual_execution_progress(db, operations):
         source = job.get('snapshot') or {}
         if status == 'running' and job.get('status') == 'running':
             progress['phase'] = 'pricing' if source.get('status') == 'ready_for_quote' else 'collecting'
-    with closing(db.connect()) as conn:
-        observation = conn.execute(
-            "SELECT json_extract(body, '$.evidence.checked_at') FROM pricing_snapshots WHERE id=?",
-            (run_id,)).fetchone()
-    if observation and observation[0]:
-        progress['source_checked_at'] = observation[0]
+    run_snapshot = db.get('pricing_snapshots', run_id) or {}
+    checked_at = (run_snapshot.get('evidence') or {}).get('checked_at')
+    if checked_at:
+        progress['source_checked_at'] = checked_at
     if operation:
         stage = operation['status']
         if stage == 'AUTHORIZED':
