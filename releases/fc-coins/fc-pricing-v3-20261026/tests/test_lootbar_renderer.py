@@ -40,7 +40,7 @@ class RendererContract(unittest.TestCase):
         result=subprocess.run([node,str(Path(__file__).with_name('lootbar_coupon_parser.cjs'))],
             cwd=ROOT,capture_output=True,text=True,timeout=20)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
-        self.assertIn('5 shared real-parser cases passed',result.stdout)
+        self.assertIn('6 shared real-parser cases passed',result.stdout)
 
     def test_browser_uses_only_own_context_and_closes_it_without_rpg_config(self):
         from test_lootbar_fallback import snapshot
