@@ -16,6 +16,7 @@ def region_step(operation_id,step_id,*,write=False):
 
 
 def dispatch_base(operation):
+    from .dispatch import CURVE_WRITE_PROTOCOL, proven_not_sent, write_protocol
     from .runtime import ROOT,STORE,write_json
     import fc27_cloud_worker as worker
     context=operation['dispatch_context']
@@ -23,6 +24,9 @@ def dispatch_base(operation):
                  actor=context['actor'],platforms=context['selected'],margin_confirmed_platforms=[],
                  margin_exception_reason='',policy_revision=context['policy_revision'],automatic=context['automatic'],
                  v3_operation_id=operation['operation_id'],engine_generation=operation['generation'])
+    protocol=write_protocol(operation['bundle'])
+    if protocol:
+        request['write_protocol']=protocol
     request_path=ROOT/'requests'/(operation['operation_id']+'.json')
     if request_path.exists():
         if json.loads(request_path.read_text())!=request:raise ValueError('pricing_operation_payload_conflict')
@@ -33,7 +37,6 @@ def dispatch_base(operation):
                         generation=operation['generation'],run_id=operation['bundle']['snapshot_id'],selected=context['selected'])
     audit_path=ROOT/'executions'/(operation['operation_id']+'.json')
     if audit_path.exists():
-        from .dispatch import proven_not_sent
         previous=json.loads(audit_path.read_text())
         if not proven_not_sent(previous):return dict(status='UNKNOWN',reason='original_base_dispatch_already_recorded')
         authorization['not_sent_audit_sha256']=fingerprint(previous)
@@ -43,6 +46,17 @@ def dispatch_base(operation):
     except Exception as exc:
         return dict(status='UNKNOWN',error=type(exc).__name__)
     audit=json.loads(audit_path.read_text()) if audit_path.exists() else {}
+    if protocol == CURVE_WRITE_PROTOCOL:
+        if (audit.get('execution_id') == operation['operation_id'] and audit.get('write_protocol') == protocol
+                and (audit.get('pricing_decision_receipt') or {}).get('sha256') == operation['bundle']['sha256']):
+            status = {'CONFIRMED':'CONFIRMED', 'PARTIAL':'PARTIAL'}.get(audit.get('status'), 'UNKNOWN')
+            if proven_not_sent(audit):
+                status = 'NOT_SENT'
+            return dict(result, status=status, write_protocol=protocol, execution_id=operation['operation_id'],
+                        curve_results=audit['curve_results'], exit_code=code)
+        status = ('NOT_SENT' if not audit and result.get('status') in ('NOT_SENT', 'busy')
+                  else 'UNKNOWN')
+        return dict(result, status=status, write_protocol=protocol, exit_code=code)
     fully_confirmed=(not code and result.get('status')=='CONFIRMED' and audit.get('sync_confirmed') is True and audit.get('all_baseline',{}).get('status')=='confirmed')
     status='NOT_SENT' if result.get('status') in ('NOT_SENT','busy') else 'CONFIRMED' if fully_confirmed else 'UNKNOWN'
     return dict(result,status=status,exit_code=code)

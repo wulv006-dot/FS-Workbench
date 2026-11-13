@@ -1,5 +1,6 @@
 """Durable FC ownership, allocation, outcome accounting and original-operation recovery."""
 from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime, timezone, timedelta
 import json
 from pathlib import Path
@@ -24,6 +25,44 @@ PENDING = {'PREPARED', 'AUTHORIZED', 'DISPATCHED', 'UNKNOWN', 'PARTIALLY_APPLIED
 
 def clock():
     return datetime.now(timezone.utc)
+
+
+def confirmed_curve_window(op):
+    """Freeze the original writer's confirmed primary rows, never its proposal."""
+    from .price_curve import curve_key
+    from .business_source import _window_curve
+    bundle, receipt = op['bundle'], op.get('readback') or {}
+    if (receipt.get('write_protocol') != 'fc27_curve_v6' or receipt.get('status') != 'CONFIRMED'
+            or receipt.get('execution_id') != op['operation_id']):
+        raise ValueError('curve_window_original_receipt_unconfirmed')
+    action = deepcopy(bundle['action'])
+    decisions, confirmations = {}, {}
+    platforms = bundle.get('affected_platforms')
+    if not platforms:
+        raise ValueError('curve_window_scope_missing')
+    for platform in platforms:
+        row = (receipt.get('curve_results') or {}).get(platform) or {}
+        target_key = curve_key(bundle['action']['curves'][platform])
+        if (row.get('operation_id') != op['operation_id'] or row.get('platform') != platform
+                or row.get('target_curve_key') != target_key
+                or (row.get('catalog') or {}).get('status') != 'confirmed'
+                or (row.get('propagation') or {}).get('status') != 'confirmed'
+                or (row.get('projection') or {}).get('status') not in ('confirmed', 'not_required')):
+            raise ValueError('curve_window_full_readback_unconfirmed')
+        action['curves'][platform] = row.get('actual_site266_curve')
+        actual = _window_curve(action, platform)
+        actual_key = curve_key(actual)
+        mapping = row['propagation'].get('curve_mapping') or {}
+        if (row.get('actual_site266_curve_key') != actual_key
+                or mapping.get('actual_site266_curve_key') != actual_key
+                or mapping.get('target_curve_key') != target_key
+                or mapping.get('basis') != 'full_prices_and_tier_specs_readback'):
+            raise ValueError('curve_window_primary_mapping_unconfirmed')
+        action['curves'][platform] = actual
+        decisions[platform] = target_key
+        confirmations[platform] = dict(operation_id=op['operation_id'], **mapping)
+    return action, dict(write_protocol='fc27_curve_v6', price_scope_contract=PRICE_SCOPE_CONTRACT,
+                        decision_curve_keys=decisions, curve_confirmations=confirmations)
 
 
 def fully_owned_plans(db):
@@ -674,6 +713,11 @@ class Ledger:
 
     def record_price_window(self,op,db,*,no_change=False):
         operation_id=op['operation_id']
+        actual_action, curve_metadata = op['bundle']['action'], {}
+        if op['bundle'].get('write_protocol') == 'fc27_curve_v6':
+            actual_action, curve_metadata = confirmed_curve_window(op)
+        elif 'curves' in actual_action:
+            raise ValueError('curve_window_protocol_missing')
         opened=clock().isoformat()
         original_resources=op['bundle'].get('mutable_resources',op['resources'])
         normalize=native_resources if any(r in ('base:PS','base:XBOX','base:PC') for r in original_resources) else lambda resources:list(resources)
@@ -690,7 +734,14 @@ class Ledger:
                         platforms = ('PS','XBOX') if resource == 'base:console' else ('PC',) if resource == 'base:pc' else (resource.rsplit(':',1)[-1],)
                         old, new = window.get('catalog',{}), op['bundle'].get('catalog',{})
                         return all(old.get(platform) == new.get(platform) for platform in platforms)
-                    same={r for r in affected if value(window['action'],r)==value(op['bundle']['action'],r) and catalog_matches(r)}
+                    def same_curve(resource):
+                        from .price_curve import curve_key
+                        platform = resource.rsplit(':',1)[-1]
+                        old = (window['action'].get('curves') or {}).get(platform)
+                        new = (actual_action.get('curves') or {}).get(platform)
+                        return resource.startswith('base:') and old is not None and new is not None and curve_key(old) == curve_key(new)
+                    same={r for r in affected if (same_curve(r) if 'curves' in window['action'] or 'curves' in actual_action else
+                          value(window['action'],r)==value(actual_action,r) and catalog_matches(r))}
                     if same:
                         window.setdefault('continuations',[]).append(dict(operation_id=operation_id,assignment_id=op['bundle']['assignment_id'],resources=sorted(same),at=opened))
                         if window.get('assignment_id')!=op['bundle']['assignment_id']:
@@ -708,11 +759,11 @@ class Ledger:
             return
         self.put('actual_price_windows', operation_id, dict(operation_id=operation_id,plan_id=op.get('plan_id'),generation=op.get('generation'),
                  resources=[r for r in normalize(original_resources) if r in remaining],mutable_resources=[r for r in normalize(original_resources) if r in remaining],
-                 assignment_id=op['bundle']['assignment_id'],action=op['bundle']['action'],
+                 assignment_id=op['bundle']['assignment_id'],action=actual_action,
                  catalog=op['bundle'].get('catalog',{}),budget_reference=op['bundle'].get('budget_reference',{}),
                  platforms=op['bundle'].get('affected_platforms',[]),assignment_probability=op['bundle'].get('assignment_probability'),
                  randomization_verified=not no_change and op['bundle'].get('randomization_verified',False),origin='confirmed_public_price_window',mode='production',
-                 opened_at=opened,no_change=no_change), db)
+                 opened_at=opened,no_change=no_change,**curve_metadata), db)
 
 
     def finish_known_partial(self,operation_id,receipt,actual_action,reason,*,exit_pending=True):

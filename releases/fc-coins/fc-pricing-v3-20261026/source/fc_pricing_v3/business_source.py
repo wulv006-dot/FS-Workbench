@@ -948,6 +948,16 @@ def _window_curve(action, platform):
     return checked
 
 
+def _window_decision_key(window, platform, actual_key):
+    mapping = (window.get('curve_confirmations') or {}).get(platform) or {}
+    target = (window.get('decision_curve_keys') or {}).get(platform)
+    if (target and mapping.get('operation_id') and mapping.get('target_curve_key') == target
+            and mapping.get('actual_site266_curve_key') == actual_key
+            and mapping.get('basis') == 'full_prices_and_tier_specs_readback'):
+        return target
+    return None
+
+
 def _window_regular(window, action, order, platform, quantity):
     if 'curves' in action:
         from .price_curve import quote_native
@@ -1102,6 +1112,8 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                 purchase_k=quantity['purchase_k'], promised_bonus_k=quantity['bonus_k'],
                 promised_delivered_k=quantity['delivered_k'],
                 price_basis='frozen_saved_native_tier_and_observed_order_regular')
+            actual_outcomes[-1]['decision_curve_key'] = _window_decision_key(
+                window, platform, actual_outcomes[-1]['curve_key'])
         if coupon_logs.get(sn):
             failures['budget_reference_historical_coupon_terms_pending'] += 1
             continue
@@ -1193,6 +1205,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                     continue
                 observation.update(curve_key=curve_key(frozen),
                     price_basis='complete_frozen_curve; scalar_100k_is_projection_only')
+                observation['decision_curve_key'] = _window_decision_key(window, base_group, observation['curve_key'])
                 curve_training.append(observation)
             else:
                 training.append(observation)
