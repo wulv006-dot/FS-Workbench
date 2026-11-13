@@ -7,6 +7,9 @@ from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 import json
 import re
+import subprocess
+import sys
+from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, HTTPCookieProcessor, Request, build_opener
 
@@ -30,6 +33,8 @@ CART_SHOW = '/Cart/cartShow.html'
 CART_ADD = '/Cart/add.html'
 CART_CLEAR = '/Cart/clear'
 REQUEST_TIMEOUT = 10
+TLS_PYTHON = '/opt/python39/bin/python3'
+TLS_MODULE = 'fc_pricing_v3.native_checkout_evidence'
 OBSERVATION_ERRORS = (AttributeError, ArithmeticError, KeyError, OSError, TypeError, ValueError)
 
 
@@ -263,6 +268,27 @@ def _collect_live(run_id, primary_curves, requested_quantities):
         return {platform: value for platform, task in work.items() if (value := task.result())}
 
 
+def _collect_with_tls_runtime(run_id, primary_curves, requested_quantities):
+    """Use the installed HTTPS interpreter when the quote worker has no ssl module."""
+    try:
+        import ssl
+    except ImportError:
+        request = dict(run_id=run_id, primary_curves=primary_curves, requested_quantities=requested_quantities)
+        try:
+            child = subprocess.run([TLS_PYTHON, '-B', '-m', TLS_MODULE], input=json.dumps(request),
+                                   cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=120)
+            if child.returncode:
+                raise ValueError('native_guest_cart_tls_child_failed')
+            result = json.loads(child.stdout)
+            if not isinstance(result, dict) or set(result) - set(primary_curves):
+                raise ValueError('native_guest_cart_tls_child_reply_invalid')
+            return result
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            return {platform: _partial(run_id, platform, curve, 'native_guest_cart_tls_runtime_unavailable')
+                    for platform, curve in primary_curves.items()}
+    return _collect_live(run_id, primary_curves, requested_quantities)
+
+
 def build_anonymous_observation(run_id, platform, current_curve, *, captured_at, goods_raw,
                                 detach_raw, cart_show_raw, cart_html_raw):
     """One private guest preview, with exact server add/readback and rendered subtotal."""
@@ -343,7 +369,7 @@ def collect_anonymous_observations(evidence, primary_curves, requested_quantitie
     if attachment is None:
         if not live:
             return {}
-        platforms = _collect_live(run_id, primary_curves, requested_quantities)
+        platforms = _collect_with_tls_runtime(run_id, primary_curves, requested_quantities)
         attachment = dict(run_id=run_id, platforms=platforms)
         as_of = datetime.now(timezone.utc)
     if not isinstance(attachment, dict) or attachment.get('run_id') != run_id:
@@ -422,3 +448,8 @@ def project_anonymous_fixed_tiers(current_curve, target_curve, observation):
                           net_receipt_usd=amount, quote_basis='derived_candidate_fixed_tier', quote_ref=ref,
                           native_tier_or_rule=quote['native_tier_or_rule'], rounding_contract=rounding))
     return dict(observation, curve_key=key, lines=lines) if lines or observation.get('status') == 'partial' else {}
+
+
+if __name__ == '__main__':
+    payload = json.load(sys.stdin)
+    print(json.dumps(_collect_live(payload['run_id'], payload['primary_curves'], payload['requested_quantities'])))
