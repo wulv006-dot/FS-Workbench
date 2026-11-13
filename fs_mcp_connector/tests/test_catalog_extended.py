@@ -5,7 +5,7 @@ import unittest
 from urllib.parse import parse_qs, urlsplit
 
 from fs_mcp_connector.backend import Backend, BackendError
-from fs_mcp_connector.catalog import Catalog, ValidationError, validate
+from fs_mcp_connector.catalog import Catalog, CatalogPermissionError, ValidationError, validate
 from fs_mcp_connector.portal import Principal
 
 
@@ -175,21 +175,36 @@ class ExtendedCatalogTests(unittest.TestCase):
             channels=[{'channel':'unknown','orders':3}], coverage={'unlinked_admin_rows':1},
             revisions={'attribution':{'publication_id':'uw_fixed','data_revision':'2460'},
                        'cost':{'source_revision':'cost-r2','period':{'start':'2026-11-10'},'order_cost_complete':False}},
-            requested_scope={'site_id':'266'}, effective_scope={'site_id':'266'}, readonly=True)
+            requested_scope={'site_id':'266'}, effective_scope={'site_id':'266'}, readonly=True,
+            snapshot_id='snap', dimensions={'country':[], 'device':[]}, order_profit_source='Order原生利润',
+            trend=[{'day':'2026-11-10','order_profit_rate':None}], breakdown={'denominator_orders':3})
         def transport(*args):
             self.calls.append(args)
-            return 200,json.dumps(payload).encode()
+            return 200,json.dumps(dict(payload,aggregate_csv='unneeded', detail_csv='private',
+                 orders=[{'order_no':'private'}])).encode()
         self.backend.transport=transport
-        args=dict(start='2026-11-10',end='2026-11-11',site_id='266',gid='1327',channel='unknown')
+        args=dict(start='2026-11-10',end='2026-11-11',site_id='266',gid='1327',channel='pending_classification',
+                  status='valid',country='US',payment='PayPal',project='分销',code='fixture-code',
+                  coupon_template='7',coupon_batch='fixture-batch',q='fixture')
         value=self.backend.query(self.principal,'channels.facts',args)
         self.assertEqual(value['data'],payload)
         self.assertEqual(urlsplit(self.calls[-1][1]).path,'/dashboard/channel-effects/data.json')
         self.assertEqual(parse_qs(urlsplit(self.calls[-1][1]).query),
             {k:[v] for k,v in dict(args,mode='order-facts').items()})
         for extra in ({'mode':'profit'},{'complete_cost_orders':'all'},{'customer_email':'a@example.test'},
-                      {'site_id':'0'},{'channel':'google'},{'source_revision':'invented'}):
+                      {'site_id':'0'},{'channel':'google'},{'source_revision':'invented'},
+                      {'detail_page':'1'},{'detail_export':'1'},{'snapshot_id':'snap'},
+                      {'coupon_template':'invalid'},{'status':'paid'},{'q':'a@example.test'}):
             with self.subTest(extra=extra),self.assertRaises(ValidationError):
                 self.backend.query(self.principal,'channels.facts',{**args,**extra})
+
+    def test_order_facts_uses_the_original_channel_grant_before_upstream(self):
+        denied=Catalog(lambda *_:403)
+        connector=Backend(denied,'https://fs.example',transport=self.backend.transport)
+        with self.assertRaises(CatalogPermissionError) as caught:
+            connector.query(self.principal,'channels.facts',dict(start='2026-11-10',end='2026-11-11'))
+        self.assertEqual(caught.exception.status_code,403)
+        self.assertEqual(self.calls,[])
 
     def test_summary_country_minute_and_order_facts_pending_are_not_dropped(self):
         query=dict(profile='FC27',start='2026-11-10 09:01',end='2026-11-10 09:31',grain='minute',country_code='US')

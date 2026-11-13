@@ -67,7 +67,7 @@
       "path": "/dashboard/fs-home/range.json",
       "method": "GET",
       "permission_path": "/dashboard/fs-home/range.json",
-      "description": "原经营汇总/发货毛利；保留异步pending与原筛选；国家/分钟候选仅Admin支持，Order范围未支持须看响应，不能混用原生与本地复购",
+      "description": "经营摘要按原生站点、游戏、日期和已验证国家筛选，保留原生复购与本地区间复购各自范围。国家及分钟仅适用于支持的Admin范围。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -145,14 +145,10 @@
       },
       "provenance": {
         "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py; releases/fs-dashboard/dashboard-refresh-20261025/source/live_summary.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "mapping_status": "production_range_summary_route_verified; connector_filter_and_live_role_not_verified",
         "route_config": "/etc/nginx/fs-business-range.locations.conf",
         "route_prefix": "/dashboard/fs-home/range.json",
-        "route_observed_date": "2026-11-09",
-        "candidate_extensions": [
-          "country_code",
-          "grain=minute"
-        ]
+        "route_observed_date": "2026-11-13"
       }
     },
     {
@@ -714,7 +710,7 @@
       "path": "/dashboard/channel-effects/data.json",
       "method": "GET",
       "permission_path": "/dashboard/channel-effects/data.json",
-      "description": "后台新归因渠道的同范围去重付款订单聚合；最多28日，保留unknown、成本覆盖和固定归因修订；候选后端尚未部署",
+      "description": "共享ES渠道付款订单聚合，最多28日。支持原站点、游戏、渠道与同单筛选，保留范围、归因修订、未知与覆盖。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -747,9 +743,10 @@
               "PPC",
               "Referral",
               "Campaign",
+              "pending_classification",
               "unknown"
             ],
-            "maxLength": 16
+            "maxLength": 22
           },
           "refresh": {
             "type": "string",
@@ -757,6 +754,44 @@
               "1"
             ],
             "maxLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "all",
+              "valid",
+              "refund"
+            ],
+            "maxLength": 6
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "payment": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "project": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "coupon_batch": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "coupon_template": {
+            "type": "string",
+            "maxLength": 12,
+            "pattern": "[0-9]{1,12}"
           }
         },
         "required": [
@@ -776,11 +811,44 @@
       },
       "provenance": {
         "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/order_facts_api.py; releases/fs-dashboard/dashboard-refresh-20261025/source/order_facts_runtime.py",
-        "mapping_status": "candidate_order_facts_mode_on_existing_route; deployment_and_live_connector_not_verified",
+        "mapping_status": "production_order_facts_route_verified; connector_release_and_live_role_not_verified",
         "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
         "route_prefix": "/dashboard/channel-effects/data.json",
-        "route_observed_date": "2026-11-09"
-      }
+        "route_observed_date": "2026-11-13"
+      },
+      "response_fields": [
+        "version",
+        "facts_version",
+        "attribution_version",
+        "status",
+        "retryAfter",
+        "requested_scope",
+        "effective_scope",
+        "channel_filter",
+        "coverage_scope",
+        "totals",
+        "channels",
+        "breakdown",
+        "dimensions",
+        "trend",
+        "trend_unallocated_orders",
+        "coverage",
+        "revisions",
+        "snapshot_id",
+        "source_timezone",
+        "time_basis",
+        "order_profit_source",
+        "captured_at",
+        "options",
+        "admin_complete",
+        "readonly",
+        "private",
+        "keyword_applied",
+        "discount_code_applied",
+        "coupon_batch_applied",
+        "refresh_deferred",
+        "refresh_reason"
+      ]
     },
     {
       "name": "channels.code",
@@ -5186,7 +5254,7 @@
           "channels.profit",
           "channels.facts"
         ],
-        "guidance": "全营销范围优先查看marketing.range返回的period.sources、Ads账户、calculation_campaigns、时区及覆盖，保留原366日范围/来源预算。campaigns.ads/ga4/gsc固定mmoexp-seasonal活动范围、单次31日，不当作全部FC27流量。GA4页面浏览量、落地页sessions、purchase事件与Admin已付款订单不同；GSC点击/展示/CTR/平均排名保持原时区和定义。渠道码/券归因不是广告增量因果证明；CAC须同来源花费与可关联的新付费客户分母，缺归因/客户覆盖时不伪造精确CAC；短期未成熟群体不外推终生LTV。趋势支持方向性判断时说明证据与其他可能原因。 channels.facts为候选后台新归因聚合，须先核服务部署及响应版本；unknown保留收入，旧码/券是独立辅助视角。观察成本不等于整单完整成本，actual_cost/毛利未知不能补零或据此计算净利；原生复购与本地区间复购不可互换。",
+        "guidance": "全营销范围优先查看marketing.range返回的period.sources、Ads账户、calculation_campaigns、时区及覆盖，保留原366日范围/来源预算。campaigns.ads/ga4/gsc固定mmoexp-seasonal活动范围、单次31日，不当作全部FC27流量。GA4页面浏览量、落地页sessions、purchase事件与Admin已付款订单不同；GSC点击/展示/CTR/平均排名保持原时区和定义。渠道码/券归因不是广告增量因果证明；CAC须同来源花费与可关联的新付费客户分母，缺归因/客户覆盖时不伪造精确CAC；短期未成熟群体不外推终生LTV。趋势支持方向性判断时说明证据与其他可能原因。 channels.facts按同一范围、快照与有效归因汇总，unknown和待归类保留收入。筛选后核effective_scope、revisions与coverage。Order原生利润取同一发货记录销售减采购，缺项留空；原生复购与本地区间复购各用其范围。",
         "sources": [
           "monthly_data"
         ]
@@ -5200,7 +5268,7 @@
           "channels.profit",
           "channels.facts"
         ],
-        "guidance": "FC27整单归属按现行合同优先级Player Cards、SBC、Packs、其他、Coins，订单按网站+原单号去重；发货明细按原记录ID去重，不能把真实分批发货按订单号误删。分组利润不是逐SKU利润；缺失/冲突/跨平台未决保留未知，不按销售比例摊成本。逐单实际成本/ES折扣若未由当前操作提供完整同单关联与覆盖，就明确缺项，不从汇总率反推。当前字段是否已实现此合同须核返回analysis/coverage，不能仅凭指南宣称已部署。 channels.facts为候选后台新归因聚合，须先核服务部署及响应版本；unknown保留收入，旧码/券是独立辅助视角。观察成本不等于整单完整成本，actual_cost/毛利未知不能补零或据此计算净利；原生复购与本地区间复购不可互换。",
+        "guidance": "FC27整单归属按现行合同优先级Player Cards、SBC、Packs、其他、Coins，订单按网站+原单号去重；发货明细按原记录ID去重，不能把真实分批发货按订单号误删。分组利润不是逐SKU利润；缺失/冲突/跨平台未决保留未知，不按销售比例摊成本。逐单实际成本/ES折扣若未由当前操作提供完整同单关联与覆盖，就明确缺项，不从汇总率反推。当前字段是否已实现此合同须核返回analysis/coverage，不能仅凭指南宣称已部署。 channels.facts按同一范围、快照与有效归因汇总，unknown和待归类保留收入。筛选后核effective_scope、revisions与coverage。Order原生利润取同一发货记录销售减采购，缺项留空；原生复购与本地区间复购各用其范围。",
         "sources": [
           "categories",
           "monthly_data"
@@ -5253,7 +5321,7 @@
       {
         "id": "monthly_data",
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "12888990ff42eb935085271b726a849adc2903f38edaabdc48c93dc1d57fd3da",
+        "sha256": "42b26f65a00e71a36f5943ccdf71690c3bee1b03a4b7046013ddb3ced37f8ec2",
         "kind": "repository_method_reference_not_live_data"
       },
       {
