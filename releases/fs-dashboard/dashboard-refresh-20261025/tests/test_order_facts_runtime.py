@@ -170,6 +170,25 @@ class Runtime(unittest.TestCase):
             value=effective_attribution(dict(order,channel=higher,pinned_order_source=source),native,None,mapping)
             self.assertEqual((value['channel'],value['basis']),(higher,'native_channel'))
 
+    def test_same_google_campaign_parameters_are_not_a_source_conflict(self):
+        from channel_effects import Attribution
+        from order_facts import build_order_facts
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[]},[],{})
+        native=row(i=1,discount_code='',recommend_uid='0')
+        order=build_order_facts([native],[],[],sites={'266':'www.mmoexp.com'},scope=SCOPE,
+                               source_coverage={'admin_complete':True})['orders'][0]
+        order['pinned_order_source']='google-D4-SN-Items&token=NEW'
+        archived=dict(sourceRaw='google-D4-SN-Items&token=OLD',sourceStatus='available')
+        for uid in ('0','123'):
+            value=effective_attribution(order,dict(native,recommend_uid=uid),archived,mapping)
+            self.assertEqual((value['channel'],value['source_conflict']),('PPC',False))
+        different=dict(archived,sourceRaw='google-POE2-SN-Currency&token=OLD')
+        self.assertTrue(effective_attribution(order,native,different,mapping)['source_conflict'])
+        self.assertTrue(effective_attribution(dict(order,pinned_order_source_conflict=True),
+                                             native,archived,mapping)['source_conflict'])
+        self.assertEqual(effective_attribution(dict(order,channel='SEO'),native,archived,mapping)['channel'],'SEO')
+
     def test_direct_only_explicit_and_referrer_code_stays_a_detail(self):
         from channel_effects import Attribution
         from order_facts_runtime import effective_attribution
