@@ -29,16 +29,18 @@ finally:
 `],{cwd:path.join(__dirname,'../source'),encoding:'utf8'}));
 const v2='admin-paid-order-labelled-supplement-v2';
 const unknown='unrecognized-summary-contract';
+const retired='admin-main-order-labelled-supplement-v1';
 (async()=>{
  for(const file of ['ui-system/modules/native/shell.js',...['shell.js','home-shell.js','legacy-shell.js'].map(n=>'releases/fs-dashboard/dashboard-refresh-20261025/source/'+n)]){
   const text=fs.readFileSync(path.join(root,file),'utf8').replace(/\r\n/g,'\n'),code=text.slice(text.indexOf('class LiveSummary'),text.indexOf('\nimport '));
   for(const [reply,expected] of [[homeReply,true],[{...homeReply,scopeContractId:v2},true],
-   [{...homeReply,scopeContractId:unknown},false],[{...homeReply,query:{...homeReply.query,end:'2026-11-11'}},false]]){
-   let shown=false,state;
-   const context={AbortController,URLSearchParams,setTimeout,clearTimeout,fetch:async()=>({ok:true,status:200,json:async()=>reply}),selection,update:()=>shown=true,state:s=>state=s};
+   [{...homeReply,scopeContractId:unknown},false],[{...homeReply,scopeContractId:retired},false],
+   [{...homeReply,query:{...homeReply.query,end:'2026-11-11'}},false]]){
+   const shown=[], phases=[];
+   const context={AbortController,URLSearchParams,setTimeout,clearTimeout,fetch:async()=>({ok:true,status:200,json:async()=>reply}),selection,update:data=>shown.push(data),state:s=>phases.push(s.phase)};
    await vm.runInNewContext(code+';new LiveSummary(()=>selection,update,state).check()',context);
-   assert.equal(shown,expected,file+' accepts only known contracts for the selected scope');
-   assert.equal(state.phase,expected?'available':'unavailable');
+   assert.deepEqual(shown,expected?[reply]:[],file+' accepts only known contracts for the selected scope');
+   assert.deepEqual(phases,['loading',expected?'available':'unavailable']);
   }
   const home=text.slice(text.indexOf('function homeData(){'),text.indexOf('\n}\n',text.indexOf('function homeData(){'))+2);
   let selected;const heading={},kpis={setAttribute:(k,v)=>kpis[k]=v};

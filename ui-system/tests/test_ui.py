@@ -23,9 +23,13 @@ class UIContract(unittest.TestCase):
   old=(ROOT.parent/'releases/fs-dashboard/business-refresh-20261016/assets/shell.js').read_text(encoding='utf8');new=(ROOT/'modules/native/shell.js').read_text(encoding='utf8')
   backend=(ROOT.parent/'releases/fs-dashboard/dashboard-refresh-20261025/source/live_summary.py').read_text(encoding='utf8')
   contract=re.search(r"^CONTRACT = '([^']+)'",backend,re.M).group(1)
-  self.assertIn("data.scopeContractId!=='"+contract+"'",new)
-  old=old.replace("data.scopeContractId!=='admin-main-order-labelled-supplement-v1'","data.scopeContractId!=='"+contract+"'")
-  self.assertEqual(old[:old.index('const $=')],new[:new.index('const $=')])
+  old_prefix=old[:old.index('const $=')]
+  new_prefix=new[:new.index('const $=')]
+  guards=re.findall(r"!\[\s*'[^']+'(?:\s*,\s*'[^']+')*\s*\]\.includes\(data\.scopeContractId\)",new_prefix)
+  self.assertEqual(len(guards),1)
+  self.assertEqual(re.findall(r"'([^']+)'",guards[0]),['admin-paid-order-labelled-supplement-v2',contract])
+  preserved=new_prefix.replace(guards[0],"data.scopeContractId!=='admin-main-order-labelled-supplement-v1'",1)
+  self.assertEqual(old_prefix,preserved)
  def test_no_unknown_price_rules(self):
   for p in (ROOT/'adapters').glob('*.js'):
    s=p.read_text();self.assertNotIn("method:'POST'",s);self.assertNotIn('Authorization',s)
