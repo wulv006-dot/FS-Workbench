@@ -1,6 +1,6 @@
 {
   "contract": "fs-knowledge-index-v1",
-  "release": "fs-fc-admin-es-shared-20261113-r3",
+  "release": "fs-fc-admin-es-shared-20261113-r4",
   "release_state": "candidate",
   "source_commit": null,
   "entries": [
@@ -53,7 +53,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "21a6b32671bdbd1d94d62987eb8acb7395c886c52c7f2ed041845d1ca004707c",
+        "sha256": "137a2ad38dcfbc9f531e671e1d80320f999e00abec8a2c9b711e56149d1eb0c1",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -158,7 +158,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "21a6b32671bdbd1d94d62987eb8acb7395c886c52c7f2ed041845d1ca004707c",
+        "sha256": "137a2ad38dcfbc9f531e671e1d80320f999e00abec8a2c9b711e56149d1eb0c1",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -239,7 +239,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "21a6b32671bdbd1d94d62987eb8acb7395c886c52c7f2ed041845d1ca004707c",
+        "sha256": "137a2ad38dcfbc9f531e671e1d80320f999e00abec8a2c9b711e56149d1eb0c1",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -322,7 +322,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "21a6b32671bdbd1d94d62987eb8acb7395c886c52c7f2ed041845d1ca004707c",
+        "sha256": "137a2ad38dcfbc9f531e671e1d80320f999e00abec8a2c9b711e56149d1eb0c1",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -603,7 +603,7 @@
     },
     {
       "id": "fc.marketing.attribution",
-      "revision": "fs-fc-admin-es-shared-20261113-r3",
+      "revision": "fs-fc-admin-es-shared-20261113-r4",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -615,7 +615,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "21a6b32671bdbd1d94d62987eb8acb7395c886c52c7f2ed041845d1ca004707c",
+        "sha256": "137a2ad38dcfbc9f531e671e1d80320f999e00abec8a2c9b711e56149d1eb0c1",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -627,7 +627,8 @@
         "fc.marketing.attribution@v15-pmax-aion2-20261023",
         "fc.marketing.attribution@fc-v3-20261026",
         "fc.marketing.attribution@fs-fc-admin-es-shared-20261113-r1",
-        "fc.marketing.attribution@fs-fc-admin-es-shared-20261113-r2"
+        "fc.marketing.attribution@fs-fc-admin-es-shared-20261113-r2",
+        "fc.marketing.attribution@fs-fc-admin-es-shared-20261113-r3"
       ],
       "provenance": [
         {
@@ -687,6 +688,12 @@
           "date": "2026-11-13",
           "decision": "归因和来源均无明确归属时，已映射折扣码归Direct并按类别细分；新码按Admin操作客服映射",
           "implementation_status": "candidate; production acceptance pending"
+        },
+        {
+          "kind": "direct_user",
+          "date": "2026-11-13",
+          "decision": "无更高归属时未映射折扣码归Direct/运营；仅优惠券归Direct/新人/活动。渠道使用Order原生利润及加权利润率，展示订单与销售占比、地区和设备。",
+          "implementation_status": "candidate; production acceptance pending"
         }
       ],
       "consumers": [
@@ -715,7 +722,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "21a6b32671bdbd1d94d62987eb8acb7395c886c52c7f2ed041845d1ca004707c",
+        "sha256": "137a2ad38dcfbc9f531e671e1d80320f999e00abec8a2c9b711e56149d1eb0c1",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -783,7 +790,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "21a6b32671bdbd1d94d62987eb8acb7395c886c52c7f2ed041845d1ca004707c",
+        "sha256": "137a2ad38dcfbc9f531e671e1d80320f999e00abec8a2c9b711e56149d1eb0c1",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -851,7 +858,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "21a6b32671bdbd1d94d62987eb8acb7395c886c52c7f2ed041845d1ca004707c",
+        "sha256": "137a2ad38dcfbc9f531e671e1d80320f999e00abec8a2c9b711e56149d1eb0c1",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -983,7 +990,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "21a6b32671bdbd1d94d62987eb8acb7395c886c52c7f2ed041845d1ca004707c",
+        "sha256": "137a2ad38dcfbc9f531e671e1d80320f999e00abec8a2c9b711e56149d1eb0c1",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1311,7 +1318,7 @@
     },
     {
       "id": "fc.reporting.data",
-      "revision": "fs-fc-admin-es-shared-20261113-r3",
+      "revision": "fs-fc-admin-es-shared-20261113-r4",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1325,7 +1332,7 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "422c15dc5bd8a7a786ae550357984942c61074906ff2ebefa8a4b3b4b5670dec",
+        "sha256": "42b26f65a00e71a36f5943ccdf71690c3bee1b03a4b7046013ddb3ced37f8ec2",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1336,7 +1343,8 @@
         "fc.reporting.data@20261107-profit-summary",
         "fc.reporting.data@20261107-time-attribution",
         "fc.reporting.data@fs-fc-admin-es-shared-20261113-r1",
-        "fc.reporting.data@fs-fc-admin-es-shared-20261113-r2"
+        "fc.reporting.data@fs-fc-admin-es-shared-20261113-r2",
+        "fc.reporting.data@fs-fc-admin-es-shared-20261113-r3"
       ],
       "provenance": [
         {
@@ -1398,6 +1406,12 @@
           "kind": "direct_user",
           "date": "2026-11-13",
           "decision": "归因和来源均无明确归属时，已映射折扣码归Direct并按类别细分；新码按Admin操作客服映射",
+          "implementation_status": "candidate; production acceptance pending"
+        },
+        {
+          "kind": "direct_user",
+          "date": "2026-11-13",
+          "decision": "无更高归属时未映射折扣码归Direct/运营；仅优惠券归Direct/新人/活动。渠道使用Order原生利润及加权利润率，展示订单与销售占比、地区和设备。",
           "implementation_status": "candidate; production acceptance pending"
         }
       ],
