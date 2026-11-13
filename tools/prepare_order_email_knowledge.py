@@ -11,6 +11,8 @@ preflight.json with captured_at, protected file hashes, service states and
 existing immutable D5 release names. It performs no publish or service action.
 --fc-v61 uses the same retained-baseline preflight and preserves route selections.
 The 100K revision also updates the existing parameter and learning rule entries.
+--fc-v61-reporting overlays the three report entries and the shared data-source
+section against their previous Git bodies, retaining the current V6 pricing entries.
 """
 import argparse
 import copy
@@ -40,6 +42,13 @@ FC_V61_100K_MARKET_REVISION = 'fc_v61_100k_market_two_band_20261113'
 FC_V61_ADMIN_ONLY_REVISION = 'fc_v61_admin_only_two_band_20261113'
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
 FC_V61_LEARNING_ID = 'fs.learning.methods'
+FC_V61_REPORTING_BASE_COMMIT = 'c51bb4f494523f19e6979cf5c85565dac94a4257'
+FC_V61_REPORTING_REVISIONS = {
+    'fc.reporting.business': '20261113-v61-reporting-business',
+    'fc.reporting.data': '20261113-v61-reporting-data',
+    'fc.reporting.methods': '20261113-v61-reporting-entry',
+    'fs.data.sources': '20261113-v61-reporting-sources',
+}
 FS_RUNTIME_ROOT = '/var/lib/fs-hermes-fc/fs/'
 BASELINE_TARGET = '/opt/fs-hermes-fc/business-baseline.md'
 BASELINE_SOURCE = 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
@@ -142,6 +151,24 @@ def merge_shared_entry(identity, template, row, content, changes):
     return data
 
 
+def reporting_entry(identity, existing, template, previous, live_body, previous_body, current_body):
+    if existing['revision'] != previous['revision'] or live_body.strip() != previous_body.strip():
+        raise ValueError('fc_v61_reporting_snapshot_source_changed:' + identity)
+    source = copy.deepcopy(template['source'])
+    canonical_path = source['path']
+    data = (current_body.rstrip('\n') + '\n').encode('utf-8')
+    if source.pop('selector', None):
+        source['canonical_sha256'] = source['sha256']
+    source.update(sha256=sha(data), hash_basis='utf8_lf')
+    source.update(path='overlay/' + template['revision'] + '/' + canonical_path,
+                  canonical_path=canonical_path)
+    return dict(existing, revision=template['revision'], effective_at=template['effective_at'],
+                knowledge_updated_at=template.get('knowledge_updated_at'), source=source,
+                provenance=existing['provenance'] + [ref for ref in template['provenance']
+                                                     if ref not in existing['provenance']],
+                supersedes=list(dict.fromkeys(existing['supersedes'] + template['supersedes']))), data
+
+
 def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False):
     info = json.loads(bound(snapshot, 'preflight.json').read_bytes())
     if release in info['immutable_directories']:
@@ -190,10 +217,11 @@ def write_payloads(root, payloads):
         path.write_bytes(data)
 
 
-def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=False):
-    if shared_admin_es and fc_v61:
+def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=False, fc_v61_reporting=False):
+    if sum((shared_admin_es, fc_v61, fc_v61_reporting)) > 1:
         raise ValueError('one_knowledge_overlay_scope_required')
-    preserve_routes = shared_admin_es or fc_v61
+    fc_overlay = fc_v61 or fc_v61_reporting
+    preserve_routes = shared_admin_es or fc_overlay
     root, snapshot, output = Path(root).absolute(), Path(snapshot).absolute(), Path(output).absolute()
     if not re.fullmatch('[a-f0-9]{40}', commit):
         raise ValueError('full_source_commit_required')
@@ -204,10 +232,12 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     catalog = pinned_module(root, commit, MODULE + '/source/knowledge_catalog.py')
     publisher = pinned_module(root, commit, MODULE + '/deploy/release.py')
     canonical = json.loads(git_bytes(root, commit, 'knowledge/index.json'))
-    if fc_v61 and (canonical.get('release') != FC_V61 or canonical.get('release_state') != 'candidate'):
+    if fc_overlay and (canonical.get('release') != FC_V61 or canonical.get('release_state') != 'candidate'):
         raise ValueError('exact_fc_v61_candidate_required')
     current = {}
     overlay_ids = FC_V61_OVERLAYS if fc_v61 else SHARED_OVERLAYS if shared_admin_es else OVERLAYS
+    if fc_v61_reporting:
+        overlay_ids = tuple(FC_V61_REPORTING_REVISIONS)
     if fc_v61 and any(r['id'] == 'fc.pricing.v3' and r['revision'] == FC_V61_100K_MARKET_REVISION
                       for r in canonical['entries']):
         overlay_ids = (*FC_V61_OVERLAYS, FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID)
@@ -226,6 +256,21 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         if any(identity in current and current[identity]['revision'] != revision
                for identity in (FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID)):
             raise ValueError('exact_fc_v61_parameter_revision_required')
+    if fc_v61_reporting:
+        if {identity: row['revision'] for identity, row in current.items()} != FC_V61_REPORTING_REVISIONS:
+            raise ValueError('exact_fc_v61_reporting_revisions_required')
+        prior_index = json.loads(git_bytes(root, FC_V61_REPORTING_BASE_COMMIT, 'knowledge/index.json'))
+        reporting_prior = {row['id']: row for row in prior_index['entries']
+                           if row['id'] in overlay_ids and row['layer'] == 'current' and row['status'] == 'effective'}
+        if set(reporting_prior) != set(overlay_ids):
+            raise ValueError('exact_fc_v61_reporting_prior_required')
+        previous_bodies = {}
+        for identity, row in reporting_prior.items():
+            source = row['source']
+            data = normalized(git_bytes(root, FC_V61_REPORTING_BASE_COMMIT, source['path']), source)
+            if sha(data) != source['sha256']:
+                raise ValueError('fc_v61_reporting_prior_source_changed:' + identity)
+            previous_bodies[identity] = catalog.extract(data.decode('utf-8-sig'), source.get('selector'))
     policy_raw = bound(snapshot, 'policy.json').read_bytes()
     policy = json.loads(policy_raw)
     if policy.get('contract') != 'fs-knowledge-load-policy-v1':
@@ -233,7 +278,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     all_routes = list(routes(policy))
     if not all_routes:
         raise ValueError('snapshot_routes_required')
-    release = (FC_V61 + '-' + commit if fc_v61 else SHARED_ADMIN_ES + '-' + commit
+    release = (FC_V61 + '-' + commit if fc_overlay else SHARED_ADMIN_ES + '-' + commit
                if shared_admin_es else 'fc-reporting-knowledge-20261105-' + commit[:8])
     if shared_admin_es:
         changes = shared_changes(root, commit, catalog, canonical, current)
@@ -298,7 +343,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
             existing = [r for r in index['entries'] if r['id'] == identity and r['layer'] == 'current']
             if len(existing) > 1 or any(r['status'] != 'effective' for r in existing):
                 raise ValueError('snapshot_current_conflict:' + identity)
-            if fc_v61 and not existing:
+            if fc_overlay and not existing:
                 continue
             if shared_admin_es:
                 if not existing:
@@ -322,14 +367,22 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 source_data = normalized(data, source)
                 if sha(source_data) != source['sha256']:
                     raise ValueError('canonical_source_changed:' + identity)
-                catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
+                content = catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
                 overlay_root = 'overlay/'
                 if fc_v61 and row['revision'] in (FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION,
                                                    FC_V61_ADMIN_ONLY_REVISION):
                     # Retain the preceding snapshot's source at its original path.
                     overlay_root += row['revision'] + '/'
-                source.update(path=overlay_root + canonical_path, canonical_path=canonical_path)
-                if fc_v61:
+                if fc_v61_reporting:
+                    previous_source = existing[0]['source']
+                    previous_data = payloads['artifact/' + sources + previous_source['path']]
+                    live_body = catalog.extract(normalized(previous_data, previous_source).decode('utf-8-sig'),
+                                                previous_source.get('selector'))
+                    row, data = reporting_entry(identity, existing[0], template, reporting_prior[identity],
+                                                live_body, previous_bodies[identity], content)
+                else:
+                    source.update(path=overlay_root + canonical_path, canonical_path=canonical_path)
+                if fc_overlay:
                     shared_rows.append(dict(catalog=old_name, id=identity, previous_revision=existing[0]['revision'],
                                             previous_source_sha256=existing[0]['source']['sha256'],
                                             revision=row['revision'], source_sha256=row['source']['sha256']))
@@ -383,7 +436,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     if preserve_routes:
         if shared_admin_es and {row['id'] for row in shared_rows} != set(SHARED_OVERLAYS):
             raise ValueError('shared_admin_es_overlay_inventory_invalid')
-        if fc_v61 and {row['id'] for row in shared_rows} != set(overlay_ids):
+        if fc_overlay and {row['id'] for row in shared_rows} != set(overlay_ids):
             raise ValueError('fc_v61_existing_overlay_inventory_required')
         policy_row = next(row for row in manifest['files'] if row['candidate'] == 'runtime/knowledge-load-policy.json')
         policy_row['beforeSha256'] = sha(policy_raw)
@@ -425,9 +478,12 @@ if __name__ == '__main__':
     parser.add_argument('--snapshot', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--commit', required=True)
-    parser.add_argument('--shared-admin-es', action='store_true')
-    parser.add_argument('--fc-v61', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--shared-admin-es', action='store_true')
+    mode.add_argument('--fc-v61', action='store_true')
+    mode.add_argument('--fc-v61-reporting', action='store_true')
     args = parser.parse_args()
     print(json.dumps(prepare(ROOT, args.snapshot, args.output, args.commit,
-                             shared_admin_es=args.shared_admin_es, fc_v61=args.fc_v61),
+                             shared_admin_es=args.shared_admin_es, fc_v61=args.fc_v61,
+                             fc_v61_reporting=args.fc_v61_reporting),
                      ensure_ascii=False, indent=2))
