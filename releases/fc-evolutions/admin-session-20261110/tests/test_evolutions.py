@@ -108,12 +108,18 @@ class PricingTests(unittest.TestCase):
             self.assertEqual(row[key], payload[key])
         backend.admin.request.assert_called_once()
 
-    def test_rates_no_fallback_foreign_game_duplicate(self):
+    def test_rates_use_confirmed_admin_not_old_order(self):
         backend = object.__new__(e.Backend)
+        backend.admin = Mock()
         backend.price_reader = Mock()
-        valid = [{'area': p, 'gid': 1322, 'b2c': v} for p, v in RATES.items()]
-        for rows in [valid[:2], valid+[valid[0]], [dict(r, gid=922) for r in valid]]:
-            backend.price_reader.fetch_rows.return_value = {'ok': True, 'rows': rows}
+        backend.price_reader.fetch_rows.return_value = {'ok': True, 'rows': [
+            {'area': p, 'gid': 1322, 'b2c': '.01'} for p in RATES]}
+        reader = Mock(return_value=(RATES.copy(), {}))
+        with patch.dict(sys.modules, {'fc_purchase_rate': SimpleNamespace(read_purchase_rates=reader)}):
+            self.assertEqual(backend.rates(), RATES)
+            reader.assert_called_once_with(backend.admin)
+            backend.price_reader.fetch_rows.assert_not_called()
+            reader.return_value = ({'PS': '.08'}, {'PC': 'ValueError'})
             with self.assertRaises(ValueError):
                 backend.rates()
 
@@ -149,7 +155,7 @@ class AdminSessionTests(unittest.TestCase):
             backend=e.Backend()
         self.assertIs(backend.admin,session)
         self.assertIs(backend.query,query)
-        self.assertIs(backend.price_reader,reader)
+        self.assertFalse(hasattr(backend, 'price_reader'))
         formal.SessionManager.assert_called_once_with({'P2PAH_API_BASE':'http://127.0.0.1:8912'})
         old_client.assert_not_called()
 

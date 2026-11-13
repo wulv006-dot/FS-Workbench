@@ -11,6 +11,7 @@ VERSION='astra-fc-coins-v2'
 SOURCE='Astra FC金币固定决策流程'
 STEPS=('锁定范围和来源','核对执行与实际暴露','分开采购毛利和广告后贡献','比较保持/涨/降候选','联合约束与独立尾价','明确反证和复盘候选')
 PLATFORMS=('PS','XBOX','PC')
+CURVE_WRITE_PROTOCOL = 'fc27_curve_v6'
 
 
 def number(value,zero=False):
@@ -131,12 +132,14 @@ def schema():
     platform={'type':'object','properties':{'platform':{'enum':list(PLATFORMS)},**{k:decimal for k in ('current_usd','main_usd','delivered_cost_usd')}},'required':['platform','current_usd','main_usd','delivered_cost_usd'],'additionalProperties':False}
     economics={'type':'object','properties':{'orders':{'type':'integer','minimum':0},'net_unit_usd':decimal,'delivered_cost_unit_usd':decimal,'ads_usd':{'anyOf':[decimal,{'type':'null'}]}},'required':['orders','net_unit_usd','delivered_cost_unit_usd','ads_usd'],'additionalProperties':False}
     case={'type':'object','properties':{'currency':{'const':'USD'},'delivered_cost_includes_gifts':{'const':True},'historical_retained_ratio':dict(decimal,description='Declared historical revenue retention, >0 and <=1; source/window must be stated. Fictional scenarios are not production evidence.'),'platforms':{'type':'array','items':platform,'minItems':2,'maxItems':3},'discounts_pct':{'type':'array','items':decimal,'minItems':1,'maxItems':10},'economics':{'type':'object','properties':{'before':economics,'after':economics},'required':['before','after'],'additionalProperties':False}},'required':['currency','delivered_cost_includes_gifts','historical_retained_ratio','platforms','discounts_pct'],'additionalProperties':False}
-    return {'type':'function','function':{'name':'mcp__fcro__fc_run_pricing_workflow','description':'Mandatory Astra FC Coins fixed decision receipt. review reads existing task-bound execution, completed Gold cost/coupon, exact marketing and current market; source gaps never stop existing automation. scenario requires common PS/Xbox cost and base price in their shared market; different source records need reconciliation, not platform base-price differentiation. scenario performs deterministic joint PS/Xbox and separate PC net-discount, margin, independent ending budgets and break-even accounting. Scenario values are declared hypotheses, never observed prices or execution permission. Read receipt values instead of recalculating in prose. Propose evidence-backed exceptions and falsifiers separately; changes enter existing reviewed learning, never auto-modify the workflow or business rules.',
+    return {'type':'function','function':{'name':'mcp__fcro__fc_run_pricing_workflow','description':'Read-only FC Coins decision evidence. review reports historical execution, completed Gold cost/coupon and exact marketing separately from the current market snapshot. Active V6 uses independent platform pricing, optional three-source 100K market signals and the saved two-band price proof. scenario is a historical scalar simulation with linked PS/Xbox and separate PC; it uses declared inputs and grants no execution authority. Use the saved daily input for a frozen daily review.',
       'parameters':{'type':'object','properties':{'profile':{'const':'FC27'},'action':{'enum':['review','scenario']},'start':{'type':'string'},'end':{'type':'string'},'case':case},'required':['profile','action','start','end'],'additionalProperties':False}}}
 
 
 class Workflow:
-    def __init__(self,book,bridge):self.book,self.bridge,self.frozen=book,bridge,{}
+    def __init__(self,book,bridge):
+        self.book,self.bridge,self.frozen=book,bridge,{}
+        self.market_source = None
     def read(self,name,args):
         value=self.book.call(name,args)
         if isinstance(value,dict) and value.get('evidence_id') in self.book.evidence:return deepcopy(self.book.evidence[value['evidence_id']])
@@ -146,15 +149,35 @@ class Workflow:
         if not isinstance(args,dict) or set(args)-{'profile','action','start','end','case'} or args.get('action') not in ('review','scenario'):raise ValueError('workflow_fields')
         checked_query({k:v for k,v in dict(args,kind='readiness').items() if k not in ('action','case')})
         if ('case' in args)!=(args['action']=='scenario'):raise ValueError('workflow_case_boundary')
-        engine,policy,identity=self.bridge.baseline();floor=policy['minimum_gross_margin_pct']
-        result={'workflow_version':VERSION,'workflow_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'captured_at':datetime.now(timezone.utc).isoformat(),'steps':list(STEPS),'scope':{k:args[k] for k in ('profile','start','end')},'baseline_policy':identity,'business_baseline':baseline_identity(),
-          'minimum_procurement_margin_pct':str(floor),'minimum_estimated_average_margin_pct':str(floor),'margin_basis':'undiscounted_and_historical_average_v2','write_performed':False,'execution_authorized':False,'existing_automation_changed':False}
-        if args['action']=='scenario':result.update(status='available',scenario=evaluate(args['case'],floor),source_kind='declared_hypothesis')
+        result={'workflow_version':VERSION,'workflow_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'captured_at':datetime.now(timezone.utc).isoformat(),'steps':list(STEPS),'scope':{k:args[k] for k in ('profile','start','end')},'business_baseline':baseline_identity(),
+          'write_performed':False,'execution_authorized':False,'existing_automation_changed':False}
+        scenario = args['action'] == 'scenario'
+        market_source = None if scenario else self.market_source or self.read('fc.query_market_snapshot', {'profile':'FC27'})
+        market = (market_source or {}).get('data') or {}
+        curve = market.get('write_protocol') == CURVE_WRITE_PROTOCOL
+        if market.get('write_protocol_status') == 'unverified':
+            result.update(status='unavailable', source_refs={'market': market_source.get('evidence_id')},
+                          gaps=[market['reason']])
+            return dict(result, receipt_sha256=digest(result))
+        if market.get('status') in ('available', 'partial'):
+            self.market_source = market_source
+        if curve:
+            identity = dict(write_protocol=CURVE_WRITE_PROTOCOL, snapshot_id=market.get('snapshot_id'),
+                            competitor_policy=market.get('competitor_policy'))
+            result.update(write_protocol=CURVE_WRITE_PROTOCOL, baseline_policy=identity,
+                          margin_basis='platform_planning_baskets_under_amount_weighted_average_discount')
+        else:
+            engine,policy,identity=self.bridge.baseline();floor=policy['minimum_gross_margin_pct']
+            result.update(baseline_policy=identity, minimum_procurement_margin_pct=str(floor),
+                          minimum_estimated_average_margin_pct=str(floor), margin_basis='undiscounted_and_historical_average_v2')
+        if scenario:
+            result.update(status='available',scenario=evaluate(args['case'],floor),source_kind='declared_hypothesis',
+                          pricing_protocol_scope='historical_scalar_scenario')
         else:
             key=digest(dict(args,policy=identity))
             if key in self.frozen:return deepcopy(self.frozen[key])
-            period={k:args[k] for k in ('profile','start','end')};sources={}
-            for label,name,query in (('order_costs','fc.query_pricing_evidence',dict(period,kind='order_costs')),('executions','fc.query_pricing_evidence',dict(period,kind='price_history')),('marketing','fc.query_marketing_snapshot',period),('market','fc.query_market_snapshot',{'profile':'FC27'})):
+            period={k:args[k] for k in ('profile','start','end')};sources={'market':market_source}
+            for label,name,query in (('order_costs','fc.query_pricing_evidence',dict(period,kind='order_costs')),('executions','fc.query_pricing_evidence',dict(period,kind='price_history')),('marketing','fc.query_marketing_snapshot',period)):
                 sources[label]=self.read(name,query)
             refs={k:v.get('evidence_id') for k,v in sources.items()};data={k:v.get('data') or {} for k,v in sources.items()}
             states={k:v.get('status','not_available') for k,v in data.items()}
@@ -173,26 +196,38 @@ class Workflow:
             if not accounting or not all(accounting.values()):gaps.append('cost_accounting_not_verified')
             if summary.get('missingCostOrders'):gaps.append('completed_cost_missing')
             if costs.get('revenue_basis')!='admin_order_cny':gaps.append('admin_order_revenue_backfill_pending')
-            if not market.get('can_recommend_price'):gaps.append('qualified_comparable_market_missing')
-            gaps.extend(['package_quantity_not_retained','Coins_same_scope_Ads_not_attributed','net_refund_settlement_unverified','public_exposure_not_proven_by_backend_ledger'])
+            if curve:
+                if market.get('status') == 'partial':gaps.append('competitor_100k_coverage_partial')
+                if market.get('status') == 'unavailable':gaps.append(market['reason'])
+                if not (market.get('price_basis') or {}).get('rows'):gaps.append('active_curve_price_proof_unavailable')
+            elif not market.get('can_recommend_price'):gaps.append('qualified_comparable_market_missing')
+            gaps.extend(['Coins_same_scope_Ads_not_attributed','net_refund_settlement_unverified','public_exposure_not_proven_by_backend_ledger'])
+            if not curve:gaps.append('package_quantity_not_retained')
             if any(s not in ('available','partial') for s in states.values()):gaps.append('one_or_more_sources_not_terminal_usable')
             result.update(status='pending' if pending else 'partial' if gaps else 'available',source_kind='existing_task_evidence',source_refs=refs,source_statuses=states,
               source_times={k:{field:v[field] for field in ('captured_at','observed_at','source_times') if field in v} for k,v in data.items()},
               checks={'execution_pages_complete':complete,'execution_events':len(events),'accounting_identities':accounting,'cost_coverage':{k:summary.get(k) for k in ('completedOrders','coveredOrders','missingCostOrders')},'whole_source_coverage':costs.get('coverage')},
               procurement_accounting={k:summary.get(k) for k in ('saleCny','costCny','profitCny','margin')},procurement_revenue_basis=costs.get('revenue_basis','legacy_delivery'),accounting_currency='CNY',
-              current_package_accounting=current_accounting(market,floor),
               ad_after_contribution={'status':'not_identified','value':None,'rule':'FC project Ads in USD is not Coins attributed cost; never subtract from CNY covered-order gross profit'},
               candidates={'keep':'must include actual storefront P0; not an assertion that it is safe','original_engine':'use original qualified snapshot simulation as a separate baseline','research':'smallest necessary comparable change first; greater change requires a stated demand hypothesis','numeric_new_price_recommendation':False},
               gaps=gaps,hermes_responsibility=['explain why a candidate is worth testing','state competing explanations and the smallest missing evidence','declare demand assumptions; break-even is not demand prediction','name falsifiers and retrospective outcome window'],
               learning_path='owned completed source → candidate review → counterexample replay → human CAS publish/revoke; no self-modification or business execution')
-            snapshot=(market.get('storefront') or {}).get('collection_run_id')
-            try:
-                if not snapshot:raise ValueError('current_collection_identity_missing')
-                if not hasattr(self.bridge,'load'):raise ValueError('legacy_engine_baseline_retired_use_v3_pricing_control')
-                _,original,original_refs=self.bridge.load(snapshot,engine,policy,identity)
-                result['original_engine_baseline']={'status':'available','calculation':original,'source_refs':original_refs,'snapshot_id':snapshot,'rule':'original-engine baseline, not actual storefront or execution'}
-            except (ValueError,FileNotFoundError) as error:
-                result['original_engine_baseline']={'status':'not_available','reason':str(error) if isinstance(error,ValueError) else 'qualified_snapshot_missing'}
+            if curve:
+                result['current_v6_pricing'] = {k: market.get(k) for k in (
+                    'snapshot_id', 'captured_at', 'price_basis', 'catalogue_samples', 'competitor_coverage')}
+                result['current_v6_pricing']['scope'] = 'current_snapshot_separate_from_requested_history_and_saved_daily_reviews'
+                result['candidates'] = dict(basis='saved_program_curve_proof', numeric_new_price_recommendation=False)
+            else:
+                result['current_package_accounting'] = current_accounting(market, floor)
+                snapshot=(market.get('storefront') or {}).get('collection_run_id')
+                try:
+                    if not snapshot:raise ValueError('current_collection_identity_missing')
+                    if not hasattr(self.bridge,'load'):raise ValueError('legacy_engine_baseline_retired_use_v3_pricing_control')
+                    _,original,original_refs=self.bridge.load(snapshot,engine,policy,identity)
+                    result['original_engine_baseline']={'status':'available','calculation':original,'source_refs':original_refs,'snapshot_id':snapshot,'rule':'original-engine baseline, not actual storefront or execution'}
+                except (ValueError,FileNotFoundError) as error:
+                    result['original_engine_baseline']={'status':'not_available','reason':str(error) if isinstance(error,ValueError) else 'qualified_snapshot_missing'}
         result['receipt_sha256']=digest(result)
-        if args['action']=='review' and not pending:self.frozen[key]=deepcopy(result)
+        if not scenario and not pending and (not curve or self.market_source is not None):
+            self.frozen[key]=deepcopy(result)
         return result

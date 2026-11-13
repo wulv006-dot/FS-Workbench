@@ -412,59 +412,26 @@ class Store:
                 json.loads(json.dumps(self.storefront_meta))
 
     def _overlay_order_b2c(self, rates, summary):
-        """订单后台 b2c（gid=settings.order_gid）优先覆盖金币单价。
+        """Legacy method name; current basis is Admin main-site 100K / 100.
 
-        ⚠️ 频控：b2c 只在 refresh 时拉取（登录要过验证码），
-        /api/state 一律读缓存，绝不实时登录（防锁号，MLB §11.3 惯例）。
+        Read once per refresh, never during cached page reads. Missing platforms
+        remain unavailable rather than reusing the retired Order price cache.
         """
-        s = self.settings()
-        if not s.get("order_price_enabled"):
-            return rates
-        cred_path = s.get("cred_path") or DEFAULT_SETTINGS["cred_path"]
+        cloud = '/opt/fc27-cloud-browser'
+        if cloud not in sys.path:
+            sys.path.insert(0, cloud)
+        from fc_purchase_rate import read_purchase_rates
         try:
-            with open(cred_path, "r", encoding="utf-8") as fh:
-                cred = json.load(fh)
-            user = str(cred.get("P2PAH_USERNAME") or "")
-            pwd = str(cred.get("P2PAH_PASSWORD") or "")
-            if not user or not pwd:
-                raise ValueError("cred_missing_fields")
-            vendor = Path(__file__).resolve().parent / "vendor"
-            if str(vendor) not in sys.path:
-                sys.path.insert(0, str(vendor))
-            import p2pah_price  # ddddocr 惰性 import（只在函数内）
-            parsed = p2pah_price.fetch_rows(user=user, password=pwd,
-                                            gid=int(s.get("order_gid") or 1322))
-            if not parsed.get("ok"):
-                raise ValueError("parse_failed:%s" % parsed.get("error"))
-            got = {}
-            mismatched = []
-            for r in parsed.get("rows") or []:
-                area = (r.get("area") or "").strip().upper()
-                row_gid = r.get("gid")
-                try:
-                    b2c = float(r.get("b2c"))
-                except (TypeError, ValueError):
-                    continue
-                if area not in ("PS", "XBOX", "PC") or b2c <= 0:
-                    continue
-                # ★ 行 gid 校验（Codex #7）：页面若返回未过滤的其它游戏行，
-                #   会把别人的 b2c 喂进自动写价 ⇒ 必须匹配 order_gid。
-                if row_gid is not None and int(row_gid) != int(s.get("order_gid") or 1322):
-                    mismatched.append("%s:gid=%s" % (area, row_gid))
-                    continue
-                got[area] = b2c
-            if mismatched:
-                raise ValueError("gid_mismatch:%s" % ",".join(mismatched))
-            if not got:
-                raise ValueError("no_b2c_rows")
-            for plat, b2c in got.items():
-                rates[plat] = dict(rates.get(plat) or {})
-                rates[plat]["usd_per_k"] = ("%.6f" % b2c)
-                rates[plat]["basis"] = "order_b2c"
-                rates[plat]["checked_at"] = fmt_ts(now8())
-            summary["order_b2c"] = got
-        except Exception as exc:  # 回退 storefront 自算，不阻塞刷新
-            summary["errors"].append("order_b2c: %s" % exc)
+            got, errors = read_purchase_rates()
+        except (ValueError, OSError) as exc:
+            got, errors = {}, {p: type(exc).__name__ for p in ('PS', 'XBOX', 'PC')}
+        for platform in ('PS', 'XBOX', 'PC'):
+            rates[platform] = dict(rates.get(platform) or {})
+            rates[platform].update(usd_per_k=got.get(platform), checked_at=fmt_ts(now8()),
+                basis='admin_main_100k_purchase' if platform in got else 'admin_main_100k_unavailable')
+            if platform not in got:
+                summary['errors'].append('admin_100k:' + platform + ':' + errors.get(platform, 'missing'))
+        summary['admin_100k_purchase_rates'] = got
         return rates
 
     def cached_rates(self):
@@ -472,7 +439,7 @@ class Store:
         data = load_json(self.data_dir / "order_rates.json", None)
         if isinstance(data, dict) and data:
             for row in data.values():
-                if isinstance(row, dict) and row.get('basis') == 'storefront_usd_per_k(includes_bonus)':
+                if isinstance(row, dict) and row.get('basis') in ('storefront_usd_per_k(includes_bonus)', 'order_b2c'):
                     row['observed_usd_per_k'] = row.get('usd_per_k')
                     row['usd_per_k'] = None
                     row['basis'] = 'purchase_base_unverified'
@@ -500,7 +467,7 @@ class Store:
             summary["errors"].append("storefront missing: %s" % ",".join(bad_rates))
         summary["rates"] = {p: (r or {}).get("usd_per_k") for p, r in rates.items()}
         summary["rate_sources"] = {p: (r or {}).get("basis") for p, r in rates.items()}
-        # 落盘供 /api/state 展示（不重复登录订单后台）
+        # 落盘供 /api/state 展示（不重复请求 Admin）
         atomic_write(str(self.data_dir / "order_rates.json"),
                      json.dumps(rates, ensure_ascii=False, indent=2).encode("utf-8"))
         self._last_rates = rates

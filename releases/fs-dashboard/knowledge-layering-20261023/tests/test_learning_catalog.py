@@ -342,8 +342,9 @@ class LearningCatalog(unittest.TestCase):
         updated = {'fs.data.sources'}
         new = {'fc.marketing.attribution','fc.reporting.data'}
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r2'},updated)
-        self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r4'},
-                         {'fc.reporting.data'})
+        self.assertEqual(rows['fc.reporting.data']['revision'], '20261113-v61-reporting-data')
+        self.assertIn('fc.reporting.data@fs-fc-admin-es-shared-20261113-r4',
+                      rows['fc.reporting.data']['supersedes'])
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r5'},
                          {'fc.marketing.attribution'})
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated-new-{'fs.learning.methods'})

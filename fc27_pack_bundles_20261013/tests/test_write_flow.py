@@ -164,35 +164,30 @@ class CodexReviewGuards(unittest.TestCase):
                                  expect_platform="ps", expect_title="B1")
             self.assertEqual(rec2["action"], "rejected_identity")
 
-    def test_order_b2c_rejects_foreign_gid_rows(self):
-        """#7: 订单页面返回别的游戏行（gid 不符）→ 拒绝覆盖单价"""
-        import sys as _sys
-        import types
-
+    def test_admin_100k_overrides_stale_order_and_isolates_missing_platform(self):
+        from unittest.mock import Mock, patch
+        from types import SimpleNamespace
+        reader = Mock(return_value=({'PS': '0.0862', 'XBOX': '0.081'}, {'PC': 'ValueError'}))
         with tempfile.TemporaryDirectory() as td:
-            sf = Path(td) / "sf.json"
-            sf.write_text(json.dumps({"rows": {
-                "PS": {"package_usd": "12.57", "base_k": "100", "status": "ok"}}}),
-                "utf-8")
-            cred = Path(td) / "cred.json"
-            cred.write_text(json.dumps({"P2PAH_USERNAME": "u",
-                                        "P2PAH_PASSWORD": "p"}), "utf-8")
             store = mod.Store(Path(td))
-            store.config["settings"].update({
-                "storefront_path": str(sf), "cred_path": str(cred),
-                "order_price_enabled": True, "order_gid": 1322})
-            fake_mod = types.ModuleType("p2pah_price")
-            fake_mod.fetch_rows = lambda **kw: {"ok": True, "rows": [
-                {"area": "PS", "gid": 922, "b2c": "0.0429"},   # 别的游戏（MLB）
-                {"area": "XBOX", "gid": 922, "b2c": "0.0429"}]}
-            _sys.modules["p2pah_price"] = fake_mod
-            self.addCleanup(lambda: _sys.modules.pop("p2pah_price", None))
-            rates, _ = store.get_rates()
-            before = json.loads(json.dumps(rates))
-            summary = {"errors": []}
-            out = store._overlay_order_b2c(rates, summary)
-            self.assertEqual(out, before)                 # 单价未被覆盖
-            self.assertTrue(any("gid_mismatch" in e for e in summary["errors"]))
+            summary = {'errors': []}
+            with patch.dict(sys.modules, {'fc_purchase_rate': SimpleNamespace(read_purchase_rates=reader)}):
+                out = store._overlay_order_b2c(json.loads(json.dumps(RATES)), summary)
+            self.assertEqual(out['PS']['usd_per_k'], '0.0862')
+            self.assertEqual(out['XBOX']['usd_per_k'], '0.081')
+            self.assertEqual(out['PS']['basis'], 'admin_main_100k_purchase')
+            self.assertIsNone(out['PC']['usd_per_k'])
+            self.assertEqual(out['PC']['basis'], 'admin_main_100k_unavailable')
+            reader.assert_called_once_with()
+            self.assertEqual(len(summary['errors']), 1)
+
+    def test_retired_order_cache_cannot_price_before_admin_refresh(self):
+        with tempfile.TemporaryDirectory() as td:
+            store = mod.Store(Path(td))
+            (Path(td) / 'order_rates.json').write_text(json.dumps(RATES), encoding='utf-8')
+            cached = store.cached_rates()
+            self.assertTrue(all(row['usd_per_k'] is None for row in cached.values()))
+            self.assertEqual(json.loads((Path(td) / 'order_rates.json').read_text()), RATES)
 
     def test_discover_products_matches_by_normalized_title(self):
         """自动发现：标题归一化匹配（空格/连字符差异不影响）+ aid 归位三平台"""

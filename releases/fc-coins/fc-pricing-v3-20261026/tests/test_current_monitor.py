@@ -29,6 +29,18 @@ def snapshot():
 
 
 class CurrentMonitor(unittest.TestCase):
+    def test_v6_platform_financial_failure_is_not_shared_source_failure(self):
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        plan=dict(plan_id='p',revision=1,write_protocol=CURVE_WRITE_PROTOCOL)
+        row=dict(plan_id='p',plan_revision=1,write_protocol=CURVE_WRITE_PROTOCOL,
+                 snapshot_id='s',created_at=NOW.isoformat(),evidence={'checked_at':NOW.isoformat()},
+                 result={'rows':[{'platform':'PC','status':'NO_FEASIBLE_CURVE'}]})
+        coverage=monitoring.source_coverage([row],[plan],NOW)
+        self.assertEqual(coverage['status'],'verified')
+        self.assertEqual(coverage['issues'][0]['platform'],'PC')
+        value=snapshot();value['v3'].update(source_coverage=coverage,issues=coverage['issues'])
+        self.assertNotIn('source_coverage_unverified',[i['code'] for i in self.assess(value)['issues']])
+
     def assess(self,value):
         with patch.dict(sys.modules,{'fc27_quote_engine':SimpleNamespace(reference_sites=lambda sites:['U4GM'] if 'U4GM' in sites else [])}):
             return status.assess(value)

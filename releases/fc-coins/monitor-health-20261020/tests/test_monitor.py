@@ -100,6 +100,15 @@ class HealthContract(unittest.TestCase):
         with patch.object(hooks,'bot_ready',return_value=False):result=hooks.controls(value)
         self.assertTrue(all(not x['reasons'] for x in result['platforms'].values()))
 
+    def test_v6_financial_failure_contains_only_its_platform(self):
+        value=self.native_report()
+        code='coin_v3_curve_no_feasible_curve:PC'
+        value['issues']=[dict(level='critical',platform='PC',code=code)]
+        with patch.object(hooks,'bot_ready',return_value=False):result=hooks.controls(value)
+        self.assertEqual(result['platforms']['PC']['reasons'],[code])
+        self.assertEqual(result['platforms']['PS']['reasons'],[])
+        self.assertEqual(result['platforms']['XBOX']['reasons'],[])
+
     def test_v3_actual_public_mismatch_blocks_only_affected_platform(self):
         value=self.native_report()
         value['publication']={'status':'mismatch','platforms':[{'platform':'XBOX','status':'mismatch'}]}

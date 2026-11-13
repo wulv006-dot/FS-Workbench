@@ -215,6 +215,9 @@ def controls(value, previous=None, at=None):
               'service_unavailable:gallery_api_http_gate'}
     for platform in PLATFORMS:
         reasons[platform].extend(sorted(codes & shared))
+        reasons[platform].extend(sorted({row['code'] for row in value.get('issues', [])
+            if row.get('platform') == platform and row.get('level') == 'critical'
+            and row.get('code', '').startswith('coin_v3_curve_')}))
         if not user_enabled:
             reasons[platform].append('user_disabled_or_not_auto')
     publication = value.get('publication', {})
