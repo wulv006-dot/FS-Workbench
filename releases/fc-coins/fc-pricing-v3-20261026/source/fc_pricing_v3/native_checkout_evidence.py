@@ -20,6 +20,9 @@ from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, curve_key, 
 
 CONTRACT = 'fc_native_checkout_observation_v1'
 GUEST = 'anonymous_no_coupon'
+FIXED_CATALOGUE = 'derived_native_fixed_catalogue'
+CART_CENTS = 'native_usd_cart_line_cent_as_read_v1'
+CATALOGUE_CENTS = 'native_fixed_catalogue_usd_cent_as_published_v1'
 MAX_AGE = timedelta(minutes=15)
 GOODS = {'PS': ('163329309', '163329311'), 'XBOX': ('163329275', '163329277'),
          'PC': ('163329343', '163329345')}
@@ -183,10 +186,16 @@ class _GuestCart:
 
 def _probe_quantities(platform, curve, requested):
     wanted = set(requested)
-    fixed = [tier['purchase_k'] for tier in curve['tiers'] if tier['purchase_k'] in wanted
+    tiers = [tier for tier in curve['tiers'] if tier['purchase_k'] in wanted
              and INT.fullmatch(tier['purchase_k'])]
-    anchors = ('100', '2000', '1000') if platform == 'PC' else ('100', '1000', '2000')
-    return tuple(qty for qty in anchors if qty in fixed)[:2] or tuple(fixed[:1])
+    preferred = ('100', '2000', '1000') if platform == 'PC' else ('100', '1000', '2000')
+    rank = {quantity: index for index, quantity in enumerate(preferred)}
+    ordered = sorted(tiers, key=lambda tier: rank.get(tier['purchase_k'], len(rank)))
+    by_rule = {}
+    for tier in ordered:
+        by_rule.setdefault(_fixed_rule(tier), tier['purchase_k'])
+    anchors = dict.fromkeys([*by_rule.values(), *(tier['purchase_k'] for tier in ordered)])
+    return tuple(anchors)[:2]
 
 
 def _partial(run_id, platform, curve, reason, latest=None):
@@ -331,17 +340,38 @@ def build_anonymous_observation(run_id, platform, current_curve, *, captured_at,
                           quote_basis='observed_native_cart', quote_ref=ref, eligibility_ref=sources['cart_html'],
                           offer_version=revision, fulfilment_ref=sources['cart_show'],
                           fulfilment_contract='native_cart_purchase_and_free_num_only_v1',
-                          rounding_contract='native_usd_cart_line_cent_as_read_v1',
+                          rounding_contract=CART_CENTS,
                           native_tier_or_rule=quote['native_tier_or_rule'] if is_fixed else 'native_cart_custom_observed',
                           net_receipt_usd=observed['net_goods_usd']))
+    fixed_catalogue = _matched_fixed_catalogue(current_curve, row['goods_list'])
     return dict(contract=CONTRACT, run_id=run_id, platform=platform, site_id=SITE_MAIN, curve_key=key,
                 captured_at=captured.isoformat(), source_sha256=sources, native_quote_revision=revision,
-                lines=lines, coverage_status='partial',
+                lines=lines, fixed_catalogue=fixed_catalogue, coverage_status='partial',
                 coverage_gaps=['anonymous_guest_quantities_only', 'member_and_discount_allocation_unverified',
                                'multi_order_fulfilment_unverified'])
 
 
-def _bound_line(line, curve, key):
+def _matched_fixed_catalogue(curve, public):
+    """Capture only complete fixed quantities agreeing with the Admin goods row."""
+    tiers = curve['tiers']
+    if not isinstance(public, dict) or set(public) != {tier['purchase_k'] for tier in tiers}:
+        return []
+    try:
+        for tier in tiers:
+            quantity = tier['purchase_k']
+            row = public[quantity]
+            if (_whole(row['num']) != _whole(quantity)
+                    or _money(row['full_price_format']) != Decimal(tier['native_price_usd'])
+                    or _whole(row['give']) != _whole(tier['promised_bonus_k'])
+                    or number(row['discount'], zero=True) != Decimal(tier['native_discount'])):
+                return []
+        return [tier['purchase_k'] for tier in tiers]
+    except (ArithmeticError, AttributeError, KeyError, TypeError, ValueError):
+        pass
+    return []
+
+
+def _bound_line(line, curve, key, *, derived=False):
     try:
         qty = line['purchase_k']
         quote = quote_native(curve, dict(purchase_k=qty, multiplier=1, site_id=SITE_MAIN, currency='USD'))
@@ -351,15 +381,56 @@ def _bound_line(line, curve, key):
                 and line['currency'] == 'USD' and line['amount_kind'] == 'TOTAL'
                 and line['net_receipt_usd'] == line['net_goods_usd']
                 and line['fulfilment_contract'] == 'native_cart_purchase_and_free_num_only_v1'
-                and line['rounding_contract'] == 'native_usd_cart_line_cent_as_read_v1'
+                and line['rounding_contract'] == (CATALOGUE_CENTS if derived else CART_CENTS)
                 and line['native_tier_or_rule'] == quote['native_tier_or_rule']
-                and line['quote_basis'] == 'observed_native_cart' and line['proof_status'] == 'verified'
+                and line['quote_basis'] == (FIXED_CATALOGUE if derived else 'observed_native_cart')
+                and line['proof_status'] == 'verified'
                 and all(REF.fullmatch(line[field]) for field in ('quote_ref', 'eligibility_ref', 'offer_version', 'fulfilment_ref'))
                 and Decimal(line['regular_usd']) == Decimal(quote['regular_usd']) == Decimal(line['net_goods_usd'])
                 and line['promised_delivered_k'] == quote['promised_delivered_k']
                 and line['gift_k'] == quote['promised_bonus_k'])
     except (ArithmeticError, KeyError, TypeError, ValueError):
         return False
+
+
+def _fixed_rule(tier):
+    return (Decimal(tier['promised_bonus_k']) / Decimal(tier['purchase_k']),
+            Decimal(tier['native_discount']))
+
+
+def _fixed_catalogue_lines(curve, observation, anchors, requested):
+    catalogue = observation.get('fixed_catalogue')
+    tiers = {tier['purchase_k']: tier for tier in curve['tiers']}
+    if catalogue != list(tiers) or len(anchors) < 2:
+        return []
+    measured_rules = {_fixed_rule(tiers[line['purchase_k']]) for line in anchors}
+    if measured_rules != {_fixed_rule(tier) for tier in tiers.values()}:
+        return []
+    goods = observation['source_sha256']['goods']
+    if not REF.fullmatch(goods):
+        return []
+    version = observation['native_quote_revision']
+    key = observation['curve_key']
+    identity = curve['identity']
+    measured = {line['purchase_k'] for line in anchors}
+    ref = fingerprint(dict(goods=goods, curve=key, anchors=sorted(line['quote_ref'] for line in anchors)))
+    lines = []
+    for quantity in catalogue:
+        if quantity not in requested or quantity in measured:
+            continue
+        quote = quote_native(curve, dict(purchase_k=quantity, multiplier=1, site_id=SITE_MAIN, currency='USD'))
+        amount = format(Decimal(quote['regular_usd']), '.2f')
+        lines.append(dict(purchase_k=quantity, gift_k=quote['promised_bonus_k'], multiplier=1,
+                          promised_delivered_k=quote['promised_delivered_k'], regular_usd=amount,
+                          net_goods_usd=amount, net_receipt_usd=amount, path_id='catalogue:' + quantity,
+                          site_id=SITE_MAIN, goods_id=identity['id'], aid=identity['aid'], region_id='0',
+                          currency='USD', amount_kind='TOTAL', curve_key=key, offer_path=GUEST,
+                          native_tier_or_rule=quote['native_tier_or_rule'], offer_version=version,
+                          rounding_contract=CATALOGUE_CENTS, proof_status='verified',
+                          fulfilment_contract='native_cart_purchase_and_free_num_only_v1',
+                          quote_basis=FIXED_CATALOGUE, fulfilment_ref=ref, eligibility_ref=ref,
+                          quote_ref=fingerprint(dict(catalogue=ref, quantity=quantity, amount=amount))))
+    return lines
 
 
 def collect_anonymous_observations(evidence, primary_curves, requested_quantities, *, as_of, live=False):
@@ -393,14 +464,20 @@ def collect_anonymous_observations(evidence, primary_curves, requested_quantitie
                     or as_of - stamp > MAX_AGE):
                 continue
             requested = set(requested_quantities[platform])
-            lines = [line for line in observation['lines'] if line.get('purchase_k') in requested
-                     and _bound_line(line, curve, key)]
+            anchors = [line for line in observation['lines'] if _bound_line(line, curve, key)]
+            lines = [line for line in anchors if line['purchase_k'] in requested]
+            lines.extend(_fixed_catalogue_lines(curve, observation, anchors, requested))
         except (AttributeError, KeyError, TypeError, ValueError):
             continue
         if len({line['purchase_k'] for line in lines}) != len(lines):
             continue
         if lines or observation.get('status') == 'partial':
-            result[platform] = dict(observation, lines=lines)
+            coverage = list(observation['coverage_gaps'])
+            if {line['purchase_k'] for line in lines} == {tier['purchase_k'] for tier in curve['tiers']}:
+                coverage = [gap for gap in coverage if gap != 'anonymous_guest_quantities_only']
+                if 'custom_quantities_unverified' not in coverage:
+                    coverage.append('custom_quantities_unverified')
+            result[platform] = dict(observation, lines=lines, coverage_gaps=coverage)
     return result
 
 
@@ -433,7 +510,8 @@ def project_anonymous_fixed_tiers(current_curve, target_curve, observation):
         return {}
     lines = []
     for observed in observation['lines']:
-        if not _bound_line(observed, current_curve, observation['curve_key']):
+        derived = observed.get('quote_basis') == FIXED_CATALOGUE
+        if not _bound_line(observed, current_curve, observation['curve_key'], derived=derived):
             continue
         quote = quote_native(target_curve, dict(purchase_k=observed['purchase_k'], multiplier=1,
                                                site_id=target_identity['site_id'], currency='USD'))
@@ -442,10 +520,12 @@ def project_anonymous_fixed_tiers(current_curve, target_curve, observation):
                 or not is_all and quote['catalogue_status'] != 'editor_candidate_tier'
                 or quote['promised_delivered_k'] != observed['promised_delivered_k']):
             continue
-        rounding = 'admin_editor_tofixed2_and_observed_native_usd_cart_cent_v1'
+        rounding = ('admin_editor_tofixed2_and_native_fixed_catalogue_cent_v1' if derived
+                    else 'admin_editor_tofixed2_and_observed_native_usd_cart_cent_v1')
         ref = fingerprint(dict(observed_quote=observed['quote_ref'], curve_key=key, amount=amount, rounding=rounding))
         lines.append(dict(observed, curve_key=key, regular_usd=amount, net_goods_usd=amount,
-                          net_receipt_usd=amount, quote_basis='derived_candidate_fixed_tier', quote_ref=ref,
+                          net_receipt_usd=amount, quote_basis='derived_candidate_fixed_catalogue' if derived
+                          else 'derived_candidate_fixed_tier', quote_ref=ref,
                           native_tier_or_rule=quote['native_tier_or_rule'], rounding_contract=rounding))
     return dict(observation, curve_key=key, lines=lines) if lines or observation.get('status') == 'partial' else {}
 
