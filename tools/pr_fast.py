@@ -956,7 +956,7 @@ def main():
             units('fs_mcp_connector/tests', ['test_auth', 'test_portal', 'test_backend', 'test_server', 'test_catalog_extended', 'test_knowledge', 'test_documents', 'test_g2g', 'test_players', 'test_gallery', 'test_accounts', 'test_consent', 'test_sales', 'test_evolutions', 'test_tracking', 'test_redaction', 'test_data_methods', 'test_response_view'], python=python)
             continue
         if group=='seo-daily':
-            units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime','test_estimate','test_web','test_prepare'])
+            units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime','test_order_source','test_estimate','test_web','test_prepare'])
             for script in (ROOT/'ui-system/modules/seo').glob('*.mjs'):
                 subprocess.run(['node','--check',str(script)],check=True,timeout=30)
             node('ui-system/modules/seo/test_model.cjs')
@@ -1127,7 +1127,7 @@ def main():
         elif group=="business-dashboard-refresh":
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_summary_first.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_home_summary.cjs")
-            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_summary_fast","test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_filter_contract","test_order_facts","test_direct_admin","test_fc_dashboard_release","test_fc_maintenance","test_concurrent_ranges","test_admission_fairness","test_admission_rollout"])
+            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_summary_fast","test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_filter_contract","test_order_facts","test_order_facts_source","test_order_facts_runtime","test_order_facts_api","test_direct_admin","test_fc_dashboard_release","test_fc_maintenance","test_concurrent_ranges","test_admission_fairness","test_admission_rollout"])
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_actual_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_shipping_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_fc_dashboard.cjs")
@@ -1164,6 +1164,7 @@ def main():
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui","test_pmax_es_projection","test_mapping_reclassification"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")
+            node("releases/fs-dashboard/channel-effects-20261021/tests/test_order_facts_ui.cjs")
         elif group=="admin-session-continuity":
             units("admin_session_continuity_20261021",["test_continuity"])
             units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])

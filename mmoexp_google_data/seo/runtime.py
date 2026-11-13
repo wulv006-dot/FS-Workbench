@@ -13,7 +13,7 @@ from .sources import GoogleSource, GoogleTransport
 from .store import Store
 
 
-def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
+def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc), *, order_reader=None):
     context = make_daily_context(clock())
     if not context.collection_allowed:
         return dict(status='outside_night_window')
@@ -36,6 +36,12 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
         from .admin_summary import NativeSummaryReader, AdminSummarySource
         summary_reader = NativeSummaryReader(clock=clock)
         sources.append(AdminSummarySource(summary_reader))
+    if isinstance(configured.get('orders'), dict) and configured['orders'].get('enabled') is True:
+        if order_reader is None:
+            missing.append('orders')
+        else:
+            from .order_source import OrderSource
+            sources.append(OrderSource(order_reader))
     if configured.get('pages'):
         from .pages import PageSource
         sources.append(PageSource(configured['pages']['urls'], clock=clock,

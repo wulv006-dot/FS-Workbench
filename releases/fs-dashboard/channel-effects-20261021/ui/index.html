@@ -20,11 +20,12 @@
   </header>
   <main id="main" tabindex="-1">
     <form id="filters" class="panel filters" aria-label="渠道效果筛选">
-      <label>追踪类型<select name="mode"><option value="code">优惠码效果</option><option value="coupon">优惠券效果</option></select></label>
+      <label>追踪类型<select name="mode"><option value="order-facts">后台归因渠道</option><option value="code">优惠码 / 推荐人效果</option><option value="coupon">优惠券效果</option></select></label>
       <label>开始日期<input name="start" type="date" required></label>
       <label>结束日期<input name="end" type="date" required></label>
       <fieldset class="quick"><legend>快捷区间</legend><button type="button" data-days="1">昨日</button><button type="button" data-days="7">近7天</button><button type="button" data-days="30">近30天</button></fieldset>
-      <label>游戏<select name="gid"><option value="">全部游戏</option></select></label>
+      <label>游戏<select name="gid"><option value="">全部游戏</option><option value="1327">FC 27</option></select></label>
+      <label id="fact-channel-filter">归因渠道<select name="channel"><option value="all">全部渠道（含未知）</option><option value="SEO">SEO</option><option value="Direct">Direct</option><option value="PPC">PPC</option><option value="Referral">Referral</option><option value="Campaign">Campaign</option><option value="unknown">未知</option></select></label>
       <label><span id="project-label">项目 / 渠道</span><select name="project"><option value="">全部项目</option></select></label>
       <label><span id="code-label">折扣码</span><select name="code"><option value="">全部折扣码</option></select></label>
       <label>订单状态<select name="status"><option value="valid">排除退款单</option><option value="all">全部订单</option><option value="refund">仅退款单</option></select></label>
@@ -39,6 +40,7 @@
       <section class="panel" aria-labelledby="source-attribution-title"><h2 id="source-attribution-title">广告优先来源归属 · 全站去重</h2><p id="source-attribution-note"></p><div id="source-attribution"></div></section>
       <section id="kpis" class="kpis" aria-label="渠道核心指标"></section>
       <details class="panel definitions"><summary>统计范围与成本覆盖 <span id="coverage"></span></summary><div id="definitions"></div></details>
+      <div id="legacy-details" style="display:contents">
       <section class="panel trend-panel" aria-labelledby="trend-title"><h2 id="trend-title">每日销售与毛利趋势</h2><p class="hint">销售额为 USD，采购毛利为同群体人民币收入减实际采购成本；来源及覆盖见统计范围，不按固定汇率互换。</p><div id="trend"></div><details><summary>查看每日数据表</summary><div id="trend-table"></div></details></section>
       <div class="two-columns">
         <section class="panel" aria-labelledby="projects-title"><h2 id="projects-title">项目效果对比</h2><p class="hint">同一游戏与日期范围；自然流量仅作对照。</p><div id="projects"></div></section>
@@ -52,6 +54,7 @@
         <section class="panel" aria-labelledby="states-title"><h2 id="states-title">订单状态</h2><div id="states"></div></section>
       </div>
       <section class="panel" aria-labelledby="orders-title"><div class="section-header"><h2 id="orders-title">订单明细</h2><label>排序<select id="sort"><option value="paidAt">付款时间</option><option value="salesUsd">销售额 USD</option><option value="costCny">采购成本 ¥</option><option value="profitCny">毛利 ¥</option></select></label><button id="direction" type="button" aria-label="切换排序方向">降序 ↓</button></div><div id="orders"></div><nav class="pagination" aria-label="订单分页"><span id="total"></span><button id="prev" type="button">上一页</button><span id="page"></span><button id="next" type="button">下一页</button></nav></section>
+      </div>
     </div>
   </main>
 </body>

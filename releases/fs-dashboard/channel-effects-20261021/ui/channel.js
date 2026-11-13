@@ -24,7 +24,7 @@ let generation = 0;
 let denied = false;
 let identity = null;
 let renderedQuery = '';
-const snapshotKey = value => JSON.stringify([value.generatedAt, value.sources?.cost?.generatedAt, value.sources?.customer, value.sources?.accounting, value.sources?.cache, value.sources?.orderSource, value.sourceAttribution, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
+const snapshotKey = value => JSON.stringify([value.version, value.revisions, value.totals, value.channels, value.coverage, value.status, value.refresh_deferred, value.refresh_reason, value.generatedAt, value.sources?.cost?.generatedAt, value.sources?.customer, value.sources?.accounting, value.sources?.cache, value.sources?.orderSource, value.sourceAttribution, value.refreshing, value.costRefreshing, value.costError, value.sourceError]);
 const lifetime = new AbortController();
 const beijingDay = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 const shift = (day, amount) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + amount); return d.toISOString().slice(0, 10); };
@@ -48,10 +48,16 @@ function deny(code) {
 }
 function params(refresh = false) {
   const query = new URLSearchParams();
+  if (field('mode').value === 'order-facts') {
+    for (const key of ['mode','start','end','channel']) query.set(key, field(key).value);
+    query.set('site_id', '266'); query.set('gid', field('gid').value || 'all');
+    if (refresh) query.set('refresh', '1');
+    return query;
+  }
   for (const [key, value] of new FormData(form)) {
     if (key === 'code') {
       if (value) query.set(key, JSON.parse(value));
-    } else if (value) query.set(key, value);
+    } else if (key !== 'channel' && value) query.set(key, value);
   }
   query.set('page', String(page)); query.set('sort', $('sort').value); query.set('direction', direction);
   if (refresh) query.set('refresh', '1');
@@ -192,7 +198,58 @@ function sourceAttribution() {
   $('source-attribution-note').textContent=`${source.basis}。PMax归FC项目：本筛选已核来源内FC成交 ${count(pmax.orders||0)} 单 / ${usd(pmax.salesUsd)}；已包含在广告行，不再相加。来源未核 ${count(source.unknownSourceOrders)} 单。跨游戏Google费用/平台价值/ROAS未整条归FC。下方优惠码/推荐人及券表保留协助视角，不能与此表相加。`;
   table('source-attribution',['去重主归属','订单数','订单金额 USD','已完成核算毛利 ¥'],source.projects,r=>[r.label,count(r.orders),usd(r.salesUsd),cny(r.profitCny)],'广告优先去重来源归属');
 }
+function modeControls() {
+  const facts = field('mode').value === 'order-facts';
+  for (const key of ['project','code','status','country','payment','q']) {
+    field(key).disabled = facts; field(key).closest('label').hidden = facts;
+  }
+  field('channel').disabled = !facts; $('fact-channel-filter').hidden = !facts;
+  const longRange = form.querySelector('[data-days="30"]');
+  longRange.textContent = facts ? '近28天' : '近30天';
+}
+function renderFacts() {
+  const s = data.totals, scope = data.effective_scope;
+  $('legacy-details').hidden = true;
+  $('source-attribution-title').textContent = '后台归因渠道 · 同范围去重订单';
+  $('scope').textContent = `${scope.start} — ${scope.end} · MMOEXP · ${field('gid').selectedOptions[0].text} · ${field('channel').selectedOptions[0].text} · Admin付款订单`;
+  const revision = data.revisions?.attribution?.publication_id;
+  $('freshness').textContent = revision ? '归因发布版本 ' + revision : '归因发布版本尚未取得';
+  const attributed = s.orders - s.unknown_channel_orders;
+  $('source-attribution-note').textContent = `后台新归因字段；已归因 ${count(attributed)} / ${count(s.orders)} 单，未知 ${count(s.unknown_channel_orders)} 单仍保留收入。渠道划分不以优惠码、推荐人或旧来源补齐，不代表广告因果效果。`;
+  table('source-attribution', ['归因渠道','订单数','Admin订单金额 USD','已读采购 ¥','已核同单毛利 ¥','完整成本覆盖'], data.channels,
+    row => [row.channel === 'unknown' ? '未知' : row.channel, count(row.orders), usd(row.admin_paid_usd), cny(row.observed_cost_cny), cny(row.procurement_gross_cny), `${count(row.cost_covered_orders)} / ${count(row.orders)} 单`], '后台归因渠道聚合');
+  const labels = [
+    ['去重订单数', count(s.orders), '所选渠道的付款订单'],
+    ['已知订单金额（USD）', usd(s.admin_paid_usd), `缺美元金额 ${count(s.missing_admin_usd_orders)} 单`],
+    ['已知订单金额（¥）', cny(s.admin_paid_cny), `缺人民币金额 ${count(s.missing_admin_cny_orders)} 单`],
+    ['已读采购成本（¥）', cny(s.observed_cost_cny), '观察小计，不等于整单成本齐全'],
+    ['已核同单毛利（¥）', cny(s.procurement_gross_cny), `已核毛利 ${count(s.gross_covered_orders)} 单；非净利润`],
+    ['完整成本覆盖', `${count(s.cost_covered_orders)} / ${count(s.orders)}`, '按去重订单，不以发货时间窗代替'],
+    ['已归因订单', `${count(attributed)} / ${count(s.orders)}`, '未知渠道继续保留订单金额'],
+    ['费用覆盖', '未知', '不将缺失费用当作0']
+  ];
+  $('kpis').replaceChildren(...labels.map(([name,value,hint]) => {
+    const card=text('article',null,'panel kpi');card.append(text('span',name,'name'),text('strong',value),text('small',hint));return card;
+  }));
+  $('coverage').textContent = `完整成本 ${count(s.cost_covered_orders)} / ${count(s.orders)} 单 · 成本缺口 ${count(s.missing_cost_orders)} 单`;
+  const partial = data.status !== 'available' || !data.admin_complete || s.unknown_channel_orders > 0 || s.missing_cost_orders > 0 || s.missing_admin_usd_orders > 0;
+  $('definitions').replaceChildren(...[
+    '范围按北京时间付款日期，最多28天。主渠道直接使用后台归因字段；首访时间不等于首购日。渠道筛选由服务端订单事实聚合，不改变经营看板的Order发货统计主毛利。',
+    `成本覆盖收入 ${cny(s.covered_revenue_cny)}；缺成本收入 ${cny(s.missing_cost_revenue_cny)}。已读采购小计0不证明实际成本0；同单毛利仅使用已完成、非退款且成本完整的同一群体。费用覆盖未知，不称净利润。`,
+    `未关联Admin记录 ${data.coverage?.unlinked_admin_rows == null ? '未核' : count(data.coverage.unlinked_admin_rows)}；未关联归因记录 ${data.coverage?.unlinked_attribution_rows == null ? '未核' : count(data.coverage.unlinked_attribution_rows)}。订单数与金额按去重订单统计，不将raw行非空率当客户或收入覆盖率。`,
+    '优惠码、推荐人及优惠券分析在独立追踪类型中保留；它们不能与本表相加。该接口尚不提供逐单明细或每日趋势。'
+  ].map(value => text('p',value)));
+  $('results').hidden = false;
+  if (data.refresh_deferred) {
+    show(data.refresh_reason === 'shared_workers_busy' ? '共享查询正在执行，暂保留当前结果；稍后可再次刷新。' : `刚完成本范围读取，暂保留当前结果；${count(data.retryAfter)} 秒后可再次刷新。`, 'partial');
+    return;
+  }
+  show(!s.orders ? (partial ? '当前范围的来源覆盖仍不完整，零条已关联订单不代表完整空集合。' : '当前范围没有付款订单。') : partial ? '当前范围已读取，归因、金额或成本仍有缺口，详见覆盖说明。' : '当前范围已读取；费用未知，采购毛利不代表净利润。', partial ? 'partial' : 'available');
+}
 function render() {
+  if (data.version === 'order-facts-api-20261113-v1') { renderFacts(); return; }
+  $('legacy-details').hidden = false;
+  $('source-attribution-title').textContent = '广告优先来源归属 · 全站去重';
   const coupon = field('mode').value === 'coupon';
   $('project-label').textContent = coupon ? '优惠券模板 / 活动' : '项目 / 渠道';
   $('code-label').textContent = coupon ? '发放批次' : '折扣码';
@@ -221,7 +278,13 @@ function render() {
   else show(data.summary.orders ? '当前范围已读取，归因与成本覆盖见下方说明。' : data.summary.testOrders ? '当前筛选仅含测试单，已从经营指标排除，明细保留。' : '当前筛选没有渠道订单。自然流量可在左侧对照表查看。');
 }
 async function load(refresh = false) {
-  if (denied || document.hidden || !form.reportValidity()) return;
+  if (denied || document.hidden) return;
+  modeControls();
+  clearTimeout(poll); readController?.abort(); ++generation;
+  if (!form.reportValidity()) return;
+  if (field('mode').value === 'order-facts' && (new Date(field('end').value)-new Date(field('start').value))/86400000 >= 28) {
+    show('后台归因渠道每次最多查询28天，请缩短日期范围。', 'error'); return;
+  }
   clearTimeout(poll); readController?.abort(); readController = new AbortController();
   const mine = ++generation;
   const query = params(refresh);
@@ -239,10 +302,11 @@ async function load(refresh = false) {
     const next = await response.json();
     if (mine !== generation) return;
     if (response.status === 202 || response.status === 429) {
-      show(response.status === 429 ? '已有查询正在执行，稍后继续读取。' : data ? '正在整理新范围，暂显示上次已完成结果…' : '正在从共享数据源整理订单与优惠券记录…');
+      show(response.status === 429 ? '已有查询正在执行，稍后继续读取。' : data ? '正在整理新范围，暂显示上次已完成结果…' : query.get('mode') === 'order-facts' ? '正在从共享数据源整理订单与归因记录…' : '正在从共享数据源整理订单与优惠券记录…');
       poll = setTimeout(() => load(), (next.retryAfter || 3) * 1000); return;
     }
-    if (!response.ok || next.version !== 'channel-effects-v1') throw Error('source_failed');
+    const expectedVersion = query.get('mode') === 'order-facts' ? 'order-facts-api-20261113-v1' : 'channel-effects-v1';
+    if (!response.ok || next.version !== expectedVersion) throw Error('source_failed');
     const unchanged = sameView && snapshotKey(data) === snapshotKey(next);
     data = next;
     if (!unchanged || refresh) render();
@@ -260,16 +324,17 @@ async function load(refresh = false) {
   }
 }
 form.addEventListener('submit', event => { event.preventDefault(); page = 1; load(); });
-for (const key of ['mode','gid','project','code','status','country','payment']) field(key).addEventListener('change', () => {
+for (const key of ['mode','gid','project','code','status','country','payment','channel']) field(key).addEventListener('change', () => {
   if (['mode','gid','project'].includes(key)) field('code').value = '';
   if (key === 'mode') field('project').value = '';
   page = 1; load();
 });
 for (const button of form.querySelectorAll('[data-days]')) button.addEventListener('click', () => {
   field('start').max = field('end').max = beijingDay();
-  field('end').value = shift(beijingDay(), -1); field('start').value = shift(field('end').value, 1 - Number(button.dataset.days)); page = 1; load();
+  const days = field('mode').value === 'order-facts' ? Math.min(28,Number(button.dataset.days)) : Number(button.dataset.days);
+  field('end').value = shift(beijingDay(), -1); field('start').value = shift(field('end').value, 1 - days); page = 1; load();
 });
-$('reset').addEventListener('click', () => { HTMLFormElement.prototype.reset.call(form); field('end').value = shift(beijingDay(), -1); field('start').value = shift(field('end').value, -6); page = 1; load(); });
+$('reset').addEventListener('click', () => { const mode=field('mode').value; HTMLFormElement.prototype.reset.call(form);field('mode').value=mode; field('end').value = shift(beijingDay(), -1); field('start').value = shift(field('end').value, -6); page = 1; load(); });
 $('refresh').addEventListener('click', () => load(true));
 $('sort').addEventListener('change', () => { page = 1; load(); });
 $('direction').addEventListener('click', () => { direction = direction === 'desc' ? 'asc' : 'desc'; $('direction').textContent = direction === 'desc' ? '降序 ↓' : '升序 ↑'; page = 1; load(); });

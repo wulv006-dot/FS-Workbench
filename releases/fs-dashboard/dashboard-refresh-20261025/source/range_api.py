@@ -359,12 +359,16 @@ if HERMES is not None:
  CONVERSATION.customer_tracking=CUSTOMER_TRACKING
 CHANNELS=None
 ACTUAL_PROFITS=None
+ORDER_FACTS=None
 if HERMES is not None:
  from channel_effects import ChannelService
  CHANNELS=ChannelService('/var/lib/fs-channel-effects',hermes_authorizer)
  CHANNELS.admission=maintenance_admission
  from actual_profit import ActualProfitService
  ACTUAL_PROFITS=ActualProfitService(CHANNELS,PROFILE_MAP)
+ from order_facts_api import OrderFactsService
+ from order_facts_runtime import collect as collect_order_facts
+ ORDER_FACTS=OrderFactsService(CHANNELS,collect_order_facts)
 ADVISOR=Advisor(snapshot,get_range,FC_DAILY,CACHE/'advisor',deep=DEEP)
 USERS=None;USERS_ERROR=None
 try:
@@ -394,7 +398,7 @@ class Handler(BaseHTTPRequestHandler):
    if CHANNELS is None:self.reply(503,{'error':'channels_not_enabled'});return
    try:
     params=parse_qs(uri.query,keep_blank_values=True,max_num_fields=16)
-    service=ACTUAL_PROFITS if params.get('mode')==['actual-profit'] else CHANNELS
+    service=ORDER_FACTS if params.get('mode')==['order-facts'] else ACTUAL_PROFITS if params.get('mode')==['actual-profit'] else CHANNELS
     status,data=service.get(params,self.headers.get('X-Auth-User'));self.reply(status,data)
    except (ValueError,LookupError):self.reply(422,{'error':'invalid_channel_request'})
    except Exception as exc:

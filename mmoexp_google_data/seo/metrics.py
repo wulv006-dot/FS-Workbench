@@ -48,6 +48,10 @@ def compute_metrics(rows, contract):
         return dict(top10=ratio(Decimal(top), Decimal(len(valid))),
                     coverage=ratio(Decimal(len(valid)), Decimal(len(rows))))
     if contract == 'orders':
+        rows = list(rows)
+        if any(row.get('contract') == 'admin-recorded-order-attribution-v1' for row in rows):
+            from .order_source import recorded_metrics
+            return recorded_metrics(rows)
         lines = {}
         for row in rows:
             key = row['order_ref'], row['line_ref']
