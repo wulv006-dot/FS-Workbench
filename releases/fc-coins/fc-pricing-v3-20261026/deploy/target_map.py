@@ -8,14 +8,16 @@ TARGET_COUNT = 101
 CURVE_V6_SCOPE = 'fc-pricing-owned-curve-v6-20261113'
 CURVE_V6_BASE = '7042edaf90647cbd51ab7df3e35f7b4341f72b3f'
 CURVE_V6_MODULES = ('competitor_offers.py', 'cost_inputs_v6.py', 'cost_model.py', 'price_curve.py',
-                    'pricing_proof_v6.py', 'planning_baskets_v6.py', 'curve_strategy_v6.py')
+                    'pricing_proof_v6.py', 'planning_baskets_v6.py', 'curve_strategy_v6.py',
+                    'order_projection_v6.py')
 CURVE_V6_CHANGED_MODULES = (
     'adapters.py', 'api.py', 'business_source.py', 'daily.py', 'dispatch.py', 'engine.py',
-    'ledger.py', 'market_registry.py', 'observations.py', 'runtime.py', 'selective_sources.py',
+    'ledger.py', 'market_registry.py', 'monitoring.py', 'observations.py', 'runtime.py', 'scheduler.py', 'selective_sources.py',
     'sources.py',
 )
 CURVE_V6_TOP_LEVEL = (
-    'coin_all_sync_job.py', 'fc27_cloud_worker.py', 'price_writer.py', 'pricing_simulation.py',
+    'coin_all_sync_job.py', 'fc27_cloud_api.py', 'fc27_cloud_worker.py', 'price_writer.py', 'pricing_simulation.py',
+    'pricing_sources.py',
     'reconcile_original.py', 'server_quote_job.py', 'snapshot_layer.py',
 )
 CURVE_V6_SOURCE_NAMES = frozenset(CURVE_V6_TOP_LEVEL) | {

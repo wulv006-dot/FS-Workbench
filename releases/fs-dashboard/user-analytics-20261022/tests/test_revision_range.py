@@ -5,9 +5,10 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
-from user_store import Store
+from user_store import Store, StoreUnavailable
 import user_version_index as index
 
 
@@ -94,11 +95,41 @@ class RevisionRange(unittest.TestCase):
         self.store.read_only=False
         self.change(3,[fact('first',3,'2026-10-02')])
         self.assertEqual([r['order_key'] for r in self.store.read_at('2',*window)],['first'])
-        self.assertIsNone(self.store.read_at('2',*window,bounded_only=True))
+        self.assertEqual([r['order_key'] for r in self.store.read_at('2',*window,bounded_only=True)],['first'])
         self.migrate()
         self.store.config['revision_range_index']=True
         self.store.read_only=True
         self.assertEqual([r['order_key'] for r in self.store.read_at('2',*window,bounded_only=True)],['first'])
+
+    def test_unindexed_bounded_tail_replays_moves_refunds_recovery_and_new_orders(self):
+        window=('2026-10-01','2026-10-02')
+        self.change(2, [fact('moved_out',2,'2026-10-01'), fact('moved_in',2,'2026-10-02'),
+                        fact('void_later',2,'2026-10-01'), fact('recover_later',2,'2026-10-01',valid=0)])
+        self.change(3, [fact('moved_out',3,'2026-10-02'), fact('moved_in',3,'2026-10-01'),
+                        fact('void_later',3,'2026-10-01',valid=0), fact('recover_later',3,'2026-10-01'),
+                        fact('new_order',3,'2026-10-01')])
+        self.change(4, [fact('moved_out',4,'2026-10-01'), fact('new_order',4,'2026-10-02')])
+        self.store.read_only=True
+        actual=self.store.read_at('2',*window,bounded_only=True)
+        self.assertEqual(actual,self.store.read_at('2',*window))
+        self.assertEqual([row['order_key'] for row in actual],['moved_out','void_later'])
+
+    def test_unindexed_bounded_tail_refuses_excess_revisions_and_bytes(self):
+        self.change(2,[fact('a',2,'2026-10-01')])
+        self.change(3,[fact('a',3,'2026-10-02')])
+        window=('2026-10-01','2026-10-02')
+        for budget in ('BOUNDED_TAIL_REVISIONS','BOUNDED_TAIL_BYTES'):
+            with self.subTest(budget=budget), patch('user_store.'+budget,0):
+                self.assertIsNone(self.store.read_at('2',*window,bounded_only=True))
+                self.assertEqual([row['order_key'] for row in self.store.read_at('2',*window)],['a'])
+
+    def test_unindexed_bounded_tail_refuses_missing_revision(self):
+        self.change(2,[fact('a',2,'2026-10-01')])
+        self.change(3,[fact('a',3,'2026-10-02')])
+        with self.store.db() as db:
+            db.execute('DELETE FROM revisions WHERE id=3')
+        with self.assertRaisesRegex(StoreUnavailable,'users_revision_history_incomplete'):
+            self.store.read_at('2','2026-10-01','2026-10-02',bounded_only=True)
 
     def test_interrupted_migration_resume_and_source_change_refusal(self):
         self.change(2,[fact('a',2,'2026-10-02')])

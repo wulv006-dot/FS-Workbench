@@ -807,6 +807,11 @@ class Handler(BaseHTTPRequestHandler):
                           'recalculate':{'client_event_id','run_id','edits'},
                           'restore-preview':{'client_event_id','source_execution_id'},
                           'hermes-review':{'client_event_id','run_id'}}[action]
+                if action == 'collect' and 'write_protocol' in data:
+                    from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+                    if data['write_protocol'] != CURVE_WRITE_PROTOCOL:
+                        raise ValueError('pricing_curve_collect_fields_invalid')
+                    expected = expected | {'write_protocol'}
                 if action=='hermes-review' and 'restore_source_execution_id' in data:
                     expected=expected|{'restore_source_execution_id'}
                 if set(data)!=expected or not valid_id(data.get('client_event_id')):

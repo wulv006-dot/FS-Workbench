@@ -129,7 +129,10 @@ def load_authorized(preview_id):
     current_engine = Path(__file__).with_name("fc27_quote_engine.py")
     if hashlib.sha256(current_engine.read_bytes()).hexdigest() != quote["quote_engine_sha256"]:
         raise ValueError("quote_engine_changed_since_preview")
-    newest = max((p for p in (ROOT / "runs").glob("*.json")), key=lambda p: p.stat().st_mtime)
+    from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL, write_protocol
+    from fc_pricing_v3.runtime import latest_collection
+    protocol = write_protocol(quote.get('result', {}).get('decision_receipt') or {})
+    newest = latest_collection(ROOT, curve=protocol == CURVE_WRITE_PROTOCOL)
     if newest != run_path:
         raise ValueError("newer_run_exists")
     return preview, quote
@@ -287,7 +290,7 @@ def confirm_sync_recipient(record):
 
 def execute_curve(request):
     from coin_all_sync_job import (PRODUCTS, atomic, curve_admin_manager, curve_catalog_plan,
-                                  curve_writer_capabilities, drive_curve_catalog)
+                                  curve_writer_capabilities, drive_curve_catalog, read_curve_routes)
     from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL, validate_curve_send, validate_dispatch
 
     execution_id = parse_uuid(request['execution_id'])
@@ -312,7 +315,8 @@ def execute_curve(request):
 
     # Legacy unknowns share the existing Order sync. V6 catalog leases use exact
     # Goods (ALL and verified propagation receivers) within that same writer lock.
-    capabilities = curve_writer_capabilities()
+    routes = bundle.get('curve_native_routes') or {}
+    capabilities = curve_writer_capabilities(routes) if routes else curve_writer_capabilities()
     items = {p: dict(curve_catalog_plan(bundle, p, capabilities.get(p)), operation_id=execution_id)
              for p in selected}
     goods = {item['all_goods_id'] for item in items.values()}
@@ -353,6 +357,11 @@ def execute_curve(request):
     for platform in selected:
         before_send(platform)
     manager = curve_admin_manager()
+    if routes:
+        live = read_curve_routes(manager)
+        if any((live.get(p) or {}).get('propagation_revision') != routes[p]['propagation_revision']
+               for p in selected):
+            raise ValueError('pricing_curve_recipient_directory_changed')
     atomic(path, record)
     return drive_curve_catalog(manager, record, lambda value: atomic(path, value), before_send, capabilities)
 

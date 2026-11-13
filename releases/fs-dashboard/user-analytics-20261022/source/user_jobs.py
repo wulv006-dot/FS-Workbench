@@ -363,22 +363,35 @@ def targeted_refresh(store, site, now, reader=shared_correct, lock_path=SOURCE_L
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=('sync', 'tick', 'backup', 'backup-plan', 'backup-verify'))
+    parser.add_argument('action', choices=('sync', 'tick', 'backup', 'backup-plan', 'backup-verify', 'shared-es-seed'))
     parser.add_argument('--day')
     parser.add_argument('--start'); parser.add_argument('--end')
     parser.add_argument('--site', default='266'); parser.add_argument('--recheck', action='store_true')
+    parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
     now = datetime.now(TZ)
     if args.action == 'tick':
         from user_weekly import wake
-        print(canonical(wake(ROOT, load_store, datetime.now(TZ), force=args.recheck, cadence='daily')), flush=True)
+        print(canonical(wake(ROOT, load_store, datetime.now(TZ), force=args.recheck, cadence='daily', shared_es=True)), flush=True)
         return
+    if args.apply and args.action != 'shared-es-seed':
+        parser.error('--apply requires shared-es-seed')
+    if args.action == 'shared-es-seed' and (not args.start or not args.end):
+        parser.error('shared-es-seed requires --start and --end')
     store = load_store()
+    if args.action == 'shared-es-seed' and not args.apply:
+        from shared_es_facts import seed
+        print(canonical(seed(store, args.start, args.end, now=now)), flush=True)
+        return
     with (store.root / 'jobs.lock').open('a+b') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             print('{"status":"deferred","reason":"user_job_active"}'); return
+        if args.action == 'shared-es-seed':
+            from shared_es_facts import seed
+            print(canonical(seed(store, args.start, args.end, apply=True, now=now)), flush=True)
+            return
         if args.action in ('backup-plan', 'backup-verify'):
             from user_backup_retention import plan, verify_existing
             print(canonical(plan(store, now) if args.action == 'backup-plan' else verify_existing(store, args.day or now.date().isoformat()))); return

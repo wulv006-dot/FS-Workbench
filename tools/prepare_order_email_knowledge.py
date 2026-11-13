@@ -26,10 +26,9 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULE = 'releases/fs-dashboard/knowledge-layering-20261023'
 EMAIL = 'fs.orders.email_export'
 OVERLAYS = (EMAIL, 'fs.data.sources')
-SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r1'
-SHARED_BASE_COMMIT = '416167951cfe261d55f2aba299e2cd020a082cf0'
-SHARED_OVERLAYS = ('fs.data.sources', 'fs.customer.identity', 'fs.finance.procurement',
-                   'fc.marketing.attribution', 'fc.reporting.data')
+SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r2'
+SHARED_BASE_COMMIT = '33689877152c20e05f8400fc71e35494892ed406'
+SHARED_OVERLAYS = ('fs.data.sources', 'fc.marketing.attribution', 'fc.reporting.data')
 FS_RUNTIME_ROOT = '/var/lib/fs-hermes-fc/fs/'
 BASELINE_TARGET = '/opt/fs-hermes-fc/business-baseline.md'
 BASELINE_SOURCE = 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
@@ -120,7 +119,8 @@ def merge_shared_entry(identity, template, row, content, changes):
     data = (content.rstrip('\n') + '\n').encode('utf-8')
     source = template['source']
     row.update(revision=template['revision'], knowledge_updated_at=template['knowledge_updated_at'],
-               source=dict(path='overlay/' + identity + '.md', sha256=sha(data), hash_basis='utf8_lf',
+               source=dict(path='overlay/' + template['revision'] + '/' + identity + '.md',
+                           sha256=sha(data), hash_basis='utf8_lf',
                            canonical_path=source['path'], canonical_sha256=source['sha256']),
                provenance=row['provenance'] + template['provenance'],
                supersedes=list(dict.fromkeys(row['supersedes'] + template['supersedes'])))

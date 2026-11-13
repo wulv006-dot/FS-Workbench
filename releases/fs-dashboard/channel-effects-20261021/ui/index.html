@@ -20,27 +20,46 @@
   </header>
   <main id="main" tabindex="-1">
     <form id="filters" class="panel filters" aria-label="渠道效果筛选">
-      <label>追踪类型<select name="mode"><option value="order-facts">后台归因渠道</option><option value="code">优惠码 / 推荐人效果</option><option value="coupon">优惠券效果</option></select></label>
       <label>开始日期<input name="start" type="date" required></label>
       <label>结束日期<input name="end" type="date" required></label>
       <fieldset class="quick"><legend>快捷区间</legend><button type="button" data-days="1">昨日</button><button type="button" data-days="7">近7天</button><button type="button" data-days="30">近30天</button></fieldset>
       <label>游戏<select name="gid"><option value="">全部游戏</option><option value="1327">FC 27</option></select></label>
-      <label id="fact-channel-filter">归因渠道<select name="channel"><option value="all">全部渠道（含未知）</option><option value="SEO">SEO</option><option value="Direct">Direct</option><option value="PPC">PPC</option><option value="Referral">Referral</option><option value="Campaign">Campaign</option><option value="unknown">未知</option></select></label>
+      <label id="fact-channel-filter">归因渠道<select name="channel"><option value="all">全部渠道（含未知）</option><option value="SEO">SEO（自然搜索）</option><option value="Direct">Direct（直接访问）</option><option value="PPC">PPC（谷歌广告）</option><option value="Referral">Referral（引荐）</option><option value="Campaign">Campaign（营销活动）</option><option value="unknown">未知</option></select></label>
+      <div class="filter-actions"><button type="submit" class="primary">查询</button><button id="reset" type="button">清空筛选</button></div>
+      <details id="promotion-filters" class="promotion-filters">
+      <summary>订单状态、渠道优惠与关键词</summary>
+      <div class="promotion-fields">
       <label><span id="project-label">项目 / 渠道</span><select name="project"><option value="">全部项目</option></select></label>
       <label><span id="code-label">折扣码</span><select name="code"><option value="">全部折扣码</option></select></label>
-      <label>订单状态<select name="status"><option value="valid">排除退款单</option><option value="all">全部订单</option><option value="refund">仅退款单</option></select></label>
+      <label id="fact-code-filter">折扣码<input name="fact_code" maxlength="160" placeholder="输入完整折扣码"></label>
+      <label id="coupon-template-filter">优惠券模板<select name="coupon_template"><option value="">全部优惠券</option></select></label>
+      <label id="coupon-batch-filter">优惠券批次<input name="coupon_batch" maxlength="160" placeholder="输入完整批次"></label>
+      <label>订单状态<select name="status"><option value="all">全部订单</option><option value="valid">排除退款单</option><option value="refund">仅退款单</option></select></label>
       <label>国家 / 地区<select name="country"><option value="">全部国家 / 地区</option></select></label>
       <label>支付方式<select name="payment"><option value="">全部支付方式</option></select></label>
       <label class="keyword">关键词<input name="q" placeholder="订单号 / 推广人 / 折扣码" maxlength="160" type="search"></label>
-      <div class="filter-actions"><button type="submit" class="primary">查询</button><button id="reset" type="button">清空筛选</button></div>
+      </div></details>
+      <details id="original-analysis" class="promotion-filters">
+        <summary>原折扣码、推广人和优惠券专项分析</summary>
+        <div class="promotion-fields"><label>专项分析范围<select name="mode"><option value="order-facts">同单归属与效果</option><option value="code">原折扣码 / 推广人明细</option><option value="coupon">原优惠券明细</option></select></label></div>
+      </details>
     </form>
     <p id="status" class="status" role="status" aria-live="polite">正在确认当前账号…</p>
     <div id="results" hidden>
       <p id="scope" class="scope"></p>
-      <section class="panel" aria-labelledby="source-attribution-title"><h2 id="source-attribution-title">广告优先来源归属 · 全站去重</h2><p id="source-attribution-note"></p><div id="source-attribution"></div></section>
+      <section class="panel attribution-panel" aria-labelledby="source-attribution-title"><h2 id="source-attribution-title">渠道订单占比</h2><p id="source-attribution-note" class="hint"></p><div id="source-attribution-chart"></div><div id="source-attribution"></div><div id="source-attribution-associations"></div></section>
       <section id="kpis" class="kpis" aria-label="渠道核心指标"></section>
       <details class="panel definitions"><summary>统计范围与成本覆盖 <span id="coverage"></span></summary><div id="definitions"></div></details>
       <section class="panel trend-panel" aria-labelledby="trend-title"><div class="section-header"><h2 id="trend-title">每日销售与毛利趋势</h2><button id="export-facts" type="button" disabled hidden>导出当前汇总 CSV</button></div><p id="trend-hint" class="hint"></p><div id="trend"></div><details><summary>查看每日数据表</summary><div id="trend-table"></div></details></section>
+      <details id="facts-detail" class="panel definitions" hidden>
+        <summary>查看同一范围的订单、推广人、折扣码和优惠券</summary>
+        <p id="facts-detail-status" class="hint" role="status"></p>
+        <div id="facts-detail-table"></div>
+        <nav class="pagination" aria-label="同一范围订单分页">
+          <span id="facts-detail-page"></span><button id="facts-detail-prev" type="button" disabled>上一页</button>
+          <button id="facts-detail-next" type="button" disabled>下一页</button><button id="facts-detail-export" type="button" disabled>导出本范围明细 CSV</button>
+        </nav>
+      </details>
       <div id="legacy-details" style="display:contents">
       <div class="two-columns">
         <section class="panel" aria-labelledby="projects-title"><h2 id="projects-title">项目效果对比</h2><p class="hint">同一游戏与日期范围；自然流量仅作对照。</p><div id="projects"></div></section>

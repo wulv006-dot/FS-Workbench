@@ -21,20 +21,34 @@ const server=http.createServer((req,res)=>{
     if(state==='pending'){res.writeHead(202);res.end(JSON.stringify({status:'pending',retryAfter:30}));return;}
     if(state==='error'){res.writeHead(503);res.end('{}');return;}
     if(state==='denied'){res.writeHead(403);res.end('{}');return;}
-    const empty=state==='empty',zero=state==='zero',selected=url.searchParams.get('channel')==='unknown';
-    const totals=summary(empty?0:selected?1:2,empty?0:1);
+    if(url.searchParams.has('snapshot_id')){
+      if(state==='detail-expired'){res.writeHead(409);res.end('{}');return;}
+      const snapshot_id=url.searchParams.get('snapshot_id');
+      if(url.searchParams.has('detail_export')){res.end(JSON.stringify({snapshot_id,total:3,detail_csv:'channel,code,coupon\r\nReferral,synthetic-code,Launch\r\n'}));return;}
+      res.end(JSON.stringify({snapshot_id,total:3,page:1,pages:1,orders:[{orderNo:'SYNTHETIC',channel:'Referral（引荐）',source:'YouTube',code:'synthetic-code',coupons:['Launch'],salesUsd:15}]}));return;
+    }
+    const missing=state==='shared-missing',empty=state==='empty'||missing,zero=state==='zero',channel=url.searchParams.get('channel'),selected=channel==='unknown';
+    const referral=channel==='Referral', filtered=url.searchParams.has('coupon_template');
+    const totals=summary(empty?0:selected||filtered?1:referral?3:4,empty||referral||filtered?0:1);
     if(zero)Object.assign(totals,{missing_cost_orders:0,cost_covered_orders:2,procurement_gross_cny:'0',gross_covered_orders:2,admin_paid_usd:'0'});
-    const scope=Object.fromEntries(['start','end','site_id','gid','channel'].map(k=>[k,url.searchParams.get(k)]));
+    const scope=Object.fromEntries(['start','end','site_id','gid','channel','status','country','payment','project','coupon_template']
+      .filter(k=>url.searchParams.has(k)).map(k=>[k,url.searchParams.get(k)]));
+    const associations={discount_code:{known_orders:0,unknown_orders:0},promoter:{known_orders:0,unknown_orders:0},
+      coupon:{known_orders:1,unknown_orders:0},coupon_templates:[{label:'Launch',orders:1}],promotion_projects:[],order_sources:[]};
+    const sourceRow=(label,orders)=>({label,...summary(orders),associations,cost_records:0,order_share:orders/totals.orders});
+    const breakdown={dimension:channel==='all'?'channel':'source_detail',denominator_orders:totals.orders,
+      rows:empty?[]:selected?[sourceRow('未提供',1)]:referral?(filtered?[sourceRow('YouTube',1)]:[sourceRow('YouTube',2),sourceRow('未提供',1)]):
+        [sourceRow('Referral（引荐）',3),sourceRow('未知',1)]};
     const snapshot=state==='revision'?'revision-2':'revision-1';
-    res.end(JSON.stringify({version:'order-facts-api-20261113-v1',status:'available',admin_complete:true,
+    res.end(JSON.stringify({version:'order-facts-api-20261113-v1',status:missing?'unavailable':'available',admin_complete:!missing,
       ...(state==='deferred'?{refresh_deferred:true,refresh_reason:'recent_capture',retryAfter:60}:{}),
       effective_scope:state==='mismatch'?{...scope,gid:'999'}:scope,
       snapshot_id:snapshot,aggregate_csv:`gid,channel,snapshot\r\n${scope.gid},${scope.channel},${snapshot}\r\n`,
       trend:[{day:scope.start,...totals,status:'available'},
         {day:scope.end,...summary(0),admin_paid_usd:null,observed_cost_cny:null,status:'partial'}],
-      totals,channels:empty?[]:selected?[{channel:'unknown',...totals}]:[{channel:'Direct',...summary(1)},{channel:'unknown',...summary(1,1)}],
-      coverage:{unlinked_admin_rows:0,unlinked_attribution_rows:3},
-      options:{games:[['1327','FC27'],['456','Diablo 4'],['1329','AION2']]},
+      totals,breakdown,channels:[],keyword_applied:url.searchParams.has('q'),discount_code_applied:url.searchParams.has('code'),coupon_batch_applied:url.searchParams.has('coupon_batch'),
+      coverage:{unlinked_admin_rows:0,unlinked_attribution_rows:3,unverified_filter_orders:filtered?1:0,missing_days:missing?[scope.end]:[]},
+      options:{games:[['1327','FC27'],['456','Diablo 4'],['1329','AION2']],country:['US'],payment:['PayPal'],coupon_templates:[['7','Launch']]},
       revisions:{attribution:{publication_id:state==='revision'?'revision-2':'revision-1'}}}));return;
   }
   if(url.pathname.endsWith('runtime.js')){
@@ -44,7 +58,7 @@ const server=http.createServer((req,res)=>{
     res.setHeader('Content-Type','text/javascript');res.end("window.FSTheme={get:()=>document.documentElement.dataset.fsTheme||'light',set:v=>{document.documentElement.dataset.fsTheme=v;dispatchEvent(new Event('fs-theme-change'))}};");return;
   }
   if(url.pathname.endsWith('.css')&&!url.pathname.endsWith('/channel.css')){
-    res.setHeader('Content-Type','text/css');res.end(':root{--fs-font:system-ui;--fs-line:#ddd;--fs-text:#123;--fs-surface:#fff;--fs-bg:#eee}');return;
+    res.setHeader('Content-Type','text/css');res.end(':root{--fs-font:system-ui;--fs-line:#ddd;--fs-text:#123;--fs-surface:#fff;--fs-bg:#eee;--fs-brand:#075e60;--fs-surface-2:#eee}[data-fs-theme=dark]{--fs-brand:#61d2d1;--fs-surface-2:#293648}');return;
   }
   if(url.pathname.startsWith('/__hub/')){res.setHeader('Content-Type','text/javascript');res.end('');return;}
   const name=url.pathname.endsWith('/')?'index.html':url.pathname.split('/').pop();
@@ -62,14 +76,15 @@ const server=http.createServer((req,res)=>{
     await page.locator('#status').filter({hasText:'正在从共享数据源'}).waitFor();
     assert.equal(await page.locator('#results').isVisible(),false);
     assert.equal(await page.locator('[name=mode]').inputValue(),'order-facts');
-    assert.equal(await page.locator('[name=country]').isDisabled(),true);
-    assert.equal(await page.locator('[name=q]').isVisible(),false);
+    assert.equal(await page.locator('[name=country]').isDisabled(),false);
     assert.equal(await page.getByRole('button',{name:'近28天',exact:true}).count(),1);
     state='available';await page.locator('#refresh').click();
     await page.locator('#results').waitFor({state:'visible'});
-    assert.match(await page.locator('#source-attribution-title').innerText(),/后台归因渠道/);
+    assert.match(await page.locator('#source-attribution-title').innerText(),/各归因渠道订单占比/);
     assert.match(await page.locator('#source-attribution').innerText(),/未知/);
-    assert.match(await page.locator('#source-attribution-note').innerText(),/已归因 1 \/ 2 单/);
+    assert.match(await page.locator('#source-attribution-note').innerText(),/共 4 单.*已归因 3 \/ 4 单/);
+    assert.match(await page.getByRole('list',{name:'各归因渠道订单占比'}).innerText(),/Referral（引荐）\s+75.0%.*未知\s+25.0%/s);
+    assert.equal(await page.locator('#source-attribution-chart [aria-hidden=true]').count(),2);
     assert.equal(await page.locator('#legacy-details').isVisible(),false);
     assert.equal(await page.locator('#trend svg').isVisible(),true);
     assert.equal(await page.locator('#trend .sales').count(),1);
@@ -83,6 +98,37 @@ const server=http.createServer((req,res)=>{
     assert.equal(requests.at(-1).refresh,'1');
     assert.equal(requests.at(-1).site_id,'266');
     assert.equal(await page.locator('[name=gid] option[value="456"]').textContent(),'Diablo 4');
+    await page.locator('[name=channel]').selectOption('Referral');
+    await page.locator('#source-attribution-title').filter({hasText:'Referral（引荐）'}).waitFor();
+    assert.match(await page.locator('#source-attribution-note').innerText(),/所选渠道共 3 单/);
+    assert.match(await page.locator('#source-attribution-chart').innerText(),/YouTube\s+66.7%.*未提供\s+33.3%/s);
+    const detailSummary=page.getByText('查看同一范围的订单、推广人、折扣码和优惠券',{exact:true});
+    await detailSummary.click();
+    await page.getByText('SYNTHETIC',{exact:true}).waitFor();
+    assert.match(await page.locator('#facts-detail-table').innerText(),/YouTube.*synthetic-code.*Launch/s);
+    assert.equal(requests.at(-1).channel,'Referral');
+    assert.equal(requests.at(-1).snapshot_id,'revision-1');
+    const [detailCsv]=await Promise.all([page.waitForEvent('download'),page.locator('#facts-detail-export').click()]);
+    assert.match(fs.readFileSync(await detailCsv.path(),'utf8'),/Referral,synthetic-code,Launch/);
+    state='detail-expired';await page.locator('#facts-detail-export').click();
+    await page.getByText('本次快照已失效，请重新查询当前范围。',{exact:true}).waitFor();
+    await detailSummary.click();state='available';
+    await page.getByText('订单状态、渠道优惠与关键词',{exact:true}).click();
+    await page.locator('[name=country]').selectOption('US');
+    await page.waitForFunction(()=>document.querySelector('#scope').textContent.includes('美国（US）'));
+    await page.locator('[name=coupon_template]').selectOption('7');
+    await page.locator('#source-attribution-note').filter({hasText:'1 单筛选字段未核'}).waitFor();
+    assert.match(await page.locator('#source-attribution-chart').innerText(),/YouTube\s+100.0%/s);
+    assert.equal(requests.at(-1).country,'US');
+    assert.equal(requests.at(-1).coupon_template,'7');
+    await page.getByText('查看同单关联的订单来源、优惠券和推广项目',{exact:true}).click();
+    assert.match(await page.locator('#attribution-association-table').innerText(),/Launch/);
+    await page.locator('[name=coupon_template]').selectOption('');
+    await page.waitForFunction(()=>!document.querySelector('#scope').textContent.includes('已筛优惠券'));
+    await page.locator('[name=country]').selectOption('');
+    await page.waitForFunction(()=>!document.querySelector('#scope').textContent.includes('美国（US）'));
+    await page.locator('[name=channel]').selectOption('all');
+    await page.locator('#source-attribution-title').filter({hasText:'各归因渠道订单占比'}).waitFor();
     await page.locator('[name=gid]').selectOption('456');
     await page.waitForFunction(()=>document.querySelector('#scope').textContent.includes('Diablo 4'));
     assert.equal(requests.at(-1).gid,'456');
@@ -133,8 +179,13 @@ const server=http.createServer((req,res)=>{
     await page.locator('#status').filter({hasText:'没有付款订单'}).waitFor();
     assert.match(await page.locator('#kpis').innerText(),/\$0.00/);
     assert.match(await page.locator('#source-attribution').innerText(),/没有记录/);
+    state='shared-missing';await page.locator('#refresh').click();
+    await page.locator('#status').filter({hasText:'共享订单库暂未覆盖当前范围'}).waitFor();
+    assert.match(await page.locator('#source-attribution-note').innerText(),/共享订单库缺 1 天/);
+    assert.doesNotMatch(await page.locator('#kpis').innerText(),/\$0\.00/);
+    assert.equal(await page.locator('#source-attribution-chart li').count(),0);
     state='zero';await page.locator('[name=channel]').selectOption('all');
-    await page.waitForFunction(()=>document.querySelector('#coverage').textContent.includes('完整成本 2 / 2'));
+    await page.waitForFunction(()=>document.querySelector('#coverage').textContent.includes('完整成本 2 / 4'));
     assert.doesNotMatch(await page.locator('#kpis').innerText(),/—/);
     state='revision';await page.locator('#refresh').click();
     await page.locator('#freshness').filter({hasText:'revision-2'}).waitFor();
@@ -143,6 +194,8 @@ const server=http.createServer((req,res)=>{
     for(const theme of ['dark','light']){
       await page.locator('#theme').selectOption(theme);
       assert.equal(await page.locator('html').getAttribute('data-fs-theme'),theme);
+      assert.equal(await page.locator('#source-attribution-chart .bar-fill').first().evaluate(el=>getComputedStyle(el).backgroundColor),
+        theme==='dark'?'rgb(97, 210, 209)':'rgb(7, 94, 96)');
     }
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.locator('#source-attribution .table-wrapper').getAttribute('role'),'region');

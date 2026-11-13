@@ -146,7 +146,9 @@ def collect_quote(job):
     os.chmod(run_path, 0o640)
     code, quote = run(["python3", str(APP / "server_quote_job.py"), run_id], 300)
     job["quote"] = quote
-    if code or quote.get("status") not in {"ready_for_preview", "margin_review_required"}:
+    if code or quote.get("status") not in {"ready_for_preview", "margin_review_required", "proof_incomplete",
+                                          "no_price_change", "curve_candidate_proven", "hard_constraint_failed",
+                                          "no_feasible_curve"}:
         job["error_detail"] = quote.get("reason") or "quote_failed"
         raise ValueError(job["error_detail"])
     return {"run_id": run_id, "quote_status": quote["status"]}

@@ -51,7 +51,10 @@ class AdoptionLedger(unittest.TestCase):
         bundle.pop('sha256')
         bundle['curve_adoption'] = adoption
         bundle['sha256'] = fingerprint(bundle)
-        (self.run.root / 'quotes' / 'run.json').write_text(json.dumps(dict(result=dict(decision_receipt=bundle))))
+        path = self.run.root / 'quotes' / 'run.json'
+        quote = json.loads(path.read_text())
+        quote['result']['decision_receipt'] = bundle
+        path.write_text(json.dumps(quote))
 
     def test_reference_survives_reopen_and_episode_rotation_inherits_a(self):
         start = self.start()

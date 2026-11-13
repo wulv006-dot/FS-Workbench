@@ -43,6 +43,7 @@ const server = http.createServer(async (req, res) => {
     const failures = []; page.on('pageerror', error => failures.push(error.message));
     const url = `http://127.0.0.1:${server.address().port}/dashboard/channel-effects/`;
     await page.goto(url);
+    await page.getByText('原折扣码、推广人和优惠券专项分析',{exact:true}).click();
     await page.locator('[name=mode]').selectOption('code');
     await page.locator('#results').waitFor({state:'visible'});
     assert.match(await page.locator('#source-attribution-note').innerText(), /已核来源内FC成交/);
@@ -132,7 +133,8 @@ const server = http.createServer(async (req, res) => {
     assert.equal(await page.locator('#refresh').isDisabled(),true);
     const dates = await browser.newPage({timezoneId:'America/Los_Angeles'});
     await dates.clock.setFixedTime(new Date('2026-10-21T15:59:59Z'));
-    await dates.goto(url); await dates.locator('[name=mode]').selectOption('code'); await dates.locator('#results').waitFor({state:'visible'});
+    await dates.goto(url); await dates.getByText('原折扣码、推广人和优惠券专项分析',{exact:true}).click();
+    await dates.locator('[name=mode]').selectOption('code'); await dates.locator('#results').waitFor({state:'visible'});
     for (const [button,start,end] of [['昨日','2026-10-20','2026-10-20'],['近7天','2026-10-14','2026-10-20'],['近30天','2026-09-21','2026-10-20']]) {
       await dates.getByRole('button',{name:button,exact:true}).click();
       assert.equal(await dates.locator('[name=start]').inputValue(),start);

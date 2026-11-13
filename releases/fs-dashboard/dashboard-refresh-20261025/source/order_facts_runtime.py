@@ -13,11 +13,15 @@ from order_facts_source import project_order_facts
 DB = Path('/var/lib/fs-user-analytics/customers.sqlite3')
 ARCHIVE = Path('/var/lib/fc27-es-exports')
 COSTS = Path('/var/lib/fs-channel-effects/order-deliveries.json')
+CHANNEL_ARCHIVE = COSTS.parent
 FIELDS = ('id','order_no','site_id','site','gid','game_format','paytime','pay_status',
           'status_format','amount_usd_format','amount_rmb_format')
+MARKETING_FIELDS = ('discount_code','recommend_uid','country_code','country','paytype_display','paytype')
+PROMOTION_CHANNELS = {'seo':'SEO','谷歌广告':'PPC','kol':'Referral','tiktok':'Referral','tt':'Referral'}
+ATTRIBUTION_RULE = 'order-channel-priority-20261113-v1'
 
 
-def admin_orders(scope, request):
+def admin_orders(scope, request, *, marketing=False):
     """Enumerate all native identities first; derive selected site/game afterwards."""
     from channel_source import search
     lo, hi = scope['start']+' 00:00:00', scope['end']+' 23:59:59'
@@ -48,6 +52,8 @@ def admin_orders(scope, request):
                 raise ValueError('order_facts_admin_identity_scope')
             previous = ident
             selected = {k:row.get(k) for k in FIELDS}
+            if marketing:
+                selected.update((k,row[k]) for k in MARKETING_FIELDS if k in row)
             seen[ident] = True
             result.append(selected)
         if len(result) == expected:break
@@ -84,11 +90,191 @@ def existing_costs(path=COSTS):
 
 
 def collect(scope, **kwargs):
-    return collect_many([scope], **kwargs)[0]
+    return collect_shared(scope, **kwargs)
 
 
-def collect_many(scopes, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, dataset_reader=None):
-    """One source revision for same-period consumers; no persistent private cache."""
+def dashboard_evidence(period, root):
+    """Read matched main-site evidence from the existing completed daily cache."""
+    from channel_cache import CONTRACT, days
+    records, revisions = {}, {}
+    for day in days(period):
+        path = Path(root)/'days'/f'{day}.json'
+        try:
+            if any(item.is_symlink() for item in (path,*path.parents)) or path.stat().st_size > 16*1024*1024:
+                continue
+            raw = path.read_bytes()
+            value = json.loads(raw)
+            sources = value['sources']
+            if (value['contract'] != CONTRACT or value['period'] != {'start':day,'end':day}
+                    or sources['orders']['status'] != 'complete' or sources['orders'].get('site') != 'MMOEXP'
+                    or sources['coupons']['status'] != 'complete'):
+                continue
+            rows = value['orders']
+            source = sources.get('orderSource') or {}
+            index = {(day,r['orderNo'],r['gid'],r['paidAt']):dict(r,
+                         sourceCapturedAt=source.get('generatedAt') if source.get('sourceVersion') else None)
+                     for r in rows
+                     if r['day']==day and isinstance(r['coupons'],list)}
+            if len(index) != len(rows):
+                continue
+        except (OSError, ValueError, KeyError, TypeError):
+            # A missing or unusable auxiliary day cannot certify zero coupon use.
+            continue
+        records.update(index)
+        revisions[day] = hashlib.sha256(raw).hexdigest()
+    return records, revisions
+
+
+def dashboard_mapping():
+    from channel_effects import Attribution
+    from channel_source import SALES, __file__ as channel_source_file
+    raw = Path(channel_source_file).with_name('channel_mapping.json').read_bytes()
+    directory_path = SALES/'promoter_dir.json'
+    directory = directory_path.read_bytes() if directory_path.is_file() else b'{}'
+    return Attribution(json.loads(raw), [], json.loads(directory)), hashlib.sha256(raw+b'\0'+directory).hexdigest()
+
+
+def tracked_channel(source):
+    # Existing 2026-10-22 exact PMax campaign identity. A generic Google tag is ambiguous.
+    if isinstance(source,str) and source.strip().casefold() == 'google-fc27-pmax-coins-us':
+        return 'PPC'
+    return None
+
+
+def pinned_source_correction(order, observed):
+    if not order.get('pinned_order_source_revision'):
+        return False
+    try:
+        pinned = datetime.fromisoformat(order['pinned_order_source_at'])
+        archive = datetime.fromisoformat(observed['sourceCapturedAt'])
+        return pinned.tzinfo is not None and archive.tzinfo is not None and pinned > archive
+    except (ValueError, TypeError, KeyError):
+        return False
+
+
+def effective_attribution(order, native, archived, mapping):
+    from channel_effects import clean, positive_id
+    fact = order['marketing_attribution']
+    observed = archived or {}
+    archive_source = observed.get('sourceRaw') if observed.get('sourceStatus')=='available' else None
+    pinned_source = order.get('pinned_order_source')
+    source = pinned_source or archive_source
+    native_conflict = fact.get('status')=='conflict'
+    source_conflict = order.get('pinned_order_source_conflict') is True or (not pinned_source and observed.get('sourceStatus')=='conflict')
+    if pinned_source and archive_source and pinned_source.strip().casefold()!=archive_source.strip().casefold():
+        source_conflict |= not pinned_source_correction(order,observed)
+    native_code = native.get('discount_code')
+    code = native_code if isinstance(native_code,str) else observed.get('code')
+    native_uid = native.get('recommend_uid')
+    archived_uid = positive_id(observed.get('promoterUid'))
+    uid = positive_id(native_uid) if native_uid is not None else archived_uid
+    same_archived_promotion = ((not isinstance(native_code,str) or code==observed.get('code'))
+                               and (native_uid is None or uid==archived_uid))
+    promoter_basis = 'recommend_uid' if positive_id(native_uid) else 'tracked_order' if uid else None
+    project = None
+    promoter_name = observed.get('promoter') if uid and same_archived_promotion else None
+    if order['site_id']=='266' and (isinstance(code,str) or uid or archived is not None):
+        resolved = mapping.resolve(dict(discount_code=code,recommend_uid=uid,gid=order['gid']))
+        if resolved.get('promoterUid') and not resolved['conflict']:
+            uid = resolved['promoterUid']
+            promoter_name = resolved.get('promoter')
+            if resolved['attributionSource']!='none':promoter_basis = resolved['attributionSource']
+        if not resolved['conflict']:
+            project = resolved['project']
+            # The existing same-order projection may include verified configuration owners.
+            archived_project = observed.get('project')
+            if (project in ('未归类','推荐人渠道待核','无推广归属') and archived_project
+                    and not observed.get('conflict') and same_archived_promotion):
+                project = archived_project
+    promotion_channel = PROMOTION_CHANNELS.get((project or '').casefold())
+    source_channel = tracked_channel(source)
+    native_channel = order['channel'] if order['channel']!='unknown' else None
+    if native_conflict:
+        channel, basis, detail = 'unknown', 'native_conflict', None
+    elif native_channel:
+        channel, basis, detail = native_channel, 'native_channel', fact.get('source_raw')
+    elif source_conflict:
+        channel, basis, detail = 'unknown', 'order_source_conflict', None
+    elif source_channel:
+        channel, basis, detail = source_channel, 'order_source', source
+    elif promotion_channel:
+        channel, basis, detail = promotion_channel, 'promotion', project
+    else:
+        channel, basis, detail = 'unknown', 'unknown', None
+    coupons = observed.get('coupons')
+    return dict(channel=channel, basis=basis, detail=detail, order_source=source,
+        conflict=native_conflict or source_conflict or len({c for c in (native_channel,source_channel,promotion_channel) if c})>1,
+        discount_code=bool(code.strip()) if isinstance(code,str) else None,
+        promoter=True if uid else False if native_uid is not None or archived is not None else None,
+        promoter_uid=uid or None, promoter_basis=promoter_basis,
+        coupon=bool(coupons) if coupons is not None else None,
+        coupon_templates=[item['title'] for item in coupons or () if isinstance(item,dict) and isinstance(item.get('title'),str)],
+        promotion_project=project if project not in (None,'未归类','推荐人渠道待核','无推广归属') else None,
+        filter_row=dict(orderNo=order['order_no'],gid=order['gid'],
+            refunded=order['pay_status']=='2' or order['status'].startswith('已退款'),
+            country=clean(native.get('country_code') or native.get('country') or observed.get('country')) or None,
+            payment=clean(native.get('paytype_display') or native.get('paytype') or observed.get('payment')) or None,
+            project=project, code=code, codeKey=code.strip().casefold() if isinstance(code,str) else None,
+            promoter=promoter_name, coupons=coupons))
+
+
+def collect_dashboard(scope, **kwargs):
+    return collect_shared_many([scope], dashboard=True, **kwargs)[0]
+
+
+def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, reader=None, dashboard=False):
+    """Project a single shared publication without live acquisition or legacy cache reads."""
+    if not scopes or any((s['start'],s['end'])!=(scopes[0]['start'],scopes[0]['end']) for s in scopes):
+        raise ValueError('order_facts_batch_period')
+    if reader is None:
+        from shared_es_facts import read as reader
+    deliveries, cost_proof = existing_costs(costs)
+    if dashboard:
+        mapping, mapping_revision = dashboard_mapping()
+    results = []
+    revision = None
+    for scope in scopes:
+        shared = reader(scope, db=Path(db), publication_id=publication_id)
+        coverage = dict(shared['coverage'], cost=cost_proof)
+        current = coverage.get('publication_id'), coverage.get('source_revision')
+        if ((publication_id is not None and current[0]!=publication_id)
+                or (revision is not None and current!=revision)):
+            raise ValueError('order_facts_shared_revision_changed')
+        publication_id, _ = revision = current
+        status = shared['status']
+        if status not in ('available','partial','unavailable'):
+            raise ValueError('order_facts_shared_status')
+        if status=='unavailable':coverage['admin_complete'] = False
+        rows = shared['rows']
+        keys = {((r.get('site') or {}).get('full_title'),str(r['order_no'])) for r in rows}
+        selected_deliveries = [r for r in deliveries if (r.get('source'),str(r.get('sn') or '')) in keys]
+        value = project_order_facts(rows,shared['dataset'],selected_deliveries,scope=scope,
+            source_coverage=coverage,identity_catalog=shared['identity_catalog'])
+        if status!='available':value['status'] = status
+        if dashboard:
+            native = {(str(r['site_id']),str(r['order_no'])):r for r in rows}
+            for order in value['orders']:
+                raw = native[(order['site_id'],order['order_no'])]
+                order['effective_attribution'] = effective_attribution(order,raw,raw.get('tracking'),mapping)
+            value['source_coverage']['effective_attribution'] = dict(rule=ATTRIBUTION_RULE,
+                mapping_revision=mapping_revision,day_revisions=coverage.get('day_revisions',{}))
+        results.append(value)
+    return results
+
+
+def collect_shared(scope, *, dataset_reader=None, **kwargs):
+    """Accept the deprecated FC archive reader during rollout without invoking it."""
+    return collect_shared_many([scope], **kwargs)[0]
+
+
+def collect_many(scopes, *, request=None, **kwargs):
+    """The deprecated SEO transport argument is accepted during rollout and never called."""
+    return collect_shared_many(scopes, **kwargs)
+
+
+def collect_live_diagnostic(scopes, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, dataset_reader=None,
+                 channel_archive=None):
+    """Explicit legacy comparison. Production consumers use the shared publication."""
     if not scopes or any((s['start'], s['end']) != (scopes[0]['start'], scopes[0]['end']) for s in scopes):
         raise ValueError('order_facts_batch_period')
     scope = scopes[0]
@@ -98,8 +284,10 @@ def collect_many(scopes, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, d
     if dataset_reader is None:
         from es_order_structure import archived_dataset
         dataset_reader = archived_dataset
-    rows = admin_orders(scope, request)
-    revision = hashlib.sha256(json.dumps(rows, sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+    dashboard = channel_archive is not None
+    rows = admin_orders(scope, request, marketing=dashboard)
+    revision_rows = [{k:r[k] for k in FIELDS} for r in rows] if dashboard else rows
+    revision = hashlib.sha256(json.dumps(revision_rows, sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     pin = publication(db)
     dataset, attribution_status = None, 'publication_unavailable'
     if pin is not None:
@@ -118,12 +306,26 @@ def collect_many(scopes, *, request=None, db=DB, archive=ARCHIVE, costs=COSTS, d
     catalog = dict(rows=rows,complete=True,revision=revision,
         scope=dict(site='all',game='all',pay_status='1',start=scope['start'],end=scope['end']))
     result = []
+    if dashboard:
+        evidence, archive_revisions = dashboard_evidence(scope, channel_archive)
+        mapping, mapping_revision = dashboard_mapping()
     for scope in scopes:
         selected = [r for r in rows if str(r.get('pay_status')) in ('1','2')
             and (scope['site_id']=='all' or str(r['site_id'])==scope['site_id'])
             and (scope['gid']=='all' or str(r.get('gid'))==scope['gid'])]
         order_keys = {((r.get('site') or {}).get('full_title'),str(r['order_no'])) for r in selected}
         selected_deliveries = [r for r in deliveries if (r.get('source'),str(r.get('sn') or '')) in order_keys]
-        result.append(project_order_facts(selected,dataset,selected_deliveries,scope=scope,
-            source_coverage=coverage,identity_catalog=catalog))
+        value = project_order_facts(selected,dataset,selected_deliveries,scope=scope,
+            source_coverage=coverage,identity_catalog=catalog)
+        if dashboard:
+            native = {(str(r['site_id']),str(r['order_no'])):r for r in selected}
+            for order in value['orders']:
+                raw = native[(order['site_id'],order['order_no'])]
+                paid = order['paid_at']
+                key = (paid[:10],order['order_no'],order['gid'],paid)
+                archived = evidence.get(key) if order['site_id']=='266' else None
+                order['effective_attribution'] = effective_attribution(order,raw,archived,mapping)
+            value['source_coverage']['effective_attribution'] = dict(rule=ATTRIBUTION_RULE,
+                mapping_revision=mapping_revision, day_revisions=archive_revisions)
+        result.append(value)
     return result

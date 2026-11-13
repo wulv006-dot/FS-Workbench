@@ -14,6 +14,88 @@ STEP = Decimal('.03')
 CENT = Decimal('.01')
 
 
+def market_preference(current, platform, offers, performance, now):
+    """Select a platform's direction from comparable same-hour evidence."""
+    opportunities = []
+    for segment, quantity in ANCHORS.items():
+        matched = []
+        for row in offers:
+            if (row.get('source') != 'Lootbar' or row.get('platform') != platform
+                    or row.get('purchase_k') != quantity or row.get('currency') != 'USD'
+                    or row.get('promotion_eligibility') != 'all_customers' or row.get('comparable') is not True
+                    or row.get('conditional') is True or row.get('region_id') not in (None, 0, '0')
+                    or not row.get('regular_price') or not row.get('delivered_k')):
+                continue
+            try:
+                if 0 <= (now-instant(row['captured_at'])).total_seconds() <= 900:
+                    matched.append(row)
+            except (KeyError, ValueError, TypeError):
+                continue
+        own = next((tier for tier in current['tiers'] if tier['purchase_k'] == quantity), None)
+        comparison = performance.get(segment) or {}
+        if len(matched) != 1 or own is None or comparison.get('coverage_status') != 'comparable':
+            continue
+        try:
+            current_metrics, previous_metrics = comparison['current'], comparison['previous']
+            orders, prior_orders = (Decimal(str(row['paid_orders'])) for row in (current_metrics, previous_metrics))
+            revenue, prior_revenue = (Decimal(str(row['net_paid_usd'])) for row in (current_metrics, previous_metrics))
+            if not all(v.is_finite() for v in (orders, prior_orders, revenue, prior_revenue)):
+                continue
+            margin_field = comparison.get('margin_basis')
+            margin, prior_margin = None, None
+            if margin_field in ('contribution_usd', 'procurement_gross_usd'):
+                margin, prior_margin = (Decimal(str(row[margin_field])) for row in (current_metrics, previous_metrics))
+                if not margin.is_finite() or not prior_margin.is_finite():
+                    continue
+            rival = Decimal(matched[0]['regular_price']) / Decimal(matched[0]['delivered_k'])
+            current_rate = Decimal(own['native_price_usd']) / (Decimal(quantity) + Decimal(own['promised_bonus_k']))
+            difference = current_rate / rival - 1
+        except (ArithmeticError, KeyError, TypeError, ValueError):
+            continue
+        if prior_orders <= 0 or orders < 0:
+            continue
+        if (difference >= Decimal('.05') and orders <= prior_orders * Decimal('.90')
+                and (revenue < prior_revenue or margin is not None and margin < prior_margin)):
+            opportunities.append((segment, 'B', difference, comparison))
+        elif (difference <= Decimal('-.03') and orders >= prior_orders
+                and margin is not None and margin >= prior_margin):
+            opportunities.append((segment, 'C', difference, comparison))
+    if not opportunities:
+        return None
+    # Address a proved demand decline before recapturing a price advantage.
+    segment, label, difference, basis = max(opportunities, key=lambda row: (row[1] == 'B', abs(row[2])))
+    return dict(segment=segment, label=label, lootbar_price_difference=str(difference), comparison=basis)
+
+
+def _repair_rank(current, target, affected_segments):
+    old_unit = Decimal(current['unit_price_usd_per_k'])
+    new_unit = Decimal(target['unit_price_usd_per_k'])
+    if (current['identity'] != target['identity'] or _shape(current) != _shape(target)
+            or new_unit < old_unit or new_unit != old_unit and 'small' not in affected_segments):
+        return None
+    moves = {}
+    for before, after in zip(current['tiers'], target['tiers']):
+        segment = _group(before['purchase_k'])
+        old, new = Decimal(before['native_price_usd']), Decimal(after['native_price_usd'])
+        if new < old or segment not in affected_segments and (
+                new != old or after['native_discount'] != before['native_discount']):
+            return None
+        if new != old:
+            moves.setdefault(segment, []).append((new - old) / old)
+    if not moves:
+        return None
+    return (max(max(values) for values in moves.values()), len(moves),
+            sum(sum(values) for values in moves.values()),
+            tuple(segment for segment in ANCHORS if segment in moves))
+
+
+def minimum_repair(current, proven, affected_segments):
+    """Rank independently quoted native repair points; never infer monotonicity."""
+    eligible = [(rank, curve_key(candidate['curve']), candidate) for candidate in proven
+                if (rank := _repair_rank(current, candidate['curve'], affected_segments)) is not None]
+    return min(eligible, key=lambda item: item[:2], default=(None, None, None))[-1]
+
+
 def curve_strategy_key(platform):
     return 'owned-curve-strategy-v6:' + platform
 
@@ -67,19 +149,66 @@ def _saved_discount_changed_at_same_price(current, adopted):
     return False
 
 
-def _candidate(curve, labels, current):
+def _candidate(curve, labels, current, *, tier_price_factors_verified=False):
     discount_changes = [dict(purchase_k=before['purchase_k'], before=before['native_discount'],
                              after=after['native_discount'])
                         for before, after in zip(current['tiers'], curve['tiers'])
                         if before['native_discount'] != after['native_discount']]
     return dict(curve=curve, curve_key=curve_key(curve), labels=labels,
                 discount_changes=discount_changes,
-                write_gaps=['native_discount_write_unverified'] if discount_changes else [])
+                write_gaps=['native_discount_write_unverified']
+                if discount_changes and not tier_price_factors_verified else [])
+
+
+def _compiled_step(adopted, selected_segment, anchor, target, direction, editor_contract, unit_price):
+    targets = dict(anchor_prices_usd={anchor: str(target)})
+    if unit_price is not None:
+        targets['unit_price_usd_per_k'] = unit_price
+    compiled = compile_curve(adopted, targets, editor_contract)
+    if compiled['compilation_status'] != 'EDITOR_CANDIDATE':
+        return None, compiled['gaps']
+    for before, after in zip(adopted['tiers'], compiled['tiers']):
+        old, new = Decimal(before['native_price_usd']), Decimal(after['native_price_usd'])
+        if _group(before['purchase_k']) != selected_segment:
+            legal = old == new
+        else:
+            with localcontext() as context:
+                context.prec = max(28, len(old.as_tuple().digits) + len(new.as_tuple().digits) + 6)
+                legal = 0 <= direction * (new - old) <= STEP * old
+        if not legal:
+            return None, [dict(code='compiled_tier_outside_segment_step', purchase_k=before['purchase_k'])]
+    return compiled, []
+
+
+def intermediate_candidates(comparison, preferred_label, editor_contract, *, tier_price_factors_verified=False):
+    """Yield distinct bounded native price steps from the outer bound toward fixed A."""
+    if preferred_label not in ('B', 'C') or comparison['gaps'].get(preferred_label) == ['current_reference_catalogue_terms_differ']:
+        return
+    adopted = comparison['reference_curve']
+    current = comparison['confirmed_current_curve']
+    segment = comparison['selected_segment']
+    anchor = ANCHORS[segment]
+    basis = next((Decimal(tier['native_price_usd']) for tier in adopted['tiers'] if tier['purchase_k'] == anchor), None)
+    if basis is None:
+        return
+    direction, rounding = (-1, ROUND_CEILING) if preferred_label == 'B' else (1, ROUND_FLOOR)
+    outer = (basis * (1 + direction * STEP)).quantize(CENT, rounding=rounding)
+    seen = {candidate['curve_key'] for candidate in comparison['candidates'] if preferred_label in candidate['labels']}
+    target = outer - direction * CENT
+    while direction * (target - basis) > 0:
+        compiled, _ = _compiled_step(adopted, segment, anchor, target, direction, editor_contract, None)
+        if compiled is not None:
+            candidate = _candidate(compiled, [preferred_label], current,
+                                   tier_price_factors_verified=tier_price_factors_verified)
+            if candidate['curve_key'] not in seen:
+                seen.add(candidate['curve_key'])
+                yield candidate
+        target -= direction * CENT
 
 
 def build_candidates(confirmed_current_curve, reference, episode, selected_segment,
                      *, unit_price_usd_per_k=None, editor_contract=None,
-                     check_saved_discount_terms=False):
+                     check_saved_discount_terms=False, tier_price_factors_verified=False):
     """Freeze one platform and compile only the requested segment off adopted A.
 
     Reference holds reference_curve/reference_curve_id. Episode holds
@@ -120,7 +249,8 @@ def build_candidates(confirmed_current_curve, reference, episode, selected_segme
         if key in by_key:
             by_key[key]['labels'].append(label)
         else:
-            by_key[key] = _candidate(curve, [label], current)
+            by_key[key] = _candidate(curve, [label], current,
+                                     tier_price_factors_verified=tier_price_factors_verified)
 
     add(current, 'CURRENT')
     add(adopted, 'A')
@@ -137,26 +267,11 @@ def build_candidates(confirmed_current_curve, reference, episode, selected_segme
         if target == basis:
             result['gaps'][label] = ['anchor_rounding_has_no_price_step']
             continue
-        targets = dict(anchor_prices_usd={anchor: str(target)})
-        if unit_price_usd_per_k is not None:
-            targets['unit_price_usd_per_k'] = unit_price_usd_per_k
-        compiled = compile_curve(adopted, targets, current['native_contract']
-                                 if editor_contract is None else editor_contract)
-        if compiled['compilation_status'] != 'EDITOR_CANDIDATE':
-            result['gaps'][label] = compiled['gaps']
-            continue
-        for before, after in zip(adopted['tiers'], compiled['tiers']):
-            old, new = Decimal(before['native_price_usd']), Decimal(after['native_price_usd'])
-            if _group(before['purchase_k']) != selected_segment:
-                legal = old == new
-            else:
-                with localcontext() as context:
-                    context.prec = max(28, len(old.as_tuple().digits) + len(new.as_tuple().digits) + 6)
-                    legal = 0 <= direction * (new - old) <= STEP * old
-            if not legal:
-                result['gaps'][label] = [dict(code='compiled_tier_outside_segment_step',
-                                              purchase_k=before['purchase_k'])]
-                break
+        compiled, gaps = _compiled_step(adopted, selected_segment, anchor, target, direction,
+                                       current['native_contract'] if editor_contract is None else editor_contract,
+                                       unit_price_usd_per_k)
+        if gaps:
+            result['gaps'][label] = gaps
         else:
             add(compiled, label)
     result['candidates'] = list(by_key.values())

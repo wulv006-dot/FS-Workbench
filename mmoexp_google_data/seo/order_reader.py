@@ -7,9 +7,8 @@ from .sources import SourceError
 
 
 class NativeOrderFactsReader:
-    def __init__(self, clock=lambda: dt.datetime.now(dt.timezone.utc), *, collect_many=None, request=None):
-        self.clock, self.collect_many, self.request = clock, collect_many, request
-        self.calls = 0
+    def __init__(self, clock=lambda: dt.datetime.now(dt.timezone.utc), *, collect_many=None):
+        self.clock, self.collect_many = clock, collect_many
         self.day = None
         self.values = {}
 
@@ -24,26 +23,20 @@ class NativeOrderFactsReader:
         if self.day != day:
             self.day, self.values = None, {}
             # Same installed module roots as NativeSummaryReader; no new transport.
-            if self.collect_many is None or self.request is None:
-                sys.path[:0] = [p for p in ('/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc', '/opt/sales-dashboard/collector') if p not in sys.path]
+            if self.collect_many is None:
+                sys.path[:0] = [p for p in ('/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc') if p not in sys.path]
                 try:
-                    if self.collect_many is None:
-                        from order_facts_runtime import collect_many
-                        self.collect_many = collect_many
-                    if self.request is None:
-                        from summary_bridge import dc_request
-                        self.request = dc_request
+                    from order_facts_runtime import collect_shared_many
+                    from shared_es_facts import read
+                    self.collect_many = lambda scopes: collect_shared_many(scopes,reader=read)
                 except ImportError:
                     error = SourceError('ORDER_FACTS_READER_NOT_INSTALLED')
                     error.stop_source = True
                     raise error from None
-            def request(*args, **kwargs):
-                if not make_daily_context(self.clock()).publication_allowed:
-                    raise SourceError('NIGHT_DEADLINE')
-                self.calls += 1
-                return self.request(*args, **kwargs)
             scopes = [dict(start=day, end=day, site_id=SITE_ID, gid=gid) for gid in GAME_IDS.values()]
-            values = self.collect_many(scopes, request=request)
+            values = self.collect_many(scopes)
+            if not make_daily_context(self.clock()).publication_allowed:
+                raise SourceError('NIGHT_DEADLINE')
             if len(values) != len(scopes):
                 raise SourceError('ORDER_FACTS_BATCH_INCOMPLETE')
             self.values = dict(zip(GAME_IDS, values))

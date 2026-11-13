@@ -308,15 +308,32 @@ def profit_view(data, query):
                 definition='Admin同订单人民币收入减Order实际采购成本；付款时间；已核完成订单；非净利润')
 
 
+def base_order_matches(row, query):
+    return ((not query.get('gid') or row['gid'] == query['gid'])
+            and (query.get('status','valid') != 'valid' or not row['refunded'])
+            and (query.get('status') != 'refund' or row['refunded'])
+            and (not query.get('country') or row.get('country') == query['country'])
+            and (not query.get('payment') or row.get('payment') == query['payment']))
+
+
+def promotion_order_matches(row, query, *, coupon):
+    project, code = query.get('project'), query.get('code')
+    if coupon:
+        return any((not project or c['templateId']==project) and (not code or c['batch']==code)
+                   for c in row['coupons'])
+    return ((not project or row.get('project')==project)
+            and ('code' not in query or row.get('codeKey')==code))
+
+
+def keyword_order_matches(row, term):
+    return not term or term.casefold() in ' '.join((row['orderNo'],row.get('code') or '',row.get('promoter') or '')).casefold()
+
+
 def view(data, query):
     if query.get('mode') == 'profit': return profit_view(data, query)
     admin_revenue = all('adminSaleCny' in r for r in data['orders'])
     rows = [accounting_row(r, data.get('costOverrides', {}), data.get('testOrders', {}), admin_revenue) for r in data['orders']]
-    base = [r for r in rows if (not query.get('gid') or r['gid'] == query['gid'])
-            and (query.get('status', 'valid') != 'valid' or not r['refunded'])
-            and (query.get('status') != 'refund' or r['refunded'])
-            and (not query.get('country') or r['country'] == query['country'])
-            and (not query.get('payment') or r['payment'] == query['payment'])]
+    base = [r for r in rows if base_order_matches(r,query)]
     coupon = query.get('mode') == 'coupon'
     mode_rows = [r for r in base if r['coupons']] if coupon else [r for r in base if r['codeKey'] or r['promoterUid']]
     templates = {c['templateId']: c['title'] for r in base for c in r['coupons']}
@@ -325,7 +342,7 @@ def view(data, query):
         selected = [r for r in mode_rows if not query.get('project') or any(c['templateId'] == query['project'] for c in r['coupons'])]
         batches = sorted({c['batch'] for r in selected for c in r['coupons'] if not query.get('project') or c['templateId'] == query['project']})
         right = [dict(key=b, label=b, **metrics([r for r in selected if any(c['batch'] == b and (not query.get('project') or c['templateId'] == query['project']) for c in r['coupons'])])) for b in batches]
-        selected = [r for r in selected if not query.get('code') or any(c['batch'] == query['code'] and (not query.get('project') or c['templateId'] == query['project']) for c in r['coupons'])]
+        selected = [r for r in selected if promotion_order_matches(r,query,coupon=True)]
     else:
         left = grouped(base, 'project')
         selected = [r for r in mode_rows if not query.get('project') or r['project'] == query['project']]
@@ -345,10 +362,8 @@ def view(data, query):
             if code['key'] not in existing and (not query.get('project') or code['project'] == query['project']):
                 right.append(dict(key=code['key'], label=code['label'], promoters=code['promoters'], **metrics([])))
                 existing.add(code['key'])
-        selected = [r for r in selected if 'code' not in query or r['codeKey'] == query['code']]
-    if query.get('q'):
-        term = query['q'].casefold()
-        selected = [r for r in selected if term in (r['orderNo'] + ' ' + r['code'] + ' ' + r['promoter']).casefold()]
+        selected = [r for r in selected if promotion_order_matches(r,query,coupon=False)]
+    selected = [r for r in selected if keyword_order_matches(r,query.get('q'))]
     summary, denominator = metrics(selected), metrics(base)
     summary['shareAllCodes'] = summary['codedOrders'] / denominator['codedOrders'] if denominator['codedOrders'] else None
     summary['shareSite'] = summary['codedOrders'] / denominator['orders'] if denominator['orders'] else None

@@ -49,7 +49,8 @@ def exposure_scope(windows,date):
     from .business_source import _window_end
     start=datetime.fromisoformat(date).replace(tzinfo=LOCAL);stop=start+timedelta(days=1)
     periods=[]
-    valid=[w for w in windows if w.get('origin')=='confirmed_public_price_window' and w.get('mode')=='production']
+    from .business_source import OBSERVED_PRICE_WINDOWS
+    valid=[w for w in windows if w.get('origin') in OBSERVED_PRICE_WINDOWS and w.get('mode')=='production']
     for window in valid:
         opened=instant(window['opened_at'])
         for resource in window.get('mutable_resources',[]):
@@ -99,35 +100,31 @@ def collect_marketing_context(review_date, outcomes, payment_days):
     if not payment_days:
         return marketing_unavailable('no_bound_payment_day')
     sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
-    from order_facts_runtime import collect, publication
-    from es_order_structure import archived_dataset
-    pin = publication()
+    from order_facts_runtime import collect_shared
+    from shared_es_facts import latest_publication
+    pin = latest_publication()
     if pin is None:
         return marketing_unavailable('es_publication_unavailable')
-    cutoff = datetime.fromisoformat(pin['cutoff'])
-    if cutoff.tzinfo is None:
-        raise ValueError('es_publication_timezone')
-    cutoff_date = cutoff.astimezone(LOCAL).date()
+    cutoff_date = calendar_date.fromisoformat(pin['cutoff'])
     review_day = calendar_date.fromisoformat(review_date)
     earliest = review_day - timedelta(days=365)
     bound_days = {calendar_date.fromisoformat(day) for day in payment_days.values()}
     covered = [day for day in bound_days if earliest <= day <= review_day and day < cutoff_date]
     if not covered:
         return marketing_unavailable('publication_does_not_cover_bound_payment_day')
-    day = max(covered).isoformat()
-
-    def read_pinned(args, *, root, publication):
-        if publication != pin:
-            raise ValueError('es_publication_changed')
-        return archived_dataset(args, root=root, publication=pin)
-
-    facts = collect(dict(start=day,end=day,site_id='266',gid='1327'), dataset_reader=read_pinned)
-    source = facts['source_coverage']['attribution']
-    if source.get('source_revision') != pin['publication_id']:
-        return marketing_unavailable('es_publication_not_observed')
-    selected = [row for row in outcomes if payment_days.get(row['order_key']) == day]
-    result = attach_shared_marketing(dict(actual_outcomes=selected),facts)['marketing_context']
-    return dict(result,payment_date=day,review_day_coverage=result['status'] if day == review_date else 'unavailable')
+    for date in sorted(covered, reverse=True):
+        day = date.isoformat()
+        facts = collect_shared(dict(start=day, end=day, site_id='266', gid='1327'),
+                               publication_id=pin['publication_id'])
+        source = facts['source_coverage']
+        if (source.get('publication_id') != pin['publication_id'] or source.get('admin_complete') is not True
+                or day not in source.get('day_revisions', {})
+                or source['attribution'].get('source_revision') != pin['publication_id']):
+            continue
+        selected = [row for row in outcomes if payment_days.get(row['order_key']) == day]
+        result = attach_shared_marketing(dict(actual_outcomes=selected),facts)['marketing_context']
+        return dict(result,payment_date=day,review_day_coverage=result['status'] if day == review_date else 'unavailable')
+    return marketing_unavailable('es_publication_not_observed')
 
 
 def profit_summary(online,windows,operations,date,plan_id):
@@ -286,9 +283,12 @@ def collect_hourly_outcomes(windows,previous):
 
 def run_hourly(body):
     from .runtime import ledger,clock
+    from .dispatch import CURVE_WRITE_PROTOCOL
     from .smart import STRATEGY_VERSION,policy_suffix,strategy_start
     db=ledger();plan=db.get('pricing_plans',body['plan_id'])
-    if not plan or plan['state']!='ACTIVE' or plan['revision']!=body['revision'] or plan.get('smart_strategy_version') not in SMART_VERSIONS:
+    curve = (plan or {}).get('write_protocol') == CURVE_WRITE_PROTOCOL
+    if (not plan or plan['state'] != 'ACTIVE' or plan['revision'] != body['revision']
+            or not curve and plan.get('smart_strategy_version') not in SMART_VERSIONS):
         return dict(status='superseded')
     start=strategy_start(plan)
     if clock()<start:return dict(status='await_strategy_start')
@@ -298,7 +298,7 @@ def run_hourly(body):
         window['observation_original_opened_at']=window['opened_at']
         window['opened_at']=max(start,instant(window['opened_at'])).isoformat()
     if not windows:return dict(status='await_first_confirmed_exposure')
-    key='smart-outcome-source:'+policy_suffix(plan)
+    key=('curve-outcome-source:' if curve else 'smart-outcome-source:')+policy_suffix(plan)
     process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
         input=json.dumps(dict(action='hourly_outcomes',windows=windows,previous=db.get('metadata',key) or {})),
         text=True,capture_output=True,timeout=600,cwd='/opt/fc27-cloud-browser')
@@ -307,15 +307,15 @@ def run_hourly(body):
     online=result['online']
     if online.get('learning_coverage',{}).get('query_complete') is not True:
         raise ValueError('pricing_hourly_outcome_coverage_incomplete')
-    online.update(smart_strategy_version=plan['smart_strategy_version'],smart_plan_id=plan['plan_id'],smart_revision=plan['revision'])
+    online.update(smart_strategy_version=plan.get('smart_strategy_version'),smart_plan_id=plan['plan_id'],smart_revision=plan['revision'])
     with db.transaction() as conn:
         current=db.get('pricing_plans',plan['plan_id'],conn)
         if not current or current['state']!='ACTIVE' or current['revision']!=plan['revision'] or current.get('smart_started_at')!=plan.get('smart_started_at'):
             return dict(status='superseded')
         db.put('metadata',key,result['state'],conn)
-        db.put('metadata','daily_online_context',online,conn)
+        db.put('metadata', 'curve-online-context:' + plan['plan_id'] if curve else 'daily_online_context', online, conn)
     for settlement in online.get('budget_settlements',[]):db.settle_order(settlement)
-    return dict(status='updated',plan_id=plan['plan_id'],strategy_version=plan['smart_strategy_version'],
+    return dict(status='updated',plan_id=plan['plan_id'],strategy_version=plan.get('smart_strategy_version'),
                 observed_at=online['learning_coverage']['observed_at'],outcomes=len(online.get('actual_outcomes',[])),
                 gaps=len(online['learning_coverage']['gap_events']),price_write_performed=False,model_called=False)
 

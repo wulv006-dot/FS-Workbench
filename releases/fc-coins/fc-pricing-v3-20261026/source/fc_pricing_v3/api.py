@@ -85,15 +85,23 @@ def latest(db, public=False):
     return snapshot
 
 
-def _latest_snapshot(conn):
+def _latest_snapshot(conn, *, curve=False):
+    candidate = None
     for row in conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC'):
         snapshot = json.loads(row[0])
-        if snapshot.get('authorization_purpose') not in ('original_unsent_ALL_steps_only','retire_uk_discount_v1'):
+        if snapshot.get('authorization_purpose') in ('original_unsent_ALL_steps_only','retire_uk_discount_v1'):
+            continue
+        if snapshot.get('write_protocol') == CURVE_WRITE_PROTOCOL:
+            if curve:
+                return snapshot
+        elif not curve:
             return snapshot
-    return None
+        elif candidate is None:
+            candidate = snapshot
+    return candidate
 
 
-def _curve_preview_history(conn, snapshot, as_of):
+def _curve_preview_history(conn, snapshot, as_of, *, require_snapshot_binding=True):
     from .business_source import historical_period
 
     snapshot_at = instant(snapshot['created_at'])
@@ -104,7 +112,7 @@ def _curve_preview_history(conn, snapshot, as_of):
         attachment = json.loads(row[0])
         if (attachment.get('schema_version') != 'fc-pricing-v3-history-input-v1'
                 or attachment.get('paid_window') != window
-                or snapshot['snapshot_id'] not in attachment.get('snapshot_ids', ())):
+                or require_snapshot_binding and snapshot['snapshot_id'] not in attachment.get('snapshot_ids', ())):
             continue
         available = instant(attachment['available_at'])
         if available > as_of:
@@ -343,7 +351,7 @@ def post(path,data,actor):
             with closing(sqlite3.connect(store.resolve().as_uri() + '?mode=ro', uri=True, timeout=5)) as conn:
                 from .curve_strategy_v6 import curve_strategy_key
                 conn.execute('BEGIN')
-                newest = _latest_snapshot(conn)
+                newest = _latest_snapshot(conn, curve=True)
                 latest_selected = newest is not None and (snapshot_id is None or snapshot_id == newest['snapshot_id'])
                 if latest_selected:
                     snapshot = newest
@@ -451,6 +459,12 @@ def post(path,data,actor):
         return value
     if path.startswith('plans/'):
         _,ident,action=path.split('/')
+        if action=='activate-curve':
+            if (set(data) != {'expected_revision', 'snapshot_id'} or not isinstance(data['snapshot_id'], str)
+                    or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', data['snapshot_id']) is None):
+                raise ValueError('pricing_curve_activation_fields_invalid')
+            from .runtime import activate_curve_plan
+            return activate_curve_plan(db, ident, data['expected_revision'], actor, data['snapshot_id'])
         if action=='migrate-smart-strategy':
             if set(data)!={'expected_revision'}:raise ValueError('pricing_migration_fields_invalid')
             return db.migrate_smart_strategy(ident,data['expected_revision'],actor)

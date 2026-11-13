@@ -344,18 +344,21 @@ class CatalogInputs(unittest.TestCase):
         cache = dict(cache_sha256='cache', source_signature='signature', historical_discount_mix=data['historical_discount_mix'])
         replay=dict(sha256='projection',by_platform={p:dict(current_coupon_terms_sha256='terms',paths_sha256='paths',region_layers={}) for p in engine.PLATFORMS})
         data.update(historical_ref=dict(cache_sha256='cache', source_signature='signature'), history_replay=replay)
+        scalar_receipt = dict(action={'base_prices': {p: '8' for p in engine.PLATFORMS}})
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for folder in ('quotes', 'previews', 'monitor'):
                 (root/folder).mkdir()
-            (root/'quotes'/(run+'.json')).write_text(json.dumps(dict(evidence=data)))
+            (root/'quotes'/(run+'.json')).write_text(json.dumps(
+                dict(evidence=data, result={'decision_receipt': scalar_receipt})))
             (root/'previews'/(preview+'.json')).write_text(json.dumps(dict(run_id=run)))
             public = dict(data['storefront'], status='ok', source='https://www.mmoexp.com/Fc-27/Coins.html', currency='USD')
             for row in public['rows'].values():
                 row['status'] = 'ok'
             (root/'monitor/storefront.json').write_text(json.dumps(public))
             clock = SimpleNamespace(now=lambda *args: NOW)
-            with patch.object(pricing_sources, 'datetime', clock), patch.object(pricing_v2, 'verify_quote'), \
+            with patch.object(pricing_sources, 'datetime', clock), \
+                    patch.object(pricing_v2, 'verify_quote', return_value=scalar_receipt), \
                     patch.object(automation_policy, 'load_policy', return_value={}), \
                     patch.object(pricing_sources, 'collect', return_value=data['promotion_envelope']) as read, \
                     patch.object(runtime, 'current_history_cache', return_value=cache), \
@@ -364,6 +367,8 @@ class CatalogInputs(unittest.TestCase):
                 self.assertEqual(result['status'], 'current_catalog_rechecked')
                 self.assertFalse(result['price_write_performed'])
                 self.assertTrue(read.call_args.kwargs['catalog_only'])
+                with self.assertRaisesRegex(ValueError, 'pricing_write_protocol_mismatch'):
+                    pricing_sources.refresh_before_write(dict(preview_id=preview, write_protocol='fc27_curve_v6'), root)
                 cache['cache_sha256']='only_nonfinancial_rollups_changed'
                 self.assertEqual(pricing_sources.refresh_before_write(dict(preview_id=preview), root)['status'], 'current_catalog_rechecked')
                 projection.return_value['by_platform']['XBOX']['current_coupon_terms_sha256']='changed'

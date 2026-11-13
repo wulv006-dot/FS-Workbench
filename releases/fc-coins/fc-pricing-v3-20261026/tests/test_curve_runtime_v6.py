@@ -1,5 +1,6 @@
 """Exercise original-operation coordination against the synthetic F4 transport."""
 from contextlib import ExitStack, closing
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sys
@@ -15,6 +16,7 @@ from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL, prewrite_refusal
 from fc_pricing_v3.financial import fingerprint
 from fc_pricing_v3.ledger import Ledger
 from test_curve_writer_v6 import OPERATION, PLATFORM, Transport, setup_bundle, writer
+from test_price_curve_v6 import EDITOR_CONTRACT
 
 
 class CurveRuntime(unittest.TestCase):
@@ -24,7 +26,7 @@ class CurveRuntime(unittest.TestCase):
         enter = stack.enter_context
         folder = enter(tempfile.TemporaryDirectory())
         self.root = Path(folder)
-        for name in ('quotes', 'jobs', 'executions'):
+        for name in ('quotes', 'jobs', 'executions', 'previews'):
             (self.root / name).mkdir()
         self.db = Ledger(self.root / 'v3' / 'control.sqlite3')
         enter(patch.object(runtime, 'ROOT', self.root))
@@ -48,6 +50,7 @@ class CurveRuntime(unittest.TestCase):
         bundle, capability, before, recipient = setup_bundle(small, large)
         bundle.update(assignment_id='fixture-assignment', resources=['base:PS'])
         bundle['steps'] = [dict(step_id='base:all', kind='base', state='PENDING')]
+        bundle['created_at'] = datetime.now(timezone.utc).isoformat()
         if small == '10' and large == '100':
             bundle['steps'] = []
         for action, total in ((bundle['before_action'], '10'), (bundle['action'], small)):
@@ -60,7 +63,8 @@ class CurveRuntime(unittest.TestCase):
         self.db.put('pricing_plans', 'plan', plan)
         with self.db.transaction() as conn:
             conn.execute('INSERT INTO plan_ownership VALUES (?,?,?,?)', ('base:PS', 'plan', 4, 'generation'))
-        quote = dict(result=dict(decision_receipt=bundle))
+        quote = dict(result=dict(decision_receipt=bundle), snapshot_sha256='fixture-run',
+                     quote_engine_sha256='fixture-engine')
         (self.root / 'quotes' / 'run.json').write_text(json.dumps(quote))
         (self.root / 'jobs' / 'run.json').write_text(json.dumps(dict(request={})))
         self.transport = Transport(before, recipient, propagate=propagate)
@@ -222,7 +226,7 @@ class CurveRuntime(unittest.TestCase):
     def test_existing_legacy_financial_verifier_does_not_authorize_v6(self):
         self.prepare()
         quote = json.loads((self.root / 'quotes' / 'run.json').read_text())
-        with self.assertRaisesRegex(ValueError, 'pricing_curve_execution_verifier_unavailable'):
+        with self.assertRaisesRegex(ValueError, 'pricing_curve_quote_identity_invalid'):
             runtime.verify_quote(quote, {}, ['PS'], for_execution=True)
 
     def test_inconsistent_dirty_curve_cannot_use_empty_steps(self):
@@ -232,6 +236,327 @@ class CurveRuntime(unittest.TestCase):
             self.execute()
         self.dispatch.assert_not_called()
         self.worker.run.assert_not_called()
+
+    def test_monitor_uses_curve_contract_and_keeps_optional_sources_optional(self):
+        from fc_pricing_v3.monitoring import source_coverage
+
+        now = datetime.now(timezone.utc)
+        plan = dict(plan_id='curve-plan', revision=2, write_protocol=CURVE_WRITE_PROTOCOL)
+        snapshot = dict(plan_id='curve-plan', plan_revision=2, write_protocol=CURVE_WRITE_PROTOCOL,
+                        snapshot_id='fixture-run', created_at=now.isoformat(),
+                        evidence=dict(checked_at=now.isoformat(),
+                                      source_coverage=dict(optional_missing=['Lootbar','U7Buy','ArabUT'])),
+                        result=dict(status='PROOF_INCOMPLETE',
+                                    rows=[dict(platform='PS', status='PROOF_INCOMPLETE')]))
+        coverage = source_coverage([snapshot], [plan], now)
+        self.assertEqual(coverage['issues'], [])
+        self.assertEqual(coverage['plans'][0]['curve_proof_status'], 'PROOF_INCOMPLETE')
+        snapshot['result']['rows'][0]['status'] = 'HARD_CONSTRAINT_FAILED'
+        self.assertEqual(source_coverage([snapshot], [plan], now)['issues'],
+                         [dict(level='critical', code='coin_v3_curve_hard_constraint_failed:PS')])
+
+    def test_newer_diagnostic_collection_does_not_supersede_legacy_run(self):
+        from fc_pricing_v3.competitor_offers import POLICY
+
+        folder = self.root / 'runs'
+        folder.mkdir()
+        legacy = folder / 'legacy.json'
+        candidate = folder / 'candidate.json'
+        legacy.write_text('{}')
+        candidate.write_text(json.dumps(dict(competitor_policy=POLICY)))
+        self.assertEqual(runtime.latest_collection(self.root, curve=False), legacy)
+        self.assertEqual(runtime.latest_collection(self.root, curve=True), candidate)
+
+    def test_native_candidate_activation_and_execution_use_actual_verifier(self):
+        self.run_verified_curve_cycle()
+
+    def test_cost_repair_advances_reference_only_after_original_writer_confirmation(self):
+        self.run_verified_curve_cycle(cost_repair=True)
+
+    def test_proven_keep_opens_and_extends_only_readback_window(self):
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.price_curve import IDENTITY_FIELDS, curve_key, read_curve
+        from test_pricing_proof_v6 import fixture
+
+        self.prepare(large='100')
+        now = datetime.now(timezone.utc)
+        plan = self.db.get('pricing_plans', 'plan')
+        plan.update(mode='daily', write_protocol=CURVE_WRITE_PROTOCOL,
+                    starts_at=(now - timedelta(hours=1)).isoformat(), resources=['base:PS'])
+        self.db.put('pricing_plans', 'plan', plan)
+        row = self.transport.rows[writer.PRODUCTS[PLATFORM][1]]
+        curve = read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, EDITOR_CONTRACT)
+        self.db.start_curve_episode(PLATFORM, 'fixture-rules', 'Adopted readback', initial_curve=curve,
+                                    readback_ref='fixture-initial')
+        _, baskets, evidence, domain = fixture()
+        key = curve_key(curve)
+        domain['curve_key'] = evidence['curve_key'] = evidence['paths'][0]['curve_key'] = key
+        proof = dict(baskets=baskets, evidence=evidence, domain=domain)
+        first = '00000000-0000-4000-8000-000000000092'
+        second = '00000000-0000-4000-8000-000000000093'
+        for run, at in ((first, now), (second, now + timedelta(hours=1))):
+            source = dict(run_id=run, competitor_policy=POLICY)
+            observed = dict(captured_at=at.isoformat(), valid_until=(at + timedelta(minutes=10)).isoformat(),
+                            primary_curve=curve, primary_inputs={key: proof},
+                            readbacks=[dict(path='/admin/goods.Goods/edit?id=' + curve['identity']['id'],
+                                            http_status=200, response_code=1, response_sha256='fixture-site266')])
+            runtime.store_curve_proof_inputs(self.db, source, {PLATFORM: observed})
+            for _ in range(2):
+                result = runtime.calculate_curve_cycle(self.db, source, plan, {'v3_operation_id': OPERATION}, at)
+                self.assertEqual(result['status'], 'NO_PRICE_CHANGE')
+                self.assertNotIn('decision_receipt', result)
+        windows = self.db.all('actual_price_windows')
+        self.assertEqual(len(windows), 1)
+        window = windows[0]
+        self.assertEqual(window['origin'], 'observed_native_curve_window')
+        self.assertFalse(window['write_performed'])
+        self.assertFalse(window['randomization_verified'])
+        self.assertEqual(window['opened_at'], now.isoformat())
+        self.assertEqual(curve_key(window['action']['curves'][PLATFORM]), key)
+        self.assertEqual(len(window['continuations']), 1)
+        self.assertFalse(window['continuations'][0]['write_performed'])
+        self.assertEqual(self.db.all('operations'), [])
+        self.assertEqual(self.db.all('readback_receipts'), [])
+        self.assertEqual(self.transport.posts, [])
+
+    def run_verified_curve_cycle(self, *, cost_repair=False):
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.price_curve import IDENTITY_FIELDS, curve_key, read_curve
+        from fc_pricing_v3.pricing_proof_v6 import FAILED
+        from test_pricing_proof_v6 import basket, quote
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        old = self.db.get('pricing_plans', 'plan')
+        old.update(mode='daily', starts_at=(now - timedelta(minutes=30)).isoformat(), resources=['base:PS'],
+                   parameters={'competitor_policy': 'lootbar_primary_arabut_secondary_v1'})
+        self.db.put('pricing_plans', 'plan', old)
+        next_slot = datetime.fromisoformat(old['starts_at']) + timedelta(hours=1)
+        cycle_key = 'cycle:plan:' + str(int(next_slot.timestamp())) + ':r0'
+        self.db.enqueue('cycle', cycle_key, next_slot, dict(plan_id='plan', revision=4,
+                                                           scheduled_at=next_slot.isoformat()))
+        current_row = self.transport.rows[writer.PRODUCTS[PLATFORM][1]]
+        current = read_curve(current_row, {k: current_row[k] for k in IDENTITY_FIELDS}, EDITOR_CONTRACT)
+        target_row = dict(current['native_payload'], more=dict(current['native_payload']['more'], price=['10', '103']))
+        target = read_curve(target_row, current['identity'], EDITOR_CONTRACT)
+        self.db.start_curve_episode(PLATFORM, 'fixture-current-rules', 'Previously adopted A',
+                                    initial_curve=current if cost_repair else target,
+                                    readback_ref='fixture-site266-readback')
+        reference_before = self.db.curve_strategy_state(PLATFORM)
+        all_before = self.bundle['before_action']['curves'][PLATFORM]
+        all_target = self.bundle['action']['curves'][PLATFORM]
+        def inputs(curve, *, total='103', safe_cost='76'):
+            key = curve_key(curve)
+            domain = dict(self.bundle['curve_proofs'][PLATFORM]['scope'], curve_key=key,
+                          coverage_status='complete', coverage_gaps=[])
+            path = quote('ordinary', key, regular_usd=total, net_receipt_usd=total, safe_cost_usd=safe_cost,
+                         expected_cost_usd='75', stress_cost_usd='84')
+            return dict(baskets=dict(main=basket('closed_bjt_7d', [('ordinary', '50')]),
+                                     recent=basket('latest_24h', [('ordinary', '30')])),
+                        evidence=dict(curve_key=key, paths=[path]), domain=domain)
+        platform_inputs = dict(captured_at=now.isoformat(), valid_until=(now + timedelta(minutes=10)).isoformat(),
+                               primary_curve=current, segment='large', preferred_label='A',
+                               primary_inputs={curve_key(target): inputs(target),
+                                               curve_key(current): inputs(current, total='100')},
+                               all_before=all_before, all_targets={curve_key(target): all_target},
+                               all_inputs={curve_key(all_target): inputs(all_target)})
+        if cost_repair:
+            failed_input = inputs(current, total='100', safe_cost='83')
+            failed = runtime._validated_curve(current, failed_input)
+            self.assertEqual(failed['status'], FAILED)
+            repair = dict(current_proof_hash=failed['proof_hash'], domain_status='complete',
+                          domain_ref='fixture-native-domain', affected_segments=['large'],
+                          candidates=[dict(curve=target, inputs=inputs(target, safe_cost='83'),
+                                           all_target=all_target, all_inputs=inputs(all_target, safe_cost='83'))])
+            platform_inputs['primary_inputs'][curve_key(current)] = failed_input
+            platform_inputs['repair'] = repair
+        candidate_id = '00000000-0000-4000-8000-000000000090'
+        run_id = '00000000-0000-4000-8000-000000000091'
+        collection = dict(kind='collect', request=dict(write_protocol=CURVE_WRITE_PROTOCOL))
+        (self.root/'jobs'/(candidate_id+'.json')).write_text(json.dumps(collection))
+        evidence = dict(run_id=candidate_id, competitor_policy=POLICY)
+        policy = dict(revision=7, interval_minutes=60, system_enabled=True, mode='auto', platforms=['PS'])
+        with patch('automation_policy.load_policy', return_value=policy), \
+                patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
+            self.assertEqual(runtime.collection_scope(self.db, candidate_id)['scope']['competitor_policy'], POLICY)
+            self.assertEqual(runtime.calculate(evidence)['status'], 'PROOF_INCOMPLETE')
+            with closing(self.db.connect()) as conn:
+                from fc_pricing_v3.api import _latest_snapshot
+                self.assertIsNone(_latest_snapshot(conn))
+                self.assertEqual(_latest_snapshot(conn, curve=True)['snapshot_id'], candidate_id)
+            with self.assertRaisesRegex(ValueError, 'pricing_curve_activation_proof_incomplete'):
+                runtime.activate_curve_plan(self.db, 'plan', 4, 'wulv', candidate_id)
+            self.assertEqual(self.db.get('pricing_plans', 'plan'), old)
+            runtime.store_curve_proof_inputs(self.db, evidence, {'PS': platform_inputs})
+            activated = runtime.activate_curve_plan(self.db, 'plan', 4, 'wulv', candidate_id)
+            self.assertEqual(activated['revision'], 5)
+            self.assertEqual(runtime.activate_curve_plan(self.db, 'plan', 4, 'wulv', candidate_id), activated)
+            self.assertEqual(activated['parameters']['competitor_policy'], POLICY)
+            with closing(self.db.connect()) as conn:
+                cycle = conn.execute('SELECT body FROM durable_jobs WHERE id=?', (cycle_key,)).fetchone()
+                self.assertEqual(json.loads(cycle[0]), dict(plan_id='plan', revision=5,
+                                                          scheduled_at=next_slot.isoformat()))
+            request = dict(v3_plan_id='plan', v3_operation_id=OPERATION)
+            (self.root/'jobs'/(run_id+'.json')).write_text(json.dumps(dict(actor='system-automation', request=request)))
+            self.assertEqual(runtime.collection_scope(self.db, run_id)['scope']['competitor_policy'], POLICY)
+            evidence = dict(run_id=run_id, competitor_policy=POLICY)
+            runtime.store_curve_proof_inputs(self.db, evidence, {'PS': platform_inputs})
+            result = runtime.calculate(evidence)
+            self.assertEqual(result['status'], 'READY')
+            self.bundle = result['decision_receipt']
+            self.assertEqual(self.db.curve_strategy_state(PLATFORM), reference_before)
+            if cost_repair:
+                self.assertEqual(self.bundle['curve_selection'][PLATFORM]['label'], 'COST_REPAIR')
+            for folder in ('config',):
+                (self.root/folder).mkdir()
+            (self.root/'config/v3-control.json').write_text(json.dumps(dict(generation='generation', enabled=True)))
+            quote = dict(result=result, evidence=evidence, automation_policy_revision=7,
+                         snapshot_sha256='original-run-hash', quote_engine_sha256='original-engine-hash')
+            (self.root/'quotes'/(run_id+'.json')).write_text(json.dumps(quote))
+            self.assertEqual(runtime.verify_quote(quote, policy, ['PS'], for_execution=True), self.bundle)
+            self.assertEqual(self.transport.posts, [])
+            tampered = dict(self.bundle, curve_proofs={'PS': dict(self.bundle['curve_proofs']['PS'], status='PROOF_INCOMPLETE')})
+            tampered['sha256'] = fingerprint({k: v for k, v in tampered.items() if k != 'sha256'})
+            with self.assertRaisesRegex(ValueError, 'pricing_curve_execution_proof_unverified'):
+                runtime.verify_quote(dict(quote, result=dict(result, decision_receipt=tampered)),
+                                     policy, ['PS'], for_execution=True)
+            completed = runtime.execute_run(run_id)
+            self.assertEqual(completed['status'], 'COMPLETED', completed['steps'])
+            self.assertEqual(completed['readback']['execution_id'], OPERATION)
+            self.assertEqual(len(self.transport.posts), 1)
+            self.assertEqual(runtime.execute_run(run_id)['status'], 'COMPLETED')
+            self.assertEqual(len(self.transport.posts), 1)
+            after = self.db.curve_strategy_state(PLATFORM)
+            if cost_repair:
+                self.assertEqual(after['reference']['confirmed_operation_id'], OPERATION)
+                self.assertEqual(after['reference']['event_type'], 'COST_REPAIR')
+                self.assertEqual(after['reference']['reference_curve']['tiers'][1]['native_price_usd'], '103')
+                self.assertEqual(after['episode']['prior_comparison_episode_id'],
+                                 reference_before['episode']['comparison_episode_id'])
+            else:
+                self.assertEqual(after, reference_before)
+
+    def test_closed_clock_hour_source_and_existing_three_hour_schedule_select_native_segment(self):
+        from test_curve_strategy_v6 import fixture
+
+        current, reference, episode = fixture()
+        now = datetime(2026, 11, 13, 6, 7, tzinfo=timezone.utc)
+        closed = now.replace(minute=0)
+        available = dict(query_complete=True, observed_at=now.isoformat(), source_sha256='fixture-outcomes')
+
+        def order(at, quantity, net):
+            return dict(platform='PS', occurred_at=at.isoformat(), purchase_k=quantity, actual_net_usd=net,
+                        actual_contribution_usd='8',
+                        cost_basis='same_order_Order_shipping_CNY_margin_at_actual_USD_receipt')
+
+        rows = [order(closed - timedelta(minutes=30), '1000', '91'),
+                order(closed - timedelta(days=1, minutes=30), '1000', '95'),
+                order(closed + timedelta(minutes=2), '100', '10')]
+        performance = runtime._same_hour_curve_performance(
+            'PS', dict(actual_outcomes=rows, learning_coverage=available), now)
+        self.assertEqual(list(performance), ['large'])
+        self.assertEqual(performance['large']['current']['net_paid_usd'], '91')
+        self.assertEqual(performance['large']['previous']['net_paid_usd'], '95')
+        self.assertEqual(runtime._same_hour_curve_performance(
+            'PS', dict(actual_outcomes=rows, learning_coverage=dict(available, query_complete=False)), now), {})
+        start = (closed - timedelta(hours=2)).isoformat()
+        plan = dict(plan_id='plan', mode='smart', starts_at=start, revision=5)
+        state = dict(reference=reference, episode=dict(episode, opened_at=start))
+        inputs = dict(performance=performance)
+        current_slot = runtime._curve_preference('PS', current, {}, inputs, now, plan=plan, state=state)
+        same_slot = runtime._curve_preference(
+            'PS', current, {}, inputs, now + timedelta(minutes=15), plan=plan, state=state)
+        self.assertEqual(current_slot, same_slot)
+        self.assertEqual((current_slot['source'], current_slot['segment'], current_slot['block']),
+                         ('smart_three_hour_block', 'large', 0))
+        self.assertIn(current_slot['label'], 'ABC')
+        self.assertEqual(runtime._curve_preference('PS', current, {}, inputs, now,
+                         plan=dict(plan, mode='revenue_sprint'), state=state)['label'], 'B')
+
+    def test_bounded_trial_falls_back_to_independently_proven_intermediate_price(self):
+        from fc_pricing_v3.curve_strategy_v6 import build_candidates, intermediate_candidates
+        from fc_pricing_v3.price_curve import curve_key, read_curve
+        from test_curve_strategy_v6 import candidate, fixture
+        from test_pricing_proof_v6 import fixture as proof_fixture
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        current, _, _ = fixture()
+        all_id = writer.PRODUCTS[PLATFORM][0]
+        before = read_curve(dict(current['native_payload'], id=all_id, site_id=0),
+                            dict(current['identity'], id=all_id, site_id=0), EDITOR_CONTRACT)
+        state = self.db.start_curve_episode(PLATFORM, 'test', 'A', initial_curve=current, readback_ref='fixture')
+        comparison = build_candidates(current, state['reference'], state['episode'], 'large')
+        outer = candidate(comparison, 'B')['curve']
+        points = intermediate_candidates(comparison, 'B', EDITOR_CONTRACT)
+        skipped, eligible = (next(points)['curve'] for _ in range(2))
+        all_target = runtime._all_curve_target(before, eligible)
+        refs = self.capability['source_revisions']
+        self.capability['tier_price_factors'] = True
+
+        def proof_input(curve, *, safe):
+            _, baskets, evidence, domain = proof_fixture()
+            key = curve_key(curve)
+            total = next(row['native_price_usd'] for row in curve['tiers'] if row['purchase_k'] == '1000')
+            domain.update(curve_key=key, source_revisions=refs, version=self.capability['domain_version'])
+            evidence['curve_key'] = key
+            evidence['paths'][0].update(curve_key=key, regular_usd=total, net_receipt_usd=total,
+                                         expected_cost_usd='74', safe_cost_usd=safe)
+            return dict(baskets=baskets, evidence=evidence, domain=domain)
+
+        data = dict(primary_curve=current, editor_contract=EDITOR_CONTRACT, preferred_label='B', segment='large',
+                    captured_at=now.isoformat(), valid_until=(now + timedelta(minutes=10)).isoformat(),
+                    all_before=before, all_targets={curve_key(eligible): all_target},
+                    primary_inputs={curve_key(current): proof_input(current, safe='76'),
+                                    curve_key(outer): proof_input(outer, safe='76'),
+                                    curve_key(skipped): proof_input(skipped, safe='74'),
+                                    curve_key(eligible): proof_input(eligible, safe='74')},
+                    all_inputs={curve_key(all_target): proof_input(all_target, safe='74')})
+        with patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
+            result = runtime._prove_curve_inputs(PLATFORM, data, self.db, now)
+        self.assertEqual(result['status'], 'READY', result)
+        self.assertEqual(result['selection']['price_step'], 'bounded_intermediate')
+        self.assertEqual(curve_key(result['target']), curve_key(all_target))
+        self.assertEqual(self.transport.posts, [])
+
+    def test_native_catalogue_collection_produces_real_tiers_without_fabricating_checkout(self):
+        from fc_pricing_v3.price_curve import curve_key, read_curve
+        from test_curve_strategy_v6 import fixture
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        all_id, primary_id, _ = writer.PRODUCTS[PLATFORM]
+        catalogue, _, _ = fixture()
+        primary_row = catalogue['native_payload']
+        rows = {0: dict(primary_row, id=all_id, site_id=0),
+                266: dict(primary_row, id=primary_id, site_id=266)}
+        adopted = read_curve(primary_row, catalogue['identity'], dict(source='fixture saved readback'))
+        self.db.start_curve_episode(PLATFORM, 'test-rules', 'Adopted readback', initial_curve=adopted,
+                                    readback_ref='fixture-same-platform')
+        evidence = dict(run_id='run', checked_at=(now - timedelta(seconds=5)).isoformat(),
+                        storefront={'rows': {PLATFORM: {'sku_id': primary_id}}})
+        def read(_, platform, site, observer):
+            self.assertEqual(platform, PLATFORM)
+            observer({'response_sha256': 'fixture-' + str(site)})
+            return rows[site]
+
+        with patch.object(writer, 'read_row', side_effect=read) as get, \
+                patch.object(writer, 'read_curve_routes', return_value={}), \
+                patch('fc_shared_admin.SessionManager'):
+            found = runtime.collect_curve_catalogues(evidence, [PLATFORM])[PLATFORM]
+        self.assertEqual(get.call_count, 2)
+        curve = found['primary_curve']
+        proof_input = found['primary_inputs'][curve_key(curve)]
+        self.assertEqual([p['regular_usd'] for p in proof_input['evidence']['paths']],
+                         [tier['native_price_usd'] for tier in curve['tiers']])
+        self.assertEqual(runtime._validated_curve(curve, proof_input)['status'], 'PROOF_INCOMPLETE')
+        self.assertIn('native_checkout_path_domain_unverified', proof_input['domain']['coverage_gaps'])
+        self.assertTrue(found['all_targets'])
+        for key, target in found['all_targets'].items():
+            self.assertEqual(target['identity']['site_id'], '0')
+            self.assertIn(key, found['primary_inputs'])
+            self.assertEqual(runtime._validated_curve(target, found['all_inputs'][curve_key(target)])['status'],
+                             'PROOF_INCOMPLETE')
 
 
 if __name__ == '__main__':

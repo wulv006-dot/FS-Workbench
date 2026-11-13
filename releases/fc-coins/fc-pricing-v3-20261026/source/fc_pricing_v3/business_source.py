@@ -10,6 +10,7 @@ import re
 from .financial import fingerprint
 
 TZ = timezone(timedelta(hours=8))
+OBSERVED_PRICE_WINDOWS = {'confirmed_public_price_window', 'observed_native_curve_window'}
 POINTS_PER_USD = Decimal('100')
 POINTS_CAP = Decimal('.10')
 PLATFORMS = {'PS': 'PlayStation 4|5', 'XBOX': 'Xbox One|X|S', 'PC': 'PC Platform'}
@@ -1013,7 +1014,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
     archived, coupon_logs = archived or {}, coupon_logs or {}
     orders_by_id = {str(o['order_no']): o for o in orders if o.get('order_no')}
     bound_customers = {}
-    valid = [w for w in windows if w.get('origin') == 'confirmed_public_price_window' and w.get('mode') == 'production']
+    valid = [w for w in windows if w.get('origin') in OBSERVED_PRICE_WINDOWS and w.get('mode') == 'production']
     coverage = Counter()
     failures = Counter()
     blocked_windows = set()
@@ -1315,7 +1316,7 @@ def hourly_accounting(rows, logs, start, now, cost_since):
 def incremental_window_context(session,pages,windows,now,previous):
     """Increment paid membership; keep the full private cohort and rebind late costs to original windows."""
     from copy import deepcopy
-    valid=[w for w in windows if w.get('origin')=='confirmed_public_price_window' and w.get('mode')=='production']
+    valid=[w for w in windows if w.get('origin') in OBSERVED_PRICE_WINDOWS and w.get('mode')=='production']
     if not valid:
         return dict(state=previous,online=dict(actual_outcomes=[],learning_coverage=dict(status='await_first_confirmed_exposure',query_complete=False)))
     start=min(_window_instant(w['opened_at']) for w in valid)
@@ -1406,7 +1407,7 @@ def online_window_context(session, pages, windows, now, archived, *, payment_day
     if not windows:
         return dict(budget_settlements=[], training_observations=[], learning_coverage=dict(status='await_first_confirmed_exposure', price_windows=0))
     try:
-        valid = [w for w in windows if w.get('origin') == 'confirmed_public_price_window' and w.get('mode') == 'production']
+        valid = [w for w in windows if w.get('origin') in OBSERVED_PRICE_WINDOWS and w.get('mode') == 'production']
         if not valid:
             raise ValueError('no_confirmed_public_price_window')
         start = min(_window_instant(w['opened_at']) for w in valid).astimezone(TZ)

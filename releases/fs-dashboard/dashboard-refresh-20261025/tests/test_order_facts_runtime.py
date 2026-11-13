@@ -8,11 +8,11 @@ import sys
 import tempfile
 import unittest
 from urllib.parse import parse_qs, urlsplit
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'source'),str(ROOT.parent/'cache-archive-retention-20261025/source')]
-from order_facts_runtime import admin_orders, collect, collect_many, publication, existing_costs
+from order_facts_runtime import admin_orders, collect_live_diagnostic, publication, existing_costs
 
 SCOPE=dict(start='2026-11-10',end='2026-11-10',site_id='266',gid='1327')
 def row(i=2,site=266,**kw):
@@ -27,7 +27,7 @@ class Runtime(unittest.TestCase):
         d4 = row(1);d4['gid'] = 456
         request = Mock(return_value=response([row(), d4]))
         with tempfile.TemporaryDirectory() as root:
-            values = collect_many([SCOPE, dict(SCOPE,gid='456')], request=request,
+            values = collect_live_diagnostic([SCOPE, dict(SCOPE,gid='456')], request=request,
                 db=Path(root)/'absent.db', costs=Path(root)/'absent.json', dataset_reader=Mock())
         request.assert_called_once()
         self.assertEqual([v['totals']['orders'] for v in values], [1,1])
@@ -38,7 +38,7 @@ class Runtime(unittest.TestCase):
     def test_batch_rejects_mixed_dates_before_read(self):
         request = Mock()
         with self.assertRaisesRegex(ValueError,'batch_period'):
-            collect_many([SCOPE,dict(SCOPE,end='2026-11-11')],request=request)
+            collect_live_diagnostic([SCOPE,dict(SCOPE,end='2026-11-11')],request=request)
         request.assert_not_called()
 
     def test_all_site_pagination_keeps_identity_catalog(self):
@@ -83,7 +83,7 @@ class Runtime(unittest.TestCase):
                 dict(source='www.mmoexp.com',sn='O2',delivery_id='D',genre=1,cost_total='100'),
                 dict(source='www.rsorders.com',sn='O1',delivery_id='D-other',genre=1,cost_total='500') ])))
             reader=Mock()
-            data=collect(SCOPE,request=Mock(return_value=response([row(),row(1,320)])),
+            [data]=collect_live_diagnostic([SCOPE],request=Mock(return_value=response([row(),row(1,320)])),
                 db=db,costs=cost,dataset_reader=reader)
             self.assertEqual(data['totals']['orders'],1)
             self.assertEqual(data['totals']['observed_cost_cny'],'100')
@@ -91,6 +91,152 @@ class Runtime(unittest.TestCase):
             self.assertEqual(data['totals']['unknown_channel_orders'],1)
             self.assertEqual(data['coverage']['unlinked_cost_records'],0)
             reader.assert_not_called()
+    def test_dashboard_uses_same_order_pmax_and_coupon_without_new_admin_request(self):
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root); (root/'days').mkdir()
+            day=SCOPE['start']; cache=root/'days'/f'{day}.json'
+            record=dict(orderNo='O2',gid='1327',paidAt=day+' 10:00:00',day=day,
+                sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',
+                code='Known',project='谷歌广告',conflict=False,promoterUid='42',coupons=[dict(title='Launch')])
+            cache.write_text(json.dumps(dict(contract='channel-day-v1',period=dict(start=day,end=day),
+                sources=dict(orders=dict(status='complete',site='MMOEXP'),coupons=dict(status='complete')),
+                orders=[record])))
+            request=Mock(return_value=response([row(discount_code='Known'),row(1,320)]))
+            settings=dict(request=request,db=root/'absent.db',costs=root/'absent.json',dataset_reader=Mock())
+            [result]=collect_live_diagnostic([dict(SCOPE,site_id='all')],channel_archive=root,**settings)
+            request.assert_called_once()
+            main, other=result['orders']
+            self.assertEqual(main['channel'],'unknown')
+            self.assertEqual(main['effective_attribution']['channel'],'PPC')
+            self.assertEqual(main['effective_attribution']['basis'],'order_source')
+            self.assertTrue(main['effective_attribution']['coupon'])
+            self.assertEqual(main['effective_attribution']['coupon_templates'],['Launch'])
+            self.assertIsNone(other['effective_attribution']['coupon'])
+            self.assertEqual(other['effective_attribution']['channel'],'unknown')
+            [shared]=collect_live_diagnostic([SCOPE],**settings)
+            self.assertNotIn('effective_attribution',shared['orders'][0])
+            self.assertEqual(result['source_coverage']['source_revision'],shared['source_coverage']['source_revision'])
+
+    def test_priority_keeps_native_then_exact_order_source_then_mapped_promotion(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL'),dict(code='seo',channel='SEO')]},[],{})
+        base=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+                  channel='SEO',marketing_attribution={'source_raw':'Google organic'})
+        cached=dict(sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',coupons=[],project='KOL')
+        evidence=effective_attribution(base,{'discount_code':'KNOWN'},cached,mapping)
+        self.assertEqual((evidence['channel'],evidence['basis'],evidence['detail']),('SEO','native_channel','Google organic'))
+        self.assertTrue(evidence['conflict'])
+        self.assertEqual(evidence['order_source'],'google-FC27-PMAX-Coins-US')
+        self.assertEqual(evidence['promotion_project'],'KOL')
+        base['channel']='unknown'
+        evidence=effective_attribution(base,{'discount_code':'known'},cached,mapping)
+        self.assertEqual((evidence['channel'],evidence['basis']),('PPC','order_source'))
+        cached['sourceRaw']='google'
+        evidence=effective_attribution(base,{'discount_code':'KNOWN'},cached,mapping)
+        self.assertEqual((evidence['channel'],evidence['basis']),('Referral','promotion'))
+        evidence=effective_attribution(base,{'discount_code':''},dict(cached,project='运营',code=''),mapping)
+        self.assertEqual((evidence['channel'],evidence['promotion_project']),('unknown','运营'))
+
+    def test_mapped_code_owner_counts_as_promoter_with_native_zero_uid(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL')]},[],
+                            {'by_code':{'known':{'uid':'42','name':'Known promoter'}}})
+        native={'discount_code':'Known','recommend_uid':0}
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+                   channel='unknown',marketing_attribution={})
+        evidence=effective_attribution(order,native,None,mapping)
+        self.assertTrue(evidence['promoter'])
+        self.assertEqual(evidence['promoter_uid'],'42')
+        self.assertEqual(evidence['filter_row']['promoter'],'Known promoter')
+        self.assertEqual(evidence['promoter_basis'],'promoter_directory')
+        self.assertEqual(native['recommend_uid'],0)
+
+    def test_current_empty_promotion_does_not_restore_archived_project(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL')]},[],{})
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+                   channel='unknown',marketing_attribution={})
+        archived=dict(code='',promoterUid='42',promoter='Old promoter',project='KOL',coupons=[])
+        evidence=effective_attribution(order,{'discount_code':'','recommend_uid':'0'},archived,mapping)
+        self.assertEqual(evidence['channel'],'unknown')
+        self.assertFalse(evidence['promoter'])
+        self.assertIsNone(evidence['filter_row']['promoter'])
+        self.assertIsNone(evidence['promotion_project'])
+
+    def test_different_order_source_needs_comparable_revision_for_override(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[]},[],{})
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+            channel='unknown',marketing_attribution={},pinned_order_source='google-FC27-PMAX-Coins-US')
+        archived=dict(sourceStatus='available',sourceRaw='Google organic',coupons=[])
+        evidence=effective_attribution(order,{},archived,mapping)
+        self.assertEqual(evidence['channel'],'unknown')
+        self.assertTrue(evidence['conflict'])
+        corrected=dict(order,pinned_order_source_revision='uw_fixed',pinned_order_source_at='2026-11-12T00:00:00+08:00')
+        evidence=effective_attribution(corrected,{},dict(archived,sourceCapturedAt='2026-11-11T00:00:00+08:00'),mapping)
+        self.assertEqual((evidence['channel'],evidence['basis']),('PPC','order_source'))
+
+    def test_conflicts_at_same_priority_cannot_fall_back_to_lower_evidence(self):
+        from channel_effects import Attribution
+        from order_facts import build_order_facts
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL')]},[],{})
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+            channel='unknown',marketing_attribution={'status':'conflict'})
+        archived=dict(sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',coupons=[])
+        for patch in ({}, {'marketing_attribution':{'status':'empty'},'pinned_order_source_conflict':True}):
+            with self.subTest(patch=patch):
+                evidence=effective_attribution(dict(order,**patch),{'discount_code':'known'},archived,mapping)
+                self.assertEqual(evidence['channel'],'unknown')
+                self.assertTrue(evidence['conflict'])
+                self.assertEqual(evidence['promotion_project'],'KOL')
+        rows=[{'site_id':'266','order_no':'O2','订单来源':source} for source in ('first','second')]
+        facts=build_order_facts([row()],rows,[],sites={'266':'www.mmoexp.com'},scope=SCOPE,source_coverage={})
+        self.assertEqual(facts['orders'][0]['marketing_attribution']['status'],'field_absent')
+        self.assertTrue(facts['orders'][0]['pinned_order_source_conflict'])
+
+    def test_shared_reader_projects_only_scoped_rows_without_live_or_archive_calls(self):
+        from order_facts_runtime import collect, collect_dashboard, collect_many
+        response = dict(status='available',rows=[row(discount_code='Known', tracking=dict(
+            sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',coupons=[]))],dataset=None,
+            identity_catalog=None,coverage=dict(complete=True,admin_complete=True,admin_date_basis='paytime',
+                admin_snapshot=True,source_revision='revision-4',publication_id='uw_fixed',day_revisions={},missing_days=[]))
+        reader=Mock(return_value=response)
+        legacy_transport=Mock(side_effect=AssertionError('legacy transport must not run'))
+        with tempfile.TemporaryDirectory() as folder, patch('order_facts_runtime.admin_orders') as native, \
+                patch('order_facts_runtime.dashboard_evidence') as legacy:
+            kwargs=dict(reader=reader,db=Path(folder)/'shared.db',costs=Path(folder)/'absent.json',publication_id='uw_fixed')
+            value=collect_dashboard(SCOPE,**kwargs)
+            plain=collect(SCOPE,dataset_reader=legacy_transport,**kwargs)
+            [batch]=collect_many([SCOPE],request=legacy_transport,**kwargs)
+        native.assert_not_called();legacy.assert_not_called()
+        legacy_transport.assert_not_called()
+        self.assertEqual(reader.call_args.args,(SCOPE,))
+        self.assertEqual(reader.call_args.kwargs['publication_id'],'uw_fixed')
+        self.assertEqual(value['orders'][0]['channel'],'unknown')
+        self.assertEqual(value['orders'][0]['effective_attribution']['channel'],'PPC')
+        self.assertFalse(value['orders'][0]['effective_attribution']['coupon'])
+        self.assertTrue(value['source_coverage']['admin_snapshot'])
+        self.assertNotIn('effective_attribution',plain['orders'][0])
+        self.assertEqual(plain,batch)
+
+    def test_shared_reader_missing_coverage_and_batch_revision_drift_are_explicit(self):
+        from order_facts_runtime import collect_shared_many
+        unavailable=dict(status='unavailable',rows=[],dataset=None,identity_catalog=None,
+            coverage=dict(complete=False,admin_complete=False,admin_date_basis='paytime',admin_snapshot=True,
+                source_revision='revision-4',publication_id=None,day_revisions={},missing_days=[SCOPE['start']]))
+        drift=dict(unavailable,coverage=dict(unavailable['coverage'],source_revision='revision-5'))
+        with tempfile.TemporaryDirectory() as folder:
+            kwargs=dict(db=Path(folder)/'shared.db',costs=Path(folder)/'absent.json')
+            [value]=collect_shared_many([SCOPE],reader=Mock(return_value=unavailable),**kwargs)
+            self.assertEqual(value['status'],'unavailable')
+            self.assertEqual(value['source_coverage']['missing_days'],[SCOPE['start']])
+            with self.assertRaisesRegex(ValueError,'order_facts_shared_revision_changed'):
+                collect_shared_many([SCOPE,dict(SCOPE,gid='456')],reader=Mock(side_effect=[unavailable,drift]),**kwargs)
     def test_existing_http_route_dispatches_facts_without_changing_old_modes(self):
         tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'))
         handler=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Handler')
