@@ -37,6 +37,7 @@ FC_V61_OVERLAYS = ('fc.pricing.constraints', 'fc.pricing.v3')
 FC_V61_DISCOUNT_REVISION = 'fc_v6_d8_d2_amount_weighted_discount_v1'
 FC_V61_TWO_BAND_REVISION = 'fc_v61_native_all_two_band_20261113'
 FC_V61_100K_MARKET_REVISION = 'fc_v61_100k_market_two_band_20261113'
+FC_V61_ADMIN_ONLY_REVISION = 'fc_v61_admin_only_two_band_20261113'
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
 FC_V61_LEARNING_ID = 'fs.learning.methods'
 FS_RUNTIME_ROOT = '/var/lib/fs-hermes-fc/fs/'
@@ -218,7 +219,9 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         current[identity] = found[0]
     if fc_v61:
         revision, full_revision = (current[identity]['revision'] for identity in FC_V61_OVERLAYS)
-        if revision not in (FC_V61_DISCOUNT_REVISION, FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION) or full_revision != revision:
+        revisions = (FC_V61_DISCOUNT_REVISION, FC_V61_TWO_BAND_REVISION,
+                     FC_V61_100K_MARKET_REVISION, FC_V61_ADMIN_ONLY_REVISION)
+        if revision not in revisions or full_revision != revision:
             raise ValueError('exact_fc_v61_revision_required')
         if any(identity in current and current[identity]['revision'] != revision
                for identity in (FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID)):
@@ -321,7 +324,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                     raise ValueError('canonical_source_changed:' + identity)
                 catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
                 overlay_root = 'overlay/'
-                if fc_v61 and row['revision'] in (FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION):
+                if fc_v61 and row['revision'] in (FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION,
+                                                   FC_V61_ADMIN_ONLY_REVISION):
                     # Retain the preceding snapshot's source at its original path.
                     overlay_root += row['revision'] + '/'
                 source.update(path=overlay_root + canonical_path, canonical_path=canonical_path)

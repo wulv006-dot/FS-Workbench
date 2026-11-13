@@ -306,6 +306,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assert_fc_revision_migration('fc_v61_native_all_two_band_20261113',
                                           'fc_v61_100k_market_two_band_20261113')
 
+    def test_fc_v61_admin_only_updates_pricing_and_retains_prior_market_contract(self):
+        self.assert_fc_revision_migration(builder.FC_V61_100K_MARKET_REVISION,
+                                          'fc_v61_admin_only_two_band_20261113')
+
     def test_fc_v61_baseline_patch_preserves_original_and_updates_only_existing_binding(self):
         self.assert_fc_revision_migration('fc_v61_native_all_two_band_20261113',
                                           'fc_v61_100k_market_two_band_20261113', baseline_patch=True)
