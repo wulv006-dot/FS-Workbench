@@ -218,6 +218,41 @@ class Runtime(unittest.TestCase):
         unmapped=effective_attribution(order,{'discount_code':'unknown'},None,mapping)
         self.assertEqual((unmapped['channel'],unmapped['detail'],unmapped['conflict']),('Direct','运营',False))
 
+    def test_pending_with_promoter_moves_to_direct_distribution_in_all_outputs(self):
+        from channel_effects import Attribution
+        from order_facts import build_order_facts
+        from order_facts_api import detail_csv, public
+        from order_facts_runtime import ATTRIBUTION_RULE, effective_attribution
+        mapping=Attribution({'entries':[dict(code='both',channel='KOL'),dict(code='both',channel='分销')]},[],{})
+        natives=[row(i=i,recommend_uid=uid,discount_code=code) for i,uid,code in (
+            (1,'42',''),(2,'0',''),(3,'42',''),(4,'42',''),(5,'42','both'),(6,'42',''))]
+        attrs=[{'site_id':'266','order_no':'O3','归因渠道':'SEO'}]
+        data=build_order_facts(natives,attrs,[],sites={'266':'www.mmoexp.com'},scope=SCOPE,
+            source_coverage={'admin_complete':True,'effective_attribution':{'rule':ATTRIBUTION_RULE}})
+        for order,native in zip(data['orders'],natives):
+            ident=native['id']
+            if ident==4:order['pinned_order_source']='google-FC27-PMAX-Coins-US'
+            if ident==6:order['pinned_order_source_conflict']=True
+            archived={'sourceStatus':'available','sourceRaw':'unmapped'} if ident!=4 else None
+            order['effective_attribution']=effective_attribution(order,native,archived,mapping)
+        expected=[('Direct','分销'),('pending_classification','unmapped'),('SEO',None),
+                  ('PPC','google-FC27-PMAX-Coins-US'),('Direct','待核'),('Direct','分销')]
+        effective=[r['effective_attribution'] for r in data['orders']]
+        self.assertEqual([(r['channel'],r['detail']) for r in effective],expected)
+        self.assertTrue(effective[-1]['source_conflict'] and effective[-1]['conflict'])
+        self.assertEqual(effective[-1]['promoter_uid'],'42')
+        self.assertEqual(effective[0]['basis'],'pending_promoter_distribution')
+        self.assertFalse(effective[1]['promoter'])
+        summary=public(data,dict(SCOPE,channel='all'))
+        self.assertEqual({r['channel']:r['orders'] for r in summary['channels']},
+                         {'Direct':3,'SEO':1,'PPC':1,'pending_classification':1})
+        details=[]
+        direct=public(data,dict(SCOPE,channel='Direct'),detail_rows=details)
+        self.assertEqual({r['label']:r['orders'] for r in direct['breakdown']['rows']},{'分销':2,'待核':1})
+        self.assertEqual({r['orderNo']:r['source'] for r in details},{'O1':'分销','O5':'待核','O6':'分销'})
+        self.assertIn('分销',direct['aggregate_csv'])
+        self.assertIn('分销',detail_csv(details))
+
     def test_dashboard_delivery_reuses_closed_day_and_refreshes_duplicate_id(self):
         from order_facts_runtime import dashboard_deliveries
         with tempfile.TemporaryDirectory() as folder:

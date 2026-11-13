@@ -21,7 +21,7 @@ sys.path[:0] = [str(SOURCE), str(ROOT / 'releases/fs-dashboard/hermes-fc-pilot-2
 import knowledge_catalog as kc
 import business_context as bc
 
-BASE = '3110c1530ebc56a8cc51bcf56e3c2cb7d219ec49'
+BASE = 'b375b7835b7f3fdd2bbbea8470c228f4c555de79'
 SHARED_REVISION = 'fs-fc-admin-es-shared-20261113-r1'
 BASELINE = 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'
 HISTORY = 'knowledge/history/fc-business-baseline-before-aion2-20261023.md'
@@ -322,7 +322,8 @@ class LearningCatalog(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(lf(path)).hexdigest()
         current = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.marketing.attribution'], preview=True)
-        self.assertEqual(current['entries'][0]['revision'], 'fs-fc-admin-es-shared-20261113-r4')
+        self.assertEqual(current['entries'][0]['revision'], 'fs-fc-admin-es-shared-20261113-r5')
+        self.assertIn('fc.marketing.attribution@fs-fc-admin-es-shared-20261113-r4', current['entries'][0]['supersedes'])
         self.assertIn('fc.marketing.attribution@fs-fc-admin-es-shared-20261113-r2', current['entries'][0]['supersedes'])
         self.assertIn('fc.marketing.attribution@fc-v3-20261026', current['entries'][0]['supersedes'])
         self.assertIn('优惠码 `Aion2` 由 TikTok 改归**分销**', current['entries'][0]['content'])
@@ -339,7 +340,10 @@ class LearningCatalog(unittest.TestCase):
         updated = {'fs.data.sources'}
         new = {'fc.marketing.attribution','fc.reporting.data'}
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r2'},updated)
-        self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r4'},new)
+        self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r4'},
+                         {'fc.reporting.data'})
+        self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r5'},
+                         {'fc.marketing.attribution'})
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated-new)
         for ident in expected:
             self.assertEqual(rows[ident]['knowledge_updated_at'],'2026-11-13')
