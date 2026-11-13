@@ -457,6 +457,23 @@ def v3_player_completion(coin_id,parent_id=None):
     bundle=operation['bundle']
     if parent_id is not None and bundle.get('snapshot_id')!=parent_id:raise ValueError('player_sync_parent_mismatch')
     receipt=operation.get('readback') or {}
+    from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+    if bundle.get('write_protocol') == CURVE_WRITE_PROTOCOL:
+        from decimal import Decimal
+        from fc_pricing_v3.financial import fingerprint
+        from fc_pricing_v3.ledger import confirmed_curve_window
+
+        curves = confirmed_curve_window(operation)[0]['curves']
+        rates = {}
+        for platform, curve in curves.items():
+            tiers = [row for row in curve['tiers'] if row['purchase_k'] == '100']
+            if len(tiers) != 1:
+                raise ValueError('player_sync_coin_100k_tier_missing')
+            rates[platform] = str(Decimal(tiers[0]['native_price_usd']) / 100)
+        return dict(operation_id=coin_id, status='COMPLETED', snapshot_id=bundle['snapshot_id'],
+                    bundle_sha256=bundle['sha256'], write_protocol=CURVE_WRITE_PROTOCOL,
+                    curve_results_sha256=fingerprint(receipt['curve_results']),
+                    confirmed_100k_rates=rates)
     return dict(operation_id=coin_id,status=operation['status'],snapshot_id=bundle.get('snapshot_id'),bundle_sha256=bundle.get('sha256'),
                 base_prices=(operation.get('actual_action') or bundle['action'])['base_prices'],
                 confirmed_at=operation.get('actual_state_confirmed_at') or operation.get('completed_at'),
@@ -612,7 +629,9 @@ def handle(job):
                    "config_revision": config["revision"],
                    "resume": job["request"].get("resume") is True}
         execution=json.loads((ROOT/'executions'/(coin_id+'.json')).read_text(encoding='utf-8'))
-        if execution.get('status') in ('ORDER_ADMIN_CONFIRMED','PUBLIC_CONFIRMED'):
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        if (execution.get('status') in ('ORDER_ADMIN_CONFIRMED','PUBLIC_CONFIRMED')
+                or execution.get('write_protocol') == CURVE_WRITE_PROTOCOL):
             if not job['request'].get('automatic_basis') and job['job_id']!=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc27-player-sync:'+coin_id)):raise ValueError('player_sync_original_job_mismatch')
             request['v3_completion']=v3_player_completion(coin_id)
         if job['request'].get('automatic_basis'):
