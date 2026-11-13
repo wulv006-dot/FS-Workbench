@@ -23,6 +23,55 @@ import hermes_pricing_bridge
 
 
 class RuntimeContracts(unittest.TestCase):
+    def test_curve_cycle_waits_in_same_queue_then_runs_once_after_publication(self):
+        from types import SimpleNamespace
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        from fc_pricing_v3.scheduler import WAITING_FOR_ES
+
+        midnight = datetime(2026, 11, 13, 16, tzinfo=timezone.utc)
+        ready_at = midnight + timedelta(hours=2, minutes=3)
+        with tempfile.TemporaryDirectory() as folder:
+            db = Ledger(Path(folder)/'control.sqlite3')
+            plan = dict(plan_id='p', revision=1, generation='g', resources=['base:PS'],
+                        starts_at=midnight.isoformat(), state='ACTIVE', mode='daily',
+                        write_protocol=CURVE_WRITE_PROTOCOL)
+            db.put('metadata', 'generation', dict(id='g'))
+            db.put('pricing_plans', 'p', plan)
+            with db.transaction() as conn:
+                conn.execute("INSERT INTO plan_ownership VALUES ('base:PS','p',1,'g')")
+            db.enqueue('cycle', 'original', midnight,
+                       dict(plan_id='p', revision=1, scheduled_at=midnight.isoformat()))
+            root = Path(folder)
+            (root/'quotes').mkdir()
+            (root/'quotes/run.json').write_text(json.dumps({'result': {'status': 'KEEP', 'rows': []}}))
+            worker = SimpleNamespace(collect_quote=Mock(return_value={'run_id':'run'}), save_job=Mock())
+            policy = dict(revision=1, system_enabled=True, mode='auto', interval_minutes=60)
+
+            def queued():
+                with closing(db.connect()) as conn:
+                    return dict(conn.execute("SELECT * FROM durable_jobs WHERE id='original'").fetchone())
+
+            with patch.object(scheduler, 'ledger', return_value=db), patch.object(scheduler, 'ROOT', root), \
+                    patch.object(scheduler, 'clock', return_value=midnight) as now, \
+                    patch.object(scheduler, 'yesterday_es_ready', return_value=False) as ready, \
+                    patch('automation_policy.load_policy', return_value=policy), \
+                    patch.dict(sys.modules, {'fc27_cloud_worker':worker}), \
+                    patch.object(scheduler, 'execute_run') as writer:
+                scheduler.run_job(queued())
+                worker.collect_quote.assert_not_called()
+                self.assertEqual(queued()['state'], 'queued')
+                self.assertEqual(queued()['attempt'], 0)
+                self.assertEqual(json.loads(queued()['body'])['deferred_reason'], WAITING_FOR_ES)
+                self.assertNotIn('last_cycle_at', db.get('pricing_plans', 'p'))
+                now.return_value = ready_at
+                ready.return_value = True
+                scheduler.run_job(queued())
+                self.assertEqual(queued()['state'], 'done')
+                self.assertNotIn('deferred_reason', json.loads(queued()['body']))
+                self.assertEqual(db.get('pricing_plans', 'p')['last_cycle_at'], ready_at.isoformat())
+                worker.collect_quote.assert_called_once()
+                writer.assert_not_called()
+
     def test_scheduler_keeps_wal_available_without_pinning_a_read_transaction(self):
         with tempfile.TemporaryDirectory() as folder:
             db=Ledger(Path(folder)/'control.sqlite3')

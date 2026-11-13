@@ -140,7 +140,7 @@ class BusinessOutcome(unittest.TestCase):
             policy = dict(system_enabled=True, mode='auto', revision=41, interval_minutes=60)
             with patch.dict(sys.modules, {'fc27_cloud_worker': worker}), patch.object(scheduler, 'ledger', return_value=db), \
                     patch.object(scheduler, 'ROOT', root), patch.object(runtime, 'ledger', return_value=db), \
-                    patch.object(runtime, 'collection_scope', return_value=selected), \
+                    patch.object(runtime, 'collection_scope', return_value=selected), patch.object(scheduler, 'yesterday_es_ready', return_value=True), \
                     patch.object(automation_policy, 'load_policy', return_value=policy), patch.object(scheduler, 'execute_run') as send:
                 scheduler.run_job(job)
             send.assert_not_called()

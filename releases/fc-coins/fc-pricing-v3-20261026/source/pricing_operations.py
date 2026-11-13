@@ -37,7 +37,7 @@ def schema():
                    'State returns the saved daily_review (missing historical profit fields remain unavailable), compact operation references and '
                    'available strategy results; use operation_read for each full original operation. Use state, compare_strategies and the same-run quote '
                    'receipt to inspect daily operations and revenue sprint, real paid-order/AOV and delivered-K units, scope and missing evidence. '
-                   'Read the original write protocol: fc27_curve_v6 uses the amount-weighted D-8 through D-2 discount, per-tier break-even, '
+                   'Read the original write protocol: fc27_curve_v6 uses the amount-weighted discount window recorded in each receipt (D-3 through D-1 for new cycles), per-tier break-even, '
                    'and per-platform 18% hard and 25% target procurement margins; scalar records retain their original dual 20% proofs. '
                    'State lists every action and its hash with compact score and margins; use candidate_detail with the exact run, mode and action hash '
                    'for its full original proof. Hermes reviews effects once daily without recommend or price approval. Only separately authorized '

@@ -46,7 +46,7 @@ def shadow_progress(db,root,now):
                 first_pending_event_id=first[0],next_daily_at=due.isoformat(),cadence='daily')
 
 
-def source_coverage(snapshots,plans,now,interval_minutes=60):
+def source_coverage(snapshots,plans,now,interval_minutes=60,*,waiting=()):
     """Validate the last real owned snapshot per plan, within that plan's sampling interval."""
     from .financial import number,instant,required_history_ratio,fingerprint
     from .selective_sources import input_ratio as envelope_ratio
@@ -69,6 +69,8 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                         failures.append('source_stale_or_clock_invalid')
                 except (KeyError, TypeError, ValueError):
                     failures.append('source_fields_unverified')
+            if plan['plan_id'] in waiting:
+                failures = [code for code in failures if code not in ('snapshot_missing', 'source_stale_or_clock_invalid')]
             result = latest.get('result') or {}
             checks.append(dict(plan_id=plan['plan_id'], snapshot_id=latest.get('snapshot_id'), failures=failures,
                                curve_proof_status=result.get('status'), curve_platforms=result.get('rows', []),
@@ -175,7 +177,15 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
     operator_enabled=policy.get('system_enabled')
     with closing(sqlite3.connect('file:'+str(root/'v3/control.sqlite3')+'?mode=ro',uri=True,timeout=2)) as conn:
         cycle_times=[next_cycle_at(conn,p,policy).isoformat() for p in owned if p['state']=='ACTIVE']
-    coverage=source_coverage(snapshots,active if operator_enabled else [],now,policy['interval_minutes'])
+    from .scheduler import WAITING_FOR_ES
+    waiting = {job['body'].get('plan_id') for job in jobs if job['kind']=='cycle'
+               and job['body'].get('deferred_reason')==WAITING_FOR_ES
+               and any(p['plan_id']==job['body'].get('plan_id') and p['revision']==job['body'].get('revision')
+                       for p in active)} if operator_enabled and policy.get('mode')=='auto' else set()
+    coverage=source_coverage(snapshots,active if operator_enabled else [],now,policy['interval_minutes'],waiting=waiting)
+    if waiting:
+        coverage['waiting_for_yesterday_es'] = sorted(waiting)
+        issues.append(dict(level='warning',code='coin_v3_waiting_for_yesterday_es'))
     issues.extend(coverage['issues'])
     for job in jobs:
         if job['kind'] in ('cycle','postwrite_refresh') and job['body'].get('error'):
@@ -189,7 +199,7 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
     latest_source=max((row.get('evidence',{}).get('checked_at') for row in snapshots if row.get('evidence',{}).get('checked_at')),default=None)
     if not latest_source and latest_summary.get('plan_id') in {p['plan_id'] for p in owned}:
         latest_source=latest_summary.get('source_checked_at')
-    status='unknown' if not checked else 'needs_reconcile' if pending else 'paused' if state=='SUSPENDED' else 'waiting' if active else 'no_active_plan'
+    status='unknown' if not checked else 'needs_reconcile' if pending else 'paused' if state=='SUSPENDED' else WAITING_FOR_ES if waiting else 'waiting' if active else 'no_active_plan'
     owned_ids={p['plan_id'] for p in owned}
     last_operation=max((o for o in operations if o.get('plan_id') in owned_ids),key=lambda o:o.get('created_at',''),default={})
     last_cycle=max((c for c in completed_cycles if c.get('plan_id') in owned_ids),key=lambda c:c.get('completed_at',''),default={})
@@ -199,7 +209,7 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
         last_stage={'confirmed':'COMPLETED','no_price_change':'NO_CHANGE'}.get(result_status,result_status)
     return dict(enabled=True,scheduler='single_fc_v3',checked_at=heartbeat.get('checked_at'),generation=heartbeat.get('generation'),
                 active_plans=[{k:p.get(k) for k in ('plan_id','revision','mode','state','resources','ends_at')} for p in active],
-                schedule=dict(status=status,next_at=next_at,next_cycle_at=next_at,cycle_interval_minutes=policy['interval_minutes'],
+                schedule=dict(status=status,next_at=None if waiting else next_at,next_cycle_at=None if waiting else next_at,cycle_interval_minutes=policy['interval_minutes'],
                               last_cycle_at=max(last_cycles,default=None),last_snapshot_at=latest_summary.get('created_at'),
                               last_source_checked_at=latest_source,last_execution_stage=last_stage,
                               active_plan_state=state,background_next_at=background_next_at,

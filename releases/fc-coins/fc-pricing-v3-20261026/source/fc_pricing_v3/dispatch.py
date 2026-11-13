@@ -106,6 +106,13 @@ def validate_curve_send(root, bundle, platform):
                      or plan.get('activation_revision') != bundle['activation_revision'])):
             raise ValueError('pricing_curve_plan_revision_changed')
         now = datetime.now(timezone.utc)
+        from .average_discount_v6 import MODEL, average_discount_window
+
+        average = ((bundle.get('curve_proofs') or {}).get(platform) or {}).get('average_discount') or {}
+        if average.get('contract') == MODEL:
+            start, end = average_discount_window(now)
+            if (average.get('start'), average.get('end_exclusive')) != (start.isoformat(), end.isoformat()):
+                raise ValueError('pricing_average_history_changed_since_quote')
         if (plan.get('state') != 'ACTIVE' or now >= instant(bundle['valid_until'])
                 or plan.get('ends_at') and now >= instant(plan['ends_at'])):
             raise ValueError('pricing_authorization_expired')
