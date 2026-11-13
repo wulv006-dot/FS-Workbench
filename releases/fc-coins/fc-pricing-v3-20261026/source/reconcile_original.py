@@ -197,10 +197,10 @@ def reconcile(request, root=ROOT, order_reader=read_order, manager_factory=all_m
             audit.get('actor')!=request.get('actor') or audit.get('selected')!=request.get('platforms') or
             audit.get('automation_policy_revision')!=request.get('policy_revision')):
         raise ValueError('original_audit_request_mismatch')
-    if audit.get('status') not in ('RUNNING','UNCERTAIN','PARTIAL','CONFIRMED'):
+    from fc_pricing_v3.dispatch import CURVE_REJECTED, CURVE_WRITE_PROTOCOL, write_protocol
+    if audit.get('status') not in ('RUNNING','UNCERTAIN','PARTIAL','CONFIRMED', CURVE_REJECTED):
         raise ValueError('original_audit_not_reconcilable')
     def save(value):atomic(path,value)
-    from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL, write_protocol
     protocol = audit.get('write_protocol')
     if request.get('write_protocol') != protocol:
         raise ValueError('pricing_write_protocol_mismatch')
@@ -217,10 +217,10 @@ def reconcile(request, root=ROOT, order_reader=read_order, manager_factory=all_m
                 any(item.get('operation_id') != operation_id or item.get('platform') != platform
                     for platform, item in items.items())):
             raise ValueError('pricing_curve_original_scope_missing')
-        if audit['status'] == 'CONFIRMED':
+        if audit['status'] in ('CONFIRMED', CURVE_REJECTED):
             return curve_result(audit, save)
         return reconcile_curve_catalog(manager_factory(), audit, save, curve_writer_capabilities())
-    if protocol is not None or write_protocol(audit.get('pricing_decision_receipt') or {}) is not None:
+    if protocol is not None or audit['status'] == CURVE_REJECTED or write_protocol(audit.get('pricing_decision_receipt') or {}) is not None:
         raise ValueError('pricing_write_protocol_invalid')
     if audit['status']=='CONFIRMED':
         if audit.get('sync_confirmed') is True and (audit.get('all_baseline') or {}).get('status')=='confirmed':

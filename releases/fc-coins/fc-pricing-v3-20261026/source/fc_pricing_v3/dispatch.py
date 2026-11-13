@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 CURVE_WRITE_PROTOCOL = 'fc27_curve_v6'
+CURVE_REJECTED = 'REJECTED_NO_CHANGE'
 
 
 def write_protocol(bundle):

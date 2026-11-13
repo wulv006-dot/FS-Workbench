@@ -17,6 +17,7 @@
 """
 
 from .admin_readback import matches_targets
+from .dispatch import CURVE_REJECTED
 from .platforms import action_key
 
 # §6.3 条件 1：只有 clickSync 真正返回的反馈才算 Order 成功。
@@ -39,7 +40,7 @@ UNRESOLVED_AUDIT_STATUS = frozenset({'RUNNING', 'UNCERTAIN', 'PARTIAL'})
 # 账本侧已收尾的状态：审计文件即便残留 PARTIAL，也不应再阻挡下一轮
 TERMINAL_LEDGER_STATUS = frozenset({
     'COMPLETED', 'NO_CHANGE', 'CANCELLED_NOT_SENT',
-    'KNOWN_PARTIAL_EXIT_PENDING', 'KNOWN_PARTIAL_EXITED', 'FAILED_BEFORE_WRITE',
+    'KNOWN_PARTIAL_EXIT_PENDING', 'KNOWN_PARTIAL_EXITED', 'FAILED_BEFORE_WRITE', CURVE_REJECTED,
 })
 
 
@@ -258,6 +259,8 @@ def execution_is_unresolved(state, ledger_status=None):
     if state.get('status') == 'PUBLIC_CONFIRMED':
         # Callers obtain this status with the same-operation Order/Admin proof.
         return state.get('ledger_status') != 'COMPLETED' or ledger_status != 'COMPLETED'
+    if state.get('status') == CURVE_REJECTED:
+        return ledger_status != CURVE_REJECTED
     if state.get('status') not in UNRESOLVED_AUDIT_STATUS:
         return False
     return ledger_status not in TERMINAL_LEDGER_STATUS

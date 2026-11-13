@@ -13,7 +13,7 @@ from pathlib import Path
 import uuid
 
 from . import VERSION, PROGRAM_CONTRACT
-from .dispatch import CURVE_WRITE_PROTOCOL, proven_not_sent, write_protocol
+from .dispatch import CURVE_REJECTED, CURVE_WRITE_PROTOCOL, proven_not_sent, write_protocol
 from .engine import evaluate, financial, competition, commit_path, impacted_regions, proof_regions, GROUPS, PLATFORMS, market_quote, sprint_parameters, SPRINT_POLICY_VERSION
 from .financial import fingerprint, number, instant, MARGIN_BASIS, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION, LEGACY_FINANCIAL_CONTRACT_VERSION, HISTORY_WINDOW_CONTRACT, required_history_ratio
 from .ledger import Ledger, clock, confirmed_curve_window
@@ -2088,6 +2088,11 @@ def unified_close_entry(op,audit):
     if write_protocol(op.get('bundle') or {}) == CURVE_WRITE_PROTOCOL:
         if op['status'] in TERMINAL_CLOSE_STATUS:
             return complete_player_followup(op)
+        if _original_curve_audit(op, audit) and audit.get('status') == CURVE_REJECTED:
+            ident = op['operation_id']
+            receipt = dict(status=CURVE_REJECTED, operation_id=ident, execution_id=ident,
+                           write_protocol=CURVE_WRITE_PROTOCOL, curve_results=audit['curve_results'])
+            return ledger().finish_curve_rejection(ident, receipt)
         if not _original_curve_audit(op, audit) or audit.get('status') != 'CONFIRMED':
             return None
         step, = op['steps']
@@ -2112,7 +2117,7 @@ def unified_close_entry(op,audit):
 
 
 TERMINAL_CLOSE_STATUS = ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT',
-                         'KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED')
+                         'KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED',CURVE_REJECTED)
 
 
 def exit_or_close(op,audit,reason):
@@ -2219,7 +2224,7 @@ def _reconcile(operation_id):
     op=db.get('operations',operation_id)
     if not op:
         raise ValueError('pricing_operation_missing')
-    if op['status'] in ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED'):return complete_player_followup(op)
+    if op['status'] in TERMINAL_CLOSE_STATUS:return complete_player_followup(op)
     if write_protocol(op.get('bundle') or {}) == CURVE_WRITE_PROTOCOL:
         return _reconcile_curve(op)
     audit_path=ROOT/'executions'/(operation_id+'.json')

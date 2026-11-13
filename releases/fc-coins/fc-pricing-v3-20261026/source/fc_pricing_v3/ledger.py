@@ -10,6 +10,7 @@ import uuid
 from decimal import Decimal
 
 from .financial import fingerprint, instant, number
+from .dispatch import CURVE_REJECTED, CURVE_WRITE_PROTOCOL
 from . import PROGRAM_CONTRACT
 from .platforms import PLATFORMS, PRICE_SCOPE_CONTRACT, native_resources, native_action, action_key
 
@@ -445,7 +446,7 @@ class Ledger:
             if plan.get('ends_at') and now>=instant(plan['ends_at']):raise ValueError('pricing_plan_expired')
             for row in conn.execute('SELECT body FROM operations'):
                 op=json.loads(row['body'])
-                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT','FAILED_BEFORE_WRITE','KNOWN_PARTIAL_EXITED') and set(native_resources(op['resources']))&set(native_resources(plan['resources'])):
+                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT','FAILED_BEFORE_WRITE','KNOWN_PARTIAL_EXITED',CURVE_REJECTED) and set(native_resources(op['resources']))&set(native_resources(plan['resources'])):
                     raise ValueError('pricing_resource_unresolved')
             for row in conn.execute("SELECT body FROM durable_jobs WHERE kind='cycle' AND state='running'"):
                 if json.loads(row['body']).get('plan_id')==ident:raise ValueError('pricing_migration_cycle_running')
@@ -513,7 +514,7 @@ class Ledger:
             if plan.get('ends_at') and now>=instant(plan['ends_at']):raise ValueError('pricing_plan_expired')
             for row in db.execute('SELECT body FROM operations'):
                 op=json.loads(row[0])
-                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT','FAILED_BEFORE_WRITE','KNOWN_PARTIAL_EXITED') and set(native_resources(op['resources']))&set(native_resources(plan['resources'])):raise ValueError('pricing_resource_unresolved')
+                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT','FAILED_BEFORE_WRITE','KNOWN_PARTIAL_EXITED',CURVE_REJECTED) and set(native_resources(op['resources']))&set(native_resources(plan['resources'])):raise ValueError('pricing_resource_unresolved')
             before=json.loads(json.dumps(plan));plan['revision']+=1
             plan['financial_contract_version']=FINANCIAL_CONTRACT_VERSION
             plan['history_window_contract']=HISTORY_WINDOW_CONTRACT
@@ -624,7 +625,7 @@ class Ledger:
             for row in conn.execute('SELECT body FROM operations'):
                 operation = json.loads(row[0])
                 if (operation['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT',
-                                                'FAILED_BEFORE_WRITE','KNOWN_PARTIAL_EXITED')
+                                                'FAILED_BEFORE_WRITE','KNOWN_PARTIAL_EXITED',CURVE_REJECTED)
                         and set(native_resources(operation['resources'])) & resources):
                     raise ValueError('pricing_resource_unresolved')
             for row in conn.execute("SELECT body FROM durable_jobs WHERE kind='cycle' AND state='running'"):
@@ -867,7 +868,7 @@ class Ledger:
         with self.transaction() as db:
             op = self.get('operations', operation_id, db)
             step = next(s for s in op['steps'] if s['step_id'] == step_id)
-            if op['status'] in ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED') or step['state']=='CANCELLED_NOT_SENT':
+            if op['status'] in ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED',CURVE_REJECTED) or step['state']=='CANCELLED_NOT_SENT':
                 return None
             plan = self.get('pricing_plans', op['plan_id'], db)
             self.owns(plan, authority_resources(op['bundle']), db)
@@ -938,6 +939,39 @@ class Ledger:
                 self.put('reservations',operation_id,reservation,db)
             self.put('operations',operation_id,op,db)
             db.execute('DELETE FROM resource_leases WHERE operation_id=?',(operation_id,))
+            return op
+
+    def finish_curve_rejection(self, operation_id, receipt):
+        """Close a submitted operation with explicit rejection and exact no-change readback."""
+        from coin_all_sync_job import all_curve_changes_rejected, editable
+
+        with self.transaction() as db:
+            op = self.get('operations', operation_id, db)
+            if op['status'] == CURVE_REJECTED:
+                return op
+            step, = op['steps']
+            results = receipt.get('curve_results') or {}
+            bundle = op['bundle']
+            if (op['status'] not in ('DISPATCHED', 'UNKNOWN')
+                    or bundle.get('write_protocol') != CURVE_WRITE_PROTOCOL
+                    or step['kind'] != 'base' or not step.get('dispatched_at')
+                    or receipt.get('status') != CURVE_REJECTED or receipt.get('execution_id') != operation_id
+                    or set(results) != set(op['dispatch_context']['selected']) or set(results) != set(bundle['affected_platforms'])
+                    or any(row.get('platform') != p or row.get('operation_id') != operation_id
+                           or row.get('before_hash') != fingerprint(editable(bundle['before_action']['curves'][p]['native_payload']))
+                           or row.get('target_hash') != fingerprint(editable(bundle['action']['curves'][p]['native_payload']))
+                           for p, row in results.items())
+                    or not all_curve_changes_rejected(results)):
+                raise ValueError('pricing_curve_rejection_not_proven')
+            completed = clock().isoformat()
+            if step.get('receipt') is not None:
+                step.setdefault('receipt_history', []).append(dict(state=step['state'], receipt=step['receipt'],
+                                                                  recorded_at=completed))
+            step.update(state=CURVE_REJECTED, receipt=receipt)
+            op.update(status=CURVE_REJECTED, completed_at=completed, readback=receipt, write_performed=False)
+            self.put('readback_receipts', operation_id, receipt, db)
+            self.put('operations', operation_id, op, db)
+            db.execute('DELETE FROM resource_leases WHERE operation_id=?', (operation_id,))
             return op
 
     def finish(self, operation_id, receipt, *, no_change=False):

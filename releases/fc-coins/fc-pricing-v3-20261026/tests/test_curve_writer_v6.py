@@ -83,6 +83,7 @@ class Transport:
         self.projection_writes = []
         self.projection_rate = before['unit_price']
         self.response_lost = False
+        self.rejection_code = None
         self.restore_linear = False
         self.projection_delayed = False
         self.projection_response_lost = False
@@ -97,6 +98,8 @@ class Transport:
         if data is None:
             return 200, json.dumps(dict(code=1, data=dict(row=self.rows[goods_id])))
         self.posts.append((goods_id, deepcopy(data)))
+        if self.rejection_code is not None:
+            return 200, json.dumps(dict(code=self.rejection_code, msg='fixture denial'))
         self.rows[goods_id] = deepcopy(data)
         if self.propagate:
             self.apply_recipient()
@@ -126,6 +129,22 @@ class Transport:
 
         return dict(path='synthetic-isolated-order-rate', evidence_ref='synthetic-rate-contract',
                     read=lambda _: self.projection_rate, prepare=prepare)
+
+
+class AdminRejectionReceipt(unittest.TestCase):
+    def test_sanitizes_rejection_message_without_copying_response_data(self):
+        manager = Mock(token='fixture')
+        observer = Mock()
+        for message, expected in (('折扣字段不符合限制', '折扣字段不符合限制'),
+                                  ('order 1234567890 not allowed', 'order [redacted] not allowed'),
+                                  ('authorization=example-value', None)):
+            manager.request.return_value = 200, json.dumps(dict(code=0, msg=message, data={'private': 'omit'}))
+            with self.assertRaisesRegex(ValueError, 'coin_backend_request_rejected'):
+                writer.api(manager, f'/admin/goods.Goods/edit?id={ALL_ID}', {}, observer)
+            receipt, = observer.call_args.args
+            self.assertEqual(receipt.get('response_message'), expected)
+            self.assertEqual(len(receipt['response_message_sha256']), 64)
+            self.assertNotIn('data', receipt)
 
 
 class OrderProjectionTransport(unittest.TestCase):
