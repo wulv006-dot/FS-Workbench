@@ -245,7 +245,7 @@ class Ledger:
             current = primary_reference_curve(current, adoption['platform'])
             current_key = curve_key(current)
             candidate = dict(curve=current, curve_key=current_key)
-            comparison = dict(state['episode'], candidates=[candidate])
+            comparison = dict(state['episode'], candidates=[candidate], selected_segment=proposal.get('selected_segment'))
             decision = dict(status='KEEP', selected=candidate, proof_hash=adoption['proof']['proof_hash'],
                             reference_curve_id=proposal['reference_curve_id'],
                             comparison_episode_id=proposal['comparison_episode_id'])
@@ -268,7 +268,7 @@ class Ledger:
         return self.put('metadata', key, dict(result, proposal=proposal, proof=adoption['proof']), conn)
 
     def _record_cost_repair(self, platform, selection, op, current, conn):
-        from .curve_strategy_v6 import curve_strategy_key, primary_reference_curve
+        from .curve_strategy_v6 import curve_strategy_key, primary_reference_curve, segment_changes, update_reference_segments
         from .price_curve import curve_key
 
         key = curve_strategy_key(platform)
@@ -279,15 +279,20 @@ class Ledger:
         current = primary_reference_curve(current, platform)
         prior = state['episode']
         reference_id = fingerprint([op['operation_id'], platform, 'COST_REPAIR', curve_key(current)])
-        reference = dict(state['reference'], reference_curve=current, reference_curve_id=reference_id,
-                         event_type='COST_REPAIR', confirmed_operation_id=op['operation_id'],
-                         readback_ref='readback_receipts/' + op['operation_id'],
+        segments = segment_changes(op['bundle']['before_action']['curves'][platform], current)
+        receipt = dict(operation_id=op['operation_id'], readback_ref='readback_receipts/' + op['operation_id'])
+        try:
+            updated = update_reference_segments(state['reference'], current, segments, reference_id, receipt, 'COST_REPAIR')
+        except ValueError as error:
+            return dict(status='NOT_ADOPTED', reason=str(error))
+        reference = dict(state['reference'], **updated, event_type='COST_REPAIR',
                          failed_proof_hash=selection['failed_proof_hash'],
                          repair_domain_ref=selection['repair_domain_ref'],
                          repaired_proof_hash=op['bundle']['curve_proofs'][platform]['proof_hash'])
         prior_id = prior['comparison_episode_id']
         episode = dict(comparison_episode_id=fingerprint([key, prior_id, reference_id]),
-                       initial_reference_curve=current, initial_reference_curve_id=reference_id,
+                       initial_reference_curve=prior['initial_reference_curve'],
+                       initial_reference_curve_id=prior['initial_reference_curve_id'],
                        prior_comparison_episode_id=prior_id, rule_revision=prior['rule_revision'],
                        reason='COST_REPAIR', opened_at=op['completed_at'])
         self.put('metadata', key + ':episode:' + prior_id, prior, conn)
@@ -1009,7 +1014,7 @@ class Ledger:
             raise ValueError('curve_window_protocol_missing')
         return self._store_price_window(op, db, actual_action, curve_metadata, clock().isoformat(), no_change)
 
-    def observe_curve_keep(self, plan, snapshot_id, platform, curve, observed_at, evidence_ref, conn):
+    def observe_curve_keep(self, plan, snapshot_id, platform, curve, observed_at, evidence_ref, conn, *, selection=None):
         from .curve_strategy_v6 import primary_reference_curve
         from .dispatch import CURVE_WRITE_PROTOCOL
 
@@ -1035,7 +1040,8 @@ class Ledger:
                     return
         observation = dict(operation_id=ident, plan_id=plan['plan_id'], generation=plan['generation'],
                            resources=[resource], bundle=dict(mutable_resources=[resource],
-                               affected_platforms=[platform], assignment_id=snapshot_id))
+                               affected_platforms=[platform], assignment_id=snapshot_id,
+                               curve_selection={platform: selection} if selection else {}))
         meta = dict(origin='observed_native_curve_window', write_protocol=CURVE_WRITE_PROTOCOL,
                     price_scope_contract=PRICE_SCOPE_CONTRACT, readback_ref=evidence_ref,
                     observation_id=ident, write_performed=False)
@@ -1046,6 +1052,9 @@ class Ledger:
         original_resources=op['bundle'].get('mutable_resources',op['resources'])
         normalize=native_resources if any(r in ('base:PS','base:XBOX','base:PC') for r in original_resources) else lambda resources:list(resources)
         remaining=set(normalize(original_resources))
+        selections = op['bundle'].get('curve_selection') or {}
+        learning = {platform: dict(assignment=row['assignment']) for platform, row in selections.items()
+                    if row.get('assignment')}
         for row in db.execute('SELECT id,body FROM actual_price_windows').fetchall():
             window=json.loads(row[1])
             affected=(set(normalize(window.get('resources',[])))-set(normalize(window.get('resource_closed_at',{}))))&remaining
@@ -1071,6 +1080,10 @@ class Ledger:
                                             resources=sorted(same), at=opened)
                         if curve_metadata.get('observation_id'):
                             continuation.update(readback_ref=curve_metadata['readback_ref'], write_performed=False)
+                        continuation_learning = {platform: selection for platform, selection in learning.items()
+                                                 if 'base:' + platform in same}
+                        if continuation_learning:
+                            continuation['curve_selection'] = continuation_learning
                         window.setdefault('continuations', []).append(continuation)
                         if window.get('assignment_id')!=op['bundle']['assignment_id']:
                             window['randomization_verified']=False
@@ -1085,6 +1098,8 @@ class Ledger:
                 self.put('actual_price_windows',row[0],window,db)
         if not remaining:
             return actual_action
+        if learning:
+            curve_metadata['curve_selection'] = learning
         self.put('actual_price_windows', operation_id, dict(operation_id=operation_id,plan_id=op.get('plan_id'),generation=op.get('generation'),
                  resources=[r for r in normalize(original_resources) if r in remaining],mutable_resources=[r for r in normalize(original_resources) if r in remaining],
                  assignment_id=op['bundle']['assignment_id'],action=actual_action,

@@ -21,6 +21,7 @@ from .engine import controlled_candidate, current_action
 
 ROOT = Path(os.environ.get('FC27_V3_ROOT','/var/lib/fc27-cloud'))
 STORE = ROOT/'v3'
+CURVE_DECISION_POLICY = 'v6_paired_bands'
 
 
 def ledger():
@@ -311,6 +312,7 @@ def _preview_curve_candidates(curve, key, platform, strategy_state, segment, clo
                               snapshot_at, catalogue_at, evidence_as_of, frozen_candidates, *, editor=None, repair=None):
     from .admin_readback import SITE_MAIN
     from .curve_strategy_v6 import ANCHORS, build_candidates
+    from .smart import curve_learning
     from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, curve_key, quote_native
 
     candidate_gaps = {}
@@ -796,8 +798,10 @@ def collect_curve_catalogues(evidence, platforms):
     paid_cutoff = evidence['checked_at']
     job_path = ROOT / 'jobs' / (evidence['run_id'] + '.json')
     job = json.loads(job_path.read_text()) if job_path.exists() else {}
-    plan_id = (job.get('request') or {}).get('v3_plan_id')
+    request = job.get('request') or {}
+    plan_id = request.get('v3_plan_id')
     with closing(db.connect()) as conn:
+        plan = db.get('pricing_plans', plan_id, conn) if plan_id and request.get('v3_operation_id') else None
         online = (db.get('metadata', 'curve-online-context:' + plan_id, conn) if plan_id else None) or {}
         # Live diagnostic uses the latest already archived exact window.
         # Historical preview retains the original attachment/snapshot binding.
@@ -813,13 +817,13 @@ def collect_curve_catalogues(evidence, platforms):
             primary = read_row(manager, platform, 266, observer=observed.append)
             all_row = read_row(manager, platform, 0, observer=observed.append)
             contract = dict(source='Admin Goods edit read only', verified_domain='native stored tiers only',
+                            editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256,
                             price_edit_policy=TWO_BAND_PRICE_EDIT)
             current, all_before = (read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, contract)
                                    for row in (primary, all_row))
         except (OSError, TypeError, ValueError):
             continue
-        editor = dict(contract, editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256,
-                      price_edit_policy=TWO_BAND_PRICE_EDIT)
+        editor = contract
         candidates = {curve_key(current): current}
         state = db.curve_strategy_state(platform)
         if state:
@@ -847,6 +851,7 @@ def collect_curve_catalogues(evidence, platforms):
     now = clock()
     valid_until = now + timedelta(minutes=15)
 
+    learning_windows = db.all('actual_price_windows') if plan and online and plan['mode'] == 'smart' else []
     for platform, entry in collected.items():
         average = average_discount(shared_closed, platform, paid_cutoff)
 
@@ -860,6 +865,9 @@ def collect_curve_catalogues(evidence, platforms):
                      all_inputs={curve_key(curve): proof(curve) for curve in entry['all_targets'].values()},
                      performance=_same_hour_curve_performance(platform, online, now))
         current = entry['primary_curve']
+        state = db.curve_strategy_state(platform)
+        if learning_windows and state:
+            entry['learning'] = curve_learning(plan, platform, state, online, learning_windows, now, current)
         current_proof = _validated_curve(current, entry['primary_inputs'][curve_key(current)])
         if current_proof['status'] == 'HARD_CONSTRAINT_FAILED':
             repair = _average_discount_repair(current, entry['all_before'], entry['editor_contract'],
@@ -886,22 +894,40 @@ def store_curve_proof_inputs(db, evidence, platforms):
         return prior if prior is not None else db.put('metadata', key, attachment, conn)
 
 
-def _curve_preference(platform, current, evidence, inputs, now, *, plan=None, state=None):
+def _curve_preference(platform, current, evidence, inputs, now, *, plan=None, state=None, paired_bands=True):
     from .curve_strategy_v6 import ANCHORS, market_preference
-    from .smart import assignment
+    from .smart import assignment, curve_slot
 
-    preference = market_preference(current, platform, evidence.get('competitor_offers') or [],
-                                   inputs.get('performance') or {}, now)
-    if preference:
-        return preference
+    performance = inputs.get('performance') or {}
+    smart = plan and plan['mode'] == 'smart'
+    if not (paired_bands and smart):
+        preference = market_preference(current, platform, evidence.get('competitor_offers') or [], performance, now)
+        if preference:
+            return preference
     if inputs.get('preferred_label'):
         return dict(label=inputs['preferred_label'], segment=inputs['segment'], source='frozen_business_choice')
-    segment = max(ANCHORS, key=lambda value: ((inputs.get('performance') or {}).get(value) or {})
-                  .get('current', {}).get('paid_orders', 0))
+    if smart and paired_bands:
+        slot = curve_slot(plan, platform, state, now, learning=inputs.get('learning'))
+        preference = dict(label=slot['label'], segment=slot['segment'], source='smart_three_hour_block',
+                          assignment=slot, block=slot['block'], starts_at=slot['starts_at'], ends_at=slot['ends_at'])
+        policy, correction = slot['policy'] or {}, slot['correction'] or {}
+        stops = {label for label, block in correction.get('effective_blocks', {}).items() if slot['block'] >= block}
+        if slot['label'] != slot['original_label']:
+            preference['source'] = 'observed_curve_correction'
+        elif policy.get('winner') and policy['winner'] not in stops:
+            preference['source'] = 'observed_curve_policy'
+        elif slot['segment'] == 'small' and slot['label'] != 'A':
+            market = market_preference(current, platform, evidence.get('competitor_offers') or [], performance, now)
+            if market and market['label'] not in stops and market['label'] not in policy.get('excluded', []):
+                preference.update(market, source='market_100k')
+        learned = (inputs.get('learning') or {}).get(slot['segment']) or {}
+        if slot['learning_source_sha256']:
+            preference['observed_blocks'] = learned['blocks']
+        return preference
+    segment = max(ANCHORS, key=lambda value: (performance.get(value) or {}).get('current', {}).get('paid_orders', 0))
     if plan and plan['mode'] == 'revenue_sprint':
         return dict(label='B', segment=segment, source='revenue_sprint')
-    if plan and plan['mode'] == 'smart':
-        # Reuse the native 3h schedule, with platform and comparison episode in its seed.
+    if smart:
         episode = state['episode']
         starts_at = max(instant(plan['starts_at']), instant(episode['opened_at']))
         scoped = dict(plan, starts_at=starts_at.isoformat(), smart_strategy_version='smart-v1',
@@ -910,6 +936,22 @@ def _curve_preference(platform, current, evidence, inputs, now, *, plan=None, st
         return dict(label=slot['label'], segment=segment, source='smart_three_hour_block',
                     block=slot['block'], starts_at=slot['starts_at'], ends_at=slot['ends_at'])
     return dict(label='CURRENT', segment=segment)
+
+
+def _curve_assignment_result(preference, primary, key, labels):
+    from .curve_strategy_v6 import comparison_background_key
+    from .price_curve import curve_key
+
+    if not preference.get('assignment'):
+        return preference
+    requested = preference['label']
+    actual = 'A' if 'A' in labels else requested if requested in labels else 'CURRENT'
+    info = dict(preference['assignment'], requested_label=requested, actual_label=actual,
+                primary_curve_key=curve_key(primary),
+                decision_curve_key=key,
+                learning_background_curve_key=preference['assignment']['background_curve_key'],
+                background_curve_key=comparison_background_key(primary, preference['segment']))
+    return dict(preference, assignment=info)
 
 
 def _validated_curve(curve, frozen):
@@ -1007,7 +1049,8 @@ def _curve_repair(current, current_proof, repair):
     return dict(status='COST_REPAIR', candidate=target)
 
 
-def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, plan=None, decision_at=None):
+def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, plan=None, decision_at=None,
+                        paired_bands=True):
     from coin_all_sync_job import curve_catalog_plan, curve_route_ready, curve_writer_capabilities, editable
     from .curve_strategy_v6 import build_candidates, choose_action, intermediate_candidates, primary_reference_curve
     from .price_curve import curve_key
@@ -1028,7 +1071,8 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
                             current_key=key, proof=proof, gaps=proof['gaps'] + proof['hard_failures'])
         return dict(status='PROOF_INCOMPLETE', gaps=['adopted_reference_curve_unavailable'])
     current = primary_reference_curve(inputs['primary_curve'], platform)
-    preference = _curve_preference(platform, current, evidence or {}, inputs, decision_at or now, plan=plan, state=state)
+    preference = _curve_preference(platform, current, evidence or {}, inputs, decision_at or now,
+                                   plan=plan, state=state, paired_bands=paired_bands)
     route = inputs.get('native_route')
     capability = (curve_writer_capabilities({platform: route}) if route else curve_writer_capabilities()).get(platform) or {}
     factors_verified = curve_route_ready(capability) and capability.get('tier_price_factors') is True
@@ -1075,11 +1119,13 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
                     preference = dict(preference, price_step='bounded_intermediate')
                     break
         if not target and preference['label'] in ('A', 'B', 'C') and current_proof.get('status') == PROVEN:
+            preference = _curve_assignment_result(preference, current, comparison['confirmed_current_curve_key'], [])
             return dict(status='KEEP', current_key=comparison['confirmed_current_curve_key'], proof=current_proof,
                         selection=preference, gaps=gaps)
         if not target:
             return dict(status=decision['status'], gaps=gaps)
     if target['curve_key'] == comparison['confirmed_current_curve_key']:
+        preference = _curve_assignment_result(preference, current, target['curve_key'], target['labels'])
         return dict(status='KEEP', current_key=target['curve_key'], proof=proofs[target['curve_key']], selection=preference)
     if not curve_route_ready(capability):
         return dict(status='PROOF_INCOMPLETE', gaps=['curve_native_writer_capability_unverified'])
@@ -1110,10 +1156,13 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
     except ValueError as error:
         return dict(status='PROOF_INCOMPLETE', gaps=[str(error)])
     if repair:
-        preference = dict(preference, label='COST_REPAIR', failed_proof_hash=current_proof['proof_hash'],
+        preference = dict({} if paired_bands else preference,
+                          label='COST_REPAIR', failed_proof_hash=current_proof['proof_hash'],
                           repair_domain_ref=inputs['repair']['domain_ref'],
                           reference_curve_id=state['reference']['reference_curve_id'],
                           comparison_episode_id=state['episode']['comparison_episode_id'])
+    else:
+        preference = _curve_assignment_result(preference, target['curve'], curve_key(after), target['labels'])
     return dict(status='READY', before=before, target=after, proof=proof,
                 selection=preference, native_route=route, primary_before_hash=before_hash)
 
@@ -1197,6 +1246,7 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
             plan_id=plan['plan_id'], revision=plan['revision'], engine_generation=plan['generation'],
             activation_revision=plan['activation_revision'], financial_contract_version=CONTRACT,
             assignment_id=request['v3_operation_id'], randomization_verified=False,
+            curve_decision_policy=CURVE_DECISION_POLICY,
             resources=resources, mutable_resources=resources, affected_platforms=ready,
             steps=[dict(step_id='base:all', kind='base', state='PENDING')],
             before_action=dict(curves={p: decisions[p]['before'] for p in ready}),
@@ -1223,10 +1273,14 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
                 observed = data.get('readbacks') or []
                 curve = data['primary_curve']
                 goods_path = '/admin/goods.Goods/edit?id=' + curve['identity']['id']
-                if any(row.get('path') == goods_path and row.get('http_status') == 200
-                       and row.get('response_code') == 1 and row.get('response_sha256') for row in observed):
-                    db.observe_curve_keep(plan, evidence['run_id'], platform, curve, data['captured_at'],
-                                          'curve-proof-inputs:' + evidence['run_id'] + ':' + fingerprint(observed), conn)
+                primary_readback = next((row for row in observed if row.get('path') == goods_path
+                                         and row.get('http_status') == 200 and row.get('response_code') == 1
+                                         and row.get('response_sha256')), None)
+                if primary_readback:
+                    db.observe_curve_keep(plan, evidence['run_id'], platform, curve,
+                                          primary_readback.get('received_at') or data['captured_at'],
+                                          'curve-proof-inputs:' + evidence['run_id'] + ':' + fingerprint(observed), conn,
+                                          selection=decision.get('selection'))
             db.put('metadata', 'latest_snapshot:' + plan['plan_id'],
                    dict(snapshot_id=evidence['run_id'], plan_id=plan['plan_id']), conn)
     return result
@@ -1743,7 +1797,8 @@ def verify_curve_quote(quote, receipt, policy, selected, now, for_execution, pur
         frozen = _curve_proof_inputs(db, evidence, conn)
         for platform in changed:
             proof = _prove_curve_inputs(platform, frozen.get(platform), db, now, conn, evidence=evidence,
-                                        plan=plan, decision_at=instant(receipt['created_at']))
+                                        plan=plan, decision_at=instant(receipt['created_at']),
+                                        paired_bands=receipt.get('curve_decision_policy') == CURVE_DECISION_POLICY)
             if (proof['status'] != 'READY' or proof['before'] != receipt['before_action']['curves'][platform]
                     or proof['target'] != receipt['action']['curves'][platform]
                     or proof['proof'] != receipt['curve_proofs'][platform]
