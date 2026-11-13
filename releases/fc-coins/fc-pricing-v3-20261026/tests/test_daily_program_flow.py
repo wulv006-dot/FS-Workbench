@@ -96,10 +96,10 @@ class DailyProgramFlow(unittest.TestCase):
             daily_report={'decision_basis':{'write_protocol':'fc27_curve_v6'}}))
         self.assertIn('双20%',scalar)
         self.assertNotIn('双20%',curve)
-        self.assertIn('D-8 至 D-2',curve)
+        self.assertIn('D-3 至 D-1',curve)
         self.assertIn('至少18%，25%为经营目标',curve)
         description = pricing_operations.schema()['function']['description']
-        self.assertIn('fc27_curve_v6 uses the amount-weighted D-8 through D-2 discount',description)
+        self.assertIn('fc27_curve_v6 uses the amount-weighted discount window recorded in each receipt',description)
         self.assertIn('scalar records retain their original dual 20% proofs',description)
 
     def test_daily_capabilities_use_saved_review_instead_of_wrong_run_compare(self):

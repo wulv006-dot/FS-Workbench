@@ -283,11 +283,11 @@ def validate_curve(curve, baskets, evidence, validation_domain):
     key = curve_key(curve)
     with localcontext(Context(prec=80)):
         scope, required, gaps = _scope(curve, validation_domain)
-        from .average_discount_v6 import MODEL, forecast_receipt
+        from .average_discount_v6 import LEGACY_MODEL, MODEL, forecast_receipt
         average = evidence.get('average_discount')
         retained = None
         if average is not None:
-            if (not isinstance(average, dict) or average.get('contract') != MODEL
+            if (not isinstance(average, dict) or average.get('contract') not in (MODEL, LEGACY_MODEL)
                     or average.get('platform') != scope['platform'] or average.get('site_id') != SITE_MAIN
                     or average.get('status') != 'complete'
                     or average.get('revision') != fingerprint({k: v for k, v in average.items() if k != 'revision'})

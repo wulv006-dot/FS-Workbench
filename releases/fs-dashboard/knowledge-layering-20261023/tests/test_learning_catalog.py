@@ -271,7 +271,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'fc_v61_admin_only_two_band_20261113')
+        self.assertEqual(margin['revision'], 'fc_v61_d3_d1_es_ready_20261114')
         self.assertEqual(margin['source']['path'],'docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md')
         self.assertIn('fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4',margin['supersedes'])
         self.assertIn('fc.pricing.constraints@fc_v6_d8_d2_amount_weighted_discount_v1', margin['supersedes'])
@@ -344,7 +344,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertEqual(rows['fs.data.sources']['revision'], '20261113-v61-reporting-sources')
         self.assertIn('fs.data.sources@fs-fc-admin-es-shared-20261113-r2',
                       rows['fs.data.sources']['supersedes'])
-        self.assertEqual(rows['fc.reporting.data']['revision'], '20261113-v61-reporting-data')
+        self.assertEqual(rows['fc.reporting.data']['revision'], 'fc_v61_d3_d1_es_ready_20261114')
         self.assertIn('fc.reporting.data@fs-fc-admin-es-shared-20261113-r4',
                       rows['fc.reporting.data']['supersedes'])
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r5'},

@@ -435,21 +435,22 @@ def ordinary_delivery_archives(scope, shared, *, root=None):
 def _shared_curve_inputs(paid_cutoff, as_of, *, code_names):
     import sys
     from .average_discount_v6 import average_discount_window
-    from .business_source import shared_curve_attachment
+    from .business_source import historical_period, shared_curve_attachment
 
     sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
     from shared_es_facts import read
 
     start, discount_end = average_discount_window(paid_cutoff)
-    scope = dict(site_id='266', gid='1327', start=start.date().isoformat(), end=discount_end.date().isoformat())
+    basket = historical_period('7d', now=instant(paid_cutoff))
+    scope = dict(site_id='266', gid='1327', **basket['period'])
     shared = read(scope)
     closed = shared_curve_attachment(shared, scope, as_of=as_of, code_names=code_names)
     publication_id = shared['coverage'].get('publication_id')
     discount_source = None
     if publication_id:
-        # The D-1 basket archive can still be publishing after midnight.
-        # Check discount coverage on its own dates within the same publication.
-        discount_scope = dict(scope, end=(discount_end.date() - timedelta(days=1)).isoformat())
+        # The structure basket and discount forecast use different windows of the same publication.
+        discount_scope = dict(scope, start=start.date().isoformat(),
+                              end=(discount_end.date() - timedelta(days=1)).isoformat())
         try:
             discount_data = read(discount_scope, publication_id=publication_id)
             discount_source = shared_curve_attachment(discount_data, discount_scope, as_of=as_of,

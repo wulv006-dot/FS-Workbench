@@ -243,11 +243,11 @@ def curve_catalog_plan(bundle, platform, capability):
     restore = bundle.get('restore_source_execution_id')
     if restore and not two_band:
         raise ValueError('pricing_curve_two_band_policy_missing')
-    from fc_pricing_v3.average_discount_v6 import MODEL
+    from fc_pricing_v3.average_discount_v6 import LEGACY_MODEL, MODEL
     proof = bundle['curve_proofs'][platform]
     if (capability and capability.get('catalogue_status') == 'native_route_ready' and not two_band
             and (before['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
-                 or (proof.get('average_discount') or {}).get('contract') == MODEL)):
+                 or (proof.get('average_discount') or {}).get('contract') in (MODEL, LEGACY_MODEL))):
         raise ValueError('pricing_curve_two_band_policy_missing')
     tier_price_factors = bool(not two_band and capability and capability.get('tier_price_factors'))
     if protected(before_row, tier_price_factors=tier_price_factors) != protected(

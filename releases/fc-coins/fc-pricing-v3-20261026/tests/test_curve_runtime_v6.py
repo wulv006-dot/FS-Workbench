@@ -20,7 +20,7 @@ from test_price_curve_v6 import EDITOR_CONTRACT
 
 
 class CurveRuntime(unittest.TestCase):
-    def test_midnight_discount_window_is_independent_of_yesterdays_basket_archive(self):
+    def test_discount_and_basket_pin_wait_for_missing_yesterday(self):
         from fc_pricing_v3.average_discount_v6 import average_discount
         from fc_pricing_v3.financial import instant
 
@@ -30,13 +30,13 @@ class CurveRuntime(unittest.TestCase):
         def read(scope, *, publication_id=None):
             if publication_id is not None:
                 self.assertEqual(publication_id, pin)
-            complete = scope['end'] == '2026-11-12'
+            complete = False
             return {'scope': scope, 'coverage': {'publication_id': pin, 'complete': complete}}
 
         def attachment(shared, scope, **kwargs):
             complete = shared['coverage']['complete']
             return dict(historical_orders=[
-                dict(order_key=platform, platform=platform, paid_at='2026-11-12T23:59:59+08:00',
+                dict(order_key=platform, platform=platform, paid_at='2026-11-13T23:59:59+08:00',
                      merchandise_before_discount_usd='20', actual_es_discount_usd='2')
                 for platform in ('PS', 'XBOX', 'PC')
             ], historical_orders_coverage=dict(
@@ -53,13 +53,13 @@ class CurveRuntime(unittest.TestCase):
 
         for platform in ('PS', 'XBOX', 'PC'):
             result = average_discount(discount_source, platform, cutoff)
-            self.assertEqual(result['status'], 'complete', result)
-            self.assertEqual(result['retained_ratio'], '0.9')
+            self.assertEqual(result['status'], 'partial', result)
+            self.assertIsNone(result['retained_ratio'])
         self.assertFalse(closed['historical_orders_coverage']['window_complete'])
         self.assertEqual(facts, 'structure-costs')
         self.assertEqual(costs.call_args.args[0]['end'], '2026-11-13')
         self.assertEqual(reader.call_args.kwargs, {'publication_id': pin})
-        self.assertEqual(reader.call_args.args[0], dict(start='2026-11-06', end='2026-11-12',
+        self.assertEqual(reader.call_args.args[0], dict(start='2026-11-11', end='2026-11-13',
                                                        site_id='266', gid='1327'))
 
     def test_large_band_smart_trial_uses_own_orders_without_competitor_quotes(self):
@@ -980,7 +980,7 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(runtime._validated_curve(target, found['all_inputs'][curve_key(target)])['status'],
                              'PROOF_INCOMPLETE')
 
-    def test_d8_d2_weighted_amount_and_custom_quantity_drive_current_proof(self):
+    def test_d3_d1_weighted_amount_and_custom_quantity_drive_current_proof(self):
         from decimal import Decimal
         from fc_pricing_v3.average_discount_v6 import MODEL, average_discount
         from test_cost_inputs_v6 import AS_OF, CUT, attachment, facts, fx, rows_for
@@ -999,15 +999,15 @@ class CurveRuntime(unittest.TestCase):
             gross, off = ('20','4') if row['base_k']=='123' else ('100','4')
             row.update(merchandise_before_discount_usd=gross, actual_es_discount_usd=off,
                        single_line_unit_purchase=True, promotion_path=None)
-        source['historical_orders'].append(dict(source['historical_orders'][0], order_key='d1-excluded',
-            paid_at=(CUT - timedelta(hours=12)).isoformat(), merchandise_before_discount_usd='999',
+        source['historical_orders'].append(dict(source['historical_orders'][0], order_key='d4-excluded',
+            paid_at=(CUT - timedelta(days=4)).isoformat(), merchandise_before_discount_usd='999',
             actual_es_discount_usd='999'))
         average = average_discount(source,'PS',CUT)
         self.assertEqual((average['matched_orders'],average['actual_discount_usd'],
                           average['merchandise_before_discount_usd']), (20,'80','1200'))
         self.assertEqual(average['retained_ratio'], str(Decimal(1120) / Decimal(1200)))
-        self.assertEqual(average['start'], (CUT - timedelta(days=8)).isoformat())
-        self.assertEqual(average['end_exclusive'], (CUT - timedelta(days=1)).isoformat())
+        self.assertEqual(average['start'], (CUT - timedelta(days=3)).isoformat())
+        self.assertEqual(average['end_exclusive'], CUT.isoformat())
 
         small_facts = facts(small, cost='4.92', delivery_fields={'qty':'123','gift':'0','cost_unit':'.04'})
         large_facts = facts(large, cost='61.20', delivery_fields={'qty':'1530','gift':'0','cost_unit':'.04'})

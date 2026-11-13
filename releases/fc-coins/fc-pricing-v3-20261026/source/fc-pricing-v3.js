@@ -2,6 +2,13 @@
   'use strict';
   const base='/api/fc27/cloud/pricing/v3';
   const platforms=['PS','XBOX','PC'];
+  function discountWindow(average){
+    const labels={fc_v6_d8_d2_amount_weighted_discount_v1:'D-8 至 D-2',fc_v6_d3_d1_amount_weighted_discount_v1:'D-3 至 D-1'};
+    const label=labels[average?.contract]||'回执所列窗口';
+    if(!average?.start||!average?.end_exclusive)return label;
+    const last=new Date(Date.parse(`${average.end_exclusive.slice(0,10)}T00:00:00Z`)-86400000);
+    return Number.isFinite(+last)?`${label}（${average.start.slice(0,10)} 至 ${last.toISOString().slice(0,10)}）`:label;
+  }
   const curveProtocol='fc27_curve_v6',curveRequest='curve-collect',curvePendingKey='fc-v3-curve-collect-job';
   const curveActivationKey='fc-v3-curve-activation';
   const collectedMarketKey='fc-v3-collected-market';
@@ -10,7 +17,7 @@
   const purposes={smart:'三平台独立双向试验：每小时重算各平台基准，每3小时独立选择A基准、B合法降3%、C合法涨3%，受各自双20与竞品上界约束。同价合并；按同钟点累计有效对照复盘，低量不强判赢家。',daily:'PS、Xbox、PC分别按真实八日优惠核算财务底线；Lootbar为主锚、Arab-UT为次锚，双源缺失按本平台八日平均30%求最低合法价。',revenue_sprint:'三平台独立报价，Lootbar为主锚、Arab-UT为次锚，ItemD2R仅辅助。按本平台100K实交100K双20及5–10%竞争目标选价，地区继承全球。'};
   const primaryPolicy=plan=>plan?.parameters?.competitor_policy==='lootbar_primary_arabut_secondary_v1';
   function modePurpose(mode,plan){
-    if(plan?.write_protocol===curveProtocol)return 'PS、Xbox、PC 各自核价。按 D-8 至 D-2 的金额加权优惠估算，检查各档保本及平台组合采购毛利至少 18%，以 25% 为经营目标。';
+    if(plan?.write_protocol===curveProtocol)return 'PS、Xbox、PC 各自核价。按最近三个已归档完整自然日（D-3 至 D-1）的金额加权优惠估算，检查各档保本及平台组合采购毛利至少 18%，以 25% 为经营目标。';
     if(mode==='smart'&&plan?.smart_strategy_version==='smart-three-platform-v3')return purposes.smart;
     if(mode==='smart'&&plan?.smart_strategy_version==='smart-bidirectional-v2')return '历史双向试验v2：每小时重算冲额基准；Console与PC独立选择A基准、B合法降3%、C合法涨3%，同价候选合并；48小时为检查点，成熟度按有效对照判断。程序每小时执行，Hermes每日只读复盘；月目标仅为经营背景，不接入选价。';
     if(primaryPolicy(plan)&&mode==='daily')return 'Lootbar有效时保留原计划锚点；缺价按同平台ArabUT当轮实际交付价，低于双20则用合法底价。两源均缺的平台按八日平均30%求最低价；ItemD2R仅辅助观察。';
@@ -359,7 +366,7 @@
     $('v3-runtime-status').textContent=automation?`服务器已保存：系统${automation.system_enabled?'开启':'关闭'} · ${automation.mode==='auto'?'自动运行':'仅手动执行'} · 每 ${interval} 分钟${runtimeDirty?'；有未保存修改':''}`:'服务器运行设置未读回';
     $('v3-interval-save').disabled=!canWrite||automationRevision==null;
     $('v3-current-plan').textContent=plan?`${active.length>1?`${active.length} 个受控计划 · 当前查看 `:''}${names[plan.mode]||plan.mode} · ${statusText(plan.state)}`:'无活动计划';
-    $('v3-next-cycle').textContent=schedule.next_cycle_at?when(schedule.next_cycle_at):(schedule.active_plan_state==='SUSPENDED'||plan?.state==='SUSPENDED'?'已暂停，无下一自然写价轮':'暂无已排定自然轮');
+    $('v3-next-cycle').textContent=schedule.status==='waiting_for_yesterday_es'?'等待昨日 ES 发布，完成后顺延执行':schedule.next_cycle_at?when(schedule.next_cycle_at):(schedule.active_plan_state==='SUSPENDED'||plan?.state==='SUSPENDED'?'已暂停，无下一自然写价轮':'暂无已排定自然轮');
     const curve=isCurvePlan(state),snapshotId=curveSnapshot(state);
     const sourceTime=curve?(snapshotId&&state.source_checked_at):schedule.last_source_checked_at;
     $('v3-source-time').textContent=sourceTime?when(sourceTime):'当前计划来源待核';
@@ -569,11 +576,11 @@
         }
         card.append(row);
         const average=proof?.average_discount;
-        if(average?.contract==='fc_v6_d8_d2_amount_weighted_discount_v1'){
+        if(average?.contract){
           const retained=average.retained_ratio,margin=proof.minimum_safe_procurement_margin;
           const rate=retained==null?'待补':`${((1-Number(retained))*100).toFixed(2)}%`;
           const marginText=margin==null?'待核':`${(Number(margin)*100).toFixed(2)}%`;
-          proofDetails.append(node('p',`${quote?.purchase_k??'待核'}K · ${label} · D-8 至 D-2 平均优惠 ${rate} · 已核 ${average.matched_orders}/${average.eligible_orders} 单`),
+          proofDetails.append(node('p',`${quote?.purchase_k??'待核'}K · ${label} · ${discountWindow(average)} 平均优惠 ${rate} · 已核 ${average.matched_orders}/${average.eligible_orders} 单`),
             node('p',`组合采购毛利 ${marginText}（底线 18%，目标 25%）`));
         }
       }
@@ -731,7 +738,7 @@
           const column=platformCard(platform);
           const details=$('v3-price-basis-'+platform.toLowerCase()),basis=planMarket.price_basis?.rows?.[platform];
           const retained=basis?.average_discount?.retained_ratio,margin=basis?.minimum_safe_procurement_margin;
-          if(retained!=null)details.replaceChildren(node('p',`D-8 至 D-2 平均优惠 ${((1-Number(retained))*100).toFixed(2)}%`),
+          if(retained!=null)details.replaceChildren(node('p',`${discountWindow(basis?.average_discount)} 平均优惠 ${((1-Number(retained))*100).toFixed(2)}%`),
             node('p',`采集时估算组合采购毛利 ${margin==null?'待核':(Number(margin)*100).toFixed(2)+'%'}`));
           for(const source of ['Lootbar','U7Buy','ArabUT']){
             const card=node('section');card.className='market-quote';card.append(node('h4',source==='ArabUT'?'Arab-UT':source));
@@ -849,7 +856,7 @@
     const sourcePolicy=primaryPolicy(plan)?'计划规则：Lootbar主锚，ArabUT次锚，ItemD2R仅辅助；PS、Xbox和PC分别独立核价。'+(plan.parameters.region_pricing==='global'?'全球统一：地区继承全球，系数1；实际生效以已核地区证明为准。':'地区按原配置核算。'):'全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价，破线时系数归1；英国系数1。';
     $('v3-legacy-proof-table').hidden=curve;
     $('v3-proof-notes').textContent=curve
-      ?'按 D-8 至 D-2 实际优惠金额加权核算。各档检查保本，平台组合采购毛利至少 18%，经营重点是全天累计利润和利润率。'
+      ?'按最近三个已归档完整自然日（D-3 至 D-1）的实际优惠金额加权核算。各档检查保本，平台组合采购毛利至少 18%，经营重点是全天累计利润和利润率。'
       :`双红线：购买100K、实交100K档未优惠及D-9至D-2八个完整日真实优惠金额结构估算平均采购毛利都至少 20%。成本、竞品及汇率取本轮。小额与其他档位不作为自动定价硬门槛。${sourcePolicy}${latest?.bundle?.financial_proof?.pricing_scope!=='100k_package_only'&&latest?'下表最近原操作为旧口径历史证明，不代表100K新口径验收。':''}${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
     writeControls();
     list.disabled=!plans.length;

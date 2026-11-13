@@ -238,7 +238,7 @@ def recheck_curve_average(quote, receipt):
     cutoff = instant(quote['evidence']['checked_at'])
     if cutoff.astimezone(TZ).date() != now.astimezone(TZ).date():
         raise ValueError('pricing_average_history_changed_since_quote')
-    start, end = average_discount_window(cutoff)
+    start, end = average_discount_window(now)
     scope = dict(site_id='266', gid='1327', start=start.date().isoformat(),
                  end=(end.date()-timedelta(days=1)).isoformat())
     averages = {platform: proof.get('average_discount') or {} for platform, proof in receipt['curve_proofs'].items()}
@@ -266,7 +266,8 @@ def recheck_curve_average(quote, receipt):
                 k: v for k, v in quoted.items() if k not in ('publication_id','revision')}:
             raise ValueError('pricing_average_history_changed_since_quote')
     return dict(status='current_curve_proof_rechecked', publication_id=coverage['publication_id'],
-                average_source_revision=coverage['source_revision'], price_write_performed=False)
+                average_source_revision=coverage['source_revision'], discount_start=start.isoformat(),
+                discount_end_exclusive=end.isoformat(), price_write_performed=False)
 
 
 def refresh_before_write(request,root=ROOT):

@@ -306,7 +306,7 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(any(isinstance(node, ast.Name) and node.id == 'SHORT_RULES'
                             for node in ast.walk(admission_prompt)))
         self.assertIn('按本次程序回执的 write_protocol 核对对应合同', prompt)
-        self.assertIn('fc27_curve_v6 按 D-8 至 D-2 金额加权平均优惠', prompt)
+        self.assertIn('fc27_curve_v6 按原操作回执所列日期窗使用金额加权平均优惠，当前新轮使用 D-3 至 D-1', prompt)
         self.assertIn('档位保本和平台组合采购毛利至少18%，25%是经营目标', prompt)
         self.assertIn('已核为旧标量协议的原操作继续执行原双20%采购毛利规则', prompt)
         self.assertIn('协议未核实时先读原回执和当前合同', prompt)

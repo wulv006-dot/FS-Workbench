@@ -1,4 +1,4 @@
-"""The operator-approved seven-day amount-weighted Coins pricing forecast."""
+"""The three-day amount-weighted Coins pricing forecast."""
 from collections import Counter
 from datetime import timedelta
 from decimal import Context, Decimal, ROUND_CEILING, ROUND_DOWN, ROUND_HALF_UP, localcontext
@@ -8,7 +8,8 @@ from .financial import fingerprint, instant, number
 from .price_curve import COIN_BAND_ANCHORS, TWO_BAND_PRICE_EDIT, band_price_usd, coin_quantity_band, curve_key
 
 
-MODEL = 'fc_v6_d8_d2_amount_weighted_discount_v1'
+MODEL = 'fc_v6_d3_d1_amount_weighted_discount_v1'
+LEGACY_MODEL = 'fc_v6_d8_d2_amount_weighted_discount_v1'
 CENT = Decimal('.01')
 
 
@@ -21,7 +22,31 @@ def _decimal(value, *, zero=False):
 
 def average_discount_window(paid_cutoff):
     today = instant(paid_cutoff).astimezone(TZ).replace(hour=0, minute=0, second=0, microsecond=0)
-    return today - timedelta(days=8), today - timedelta(days=1)
+    return today - timedelta(days=3), today
+
+
+def yesterday_es_ready(now):
+    """Check the published site/game slice through the shared read-only source."""
+    import sqlite3
+    import sys
+
+    for path in ('/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc'):
+        if path not in sys.path:
+            sys.path.append(path)
+    try:
+        from shared_es_facts import latest_publication, read
+
+        _, midnight = average_discount_window(now)
+        yesterday = (midnight.date() - timedelta(days=1)).isoformat()
+        pin = latest_publication()
+        if not pin or not pin['cutoff'] or pin['cutoff'][:10] < midnight.date().isoformat():
+            return False
+        coverage = read(dict(start=yesterday, end=yesterday, site_id='266', gid='1327'),
+                        publication_id=pin['publication_id'])['coverage']
+        return (coverage.get('admin_complete') is True
+                and yesterday in (coverage.get('day_revisions') or {}))
+    except (ImportError, OSError, sqlite3.Error, KeyError, TypeError, ValueError):
+        return False
 
 
 def average_discount(closed, platform, paid_cutoff):

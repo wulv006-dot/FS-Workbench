@@ -413,7 +413,7 @@ class CatalogInputs(unittest.TestCase):
                 self.assertFalse(result['price_write_performed'])
                 self.assertEqual(verified.call_args.args[2],['PS'])
                 self.assertTrue(verified.call_args.kwargs['for_execution'])
-                self.assertEqual(shared_read.call_args.args[0],dict(site_id='266',gid='1327',start='2026-11-05',end='2026-11-11'))
+                self.assertEqual(shared_read.call_args.args[0],dict(site_id='266',gid='1327',start='2026-11-10',end='2026-11-12'))
                 active=dict(coverage,publication_id='next-pin')
                 shared_read.side_effect=[{'coverage':active}, publication]
                 self.assertEqual(pricing_sources.refresh_before_write(request,root)['publication_id'],'next-pin')

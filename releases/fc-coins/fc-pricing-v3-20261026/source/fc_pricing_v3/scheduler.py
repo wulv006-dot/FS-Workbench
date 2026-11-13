@@ -20,6 +20,7 @@ from .runtime import ledger, ROOT, STORE, execute_run, reconcile, complete_playe
 
 PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'uk_retirement':3,'cycle':4,'outcomes':5,'observe':5,'daily':5,'history':5}
 BACKOFF=(5,15,30,60)
+WAITING_FOR_ES = 'waiting_for_yesterday_es'
 SHADOW_EXPORT=STORE/'shadow-readonly.sqlite3'
 
 def cycle_interval(policy=None):
@@ -124,6 +125,12 @@ def export_shadow_snapshot(db, target=SHADOW_EXPORT, *, force=False):
             Path(name).unlink(missing_ok=True)
 
 
+def yesterday_es_ready(now):
+    from .average_discount_v6 import yesterday_es_ready as ready
+
+    return ready(now)
+
+
 def cycle(body=None):
     import fc27_cloud_worker as worker
     from automation_policy import load_policy
@@ -159,11 +166,29 @@ def cycle(body=None):
     if pending:
         return dict(status='original_operation_reconciliation_pending')
     policy=load_policy()
-    if body.get('scheduled_at') and clock()>=instant(body['scheduled_at'])+cycle_interval(policy):
+    curve_plan = requested.get('write_protocol') == CURVE_WRITE_PROTOCOL
+    automatic_curve = curve_plan and not body.get('manual_requested')
+    if not automatic_curve and body.get('scheduled_at') and clock()>=instant(body['scheduled_at'])+cycle_interval(policy):
         return dict(status='expired_cycle',scheduled_at=body['scheduled_at'])
     if not policy['system_enabled'] or not body.get('manual_requested') and policy['mode']!='auto':
         return dict(status='operator_paused')
-    curve_plan = requested.get('write_protocol') == CURVE_WRITE_PROTOCOL
+    if automatic_curve:
+        from .average_discount_v6 import average_discount_window
+
+        started = clock()
+        if not yesterday_es_ready(started):
+            return dict(status=WAITING_FOR_ES, write_performed=False)
+        if body.pop('deferred_reason', None) == WAITING_FOR_ES and body.get('scheduled_at'):
+            # Keep the original durable ID, but evaluate the current strategy slot once.
+            if requested.get('smart_strategy_version') in SMART_VERSIONS:
+                from .smart import strategy_start
+                start = strategy_start(requested)
+                interval = cycle_interval(policy)
+                body['scheduled_at'] = (start + ((started - start) // interval) * interval).isoformat()
+            else:
+                body['scheduled_at'] = started.isoformat()
+    if body.get('scheduled_at') and clock()>=instant(body['scheduled_at'])+cycle_interval(policy):
+        return dict(status='expired_cycle',scheduled_at=body['scheduled_at'])
     if curve_plan and manual:
         if not body.get('manual_requested') or not manual.get('restore_source_execution_id'):
             raise ValueError('pricing_curve_scalar_override_unsupported')
@@ -186,6 +211,11 @@ def cycle(body=None):
     try:
         collected=worker.collect_quote(job)
         quote=json.loads((ROOT/'quotes'/(collected['run_id']+'.json')).read_text())
+        if automatic_curve and average_discount_window(clock()) != average_discount_window(started):
+            result = dict(status=WAITING_FOR_ES, write_performed=False)
+            job.update(status='ready', result=result, completed_at=clock().isoformat())
+            worker.save_job(job)
+            return result
         if body.get('scheduled_at') and clock()>=instant(body['scheduled_at'])+cycle_interval(policy):
             result=dict(status='expired_cycle',scheduled_at=body['scheduled_at'])
             job.update(status='ready',result=result,completed_at=clock().isoformat())
@@ -350,6 +380,12 @@ def run_job(job):
             result=observe(body['snapshot_id'])
         else:
             result=cycle(body)
+        if kind == 'cycle' and result.get('status') == WAITING_FOR_ES:
+            body['deferred_reason'] = WAITING_FOR_ES
+            with db.transaction() as conn:
+                conn.execute("UPDATE durable_jobs SET state='queued',due_at=?,body=? WHERE id=?",
+                             ((clock() + timedelta(minutes=1)).isoformat(), json.dumps(body), job['id']))
+            return
         with db.transaction() as conn:
             completed_at=clock().isoformat()
             if kind=='cycle':finish_cycle(db,conn,body,result,completed_at)
