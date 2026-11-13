@@ -142,9 +142,10 @@ class OrderFactsAPI(unittest.TestCase):
         rows = list(csv.reader(io.StringIO(result['aggregate_csv'].lstrip('\ufeff'))))
         self.assertEqual(rows[1][:5],[DAY,next_day,'266','1327','Direct'])
         self.assertEqual(rows[1][7],result['snapshot_id'])
-        self.assertEqual(rows[3:], [['渠道','Direct','partial','1','50','0','','','0'],
+        self.assertEqual([row[:9] for row in rows[3:]], [['来源明细','未提供','partial','1','50','0','','','0'],
                                    ['日期',DAY,'available','1','50','0','','','0'],
                                    ['日期',next_day,'partial','0','','0','','','0']])
+        self.assertEqual(rows[3][9],'1.0')
         value['source_coverage']['attribution'] = {'publication_id':'new-revision'}
         self.assertNotEqual(result['snapshot_id'],public(value,q)['snapshot_id'])
         self.assertNotIn('PRIVATE-ORDER',json.dumps(result))
@@ -200,6 +201,69 @@ class OrderFactsAPI(unittest.TestCase):
     def test_source_scope_mismatch_fails_not_available(self):
         self.service.source=lambda scope:facts(dict(scope,site_id='other'))
         self.assertEqual(self.complete()[0],503)
+
+    def test_effective_channel_source_share_and_coupon_evidence_are_one_cohort(self):
+        query = selection(params(channel='PPC'))
+        scope = {k:v for k,v in query.items() if k != 'channel'}
+        value = facts(scope)
+        value['orders'][0]['effective_attribution'] = dict(channel='PPC', basis='order_source',
+            detail='google-FC27-PMAX-Coins-US', discount_code=True, promoter=None, coupon=True,
+            coupon_templates=['Launch'], promotion_project=None, conflict=False)
+        value['orders'][1]['effective_attribution'] = dict(channel='PPC', basis='native_channel',
+            detail='https://youtube.com/watch?email=PRIVATE@example.com', discount_code=False,
+            promoter=None, coupon=None, coupon_templates=[], promotion_project=None, conflict=False)
+        result = public(value,query)
+        self.assertEqual(result['totals']['orders'],2)
+        self.assertEqual(result['breakdown']['denominator_orders'],2)
+        self.assertEqual(result['breakdown']['dimension'],'source_detail')
+        self.assertEqual({r['label']:r['order_share'] for r in result['breakdown']['rows']},
+                         {'google-FC27-PMAX-Coins-US':0.5,'youtube.com':0.5})
+        self.assertEqual(sum(r['associations']['coupon']['known_orders'] for r in result['breakdown']['rows']),1)
+        self.assertEqual(sum(r['associations']['coupon']['unknown_orders'] for r in result['breakdown']['rows']),1)
+        self.assertIn('google-FC27-PMAX-Coins-US',result['aggregate_csv'])
+        self.assertNotIn('PRIVATE',json.dumps(result))
+        self.assertNotIn('/watch',result['aggregate_csv'])
+
+    def test_original_tracking_filters_apply_before_channel_and_to_export(self):
+        query = selection(params(channel='PPC',status='valid',country='US',payment='PayPal',
+            code='PRIVATE-CODE',coupon_template='7',coupon_batch='PRIVATE-BATCH',q='PRIVATE-ORDER'))
+        scope = {k:query[k] for k in ('start','end','site_id','gid')}
+        value = facts(scope)
+        known = dict(orderNo='PRIVATE-ORDER-1',gid='1',refunded=False,country='US',payment='PayPal',
+            codeKey='private-code',code='PRIVATE-CODE',promoter='Synthetic',
+            coupons=[dict(templateId='7',batch='PRIVATE-BATCH',title='Launch')])
+        value['orders'][0]['effective_attribution'] = dict(channel='PPC',detail='google-FC27-PMAX-Coins-US',filter_row=known)
+        value['orders'][1]['effective_attribution'] = dict(channel='PPC',filter_row=dict(known,coupons=None))
+        result=public(value,query)
+        self.assertEqual(result['breakdown']['denominator_orders'],1)
+        self.assertEqual(result['breakdown']['rows'][0]['order_share'],1)
+        self.assertEqual(result['coverage']['unverified_filter_orders'],1)
+        self.assertEqual(result['status'],'partial')
+        self.assertTrue(result['keyword_applied'])
+        self.assertNotIn('PRIVATE',json.dumps(result))
+        self.assertNotIn('private-code',json.dumps(result))
+        self.assertIn('discount_code_applied',result['aggregate_csv'])
+
+    def test_detail_and_csv_use_original_actor_and_exact_cached_snapshot(self):
+        query=params()
+        _, result=self.complete(query)
+        snap=result['snapshot_id']
+        detail=params(snapshot_id=snap,detail_page='1')
+        code,page=self.service.get(detail,'alice')
+        self.assertEqual((code,page['total'],page['snapshot_id']),(200,2,snap))
+        self.assertEqual(len(page['orders']),2)
+        self.assertNotIn('orders',result)
+        self.assertNotIn('PRIVATE-ORDER',json.dumps(result))
+        self.assertIn('PRIVATE-ORDER',self.service.get(params(snapshot_id=snap,detail_export='1'),'alice')[1]['detail_csv'])
+        self.assertEqual(self.service.get(detail,'outsider')[0],403)
+        self.assertEqual(self.service.get(detail,'bob')[0],409)
+        self.assertEqual(self.service.get(dict(detail,channel=['Direct']),'alice')[0],409)
+        _, second=self.complete(query,user='bob')
+        self.assertNotEqual(second['snapshot_id'],snap)
+        self.assertEqual(self.service.get(detail,'bob')[0],409)
+        self.now+=600
+        self.assertEqual(self.service.get(detail,'alice')[0],409)
+        self.assertFalse(self.channels.pool.calls)
 
     def test_slow_source_failure_returns_terminal_status_before_retry(self):
         def timed_out(scope):

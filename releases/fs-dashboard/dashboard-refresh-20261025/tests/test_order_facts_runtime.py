@@ -91,6 +91,72 @@ class Runtime(unittest.TestCase):
             self.assertEqual(data['totals']['unknown_channel_orders'],1)
             self.assertEqual(data['coverage']['unlinked_cost_records'],0)
             reader.assert_not_called()
+    def test_dashboard_uses_same_order_pmax_and_coupon_without_new_admin_request(self):
+        from order_facts_runtime import collect_dashboard
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root); (root/'days').mkdir()
+            day=SCOPE['start']; cache=root/'days'/f'{day}.json'
+            record=dict(orderNo='O2',gid='1327',paidAt=day+' 10:00:00',day=day,
+                sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',
+                code='Known',project='谷歌广告',conflict=False,promoterUid='42',coupons=[dict(title='Launch')])
+            cache.write_text(json.dumps(dict(contract='channel-day-v1',period=dict(start=day,end=day),
+                sources=dict(orders=dict(status='complete',site='MMOEXP'),coupons=dict(status='complete')),
+                orders=[record])))
+            request=Mock(return_value=response([row(discount_code='Known'),row(1,320)]))
+            settings=dict(request=request,db=root/'absent.db',costs=root/'absent.json',dataset_reader=Mock())
+            result=collect_dashboard(dict(SCOPE,site_id='all'),channel_archive=root,**settings)
+            request.assert_called_once()
+            main, other=result['orders']
+            self.assertEqual(main['channel'],'unknown')
+            self.assertEqual(main['effective_attribution']['channel'],'PPC')
+            self.assertEqual(main['effective_attribution']['basis'],'order_source')
+            self.assertTrue(main['effective_attribution']['coupon'])
+            self.assertEqual(main['effective_attribution']['coupon_templates'],['Launch'])
+            self.assertIsNone(other['effective_attribution']['coupon'])
+            self.assertEqual(other['effective_attribution']['channel'],'unknown')
+            shared=collect(SCOPE,**settings)
+            self.assertNotIn('effective_attribution',shared['orders'][0])
+            self.assertEqual(result['source_coverage']['source_revision'],shared['source_coverage']['source_revision'])
+
+    def test_priority_keeps_native_then_exact_order_source_then_mapped_promotion(self):
+        from channel_effects import Attribution
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL'),dict(code='seo',channel='SEO')]},[],{})
+        base=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+                  channel='SEO',marketing_attribution={'raw':{'source_raw':'Google organic'}})
+        cached=dict(sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',coupons=[],project='KOL')
+        evidence=effective_attribution(base,{'discount_code':'KNOWN'},cached,mapping)
+        self.assertEqual((evidence['channel'],evidence['basis'],evidence['detail']),('SEO','native_channel','Google organic'))
+        self.assertTrue(evidence['conflict'])
+        self.assertEqual(evidence['order_source'],'google-FC27-PMAX-Coins-US')
+        self.assertEqual(evidence['promotion_project'],'KOL')
+        base['channel']='unknown'
+        evidence=effective_attribution(base,{'discount_code':'known'},cached,mapping)
+        self.assertEqual((evidence['channel'],evidence['basis']),('PPC','order_source'))
+        cached['sourceRaw']='google'
+        evidence=effective_attribution(base,{'discount_code':'KNOWN'},cached,mapping)
+        self.assertEqual((evidence['channel'],evidence['basis']),('Referral','promotion'))
+        evidence=effective_attribution(base,{'discount_code':''},dict(cached,project='运营',code=''),mapping)
+        self.assertEqual((evidence['channel'],evidence['promotion_project']),('unknown','运营'))
+
+    def test_conflicts_at_same_priority_cannot_fall_back_to_lower_evidence(self):
+        from channel_effects import Attribution
+        from order_facts import build_order_facts
+        from order_facts_runtime import effective_attribution
+        mapping=Attribution({'entries':[dict(code='known',channel='KOL')]},[],{})
+        order=dict(site_id='266',gid='1327',pay_status='1',status='已完成',order_no='synthetic',
+            channel='unknown',marketing_attribution={'status':'conflict'})
+        archived=dict(sourceStatus='available',sourceRaw='google-FC27-PMAX-Coins-US',coupons=[])
+        for patch in ({}, {'marketing_attribution':{'status':'empty'},'pinned_order_source_conflict':True}):
+            with self.subTest(patch=patch):
+                evidence=effective_attribution(dict(order,**patch),{'discount_code':'known'},archived,mapping)
+                self.assertEqual(evidence['channel'],'unknown')
+                self.assertTrue(evidence['conflict'])
+                self.assertEqual(evidence['promotion_project'],'KOL')
+        rows=[{'site_id':'266','order_no':'O2','订单来源':source} for source in ('first','second')]
+        facts=build_order_facts([row()],rows,[],sites={'266':'www.mmoexp.com'},scope=SCOPE,source_coverage={})
+        self.assertEqual(facts['orders'][0]['marketing_attribution']['status'],'field_absent')
+        self.assertTrue(facts['orders'][0]['pinned_order_source_conflict'])
     def test_existing_http_route_dispatches_facts_without_changing_old_modes(self):
         tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'))
         handler=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Handler')
