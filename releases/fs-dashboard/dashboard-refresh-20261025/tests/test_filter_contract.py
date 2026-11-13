@@ -113,7 +113,7 @@ class Repurchase(unittest.TestCase):
  def test_complete_replay_zero_denominator_is_not_applicable_only_for_known_empty(self):
   local={'repeat_rate':{'numerator':0,'denominator':0,'rate':None,'status':'not_mature',
          'basis':'at_least_two_distinct_valid_orders_within_selected_period'},
-         'coverage':{'period_complete':True,'identity_deduplication_complete':True,'state_basis':'period_cohort'}}
+         'coverage':{'period_complete':True,'identity_deduplication_complete':True,'missing_identity_orders':0,'state_basis':'period_cohort'}}
   value=repeat_metrics({'repeat_rete':'0%','paid_payments':0},{},local)
   self.assertEqual(value['admin_repeat_rate_raw'],'0%')
   self.assertEqual(value['native_repeat_rate']['status'],'not_applicable')
@@ -132,6 +132,78 @@ class Repurchase(unittest.TestCase):
   for coverage in ({'period_complete':False,'identity_deduplication_complete':True},{'period_complete':True,'identity_deduplication_complete':False}):
    v=repeat_metrics({'repeat_rete':'4.33%'},{},{'repeat_rate':{'numerator':13,'denominator':280,'rate':13/280,'status':'partial'},'coverage':coverage,'scope':{}})
    self.assertIsNone(v['local_repeat_rate']['value']);self.assertEqual(v['local_repeat_rate']['status'],'unavailable')
+
+class LocalRepeatBinding(unittest.TestCase):
+ def setUp(self):
+  self.scope={'site':'266','game':'1327','country_code':'all','period':{'start':'2026-11-10 00:00','end':'2026-11-12 00:00'}}
+  self.supplement={'status':'available','requested_scope':self.scope,'effective_scope':self.scope,
+   'admin_repeat_rate_raw':'4.33%','local_repeat_rate':{'status':'unavailable'},'metrics':{'repeatRatePct':{'value':4.33}}}
+  self.service=Mock();self.service.store=Mock()
+  self.store=Mock()
+  self.publication={'cutoff':'2026-11-13T00:00:00+08:00','publication_id':'uw_revision1','data_version':'4',
+   'config':{'sites':{'266':{}},'projects':{'1327':{}},'policies':{'fc-v1':[14,30,90],'common-v1':[30,60,90]}},
+   'jobs':[{'site':'266','start':'2026-11-10T00:00:00+08:00','end':'2026-11-12T00:00:00+08:00','state':'complete'}]}
+  self.store.read_at.return_value=[self.order('a','c1'),self.order('b','c1','2026-11-11'),self.order('c','c2'),
+   self.order('d','c2',gid='456'),self.order('e','c2',site='277'),self.order('f','c2',valid=False)]
+  self.cache={}
+
+ @staticmethod
+ def order(order_key,customer_id,day='2026-11-10',gid='1327',site='266',valid=True):
+  return dict(order_key=order_key,customer_id=customer_id,paid_at=day+'T10:00:00+08:00',source_id='',body='{}',gid=gid,site=site,valid=valid)
+
+ def run_binding(self, selection=None, actor='alice'):
+  from local_repeat_source import attach
+  from threading import RLock
+  value={'profile':{'supplement':self.supplement}}
+  with patch('local_repeat_source.copy',return_value=self.store), patch('user_weekly.stored_publication',return_value=self.publication) as reader:
+   result=attach(value,selection or q(),actor,self.service,self.cache,RLock())
+  return result['profile']['supplement']['local_repeat_rate'],reader
+
+ def test_same_site_game_and_window_uses_read_only_published_revision(self):
+  local,reader=self.run_binding()
+  self.assertEqual((local['status'],local['numerator'],local['denominator'],local['value']),('available',1,2,50))
+  self.assertEqual(local['scope']['game'],'1327')
+  self.assertEqual(local['data_revision'],'4');self.assertEqual(local['publication_id'],'uw_revision1')
+  self.assertEqual(self.supplement['metrics']['repeatRatePct']['value'],4.33)
+  self.assertEqual(self.supplement['local_repeat_rate']['status'],'unavailable')
+  self.assertTrue(self.store.read_only)
+  reader.assert_called_once_with(self.store)
+  self.store.read_at.assert_called_once_with('4','2026-11-10T00:00:00+08:00','2026-11-12T00:00:00+08:00',bounded_only=True)
+  self.service.query.assert_not_called();self.store.save_snapshot.assert_not_called()
+
+ def test_permission_is_rechecked_before_cached_revision_and_reads(self):
+  self.assertEqual(self.run_binding()[0]['value'],50)
+  self.assertEqual(self.run_binding()[0]['value'],50)
+  self.assertEqual(self.service.permit.call_count,4)
+  self.assertEqual(self.store.read_at.call_count,1)
+  self.assertEqual(self.run_binding(actor='bob')[0]['value'],50)
+  self.service.permit.side_effect=PermissionError('private source detail')
+  local,reader=self.run_binding()
+  self.assertIsNone(local['value']);self.assertEqual(local['reason'],'user_scope_denied')
+  reader.assert_not_called();self.assertEqual(self.store.read_at.call_count,2)
+  self.assertNotIn('private source detail',str(local))
+
+ def test_unproven_scope_or_dates_never_read_local_facts(self):
+  for selection in (q(country_code='US'),q(profit_site='all'),q(grain='hour',start='2026-11-10 00:00',end='2026-11-11 23:00')):
+   with self.subTest(selection=selection):
+    local,reader=self.run_binding(selection)
+    self.assertIsNone(local['value']);reader.assert_not_called()
+  self.store.read_at.assert_not_called()
+
+ def test_missing_window_identity_and_revision_never_publish_zero(self):
+  jobs=self.publication['jobs'];self.publication['jobs']=[]
+  local,_=self.run_binding();self.assertIsNone(local['value']);self.store.read_at.assert_not_called()
+  self.publication['jobs']=jobs
+  self.store.read_at.return_value=None
+  local,_=self.run_binding();self.assertIsNone(local['value']);self.assertEqual(local['reason'],'bounded_revision_unavailable')
+  self.store.read_at.return_value=[self.order('a',None)]
+  local,_=self.run_binding();self.assertIsNone(local['value']);self.assertEqual(local['coverage']['missing_identity_orders'],1)
+  self.assertEqual(local['status'],'unavailable');self.assertIsNone(local['denominator'])
+  self.publication.update(publication_id='uw_revision2',data_version='5')
+  self.store.read_at.return_value=[]
+  local,_=self.run_binding()
+  self.assertEqual((local['status'],local['numerator'],local['denominator']),('not_applicable',0,0))
+
 class Integration(unittest.TestCase):
  def test_real_extractor_adapter_and_bridge_preserve_native_filters(self):
   # This is the existing supplement_fields source, not a replacement mapping.
@@ -159,13 +231,29 @@ class Integration(unittest.TestCase):
  def test_route_actor_scope_cannot_come_from_query_and_does_not_mix_users(self):
   tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'));node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='get_range')
   cache=Mock();cache.get.side_effect=lambda v:(200,v)
-  env=dict(hashlib=hashlib,SUMMARY=cache,summary_query=query,PROFILE_MAP=P)
+  env=dict(hashlib=hashlib,SUMMARY=cache,summary_query=query,PROFILE_MAP=P,USERS=None)
   exec(compile(ast.Module(body=[node],type_ignores=[]),'actual-get-range','exec'),env)
   a=env['get_range'](ARGS,summary_actor='reader-a')[1];b=env['get_range'](ARGS,summary_actor='reader-b')[1]
   self.assertNotEqual(key_of(a),key_of(b));self.assertNotEqual(summary_key(a),summary_key(b))
   with self.assertRaises(ValueError):env['get_range']({**ARGS,'authorization_scope':['reader-a']},summary_actor='reader-b')
   handler=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Handler')
   body=ast.unparse(handler);self.assertIn("self.headers.get('X-Auth-User')",body);self.assertIn("'summary_actor'",body)
+ def test_route_attaches_local_repeat_after_shared_cache_only_for_authenticated_actor(self):
+  from threading import RLock
+  tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'));node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='get_range')
+  cache=Mock();user_service=Mock();payload={'profile':{}};cache.get.return_value=(200,payload)
+  env=dict(hashlib=hashlib,SUMMARY=cache,summary_query=query,PROFILE_MAP=P,USERS=user_service,
+           LOCAL_REPEAT_CACHE={},LOCAL_REPEAT_LOCK=RLock())
+  exec(compile(ast.Module(body=[node],type_ignores=[]),'actual-get-range','exec'),env)
+  with patch('local_repeat_source.attach',return_value={'attached':True}) as attach:
+   self.assertEqual(env['get_range'](ARGS,summary_actor='alice'),(200,{'attached':True}))
+   saved=cache.get.call_args.args[0]
+   self.assertEqual(saved['authorization_scope'],'actor:'+hashlib.sha256(b'alice').hexdigest())
+   attach.assert_called_once_with(payload,saved,'alice',user_service,env['LOCAL_REPEAT_CACHE'],env['LOCAL_REPEAT_LOCK'])
+   self.assertEqual(env['get_range'](ARGS),(200,payload))
+   cache.get.return_value=(202,{'status':'pending'})
+   self.assertEqual(env['get_range'](ARGS,summary_actor='alice'),(202,{'status':'pending'}))
+   self.assertEqual(attach.call_count,1)
  def test_existing_period_replay_cross_day_uid_zero_and_order_flags(self):
   sys.path.insert(0,str(ROOT.parent/'user-analytics-20261022/source'))
   from user_store import Store

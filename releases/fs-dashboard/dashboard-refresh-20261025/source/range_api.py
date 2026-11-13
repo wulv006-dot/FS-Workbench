@@ -175,6 +175,8 @@ from live_summary import query as summary_query
 from summary_bridge import build as build_summary
 SUMMARY=build_summary(PROFILE_MAP,call,dimensions,WEB)
 SUMMARY.admission=maintenance_admission
+LOCAL_REPEAT_CACHE={}
+LOCAL_REPEAT_LOCK=RLock()
 from profit_queries import ProfitQueries
 RS_PROFITS={}
 SHIPPING_PROFITS={}
@@ -195,7 +197,12 @@ def get_range(params, *, summary_actor=None):
  from daily_archive import read,save,native_key,complete_native,rebind_native
  if params.get('mode')==['summary']:
   scope='actor:'+hashlib.sha256(summary_actor.encode()).hexdigest() if summary_actor else 'internal-service'
-  return SUMMARY.get(summary_query(params,PROFILE_MAP,authorization_scope=scope))
+  q=summary_query(params,PROFILE_MAP,authorization_scope=scope)
+  status,value=SUMMARY.get(q)
+  if status==200 and summary_actor and USERS is not None:
+   from local_repeat_source import attach
+   value=attach(value,q,summary_actor,USERS,LOCAL_REPEAT_CACHE,LOCAL_REPEAT_LOCK)
+  return status,value
  if 'mode' in params:return get_range_live(params)
  force=params.get('refresh')==['true']
  if 'refresh' in params and not force:raise ValueError('invalid_archive_refresh')

@@ -1,0 +1,17 @@
+# D1 本地区间复购接线
+
+已认证的经营摘要可返回独立的本地区间复购。当前适用 MMOEXP 主站 `site=266`、完整北京时间自然日和用户库已验证的游戏范围。全站、RS、小时/分钟、国家筛选以及站点/游戏未核实范围仍保留原生摘要，本地率暂缺。原生率、原分母未公开状态与未对账标识独立保留。
+
+查询沿原 `USERS.permit` 核站点与指定项目权限，使用 `stored_publication` 固定用户库 `publication_id` 和 `data_version`。在现有只读连接重放同一修订、同一站点和游戏的有效订单。固定发布的覆盖任务必须完整覆盖 `[开始日零点, 结束次日零点)`。按现有 `user_lifecycle.analyze(details=False)` 返回复购人数、付款人数和覆盖。订单存在但身份缺失时不发布 0/0，已证空集合显示不适用。权限拒绝、窗口不足、历史修订无法有界读取或来源异常时保留原生摘要与明确的本地缺口。
+
+当前修订的范围读取在同一事务确认 `revision`，直接查询已存在的 `purchase_time` 索引。历史修订如已有有效范围索引则复用。经营摘要没有启动旧全库扫描，原用户库读者的旧修订重放分支继续可用。复购聚合只附加到当前摘要响应，不写用户库、生成快照、采用发布、建立成员索引或更新原摘要归档。每次返回前重新核授权。计算使用独立短期进程内聚合缓存和单并发；缓存以授权域、站点、游戏、日期和固定发布版本区分。无新增网络请求或付费调用，当前实盘日期宽度下的延迟未验证。
+
+## 部署增量
+
+在原经营数据批次同装 `range_api.py` 的精确摘要分流增量、`admin_scope.py`、新 `local_repeat_source.py` 到 `/opt/fs-exact-range-20261001/`，以及现有 `/opt/fs-hermes-fc/user_store.py` 的 `read_at` 定点增量。复用 `/opt/fs-hermes-fc/` 现有 `user_weekly`、`user_contract`、`user_lifecycle` 和 `user_version_index`。现场合并保留 `range_api.py` 后续组合路由，并核 `user_store.py` 当前活动字节。已部署旧源码是否含索引配置由现场核实。现有源码不依赖新增配置、索引迁移、数据库重写或夜间计划变更。D3 候选历史 tar 未包括本次增量。
+
+## 验证
+
+Windows 按原 `pr_fast.units` 执行新增本地绑定、原复购适配及两个摘要路由用例 11 项，SQLite 修订与边界 6 项，全部通过，零跳过。旧全组有一个真实用户库用例依赖 POSIX 私有目录权限，Windows 执行在 `private_directory_permissions` 处失败，交 183 验证。定向测试覆盖已知零、身份缺失、精确范围和截止、原生率保持、缓存权限变更、用户隔离、读库与文件不变，以及先返回原摘要再附本地结果。Windows 使用现有时区数据库以匹配北京时间。
+
+183 Python 3.9.18 隔离运行 `test_filter_contract` 22 项及 `test_revision_range` 6 项，全部通过，零失败、错误或跳过，包括 Windows 无法运行的真实用户库用例。包 SHA256 `2e0feff22de9b9df6d9254433c948e7abdd3db6bbc4ce75018ce46674e191eb4`；日志和源码哈希见 `.agent_runtime/d1-revision-linux-{log.txt,hashes.json}`。未挂生产目录、未访问生产数据库。
