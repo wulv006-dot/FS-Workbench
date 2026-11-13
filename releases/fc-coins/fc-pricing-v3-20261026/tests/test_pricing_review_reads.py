@@ -35,7 +35,11 @@ class PricingReviewReads(unittest.TestCase):
             self.assertEqual(len(compact['operations']),30)
             self.assertEqual(compact['operations'][0]['detail_source']['action'],'operation_read')
             self.assertEqual(detail['bundle']['proof'],'x'*130000)
-            self.assertEqual({k:v for k,v in original.items() if k!='operations'},
+            console_fields={'manual_execution','catalogue_readbacks'}
+            self.assertEqual({key:original[key] for key in console_fields},
+                             {'manual_execution':None,'catalogue_readbacks':{}})
+            self.assertTrue(console_fields.isdisjoint(compact))
+            self.assertEqual({k:v for k,v in original.items() if k not in console_fields | {'operations'}},
                              {k:v for k,v in compact.items() if k not in ('operations','daily_review_profit_status')})
             db.put('metadata','latest_daily_review',{'actual':{'orders':10}})
             with patch.object(api,'ledger',return_value=db):
