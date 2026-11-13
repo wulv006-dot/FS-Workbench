@@ -3,6 +3,7 @@ from decimal import Context, Decimal, localcontext
 
 from .admin_readback import GID_FC27, MID_FC27_COINS, PLATFORM_AID, SITE_MAIN
 from .cost_model import BASES
+from .cost_inputs_v6 import merchant_fee_components
 from .financial import fingerprint, number
 from .price_curve import curve_key
 
@@ -156,7 +157,17 @@ def _evaluate_path(row, path_id, site_id, key, unavailable):
         gaps.append('cost_bounds_inconsistent')
     result['basket_input_complete'] = not gaps
 
-    if row.get('fee_status') not in ('verified', 'contract_upper_bound'):
+    fee_status = row.get('fee_status')
+    if (row.get('site_id') == site_id and fee_status in (None,'unknown')
+            and row.get('known_fee_usd') is None and row.get('fee_ref') is None
+            and not row.get('additional_necessary_fee_pending')):
+        fee_components = merchant_fee_components(site_id)
+        if fee_components is not None:
+            fee_status = 'verified'
+            result.update(merchant_fee_components=fee_components, fee_status=fee_status,
+                          fee_ref=fee_components['policy'], known_fee_usd=fee_components['known_fee_usd'])
+            values['known_fee_usd'] = Decimal(fee_components['known_fee_usd'])
+    if fee_status not in ('verified', 'contract_upper_bound'):
         gaps.append('fee_unverified')
         result['known_fee_usd'] = None
     if result['fee_ref'] is None:

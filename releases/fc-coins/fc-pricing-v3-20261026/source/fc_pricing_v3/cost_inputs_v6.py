@@ -3,6 +3,7 @@ from collections import Counter
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 import hashlib
+import json
 
 from .cost_model import BASES, LAYER_FIELDS, estimate_layer
 from .financial import instant, number
@@ -14,6 +15,89 @@ BOC_URL = 'https://www.bankofchina.com/sourcedb/whpj/'
 PAID_SCOPES = ('original Admin-qualified paid nonrefund nonfraud nontest site266 FC27 Coins cohort',
                'site266_fc27_coins_paid')
 MIN_COMPLETE = 10
+MERCHANT_FEE_POLICY = 'creator-confirmed-site266-fc27-coins-20261113'
+ADMIN_LOSS_ENDPOINT = '/admin/order.Order/orderStaticsDetailByEs'
+ADMIN_LOSS_BUCKETS = ('ts', 'tssj', 'dc', 'cb', 'tkwtg', 'wh', 'bftk', 'qt', 'bh',
+                      'ts_zhui', 'tssj_zhui', 'dc_zhui', 'cb_zhui',
+                      'ts_zhui_no', 'tssj_zhui_no', 'dc_zhui_no', 'cb_zhui_no', 'pianzi')
+
+
+def merchant_fee_components(site_id):
+    """Creator-confirmed merchant rates for MMOEXP FC27 Coins."""
+    if site_id != '266':
+        return None
+    return dict(source='creator_confirmation_2026-11-13', policy=MERCHANT_FEE_POLICY,
+                scope='site266_fc27_coins', payment_rate='0', fulfilment_rate='0',
+                known_fee_usd='0')
+
+
+def project_admin_loss_statistics(raw, request, captured_at):
+    """Keep the scoped aggregate and membership coverage without releasing Admin IDs."""
+    if (not isinstance(raw, bytes) or len(raw) > 8 * 1024 * 1024
+            or not isinstance(request, dict)
+            or any(str(request.get(k)) != v for k,v in (
+                ('site','266'), ('game','1327'), ('cid','1'), ('pay_status','1')))):
+        raise ValueError('admin_loss_request_scope_invalid')
+    period = request.get('date')
+    if not isinstance(period, list) or len(period) != 2 or not all(isinstance(value,str) for value in period):
+        raise ValueError('admin_loss_request_period_invalid')
+    dates = [datetime.strptime(value, '%Y-%m-%d %H:%M') for value in period]
+    if ([value.strftime('%Y-%m-%d %H:%M') for value in dates] != period
+            or dates[1] <= dates[0] or dates[1] - dates[0] > timedelta(days=31)):
+        raise ValueError('admin_loss_request_period_invalid')
+    payload = json.loads(raw)
+    if not isinstance(payload,dict):
+        raise ValueError('admin_loss_response_scope_invalid')
+    if payload.get('code') in (401,403):
+        raise PermissionError('admin_loss_source_denied')
+    envelope = payload.get('data') or {}
+    if not isinstance(envelope,dict):
+        raise ValueError('admin_loss_response_scope_invalid')
+    data = envelope.get('data',envelope)
+    if not isinstance(data,dict):
+        raise ValueError('admin_loss_response_scope_invalid')
+    ranks, sites = data.get('game_rank'), data.get('site_rank')
+    if ranks == []:
+        ranks = {}
+    if (payload.get('code') != 1 or not isinstance(ranks,dict) or len(ranks)>1
+            or not isinstance(sites,(dict,list)) or (not isinstance(sites,dict) and sites)
+            or (isinstance(sites,dict) and set(sites)-{'www.mmoexp.com'})):
+        raise ValueError('admin_loss_response_scope_invalid')
+    game = next(iter(ranks.values()),{})
+    if not isinstance(game,dict):
+        raise ValueError('admin_loss_response_scope_invalid')
+    categories = game.get('cat') or {}
+    if game and (str(game.get('gid'))!='1327' or set(categories)!={'gold'} or not sites):
+        raise ValueError('admin_loss_response_scope_invalid')
+    if not game and data.get('total') not in (0,'0'):
+        raise ValueError('admin_loss_response_scope_invalid')
+    buckets, members = {}, {}
+    for field in ADMIN_LOSS_BUCKETS:
+        row = game.get(field)
+        if row is None:
+            continue
+        if not isinstance(row,dict):
+            raise ValueError('admin_loss_bucket_invalid')
+        count = row.get('n')
+        amount = row.get('amount')
+        amount = _number(amount.replace(',','') if isinstance(amount,str) else amount, zero=True)
+        if type(count) is not int or count<0 or amount is None:
+            raise ValueError('admin_loss_bucket_invalid')
+        original_ids = row.get('order_id')
+        ids = str(original_ids).split(',') if original_ids else []
+        valid_ids = {value.strip() for value in ids if value.strip().isascii() and value.strip().isdecimal()}
+        members[field] = valid_ids
+        buckets[field] = dict(count=count, amount_usd=str(amount), observed_order_ids=len(valid_ids),
+                              order_id_coverage='complete' if count == len(ids) == len(valid_ids) else 'partial')
+    overlap = Counter(order_id for values in members.values() for order_id in values)
+    return dict(contract='admin_es_fc27_coins_loss_statistics_v1', scope='site266_fc27_coins',
+                endpoint=ADMIN_LOSS_ENDPOINT, period=dict(start=period[0],end=period[1],timezone='Asia/Shanghai'),
+                period_basis='native_statistics_interval_event_clock_unverified',
+                available_at=instant(captured_at).isoformat(), source_sha256=hashlib.sha256(raw).hexdigest(),
+                buckets=buckets, unique_observed_order_ids=len(overlap),
+                multi_bucket_order_ids=sum(n>1 for n in overlap.values()),
+                cost_completeness='unverified', procurement_completion='unverified',
+                reshipment_and_recovery_net_cny=None)
 
 
 def _instant(value):
@@ -229,7 +313,7 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
 
 
 def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer_matches,
-                             fact_revisions=(), fx=None, paid_cutoff=None):
+                             fact_revisions=(), fx=None, paid_cutoff=None, admin_loss_statistics=()):
     """Run a same-layer 72h/7d payment-cohort diagnostic with as-of source versions.
 
     attachments are successive snapshots from collect_historical_attachment for the
@@ -238,6 +322,8 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
     available_at and evidence_ref. D2 facts supply private same-order cost observations.
     fact_revisions are successive revisions of the same private D2 input scope.
     paid_cutoff sets the exclusive payment-window end, independently of source availability.
+    Admin ES loss snapshots only annotate source coverage. Their intervals differ from
+    the payment cohort and their original order sales never modify procurement cost.
     Current BOC FX translates CNY solely for this forecast diagnostic. The available
     sources lack full procurement event times, so no write-capable proof is returned.
     """
@@ -262,6 +348,10 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
     if fact_evidence is None or not fact_evidence['order_cost_complete']:
         source_gaps.append('order_cost_completeness_unverified')
     rate, fx_evidence = _fx(fx, as_of)
+    loss, _ = _latest(admin_loss_statistics, lambda value: value.get('available_at'), as_of)
+    if loss is not None and (loss.get('contract') != 'admin_es_fc27_coins_loss_statistics_v1'
+            or loss.get('scope') != 'site266_fc27_coins'):
+        raise ValueError('admin_loss_source_contract')
     if rate is None:
         source_gaps.append('forecast_fx_unavailable_as_of')
 
@@ -275,8 +365,11 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
     if recent['complete_comparable_orders'] < MIN_COMPLETE:
         samples, selected = window(7 * 24)
     estimate = estimate_layer(samples, layer, quantity_basis)
-    return dict(status='PROOF_INCOMPLETE', time_basis='payment_cohort',
+    result = dict(status='PROOF_INCOMPLETE', time_basis='payment_cohort',
                 window_hours=72 if selected is recent else 7 * 24, selected_window=selected, recent_72h=recent,
                 gaps=sorted(set(source_gaps) | set(estimate['gaps']) | selected['gap_counts'].keys()),
                 attachment_revision=revision, order_cost_source=fact_evidence, forecast_fx=fx_evidence,
                 diagnostic_estimate=estimate)
+    if loss is not None:
+        result['admin_loss_statistics'] = loss
+    return result
