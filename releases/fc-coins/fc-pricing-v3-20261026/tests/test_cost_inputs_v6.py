@@ -196,6 +196,18 @@ class CostInputs(unittest.TestCase):
         self.assertIn('upper_below_known_partial', other['gaps'])
         self.assertIsNone(other['current_cost_source'])
 
+    def test_recent_cost_bound_cannot_fall_below_observed_cohort_mean(self):
+        orders = list(rows_for(range(2, 10), quantity='2500K Coins + 60K Free x1 = $200'))
+        data = facts(orders, cost='768', delivery_fields=dict(qty='2560', gift='0', cost_unit='.30'))
+        older = data['orders'][-1]
+        older['observed_cost_cny'] = '1280'
+        older['cost_records'][0].update(cost_cny='1280', cost_unit_cny='.50')
+        result = run([attachment(orders)], revisions=[data], rate=fx(), basis='PROMISED_DELIVERED_K',
+                     ordinary_forecast=True)
+        self.assertEqual(result['status'], 'calculated', result['gaps'])
+        self.assertEqual(result['cost_upper_source']['source'], 'same_layer_complete_delivery_cohort_max')
+        self.assertAlmostEqual(result['diagnostic_estimate']['stress_unit_usd'], Decimal('.50') / 7)
+
     def test_reconciled_partial_ordinary_shipment_raises_bound_without_becoming_complete(self):
         orders = list(rows_for([2, 3, 4], quantity='6000K Coins + 150K Free x1 = $450'))
         source = attachment(orders)
