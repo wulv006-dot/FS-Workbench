@@ -4,7 +4,7 @@ from contextlib import closing
 
 
 EASYSBC_AUTHOR = 1167033335256731658
-KINDS = frozenset(('sbc', 'packs', 'gallery', 'evolutions', 'boosting'))
+KINDS = frozenset(('sbc', 'packs', 'gallery', 'evolutions', 'boosting', 'hub'))
 MERGE_SECONDS = 300  # Trailing quiet window: reset on every content card.
 COOLDOWN_SECONDS = 600
 MAX_AGE_SECONDS = 300
@@ -27,7 +27,7 @@ class RelayStore:
         self.author_id = _id(author_id)
         self.self_id = None if self_id is None else _id(self_id)
         self.routes = {_id(channel): kind for channel, kind in routes.items()}
-        if (not 1 <= len(self.routes) <= 5 or any(kind not in KINDS for kind in self.routes.values())
+        if (not 1 <= len(self.routes) <= 6 or any(kind not in KINDS for kind in self.routes.values())
                 or len(set(self.routes.values())) != len(self.routes)):
             raise ValueError('invalid routes')
         with closing(sqlite3.connect(self.path, timeout=5)) as db, db:

@@ -124,7 +124,7 @@ if __name__ == '__main__':
     unittest.main()
 
 class ExtendedRelayTests(unittest.TestCase):
-    def test_only_five_distinct_supported_relay_categories(self):
+    def test_five_categories_plus_one_hub_are_supported(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = str(Path(tmp) / 'relay.sqlite')
             routes = {12: 'sbc', 13: 'packs', 14: 'gallery', 15: 'evolutions', 16: 'boosting'}
@@ -132,6 +132,10 @@ class ExtendedRelayTests(unittest.TestCase):
             self.assertTrue(store.accept(message(77, channel=15), 1000))
             self.assertTrue(store.accept(message(78, channel=16), 1000))
             self.assertEqual({row['kind'] for row in store.due(1300)}, {'evolutions', 'boosting'})
+            hub_routes = dict(routes, **{'17': 'hub'})
+            hub_store = RelayStore(path, hub_routes, 11, require_content=False)
+            self.assertTrue(hub_store.accept(message(79, channel=17, embeds=[]), 1000))
+            self.assertEqual(hub_store.due(1300)[-1]['kind'], 'hub')
             for bad in ({12: 'coins'}, dict(routes, **{'17': 'sbc'}), {12: 'sbc', 13: 'sbc'}):
                 with self.assertRaises(ValueError):
                     RelayStore(path, bad, 11)
