@@ -97,7 +97,7 @@ class ChatClient(discord.Client):
         self.history = {}
         self.topic_task = None
         self.topic_threads = {}
-        self.topic_pool = list(self.chat_config.get('topics') or chat_schedule.DEFAULT_TOPICS)
+        self.topic_pool = list(self.chat_config.get('topics') or [])
         self.post_topic_now = bool(post_topic_now)
         self.sticker_chance = float(self.chat_config.get('sticker_chance', 0.35) or 0)
         self.sticker_rng = random.Random()
@@ -127,7 +127,7 @@ class ChatClient(discord.Client):
         targets = chat_panel.topic_targets(self.chat_config)
         if self.post_topic_now:
             self.topic_task = asyncio.create_task(self.post_topics_once())
-        elif targets:
+        elif targets and self.topic_pool:
             self.topic_task = asyncio.create_task(self.run_topics())
         if self.editorial_store is not None and not self.post_topic_now:
             self.editorial_task = asyncio.create_task(self.run_editorial())
@@ -510,6 +510,9 @@ class ChatClient(discord.Client):
 
     # -- daily topic -------------------------------------------------------
     async def send_topics(self):
+        topic = chat_schedule.pick_topic(self.topic_pool)
+        if topic is None:
+            return
         for channel_id in chat_panel.topic_targets(self.chat_config):
             if self.only_channel is not None and str(channel_id) != self.only_channel:
                 continue
@@ -519,7 +522,7 @@ class ChatClient(discord.Client):
                 continue
             embed = discord.Embed(
                 title='\U0001F4AC FC27 daily topic',
-                description=chat_schedule.pick_topic(self.topic_pool),
+                description=topic,
                 color=0x5865F2)
             embed.add_field(name='How to talk to me', value=HOW_TO_CHAT, inline=False)
             embed.set_footer(text='No prices or order details here \u00b7 use the order panel for that')
