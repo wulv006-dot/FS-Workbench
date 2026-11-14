@@ -23,6 +23,12 @@ class MatchdayScoutTests(unittest.TestCase):
         def model(system, evidence, limit):
             self.assertIn('2026-11-15', system)
             self.assertIn('2026-11-16', system)
+            if not evidence:
+                self.assertEqual(limit, 160)
+                return json.dumps({'queries': [
+                    '15 16 November 2026 football major league fixtures',
+                    '15 16 November 2026 UEFA international fixtures',
+                ]})
             self.assertEqual(limit, 220)
             return json.dumps({'matches': [
                 {'home': 'England', 'away': 'Croatia', 'competition': 'Nations League', 'date': '2026-11-12'},
@@ -32,8 +38,8 @@ class MatchdayScoutTests(unittest.TestCase):
         self.assertEqual(scout.shortlist(now, search, model), [
             {'home': 'Spain', 'away': 'England', 'competition': 'Nations League', 'date': '2026-11-15'}])
         self.assertEqual(len(searches), 2)
-        self.assertEqual(scout.shortlist(now, lambda _: {'results': []},
-                                        lambda *_: self.fail('No call expected')), [])
+        self.assertIn('UEFA international', searches[1])
+        self.assertEqual(scout.shortlist(now, lambda _: {'results': []}, model), [])
 
 
 if __name__ == '__main__':
