@@ -132,10 +132,11 @@ class BaselineTests(unittest.TestCase):
             self.assertIn('USER-PREFERENCE-KEPT',text)
             current = text.split('### FC27 Coins V6.1 候选价格与生效确认', 1)[1].split('\n### ', 1)[0]
             for rule in ('低于 1000K 与 1000K 及以上', '仅采购买 100K',
-                         'D-8 至 D-2', 'Admin 优惠前商品金额', '组合利润率 18%',
-                         '25% 供经营比较', '重读 MMOEXP 主站完整表'):
+                         'D-3 至 D-1', 'Admin 优惠前商品金额', '组合利润率 18%',
+                         '25% 供经营比较', '重读 MMOEXP 主站完整表',
+                         '1000K 的线性折算参考', '临时保护不改写 A'):
                 self.assertIn(rule, current)
-            for old_rule in ('双20', 'D-9', '至少20%', '公开读回后才'):
+            for old_rule in ('双20', 'D-9', 'D-8 至 D-2', '至少20%', '公开读回后才'):
                 self.assertNotIn(old_rule, current)
             scalar = text.split('## FC27 旧标量协议', 1)[1].split('2026-10-29 归档', 1)[0]
             for old_rule in ('business-baseline-fc-three-platform-100k-20261110',
