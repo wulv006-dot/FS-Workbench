@@ -25,6 +25,30 @@ class Provider:
 
 
 class QuotePanelTests(unittest.IsolatedAsyncioTestCase):
+    async def test_hub_buttons_open_private_category_quotes_only_in_the_hub(self):
+        from quote_panel import HubHomeView, HUB_KINDS
+
+        hub = HubHomeView(self.provider, TEST_GUILD, 222)
+        self.assertTrue(hub.is_persistent())
+        self.assertEqual({item.custom_id for item in hub.children},
+                         {'fc:hub:' + kind for kind in HUB_KINDS})
+        for kind in HUB_KINDS:
+            with self.subTest(kind=kind):
+                i = self.interaction(user=123)
+                i.channel_id = 222
+                await self.press(hub, next(item.label for item in hub.children
+                                           if item.custom_id == 'fc:hub:' + kind), i)
+                i.response.defer.assert_awaited_once_with(ephemeral=True, thinking=True)
+                panel = i.edit_original_response.await_args.kwargs['view']
+                self.assertEqual((panel.kind, panel.owner), (kind, 123))
+                self.assertEqual(panel.allowed_routes, {TEST_GUILD: {222: kind}})
+                outsider = self.interaction(user=456)
+                outsider.channel_id = 222
+                self.assertFalse(await panel.interaction_check(outsider))
+        wrong = self.interaction()
+        wrong.channel_id = 223
+        self.assertFalse(await hub.interaction_check(wrong))
+
     async def test_all_six_categories_expire_refresh_and_guard_without_cross_category(self):
         from discord.ui.view import ViewStore
         from quote_panel import CategoryHomeView, QuoteView, CATEGORIES

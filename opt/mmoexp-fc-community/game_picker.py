@@ -12,15 +12,15 @@ GENERAL_CHAT_CHANNEL_ID = 1264777473283981336
 # Deliberate product order, independent of Discord's channel/configuration order.
 FC_GUIDE_GROUPS = (
     ('⚽ Club & identity', ((1568663362567413820, 'Choose club & FC27 badge'),)),
-    ('📰 Automatic updates & prices', (
-        (1501757710381748254, 'News'), (1568878333087719454, 'Players'),
-        (1301379787696377926, 'SBCs'), (1372781247847465000, 'Evolutions'),
-        (1568610224502345758, 'Objectives & Rush'), (1568610467587563591, 'Gallery tiers'),
-        (1568610700463710278, 'Store packs'), (1568663210901504041, 'Coins'),)),
-    ('💬 Community', (
+    ('📰 Game updates & prices', (
+        (1501757710381748254, 'News'), (1568663210901504041, 'Coins'),
+        (1568878333087719454, 'Players'), (1301379787696377926, 'SBCs'),
+        (1571045541922611200, 'OBJ & Packs'),)),
+    ('💬 Game community', (
         (1200330251016867880, 'FC27 chat'), (1257955311650607156, 'Squad reviews'),
-        (1280777367219998786, 'Pack pulls'), (1361550473244709014, 'Leaks & discussion'),
-        (1501758022886752296, 'Giveaways'), (1202767862457172058, 'Player feedback'),)),
+        (1280777367219998786, 'Pack pulls'), (1501758022886752296, 'Giveaways'),)),
+    ('🏟️ Football matches', (
+        (1571043454136484082, 'Matchday'), (1571043570268242014, 'Match chat'),)),
 )
 SUPPORT_LINKS = ((1326761935487635466, 'Open support ticket'),
                  (1501751399833403483, 'Website help'), (1302098361683279882, 'Report a scam'))
@@ -220,7 +220,7 @@ class GameSelectionView(discord.ui.LayoutView):
                 continue
             card.add_item(discord.ui.Separator())
             card.add_item(discord.ui.TextDisplay('### ' + title))
-            if is_fc and title == '📰 Automatic updates & prices':
+            if is_fc and title == '📰 Game updates & prices':
                 card.children[-1].content += '\nPublic updates · quote replies are private.'
             # Three short buttons per row keep each section readable on narrow screens.
             width = 3 if len(channel_ids) <= 15 else 5

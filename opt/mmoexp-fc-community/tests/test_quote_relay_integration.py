@@ -80,6 +80,57 @@ class RelayIntegrationTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             validate_config(dict(config, quote_socket='', quote_static=static))
 
+    async def test_hub_config_routes_refresh_and_coalesces_easy_sbc_batch(self):
+        from quote_relay import RelayStore
+
+        hub_id = 1571045541922611200
+        hub = {'guild_id': OFFICIAL_GUILD, 'channel_id': hub_id}
+        routes = {str(1568610700463710200 + n): kind for n, kind in enumerate(
+            ('sbc', 'packs', 'gallery', 'evolutions', 'boosting'))}
+        routes[str(hub_id)] = 'hub'
+        config = dict(self.config, quote_hub=hub,
+                      quote_relay={'guild_id': OFFICIAL_GUILD, 'content_filter': False,
+                                   'channels': routes})
+        self.assertEqual(validate_config(config), config)
+        self.client.config = config
+        self.client.quote_relay = RelayStore(Path(self.temp.name)/'hub-relay.sqlite3',
+                                            {int(c): kind for c, kind in routes.items()},
+                                            OFFICIAL_GUILD, require_content=False)
+        self.assertEqual(self.client.quote_routes('packs')[OFFICIAL_GUILD][hub_id], 'packs')
+        self.assertEqual(self.client.quote_routes('boosting')[OFFICIAL_GUILD][hub_id], 'boosting')
+        self.channel.id = hub_id
+        first = self.event()
+        first.id = 1568616943907250267
+        first.embeds = []
+        second = self.event()
+        second.id = first.id + 1
+        second.created_at = datetime.fromtimestamp(1100, timezone.utc)
+        second.embeds = []
+        self.assertTrue(self.client.quote_relay.accept(first, 1000))
+        self.assertTrue(self.client.quote_relay.accept(second, 1100))
+        self.assertEqual(self.client.quote_relay.due(1399), [])
+        await self.client.flush_quote_relay()
+        await self.client.flush_quote_relay()
+        self.channel.send.assert_awaited_once()
+        view = self.channel.send.await_args.kwargs['view']
+        self.assertEqual(view.kind, 'hub')
+        self.assertEqual(len(view.children), 4)
+
+    async def test_hub_static_card_reuses_message_after_restart(self):
+        hub_id = 1571045541922611200
+        self.client.config['quote_hub'] = {'guild_id': OFFICIAL_GUILD, 'channel_id': hub_id}
+        card = SimpleNamespace(id=12345, edit=AsyncMock())
+        channel = SimpleNamespace(id=hub_id, guild=SimpleNamespace(id=OFFICIAL_GUILD),
+                                  send=AsyncMock(return_value=card),
+                                  get_partial_message=MagicMock(return_value=card))
+        self.client.get_channel = MagicMock(return_value=channel)
+        await self.client.setup_quote_hub()
+        await self.client.setup_quote_hub()
+        channel.send.assert_awaited_once()
+        card.edit.assert_awaited_once()
+        self.assertEqual(channel.send.await_args.kwargs['view'].kind, 'hub')
+        self.assertFalse(channel.send.await_args.kwargs['allowed_mentions'].everyone)
+
     async def test_static_coins_card_is_reused_and_routes_are_precise(self):
         channel_id = 1568610700463710290
         self.client.config['quote_static'] = {'guild_id': OFFICIAL_GUILD, 'channels': {str(channel_id): 'coins'}}

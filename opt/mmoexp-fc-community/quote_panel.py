@@ -22,6 +22,7 @@ CATEGORIES = {
     'coins': ('Coins', '🪙', 0xD29A21, 'Choose a Coins amount and check its current price.'),
     'players': ('Players', '⚽', 0x2688E8, 'Find your next player. Compare versions and live prices.'),
 }
+HUB_KINDS = ('evolutions', 'boosting', 'gallery', 'packs')
 PLATFORMS = ('PC', 'Xbox Series X|S', 'PlayStation 5')
 PLATFORM_EMOJI = {'PC': '🖥️', 'Xbox Series X|S': '🟢', 'PlayStation 5': '🎮'}
 PROVIDER_LIMIT = threading.BoundedSemaphore(3)
@@ -80,6 +81,18 @@ def category_embed(kind, presentation=None):
     result = discord.Embed(title=label,
         description='{}  {}\n\n{}'.format(icon, description, instruction),
         color=color)
+    result.set_footer(text='MMOEXP · Final price at checkout')
+    return brand_embed(result, {key: value for key, value in (presentation or {}).items()
+                               if key != 'banner_url'})
+
+
+def hub_embed(presentation=None):
+    """A single public entry for EasySBC updates and private MMOEXP quotes."""
+    result = discord.Embed(
+        title='FC27 · Objectives & Packs',
+        description=('New Evolutions, Objectives, Gallery tiers and Store Packs appear here.\n'
+                     'Choose a category below for a **private live price**.'),
+        color=0x2688E8)
     result.set_footer(text='MMOEXP · Final price at checkout')
     return brand_embed(result, {key: value for key, value in (presentation or {}).items()
                                if key != 'banner_url'})
@@ -157,6 +170,33 @@ class CategoryHomeView(GuardedView):
             raise ValueError('Unsupported category')
         super().__init__(provider, kind=kind, allowed_routes=allowed_routes, presentation=presentation)
         self.add_item(OpenButton(kind, presentation))
+
+
+class HubHomeView(GuardedView):
+    """Public hub buttons, each opening an owner-only category quote panel."""
+    def __init__(self, provider, guild_id, channel_id, presentation=None):
+        super().__init__(provider, kind='hub',
+                         allowed_routes={guild_id: {channel_id: 'hub'}},
+                         presentation=presentation)
+        for kind in HUB_KINDS:
+            self.add_item(HubOpenButton(kind, presentation))
+
+
+class HubOpenButton(discord.ui.Button):
+    def __init__(self, kind, presentation=None):
+        labels = {'evolutions': 'Evolutions', 'boosting': 'Objectives / Boosting',
+                  'gallery': 'Gallery tiers', 'packs': 'Store packs'}
+        super().__init__(label=labels[kind],
+                         emoji=presentation_icon(kind, CATEGORIES[kind][1], presentation),
+                         style=discord.ButtonStyle.primary,
+                         custom_id='fc:hub:' + kind)
+        self.kind = kind
+
+    async def callback(self, interaction):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        routes = {interaction.guild_id: {interaction.channel_id: self.kind}}
+        await load_catalog(interaction, self.view.provider, self.kind,
+                           interaction.user.id, routes, self.view.presentation)
 
 
 class OpenButton(discord.ui.Button):

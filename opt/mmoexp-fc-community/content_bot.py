@@ -101,12 +101,24 @@ def validate_config(config):
     if relay is not None:
         if (not isinstance(relay, dict) or relay.get('guild_id') not in (TEST_GUILD, OFFICIAL_GUILD)
                 or not config.get('quote_socket') or not isinstance(relay.get('channels'), dict)
-                or not 1 <= len(relay['channels']) <= 5
+                or not 1 <= len(relay['channels']) <= 6
                 or any(not isinstance(c, str) or not re.fullmatch(r'[1-9][0-9]{16,19}', c)
-                       or not isinstance(k, str) or k not in QUOTE_KINDS[:-1]
+                       or not isinstance(k, str) or k not in QUOTE_KINDS[:-1] + ('hub',)
                        for c, k in relay['channels'].items())
                 or len(set(relay['channels'].values())) != len(relay['channels'])):
             raise ValueError('Invalid quote relay routes.')
+    hub = config.get('quote_hub')
+    if hub is not None:
+        if (not isinstance(hub, dict) or set(hub) != {'guild_id', 'channel_id'}
+                or hub['guild_id'] not in (TEST_GUILD, OFFICIAL_GUILD)
+                or type(hub['channel_id']) is not int or not 10**16 <= hub['channel_id'] < 10**20
+                or not config.get('quote_socket')
+                or (relay is not None and 'hub' in relay['channels'].values()
+                    and (relay['guild_id'] != hub['guild_id']
+                         or relay['channels'].get(str(hub['channel_id'])) != 'hub'))):
+            raise ValueError('Invalid quote hub route.')
+    elif relay is not None and 'hub' in relay['channels'].values():
+        raise ValueError('Quote relay hub requires quote_hub.')
     static = config.get('quote_static')
     if static is not None:
         if (not isinstance(static, dict) or set(static) != {'guild_id', 'channels'}
@@ -180,6 +192,9 @@ class ContentClient(discord.Client):
         static = self.config.get('quote_static')
         if static:
             routes.setdefault(static['guild_id'], {}).update({int(c): k for c, k in static['channels'].items()})
+        hub = self.config.get('quote_hub')
+        if hub and kind in ('evolutions', 'boosting', 'gallery', 'packs'):
+            routes.setdefault(hub['guild_id'], {})[hub['channel_id']] = kind
         routes.setdefault(TEST_GUILD, {})[int(self.config.get('quote_channel_id', 0))] = kind
         return routes
 
@@ -197,6 +212,11 @@ class ContentClient(discord.Client):
             for kind in QUOTE_KINDS:
                 self.add_view(CategoryHomeView(self.quote_provider, kind, allowed_routes=self.quote_routes(kind),
                                               presentation=self.config.get('quote_presentation')))
+            if self.config.get('quote_hub'):
+                from quote_panel import HubHomeView
+                hub = self.config['quote_hub']
+                self.add_view(HubHomeView(self.quote_provider, hub['guild_id'], hub['channel_id'],
+                                          self.config.get('quote_presentation')))
         player = self.config.get('player_panel')
         if self.quote_provider and player and player['enabled']:
             from player_panel import PlayerHomeView, PlayerCardView
@@ -305,7 +325,7 @@ class ContentClient(discord.Client):
                                      ea_enabled=settings.get('ea_enabled', True))
 
     async def flush_quote_relay(self):
-        from quote_panel import CategoryHomeView, category_embed
+        from quote_panel import CategoryHomeView, HubHomeView, category_embed, hub_embed
         for item in self.quote_relay.due(time.time()):
             channel = self.get_channel(item['channel_id'])
             if not channel or channel.guild.id != self.config['quote_relay']['guild_id']:
@@ -314,11 +334,18 @@ class ContentClient(discord.Client):
             if not claimed:
                 continue
             try:
-                await channel.send(embed=category_embed(claimed['kind'], self.config.get('quote_presentation')),
-                    view=CategoryHomeView(self.quote_provider, claimed['kind'],
-                                          allowed_routes=self.quote_routes(claimed['kind']),
-                                          presentation=self.config.get('quote_presentation')),
-                    allowed_mentions=discord.AllowedMentions.none())
+                presentation = self.config.get('quote_presentation')
+                if claimed['kind'] == 'hub':
+                    hub = self.config['quote_hub']
+                    embed = hub_embed(presentation)
+                    view = HubHomeView(self.quote_provider, hub['guild_id'], hub['channel_id'], presentation)
+                else:
+                    embed = category_embed(claimed['kind'], presentation)
+                    view = CategoryHomeView(self.quote_provider, claimed['kind'],
+                                            allowed_routes=self.quote_routes(claimed['kind']),
+                                            presentation=presentation)
+                await channel.send(embed=embed, view=view,
+                                   allowed_mentions=discord.AllowedMentions.none())
                 self.quote_relay.complete(item['channel_id'], claimed['message_id'], time.time())
                 print('Quote relay sent: ' + str(item['channel_id']), flush=True)
             except Exception as exc:
@@ -354,6 +381,8 @@ class ContentClient(discord.Client):
             await self.setup_quote_panel()
             if self.config.get('quote_static'):
                 await self.setup_quote_static_panel()
+            if self.config.get('quote_hub'):
+                await self.setup_quote_hub()
         if self.config.get('player_panel', {}).get('enabled'):
             await self.setup_player_panel()
         if self.config.get('club_panels'):
@@ -439,6 +468,41 @@ class ContentClient(discord.Client):
                 temp.replace(marker)
             except Exception as exc:
                 print('Static quote panel setup failed: ' + type(exc).__name__, flush=True)
+
+    async def setup_quote_hub(self):
+        from quote_panel import HubHomeView, hub_embed
+        hub = self.config['quote_hub']
+        channel_id = hub['channel_id']
+        channel = self.get_channel(channel_id)
+        if (not self.quote_provider or not channel or channel.id != channel_id
+                or channel.guild.id != hub['guild_id']):
+            return
+        marker = Path(self.store.path).parent / 'quote-hub-panel.json'
+        async with self.quote_lock:
+            try:
+                options = dict(embed=hub_embed(self.config.get('quote_presentation')),
+                    view=HubHomeView(self.quote_provider, hub['guild_id'], channel_id,
+                                     self.config.get('quote_presentation')),
+                    allowed_mentions=discord.AllowedMentions.none())
+                if marker.exists():
+                    saved = json.loads(marker.read_text(encoding='utf-8'))
+                    if (not isinstance(saved, dict) or set(saved) != {'guild_id', 'channel_id', 'message_id'}
+                            or saved['guild_id'] != hub['guild_id'] or saved['channel_id'] != channel_id
+                            or type(saved['message_id']) is not int or saved['message_id'] <= 0):
+                        print('Quote hub panel needs reconciliation.', flush=True)
+                        return
+                    await channel.get_partial_message(saved['message_id']).edit(**options)
+                    return
+                saved = {'guild_id': hub['guild_id'], 'channel_id': channel_id, 'message_id': 'pending'}
+                temp = marker.with_suffix('.tmp')
+                temp.write_text(json.dumps(saved), encoding='utf-8')
+                temp.replace(marker)
+                message = await channel.send(**options)
+                saved['message_id'] = message.id
+                temp.write_text(json.dumps(saved), encoding='utf-8')
+                temp.replace(marker)
+            except Exception as exc:
+                print('Quote hub setup failed: ' + type(exc).__name__, flush=True)
 
     async def setup_player_panel(self):
         from quote_panel import category_embed
