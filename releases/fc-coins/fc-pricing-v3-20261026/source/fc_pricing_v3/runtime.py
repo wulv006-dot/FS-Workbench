@@ -1046,24 +1046,38 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
     failed = [row for row in (proof, all_proof) if row['status'] == FAILED]
     final = normal
     if failed:
-        # Evaluate single-band corrections with the other band frozen. If each
-        # band has its own loss-making path, each must be corrected.
         affected = {coin_quantity_band(row['purchase_k']) for row in failed for row in row['paths']
                     if row['zero_line_status'] == FAILED}
-        anchors = band_anchors(normal)
-        if affected:
-            bands = sorted(affected) if len(affected) == 1 else []
-        else:
-            bands = list(dict.fromkeys([*active, segment]))
-        for band in bands:
-            floors = [minimum_band_price(row, band, ANCHORS[band], anchors[band]) for row in failed]
-            if all(floor is not None for floor in floors):
-                final = compile_curve(normal, dict(anchor_prices_usd={ANCHORS[band]: str(max(floors))}), editor)
-                break
+        base = normal
+        # If both bands contain a loss-making path, put each at its own
+        # break-even cent before solving the remaining basket constraint.
         if len(affected) > 1:
-            repair = _average_discount_repair(normal, entry['all_before'], editor, failed[0], inputs_for)
-            if repair:
-                final = repair['candidates'][0]['curve']
+            prices = band_anchors(base)
+            controls = {}
+            for band in affected:
+                floors = [minimum_band_price(row, band, ANCHORS[band], prices[band], zero_line_only=True) for row in failed]
+                if any(floor is None for floor in floors):
+                    frozen.update(status=FAILED, gaps=['curve_cost_protection_band_floor_unavailable'])
+                    return
+                controls[ANCHORS[band]] = str(max(floors))
+            base = compile_curve(base, dict(anchor_prices_usd=controls), editor)
+            if base.get('compilation_status') == 'EDITOR_CANDIDATE':
+                all_base = _all_curve_target(entry['all_before'], base)
+                checks = [_validated_curve(curve, inputs_for(curve)) for curve in (base, all_base)]
+                if any(row['status'] not in (PROVEN, FAILED) for row in checks):
+                    return
+                failed = [row for row in checks if row['status'] == FAILED]
+        final = base
+        if failed and base.get('compilation_status', 'EDITOR_CANDIDATE') == 'EDITOR_CANDIDATE':
+            bands = list(dict.fromkeys([*active, segment]))
+            if affected:
+                bands = [band for band in dict.fromkeys([*bands, *ANCHORS]) if band in affected]
+            prices = band_anchors(base)
+            for band in bands:
+                floors = [minimum_band_price(row, band, ANCHORS[band], prices[band]) for row in failed]
+                if all(floor is not None for floor in floors):
+                    final = compile_curve(base, dict(anchor_prices_usd={ANCHORS[band]: str(max(floors))}), editor)
+                    break
         if final is normal or final.get('compilation_status') != 'EDITOR_CANDIDATE':
             frozen.update(status=FAILED, gaps=sorted({gap for row in failed for gap in row['hard_failures']}))
             return

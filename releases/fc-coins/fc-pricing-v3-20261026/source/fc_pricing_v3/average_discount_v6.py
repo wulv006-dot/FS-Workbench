@@ -213,7 +213,7 @@ def repair_controls(current, proof, *, affected=None):
     return controls, failed
 
 
-def minimum_band_price(proof, segment, anchor, minimum):
+def minimum_band_price(proof, segment, anchor, minimum, *, zero_line_only=False):
     """Solve the native cent grid for one band with the other band fixed."""
     from .pricing_proof_v6 import FAILED, HARD_MARGIN
 
@@ -221,11 +221,12 @@ def minimum_band_price(proof, segment, anchor, minimum):
     paths = {row['path_id']: row for row in proof['paths']}
     changing = {key for key, row in paths.items() if quantity_group(Decimal(row['purchase_k'])) == segment}
     fixed = set(paths) - changing
-    if not changing or not retained or any(paths[key]['zero_line_status'] == FAILED for key in fixed):
+    if (not changing or not retained
+            or not zero_line_only and any(paths[key]['zero_line_status'] == FAILED for key in fixed)):
         return None
     baskets = [(Decimal(row['safe_cost_usd']) / (1 - HARD_MARGIN),
                 [(m['path_id'], Decimal(m['weight'])) for m in row['members']])
-               for row in proof['baskets'].values()]
+               for row in proof['baskets'].values()] if not zero_line_only else []
     if any(required > sum(Decimal(paths[key]['net_receipt_usd']) * weight for key, weight in members)
            and not any(key in changing for key, _ in members) for required, members in baskets):
         return None
