@@ -46,7 +46,7 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
  const safeWrite=value=>{try{if(fs.lstatSync(publicDir).isSymbolicLink())throw Error();atomic(cacheFile,value);fs.chmodSync(cacheFile,0o644);}
   catch{try{fs.unlinkSync(cacheFile);}catch{}clear('PUBLIC_PRICE_CACHE_WRITE_FAILED');throw Error('PUBLIC_PRICE_CACHE_WRITE_FAILED');}};
  const unavailable=(release,reason)=>{clear(reason);if(!fs.existsSync(publicDir))return;
-  safeWrite({schema_version:1,status:'unavailable',release_id:release?.release_id??null,
+  safeWrite({schema_version:1,status:reason==='REFERENCE_PRICE_REFRESHING'?'refreshing':'unavailable',release_id:release?.release_id??null,
    config_hash:release?.config_hash??null,generated_at:new Date(now()).toISOString(),products:[],model_contracts:{}});};
  function context(){
   let config,release;

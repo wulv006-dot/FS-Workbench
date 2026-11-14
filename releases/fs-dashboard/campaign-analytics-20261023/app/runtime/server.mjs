@@ -25,7 +25,8 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
   const source=snapshotProvider||(()=>frozen),cache=priceCacheProvider||(()=>publishedDir?readPublicPriceCache(path.join(publishedDir,'admin-reference-prices.json')):null);
   const snapshotWithPrices=()=>{
   const snapshot=source(),current=cache();
-  const initial=publishedDir&&(current?.status!=='ready'||current.release_id!==snapshot.release_id||current.config_hash!==snapshot.config_hash)
+  const waitingForPrices=!current||current.release_id!==snapshot.release_id||current.config_hash!==snapshot.config_hash||current.status==='refreshing';
+  const initial=publishedDir&&waitingForPrices
    &&/^campaign-preview-\d+$/.test(snapshot.release_id)
    ?readPublicPriceCache(path.join(publishedDir,snapshot.release_id+'-initial-prices.json')):null;
   return applyPublicPriceCache(snapshot,current,{now:(now||Date.now)(),initial});

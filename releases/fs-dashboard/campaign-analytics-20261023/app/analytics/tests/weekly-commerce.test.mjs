@@ -187,8 +187,14 @@ test('current legacy four-bundle draft needs one trusted import save before revi
   const seed=JSON.parse(fs.readFileSync(path.join(publicDir,snapshot.release_id+'-initial-prices.json')));
   assert.equal(seed.products.length,111);
   assert(!seed.products.some(p=>p.product_ref.model_id==='99'));
+  const liveFile=path.join(publicDir,'admin-reference-prices.json');
+  const replaceLive=value=>fs.writeFileSync(liveFile,JSON.stringify(value));
+  replaceLive({...seed,status:'refreshing'});
+  assert.equal(quote(await config()).base_minor,quote(initial).base_minor);
+  replaceLive({...seed,status:'unavailable'});
+  assert.equal(quote(await config()),undefined,'a verified source denial removes the launch fallback');
   const live=structuredClone(seed);const liveQuote=quote({seasonal_model_contracts:live.model_contracts});liveQuote.base_minor++;
-  fs.writeFileSync(path.join(publicDir,'admin-reference-prices.json'),JSON.stringify(live));
+  replaceLive(live);
   assert.equal(quote(await config()).base_minor,liveQuote.base_minor);
   publicNow=Date.parse(liveQuote.expires_at);
   assert.equal(quote(await config()),undefined);
