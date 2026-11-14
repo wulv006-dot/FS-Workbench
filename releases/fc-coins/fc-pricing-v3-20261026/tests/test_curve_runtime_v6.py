@@ -82,6 +82,28 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(Decimal(result['usd_per_delivered_100k']), Decimal(8000) / 1030)
         self.assertEqual(result['normal_difference_pct'], result['final_difference_pct'])
 
+    def test_formal_adoption_evidence_carries_forward_cumulative_result(self):
+        from decimal import Decimal
+        from fc_pricing_v3.smart import curve_adoption_evidence
+
+        def block(label, key, amount, start, end):
+            return dict(pair_id='pair', hours=Decimal(2), complete=True, label=label,
+                        display_regime_key='same-background', prices=[key], intervals=[(0, 7200)],
+                        starts_at=start, ends_at=end, window_ids=[label],
+                        events=[dict(offset=60, order_key=label, actual_net_usd=amount,
+                                     actual_contribution_usd=amount, new_customer=False)])
+
+        state = dict(reference={'adoption': {'cumulative': dict(initial_reference_curve_id='initial',
+            revenue_delta_usd='10', procurement_gross_delta_usd='12', new_customer_delta='2')}},
+            episode={'initial_reference_curve_id': 'initial'})
+        baseline = block('A', 'a', '8', '2026-11-11T01:00:00+00:00', '2026-11-11T04:00:00+00:00')
+        winner = block('C', 'c', '11', '2026-11-12T01:00:00+00:00', '2026-11-12T04:00:00+00:00')
+        proof = curve_adoption_evidence([baseline, winner], 'C', state)
+        self.assertEqual(proof['winning_curve_key'], 'c')
+        self.assertEqual(proof['cumulative']['revenue_delta_usd'], '13')
+        self.assertEqual(proof['cumulative']['procurement_gross_delta_usd'], '15')
+        self.assertEqual(proof['cumulative']['new_customer_delta'], '2')
+
     def test_discount_and_basket_pin_wait_for_missing_yesterday(self):
         from fc_pricing_v3.average_discount_v6 import average_discount
         from fc_pricing_v3.financial import instant
