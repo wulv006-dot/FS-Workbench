@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-from matchday_engagement import (MatchPulseStore, parse_smart_score,
+from matchday_engagement import (MatchPulseStore, followup_due_at, parse_smart_score,
                                  prompt_text, validate_matchday_config)
 
 TEST_GUILD = 1565922092518613064
@@ -31,6 +31,11 @@ def message(mid, body, author=1496068397757366273, channel=SOURCE, now=None):
 
 
 class MatchdayEngagementTests(unittest.TestCase):
+    def test_followup_is_next_day_even_for_early_final(self):
+        final = datetime(2026, 11, 15, 9, 50, tzinfo=timezone.utc).timestamp()
+        due = datetime.fromtimestamp(followup_due_at(final), timezone.utc)
+        self.assertEqual(due, datetime(2026, 11, 16, 10, tzinfo=timezone.utc))
+
     def test_strict_source_and_goal_parser(self):
         validate_matchday_config(CONFIG)
         now = time.time()
@@ -97,6 +102,33 @@ class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('Kosovo vs Israel', channel.send.await_args.kwargs['embed'].description)
             self.assertEqual(len(channel.send.await_args.kwargs['view'].children), 3)
             self.assertIn('Smart Score public update:', client.history[SOURCE][-1][1])
+            await client.close()
+
+    async def test_final_creates_one_next_morning_match_to_squad_card(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            chat_config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(TEST_GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': dict(CONFIG, state_path=str(Path(directory) / 'pulse.sqlite3'))}
+            client = ChatClient(chat_config)
+            channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=TEST_GUILD),
+                                      send=AsyncMock(return_value=SimpleNamespace(id=1571184986541789380)))
+            client.get_channel = lambda channel_id: channel if channel_id == SOURCE else None
+            now = time.time()
+            event = message(1571184986541789372, 'Kosovo 2 — 0 Israel\nMatch Finished', now=now)
+            await client.on_message(event)
+            await client.on_message(event)
+            with closing(sqlite3.connect(client.matchday_store.path)) as db:
+                due = db.execute('SELECT due_at FROM match_followup').fetchone()[0]
+            client.matchday_store = MatchPulseStore(Path(directory) / 'pulse.sqlite3')
+            await client.send_followups_due(due - 1)
+            self.assertEqual(channel.send.await_count, 1)
+            await client.send_followups_due(due + 1)
+            await client.send_followups_due(due + 2)
+            self.assertEqual(channel.send.await_count, 2)
+            self.assertIn('2–0', channel.send.await_args.kwargs['embed'].description)
+            self.assertEqual(len(channel.send.await_args.kwargs['view'].children), 2)
             await client.close()
 
 
