@@ -1,0 +1,16 @@
+[Unit]
+Description=Read-only Discord channel inventory for FC27 matchday rollout
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mmoexp-fc-community
+Group=mmoexp-fc-community
+EnvironmentFile=/etc/mmoexp-fc-community.env
+ExecStart=/usr/bin/python3 /opt/fc27-matchday-discord-stage/inspect_matchday_channels.py 1565922092518613064
+ExecStart=/usr/bin/python3 /opt/fc27-matchday-discord-stage/inspect_matchday_channels.py 1041923524601851914
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true

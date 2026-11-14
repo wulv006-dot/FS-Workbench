@@ -1,0 +1,20 @@
+[Unit]
+Description=FC27 OpenLigaDB and ESPN read-only collector on 183
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fc27-match-fetch
+Group=fc27-match-fetch
+WorkingDirectory=/opt/fc27-matchday-collector
+ExecStart=/usr/bin/python3 /opt/fc27-matchday-collector/matchday_collector.py --state-dir /var/lib/fc27-matchday-collector
+StateDirectory=fc27-matchday-collector
+StateDirectoryMode=0700
+UMask=0077
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/fc27-matchday-collector

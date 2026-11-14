@@ -1,6 +1,7 @@
 import unittest
+from datetime import datetime, timezone
 
-from matchday_openligadb import MatchdaySourceError, fetch_group_if_changed, normalize_match
+from matchday_openligadb import MatchdaySourceError, fetch_group_if_changed, fetch_season_window, normalize_match
 
 
 MATCH = {
@@ -52,6 +53,14 @@ class OpenLigaAdapterTests(unittest.TestCase):
     def test_rejects_unknown_league_before_request(self):
         with self.assertRaises(MatchdaySourceError):
             fetch_group_if_changed('../evil', 2026, 11, request_json=lambda path: None)
+
+    def test_season_window_selects_only_target_dates(self):
+        other = dict(MATCH, matchID=1, matchDateTimeUTC='2027-05-30T12:30:00Z')
+        rows = fetch_season_window('pl', 2026,
+            datetime(2026, 11, 20, tzinfo=timezone.utc),
+            datetime(2026, 11, 23, tzinfo=timezone.utc),
+            request_json=lambda path: [other, MATCH])
+        self.assertEqual([row['fixture_id'] for row in rows], ['86635'])
 
 
 if __name__ == '__main__':

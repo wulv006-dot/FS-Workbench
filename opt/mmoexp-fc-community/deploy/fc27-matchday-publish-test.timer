@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh FC27 matchday pilot card every 30 seconds
+
+[Timer]
+OnBootSec=45s
+OnUnitInactiveSec=30s
+AccuracySec=1s
+Unit=fc27-matchday-publish-test.service
+
+[Install]
+WantedBy=timers.target

@@ -7,7 +7,7 @@ award prizes; callers must show the source and the time they fetched it.
 import json
 import re
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 
 SOURCE = 'OpenLigaDB'
@@ -75,6 +75,30 @@ def fetch_group_if_changed(league, season, group_order, previous_change=None,
     if not isinstance(matches, list) or len(matches) > 30:
         raise MatchdaySourceError('Invalid match group')
     return changed_at, [normalize_match(item, league) for item in matches]
+
+
+def fetch_season_window(league, season, start_utc, end_utc, request_json=_request_json):
+    """Read one season and retain only fixtures in a bounded UTC date window."""
+    league = _league(league)
+    season = _integer(season, 'season')
+    if not 2020 <= season <= 2100:
+        raise MatchdaySourceError('Invalid season')
+    if (not isinstance(start_utc, datetime) or not isinstance(end_utc, datetime)
+            or start_utc.tzinfo is None or end_utc.tzinfo is None
+            or end_utc <= start_utc or end_utc - start_utc > timedelta(days=14)):
+        raise MatchdaySourceError('Invalid fixture window')
+    raw = request_json('/getmatchdata/%s/%s' % (league, season))
+    if not isinstance(raw, list) or len(raw) > 450:
+        raise MatchdaySourceError('Invalid season response')
+    selected = []
+    for item in raw:
+        if not isinstance(item, dict) or not isinstance(item.get('matchDateTimeUTC'), str):
+            continue
+        kickoff = datetime.fromisoformat(_utc(item['matchDateTimeUTC']))
+        if start_utc <= kickoff < end_utc:
+            selected.append(normalize_match(item, league))
+    selected.sort(key=lambda item: (item['kickoff_utc'], item['fixture_id']))
+    return selected
 
 
 def _utc(value):
