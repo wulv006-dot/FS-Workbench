@@ -16,12 +16,17 @@ def shortlist(now, search, model):
     local = now.astimezone(LONDON)
     first = local.date() + dt.timedelta(days=local.hour >= 12)
     second = first + dt.timedelta(days=1)
-    dates = '{} and {}'.format(first.strftime('%d %B %Y'),
-                               second.strftime('%d %B %Y'))
-    queries = (
-        dates + ' football fixtures Premier League La Liga Bundesliga Serie A Ligue 1',
-        dates + ' football fixtures cups UEFA international FIFA world tournaments',
-    )
+    search_prompt = (
+        'Today is {} in London. Find notable football fixtures on {} or {}. '
+        'Search five major European leagues, major cups, international and world tournaments. '
+        'Choose up to two concrete web search queries. '
+        'Reply only with a JSON object containing a queries string array.'
+    ).format(local.date().isoformat(), first.isoformat(), second.isoformat())
+    plan = json.loads(model(search_prompt, '', 160))
+    if not isinstance(plan, dict) or not isinstance(plan.get('queries'), list):
+        raise ValueError('Invalid Hermes search plan')
+    queries = [query.strip() for query in plan['queries'][:2]
+               if isinstance(query, str) and 0 < len(query.strip()) <= 128]
     evidence = []
     for query in queries:
         for row in search(query).get('results', [])[:5]:
