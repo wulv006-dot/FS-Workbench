@@ -35,9 +35,14 @@ def source_message(kickoff, author_id=1496068397757366273):
                            channel=SimpleNamespace(id=SOURCE),
                            author=SimpleNamespace(id=author_id, bot=True),
                            content='', embeds=[SimpleNamespace(
-                               title='Manchester City vs Arsenal',
-                               description='Premier League · <t:{}:F>'.format(
-                                   int(kickoff.timestamp())), fields=[])])
+                               title='Upcoming Matches',
+                               description='Upcoming matches in the selected window.',
+                               fields=[SimpleNamespace(
+                                   name='🟦 UPCOMING **Manchester City** vs **Arsenal**',
+                                   value='> 🏆 **League**: Premier League\n'
+                                         '> 📡 **Status**: Not Started\n'
+                                         '> 📅 **Kickoff**: <t:{}:F>'.format(
+                                             int(kickoff.timestamp())))])])
 
 
 class EditorialPlanTests(unittest.TestCase):
@@ -51,7 +56,7 @@ class EditorialPlanTests(unittest.TestCase):
             self.assertTrue(verify_smart_score_source(source_message(kickoff), fixtures[0]))
             self.assertFalse(verify_smart_score_source(source_message(kickoff, 123), fixtures[0]))
             no_time = source_message(kickoff)
-            no_time.embeds[0].description = 'Premier League fixture'
+            no_time.embeds[0].fields[0].value = 'Premier League fixture'
             self.assertFalse(verify_smart_score_source(no_time, fixtures[0]))
             self.assertEqual(due_cards(fixtures, now), [(fixtures[0], 'day_before')])
             self.assertEqual(due_cards(fixtures, kickoff - dt.timedelta(minutes=30)),
@@ -99,6 +104,31 @@ class EditorialPlanTests(unittest.TestCase):
             fixture = load_plan(path, ROUTES, now=now)[0]
             self.assertFalse(verify_smart_score_source(
                 source_message(kickoff + dt.timedelta(hours=1)), fixture))
+            wrong_league = source_message(kickoff)
+            wrong_league.embeds[0].fields[0].value = (
+                wrong_league.embeds[0].fields[0].value.replace(
+                    'Premier League', 'Champions League'))
+            self.assertFalse(verify_smart_score_source(wrong_league, fixture))
+            already_started = source_message(kickoff)
+            already_started.embeds[0].fields[0].value = (
+                already_started.embeds[0].fields[0].value.replace(
+                    'Not Started', 'In Progress'))
+            self.assertFalse(verify_smart_score_source(already_started, fixture))
+
+    def test_multi_match_card_must_pair_fixture_and_kickoff_in_one_field(self):
+        now = dt.datetime(2026, 11, 15, 12, tzinfo=UTC)
+        kickoff = now + dt.timedelta(hours=3)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'plan.json'
+            path.write_text(json.dumps(plan(kickoff)), encoding='utf-8')
+            fixture = load_plan(path, ROUTES, now=now)[0]
+            card = source_message(kickoff + dt.timedelta(hours=1))
+            card.embeds[0].fields.append(SimpleNamespace(
+                name='🟦 UPCOMING **Chelsea** vs **Liverpool**',
+                value='> 🏆 **League**: Premier League\n'
+                      '> 📡 **Status**: Not Started\n'
+                      '> 📅 **Kickoff**: <t:{}:F>'.format(int(kickoff.timestamp()))))
+            self.assertFalse(verify_smart_score_source(card, fixture))
 
     def test_persistent_reservation_prevents_duplicate_posts(self):
         now = dt.datetime(2026, 11, 15, 12, tzinfo=UTC)
