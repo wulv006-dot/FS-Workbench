@@ -7,16 +7,32 @@ const exact=(x,keys)=>x&&typeof x==='object'&&!Array.isArray(x)&&Object.keys(x).
 export function readPublicPriceCache(file){
  try{const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.size>4194304)return null;return JSON.parse(fs.readFileSync(file,'utf8'));}catch{return null;}
 }
-export function applyPublicPriceCache(snapshot,cache,{now=Date.now()}={}){
- const base=projectRelease(snapshot),result={publication_status:'published',...structuredClone(base)};
+export function publicationPriceCache(snapshot,approved,{now=Date.now()}={}){
+ if(!approved||!(Date.parse(approved.valid_until)>now))return null;
+ const keys=new Set(snapshot.pages.filter(p=>['fc27-trio','fc27-weekly','fc27-sbc'].includes(p.page_id)).flatMap(p=>p.product_keys));
+ const products=approved.products.filter(p=>keys.has(p.key));
+ const model_contracts=Object.fromEntries(Object.entries(approved.model_contracts).flatMap(([id,contract])=>{
+  const combinations=contract.combinations.filter(row=>keys.has(row.product_key)&&row.price&&Date.parse(row.price.expires_at)>now);
+  return combinations.length?[[id,{...contract,combinations}]]:[];
+ }));
+ if(!products.length||!Object.keys(model_contracts).length)return null;
+ return {schema_version:1,status:'ready',release_id:snapshot.release_id,config_hash:snapshot.config_hash,generated_at:new Date(now).toISOString(),products,model_contracts};
+}
+export function applyPublicPriceCache(snapshot,cache,{now=Date.now(),initial=null}={}){
+ const base=projectRelease(snapshot),result={publication_status:'published',...base};
  // Never resurrect stale prices from immutable publication/history.
  for(const contract of Object.values(result.seasonal_model_contracts||{}))for(const row of contract.combinations||[])delete row.price;
+ // The reviewed launch prices bridge the new release until the regular Admin feed catches up.
+ const live=overlay(result,cache,now);
+ return live===result&&initial?overlay(result,initial,now):live;
+}
+function overlay(result,cache,now){
  try{
-  if(!exact(cache,['schema_version','status','release_id','config_hash','generated_at','products','model_contracts'])||cache.schema_version!==1||cache.status!=='ready'||cache.release_id!==base.release_id||cache.config_hash!==base.config_hash
+  if(!exact(cache,['schema_version','status','release_id','config_hash','generated_at','products','model_contracts'])||cache.schema_version!==1||cache.status!=='ready'||cache.release_id!==result.release_id||cache.config_hash!==result.config_hash
    ||!Number.isFinite(now)||!Number.isFinite(Date.parse(cache.generated_at))||Date.parse(cache.generated_at)>now||!Array.isArray(cache.products)||!cache.products.length||cache.products.length>1000||new Set(cache.products.map(p=>p.key)).size!==cache.products.length)return result;
-  const allowed=new Set(base.pages.filter(p=>['seasonal-vault','fc27-trio','fc27-weekly','fc27-sbc'].includes(p.page_id)).flatMap(p=>p.product_keys||[])),products=[];
+  const allowed=new Set(result.pages.filter(p=>['seasonal-vault','fc27-trio','fc27-weekly','fc27-sbc'].includes(p.page_id)).flatMap(p=>p.product_keys||[])),products=[];
   for(const p of cache.products){
-   const original=base.products.find(x=>x.key===p.key);
+   const original=result.products.find(x=>x.key===p.key);
    if(!original||!allowed.has(p.key)||p.product_ref?.site_id!=='266'||canonical(original.product_ref)!==canonical(p.product_ref)||canonical(original.platform)!==canonical(p.platform)||p.available!==false)return result;
    // Preserve the native verified catalog. Older preview imports may be enriched
    // by the trusted producer, but never become available to server checkout.

@@ -4,6 +4,7 @@ import path from 'node:path';
 import {atomic} from './store.mjs';
 import {backendRead} from './backend-client.mjs';
 import {canonical,digest,projectRelease} from '../runtime/snapshot.mjs';
+import {readPublicPriceCache} from '../runtime/admin-price-cache.mjs';
 import {projectAdminPrices} from '../runtime/admin-price-projection.mjs';
 import {projectModelOptions} from '../runtime/model-options.mjs';
 const code=x=>typeof x==='string'&&/^[A-Z][A-Z0-9_]{0,79}$/.test(x)?x:'ADMIN_PRICE_UNAVAILABLE';
@@ -78,7 +79,10 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
   attemptKey=current.key;attemptedAt=now();
   const admitted=generation;
   // The public overlay checks each price's expiry while the next read is in flight.
-  if(!memory.length)unavailable(current.release,'REFERENCE_PRICE_REFRESHING');
+  if(!memory.length){
+   const previous=readPublicPriceCache(cacheFile);
+   if(previous?.status!=='ready'||previous.release_id!==current.release.release_id||previous.config_hash!==current.release.config_hash)unavailable(current.release,'REFERENCE_PRICE_REFRESHING');
+  }
   const promise=(async()=>{
    try{
     const products=[],raw={},observations=[],reads=new Map(),missing=[];
