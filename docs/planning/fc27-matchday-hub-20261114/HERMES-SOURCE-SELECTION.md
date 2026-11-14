@@ -1,6 +1,8 @@
 # FC27 焦点赛候选筛选与来源接线
 
-状态：候选筛选器已实现并做本地测试；每日赛程输入与 Hermes 调度尚未接通。本文件不代表正式群自动选赛已上线。
+状态（2026-11-15）：`ops/matchday_scout.py` 已在 187 每日 18:00 CST 只读运行，以公开搜索结果供 Hermes 挑选当天和次日的少量焦点赛；无合适比赛返回空。它只生成候选，不自动调用 Smart Score 或发布 Discord。下文的 `matchday_selector.py` 是早期候选实验，当前没有接入每日任务。
+
+每日结果写入 `/opt/mmoexp-fc-community/var/matchday-scout-latest.json`，带 `generated_at_utc`。DSH 读取前先看日期；候选为空就不推。选中比赛须在 Smart Score 的 `/live upcoming` 中找到同一场、同一联赛和开球时间，再订阅并读回。不要为了填满两场而选不确定的赛事。187 使用 systemd 219，定时器采用服务器本地 18:00（伦敦上午 10:00/11:00）；服务与定时器模板见 `opt/mmoexp-fc-community/deploy/fc27-matchday-scout.*`。正式群的自动订阅和自动更新 editorial plan 仍未接通。
 
 ## 2026-11-15 实际观察
 
