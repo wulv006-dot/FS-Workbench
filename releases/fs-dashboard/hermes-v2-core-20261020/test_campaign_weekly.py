@@ -15,13 +15,13 @@ from unittest.mock import patch
 import test_campaign_recommendations as fixture
 from pilot import TaskStore
 from campaign_recommendations import CampaignRecommendations,checked_result
-from campaign_weekly import CampaignWeekly,CampaignDelegation
+from campaign_weekly import CampaignWeekly,CampaignDelegation,node_cli
 
 
-def pool_input():
+def pool_input(core_count=9):
     core_names=['core']+['core'+str(i) for i in range(2,10)];player_names=list('abcdefghijklmnopqr')
     catalog=[dict(key='fc-'+name+'-ps',title=name,product_ref=dict(site_id='266',game_id='1327',goods_id=str(100+i),model_id=str(200+i)),platform=dict(code='ps',attribute_id='21587'),available=False,binding_state='unknown') for i,name in enumerate(core_names+player_names)]
-    cores=['fc-'+name+'-ps' for name in core_names];players=['fc-'+name+'-ps' for name in player_names]
+    cores=['fc-'+name+'-ps' for name in core_names[:core_count]];players=['fc-'+name+'-ps' for name in player_names]
     return dict(source_revision='7',sbc_update=dict(id='weekly-source',observed_at='2026-11-15T04:00:00+00:00',expires_at=None,context='Fresh pools',sources=[]),catalog=catalog,
         pages=[dict(page_id='fc27-weekly',product_keys=players[:3]),dict(page_id='fc27-trio',product_keys=players[3:9]),dict(page_id='fc27-sbc',product_keys=cores+players,core_product_keys=cores)],rules=dict(version='fc27_weekly_selection_v1',scout_top_keys=players[:3]))
 
@@ -47,10 +47,10 @@ class WeeklyTests(unittest.TestCase):
                 for row in result['recommendations']:row['evidence_indices']=[]
             return result
         self.base=CampaignRecommendations(self.host,session_verify=lambda cookie,owner:cookie=='session-private' and owner=='alice',admission=fixture.guard,execute=model)
-        self.saved={}
+        self.saved={};self.core_count=9
         def cli(body):
             self.calls.append(deepcopy(body));key=body['operation_id']
-            if body['action']=='prepare':return dict(status='prepared',operation_id=key,plan_ref=key,rules_version='fc27_weekly_selection_v1',input=pool_input(),trio_players=[dict(name=name+'/90/CM/Test',model_id=str(204+i),key='fc-'+name+'-ps') for i,name in enumerate(('d','e','f'))],evidence_refs=[])
+            if body['action']=='prepare':return dict(status='prepared',operation_id=key,plan_ref=key,rules_version='fc27_weekly_selection_v1',input=pool_input(self.core_count),trio_players=[dict(name=name+'/90/CM/Test',model_id=str(204+i),key='fc-'+name+'-ps') for i,name in enumerate(('d','e','f'))],evidence_refs=[])
             if body['action']=='apply_draft':self.saved[key]=dict(status='draft_saved',operation_id=key,draft_revision=8);return self.saved[key]
             return self.saved.get(key,dict(status='not_found',operation_id=key))
         def evidence(players,at):return dict(status='partial',sources=[dict(url='https://www.futbin.com/fixture',title='Fixture',observed_at=at.isoformat())],context='Actual fixture source 0',coverage=dict(categories=['vertical'],failures=['social_unavailable']),documents=[dict(model_ids=['204','205','206'])])
@@ -68,6 +68,32 @@ class WeeklyTests(unittest.TestCase):
         self.assertEqual(self.paid,1);self.assertEqual(self.weekly.config()['owner'],'alice')
         with self.host.tasks.db() as db:row=db.execute('SELECT trigger,grant_revision FROM campaign_weekly_runs').fetchone()
         self.assertEqual(row['trigger'],'scheduled');self.assertEqual(row['grant_revision'],grant['revision'])
+    def test_eight_verified_cores_complete_with_sixteen_companions_and_one_draft_save(self):
+        self.core_count=8
+        key=str(uuid.uuid4());self.weekly.run(key,'alice','session-private');self.finish()
+        result=self.weekly.lookup(key,'alice','session-private')
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(self.paid,1)
+        self.assertEqual([c['action'] for c in self.calls],['prepare','prepare','apply_draft'])
+        rows=self.calls[-1]['recommendation']['recommendations']
+        self.assertEqual(len(rows),22)
+        self.assertEqual(sum(row['page_id']=='fc27-sbc' for row in rows),16)
+        self.assertFalse(result['publication'])
+    def test_known_prepare_rejection_keeps_original_id_and_error_without_model_or_save(self):
+        key=str(uuid.uuid4());code='WEEKLY_SBC_CORE_POOL_EMPTY'
+        def unavailable(*args,**kwargs):
+            kwargs['stdout'].write(json.dumps(dict(status='failed',operation_id=key,error=code)).encode())
+            return SimpleNamespace(returncode=1)
+        with patch('campaign_weekly.subprocess.run',side_effect=unavailable):
+            self.weekly.cli=node_cli
+            self.weekly.run(key,'alice','session-private');self.finish()
+            result=self.weekly.lookup(key,'alice','session-private')
+            self.assertEqual((result['status'],result['stage'],result['error']),('failed','prepare',code))
+            self.assertEqual(self.weekly.run(key,'alice','session-private'),result)
+            with self.assertRaisesRegex(ValueError,'campaign_cli_outcome_unknown'):
+                node_cli(dict(action='apply_draft',operation_id=key))
+        self.assertEqual(self.paid,0)
+        self.assertEqual(self.saved,{})
     def test_forged_delegation_and_changed_grant_cannot_authorize(self):
         self.configure();authority=CampaignDelegation(self.weekly,'alice',self.weekly.config()['revision']);self.assertTrue(authority.authorized(self.host,'alice'))
         self.configure(False);self.assertFalse(authority.authorized(self.host,'alice'))
