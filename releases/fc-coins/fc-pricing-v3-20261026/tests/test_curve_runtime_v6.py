@@ -20,6 +20,90 @@ from test_price_curve_v6 import EDITOR_CONTRACT
 
 
 class CurveRuntime(unittest.TestCase):
+    def test_temporary_floor_and_release_recalculate_from_the_normal_candidate(self):
+        from copy import deepcopy
+        from fc_pricing_v3.average_discount_v6 import MODEL
+        from fc_pricing_v3.price_curve import curve_key, read_curve, TWO_BAND_PRICE_EDIT
+        from test_curve_strategy_v6 import fixture
+
+        live, reference, episode = fixture()
+        editor = dict(live['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
+        make_curve = lambda row, identity: read_curve(row, identity, editor)
+        live = make_curve(live['native_payload'], live['identity'])
+        evidence = {'competitor_offers': []}
+        now = datetime.now(timezone.utc)
+        previous = {}
+        for high, expected in (('83.804', '102.2'), ('70', '95'), ('83.804', '102.2'), ('70', '95')):
+            all_row = dict(live['native_payload'], id=writer.PRODUCTS[PLATFORM][0], site_id=0)
+            all_before = make_curve(all_row, dict(live['identity'], id=all_row['id'], site_id=0))
+
+            def inputs(curve):
+                return {'key': curve_key(curve), 'tiers': curve['tiers']}
+
+            def validate(curve, frozen):
+                tier = next(r for r in frozen['tiers'] if r['purchase_k'] == '1000')
+                from decimal import Decimal
+                amount = Decimal(tier['native_price_usd'])
+                path = dict(path_id='high', purchase_k='1000', net_receipt_usd=str(amount), stress_cost_usd='72',
+                            known_fee_usd='0', zero_line_status='PROVEN')
+                status = 'PROVEN' if amount * Decimal('.82') >= Decimal(high) else 'HARD_CONSTRAINT_FAILED'
+                basket = dict(safe_cost_usd=high, members=[{'path_id': 'high', 'weight': '1'}])
+                return dict(status=status, average_discount={'contract': MODEL, 'retained_ratio': '1'},
+                            paths=[path], baskets=dict(main=basket, recent=basket), gaps=[], hard_failures=[])
+
+            entry = dict(primary_curve=live, all_before=all_before, editor_contract=editor, preferred_label='A',
+                         segment='large', primary_inputs={}, all_inputs={}, all_targets={})
+            with patch.object(runtime, '_validated_curve', side_effect=validate):
+                runtime._freeze_cost_protection(PLATFORM, entry, inputs, dict(reference=reference, episode=episode),
+                                                None, evidence, now, previous)
+            frozen = entry['temporary_cost_protection']
+            self.assertEqual(frozen['status'], 'PROVEN', frozen)
+            self.assertEqual(frozen['normal_anchors']['large'], '95')
+            self.assertEqual(frozen['final_anchors']['large'], expected)
+            self.assertEqual(frozen['final_anchors']['small'], frozen['normal_anchors']['small'])
+            live = make_curve(deepcopy(frozen['final_curve']['native_payload']), live['identity'])
+            previous = {'segments': frozen['segments']}
+
+    def test_large_reference_scales_price_and_gift_without_scaling_unit_price(self):
+        from decimal import Decimal
+        from fc_pricing_v3.curve_strategy_v6 import large_market_comparison, large_market_reference
+        from test_curve_strategy_v6 import fixture
+
+        curve, _, _ = fixture()
+        now = datetime.now(timezone.utc)
+        offer = dict(source='U7Buy', platform='PS', purchase_k='100', regular_price='8', bonus_k='3',
+                     currency='USD', region_id='0', delivery_method='comfort_trade', captured_at=now.isoformat(),
+                     comparable=True, promotion_eligibility='all_customers', eligible_net_price='5')
+        references = large_market_reference('PS', [offer, dict(offer, region_id='21'), dict(offer, delivery_method='normal')],
+                                            now, region_id='0', delivery_method='comfort_trade')
+        self.assertEqual(len(references), 1)
+        result = large_market_comparison(references, curve, curve)[0]
+        self.assertEqual((result['price_usd'], result['bonus_k'], result['captured_at']), ('80', '30', now.isoformat()))
+        self.assertEqual(Decimal(result['usd_per_delivered_100k']), Decimal(8000) / 1030)
+        self.assertEqual(result['normal_difference_pct'], result['final_difference_pct'])
+
+    def test_formal_adoption_evidence_carries_forward_cumulative_result(self):
+        from decimal import Decimal
+        from fc_pricing_v3.smart import curve_adoption_evidence
+
+        def block(label, key, amount, start, end):
+            return dict(pair_id='pair', hours=Decimal(2), complete=True, label=label,
+                        display_regime_key='same-background', prices=[key], intervals=[(0, 7200)],
+                        starts_at=start, ends_at=end, window_ids=[label],
+                        events=[dict(offset=60, order_key=label, actual_net_usd=amount,
+                                     actual_contribution_usd=amount, new_customer=False)])
+
+        state = dict(reference={'adoption': {'cumulative': dict(initial_reference_curve_id='initial',
+            revenue_delta_usd='10', procurement_gross_delta_usd='12', new_customer_delta='2')}},
+            episode={'initial_reference_curve_id': 'initial'})
+        baseline = block('A', 'a', '8', '2026-11-11T01:00:00+00:00', '2026-11-11T04:00:00+00:00')
+        winner = block('C', 'c', '11', '2026-11-12T01:00:00+00:00', '2026-11-12T04:00:00+00:00')
+        proof = curve_adoption_evidence([baseline, winner], 'C', state)
+        self.assertEqual(proof['winning_curve_key'], 'c')
+        self.assertEqual(proof['cumulative']['revenue_delta_usd'], '13')
+        self.assertEqual(proof['cumulative']['procurement_gross_delta_usd'], '15')
+        self.assertEqual(proof['cumulative']['new_customer_delta'], '2')
+
     def test_discount_and_basket_pin_wait_for_missing_yesterday(self):
         from fc_pricing_v3.average_discount_v6 import average_discount
         from fc_pricing_v3.financial import instant
@@ -587,7 +671,7 @@ class CurveRuntime(unittest.TestCase):
     def test_native_candidate_activation_and_execution_use_actual_verifier(self):
         self.run_verified_curve_cycle()
 
-    def test_cost_repair_advances_reference_only_after_original_writer_confirmation(self):
+    def test_cost_repair_does_not_adopt_the_protected_price(self):
         self.run_verified_curve_cycle(cost_repair=True)
 
     def test_initial_activation_adopts_current_and_authorizes_verified_repair(self):
@@ -763,11 +847,8 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(len(self.transport.posts), 1)
             after = self.db.curve_strategy_state(PLATFORM)
             if cost_repair:
-                self.assertEqual(after['reference']['confirmed_operation_id'], OPERATION)
-                self.assertEqual(after['reference']['event_type'], 'COST_REPAIR')
-                self.assertEqual(after['reference']['reference_curve']['tiers'][1]['native_price_usd'], '103')
-                self.assertEqual(after['episode']['prior_comparison_episode_id'],
-                                 reference_before['episode']['comparison_episode_id'])
+                self.assertEqual(after, reference_before)
+                self.assertEqual(completed['readback']['curve_results'][PLATFORM]['actual_site266_curve']['tiers'][1]['native_price_usd'], '103')
             else:
                 self.assertEqual(after, reference_before)
 
@@ -945,7 +1026,7 @@ class CurveRuntime(unittest.TestCase):
                                     readback_ref='fixture-same-platform')
         evidence = dict(run_id='run', checked_at=(now - timedelta(seconds=5)).isoformat(),
                         storefront={'rows': {PLATFORM: {'sku_id': primary_id}}})
-        plan = dict(self.db.get('pricing_plans', 'plan'), mode='smart')
+        plan = dict(self.db.get('pricing_plans', 'plan'), mode='smart', starts_at=(now - timedelta(hours=3)).isoformat())
         self.db.put('pricing_plans', 'plan', plan)
         self.db.put('metadata', 'curve-online-context:plan', {'smart_plan_id': 'plan'})
         self.db.put('actual_price_windows', 'window', {'operation_id': 'window'})

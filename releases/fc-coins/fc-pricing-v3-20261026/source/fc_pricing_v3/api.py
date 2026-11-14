@@ -106,7 +106,8 @@ def _curve_decision(snapshot, plan):
     rows = []
     for row in result.get('rows', []):
         selection = row.get('selection') or {}
-        chosen = {key: selection[key] for key in ('segment', 'label') if key in selection}
+        chosen = {key: selection[key] for key in ('segment', 'label', 'reference_anchors', 'normal_anchors',
+                                                   'final_anchors', 'cost_protection', 'large_market_reference') if key in selection}
         actual_label = (selection.get('assignment') or {}).get('actual_label')
         if actual_label:
             chosen['actual_label'] = actual_label
@@ -424,6 +425,7 @@ def read(path):
             evidence = current['evidence']
             inputs = _curve_proof_inputs(db, evidence)
             rows, catalogues = {}, {}
+            selections = {row['platform']: row.get('selection') or {} for row in (current.get('result') or {}).get('rows', [])}
             for platform, entry in inputs.items():
                 curve = entry.get('primary_curve')
                 tiers = catalogue_tiers(curve)
@@ -440,6 +442,9 @@ def read(path):
                     continue
                 rows[platform] = dict(status=proof['status'], average_discount=proof.get('average_discount'),
                     minimum_safe_procurement_margin=proof['minimum_safe_procurement_margin'])
+                selection = selections.get(platform, {})
+                rows[platform].update({key: selection[key] for key in ('reference_anchors', 'normal_anchors',
+                    'final_anchors', 'cost_protection', 'large_market_reference') if key in selection})
             return dict(_curve_market_quotes(current), price_basis={'rows': rows}, catalogue_samples=catalogues)
         from .engine import price_basis
         original=db.get('pricing_snapshots',snapshot['snapshot_id']) if snapshot else None

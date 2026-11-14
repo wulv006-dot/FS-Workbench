@@ -318,7 +318,8 @@ def curve_learning(plan, platform, state, online, windows, now, current):
                       event.get('cost_basis') != 'same_order_Order_shipping_CNY_margin_at_actual_USD_receipt'
                       else event for event in row['events']]
             eligible.append(dict(row, events=events))
-        policy = assess_strata([row for row in eligible if row['epoch'] < current_epoch], complete=True)
+        assessed = [row for row in eligible if row['epoch'] < current_epoch]
+        policy = assess_strata(assessed, complete=True)
         recent = assess(eligible, complete=True)
         correction = dict(effective_blocks={label: eligible[-1]['block'] + 1 for label in recent['excluded']})
         result[segment] = dict(policy=policy, correction=correction, background_curve_key=background,
@@ -327,7 +328,57 @@ def curve_learning(plan, platform, state, online, windows, now, current):
             assessed_epoch=current_epoch - 1,
             observed_at=source['observed_at'], source_sha256=source['source_sha256'],
             blocks=[_curve_block_summary(row) for row in rows[-2:]])
+        winner = policy.get('winner')
+        if winner in ('B', 'C'):
+            result[segment]['adoption'] = curve_adoption_evidence(assessed, winner, state)
     return result
+
+
+def curve_adoption_evidence(blocks, winner, state):
+    """Use the same fixed-clock exposures used by the approved assessor."""
+    by_pair = {}
+    for block in blocks:
+        if block['hours'] >= 2:
+            by_pair.setdefault(block['pair_id'], {}).setdefault(block['label'], []).append(block)
+    windows, revisions, winning_curves, cohorts, limits = set(), {}, set(), [[], []], []
+    for pair in by_pair.values():
+        exposure = paired_exposure(pair.get('A', []), pair.get(winner, []))
+        if exposure is None:
+            continue
+        a, b, overlaps, _ = exposure
+        if not a['complete'] or not b['complete'] or set(a['prices']) & set(b['prices']):
+            continue
+        winning_curves.update(b['prices'])
+        for cohort, block in zip(cohorts, (a, b)):
+            limits.extend((block['starts_at'], block['ends_at']))
+            windows.update(block['window_ids'])
+            for row in block['events']:
+                if not any(start <= row['offset'] < end for start, end in overlaps):
+                    continue
+                fields = ('actual_net_usd', 'actual_contribution_usd', 'new_customer', 'cost_basis')
+                revisions[row['order_key']] = fingerprint([row.get(key) for key in fields])
+                cohort.append(row)
+    if len(winning_curves) != 1 or not revisions or any(row.get('new_customer') is None or row.get('actual_contribution_usd') is None
+                            for rows in cohorts for row in rows):
+        return None
+    def totals(rows):
+        return (sum(Decimal(row['actual_net_usd']) for row in rows),
+                sum(Decimal(row['actual_contribution_usd']) for row in rows),
+                len({row['customer_key'] for row in rows if row['new_customer'] and row.get('customer_key')}))
+
+    initial = state['episode']['initial_reference_curve_id']
+    previous = (state['reference'].get('adoption') or {}).get('cumulative') or {}
+    if previous.get('initial_reference_curve_id') != initial:
+        previous = {}
+    fields = ('revenue_delta_usd', 'procurement_gross_delta_usd', 'new_customer_delta')
+    cumulative = {key: str(Decimal(previous.get(key, '0')) + candidate - baseline)
+                  for key, baseline, candidate in zip(fields, totals(cohorts[0]), totals(cohorts[1]))}
+    cumulative.update(initial_reference_curve_id=initial, evidence_ref=fingerprint([sorted(windows), revisions]))
+    return dict(order_revisions=revisions, window_ids=sorted(windows), window_start=min(limits), window_end=max(limits),
+                winning_curve_key=next(iter(winning_curves)),
+                cost_revision=fingerprint(revisions), maturity='OBSERVED_WINNER',
+                reason='matched_original_order_revenue_cost_and_customer_outcomes',
+                changed_judgment='paired_observed_winner_' + winner, cumulative=cumulative)
 
 
 def paired_exposure(first, second):

@@ -121,29 +121,17 @@ class AdoptionLedger(unittest.TestCase):
         self.assertEqual(adopted['segment_sources']['small']['reference_curve_id'], reference['reference_curve_id'])
         self.assertEqual(adopted['segment_sources']['large']['curve_key'], curve_key(trial))
 
-    def test_cost_repair_uses_actual_changed_band_and_keeps_episode_initial_prices(self):
+    def test_cost_protection_records_changed_band_without_adopting(self):
         state = self.start()
         before = deepcopy(self.baseline['native_payload'])
         before['more']['price'][0] = '9.7'
         after = deepcopy(before)
         after['more']['price'][1] = '103'
-        reference, episode = state['reference'], state['episode']
-        selection = dict(reference_curve_id=reference['reference_curve_id'],
-                         comparison_episode_id=episode['comparison_episode_id'],
-                         failed_proof_hash='failed', repair_domain_ref='repair')
-        op = dict(operation_id=OPERATION, completed_at=SNAPSHOT_TIME,
-                  bundle=dict(before_action={'curves': {PLATFORM: saved(before)}},
-                              curve_proofs={PLATFORM: {'proof_hash': 'verified'}}))
+        protection = dict(status='active', segments={'large': {'normal': '100', 'target': '103'}})
         with self.db.transaction() as conn:
-            result = self.db._record_cost_repair(PLATFORM, selection, op, saved(after), conn)
-        self.assertEqual(result['status'], 'ADOPTED')
-        state = self.db.curve_strategy_state(PLATFORM)
-        self.assertEqual([tier['native_price_usd'] for tier in state['reference']['reference_curve']['tiers']],
-                         ['10', '103'])
-        self.assertEqual(state['reference']['segment_sources']['small']['reference_curve_id'],
-                         reference['reference_curve_id'])
-        self.assertEqual(state['episode']['initial_reference_curve_id'], episode['initial_reference_curve_id'])
-        self.assertEqual(state['episode']['initial_reference_curve'], episode['initial_reference_curve'])
+            self.db._save_curve_cost_protection(PLATFORM, {'cost_protection': protection}, OPERATION, conn)
+        self.assertEqual(self.db.curve_cost_protection(PLATFORM), dict(protection, operation_id=OPERATION))
+        self.assertEqual(self.db.curve_strategy_state(PLATFORM), state)
 
     def test_preview_after_original_writer_adopts_editor_provenance_curve(self):
         metadata = dict(source='Admin Goods edit read only', verified_domain='native stored tiers only',

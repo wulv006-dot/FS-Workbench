@@ -740,6 +740,18 @@
           const retained=basis?.average_discount?.retained_ratio,margin=basis?.minimum_safe_procurement_margin;
           if(retained!=null)details.replaceChildren(node('p',`${discountWindow(basis?.average_discount)} 平均优惠 ${((1-Number(retained))*100).toFixed(2)}%`),
             node('p',`采集时估算组合采购毛利 ${margin==null?'待核':(Number(margin)*100).toFixed(2)+'%'}`));
+          if(basis?.normal_anchors?.large != null && basis?.final_anchors?.large != null){
+            const protectedLarge=Boolean(basis.cost_protection?.segments?.large);
+            details.append(node('p',`1000K · 基准 ${usd(basis.reference_anchors?.large)} · 候选 ${usd(basis.normal_anchors.large)} · 目标 ${usd(basis.final_anchors.large)}${protectedLarge?' · 含临时成本保护':''}`));
+            const references=basis.large_market_reference||[];
+            if(!references.length)details.append(node('p','1000K 参考暂无同地区、同币种及同发货方式样本。'));
+            const percent=value=>`${Number(value)>0?'+':''}${Number(value).toFixed(1)}%`;
+            for(const reference of references){
+              const source=reference.source==='ArabUT'?'Arab-UT':reference.source;
+              details.append(node('p',`${source} · 由 100K 线性折算 ${usd(reference.price_usd)} / 1000K，赠 ${reference.bonus_k}K · ${when(reference.captured_at)}`),
+                node('p',`每实交 100K ${usd(reference.usd_per_delivered_100k)} · 候选价差 ${percent(reference.normal_difference_pct)} · 目标价差 ${percent(reference.final_difference_pct)}`));
+            }
+          }
           for(const source of ['Lootbar','U7Buy','ArabUT']){
             const card=node('section');card.className='market-quote';card.append(node('h4',source==='ArabUT'?'Arab-UT':source));
             const offers=(market.competitor_offers||[]).filter(row=>row.source===source&&row.platform===platform&&Number(row.purchase_k)===100);

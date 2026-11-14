@@ -16,8 +16,54 @@ CENT = Decimal('.01')
 INTERMEDIATE_TRIAL_STEPS = (Decimal('.02'), Decimal('.01'))
 
 
+def band_anchors(curve):
+    prices = {row['purchase_k']: row['native_price_usd'] for row in curve['tiers']}
+    return {band: prices[quantity] for band, quantity in ANCHORS.items() if quantity in prices}
+
+
+def large_market_reference(platform, offers, now, *, region_id, delivery_method):
+    if delivery_method in (None, '', 'unknown'):
+        return []
+    references = []
+    for row in offers:
+        if (row.get('platform') != platform or row.get('purchase_k') != '100'
+                or row.get('currency') != 'USD' or row.get('promotion_eligibility') != 'all_customers'
+                or row.get('conditional') is True or row.get('comparable') is not True
+                or str(row.get('region_id') or 0) != str(region_id)
+                or row.get('delivery_method') != delivery_method):
+            continue
+        try:
+            if not 0 <= (now - instant(row['captured_at'])).total_seconds() <= 900:
+                continue
+            price = Decimal(row['regular_price']) * 10
+            bonus = Decimal(row['bonus_k']) * 10
+            if not price.is_finite() or not bonus.is_finite() or price <= 0 or bonus < 0:
+                continue
+        except (ArithmeticError, KeyError, TypeError, ValueError):
+            continue
+        references.append(dict(source=row['source'], captured_at=row['captured_at'], observation_id=row.get('observation_id'),
+                               basis='linear_from_100k', purchase_k='1000', price_usd=str(price),
+                               bonus_k=str(bonus), usd_per_delivered_100k=str(price * 100 / (1000 + bonus))))
+    return references
+
+
+def large_market_comparison(references, normal, final):
+    def unit_rate(curve):
+        tier = next((row for row in curve['tiers'] if row['purchase_k'] == '1000'), None)
+        if tier:
+            return Decimal(tier['native_price_usd']) * 100 / (1000 + Decimal(tier['promised_bonus_k']))
+
+    normal_rate, final_rate = unit_rate(normal), unit_rate(final)
+    if normal_rate is None or final_rate is None:
+        return []
+    return [dict(row, normal_usd_per_delivered_100k=str(normal_rate), final_usd_per_delivered_100k=str(final_rate),
+                 normal_difference_pct=str((normal_rate / Decimal(row['usd_per_delivered_100k']) - 1) * 100),
+                 final_difference_pct=str((final_rate / Decimal(row['usd_per_delivered_100k']) - 1) * 100))
+            for row in references]
+
+
 def market_preference(current, platform, offers, performance, now):
-    """Use comparable 100K evidence for the small band only."""
+    """Use the directly observed 100K comparison for the small band."""
     segment, quantity = 'small', ANCHORS['small']
     matched = []
     for row in offers:
@@ -33,8 +79,21 @@ def market_preference(current, platform, offers, performance, now):
         except (KeyError, ValueError, TypeError):
             continue
     own = next((tier for tier in current['tiers'] if tier['purchase_k'] == quantity), None)
+    if len(matched) != 1 or own is None:
+        return None
+    try:
+        rival = Decimal(matched[0]['regular_price']) / Decimal(matched[0]['delivered_k'])
+        current_rate = Decimal(own['native_price_usd']) / (Decimal(quantity) + Decimal(own['promised_bonus_k']))
+        difference = current_rate / rival - 1
+    except (ArithmeticError, KeyError, TypeError, ValueError):
+        return None
+    result = market_direction(segment, difference, performance)
+    return dict(result, lootbar_price_difference=str(difference)) if result else None
+
+
+def market_direction(segment, difference, performance):
     comparison = performance.get(segment) or {}
-    if len(matched) != 1 or own is None or comparison.get('coverage_status') != 'comparable':
+    if comparison.get('coverage_status') != 'comparable':
         return None
     try:
         current_metrics, previous_metrics = comparison['current'], comparison['previous']
@@ -48,9 +107,6 @@ def market_preference(current, platform, offers, performance, now):
             margin, prior_margin = (Decimal(str(row[margin_field])) for row in (current_metrics, previous_metrics))
             if not margin.is_finite() or not prior_margin.is_finite():
                 return None
-        rival = Decimal(matched[0]['regular_price']) / Decimal(matched[0]['delivered_k'])
-        current_rate = Decimal(own['native_price_usd']) / (Decimal(quantity) + Decimal(own['promised_bonus_k']))
-        difference = current_rate / rival - 1
     except (ArithmeticError, KeyError, TypeError, ValueError):
         return None
     if prior_orders <= 0 or orders < 0:
@@ -63,7 +119,7 @@ def market_preference(current, platform, offers, performance, now):
         label = 'C'
     else:
         return None
-    return dict(segment=segment, label=label, lootbar_price_difference=str(difference), comparison=comparison)
+    return dict(segment=segment, label=label, comparison=comparison)
 
 
 def _repair_rank(current, target, affected_segments):
