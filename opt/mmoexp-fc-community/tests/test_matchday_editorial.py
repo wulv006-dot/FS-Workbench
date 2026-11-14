@@ -151,9 +151,48 @@ class EditorialPlanTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_config({'enabled': True, 'plan_path': '/tmp/plan.json',
                              'state_path': '/tmp/state.db'}, None)
+        with tempfile.TemporaryDirectory() as directory:
+            config = {'enabled': True, 'plan_path': str(Path(directory) / 'plan.json'),
+                      'state_path': str(Path(directory) / 'state.db')}
+            matchday = {'enabled': True, 'routes': ROUTES}
+            with self.assertRaises(ValueError):
+                validate_config(config, matchday)
+            with self.assertRaises(ValueError):
+                validate_config(dict(config, allowed_guild_ids=[str(GUILD),
+                                  '1041923524601851914']), matchday)
+            self.assertIs(validate_config(dict(config, allowed_guild_ids=[str(GUILD)]),
+                                          matchday)['enabled'], True)
 
 
 class EditorialChatTests(unittest.IsolatedAsyncioTestCase):
+    async def test_test_only_rollout_rejects_official_plan(self):
+        from chat_service import ChatClient
+        kickoff = dt.datetime.now(UTC) + dt.timedelta(minutes=30)
+        official_guild = '1041923524601851914'
+        official_channel = 1571043454136484082
+        official_plan = plan(kickoff, guild_id=official_guild,
+                             smart_score_message_url='https://discord.com/channels/{}/{}/{}'.format(
+                                 official_guild, official_channel, MESSAGE))
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            path = directory / 'plan.json'
+            path.write_text(json.dumps(official_plan), encoding='utf-8')
+            routes = dict(ROUTES)
+            routes[official_guild] = dict(ROUTES[str(GUILD)],
+                                          source_channel_id=official_channel,
+                                          discussion_channel_id=official_channel)
+            config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': {'enabled': True, 'routes': routes,
+                                        'state_path': str(directory / 'pulse.db')},
+                'matchday_editorial': {'enabled': True,
+                    'allowed_guild_ids': [str(GUILD)], 'plan_path': str(path),
+                    'state_path': str(directory / 'editorial.db')}}
+            client = ChatClient(config)
+            client.get_channel = lambda _: self.fail('Official route must not be fetched')
+            await client.send_editorial_due()
+            await client.close()
+
     async def test_posts_once_only_after_reading_real_smart_score_card(self):
         from chat_service import ChatClient
         kickoff = dt.datetime.now(UTC) + dt.timedelta(minutes=30)
@@ -165,7 +204,8 @@ class EditorialChatTests(unittest.IsolatedAsyncioTestCase):
                 'routes': {str(GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
                 'matchday_engagement': {'enabled': True, 'routes': ROUTES,
                                         'state_path': str(directory / 'pulse.db')},
-                'matchday_editorial': {'enabled': True, 'plan_path': str(path),
+                'matchday_editorial': {'enabled': True, 'allowed_guild_ids': [str(GUILD)],
+                                       'plan_path': str(path),
                                        'state_path': str(directory / 'editorial.db')}}
             client = ChatClient(config)
             channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=GUILD),
@@ -191,7 +231,8 @@ class EditorialChatTests(unittest.IsolatedAsyncioTestCase):
                 'routes': {str(GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
                 'matchday_engagement': {'enabled': True, 'routes': ROUTES,
                                         'state_path': str(directory / 'pulse.db')},
-                'matchday_editorial': {'enabled': True, 'plan_path': str(path),
+                'matchday_editorial': {'enabled': True, 'allowed_guild_ids': [str(GUILD)],
+                                       'plan_path': str(path),
                                        'state_path': str(directory / 'editorial.db')}}
             client = ChatClient(config)
             channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=GUILD),

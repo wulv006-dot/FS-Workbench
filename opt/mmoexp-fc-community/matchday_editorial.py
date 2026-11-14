@@ -52,6 +52,12 @@ def validate_config(config, matchday_config):
     weekly = config.get('max_matches_per_london_week', 2)
     if type(weekly) is not int or not 1 <= weekly <= 4:
         raise ValueError('Editorial weekly match capacity must be 1 to 4')
+    allowed = config.get('allowed_guild_ids')
+    routes = matchday_config.get('routes') or {}
+    if (not isinstance(allowed, list) or not 1 <= len(allowed) <= 2 or
+            any(not isinstance(guild, str) or guild not in routes for guild in allowed) or
+            len(set(allowed)) != len(allowed)):
+        raise ValueError('Editorial allowed guilds must be an explicit route subset')
     return config
 
 
