@@ -240,7 +240,8 @@ def curve_decision_basis(db, plan):
         proof = bundle['curve_proofs'][platform]
         selection = bundle['curve_selection'][platform]
         chosen = {key: selection[key] for key in ('segment', 'label', 'reference_curve_id',
-                                                 'comparison_episode_id') if key in selection}
+            'comparison_episode_id', 'reference_anchors', 'normal_anchors', 'final_anchors', 'cost_protection',
+            'large_market_reference') if key in selection}
         actual_label = (selection.get('assignment') or {}).get('actual_label')
         if actual_label is not None:
             chosen['actual_label'] = actual_label

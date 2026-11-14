@@ -267,38 +267,81 @@ class Ledger:
             result.update(status='ADOPTED', reference_curve_id=adopted['reference_curve_id'])
         return self.put('metadata', key, dict(result, proposal=proposal, proof=adoption['proof']), conn)
 
-    def _record_cost_repair(self, platform, selection, op, current, conn):
-        from .curve_strategy_v6 import curve_strategy_key, primary_reference_curve, segment_changes, update_reference_segments
-        from .price_curve import curve_key
+    def curve_cost_protection(self, platform, db=None):
+        return self.get('metadata', 'owned-curve-cost-protection-v6:' + platform, db) or {}
+
+    def restore_normal_curve_reference(self, platform, expected_reference, source_operation=None, *, db=None):
+        """Repair a known historical adoption using original ledger evidence only."""
+        from .curve_strategy_v6 import band_anchors, curve_strategy_key, segment_changes, update_reference_segments
 
         key = curve_strategy_key(platform)
-        state = self.curve_strategy_state(platform, conn)
-        if (not state or state['reference']['reference_curve_id'] != selection['reference_curve_id']
-                or state['episode']['comparison_episode_id'] != selection['comparison_episode_id']):
-            return dict(status='NOT_ADOPTED', reason='strategy_repair_reference_or_episode_changed')
-        current = primary_reference_curve(current, platform)
-        prior = state['episode']
-        reference_id = fingerprint([op['operation_id'], platform, 'COST_REPAIR', curve_key(current)])
-        segments = segment_changes(op['bundle']['before_action']['curves'][platform], current)
-        receipt = dict(operation_id=op['operation_id'], readback_ref='readback_receipts/' + op['operation_id'])
-        try:
-            updated = update_reference_segments(state['reference'], current, segments, reference_id, receipt, 'COST_REPAIR')
-        except ValueError as error:
-            return dict(status='NOT_ADOPTED', reason=str(error))
-        reference = dict(state['reference'], **updated, event_type='COST_REPAIR',
-                         failed_proof_hash=selection['failed_proof_hash'],
-                         repair_domain_ref=selection['repair_domain_ref'],
-                         repaired_proof_hash=op['bundle']['curve_proofs'][platform]['proof_hash'])
-        prior_id = prior['comparison_episode_id']
-        episode = dict(comparison_episode_id=fingerprint([key, prior_id, reference_id]),
-                       initial_reference_curve=prior['initial_reference_curve'],
-                       initial_reference_curve_id=prior['initial_reference_curve_id'],
-                       prior_comparison_episode_id=prior_id, rule_revision=prior['rule_revision'],
-                       reason='COST_REPAIR', opened_at=op['completed_at'])
-        self.put('metadata', key + ':episode:' + prior_id, prior, conn)
-        self.put('metadata', key, dict(reference=reference, episode=episode), conn)
-        return dict(status='ADOPTED', reference_curve_id=reference_id,
-                    comparison_episode_id=episode['comparison_episode_id'])
+        repair_key = key + ':normal-reference-repair:' + expected_reference
+        with (self.transaction() if db is None else nullcontext(db)) as conn:
+            prior = self.get('metadata', repair_key, conn)
+            if prior:
+                if prior['source_operation'] != source_operation:
+                    raise ValueError('strategy_reference_repair_source_changed')
+                return prior
+            state = self.curve_strategy_state(platform, conn)
+            reference, episode = state['reference'], state['episode']
+            if reference['reference_curve_id'] != expected_reference or reference.get('event_type') != 'COST_REPAIR':
+                raise ValueError('strategy_reference_repair_baseline_changed')
+            if conn.execute('SELECT 1 FROM resource_leases WHERE resource=?', ('base:' + platform,)).fetchone():
+                raise ValueError('strategy_reference_repair_original_operation_pending')
+            previous_operation = reference['confirmed_operation_id']
+            previous = self.get('operations', previous_operation, conn)
+            if (not previous or previous['status'] != 'COMPLETED'
+                    or self.get('readback_receipts', previous_operation, conn) != previous.get('readback')
+                    or (previous.get('curve_cost_repair_result') or {}).get(platform, {}).get('reference_curve_id') != expected_reference):
+                raise ValueError('strategy_reference_repair_original_receipt_missing')
+            confirmed_curve_window(previous)
+            initial = self.get('metadata', key + ':initial', conn)
+            original_curve = initial['initial_reference_curve']
+            original_ref = initial['initial_reference_curve_id']
+            if source_operation:
+                operation = self.get('operations', source_operation, conn)
+                if (not operation or operation['status'] != 'COMPLETED' or source_operation == previous_operation
+                        or self.get('readback_receipts', source_operation, conn) != operation.get('readback')):
+                    raise ValueError('strategy_reference_repair_source_unconfirmed')
+                selected = operation['bundle']['curve_selection'][platform]
+                displaced = previous['bundle']['curve_selection'][platform]
+                original_ref = displaced['reference_curve_id']
+                if (operation.get('curve_cost_repair_result', {}).get(platform, {}).get('reference_curve_id') != original_ref
+                        or selected.get('label') != 'COST_REPAIR'
+                        or selected['reference_curve_id'] != initial['initial_reference_curve_id']):
+                    raise ValueError('strategy_reference_repair_source_lineage_changed')
+                curve, _ = confirmed_curve_window(operation)
+                original_curve = curve['curves'][platform]
+            sources = reference.get('segment_sources') or {}
+            affected = [segment for segment in segment_changes(reference['reference_curve'], original_curve)
+                        if not sources or (sources.get(segment) or {}).get('kind') == 'COST_REPAIR']
+            if not affected:
+                raise ValueError('strategy_reference_repair_segments_missing')
+            source_ref = ('readback_receipts/' + source_operation) if source_operation else 'metadata/' + key + ':initial'
+            updated = update_reference_segments(reference, original_curve, affected, original_ref,
+                dict(operation_id=source_operation, readback_ref=source_ref), 'NORMAL_BASELINE_RESTORED')
+            reference = dict(reference, **updated, event_type='NORMAL_BASELINE_RESTORED')
+            state_after = dict(state, reference=reference)
+            normal = band_anchors(reference['reference_curve'])
+            previous_prices = band_anchors(state['reference']['reference_curve'])
+            # The currently observed prices are checked at collection time.
+            # Mark the affected bands so the next round prices them from A/P.
+            protection = dict(status='legacy', segments={p:dict(normal=normal[p], target=previous_prices[p]) for p in affected})
+            result = dict(platform=platform, prior_state=state, source_operation=source_operation,
+                          restored_reference_id=reference['reference_curve_id'], restored_anchors=normal,
+                          repaired_segments=affected, repaired_at=clock().isoformat())
+            self.put('metadata', repair_key, result, conn)
+            self.put('metadata', key, state_after, conn)
+            self._save_curve_cost_protection(platform, dict(cost_protection=protection), previous_operation, conn)
+            return result
+
+    def _save_curve_cost_protection(self, platform, selection, operation_id, conn):
+        protection = (selection or {}).get('cost_protection')
+        if protection is not None:
+            key = 'owned-curve-cost-protection-v6:' + platform
+            current = self.get('metadata', key, conn) or {}
+            if current.get('segments', {}) != protection['segments']:
+                self.put('metadata', key, dict(protection, operation_id=operation_id), conn)
 
     def adopt_confirmed_curve(self, adoption, *, current_curve):
         """Apply a trusted same-round adoption to an existing confirmed operation."""
@@ -328,6 +371,23 @@ class Ledger:
             if curve_key(confirmed) != curve_key(primary_reference_curve(current_curve, platform)):
                 raise ValueError('strategy_adoption_current_curve_changed')
             return self._record_curve_adoption(adoption, op, confirmed, conn)
+
+    def current_curve_operation(self, platform, plan, expected):
+        from .price_curve import curve_key
+
+        resource = 'base:' + platform
+        with self.connect() as conn:
+            for raw, in conn.execute('SELECT body FROM actual_price_windows ORDER BY rowid DESC'):
+                window = json.loads(raw)
+                curve = (window['action'].get('curves') or {}).get(platform)
+                if (window.get('closed_at') or resource in window.get('resource_closed_at', {})
+                        or resource not in window.get('resources', []) or not curve):
+                    continue
+                original = self.get('operations', window['operation_id'], conn)
+                if (original and original.get('plan_id') == plan['plan_id'] and original.get('revision') == plan['revision']
+                        and original.get('status') in ('COMPLETED', 'NO_CHANGE') and curve_key(curve) == expected):
+                    return window['operation_id']
+                return None
 
     def activate_generation(self, generation, retirement, unresolved=()):
         with self.transaction() as db:
@@ -996,11 +1056,8 @@ class Ledger:
                 op['curve_adoption_result'] = {key: value for key, value in adoption_result.items()
                                                if key not in ('proposal', 'proof')}
             if not no_change and op['bundle'].get('write_protocol') == 'fc27_curve_v6':
-                repairs = {p: self._record_cost_repair(p, selection, op, action['curves'][p], db)
-                           for p, selection in (op['bundle'].get('curve_selection') or {}).items()
-                           if selection.get('label') == 'COST_REPAIR'}
-                if repairs:
-                    op['curve_cost_repair_result'] = repairs
+                for platform, selection in (op['bundle'].get('curve_selection') or {}).items():
+                    self._save_curve_cost_protection(platform, selection, operation_id, db)
             self.put('operations', operation_id, op, db)
             db.execute('DELETE FROM resource_leases WHERE operation_id=?', (operation_id,))
             return op
@@ -1029,6 +1086,7 @@ class Ledger:
         ident = 'observed-curve:' + snapshot_id + ':' + platform
         if self.get('actual_price_windows', ident, conn):
             return
+        self._save_curve_cost_protection(platform, selection, ident, conn)
         for row in conn.execute('SELECT body FROM actual_price_windows'):
             window = json.loads(row[0])
             if resource not in native_resources(window.get('resources', [])):

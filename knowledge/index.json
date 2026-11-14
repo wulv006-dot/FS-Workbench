@@ -399,7 +399,7 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_d3_d1_es_ready_20261114",
+      "revision": "fc_v61_temporary_cost_protection_20261114",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -411,7 +411,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "766c8d7296f3dd2b1d9613c85bc4f4700904808042db3f40475ce4d7df713b3f",
+        "sha256": "1f9075056a309c184f0e311fdbb3999df6a67612deed620850a212399d0fafe8",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -427,7 +427,8 @@
         "fc.pricing.constraints@fc27_dual20_d9_d2_v2",
         "fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4",
         "fc.pricing.constraints@fc_v61_native_all_two_band_20261113",
-        "fc.pricing.constraints@fc_v61_100k_market_two_band_20261113"
+        "fc.pricing.constraints@fc_v61_100k_market_two_band_20261113",
+        "fc.pricing.constraints@fc_v61_d3_d1_es_ready_20261114"
       ],
       "provenance": [
         {
@@ -1219,7 +1220,7 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc_v61_d3_d1_es_ready_20261114",
+      "revision": "fc_v61_temporary_cost_protection_20261114",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1232,7 +1233,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "766c8d7296f3dd2b1d9613c85bc4f4700904808042db3f40475ce4d7df713b3f",
+        "sha256": "1f9075056a309c184f0e311fdbb3999df6a67612deed620850a212399d0fafe8",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1252,7 +1253,8 @@
         "fc.pricing.v3@20261110-three-platform-100k",
         "fc.pricing.v3@20261111-lootbar-no-coupon",
         "fc.pricing.v3@fc_v61_native_all_two_band_20261113",
-        "fc.pricing.v3@fc_v61_100k_market_two_band_20261113"
+        "fc.pricing.v3@fc_v61_100k_market_two_band_20261113",
+        "fc.pricing.v3@fc_v61_d3_d1_es_ready_20261114"
       ],
       "provenance": [
         {
@@ -1567,7 +1569,7 @@
     },
     {
       "id": "fc.reporting.business",
-      "revision": "fc_v61_d3_d1_es_ready_20261114",
+      "revision": "fc_v61_temporary_cost_protection_20261114",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1581,7 +1583,7 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/BUSINESS.md",
-        "sha256": "7f1b2659ee002a4d273b30a01ee47bc47a7a8d50d7dfe36b4ec76deb9fe4d388",
+        "sha256": "7a698a6056bebbdd5a4b3e1b5a07efe860f355c2f8b98040e31b5ff0cbabb4ea",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1589,7 +1591,8 @@
         "fc.reporting.business@20261105-1",
         "fc.reporting.business@20261106-current",
         "fc.reporting.business@20261106-clean",
-        "fc.reporting.business@20261110-three-platform-100k"
+        "fc.reporting.business@20261110-three-platform-100k",
+        "fc.reporting.business@fc_v61_d3_d1_es_ready_20261114"
       ],
       "provenance": [
         {
