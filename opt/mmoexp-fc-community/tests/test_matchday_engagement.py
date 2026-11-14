@@ -1,6 +1,8 @@
 import tempfile
 import time
 import unittest
+import sqlite3
+from contextlib import closing
 from unittest.mock import AsyncMock
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,21 +39,33 @@ class MatchdayEngagementTests(unittest.TestCase):
         self.assertEqual((pulse.home, pulse.away, pulse.score, pulse.kind),
                          ('Kosovo', 'Israel', '0–1', 'goal'))
         self.assertIn('Kosovo vs Israel', prompt_text(pulse))
+        self.assertIn('0–1', prompt_text(pulse))
         self.assertIsNone(parse_smart_score(message(1, body, author=2, now=now), CONFIG, now))
         self.assertIsNone(parse_smart_score(message(1, body, channel=3, now=now), CONFIG, now))
         self.assertIsNone(parse_smart_score(message(1, body, now=now-400), CONFIG, now))
 
     def test_cooldown_and_single_final(self):
         now = time.time()
+        kickoff = parse_smart_score(message(1571184986541789366, 'Kosovo 0 — 0 Israel\nMatch Started', now=now), CONFIG, now)
         goal = parse_smart_score(message(1571184986541789367, 'Kosovo 1 — 0 Israel\nGoal!', now=now), CONFIG, now)
-        final = parse_smart_score(message(1571184986541789369, 'Kosovo 1 — 0 Israel\nMatch Finished', now=now), CONFIG, now)
+        next_goal = parse_smart_score(message(1571184986541789369, 'Kosovo 2 — 0 Israel\nGoal!', now=now), CONFIG, now)
+        half_time = parse_smart_score(message(1571184986541789370, 'Kosovo 2 — 0 Israel\nHalf Time', now=now), CONFIG, now)
+        final = parse_smart_score(message(1571184986541789372, 'Kosovo 2 — 0 Israel\nMatch Finished', now=now), CONFIG, now)
         with tempfile.TemporaryDirectory() as directory:
             store = MatchPulseStore(Path(directory) / 'pulse.sqlite3')
+            self.assertTrue(store.claim(1571184986541789366, kickoff, now))
             self.assertTrue(store.claim(1571184986541789367, goal, now))
             self.assertFalse(store.claim(1571184986541789368, goal, now+1))
-            self.assertTrue(store.claim(1571184986541789369, final, now+2))
-            self.assertFalse(store.claim(1571184986541789370, final, now+3))
-            self.assertFalse(store.claim(1571184986541789368, goal, now+1000))
+            self.assertTrue(store.claim(1571184986541789369, next_goal, now+2))
+            self.assertTrue(store.claim(1571184986541789370, half_time, now+3))
+            self.assertFalse(store.claim(1571184986541789371, next_goal, now+3))
+            self.assertTrue(store.claim(1571184986541789372, final, now+4))
+            self.assertFalse(store.claim(1571184986541789373, final, now+1000))
+            self.assertFalse(store.claim(1571184986541789368, goal, now+1001))
+            with closing(sqlite3.connect(store.path)) as db:
+                db.execute("UPDATE match_pulse SET last_kind='final'")
+                db.commit()
+            self.assertFalse(store.claim(1571184986541789374, final, now+1002))
 
     def test_ignores_status_and_configuration_messages(self):
         now = time.time()
