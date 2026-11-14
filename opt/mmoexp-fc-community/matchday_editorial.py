@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
-from matchday_engagement import SMART_SCORE_ID, _card_lines
+from matchday_engagement import SMART_SCORE_ID
 
 UTC = dt.timezone.utc
 LONDON = ZoneInfo('Europe/London')
@@ -143,7 +143,7 @@ def due_cards(fixtures, now=None):
 
 
 def verify_smart_score_source(message, fixture):
-    """Reject a plan whose linked public card is not the named Smart Score fixture."""
+    """Match teams, league, status and kickoff in one Smart Score fixture field."""
     author = getattr(message, 'author', None)
     channel = getattr(message, 'channel', None)
     guild = getattr(message, 'guild', None)
@@ -152,14 +152,24 @@ def verify_smart_score_source(message, fixture):
             not guild or guild.id != fixture.guild_id or
             getattr(message, 'id', None) != fixture.source_message_id):
         return False
-    text = ' '.join(_card_lines(message)).casefold()
-    if fixture.home.casefold() not in text or fixture.away.casefold() not in text:
-        return False
-    timestamps = [int(value) for value in re.findall(r'<t:(\d{9,11}):[tTdDfFR]>', text)]
-    if not timestamps or all(abs(value - fixture.kickoff_at.timestamp()) > 900
-                             for value in timestamps):
-        return False
-    return True
+    for embed in getattr(message, 'embeds', ()) or ():
+        if getattr(embed, 'title', '') != 'Upcoming Matches':
+            continue
+        for field in getattr(embed, 'fields', ()) or ():
+            name, value = str(getattr(field, 'name', '')), str(getattr(field, 'value', ''))
+            teams = re.search(r'\*\*([^*\n]+)\*\*\s+vs\s+\*\*([^*\n]+)\*\*',
+                              name, re.IGNORECASE)
+            if (not teams or teams[1].strip().casefold() != fixture.home.casefold() or
+                    teams[2].strip().casefold() != fixture.away.casefold()):
+                continue
+            league = re.search(r'\*\*League\*\*:\s*([^\n]+)', value)
+            status = re.search(r'\*\*Status\*\*:\s*([^\n]+)', value)
+            kickoff = re.search(r'\*\*Kickoff\*\*:\s*<t:(\d{9,11}):[tTdDfFR]>', value)
+            if (league and league[1].strip().casefold() == fixture.competition.casefold() and
+                    status and status[1].strip() == 'Not Started' and kickoff and
+                    abs(int(kickoff[1]) - fixture.kickoff_at.timestamp()) <= 900):
+                return True
+    return False
 
 
 def card_text(fixture, phase):
