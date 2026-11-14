@@ -4,15 +4,19 @@ Smart Score remains the source of match facts. This module reads only its public
 cards in one configured channel and never reads private prediction responses.
 """
 
+import datetime as dt
+import json
 import re
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 SMART_SCORE_ID = 1496068397757366273
 COOLDOWN_SECONDS = 900
 MAX_MESSAGE_AGE_SECONDS = 180
 SCORE = re.compile(r'^(.{2,60}?)\s+(\d{1,2})\s*[—–-]\s*(\d{1,2})\s+(.{2,60})$')
+LONDON = ZoneInfo('Europe/London')
 
 
 def _snowflake(value):
@@ -119,6 +123,18 @@ def parse_smart_score(message, config, now):
                       route['coins_channel_id'])
 
 
+def followup_due_at(now):
+    local = dt.datetime.fromtimestamp(now, dt.timezone.utc).astimezone(LONDON)
+    due = (local + dt.timedelta(days=1)).replace(hour=10, minute=0,
+                                                 second=0, microsecond=0)
+    return due.astimezone(dt.timezone.utc).timestamp()
+
+
+def followup_text(pulse):
+    return ('Match to Squad: **{} {} {}**. One FC27 pick for your XI—who makes it? '
+            'Share your choice below.').format(pulse.home, pulse.score, pulse.away)
+
+
 class MatchPulseStore:
     def __init__(self, path):
         self.path = str(Path(path))
@@ -128,6 +144,10 @@ class MatchPulseStore:
                 last_message_id TEXT NOT NULL, last_post_at REAL NOT NULL,
                 last_kind TEXT NOT NULL,
                 PRIMARY KEY (guild_id, match_key))''')
+            db.execute('''CREATE TABLE IF NOT EXISTS match_followup (
+                event_key TEXT PRIMARY KEY, due_at REAL NOT NULL,
+                payload TEXT NOT NULL, status TEXT NOT NULL,
+                message_id TEXT)''')
 
     def claim(self, message_id, pulse, now):
         if not _snowflake(message_id):
@@ -161,6 +181,40 @@ class MatchPulseStore:
                 db.execute('INSERT INTO match_pulse VALUES(?,?,?,?,?)',
                             (str(pulse.guild_id), pulse.match_key, str(message_id), now, state))
             return should_post
+
+    def queue_followup(self, pulse, now):
+        if pulse.kind != 'final':
+            return
+        local_day = dt.datetime.fromtimestamp(now, dt.timezone.utc).astimezone(LONDON).date()
+        key = '{}:{}:{}'.format(pulse.guild_id, pulse.match_key, local_day)
+        payload = json.dumps(asdict(pulse), ensure_ascii=False)
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''INSERT OR IGNORE INTO match_followup
+                (event_key,due_at,payload,status) VALUES(?,?,?,'pending')''',
+                (key, followup_due_at(now), payload))
+            db.execute('''UPDATE match_followup SET payload=?
+                WHERE event_key=? AND status='pending' ''', (payload, key))
+
+    def due_followups(self, now):
+        with sqlite3.connect(self.path) as db:
+            rows = db.execute('''SELECT event_key,payload FROM match_followup
+                WHERE status='pending' AND due_at<=? ORDER BY due_at LIMIT 2''', (now,)).fetchall()
+        return [(key, MatchPulse(**json.loads(payload))) for key, payload in rows]
+
+    def reserve_followup(self, key):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            return db.execute('''UPDATE match_followup SET status='sending'
+                WHERE event_key=? AND status='pending' ''', (key,)).rowcount == 1
+
+    def finish_followup(self, key, message_id):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''UPDATE match_followup SET status='sent',message_id=?
+                WHERE event_key=? AND status='sending' ''', (str(message_id), key))
+
+    def unknown_followup(self, key):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''UPDATE match_followup SET status='unknown'
+                WHERE event_key=? AND status='sending' ''', (key,))
 
 
 def prompt_text(pulse):

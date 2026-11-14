@@ -28,6 +28,7 @@ class MatchdayScoutTests(unittest.TestCase):
                 return json.dumps({'queries': [
                     '15 16 November 2026 football major league fixtures',
                     '15 16 November 2026 UEFA international fixtures',
+                    '15 16 November 2026 cup fixtures',
                 ]})
             self.assertEqual(limit, 220)
             return json.dumps({'matches': [
@@ -37,7 +38,7 @@ class MatchdayScoutTests(unittest.TestCase):
 
         self.assertEqual(scout.shortlist(now, search, model), [
             {'home': 'Spain', 'away': 'England', 'competition': 'Nations League', 'date': '2026-11-15'}])
-        self.assertEqual(len(searches), 2)
+        self.assertEqual(len(searches), 3)
         self.assertIn('UEFA international', searches[1])
         self.assertEqual(scout.shortlist(now, lambda _: {'results': []}, model), [])
 

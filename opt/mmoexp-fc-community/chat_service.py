@@ -105,6 +105,7 @@ class ChatClient(discord.Client):
         self.only_channel = None if only_channel is None else str(only_channel)
         self.matchday_config = config.get('matchday_engagement')
         self.matchday_store = None
+        self.followup_task = None
         self.editorial_config = config.get('matchday_editorial')
         self.editorial_store = None
         self.editorial_task = None
@@ -130,6 +131,8 @@ class ChatClient(discord.Client):
             self.topic_task = asyncio.create_task(self.run_topics())
         if self.editorial_store is not None and not self.post_topic_now:
             self.editorial_task = asyncio.create_task(self.run_editorial())
+        if self.matchday_store is not None and not self.post_topic_now:
+            self.followup_task = asyncio.create_task(self.run_followups())
 
     async def on_ready(self):
         await self.setup_matchday_intro()
@@ -171,11 +174,12 @@ class ChatClient(discord.Client):
             print('Matchday intro failed: ' + type(exc).__name__, flush=True)
 
     async def close(self):
-        for task in (self.topic_task, self.editorial_task):
+        for task in (self.topic_task, self.editorial_task, self.followup_task):
             if task is not None and task is not asyncio.current_task():
                 task.cancel()
         self.topic_task = None
         self.editorial_task = None
+        self.followup_task = None
         await super().close()
 
     async def add_commands(self):
@@ -235,12 +239,49 @@ class ChatClient(discord.Client):
         try:
             await channel.send(embed=embed, view=view,
                                allowed_mentions=discord.AllowedMentions.none())
+            if pulse.kind == 'final':
+                self.matchday_store.queue_followup(pulse, time.time())
             history = list(self.history.get(pulse.discussion_channel_id, ()))
             history.append(('assistant', 'Smart Score public update: ' +
                             matchday_engagement.prompt_text(pulse)))
             self.history[pulse.discussion_channel_id] = history[-MAX_HISTORY:]
         except discord.DiscordException as exc:
             print('Matchday prompt failed: ' + type(exc).__name__, flush=True)
+
+    async def send_followups_due(self, now=None):
+        now = time.time() if now is None else now
+        for key, pulse in self.matchday_store.due_followups(now):
+            channel = self.get_channel(pulse.discussion_channel_id)
+            if channel is None or channel.guild.id != pulse.guild_id:
+                print('Match to Squad channel unavailable', flush=True)
+                continue
+            if not self.matchday_store.reserve_followup(key):
+                continue
+            embed = discord.Embed(title='🧩 Match to Squad',
+                                  description=matchday_engagement.followup_text(pulse),
+                                  colour=0x2275E8)
+            embed.set_footer(text='Match result: Smart Score · FC27 tools: MMOEXP')
+            view = discord.ui.View(timeout=None)
+            view.add_item(discord.ui.Button(label='Smart Score final', url=pulse.source_url))
+            view.add_item(discord.ui.Button(label='Explore FC27 Players',
+                url='https://discord.com/channels/{}/{}'.format(
+                    pulse.guild_id, pulse.players_channel_id)))
+            try:
+                sent = await channel.send(embed=embed, view=view,
+                                          allowed_mentions=discord.AllowedMentions.none())
+                self.matchday_store.finish_followup(key, sent.id)
+            except Exception as exc:
+                self.matchday_store.unknown_followup(key)
+                print('Match to Squad result unknown: ' + type(exc).__name__, flush=True)
+
+    async def run_followups(self):
+        await self.wait_until_ready()
+        while not self.is_closed():
+            try:
+                await self.send_followups_due()
+            except Exception as exc:
+                print('Match to Squad worker failed: ' + type(exc).__name__, flush=True)
+            await asyncio.sleep(60)
 
     # -- selected fixture editorial ---------------------------------------
     def editorial_error(self, message):

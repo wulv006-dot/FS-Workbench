@@ -19,17 +19,17 @@ def shortlist(now, search, model):
     search_prompt = (
         'Today is {} in London. Find notable football fixtures on {} or {}. '
         'Search five major European leagues, major cups, international and world tournaments. '
-        'Choose up to two concrete web search queries. '
+        'Choose up to three useful web search queries yourself. '
         'Reply only with a JSON object containing a queries string array.'
     ).format(local.date().isoformat(), first.isoformat(), second.isoformat())
     plan = json.loads(model(search_prompt, '', 160))
     if not isinstance(plan, dict) or not isinstance(plan.get('queries'), list):
         raise ValueError('Invalid Hermes search plan')
-    queries = [query.strip() for query in plan['queries'][:2]
+    queries = [query.strip() for query in plan['queries'][:3]
                if isinstance(query, str) and 0 < len(query.strip()) <= 128]
     evidence = []
     for query in queries:
-        for row in search(query).get('results', [])[:5]:
+        for row in search(query).get('results', [])[:4]:
             if isinstance(row, dict):
                 evidence.append((str(row.get('title') or '') + ' | ' +
                                  str(row.get('snippet') or row.get('summary') or ''))[:230])
