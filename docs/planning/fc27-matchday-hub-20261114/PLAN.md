@@ -37,6 +37,8 @@ EasySBC 订阅迁到新频道后，relay 仅信任其应用 ID、指定群和频
 
 Smart Score 负责真实比赛查询、直播事件、胜负/比分竞猜、球员赛后评分和群内积分榜。MMOEXP FC Assistant 负责 Welcome 球队身份、FC27 商品私密报价、赛事导航、运营活动和奖励领取；FC27 Chat Assistant 负责赛前话题、半场讨论和赛后复盘。三者共同服务同一赛事专区，不复制 Smart Score 的赛程数据采集。测试回执和当前限制见 [SMART-SCORE-PILOT-20261114.md](SMART-SCORE-PILOT-20261114.md)。
 
+2026-11-15 首个接入已经落地：Chat Assistant 识别指定频道的 Smart Score 公开比分卡，在 Match Chat 发低频赛事讨论卡，附原卡和 FC Assistant 的 Players/Coins 私密报价入口；官方群 Match Chat 已有一张欢迎导航卡。赛事个人预测、积分或优惠券尚未接通，不能把 Smart Score 的私密回执当作 MMOEXP 可读事件。
+
 | 时间 | 公开内容 | 玩家互动 | FC27 关联 |
 | --- | --- | --- | --- |
 | 赛前 24 小时 | Matchday 只读频道发布一场焦点赛事导览；Smart Score 开竞猜 | 私密预测、按球队身份进入讨论 | 曼城等已选球队玩家看到对应入口；给出 FC27 球员/阵容话题 |
