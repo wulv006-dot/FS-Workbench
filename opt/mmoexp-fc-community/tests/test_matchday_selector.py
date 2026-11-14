@@ -51,6 +51,13 @@ class MatchdaySelectorTests(unittest.TestCase):
             created_at=self.now - dt.timedelta(hours=7)), GUILD, CHANNEL, self.now), [])
         self.assertEqual(parse_upcoming(card(self.now, fixture,
             jump_url='https://example.com/not-a-discord-card'), GUILD, CHANNEL, self.now), [])
+        response = card(self.now, fixture, webhook_id=123,
+                        application_id=SMART_SCORE,
+                        type=SimpleNamespace(value=20))
+        self.assertEqual(len(parse_upcoming(response, GUILD, CHANNEL, self.now)), 1)
+        self.assertEqual(parse_upcoming(card(self.now, fixture, webhook_id=123,
+            application_id=456, type=SimpleNamespace(value=20)),
+            GUILD, CHANNEL, self.now), [])
         self.assertEqual(parse_upcoming(card(self.now, [('Manchester City', 'Arsenal',
             'Premier League', self.now - dt.timedelta(minutes=1))]),
             GUILD, CHANNEL, self.now), [])

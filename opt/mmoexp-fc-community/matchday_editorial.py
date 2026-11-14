@@ -50,6 +50,10 @@ def validate_config(config, matchday_config):
         value = config.get(key)
         if not isinstance(value, str) or not Path(value).is_absolute():
             raise ValueError('Editorial {} must be an absolute path'.format(key))
+    if config.get('scout_path') is not None and (
+            not isinstance(config['scout_path'], str) or
+            not Path(config['scout_path']).is_absolute()):
+        raise ValueError('Editorial scout_path must be an absolute path')
     weekly = config.get('max_matches_per_london_week', 2)
     if type(weekly) is not int or not 1 <= weekly <= 4:
         raise ValueError('Editorial weekly match capacity must be 1 to 4')

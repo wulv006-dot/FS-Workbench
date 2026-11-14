@@ -26,6 +26,7 @@ import chat_panel
 import chat_schedule
 import matchday_engagement
 import matchday_editorial
+import matchday_scout_bridge
 
 MAX_HISTORY = 10
 
@@ -109,6 +110,8 @@ class ChatClient(discord.Client):
         self.editorial_config = config.get('matchday_editorial')
         self.editorial_store = None
         self.editorial_task = None
+        self.scout_seen_mtime_ns = None
+        self.scout_lock = asyncio.Lock()
         self.editorial_last_error = None
         self.editorial_last_error_at = 0
         if self.matchday_config and self.matchday_config['enabled']:
@@ -213,6 +216,8 @@ class ChatClient(discord.Client):
         if message.author.bot:
             if self.matchday_store is not None:
                 await self.handle_match_pulse(message)
+            if self.editorial_store is not None:
+                await self.handle_scout_card(message)
             return
         if message.guild is None:
             return
@@ -284,6 +289,60 @@ class ChatClient(discord.Client):
             await asyncio.sleep(60)
 
     # -- selected fixture editorial ---------------------------------------
+    async def handle_scout_card(self, message):
+        if (message.author.id != matchday_engagement.SMART_SCORE_ID or
+                message.guild is None or
+                str(message.guild.id) not in self.editorial_config['allowed_guild_ids'] or
+                not any(embed.title == 'Upcoming Matches' for embed in message.embeds)):
+            return
+        await self.refresh_scout_plan([message])
+
+    async def refresh_scout_plan(self, source_messages=None):
+        scout_path = (self.editorial_config or {}).get('scout_path')
+        if not scout_path:
+            return
+        async with self.scout_lock:
+            try:
+                scout_file = Path(scout_path)
+                mtime = scout_file.stat().st_mtime_ns
+                if source_messages is None and mtime == self.scout_seen_mtime_ns:
+                    return
+                now = discord.utils.utcnow()
+                matches = matchday_scout_bridge.load_scout(scout_file, now)
+                if not matches:
+                    self.scout_seen_mtime_ns = mtime
+                    return
+                path = Path(self.editorial_config['plan_path'])
+                before = path.stat()
+                plan = json.loads(path.read_text(encoding='utf-8'))
+                routes = {guild: self.matchday_config['routes'][guild]
+                          for guild in self.editorial_config['allowed_guild_ids']}
+                weekly = self.editorial_config.get('max_matches_per_london_week', 2)
+                matchday_editorial.load_plan(path, routes, now=now, weekly_limit=weekly)
+                changed = False
+                for guild_id, route in routes.items():
+                    channel = self.get_channel(route['source_channel_id'])
+                    if channel is None or channel.guild.id != int(guild_id):
+                        continue
+                    if source_messages is None:
+                        messages = [message async for message in channel.history(limit=100)]
+                    else:
+                        messages = source_messages
+                    proposed, receipt = matchday_scout_bridge.merge_plan(
+                        matches, messages, plan, int(guild_id),
+                        route['source_channel_id'], now, weekly)
+                    if receipt['added']:
+                        plan = proposed
+                        changed = True
+                    print('Scout bridge: ' + json.dumps(receipt, ensure_ascii=False), flush=True)
+                if changed and not matchday_scout_bridge.replace_plan(
+                        path, (before.st_mtime_ns, before.st_size), plan):
+                    self.editorial_error('Scout bridge kept a newer operator plan')
+                    return
+                self.scout_seen_mtime_ns = mtime
+            except (OSError, ValueError, KeyError, TypeError, discord.DiscordException) as exc:
+                self.editorial_error('Scout bridge unavailable: ' + type(exc).__name__)
+
     def editorial_error(self, message):
         now = time.time()
         if (message != self.editorial_last_error or
@@ -388,6 +447,7 @@ class ChatClient(discord.Client):
         await self.wait_until_ready()
         while not self.is_closed():
             try:
+                await self.refresh_scout_plan()
                 await self.send_editorial_due()
             except Exception as exc:
                 self.editorial_error('Matchday editorial worker failed: ' +

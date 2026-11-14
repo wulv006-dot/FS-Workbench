@@ -79,7 +79,9 @@ def parse_upcoming(message, guild_id, channel_id, now):
     created = getattr(message, 'created_at', None)
     if (not author or author.id != SMART_SCORE_ID or author.bot is not True or
             not guild or guild.id != guild_id or not channel or channel.id != channel_id or
-            getattr(message, 'webhook_id', None) is not None or
+            (getattr(message, 'webhook_id', None) is not None and
+             (getattr(message, 'application_id', None) != SMART_SCORE_ID or
+              getattr(getattr(message, 'type', None), 'value', None) != 20)) or
             not created or created.tzinfo is None or
             not isinstance(getattr(message, 'id', None), int) or
             not isinstance(getattr(message, 'jump_url', None), str)):
