@@ -90,7 +90,7 @@ export function makeWeeklyWorkflow({dir,center,weekly,pipeline,prepareCommerce,v
   try{
    await installCommerce(r.prepared,body.operation_id);record.phase='policy_installed';write('publish',body.operation_id,record);
    if(center.read().revision!==body.revision)fail('WEEKLY_REVIEW_STALE',409);
-   return finish(record,center.recoverPublish(record.request)||center.publish(record.request,owner));
+   return finish(record,center.recoverPublish(record.request)||center.publish(record.request,owner,[],[],{approvedPrices:r.prepared.preview_catalog}));
   }catch(error){throw Object.assign(error,{status:503,code:error.code||'WEEKLY_PUBLICATION_OUTCOME_RECONCILE_REQUIRED'});}
  }
  return {read:readRun,review,isPublishing:()=>flights.size>0,publish(body,owner){

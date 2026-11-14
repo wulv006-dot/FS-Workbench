@@ -47,6 +47,21 @@ function fixture(){
   release:()=>JSON.parse(original),clean:()=>{provider.stop();fs.rmSync(tmp,{recursive:true,force:true});}};
 }
 
+test('service startup preserves a matching public price cache during the first Admin read',async()=>{
+ const f=fixture();
+ try{
+  await f.provider.refresh();
+  const prior=readPublicPriceCache(f.provider.cacheFile);
+  let releaseRead;
+  f.extraCall=()=>new Promise(resolve=>{releaseRead=resolve;});
+  const restarted=makeAdminPriceProvider(f.options),pending=restarted.refresh();
+  assert.deepEqual(readPublicPriceCache(f.provider.cacheFile),prior);
+  releaseRead(f.observe());
+  await pending;
+  assert.equal(readPublicPriceCache(f.provider.cacheFile).status,'ready');
+ }finally{f.clean();}
+});
+
 test('actual private refresh -> safe file -> public HTTP config, independent of configuration/history',async()=>{
  const f=fixture();let server;
  try{
