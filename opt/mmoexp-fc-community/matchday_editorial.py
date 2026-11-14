@@ -36,6 +36,7 @@ class Fixture:
     kickoff_at: dt.datetime
     source_url: str
     source_message_id: int
+    status: str = 'scheduled'
 
 
 def validate_config(config, matchday_config):
@@ -94,10 +95,12 @@ def load_plan(path, routes, now=None, weekly_limit=2):
     if len(data['matches']) > 8:
         raise ValueError('Too many fixtures in editorial plan')
     fixtures, seen, weeks = [], set(), {}
+    required = {'fixture_id', 'guild_id', 'home', 'away', 'competition',
+                'kickoff_utc', 'smart_score_message_url'}
     for item in data['matches']:
-        if not isinstance(item, dict) or set(item) != {
-                'fixture_id', 'guild_id', 'home', 'away', 'competition',
-                'kickoff_utc', 'smart_score_message_url'}:
+        if (not isinstance(item, dict) or
+                set(item) not in (required, required | {'status'}) or
+                item.get('status', 'scheduled') not in ('scheduled', 'hold')):
             raise ValueError('Invalid editorial fixture fields')
         guild = str(item['guild_id'])
         route = routes.get(guild)
@@ -131,7 +134,8 @@ def load_plan(path, routes, now=None, weekly_limit=2):
         fixtures.append(Fixture(fixture_id, int(guild), route['source_channel_id'],
                                 route['discussion_channel_id'], _name(item['home']),
                                 _name(item['away']), _name(item['competition']),
-                                kickoff, source_url, source_message_id))
+                                kickoff, source_url, source_message_id,
+                                item.get('status', 'scheduled')))
     return fixtures
 
 
@@ -141,6 +145,8 @@ def due_cards(fixtures, now=None):
         raise ValueError('now must be timezone-aware')
     due = []
     for fixture in fixtures:
+        if fixture.status != 'scheduled':
+            continue
         until = (fixture.kickoff_at - now).total_seconds()
         for phase, (open_seconds, close_seconds) in PHASES.items():
             if close_seconds <= until <= open_seconds:
@@ -202,15 +208,21 @@ class EditorialPostStore:
                 source_url TEXT NOT NULL, status TEXT NOT NULL,
                 message_id TEXT, reserved_at REAL NOT NULL,
                 PRIMARY KEY (guild_id, fixture_id, phase))''')
+            columns = {row[1] for row in db.execute('PRAGMA table_info(matchday_editorial_post)')}
+            if 'kickoff_ts' not in columns:
+                db.execute('ALTER TABLE matchday_editorial_post ADD COLUMN kickoff_ts INTEGER')
+            if 'display_status' not in columns:
+                db.execute("ALTER TABLE matchday_editorial_post ADD COLUMN display_status TEXT NOT NULL DEFAULT 'normal'")
 
     def reserve(self, fixture, phase, now):
         if phase not in PHASES:
             raise ValueError('Unknown editorial phase')
         with sqlite3.connect(self.path, timeout=5) as db:
             result = db.execute('''INSERT OR IGNORE INTO matchday_editorial_post
-                (guild_id,fixture_id,phase,source_url,status,reserved_at)
-                VALUES(?,?,?,?,?,?)''', (str(fixture.guild_id), fixture.fixture_id,
-                                        phase, fixture.source_url, 'sending', now))
+                (guild_id,fixture_id,phase,source_url,status,reserved_at,kickoff_ts)
+                VALUES(?,?,?,?,?,?,?)''', (str(fixture.guild_id), fixture.fixture_id,
+                                          phase, fixture.source_url, 'sending', now,
+                                          int(fixture.kickoff_at.timestamp())))
             return result.rowcount == 1
 
     def finish(self, fixture, phase, message_id):
@@ -231,3 +243,24 @@ class EditorialPostStore:
                 WHERE guild_id=? AND fixture_id=? AND phase=?''',
                 (str(fixture.guild_id), fixture.fixture_id, phase)).fetchone()
             return row
+
+    def records(self, fixture):
+        with sqlite3.connect(self.path) as db:
+            return db.execute('''SELECT phase,status,message_id,source_url,kickoff_ts,display_status
+                FROM matchday_editorial_post WHERE guild_id=? AND fixture_id=?''',
+                (str(fixture.guild_id), fixture.fixture_id)).fetchall()
+
+    def mark_display(self, fixture, phase, message_id):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            if fixture.status == 'hold':
+                result = db.execute('''UPDATE matchday_editorial_post SET display_status='hold'
+                    WHERE guild_id=? AND fixture_id=? AND phase=? AND status='sent' AND message_id=?''',
+                    (str(fixture.guild_id), fixture.fixture_id, phase, str(message_id)))
+            else:
+                result = db.execute('''UPDATE matchday_editorial_post
+                    SET display_status='normal',source_url=?,kickoff_ts=?
+                    WHERE guild_id=? AND fixture_id=? AND phase=? AND status='sent' AND message_id=?''',
+                    (fixture.source_url, int(fixture.kickoff_at.timestamp()),
+                     str(fixture.guild_id), fixture.fixture_id, phase, str(message_id)))
+            if result.rowcount != 1:
+                raise RuntimeError('Editorial display row changed during edit')
