@@ -139,17 +139,27 @@ class MatchPulseStore:
                              (str(pulse.guild_id), pulse.match_key)).fetchone()
             if row and message_id <= int(row[0]):
                 return False
-            should_post = (not row or now - row[1] >= COOLDOWN_SECONDS
-                           or (pulse.kind == 'final' and row[2] != 'final'))
+            previous_kind, _, previous_score = row[2].partition('|') if row else ('', '', '')
+            state = '{}|{}'.format(pulse.kind, pulse.score)
+            if pulse.kind == 'goal':
+                should_post = not row or pulse.score != previous_score
+            elif pulse.kind == 'final':
+                should_post = (not row or pulse.kind != previous_kind
+                               or (previous_score and pulse.score != previous_score))
+            elif pulse.kind in ('kickoff', 'half_time'):
+                should_post = not row or pulse.kind != previous_kind
+            else:
+                should_post = (not row or (now - row[1] >= COOLDOWN_SECONDS
+                                           and state != row[2]))
             if row:
                 db.execute('UPDATE match_pulse SET last_message_id=?,last_post_at=?,last_kind=? '
                            'WHERE guild_id=? AND match_key=?',
                            (str(message_id), now if should_post else row[1],
-                            pulse.kind if should_post else row[2],
+                            state if should_post else row[2],
                             str(pulse.guild_id), pulse.match_key))
             else:
                 db.execute('INSERT INTO match_pulse VALUES(?,?,?,?,?)',
-                           (str(pulse.guild_id), pulse.match_key, str(message_id), now, pulse.kind))
+                            (str(pulse.guild_id), pulse.match_key, str(message_id), now, state))
             return should_post
 
 
@@ -160,7 +170,7 @@ def prompt_text(pulse):
     if pulse.kind == 'half_time':
         return 'Half time: **{} {}**. What would you change for the second half?'.format(names, pulse.score)
     if pulse.kind == 'goal':
-        return 'Goal in **{}**! Who has changed this game so far?'.format(names)
+        return 'Goal! **{} {}**. How does that change the match?'.format(names, pulse.score)
     if pulse.kind == 'red_card':
         return 'Red card in **{}**. How does that change your prediction?'.format(names)
     return '**{}** is under way. What is your call?'.format(names)
