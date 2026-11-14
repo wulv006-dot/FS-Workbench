@@ -44,7 +44,7 @@ def brand_embed(embed, presentation=None):
 
 
 def welcome_embed(presentation=None, guild_id=None):
-    description = ('📰 FC 27 updates · ⚽ Featured players · 💰 Private live quotes\n\n'
+    description = ('📰 FC 27 News · 📅 Matchday · ⚽ Players · 💰 Private quotes\n\n'
                    'Tap **Join FC27** for your badge. Pick your club below.')
     embed = discord.Embed(title='Welcome to the MMOEXP FC 27 Club', color=0xF28C28,
                           description=description)
