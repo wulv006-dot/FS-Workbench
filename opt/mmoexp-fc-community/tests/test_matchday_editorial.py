@@ -1,5 +1,6 @@
 import datetime as dt
 import json
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -144,6 +145,26 @@ class EditorialPlanTests(unittest.TestCase):
             self.assertFalse(EditorialPostStore(Path(directory) / 'state.sqlite3').reserve(
                 fixture, 'day_before', now.timestamp()))
 
+    def test_existing_pilot_ledger_migrates_without_losing_sent_message(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'state.sqlite3'
+            with sqlite3.connect(path) as db:
+                db.execute('''CREATE TABLE matchday_editorial_post (
+                    guild_id TEXT NOT NULL, fixture_id TEXT NOT NULL, phase TEXT NOT NULL,
+                    source_url TEXT NOT NULL, status TEXT NOT NULL,
+                    message_id TEXT, reserved_at REAL NOT NULL,
+                    PRIMARY KEY (guild_id, fixture_id, phase))''')
+                db.execute('''INSERT INTO matchday_editorial_post VALUES (?,?,?,?,?,?,?)''',
+                           (str(GUILD), 'city-arsenal-20261115', 'day_before',
+                            'https://discord.com/channels/{}/{}/{}'.format(GUILD, SOURCE, MESSAGE),
+                            'sent', str(MESSAGE + 1), 1.0))
+            db.close()
+            store = EditorialPostStore(path)
+            fixture = SimpleNamespace(guild_id=GUILD, fixture_id='city-arsenal-20261115')
+            self.assertEqual(store.records(fixture)[0][0:3],
+                             ('day_before', 'sent', str(MESSAGE + 1)))
+            self.assertEqual(store.records(fixture)[0][4:], (None, 'normal'))
+
     def test_config_requires_absolute_paths_and_existing_matchday_route(self):
         with self.assertRaises(ValueError):
             validate_config({'enabled': True, 'plan_path': 'relative.json',
@@ -165,6 +186,92 @@ class EditorialPlanTests(unittest.TestCase):
 
 
 class EditorialChatTests(unittest.IsolatedAsyncioTestCase):
+    async def test_hold_edits_original_card_and_resume_requires_verified_source(self):
+        from chat_service import ChatClient
+        kickoff = dt.datetime.now(UTC) + dt.timedelta(hours=3)
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            path = directory / 'plan.json'
+            path.write_text(json.dumps(plan(kickoff)), encoding='utf-8')
+            fixture = load_plan(path, ROUTES)[0]
+            config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': {'enabled': True, 'routes': ROUTES,
+                                        'state_path': str(directory / 'pulse.db')},
+                'matchday_editorial': {'enabled': True,
+                    'allowed_guild_ids': [str(GUILD)], 'plan_path': str(path),
+                    'state_path': str(directory / 'editorial.db')}}
+            client = ChatClient(config)
+            client._connection.user = SimpleNamespace(id=MESSAGE + 10)
+            client.editorial_store.reserve(fixture, 'day_before', 1.0)
+            client.editorial_store.finish(fixture, 'day_before', MESSAGE + 1)
+            previous = SimpleNamespace(author=SimpleNamespace(id=MESSAGE + 10),
+                                       embeds=[SimpleNamespace(title='⚽ Matchday · City vs Arsenal')])
+            async def edit(**kwargs):
+                previous.embeds = [kwargs['embed']]
+            previous.edit = AsyncMock(side_effect=edit)
+            async def fetch(message_id):
+                return previous if message_id == MESSAGE + 1 else source_message(kickoff)
+            channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=GUILD),
+                                      fetch_message=AsyncMock(side_effect=fetch),
+                                      send=AsyncMock())
+            client.get_channel = lambda _: channel
+            path.write_text(json.dumps(plan(kickoff, status='hold')), encoding='utf-8')
+            await client.send_editorial_due()
+            await client.send_editorial_due()
+            self.assertEqual(previous.edit.await_count, 1)
+            self.assertEqual(channel.send.await_count, 0)
+            self.assertEqual(client.editorial_store.records(fixture)[0][5], 'hold')
+            path.write_text(json.dumps(plan(kickoff)), encoding='utf-8')
+            await client.send_editorial_due()
+            self.assertEqual(previous.edit.await_count, 2)
+            self.assertEqual(client.editorial_store.records(fixture)[0][5], 'normal')
+            self.assertEqual(channel.send.await_count, 0)
+            await client.close()
+
+    async def test_reschedule_edits_existing_card_only_with_new_verified_time(self):
+        from chat_service import ChatClient
+        now = dt.datetime.now(UTC)
+        old_kickoff, new_kickoff = now + dt.timedelta(hours=4), now + dt.timedelta(hours=3)
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            path = directory / 'plan.json'
+            path.write_text(json.dumps(plan(old_kickoff)), encoding='utf-8')
+            old_fixture = load_plan(path, ROUTES)[0]
+            config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': {'enabled': True, 'routes': ROUTES,
+                                        'state_path': str(directory / 'pulse.db')},
+                'matchday_editorial': {'enabled': True,
+                    'allowed_guild_ids': [str(GUILD)], 'plan_path': str(path),
+                    'state_path': str(directory / 'editorial.db')}}
+            client = ChatClient(config)
+            client._connection.user = SimpleNamespace(id=MESSAGE + 10)
+            client.editorial_store.reserve(old_fixture, 'day_before', 1.0)
+            client.editorial_store.finish(old_fixture, 'day_before', MESSAGE + 1)
+            previous = SimpleNamespace(author=SimpleNamespace(id=MESSAGE + 10),
+                embeds=[SimpleNamespace(title='⚽ Matchday · City vs Arsenal')],
+                edit=AsyncMock())
+            source = source_message(old_kickoff)
+            async def fetch(message_id):
+                return previous if message_id == MESSAGE + 1 else source
+            channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=GUILD),
+                                      fetch_message=AsyncMock(side_effect=fetch),
+                                      send=AsyncMock())
+            client.get_channel = lambda _: channel
+            path.write_text(json.dumps(plan(new_kickoff)), encoding='utf-8')
+            await client.send_editorial_due()
+            self.assertEqual(previous.edit.await_count, 0)
+            self.assertEqual(client.editorial_store.records(old_fixture)[0][4],
+                             int(old_kickoff.timestamp()))
+            source = source_message(new_kickoff)
+            await client.send_editorial_due()
+            self.assertEqual(previous.edit.await_count, 1)
+            self.assertEqual(client.editorial_store.records(old_fixture)[0][4],
+                             int(new_kickoff.timestamp()))
+            self.assertEqual(channel.send.await_count, 0)
+            await client.close()
+
     async def test_test_only_rollout_rejects_official_plan(self):
         from chat_service import ChatClient
         kickoff = dt.datetime.now(UTC) + dt.timedelta(minutes=30)
