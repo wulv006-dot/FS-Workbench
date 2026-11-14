@@ -65,6 +65,17 @@ class EditorialPlanTests(unittest.TestCase):
             self.assertEqual(due_cards(fixtures, kickoff + dt.timedelta(minutes=11)), [])
             self.assertIn('<t:{}:F>'.format(int(kickoff.timestamp())),
                           card_text(fixtures[0], 'day_before'))
+            path.write_text(json.dumps(plan(
+                kickoff, question='What would you change in your FC27 midfield?')),
+                encoding='utf-8')
+            self.assertIn('What would you change',
+                          card_text(load_plan(path, ROUTES, now=now)[0], 'day_before'))
+            self.assertIn('What is your one call',
+                          card_text(load_plan(path, ROUTES, now=now)[0], 'kickoff_soon'))
+            path.write_text(json.dumps(plan(kickoff, question='first line\nsecond line')),
+                            encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'question'):
+                load_plan(path, ROUTES, now=now)
 
     def test_wrong_source_time_and_weekly_capacity_are_rejected(self):
         now = dt.datetime(2026, 11, 15, 12, tzinfo=UTC)

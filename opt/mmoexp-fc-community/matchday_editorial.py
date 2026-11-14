@@ -37,6 +37,7 @@ class Fixture:
     source_url: str
     source_message_id: int
     status: str = 'scheduled'
+    question: str = ''
 
 
 def validate_config(config, matchday_config):
@@ -103,9 +104,13 @@ def load_plan(path, routes, now=None, weekly_limit=2):
                 'kickoff_utc', 'smart_score_message_url'}
     for item in data['matches']:
         if (not isinstance(item, dict) or
-                set(item) not in (required, required | {'status'}) or
+                not required <= set(item) <= required | {'status', 'question'} or
                 item.get('status', 'scheduled') not in ('scheduled', 'hold')):
             raise ValueError('Invalid editorial fixture fields')
+        question = item.get('question', '')
+        if (not isinstance(question, str) or len(question) > 160 or
+                '\n' in question or '\r' in question):
+            raise ValueError('Invalid editorial question')
         guild = str(item['guild_id'])
         route = routes.get(guild)
         if route is None:
@@ -139,7 +144,7 @@ def load_plan(path, routes, now=None, weekly_limit=2):
                                 route['discussion_channel_id'], _name(item['home']),
                                 _name(item['away']), _name(item['competition']),
                                 kickoff, source_url, source_message_id,
-                                item.get('status', 'scheduled')))
+                                item.get('status', 'scheduled'), question))
     return fixtures
 
 
@@ -191,7 +196,7 @@ def verify_smart_score_source(message, fixture):
 def card_text(fixture, phase):
     stamp = int(fixture.kickoff_at.timestamp())
     if phase == 'day_before':
-        question = 'One match, one chat. What matchup are you watching most closely?'
+        question = fixture.question or 'One match, one chat. What matchup are you watching most closely?'
     elif phase == 'kickoff_soon':
         question = 'Kickoff is close. What is your one call before it starts?'
     else:
