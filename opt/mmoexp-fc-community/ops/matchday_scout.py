@@ -2,6 +2,8 @@
 
 import datetime as dt
 import json
+import os
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 
@@ -74,9 +76,20 @@ def main():
             raise RuntimeError('Hermes shortlist unavailable')
         return result['choices'][0]['message']['content']
 
-    matches = shortlist(dt.datetime.now(dt.timezone.utc), DeepSeek().search, model)
-    print(json.dumps({'matches': matches, 'next_step': 'check_each_in_smart_score'},
-                     ensure_ascii=False))
+    now = dt.datetime.now(dt.timezone.utc)
+    matches = shortlist(now, DeepSeek().search, model)
+    result = json.dumps({
+        'generated_at_utc': now.isoformat(timespec='seconds').replace('+00:00', 'Z'),
+        'matches': matches,
+        'next_step': 'check_each_in_smart_score',
+    }, ensure_ascii=False)
+    output = os.environ.get('FC27_SCOUT_OUTPUT')
+    if output:
+        target = Path(output)
+        temporary = target.with_name(target.name + '.tmp')
+        temporary.write_text(result + '\n', encoding='utf-8')
+        temporary.replace(target)
+    print(result)
 
 
 if __name__ == '__main__':

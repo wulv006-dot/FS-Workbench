@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily FC27 matchday shortlist
+
+[Timer]
+OnCalendar=*-*-* 18:00:00
+Persistent=false
+Unit=fc27-matchday-scout.service
+
+[Install]
+WantedBy=timers.target

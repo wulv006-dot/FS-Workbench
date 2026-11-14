@@ -1,0 +1,11 @@
+[Unit]
+Description=FC27 matchday Hermes shortlist (read only)
+
+[Service]
+Type=oneshot
+Environment=PYTHONPATH=/opt/fs-boss-workspaces/backend:/opt/fs-game-monitor-intelligence:/opt/fs-hermes-fc
+Environment=FC27_SCOUT_OUTPUT=/opt/mmoexp-fc-community/var/matchday-scout-latest.json
+ExecStart=/opt/python39/bin/python3 -B /opt/mmoexp-fc-community/ops/matchday_scout.py
+UMask=0077
+TimeoutStartSec=120
+NoNewPrivileges=true
