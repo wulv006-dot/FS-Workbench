@@ -12,8 +12,22 @@ spec.loader.exec_module(scout)
 
 
 class MatchdayScoutTests(unittest.TestCase):
+    def test_afternoon_run_keeps_tonights_matches(self):
+        now = dt.datetime(2026, 11, 15, 15, tzinfo=dt.timezone.utc)
+
+        def model(prompt, evidence, limit):
+            self.assertIn('2026-11-15 or 2026-11-16', prompt)
+            if not evidence:
+                return json.dumps({'queries': ['Spain England 15 November 2026 kickoff']})
+            return json.dumps({'matches': [{
+                'home': 'Spain', 'away': 'England', 'competition': 'Nations League',
+                'date': '2026-11-15'}]})
+
+        result = scout.shortlist(now, lambda _: {'results': [{'title': 'Spain vs England'}]}, model)
+        self.assertEqual(result[0]['date'], '2026-11-15')
+
     def test_out_of_range_fixture_is_dropped_and_empty_is_valid(self):
-        now = dt.datetime(2026, 11, 14, 18, tzinfo=dt.timezone.utc)
+        now = dt.datetime(2026, 11, 15, 8, tzinfo=dt.timezone.utc)
         searches = []
 
         def search(query):

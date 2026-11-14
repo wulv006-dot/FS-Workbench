@@ -14,7 +14,7 @@ def shortlist(now, search, model):
     if now.tzinfo is None:
         raise ValueError('A timezone-aware clock is required')
     local = now.astimezone(LONDON)
-    first = local.date() + dt.timedelta(days=local.hour >= 12)
+    first = local.date()
     second = first + dt.timedelta(days=1)
     search_prompt = (
         'Today is {} in London. Find notable football fixtures on {} or {}. '
