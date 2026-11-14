@@ -103,7 +103,6 @@ def weekly_selection(reader, bundle_refs=()):
     newest=[r for r in newest_tagged if eligible(r) and player_type(r)=='normal']
     if len(newest)<3:raise ContractError('WEEKLY_NEWEST_POOL_INSUFFICIENT')
     players = players[:24]
-    if len(players)<18:raise ContractError('WEEKLY_SBC_COMPANION_POOL_INSUFFICIENT')
     cores, core_total, core_scanned, previous_core_id = [], None, 0, None
     for core_page in range(1,61):
         rows,total = models('10203','id,desc',page=core_page,limit=20)
@@ -118,7 +117,9 @@ def weekly_selection(reader, bundle_refs=()):
         if len(cores)>=9 or core_scanned>=total:break
         if not rows:raise ContractError('PAGINATION_CHANGED')
     cores=cores[:9]
-    if len(cores)!=9:raise ContractError('WEEKLY_SBC_CORE_COVERAGE_INCOMPLETE')
+    if len(cores)<9 and core_scanned!=core_total:raise ContractError('WEEKLY_SBC_CORE_COVERAGE_INCOMPLETE')
+    if not cores:raise ContractError('WEEKLY_SBC_CORE_POOL_EMPTY')
+    if len(players)<2*len(cores):raise ContractError('WEEKLY_SBC_COMPANION_POOL_INSUFFICIENT')
     popular, scanned, seen, popular_total = [], 0, set(), None
     for page in range(1, 101):
         public = reader.storefront_popular_page(tag_id,page)
@@ -190,5 +191,5 @@ def weekly_selection(reader, bundle_refs=()):
             trio_selection='model_market_judgment_from_complete_newest_normal_pool',
             popular_order='storefront_default_recommendation_priority', popular_scanned=scanned, popular_total=popular_total,
             latest_order='id,desc', latest_semantics='newest_model_identity_not_creation_timestamp',
-            player_total=player_total, sbc_total=core_total, snapshot_atomic=False),
+            player_total=player_total, sbc_total=core_total, sbc_scanned=core_scanned, sbc_selected_count=len(cores), snapshot_atomic=False),
         publication=False, authoritative_quote=False, checkout_enabled=False)

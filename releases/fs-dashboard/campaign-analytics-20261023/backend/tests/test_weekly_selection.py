@@ -137,9 +137,15 @@ class WeeklyTests(unittest.TestCase):
     def test_duplicate_active_tag_is_not_silently_selected(self):
         reader=Reader();reader.tags.append(dict(reader.tags[0],id=3))
         with self.assertRaisesRegex(ContractError,'WEEKLY_POPULAR_TAG_AMBIGUOUS'):weekly_selection(reader)
-    def test_incomplete_nine_core_or_eighteen_normal_pool_is_explicit(self):
-        reader=Reader();reader.cores=reader.cores[:8]
-        with self.assertRaisesRegex(ContractError,'WEEKLY_SBC_CORE_COVERAGE_INCOMPLETE'):weekly_selection(reader)
+    def test_complete_scan_accepts_eight_active_cores_and_excludes_offline(self):
+        reader=Reader();reader.cores[-1]['status']=0;reader.players=reader.players[:16]
+        result=weekly_selection(reader)
+        self.assertEqual(result['sbc_model_ids'],[str(i) for i in range(108,100,-1)])
+        self.assertEqual(result['evidence']['sbc_scanned'],9)
+        self.assertEqual(result['evidence']['sbc_selected_count'],8)
+        for core in reader.cores:core['status']=0
+        with self.assertRaisesRegex(ContractError,'WEEKLY_SBC_CORE_POOL_EMPTY'):weekly_selection(reader)
+    def test_insufficient_normal_player_pool_remains_explicit(self):
         reader=Reader();reader.players=reader.players[:17]
         with self.assertRaisesRegex(ContractError,'WEEKLY_SBC_COMPANION_POOL_INSUFFICIENT'):weekly_selection(reader)
     def test_offline_tag_and_unordered_latest_fail(self):

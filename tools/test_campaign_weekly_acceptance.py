@@ -8,6 +8,8 @@ import sys
 import tempfile
 import unittest
 
+from campaign_weekly_model_receipt_readonly import selection_counts
+
 ROOT=Path(__file__).resolve().parent
 OP='8dd85cc4-32c3-4cb7-9af1-ae46dea6aa7a'
 def digest(value):
@@ -46,7 +48,7 @@ class AcceptanceHelpers(unittest.TestCase):
             self.assertEqual(value['ledger_call_count'],1);self.assertEqual(value['receipt_usage']['total_tokens'],17)
             self.assertEqual(value['ledger_calls'][0]['usage']['total_tokens'],17);self.assertTrue(value['ledger_calls'][0]['forwarded_verified'])
             self.assertEqual(value['task_state'],'SUCCEEDED');self.assertTrue(value['task_run_matches']);self.assertEqual(value['ledger_calls'][0]['finish_reason'],'stop');self.assertEqual(value['ledger_calls'][0]['reasoning_effort'],'high')
-            self.assertTrue(value['selection_counts']['nine_by_two']);self.assertEqual(value['selection_counts']['per_core_counts'],[2]*9);self.assertEqual(value['selection_counts']['distinct_companion_models'],18);self.assertEqual(value['selection_counts']['rows'],24)
+            self.assertTrue(value['selection_counts']['two_per_core']);self.assertTrue(value['selection_counts']['nine_by_two']);self.assertEqual(value['selection_counts']['per_core_counts'],[2]*9);self.assertEqual(value['selection_counts']['distinct_companion_models'],18);self.assertEqual(value['selection_counts']['rows'],24)
             for secret in ('SECRET','PRIVATE_OWNER','OTHER_OWNER','other-task'):self.assertNotIn(secret,result.stdout+result.stderr)
             self.assertEqual(before,{p.name:p.read_bytes() for p in root.iterdir()})
             absent=cmd.copy();absent[absent.index(OP)]='12345678-1234-4234-8234-123456789abc'
@@ -54,13 +56,35 @@ class AcceptanceHelpers(unittest.TestCase):
             self.assertEqual(missing.returncode,2);self.assertEqual(json.loads(missing.stdout)['reason'],'operation_missing_or_ambiguous')
             self.assertEqual(before,{p.name:p.read_bytes() for p in root.iterdir()})
 
+    def test_model_receipt_recognizes_eight_cores_and_rejects_reused_companion(self):
+        cores=['core-'+str(i) for i in range(8)]
+        players=['player-'+str(i) for i in range(16)]
+        source=dict(source_revision='7',sbc_update={'id':OP},pages=[dict(page_id='fc27-sbc',core_product_keys=cores)],catalog=[dict(key=key,product_ref={'model_id':str(i+1)}) for i,key in enumerate(players+cores)])
+        rows=[dict(page_id=page,product_key=key,core_product_key=None) for page in ('fc27-trio','fc27-weekly') for key in players[:3]]
+        rows.extend(dict(page_id='fc27-sbc',product_key=key,core_product_key=cores[i//2]) for i,key in enumerate(players))
+        result=dict(source_revision='7',sbc_update_id=OP,recommendations=rows)
+        counted=selection_counts(result,source)
+        self.assertEqual(counted['rows'],22)
+        self.assertTrue(counted['two_per_core'])
+        self.assertFalse(counted['nine_by_two'])
+        rows[-1]['product_key']=players[0]
+        self.assertFalse(selection_counts(result,source)['two_per_core'])
+
     def test_center_readback_and_publication_change_detection(self):
+        self.assert_center_readback(9, check_mutations=True)
+
+    def test_center_readback_accepts_eight_or_one_verified_core(self):
+        for core_count in (8,1):
+            with self.subTest(cores=core_count):
+                self.assert_center_readback(core_count)
+
+    def assert_center_readback(self, core_count, check_mutations=False):
         with tempfile.TemporaryDirectory(prefix='campaign-center-test-') as temp:
             root=Path(temp);center=root/'data'/'center';pub=root/'public'
             center.mkdir(parents=True);pub.mkdir();(center/'weekly-plans').mkdir();(center/'operations').mkdir()
             key=lambda i:'model-266-1327-'+str(i)
             models={key(i):dict(key=key(i),model_id=str(i),kind='sbc' if i>=19 else 'player',title='Fixture '+str(i),image_url='https://assets.mmoexp.com/player/fc27/'+str(i)+'.png',image_provenance='storefront_player_id_asset',platforms={code:dict(state='verified',product_ref=dict(site_id='266',game_id='1327',model_id=str(i),goods_id=str(100*i+n))) for n,code in enumerate(['ps','xbox','pc'])}) for i in range(1,28)}
-            layout=dict(weekly=[key(i) for i in [1,2,3]],trio=[key(i) for i in [4,5,6]],sbc=[key(i) for i in range(19,28)],defaultCore=key(19),routes={key(i):dict(picks=[key((i-19)*2+1),key((i-19)*2+2)],alternatives=[key(j) for j in range(1,19) if j not in [(i-19)*2+1,(i-19)*2+2]]) for i in range(19,28)})
+            layout=dict(weekly=[key(i) for i in [1,2,3]],trio=[key(i) for i in [4,5,6]],sbc=[key(i) for i in range(19,19+core_count)],defaultCore=key(19),routes={key(i):dict(picks=[key((i-19)*2+1),key((i-19)*2+2)],alternatives=[key(j) for j in range(1,2*core_count+1) if j not in [(i-19)*2+1,(i-19)*2+2]]) for i in range(19,19+core_count)})
             draft=dict(pages=[dict(page_id=x,title=x) for x in ['fc27-trio','fc27-weekly','fc27-sbc','seasonal-vault']],fc_layout=layout,fc_models=models)
             original=dict(revision=1,draft=draft,published=None,updated_by='PRIVATE_OWNER')
             write(center/'state.json',original);write(pub/'current.json',{'fixture':'unchanged'})
@@ -71,14 +95,15 @@ class AcceptanceHelpers(unittest.TestCase):
             request=dict(revision=1,draft=draft,model_imports=[]);signature=digest(dict(kind='save',**request))
             current=dict(revision=2,draft=draft,published=None,updated_by='PRIVATE_OWNER',last_operation=dict(kind='save',operation_id=OP,hash=signature))
             write(center/'state.json',current)
-            source=dict(scout_model_ids=['1','2','3'],trio_player_ids=['4','5','6'],sbc_model_ids=[str(i) for i in range(19,28)],observations=[dict(model_id=str(i),goods_complete=True,player_type='normal' if i<19 else None,source_roles=[dict(role='trio_newest',tag_id='987654')] if i in [4,5,6] else []) for i in range(1,28)],evidence=dict(tags_complete=True,newest_tag_id='987654',newest_complete=True,newest_total=27,newest_scanned=27,newest_tagged_count=3,newest_normal_count=3,trio_selection='model_market_judgment_from_complete_newest_normal_pool'))
+            source=dict(scout_model_ids=['1','2','3'],trio_player_ids=['4','5','6'],sbc_model_ids=[str(i) for i in range(19,19+core_count)],observations=[dict(model_id=str(i),goods_complete=True,player_type='normal' if i<19 else None,source_roles=[dict(role='trio_newest',tag_id='987654')] if i in [4,5,6] else []) for i in range(1,28)],evidence=dict(tags_complete=True,newest_tag_id='987654',newest_complete=True,newest_total=27,newest_scanned=27,newest_tagged_count=3,newest_normal_count=3,trio_selection='model_market_judgment_from_complete_newest_normal_pool'))
             write(center/'weekly-plans'/(OP+'.json'),dict(base_revision=1,save_request=request,source=source,owner='PRIVATE_OWNER'))
             write(center/'operations'/(OP+'.json'),dict(hash=signature,result=current))
             verify=command+['verify','--operation-id',OP,'--before',str(root/'before.json')]+opts
             baseline={str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
             checked=subprocess.run(verify,capture_output=True,text=True,check=True);value=json.loads(checked.stdout)
-            self.assertEqual(value['status'],'checks_passed');self.assertTrue(value['checks']['three_platform_identities']);self.assertTrue(value['checks']['sbc_has_multiple_choices'])
+            self.assertEqual(value['status'],'checks_passed');self.assertTrue(value['checks']['three_platform_identities']);self.assertTrue(value['checks']['sbc_shared_companion_pool'])
             self.assertNotIn('PRIVATE_OWNER',checked.stdout);self.assertEqual(baseline,{str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()})
+            if not check_mutations:return
             # Invalid business contracts fail even when their receipt hash is self-consistent.
             def check_mutation(change, check_name):
                 candidate=json.loads(json.dumps(current));candidate_source=json.loads(json.dumps(source))
@@ -95,9 +120,9 @@ class AcceptanceHelpers(unittest.TestCase):
             check_mutation(lambda d,s:s['observations'][3].update(source_roles=[dict(role='trio_newest',tag_id='different')]),'trio_newest_membership')
             check_mutation(lambda d,s:d['fc_layout'].update(trio=[key(1),key(5),key(6)]),'trio_source_pool')
             check_mutation(lambda d,s:s['observations'][0].update(player_type='Signature'),'scout_and_trio_normal')
-            check_mutation(lambda d,s:s['observations'][9].update(player_type='Signature'),'sbc_eighteen_distinct_normal')
-            check_mutation(lambda d,s:d['fc_layout']['routes'][key(20)].update(picks=[key(1),key(2)]),'sbc_eighteen_distinct_normal')
-            check_mutation(lambda d,s:d['fc_layout']['routes'][key(19)]['alternatives'].pop(),'sbc_shared_eighteen_pool')
+            check_mutation(lambda d,s:s['observations'][9].update(player_type='Signature'),'sbc_distinct_normal_companions')
+            check_mutation(lambda d,s:d['fc_layout']['routes'][key(20)].update(picks=[key(1),key(2)]),'sbc_distinct_normal_companions')
+            check_mutation(lambda d,s:d['fc_layout']['routes'][key(19)]['alternatives'].pop(),'sbc_shared_companion_pool')
             check_mutation(lambda d,s:d['fc_models'][key(19)].update(image_url=None),'selected_images_have_sources')
             check_mutation(lambda d,s:d['fc_models'][key(1)].update(image_url='https://private.invalid/a.png?session=SECRET'),'selected_images_have_sources')
             write(center/'state.json',current);write(center/'operations'/(OP+'.json'),dict(hash=signature,result=current))
