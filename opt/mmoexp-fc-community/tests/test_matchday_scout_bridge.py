@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 from chat_service import ChatClient
-from matchday_editorial import load_plan
+from matchday_editorial import card_text, load_plan
 from matchday_scout_bridge import load_scout, merge_plan, replace_plan
 from test_matchday_selector import CHANNEL, GUILD, card
 
@@ -24,7 +24,8 @@ class ScoutBridgeTests(unittest.TestCase):
         self.germany_kickoff = dt.datetime(2026, 11, 15, 18, 45, tzinfo=UTC)
         self.scout = [
             {'home': 'Spain', 'away': 'England', 'date': '2026-11-15',
-             'competition': 'UEFA Nations League'},
+             'competition': 'UEFA Nations League',
+             'question': 'Which side would you build your FC27 midfield around?'},
             {'home': 'France', 'away': 'Turkey', 'date': '2026-11-15',
              'competition': 'UEFA Nations League'},
         ]
@@ -49,10 +50,13 @@ class ScoutBridgeTests(unittest.TestCase):
                          ['Germany', 'Spain'])
         self.assertEqual(receipt['added'], ['Spain vs England'])
         self.assertEqual(receipt['capacity'], ['France vs Turkey'])
+        self.assertEqual(plan['matches'][1]['question'], self.scout[0]['question'])
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'plan.json'
             path.write_text(json.dumps(plan), encoding='utf-8')
             self.assertEqual(len(load_plan(path, ROUTES, self.now)), 2)
+            self.assertIn(self.scout[0]['question'],
+                          card_text(load_plan(path, ROUTES, self.now)[1], 'day_before'))
         again, receipt = merge_plan(
             self.scout, [source], plan, GUILD, CHANNEL, self.now)
         self.assertEqual(again, plan)
@@ -88,6 +92,12 @@ class ScoutBridgeTests(unittest.TestCase):
                 'matches': self.scout,
             }), encoding='utf-8')
             with self.assertRaisesRegex(ValueError, 'stale'):
+                load_scout(scout_path, self.now)
+            scout_path.write_text(json.dumps({
+                'generated_at_utc': self.now.isoformat(),
+                'matches': [dict(self.scout[0], question='first line\nsecond line')],
+            }), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'question'):
                 load_scout(scout_path, self.now)
             plan_path = Path(folder) / 'plan.json'
             plan_path.write_text('{"version":1,"matches":[]}', encoding='utf-8')

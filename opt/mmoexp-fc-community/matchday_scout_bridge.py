@@ -39,6 +39,10 @@ def load_scout(path, now):
                                      dt.timedelta(days=days)).isoformat()
                                     for days in (0, 1, 2))):
             raise ValueError('Invalid scout fixture')
+        question = item.get('question', '')
+        if (not isinstance(question, str) or len(question) > 160 or
+                '\n' in question or '\r' in question):
+            raise ValueError('Invalid scout question')
     return matches
 
 
@@ -94,7 +98,7 @@ def merge_plan(matches, messages, plan, guild_id, channel_id, now, weekly_limit=
             receipt['capacity'].append(label)
             continue
         identity = '{}|{}|{}|{}'.format(guild_id, *key)
-        existing.append({
+        selected = {
             'fixture_id': 'scout-' + hashlib.sha256(identity.encode('utf-8')).hexdigest()[:20],
             'guild_id': str(guild_id),
             'home': candidate.home,
@@ -102,7 +106,10 @@ def merge_plan(matches, messages, plan, guild_id, channel_id, now, weekly_limit=
             'competition': candidate.competition,
             'kickoff_utc': candidate.kickoff_at.isoformat().replace('+00:00', 'Z'),
             'smart_score_message_url': candidate.source_url,
-        })
+        }
+        if isinstance(item.get('question'), str):
+            selected['question'] = item['question']
+        existing.append(selected)
         receipt['added'].append(label)
     return {'version': 1, 'matches': existing}, receipt
 
