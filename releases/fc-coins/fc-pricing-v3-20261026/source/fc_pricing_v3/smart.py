@@ -367,7 +367,7 @@ def curve_adoption_evidence(blocks, winner, state):
                 len({row['customer_key'] for row in rows if row['new_customer'] and row.get('customer_key')}))
 
     initial = state['episode']['initial_reference_curve_id']
-    previous = state['reference'].get('cumulative') or {}
+    previous = (state['reference'].get('adoption') or {}).get('cumulative') or {}
     if previous.get('initial_reference_curve_id') != initial:
         previous = {}
     fields = ('revenue_delta_usd', 'procurement_gross_delta_usd', 'new_customer_delta')
