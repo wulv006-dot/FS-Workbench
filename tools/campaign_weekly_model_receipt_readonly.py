@@ -27,8 +27,12 @@ def selection_counts(result,source):
     models={catalog.get(row.get('product_key')) for row in sbc};model_count=len(models-{None})
     pages={page:sum(row.get('page_id')==page for row in rows) for page in ('fc27-trio','fc27-weekly','fc27-sbc')}
     bound=result.get('source_revision')==source.get('source_revision') and result.get('sbc_update_id')==source.get('sbc_update',{}).get('id')
+    core_count=len(cores);companion_count=2*core_count
+    two_per_core=(bound and 1<=core_count<=9 and len(set(cores))==core_count
+        and len(rows)==6+companion_count and pages=={'fc27-trio':3,'fc27-weekly':3,'fc27-sbc':companion_count}
+        and counts==[2]*core_count and model_count==companion_count and not (models-{None}) & {catalog.get(core) for core in cores})
     return dict(status='observed',rows=len(rows),page_counts=pages,core_count=len(cores),per_core_counts=counts,distinct_companion_models=model_count,binding_matches=bound,
-        nine_by_two=bound and len(rows)==24 and pages=={'fc27-trio':3,'fc27-weekly':3,'fc27-sbc':18} and len(cores)==9 and counts==[2]*9 and model_count==18)
+        two_per_core=two_per_core,nine_by_two=two_per_core and core_count==9)
 
 def main():
     args=argparse.ArgumentParser();args.add_argument('--operation-id',required=True);args.add_argument('--tasks-db',required=True);args.add_argument('--daily-db',required=True);a=args.parse_args()

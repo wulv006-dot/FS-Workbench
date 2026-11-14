@@ -15,6 +15,12 @@ RULES='fc27_weekly_selection_v1'
 ENDPOINT='/internal/hermes/campaign-weekly'
 ZONE=timezone(timedelta(hours=8),'Asia/Shanghai')
 SCHEDULE=dict(weekday=6,hour=12,minute=0,timezone='Asia/Shanghai')
+PREPARE_REJECTIONS={
+    'WEEKLY_SBC_CORE_COVERAGE_INCOMPLETE','WEEKLY_SBC_CORE_POOL_EMPTY',
+    'WEEKLY_SBC_COMPANION_POOL_INSUFFICIENT','WEEKLY_NEWEST_COVERAGE_INCOMPLETE',
+    'WEEKLY_NEWEST_POOL_INSUFFICIENT','WEEKLY_NEWEST_POOL_UNVERIFIED',
+    'WEEKLY_POPULAR_TOP_THREE_UNAVAILABLE',
+}
 
 
 def operation(value):
@@ -35,6 +41,7 @@ def node_cli(body):
     if result.returncode:
         code=value.get('error')
         known={'REVISION_CONFLICT','WEEKLY_SELECTION_RULE_MISMATCH','INVALID_WEEKLY_HERMES_INPUT','WEEKLY_OPERATION_OWNER_MISMATCH','REQUEST_CONFLICT'}
+        if body['action']=='prepare' and value.get('status')=='failed':known.update(PREPARE_REJECTIONS)
         raise ValueError(code if code in known else 'campaign_cli_outcome_unknown')
     return value
 
@@ -161,6 +168,7 @@ class CampaignWeekly:
             known={'REVISION_CONFLICT','WEEKLY_SELECTION_RULE_MISMATCH','INVALID_WEEKLY_HERMES_INPUT','WEEKLY_OPERATION_OWNER_MISMATCH'}
             state='unknown' if stage in ('model','apply_draft') and str(error) not in known else 'failed'
             codes=known|{'REQUEST_CONFLICT','campaign_prepare_contract','campaign_player_pool','campaign_apply_contract','campaign_cli_failed','campaign_cli_outcome_unknown','campaign_session_required'}
+            if stage in ('prepare','evidence'):codes.update(PREPARE_REJECTIONS)
             model_record=self.recommendations._record(key,owner)
             model_result=json.loads(model_record['result']) if model_record and model_record['result'] else {}
             self._update(key,state=state,result=dict(status=state,operation_id=key,stage=stage,error=str(error) if type(error) in (ValueError,RuntimeError,PermissionError) and str(error) in codes else 'campaign_weekly_failed',error_type=type(error).__name__,publication=False,evidence_coverage=evidence.get('coverage') if evidence else None,receipt=model_result.get('receipt')))

@@ -23,6 +23,18 @@ test('real center runtime imports fresh identities and saves three layouts once 
  for(const core of state.draft.fc_layout.sbc){const route=state.draft.fc_layout.routes[core];assert.equal(route.picks.length,2);assert.equal(route.alternatives.length,16);assert.deepEqual(new Set([...route.picks,...route.alternatives]),new Set(pool));}
  assert.throws(()=>f.pipeline.apply({...request,recommendation:{...request.recommendation,model:'other'}},'fixture'),{code:'REQUEST_CONFLICT'});
 });
+test('eight verified active cores save exactly sixteen unique companions and a complete draft',async t=>{
+ const f=fixture(t),operation_id=randomUUID();
+ f.source.sbc_model_ids.pop();
+ f.source.latest_player_ids=f.source.latest_player_ids.slice(0,16);
+ const prepared=await f.pipeline.prepare({operation_id},'fixture'),recommendation=response(prepared);
+ assert.equal(recommendation.recommendations.length,22);
+ const saved=f.pipeline.apply({operation_id,plan_ref:prepared.plan_ref,recommendation,evidence_sources:sources()},'fixture');
+ assert.equal(saved.status,'draft_saved');
+ const {draft}=JSON.parse(fs.readFileSync(path.join(f.dir,'center/state.json')));
+ assert.equal(draft.fc_layout.sbc.length,8);
+ assert.equal(new Set(draft.fc_layout.sbc.flatMap(core=>draft.fc_layout.routes[core].picks)).size,16);
+});
 test('SBC assignments reject cross-core duplication and missing normal player coverage without saving',async t=>{const f=fixture(t),operation_id=randomUUID(),p=await f.pipeline.prepare({operation_id},'fixture'),recommendation=response(p),sbc=recommendation.recommendations.filter(r=>r.page_id==='fc27-sbc');sbc[2].product_key=sbc[0].product_key;
  assert.throws(()=>f.pipeline.apply({operation_id,plan_ref:p.plan_ref,recommendation,evidence_sources:sources()},'fixture'),{code:'WEEKLY_SELECTION_RULE_MISMATCH'});assert(!fs.existsSync(path.join(f.dir,'center/state.json')));
  f.source.observations.find(o=>o.model_id==='28').player_type='Signature';await assert.rejects(()=>f.pipeline.prepare({operation_id:randomUUID()},'fixture'),{code:'WEEKLY_SBC_COMPANION_POOL_INSUFFICIENT'});
