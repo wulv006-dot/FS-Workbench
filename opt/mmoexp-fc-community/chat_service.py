@@ -171,10 +171,11 @@ class ChatClient(discord.Client):
             print('Matchday intro failed: ' + type(exc).__name__, flush=True)
 
     async def close(self):
-        task = self.topic_task
-        if task is not None and task is not asyncio.current_task():
-            task.cancel()
+        for task in (self.topic_task, self.editorial_task):
+            if task is not None and task is not asyncio.current_task():
+                task.cancel()
         self.topic_task = None
+        self.editorial_task = None
         await super().close()
 
     async def add_commands(self):
@@ -252,10 +253,12 @@ class ChatClient(discord.Client):
 
     async def send_editorial_due(self):
         try:
+            routes = {guild: self.matchday_config['routes'][guild]
+                      for guild in self.editorial_config['allowed_guild_ids']}
             fixtures = matchday_editorial.load_plan(
-                self.editorial_config['plan_path'], self.matchday_config['routes'],
+                self.editorial_config['plan_path'], routes,
                 weekly_limit=self.editorial_config.get('max_matches_per_london_week', 2))
-        except (OSError, ValueError, TypeError) as exc:
+        except (KeyError, OSError, ValueError, TypeError) as exc:
             self.editorial_error('Matchday editorial plan unavailable: ' +
                                  type(exc).__name__)
             return
