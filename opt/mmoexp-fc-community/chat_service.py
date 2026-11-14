@@ -242,8 +242,11 @@ class ChatClient(discord.Client):
         view.add_item(discord.ui.Button(label='FC27 Coins',
             url='https://discord.com/channels/{}/{}'.format(pulse.guild_id, pulse.coins_channel_id)))
         try:
-            await channel.send(embed=embed, view=view,
-                               allowed_mentions=discord.AllowedMentions.none())
+            sent = await channel.send(embed=embed, view=view,
+                                      allowed_mentions=discord.AllowedMentions.none())
+            print('Matchday pulse sent source={} discussion={} kind={} delay_ms={}'.format(
+                message.id, sent.id, pulse.kind,
+                round((time.time() - message.created_at.timestamp()) * 1000)), flush=True)
             if pulse.kind == 'final':
                 self.matchday_store.queue_followup(pulse, time.time())
             history = list(self.history.get(pulse.discussion_channel_id, ()))
