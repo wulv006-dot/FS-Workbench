@@ -9,7 +9,7 @@ from pathlib import Path
 SH=timezone(timedelta(hours=8))
 CONTRACT='fs-management-daily-v2'
 DATA_SCOPE='all-websites-v1'
-SOURCE_CONTRACT='admin-paid-order-labelled-supplement-v2'
+SOURCE_CONTRACT='admin-paid-order-labelled-supplement-v3-scope-repeat'
 METRICS=('rev','ord','prof','new','aov','rep','ful','mar')
 def numeric(v):return type(v) in (int,float) and v==v and abs(v)<1e15
 def round2(v):return float(Decimal(str(v)).quantize(Decimal('.01'),rounding=ROUND_HALF_UP)) if numeric(v) else None
