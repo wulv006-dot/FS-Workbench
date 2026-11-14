@@ -25,6 +25,7 @@ import chat_brain
 import chat_panel
 import chat_schedule
 import matchday_engagement
+import matchday_editorial
 
 MAX_HISTORY = 10
 
@@ -56,6 +57,9 @@ def validate_config(config):
     chat_panel.validate_surprise_config(chat_config.get('surprise'))
     if config.get('matchday_engagement') is not None:
         matchday_engagement.validate_matchday_config(config['matchday_engagement'])
+    if config.get('matchday_editorial') is not None:
+        matchday_editorial.validate_config(config['matchday_editorial'],
+                                           config.get('matchday_engagement'))
     token_env = config.get('token_env', 'DISCORD_CHAT_BOT_TOKEN')
     if not os.environ.get(token_env):
         raise ValueError('missing bot token in environment variable ' + token_env)
@@ -101,10 +105,18 @@ class ChatClient(discord.Client):
         self.only_channel = None if only_channel is None else str(only_channel)
         self.matchday_config = config.get('matchday_engagement')
         self.matchday_store = None
+        self.editorial_config = config.get('matchday_editorial')
+        self.editorial_store = None
+        self.editorial_task = None
+        self.editorial_last_error = None
+        self.editorial_last_error_at = 0
         if self.matchday_config and self.matchday_config['enabled']:
             self.matchday_store = matchday_engagement.MatchPulseStore(
                 self.matchday_config.get('state_path') or
                 Path(__file__).parent / 'var' / 'match-pulse.sqlite3')
+        if self.editorial_config and self.editorial_config['enabled']:
+            self.editorial_store = matchday_editorial.EditorialPostStore(
+                self.editorial_config['state_path'])
 
     # -- lifecycle ---------------------------------------------------------
     async def setup_hook(self):
@@ -116,6 +128,8 @@ class ChatClient(discord.Client):
             self.topic_task = asyncio.create_task(self.post_topics_once())
         elif targets:
             self.topic_task = asyncio.create_task(self.run_topics())
+        if self.editorial_store is not None and not self.post_topic_now:
+            self.editorial_task = asyncio.create_task(self.run_editorial())
 
     async def on_ready(self):
         await self.setup_matchday_intro()
@@ -226,6 +240,68 @@ class ChatClient(discord.Client):
             self.history[pulse.discussion_channel_id] = history[-MAX_HISTORY:]
         except discord.DiscordException as exc:
             print('Matchday prompt failed: ' + type(exc).__name__, flush=True)
+
+    # -- selected fixture editorial ---------------------------------------
+    def editorial_error(self, message):
+        now = time.time()
+        if (message != self.editorial_last_error or
+                now - self.editorial_last_error_at >= 600):
+            print(message, flush=True)
+            self.editorial_last_error = message
+            self.editorial_last_error_at = now
+
+    async def send_editorial_due(self):
+        try:
+            fixtures = matchday_editorial.load_plan(
+                self.editorial_config['plan_path'], self.matchday_config['routes'],
+                weekly_limit=self.editorial_config.get('max_matches_per_london_week', 2))
+        except (OSError, ValueError, TypeError) as exc:
+            self.editorial_error('Matchday editorial plan unavailable: ' +
+                                 type(exc).__name__)
+            return
+        for fixture, phase in matchday_editorial.due_cards(fixtures):
+            if self.editorial_store.status(fixture, phase) is not None:
+                continue
+            channel = self.get_channel(fixture.discussion_channel_id)
+            if channel is None or channel.guild.id != fixture.guild_id:
+                self.editorial_error('Editorial discussion channel unavailable')
+                continue
+            source_channel = self.get_channel(fixture.source_channel_id)
+            if source_channel is None or source_channel.guild.id != fixture.guild_id:
+                self.editorial_error('Editorial Smart Score channel unavailable')
+                continue
+            try:
+                source_message = await source_channel.fetch_message(fixture.source_message_id)
+            except discord.DiscordException as exc:
+                self.editorial_error('Editorial source unavailable: ' + type(exc).__name__)
+                continue
+            if not matchday_editorial.verify_smart_score_source(source_message, fixture):
+                self.editorial_error('Editorial source card does not match selected fixture')
+                continue
+            if not self.editorial_store.reserve(fixture, phase, time.time()):
+                continue
+            embed = discord.Embed(title='⚽ Matchday · {} vs {}'.format(
+                fixture.home, fixture.away),
+                description=matchday_editorial.card_text(fixture, phase),
+                colour=0x2275E8)
+            embed.set_footer(text='Source: Smart Score · Matchday Host is AI-assisted')
+            view = discord.ui.View(timeout=None)
+            view.add_item(discord.ui.Button(label='Smart Score fixture',
+                                            url=fixture.source_url))
+            try:
+                sent = await channel.send(embed=embed, view=view,
+                                          allowed_mentions=discord.AllowedMentions.none())
+                self.editorial_store.finish(fixture, phase, sent.id)
+                self.editorial_last_error = None
+            except Exception as exc:
+                self.editorial_store.unknown(fixture, phase)
+                print('Editorial post result unknown: ' + type(exc).__name__, flush=True)
+
+    async def run_editorial(self):
+        await self.wait_until_ready()
+        while not self.is_closed():
+            await self.send_editorial_due()
+            await asyncio.sleep(60)
 
     async def handle_chat(self, message):
         guild_id, channel_id = message.guild.id, message.channel.id
