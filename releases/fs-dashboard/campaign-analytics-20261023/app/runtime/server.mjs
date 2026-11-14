@@ -23,7 +23,15 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
   if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(prefix)) fail('INVALID_PUBLIC_PATH');
   const frozen=snapshotProvider?null:{publication_status:'published',...projectRelease(snapshot)};
   const source=snapshotProvider||(()=>frozen),cache=priceCacheProvider||(()=>publishedDir?readPublicPriceCache(path.join(publishedDir,'admin-reference-prices.json')):null);
-  const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshotProvider:()=>applyPublicPriceCache(source(),cache(),{now:(now||Date.now)()}),dir,mode,testAdapter,now,halloweenCatalogProvider});
+  const snapshotWithPrices=()=>{
+  const snapshot=source(),current=cache();
+  const waitingForPrices=!current||current.release_id!==snapshot.release_id||current.config_hash!==snapshot.config_hash||current.status==='refreshing';
+  const initial=publishedDir&&waitingForPrices
+   &&/^campaign-preview-\d+$/.test(snapshot.release_id)
+   ?readPublicPriceCache(path.join(publishedDir,snapshot.release_id+'-initial-prices.json')):null;
+  return applyPublicPriceCache(snapshot,current,{now:(now||Date.now)(),initial});
+ };
+ const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshotProvider:snapshotWithPrices,dir,mode,testAdapter,now,halloweenCatalogProvider});
   const fileStamp=file=>{try{const s=fs.statSync(file,{bigint:true});return [String(s.ino),String(s.size),String(s.mtimeNs)].join(':');}catch(error){if(error.code==='ENOENT')return 'absent';throw error;}};
   const stamp=configStampProvider||(releaseFile&&publishedDir?()=>fileStamp(releaseFile)+'|'+fileStamp(path.join(publishedDir,'admin-reference-prices.json')):null);
   const configBody=publicConfigCache({ttlMs:configCacheMs,now:now||Date.now,stamp,render:()=>{

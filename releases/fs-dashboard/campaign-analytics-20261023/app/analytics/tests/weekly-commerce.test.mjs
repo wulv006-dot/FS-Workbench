@@ -6,6 +6,7 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import vm from 'node:vm';
 import {createSnapshot} from '../../runtime/snapshot.mjs';
+import {createPublicServer} from '../../runtime/server.mjs';
 import {makeWeeklyCommerce} from '../weekly-commerce.mjs';
 import {weeklyNativeCandidates} from '../weekly-native-candidates.mjs';
 import {makeCenterStore,initialCenterDraft} from '../center-store.mjs';
@@ -167,7 +168,38 @@ test('current legacy four-bundle draft needs one trusted import save before revi
  const proposal=await f.service.prepare({operation_id:randomUUID(),revision:28,draft:saved.draft},'alice');assert.equal(proposal.can_publish,true);assert.equal(proposal.models_count,37);assert.equal(proposal.diff.added.bindings,24);const candidate=JSON.parse(fs.readFileSync(proposal.candidate_path)),bundleKeys=new Set(proposal.preview_catalog.products.filter(p=>mids.has(p.product_ref.model_id)).map(p=>p.key)),bindings=candidate.native_checkout.bindings.filter(b=>bundleKeys.has(b.product_key)&&b.page_id.startsWith('fc27-'));assert.equal(bindings.length,36);assert.equal(bindings.filter(b=>b.page_id!=='fc27-trio').length,24);assert.deepEqual(candidate.native_checkout.bindings.filter(b=>bundleKeys.has(b.product_key)&&b.page_id==='fc27-trio'),originalTrio);
  const preview=center.preview({revision:28,draft:saved.draft},[],[],{seed:seedFor(saved,proposal)}),privateCatalog=projectFcCatalog(f.catalog,preview);for(const page of preview.pages.filter(p=>p.page_id.startsWith('fc27-')))for(const [,mid] of selected)for(const platform of ['ps','xbox','pc']){const offer=core.nativeModelOffer(privateCatalog.products[key(mid)],platform,preview,page.page_id,at);assert(offer?.price.base_minor>0);assert.equal(offer.checkout_ready,false,'private preview never grants checkout');}assert.deepEqual(f.getPolicy(),alignedBefore);
  // Isolated explicit-confirmation simulation. Prices come only from observation fixtures.
- writePolicy(candidate);center.publish({operation_id:randomUUID(),revision:28},'alice');const snapshot=JSON.parse(fs.readFileSync(path.join(publicDir,'current.json')));assert.equal(snapshot.native_checkout.bindings.filter(b=>bundleKeys.has(b.product_key)&&b.page_id.startsWith('fc27-')).length,36);
+ const approved=structuredClone(proposal.preview_catalog);
+ const offset=Date.now()-at;
+ approved.valid_until=new Date(Date.parse(approved.valid_until)+offset).toISOString();
+ for(const c of Object.values(approved.model_contracts))for(const row of c.combinations)row.price.expires_at=new Date(Date.parse(row.price.expires_at)+offset).toISOString();
+ writePolicy(candidate);center.publish({operation_id:randomUUID(),revision:28},'alice',[],[],{approvedPrices:approved});
+ const releaseFile=path.join(publicDir,'current.json'),snapshot=JSON.parse(fs.readFileSync(releaseFile));assert.equal(snapshot.native_checkout.bindings.filter(b=>bundleKeys.has(b.product_key)&&b.page_id.startsWith('fc27-')).length,36);
+ assert(!Object.values(snapshot.seasonal_model_contracts).some(c=>c.combinations.some(row=>row.price)),'immutable release does not carry prices');
+ let publicNow=Date.now();
+ const publicServer=createPublicServer({assetRoot:path.resolve(path.dirname(releaseFile)),staticManifest:{},snapshotProvider:()=>JSON.parse(fs.readFileSync(releaseFile)),publishedDir:publicDir,releaseFile,dir:path.join(f.dir,'public-test'),origin:'http://127.0.0.1',now:()=>publicNow});
+ await new Promise(resolve=>publicServer.listen(0,'127.0.0.1',resolve));
+ try{
+  const config=()=>fetch('http://127.0.0.1:'+publicServer.address().port+'/events/api/campaign/config').then(r=>r.json());
+  const initial=await config(),product=approved.products.find(p=>bundleKeys.has(p.key)),model=product.product_ref.model_id;
+  const quote=(response)=>response.seasonal_model_contracts[model].combinations.find(row=>row.product_key===product.key).price;
+  assert(quote(initial)?.base_minor>0,'first public response uses the reviewed quote before the live cache is built');
+  assert.equal(quote(initial).expires_at,approved.model_contracts[model].combinations.find(row=>row.product_key===product.key).price.expires_at);
+  const seed=JSON.parse(fs.readFileSync(path.join(publicDir,snapshot.release_id+'-initial-prices.json')));
+  assert.equal(seed.products.length,111);
+  assert(!seed.products.some(p=>p.product_ref.model_id==='99'));
+  const liveFile=path.join(publicDir,'admin-reference-prices.json');
+  const replaceLive=value=>fs.writeFileSync(liveFile,JSON.stringify(value));
+  replaceLive({...seed,status:'refreshing'});
+  assert.equal(quote(await config()).base_minor,quote(initial).base_minor);
+  replaceLive({...seed,status:'unavailable'});
+  assert.equal(quote(await config()),undefined,'a verified source denial removes the launch fallback');
+  const live=structuredClone(seed);const liveQuote=quote({seasonal_model_contracts:live.model_contracts});liveQuote.base_minor++;
+  replaceLive(live);
+  assert.equal(quote(await config()).base_minor,liveQuote.base_minor);
+  publicNow=Date.parse(liveQuote.expires_at);
+  assert.equal(quote(await config()),undefined);
+ }finally{await new Promise(resolve=>publicServer.close(resolve));}
+ fs.unlinkSync(path.join(publicDir,'admin-reference-prices.json'));
  // Model 99 is the fixture's original installed policy, retained through the Seasonal seed.
  // It is not one of the current 33+4 FC cards and is never a generic missing-model fallback.
  const selectedObservations=new Map(f.values.map(v=>[v.model.model_id,v.observation])),retained99=facts('99').observation;

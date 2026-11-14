@@ -1,4 +1,5 @@
 import {projectModelOptions} from '../runtime/model-options.mjs';
+import {publicationPriceCache} from '../runtime/admin-price-cache.mjs';
 import {projectHalloween,halloweenProductKeys} from '../runtime/halloween-contract.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -150,6 +151,12 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
    if(fs.existsSync(immutable)&&canonical(readJSON(immutable))!==canonical(plan.snapshot))fail('IMMUTABLE_RELEASE_CONFLICT',409);
    if(!fs.existsSync(immutable))atomic(immutable,plan.snapshot);
    fs.chmodSync(immutable,0o644);
+   if(plan.priceCache){
+    const priceFile=path.join(publicDir,plan.snapshot.release_id+'-initial-prices.json');
+    if(!fs.existsSync(priceFile))atomic(priceFile,plan.priceCache);
+    if(canonical(readJSON(priceFile))!==canonical(plan.priceCache))fail('IMMUTABLE_RELEASE_PRICE_CONFLICT',409);
+    fs.chmodSync(priceFile,0o644);
+   }
    atomic(path.join(publicDir,'current.json'),plan.snapshot);fs.chmodSync(path.join(publicDir,'current.json'),0o644);
    checkpoint('public-pointer');
   }
@@ -166,9 +173,9 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
  function operation(request,kind,user,action){
   const operation_id=uuid(request.operation_id),opFile=path.join(dir,'operations',operation_id+'.json'),hash=requestHash(request,kind);
   const current=read();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);
-  const {result,snapshot}=action(current);
+  const {result,snapshot,priceCache}=action(current);
   result.last_operation={operation_id,hash,kind,...(kind==='restore'?{restore_revision:request.restore_revision}:{}),...(Object.hasOwn(request,'model_imports')?{model_imports:request.model_imports}:{}),...(Object.hasOwn(request,'model_refresh_digest')?{model_refresh_digest:request.model_refresh_digest}:{})};result.updated_by=user;result.updated_at=new Date().toISOString();
-  const plan={operation_id,hash,previous:current,result,...(snapshot?{snapshot}:{})};
+  const plan={operation_id,hash,previous:current,result,...(snapshot?{snapshot}:{}),...(priceCache?{priceCache}:{})};
   // Freeze the exact payload and release before any externally visible publication step.
   atomic(pendingFile,plan);checkpoint('prepared');return finish(plan);
  }
@@ -272,11 +279,11 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
     return {result:{...current,revision:current.revision+1,draft:previous.draft}};
    });
   },
-  publish(request,user,details=[],productDetails=[]){return recover(request,'publish')||operation(request,'publish',user,current=>{
+  publish(request,user,details=[],productDetails=[],{approvedPrices}={}){return recover(request,'publish')||operation(request,'publish',user,current=>{
    const stored=Object.hasOwn(request,'draft')?candidate(current,request,details,productDetails):current.draft;
    if(!Object.hasOwn(request,'draft')&&(request.model_imports?.length||request.product_imports?.length))fail('INVALID_PENDING_IMPORTS');
    const draft=draftOf(stored),revision=current.revision+1,release_id='campaign-preview-'+revision,snapshot=snapshotFor(draft,revision,nativeCheckoutProvider());
-   return {snapshot,result:{...current,revision,draft:stored,published:{release_id,config_hash:snapshot.config_hash,rule_hash:snapshot.rule_hash,mode:'preview',live_checkout:false,published_at:new Date().toISOString(),source_revision:sourceRevision,seasonal_theme:draft.seasonal_theme,pages:draft.pages.map(p=>({...p}))}}};
+   return {snapshot,priceCache:publicationPriceCache(snapshot,approvedPrices),result:{...current,revision,draft:stored,published:{release_id,config_hash:snapshot.config_hash,rule_hash:snapshot.rule_hash,mode:'preview',live_checkout:false,published_at:new Date().toISOString(),source_revision:sourceRevision,seasonal_theme:draft.seasonal_theme,pages:draft.pages.map(p=>({...p}))}}};
   })}
  };
 }

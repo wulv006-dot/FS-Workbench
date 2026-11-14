@@ -4,6 +4,7 @@ import path from 'node:path';
 import {atomic} from './store.mjs';
 import {backendRead} from './backend-client.mjs';
 import {canonical,digest,projectRelease} from '../runtime/snapshot.mjs';
+import {readPublicPriceCache} from '../runtime/admin-price-cache.mjs';
 import {projectAdminPrices} from '../runtime/admin-price-projection.mjs';
 import {projectModelOptions} from '../runtime/model-options.mjs';
 const code=x=>typeof x==='string'&&/^[A-Z][A-Z0-9_]{0,79}$/.test(x)?x:'ADMIN_PRICE_UNAVAILABLE';
@@ -45,7 +46,7 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
  const safeWrite=value=>{try{if(fs.lstatSync(publicDir).isSymbolicLink())throw Error();atomic(cacheFile,value);fs.chmodSync(cacheFile,0o644);}
   catch{try{fs.unlinkSync(cacheFile);}catch{}clear('PUBLIC_PRICE_CACHE_WRITE_FAILED');throw Error('PUBLIC_PRICE_CACHE_WRITE_FAILED');}};
  const unavailable=(release,reason)=>{clear(reason);if(!fs.existsSync(publicDir))return;
-  safeWrite({schema_version:1,status:'unavailable',release_id:release?.release_id??null,
+  safeWrite({schema_version:1,status:reason==='REFERENCE_PRICE_REFRESHING'?'refreshing':'unavailable',release_id:release?.release_id??null,
    config_hash:release?.config_hash??null,generated_at:new Date(now()).toISOString(),products:[],model_contracts:{}});};
  function context(){
   let config,release;
@@ -78,7 +79,10 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
   attemptKey=current.key;attemptedAt=now();
   const admitted=generation;
   // The public overlay checks each price's expiry while the next read is in flight.
-  if(!memory.length)unavailable(current.release,'REFERENCE_PRICE_REFRESHING');
+  if(!memory.length){
+   const previous=readPublicPriceCache(cacheFile);
+   if(previous?.status!=='ready'||previous.release_id!==current.release.release_id||previous.config_hash!==current.release.config_hash)unavailable(current.release,'REFERENCE_PRICE_REFRESHING');
+  }
   const promise=(async()=>{
    try{
     const products=[],raw={},observations=[],reads=new Map(),missing=[];
