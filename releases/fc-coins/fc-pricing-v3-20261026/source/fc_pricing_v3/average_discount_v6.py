@@ -211,3 +211,53 @@ def repair_controls(current, proof, *, affected=None):
         controls[format(anchor.normalize(), 'f')] = (max(required[group] / retained, min_keep)
                                                      * anchor).quantize(CENT, rounding=ROUND_CEILING)
     return controls, failed
+
+
+def minimum_band_price(proof, segment, anchor, minimum, *, zero_line_only=False):
+    """Solve the native cent grid for one band with the other band fixed."""
+    from .pricing_proof_v6 import FAILED, HARD_MARGIN
+
+    retained = Decimal(proof['average_discount']['retained_ratio'])
+    paths = {row['path_id']: row for row in proof['paths']}
+    changing = {key for key, row in paths.items() if quantity_group(Decimal(row['purchase_k'])) == segment}
+    fixed = set(paths) - changing
+    if (not changing or not retained
+            or not zero_line_only and any(paths[key]['zero_line_status'] == FAILED for key in fixed)):
+        return None
+    baskets = [(Decimal(row['safe_cost_usd']) / (1 - HARD_MARGIN),
+                [(m['path_id'], Decimal(m['weight'])) for m in row['members']])
+               for row in proof['baskets'].values()] if not zero_line_only else []
+    if any(required > sum(Decimal(paths[key]['net_receipt_usd']) * weight for key, weight in members)
+           and not any(key in changing for key, _ in members) for required, members in baskets):
+        return None
+
+    def legal(cents):
+        price = Decimal(cents) * CENT
+        net = {key: Decimal(row['net_receipt_usd']) for key, row in paths.items()}
+        for key in changing:
+            row = paths[key]
+            amount = band_price_usd(price, anchor, row['purchase_k'])
+            net[key] = forecast_receipt(amount, retained)
+            if amount <= 0 or net[key] < Decimal(row['stress_cost_usd']) + Decimal(row['known_fee_usd']):
+                return False
+        return all(sum(net[key] * weight for key, weight in members) >= required for required, members in baskets)
+
+    low = int(Decimal(minimum) / CENT)
+    if legal(low):
+        return Decimal(low) * CENT
+    high = low + 1
+    # Stay within the exact cent range of the editor's JavaScript numbers.
+    limit = 2 ** 48
+    while high < limit and not legal(high):
+        high = low + 2 * (high - low)
+    if high > limit:
+        high = limit
+    if not legal(high):
+        return None
+    while high - low > 1:
+        midpoint = (high + low) // 2
+        if legal(midpoint):
+            high = midpoint
+        else:
+            low = midpoint
+    return Decimal(high) * CENT
