@@ -1,3 +1,4 @@
+import asyncio
 import tempfile
 import time
 import unittest
@@ -177,6 +178,36 @@ class MatchdayEngagementTests(unittest.TestCase):
 
 
 class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_match_locks_use_the_client_running_loop(self):
+        from chat_service import ChatClient
+
+        config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+            'routes': {str(TEST_GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}}}
+        client = ChatClient(config)
+        old_loop = asyncio.new_event_loop()
+        try:
+            # Reproduce the lock state after a previous loop has seen contention.
+            client.pulse_lock._loop = old_loop
+            client.focus_lock._loop = old_loop
+            with patch.object(client, 'add_commands', new_callable=AsyncMock), \
+                    patch.object(client.tree, 'sync', new_callable=AsyncMock):
+                await client.setup_hook()
+            for lock in (client.pulse_lock, client.focus_lock):
+                await lock.acquire()
+                waiter = asyncio.create_task(lock.acquire())
+                try:
+                    await asyncio.sleep(0)
+                    lock.release()
+                    await waiter
+                finally:
+                    if lock.locked():
+                        lock.release()
+                    if not waiter.done():
+                        waiter.cancel()
+        finally:
+            await client.close()
+            old_loop.close()
+
     async def test_missing_discussion_channel_does_not_consume_event(self):
         from chat_service import ChatClient
 
