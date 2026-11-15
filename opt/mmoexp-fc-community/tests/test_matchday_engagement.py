@@ -66,6 +66,14 @@ class MatchdayEngagementTests(unittest.TestCase):
         final = unify_message(1571553535739437117, '',
                               '## 🔴 FULL-TIME!\n\n## **Cyprus**  ` 1 - 4 `  **Montenegro**', now)
         self.assertEqual(parse_match_event(final, UNIFY_CONFIG, now).kind, 'final')
+        kickoff = unify_message(1571613094285934593, 'KICK OFF!',
+                                'Spain vs England\nReferee\nClement Turpin, France', now)
+        kickoff_pulse = parse_match_event(kickoff, UNIFY_CONFIG, now)
+        self.assertEqual((kickoff_pulse.home, kickoff_pulse.away,
+                          kickoff_pulse.score, kickoff_pulse.kind),
+                         ('Spain', 'England', '0–0', 'kickoff'))
+        self.assertIsNone(parse_match_event(unify_message(kickoff.id, 'KICK OFF!',
+                            'Referee\nClement Turpin, France', now), UNIFY_CONFIG, now))
         self.assertIsNone(parse_match_event(message(goal.id, 'Cyprus 1 - 3 Montenegro', now=now),
                                             UNIFY_CONFIG, now))
         self.assertIsNone(parse_match_event(unify_message(goal.id, goal.embeds[0].title,
