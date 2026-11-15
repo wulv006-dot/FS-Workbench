@@ -78,3 +78,25 @@ the then-current live files and retain the enabled rewards and accurate copy.
 The DSH owner still needs to land their order module with these restored
 semantics. This draft PR must not be merged without user authorization.
 CodeGraph tools were unavailable in this session; direct source inspection used.
+
+## Source closeout after user resumed the independent task
+
+Read-only production verification repeated: all three restored hashes above,
+the enabled card and surprise config remain unchanged; three services active.
+No second deployment, restart or distribution test was performed.
+
+Two self-contained regression tests (`tests/test_fcvip6_restore.py`) pass,
+including rendering the actual Chat drop method with a mocked send. The existing
+module `ci_check.py` ran 317 tests on Windows/Python 3.9: 315 passed, one failure
+in `test_information_panels.test_panel_creation_is_recorded_and_reconnect_edits_existing`
+and one error involving missing `WindowsPath.is_junction`. This is not a Linux
+CI pass. Unrelated modules were not modified to make that run green.
+
+Source and recovery records were committed locally. GitHub push and draft PR
+creation were rejected by automatic approval review before execution. A
+read-only check confirmed origin is private `wulv006-dot/FS-Workbench`, with
+ADMIN access; one evidence-based push retry was also rejected because explicit
+authorization to transmit this code to that destination was required. No
+remote branch, PR, CI result or merge is claimed. Obtain that authorization
+before retrying publication; do not bypass the rejection. DSH work remains
+untouched and still needs its own source integration.
