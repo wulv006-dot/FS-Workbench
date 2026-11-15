@@ -157,6 +157,19 @@ class ChatClient(discord.Client):
                     scanned += 1
                     if getattr(message.author, 'id', None) == matchday_engagement.UNIFY_FOOTBALL_ID:
                         unify_cards += 1
+                        if unify_cards <= 25:
+                            print('Matchday focus Unify message: ' + json.dumps({
+                                'id': str(message.id),
+                                'age_s': round(discord.utils.utcnow().timestamp() -
+                                               message.created_at.timestamp()),
+                                'bot': message.author.bot,
+                                'webhook': message.webhook_id is not None,
+                                'content': str(message.content or '')[:160],
+                                'embeds': [(str(embed.title or '')[:100],
+                                            str(embed.description or '')[:120])
+                                           for embed in message.embeds[:2]],
+                                'attachments': len(getattr(message, 'attachments', ()) or ()),
+                            }, ensure_ascii=False), flush=True)
                     if (getattr(message.author, 'id', None) ==
                             matchday_engagement.UNIFY_FOOTBALL_ID and message.embeds and
                             'matches' in str(message.embeds[0].title or '').casefold()):
