@@ -74,8 +74,10 @@ class CurveWindows(unittest.TestCase):
                   '产品类型': product if row['order_no']!='items' else 'Items'} for row in orders]
         shared = dict(rows=orders, dataset=dict(rows=lines), coverage=dict(admin_complete=True))
         online = dict(actual_outcomes=[dict(price_window_id='saved')])
-        with patch.dict('sys.modules', {'shared_es_facts': SimpleNamespace(read=lambda scope: shared)}):
+        with patch.object(daily.sys, 'path', []), patch.dict(
+                'sys.modules', {'shared_es_facts': SimpleNamespace(read=lambda scope: shared)}):
             result = daily.curve_review_outcomes(date, online)
+            self.assertIn('/opt/fs-hermes-fc', daily.sys.path)
         self.assertIs(result['online'], online)
         self.assertEqual(result['actual']['hourly'][12], dict(hour=12, orders=1, net_paid_usd='8.25'))
         self.assertEqual(len(result['payment_days']), 1)
