@@ -251,8 +251,16 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             }
             client = ChatClient(config)
             client.brain.select_matchday = AsyncMock(return_value='4')
+            empty = card()
+            empty.id = SOURCE - 1
+            empty.embeds = [SimpleNamespace(
+                title='😴 No matches today in `ENGLAND: Premier League`',
+                description='No matches lined up in `ENGLAND: Premier League`')]
+            empty.components = []
+            empty.delete = AsyncMock()
             async def history(limit):
                 yield v2_card()
+                yield empty
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
                 history=history, send=AsyncMock(return_value=SimpleNamespace(
                     id=1571600000000000000)))
@@ -260,6 +268,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             with patch('chat_service.discord.utils.utcnow', return_value=NOW), patch.object(
                     client, 'setup_matchday_intro', new_callable=AsyncMock):
                 await client.on_ready()
+                empty.delete.assert_awaited_once()
                 await client.on_ready()
             self.assertEqual(channel.send.await_count, 1)
             await client.close()
