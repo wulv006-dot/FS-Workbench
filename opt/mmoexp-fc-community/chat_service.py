@@ -149,18 +149,19 @@ class ChatClient(discord.Client):
                       flush=True)
                 continue
             day = discord.utils.utcnow().astimezone(matchday_focus.LONDON).date()
-            if not self.focus_store.may_select(int(guild_id), day,
-                                               self.focus_config.get('weekly_limit', 2)):
-                print('Matchday focus recovery already decided guild={}'.format(guild_id),
-                      flush=True)
-                continue
+            selection_open = self.focus_store.may_select(
+                int(guild_id), day, self.focus_config.get('weekly_limit', 2))
             try:
                 scanned = unify_cards = recognized = 0
                 async for message in channel.history(limit=200):
                     scanned += 1
                     if getattr(message.author, 'id', None) == matchday_engagement.UNIFY_FOOTBALL_ID:
                         unify_cards += 1
-                    if matchday_focus.parse_daily_card(
+                    if matchday_focus.is_empty_daily_card(
+                            message, route, discord.utils.utcnow()):
+                        await self.handle_daily_card(message)
+                        continue
+                    if selection_open and matchday_focus.parse_daily_card(
                             message, route, discord.utils.utcnow()):
                         recognized += 1
                         await self.handle_daily_card(message)
@@ -283,6 +284,15 @@ class ChatClient(discord.Client):
             return
         route = self.matchday_config['routes'][str(message.guild.id)]
         now = discord.utils.utcnow()
+        if matchday_focus.is_empty_daily_card(message, route, now):
+            try:
+                await message.delete()
+                print('Matchday empty card removed guild={} source={}'.format(
+                    message.guild.id, message.id), flush=True)
+            except discord.DiscordException as exc:
+                print('Matchday empty card removal failed guild={} source={} reason={}'.format(
+                    message.guild.id, message.id, type(exc).__name__), flush=True)
+            return
         fixtures = matchday_focus.parse_daily_card(message, route, now)
         if not fixtures:
             return

@@ -59,17 +59,35 @@ def _component_text(payload):
         yield from _component_text(child)
 
 
-def parse_daily_card(message, route, now):
-    """Only a fresh public Unify daily card in the configured source channel counts."""
+def _trusted_daily_source(message, route, now):
     guild = getattr(message, 'guild', None)
     channel = getattr(message, 'channel', None)
     author = getattr(message, 'author', None)
     created = getattr(message, 'created_at', None)
+    return bool(guild and channel and author and
+                author.id == UNIFY_FOOTBALL_ID and author.bot is True and
+                channel.id == route['source_channel_id'] and
+                getattr(message, 'webhook_id', None) is None and created and
+                -30 <= now.timestamp() - created.timestamp() <= 86400)
+
+
+def is_empty_daily_card(message, route, now):
+    """Recognize only Unify's explicit no-fixtures placeholder in our feed."""
+    if not _trusted_daily_source(message, route, now):
+        return False
     embeds = getattr(message, 'embeds', ()) or ()
-    if (not guild or not channel or not author or author.id != UNIFY_FOOTBALL_ID or
-            author.bot is not True or channel.id != route['source_channel_id'] or
-            getattr(message, 'webhook_id', None) is not None or not created or
-            not -30 <= now.timestamp() - created.timestamp() <= 86400):
+    if len(embeds) != 1 or getattr(message, 'components', ()):
+        return False
+    title = re.sub(r'^[^A-Za-z]+', '', getattr(embeds[0], 'title', '') or '')
+    description = (getattr(embeds[0], 'description', '') or '').casefold()
+    return (title.startswith('No matches today in ') and
+            'no matches lined up in ' in description)
+
+
+def parse_daily_card(message, route, now):
+    """Only a fresh public Unify daily card in the configured source channel counts."""
+    embeds = getattr(message, 'embeds', ()) or ()
+    if not _trusted_daily_source(message, route, now):
         return []
     blocks = []
     if embeds:
