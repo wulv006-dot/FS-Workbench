@@ -144,6 +144,18 @@ class SixCost(unittest.TestCase):
         result = self.run_collect([invalid+self.rows, []])
         self.assertNotIn('500', [row['record_id'] for row in result['costs'][0]['sample_records']])
 
+    def test_fs_oms_supplier_is_excluded_before_selecting_each_platform_cost(self):
+        ps = dict(self.rows[0], supplier='FS OMS\nwarehouse')
+        xbox = dict(self.rows[7], supplier='[FS-OMS]')
+        pc = dict(self.rows[8], supplier='FS OMS')
+        other = dict(self.rows[8], record_id='301', supplier='FS Orders')
+        rows = [ps, xbox, pc, *self.rows[1:7], other]
+        after_ps, after_xbox, after_pc = self.run_collect([rows, []])['costs']
+        self.assertEqual([row['record_id'] for row in after_ps['sample_records']],
+                         ['101', '102', '103', '104', '105', '106'])
+        self.assertNotIn('observed_cost', after_xbox)
+        self.assertEqual(after_pc['record_id'], '301')
+
     def test_same_trade_time_orders_by_numeric_id_before_taking_six(self):
         rows = [dict(self.rows[0], record_id=str(i), cny_per_1k=str(i)) for i in (2,9,10,20,50,100,101)]
         result = self.run_collect([rows+self.rows[7:], []])

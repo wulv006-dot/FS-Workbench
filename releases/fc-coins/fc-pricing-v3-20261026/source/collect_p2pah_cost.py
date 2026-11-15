@@ -68,7 +68,8 @@ READ_ROWS = r"""() => ({
     return platform?{platform:platform.toUpperCase(),record_id:c[1]?.innerText.trim(),
       delivery_type:c[2]?.innerText.trim(),trade_at:c[5]?.innerText.trim(),cny_per_1k:c[9]?.innerText.trim(),
       order_id:c[4]?.querySelector('a')?.getAttribute('href')?.match(/\/order\/admin_order\/look\/id\/(\d+)\.html/)?.[1],
-      quantity:c[7]?.innerText.trim(),gift:c[8]?.innerText.trim(),cost_total:c[10]?.innerText.trim()}:null;
+      quantity:c[7]?.innerText.trim(),gift:c[8]?.innerText.trim(),cost_total:c[10]?.innerText.trim(),
+      supplier:c[13]?.innerText.trim()}:null;
   }).filter(Boolean)
 })"""
 
@@ -91,6 +92,8 @@ READ_ORDER = r"""async (orderId) => {
 
 ORDER_DELIVERY = "\u8ba2\u5355\u53d1\u8d27"
 NON_COST_TYPES = {"\u91c7\u8d2d\u6253\u6b3e", "\u9500\u552e\u8865\u53d1", "\u9500\u552e\u8d60\u9001"}
+# Remove this exclusion after the FS OMS sender consistently records FC shipments in K.
+FS_OMS_SUPPLIER = re.compile(r'(?<![a-z])fs[\s_./-]*oms(?![a-z])', re.I)
 
 
 def valid_record(raw: dict):
@@ -102,6 +105,8 @@ def valid_record(raw: dict):
     if delivery_type != ORDER_DELIVERY:
         # Missing or unknown type cannot fall back to an older cost or be retried as a timeout.
         raise ValueError("cost_delivery_type_unverified")
+    if FS_OMS_SUPPLIER.search(str(raw.get('supplier') or '')):
+        return None
     record_id = str(raw.get("record_id") or "")
     if not re.fullmatch(r"\d+", record_id):
         return None
