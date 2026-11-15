@@ -7,11 +7,11 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT/'source'))
+import management_facts as facts
 with patch.dict(sys.modules,{'management_config_store':SimpleNamespace(
  load_active=lambda path:json.loads(Path(path).read_text(encoding='utf8'))
 )}):
  import management_v2_runner as runner
-import management_facts as facts
 from management_facts import fingerprint,stable
 real_collect=runner.collect
 real_read_query=facts.read_query
