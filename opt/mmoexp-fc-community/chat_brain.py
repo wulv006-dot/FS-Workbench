@@ -184,3 +184,26 @@ class ChatBrain:
         if errors:
             raise ChatBrainError('all providers failed (' + ', '.join(errors) + ')')
         raise ChatBrainError('missing api key')
+
+    async def select_matchday(self, fixtures):
+        """One small daily call; the verified fixture card remains the fact source."""
+        lines = ['{}. {} vs {} | {}'.format(i, f.home, f.away, f.competition)
+                 for i, f in enumerate(fixtures, start=1)]
+        messages = [
+            {'role': 'system', 'content': (
+                'Choose at most one standout football fixture for an English-speaking '
+                'FC27 community in the UK and US. Prefer major European leagues, cups '
+                'and national-team matches. If none is broadly interesting, return NONE; '
+                'never fill a quota. Use only the supplied '
+                'fixtures; do not add facts, scores or lineups. Reply exactly NONE or '
+                'N|one short lively English discussion question ending with ?. '
+                'N is the fixture number. No explanation.')},
+            {'role': 'user', 'content': '\n'.join(lines)},
+        ]
+        for provider in self.providers:
+            if provider.ready:
+                try:
+                    return await self._ask(provider, messages)
+                except ChatBrainError:
+                    continue
+        raise ChatBrainError('matchday selection unavailable')

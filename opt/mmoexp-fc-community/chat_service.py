@@ -25,6 +25,7 @@ import chat_brain
 import chat_panel
 import chat_schedule
 import matchday_engagement
+import matchday_focus
 
 MAX_HISTORY = 10
 
@@ -56,6 +57,9 @@ def validate_config(config):
     chat_panel.validate_surprise_config(chat_config.get('surprise'))
     if config.get('matchday_engagement') is not None:
         matchday_engagement.validate_matchday_config(config['matchday_engagement'])
+    if config.get('matchday_focus') is not None:
+        matchday_focus.validate_config(config['matchday_focus'],
+                                       config.get('matchday_engagement'))
     token_env = config.get('token_env', 'DISCORD_CHAT_BOT_TOKEN')
     if not os.environ.get(token_env):
         raise ValueError('missing bot token in environment variable ' + token_env)
@@ -103,10 +107,15 @@ class ChatClient(discord.Client):
         self.matchday_store = None
         self.pulse_lock = asyncio.Lock()
         self.followup_task = None
+        self.focus_config = config.get('matchday_focus') or {}
+        self.focus_store = None
+        self.focus_lock = asyncio.Lock()
         if self.matchday_config and self.matchday_config['enabled']:
             self.matchday_store = matchday_engagement.MatchPulseStore(
                 self.matchday_config.get('state_path') or
                 Path(__file__).parent / 'var' / 'match-pulse.sqlite3')
+        if self.focus_config.get('enabled'):
+            self.focus_store = matchday_focus.FocusStore(self.focus_config['state_path'])
 
     # -- lifecycle ---------------------------------------------------------
     async def setup_hook(self):
@@ -123,6 +132,28 @@ class ChatClient(discord.Client):
 
     async def on_ready(self):
         await self.setup_matchday_intro()
+        if self.focus_store is not None:
+            await self.recover_daily_card()
+
+    async def recover_daily_card(self):
+        """A same-day Unify card can still be used after a bot restart."""
+        for guild_id in self.focus_config['guild_ids']:
+            route = self.matchday_config['routes'][guild_id]
+            channel = self.get_channel(route['source_channel_id'])
+            if channel is None or channel.guild.id != int(guild_id):
+                continue
+            day = discord.utils.utcnow().astimezone(matchday_focus.LONDON).date()
+            if not self.focus_store.may_select(int(guild_id), day,
+                                               self.focus_config.get('weekly_limit', 2)):
+                continue
+            try:
+                async for message in channel.history(limit=200):
+                    if matchday_focus.parse_daily_card(
+                            message, route, discord.utils.utcnow()):
+                        await self.handle_daily_card(message)
+                        break
+            except discord.DiscordException as exc:
+                print('Matchday focus recovery unavailable: ' + type(exc).__name__, flush=True)
 
     async def setup_matchday_intro(self):
         route = (self.matchday_config or {}).get('routes', {}).get('1041923524601851914')
@@ -199,6 +230,8 @@ class ChatClient(discord.Client):
     async def on_message(self, message):
         if message.author.bot:
             if self.matchday_store is not None:
+                if self.focus_store is not None:
+                    await self.handle_daily_card(message)
                 await self.handle_match_pulse(message)
             return
         if message.guild is None:
@@ -209,6 +242,10 @@ class ChatClient(discord.Client):
         pulse = matchday_engagement.parse_match_event(message, self.matchday_config, time.time())
         if pulse is None:
             return
+        if (self.focus_store is not None and
+                str(pulse.guild_id) in self.focus_config['guild_ids'] and
+                not self.focus_store.selected(pulse.guild_id, pulse.match_key, time.time())):
+            return
         async with self.pulse_lock:
             channel = self.get_channel(pulse.discussion_channel_id)
             if channel is None or channel.guild.id != pulse.guild_id:
@@ -218,6 +255,59 @@ class ChatClient(discord.Client):
                 return
             await self.send_match_pulse(channel, message.id, pulse,
                                         message.created_at.timestamp(), attempts=3)
+
+    async def handle_daily_card(self, message):
+        if message.guild is None or str(message.guild.id) not in self.focus_config['guild_ids']:
+            return
+        route = self.matchday_config['routes'][str(message.guild.id)]
+        now = discord.utils.utcnow()
+        fixtures = matchday_focus.parse_daily_card(message, route, now)
+        if not fixtures:
+            return
+        day = now.astimezone(matchday_focus.LONDON).date()
+        async with self.focus_lock:
+            limit = self.focus_config.get('weekly_limit', 2)
+            if not self.focus_store.may_select(message.guild.id, day, limit):
+                return
+            channel = self.get_channel(route['discussion_channel_id'])
+            if channel is None or channel.guild.id != message.guild.id:
+                print('Matchday focus discussion channel unavailable', flush=True)
+                return
+            try:
+                answer = await self.brain.select_matchday(fixtures)
+                choice = matchday_focus.parse_choice(answer, len(fixtures))
+            except (chat_brain.ChatBrainError, ValueError) as exc:
+                print('Matchday focus selection skipped: ' + type(exc).__name__, flush=True)
+                return
+            if choice is None:
+                self.focus_store.skip(message.guild.id, day, message.id)
+                return
+            index, question = choice
+            fixture = fixtures[index]
+            if not self.focus_store.reserve(message.guild.id, day, message.id,
+                                            fixture, question, limit):
+                return
+            embed = discord.Embed(
+                title='🏟️ Matchday pick',
+                description=('**{} vs {}** · {}\nKickoff: <t:{}:F>\n\n{}').format(
+                    fixture.home, fixture.away, fixture.competition,
+                    int(fixture.kickoff.timestamp()), question),
+                colour=0x2275E8)
+            embed.set_footer(text='Fixture: UnifyFootball · FC27 community: MMOEXP')
+            view = discord.ui.View(timeout=None)
+            view.add_item(discord.ui.Button(label='See fixtures', url=fixture.source_url))
+            view.add_item(discord.ui.Button(label='Build your FC27 XI', url=
+                'https://discord.com/channels/{}/{}'.format(
+                    message.guild.id, route['players_channel_id'])))
+            try:
+                sent = await channel.send(embed=embed, view=view, nonce=message.id,
+                                          allowed_mentions=discord.AllowedMentions.none())
+                self.focus_store.finish(message.guild.id, day, sent.id)
+                print('Matchday focus sent source={} discussion={}'.format(
+                    message.id, sent.id), flush=True)
+            except discord.DiscordException as exc:
+                self.focus_store.unknown(message.guild.id, day)
+                print('Matchday focus result unknown: ' + type(exc).__name__, flush=True)
 
     async def send_match_pulse(self, channel, source_id, pulse, source_at, attempts=1):
         embed = discord.Embed(title='⚽ Matchday chat',
