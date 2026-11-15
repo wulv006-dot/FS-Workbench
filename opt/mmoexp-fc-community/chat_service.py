@@ -149,11 +149,12 @@ class ChatClient(discord.Client):
         if channel is None or channel.guild.id != 1041923524601851914:
             print('Matchday intro channel unavailable', flush=True)
             return
+        match_source = 'UnifyFootball' if route.get('provider') == 'unify_football' else 'Smart Score'
         embed = discord.Embed(
             title='🏟️ FC27 Matchday Lounge',
-            description=('Follow live football and predictions with **Smart Score** in Matchday. '
+            description=('Follow live football and predictions with **{}** in Matchday. '
                          'Talk fixtures, goals and players here. Choose your club in Welcome; '
-                         'MMOEXP FC Assistant handles private FUT price checks.'),
+                         'MMOEXP FC Assistant handles private FUT price checks.').format(match_source),
             colour=0x2275E8)
         view = discord.ui.View(timeout=None)
         for label, target in (
@@ -225,7 +226,7 @@ class ChatClient(discord.Client):
         await self.handle_chat(message)
 
     async def handle_match_pulse(self, message):
-        pulse = matchday_engagement.parse_smart_score(message, self.matchday_config, time.time())
+        pulse = matchday_engagement.parse_match_event(message, self.matchday_config, time.time())
         if pulse is None:
             return
         async with self.pulse_lock:
@@ -242,9 +243,10 @@ class ChatClient(discord.Client):
         embed = discord.Embed(title='⚽ Matchday chat',
                               description=matchday_engagement.prompt_text(pulse),
                               colour=0x2275E8)
-        embed.set_footer(text='Match updates: Smart Score · FC27 tools: MMOEXP')
+        embed.set_footer(text='Match updates: {} · FC27 tools: MMOEXP'.format(pulse.source_name))
         view = discord.ui.View(timeout=None)
-        view.add_item(discord.ui.Button(label='Smart Score update', url=pulse.source_url))
+        view.add_item(discord.ui.Button(label='{} update'.format(pulse.source_name),
+                                        url=pulse.source_url))
         view.add_item(discord.ui.Button(label='FC27 Players',
             url='https://discord.com/channels/{}/{}'.format(pulse.guild_id, pulse.players_channel_id)))
         view.add_item(discord.ui.Button(label='FC27 Coins',
@@ -266,7 +268,7 @@ class ChatClient(discord.Client):
             if pulse.kind == 'final':
                 self.matchday_store.queue_followup(pulse, time.time())
             history = list(self.history.get(pulse.discussion_channel_id, ()))
-            history.append(('assistant', 'Smart Score public update: ' +
+            history.append(('assistant', '{} public update: '.format(pulse.source_name) +
                             matchday_engagement.prompt_text(pulse)))
             self.history[pulse.discussion_channel_id] = history[-MAX_HISTORY:]
         except discord.DiscordException as exc:
@@ -299,9 +301,10 @@ class ChatClient(discord.Client):
             embed = discord.Embed(title='🧩 Match to Squad',
                                   description=matchday_engagement.followup_text(pulse),
                                   colour=0x2275E8)
-            embed.set_footer(text='Match result: Smart Score · FC27 tools: MMOEXP')
+            embed.set_footer(text='Match result: {} · FC27 tools: MMOEXP'.format(pulse.source_name))
             view = discord.ui.View(timeout=None)
-            view.add_item(discord.ui.Button(label='Smart Score final', url=pulse.source_url))
+            view.add_item(discord.ui.Button(label='{} final'.format(pulse.source_name),
+                                            url=pulse.source_url))
             view.add_item(discord.ui.Button(label='Explore FC27 Players',
                 url='https://discord.com/channels/{}/{}'.format(
                     pulse.guild_id, pulse.players_channel_id)))
