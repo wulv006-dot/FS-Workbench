@@ -47,12 +47,17 @@ class MatchdayEngagementTests(unittest.TestCase):
         validate_matchday_config(UNIFY_CONFIG)
         now = time.time()
         goal = unify_message(1571546825184256152, "[67'] ⚽️ GOAAAAAAAAAAL!",
-                             'Cyprus  1 - 3  Montenegro\nLeague: Nations League - League C', now)
+                             '## 👤 N. Krstovic (_Montenegro_)\n\n'
+                             '### **Cyprus**  ` 1 - 3 `  **Montenegro**', now)
         pulse = parse_match_event(goal, UNIFY_CONFIG, now)
         self.assertEqual((pulse.home, pulse.away, pulse.score, pulse.kind, pulse.source_name),
                          ('Cyprus', 'Montenegro', '1–3', 'goal', 'UnifyFootball'))
-        half = unify_message(1571537266675818698, 'HALFTIME', 'Latvia 0 - 0 Armenia', now)
+        half = unify_message(1571537266675818698, '',
+                             '## ⏸️ HALFTIME\n\n# **Latvia** `0 - 0` **Armenia**', now)
         self.assertEqual(parse_match_event(half, UNIFY_CONFIG, now).kind, 'half_time')
+        final = unify_message(1571553535739437117, '',
+                              '## 🔴 FULL-TIME!\n\n## **Cyprus**  ` 1 - 4 `  **Montenegro**', now)
+        self.assertEqual(parse_match_event(final, UNIFY_CONFIG, now).kind, 'final')
         self.assertIsNone(parse_match_event(message(goal.id, 'Cyprus 1 - 3 Montenegro', now=now),
                                             UNIFY_CONFIG, now))
         self.assertIsNone(parse_match_event(unify_message(goal.id, goal.embeds[0].title,

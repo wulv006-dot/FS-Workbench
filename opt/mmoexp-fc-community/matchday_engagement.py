@@ -64,7 +64,8 @@ def _card_lines(message):
         blocks.extend((getattr(embed, 'title', '') or '', getattr(embed, 'description', '') or ''))
         for field in getattr(embed, 'fields', ()) or ():
             blocks.extend((getattr(field, 'name', '') or '', getattr(field, 'value', '') or ''))
-    return [line.replace('**', '').replace('__', '').replace('`', '').strip()
+    return [re.sub(r'^#{1,6}\s*', '',
+                   line.replace('**', '').replace('__', '').replace('`', '').strip())
             for block in blocks for line in str(block).splitlines() if line.strip()]
 
 
