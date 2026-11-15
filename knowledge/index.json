@@ -411,7 +411,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "94dd4fef42d31ef390829aa82af77c41c0da67ac71b7c5e2d9a0ef04ebf97e0f",
+        "sha256": "db4af74ac14db896ba1b9f489a143d50a63fce62f2cd6385f31636772607de6f",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -1240,7 +1240,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "94dd4fef42d31ef390829aa82af77c41c0da67ac71b7c5e2d9a0ef04ebf97e0f",
+        "sha256": "db4af74ac14db896ba1b9f489a143d50a63fce62f2cd6385f31636772607de6f",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [

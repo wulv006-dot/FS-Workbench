@@ -60,10 +60,11 @@ class Knowledge(unittest.TestCase):
         self.assertNotIn('105K',v['entries'][0]['content'])
         self.assertNotIn('八日平均20%',v['entries'][0]['content'])
         self.assertNotIn('18:21最新自然验收', v['entries'][0]['content'])
-        self.assertNotIn('订单归属和跨日试验复盘', v['entries'][0]['content'])
+        self.assertIn('订单归属和跨日试验复盘', v['entries'][0]['content'])
         method = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.v3'], preview=True)
         for phrase in ('按北京时间付款日', '按订单创建时间', '同单发货记录', '同钟点重叠时段'):
             self.assertIn(phrase, method['entries'][0]['content'])
+            self.assertIn(phrase, v['entries'][0]['content'])
         self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'])['status'], 'not_published')
 
     def test_email_export_current_scope_not_old_paid_defaults(self):
