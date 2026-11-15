@@ -48,7 +48,7 @@ class MatchdaySelectorTests(unittest.TestCase):
         self.assertEqual(parse_upcoming(card(self.now, fixture,
             author=SimpleNamespace(id=1, bot=True)), GUILD, CHANNEL, self.now), [])
         self.assertEqual(parse_upcoming(card(self.now, fixture,
-            created_at=self.now - dt.timedelta(hours=7)), GUILD, CHANNEL, self.now), [])
+            created_at=self.now - dt.timedelta(hours=25)), GUILD, CHANNEL, self.now), [])
         self.assertEqual(parse_upcoming(card(self.now, fixture,
             jump_url='https://example.com/not-a-discord-card'), GUILD, CHANNEL, self.now), [])
         response = card(self.now, fixture, webhook_id=123,
