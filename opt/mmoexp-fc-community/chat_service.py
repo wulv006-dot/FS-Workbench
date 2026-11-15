@@ -131,6 +131,7 @@ class ChatClient(discord.Client):
             self.followup_task = asyncio.create_task(self.run_followups())
 
     async def on_ready(self):
+        print('FC chat ready guilds={}'.format([guild.id for guild in self.guilds]), flush=True)
         await self.setup_matchday_intro()
         if self.focus_store is not None:
             await self.recover_daily_card()
@@ -147,9 +148,15 @@ class ChatClient(discord.Client):
             day = discord.utils.utcnow().astimezone(matchday_focus.LONDON).date()
             if not self.focus_store.may_select(int(guild_id), day,
                                                self.focus_config.get('weekly_limit', 2)):
+                print('Matchday focus recovery already decided guild={}'.format(guild_id),
+                      flush=True)
                 continue
             try:
+                scanned = unify_cards = recognized = 0
                 async for message in channel.history(limit=200):
+                    scanned += 1
+                    if getattr(message.author, 'id', None) == matchday_engagement.UNIFY_FOOTBALL_ID:
+                        unify_cards += 1
                     if (getattr(message.author, 'id', None) ==
                             matchday_engagement.UNIFY_FOOTBALL_ID and message.embeds and
                             'matches' in str(message.embeds[0].title or '').casefold()):
@@ -164,8 +171,11 @@ class ChatClient(discord.Client):
                         }, ensure_ascii=False), flush=True)
                     if matchday_focus.parse_daily_card(
                             message, route, discord.utils.utcnow()):
+                        recognized = 1
                         await self.handle_daily_card(message)
                         break
+                print('Matchday focus recovery guild={} scanned={} unify={} recognized={}'.format(
+                    guild_id, scanned, unify_cards, recognized), flush=True)
             except discord.DiscordException as exc:
                 print('Matchday focus recovery unavailable: ' + type(exc).__name__, flush=True)
 
