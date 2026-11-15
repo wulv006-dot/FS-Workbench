@@ -16,7 +16,7 @@
 
 ## 本机运行与维护
 
-Windows 计划任务名 `MMOEXP FC27 Smart Score Upcoming`，以当前已登录的 Administrator 交互会话运行。运行源为此脚本在 `D:/Deepseek Harness/discord-cdp/` 的部署副本。更新 Git 源脚本后须重新同步该副本；先在 D4 VIP 测试，再替换生产副本。计划任务的标准输出、错误输出应由启动包装器保存到本机 `state` 目录，不保存玩家消息正文。
+Windows 计划任务名 `MMOEXP FC27 Smart Score Upcoming`，以当前已登录的 Administrator 交互会话运行。运行源为此脚本在 `D:/Deepseek Harness/discord-cdp/` 的部署副本。更新 Git 源脚本后须重新同步该副本；先在 D4 VIP 测试，再替换生产副本。运行结果写入本机 `state/smartscore-upcoming-run.jsonl`，不保存玩家消息正文；另可查看计划任务的上次结果。
 
 手动只读预演：`node smartscore_upcoming_cdp.mjs --target official`。手动执行：`node smartscore_upcoming_cdp.mjs --target official --send --navigate`。测试群执行时将 `official` 改为 `test`。本机 `state/smartscore-upcoming-official.json` 是去重与未知结果记录；出现 `unknown` 时先按频道和消息 ID 核对，不删除状态盲重发。
 

@@ -1,7 +1,7 @@
 // Runs Smart Score's own slash command in the logged-in Discord desktop UI.
 // The public reply remains Smart Score's; FC Assistant consumes it as usual.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, renameSync, mkdirSync, openSync, closeSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, renameSync, mkdirSync, openSync, closeSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -224,6 +224,16 @@ export async function run(argv = process.argv.slice(2)) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-  run().then(result => console.log(JSON.stringify(result)))
-    .catch(error => { console.error('ERROR: ' + error.message); process.exitCode = 1; });
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const log = (status, detail) => {
+    mkdirSync(STATE_DIR, { recursive: true });
+    appendFileSync(join(STATE_DIR, 'smartscore-upcoming-run.jsonl'),
+      JSON.stringify({ at: new Date().toISOString(), status, detail }) + '\n');
+  };
+  run().then(result => { console.log(JSON.stringify(result)); log('ok', result); })
+    .catch(error => {
+      console.error('ERROR: ' + error.message);
+      log('error', error.message);
+      process.exitCode = 1;
+    });
+}
