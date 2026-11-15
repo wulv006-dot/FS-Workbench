@@ -5,6 +5,8 @@ import argparse,contextlib,fcntl,hashlib,json,os,sys,tempfile,time
 from pathlib import Path
 from datetime import datetime,timedelta,timezone
 from management_facts import collect,CONTRACT,DATA_SCOPE,SH,stable,fingerprint
+sys.path.insert(0,'/opt/fs-access-policy')
+from management_config_store import load_active
 ROOT=Path('/var/lib/fs-boss-workspaces/management-v2')
 PUBLIC=Path('/var/lib/fs-boss-workspaces/public/management-v2.json')
 STATUS=Path('/var/lib/fs-boss-workspaces/public/management.status.json')
@@ -35,7 +37,7 @@ def run(*,manual=False,root=ROOT,public=PUBLIC,status=STATUS,targets=TARGETS,rea
  root=Path(root);journal=root/'journal'/(day+'.json');cachefile=root/'daily-cache.json'
  with lock(root/'run.lock') as held:
   if not held:return {'status':'already_running'}
-  target_data=json.loads(Path(targets).read_text('utf-8'));target_version=fingerprint(target_data)
+  target_data=load_active(targets);target_version=fingerprint(target_data)
   if journal.is_file():
    old=json.loads(journal.read_text('utf-8'))
    if old.get('phase')=='completed' and old.get('status')=='facts_ready':
@@ -54,12 +56,12 @@ def run(*,manual=False,root=ROOT,public=PUBLIC,status=STATUS,targets=TARGETS,rea
   record={'schema_version':2,'kind':'management','dataScope':DATA_SCOPE,'factsRevision':FACTS_REVISION,'day':day,'started_at':now.isoformat(),'targetVersion':target_version,'trigger':'manual' if manual else 'scheduled','phase':'collecting','status':'running','ai_status':'not_requested'}
   atomic(journal,record);atomic(status,record,0o644)
   try:
-   data=json.loads(Path(targets).read_text('utf-8'));cache=json.loads(cachefile.read_text('utf-8')) if cachefile.exists() else {}
+   cache=json.loads(cachefile.read_text('utf-8')) if cachefile.exists() else {}
    if not isinstance(cache,dict):raise ValueError('cache_contract')
    if reader is None:
     from boss_daily import read_summary
     reader=lambda path:read_summary(path,deadline=deadline)
-   facts=collect(now,data,reader,cache=cache,deadline_seconds=seconds)
+   facts=collect(now,target_data,reader,cache=cache,deadline_seconds=seconds)
    finished=clock() if clock else datetime.now(SH)
    if finished.astimezone(SH).date().isoformat()!=day or (not manual and finished.astimezone(SH).hour>=7):raise TimeoutError('nightly_deadline_exceeded')
    facts['collectionFinishedAt']=finished.isoformat();facts['analysis']={'status':'pending','businessDate':day,'validUntil':facts['validUntil'],'source':'Hermes scheduled once after facts are ready'}
