@@ -295,8 +295,10 @@ class ChatClient(discord.Client):
             if choice is None:
                 self.focus_store.skip(message.guild.id, day, message.id)
                 return
-            index, question = choice
+            index = choice
             fixture = fixtures[index]
+            question = 'Who are you backing: {} or {}?'.format(
+                fixture.home, fixture.away)
             if not self.focus_store.reserve(message.guild.id, day, message.id,
                                             fixture, question, limit):
                 return
