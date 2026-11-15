@@ -141,6 +141,8 @@ class ChatClient(discord.Client):
             route = self.matchday_config['routes'][guild_id]
             channel = self.get_channel(route['source_channel_id'])
             if channel is None or channel.guild.id != int(guild_id):
+                print('Matchday focus source channel unavailable guild={}'.format(guild_id),
+                      flush=True)
                 continue
             day = discord.utils.utcnow().astimezone(matchday_focus.LONDON).date()
             if not self.focus_store.may_select(int(guild_id), day,
@@ -148,6 +150,18 @@ class ChatClient(discord.Client):
                 continue
             try:
                 async for message in channel.history(limit=200):
+                    if (getattr(message.author, 'id', None) ==
+                            matchday_engagement.UNIFY_FOOTBALL_ID and message.embeds and
+                            'matches' in str(message.embeds[0].title or '').casefold()):
+                        embed = message.embeds[0]
+                        print('Matchday focus card shape: ' + json.dumps({
+                            'id': str(message.id), 'title': str(embed.title or '')[:100],
+                            'description': str(embed.description or '')[:160],
+                            'footer': str(getattr(getattr(embed, 'footer', None),
+                                                  'text', '') or '')[:100],
+                            'fields': [(str(field.name)[:80], str(field.value)[:120])
+                                       for field in embed.fields[:4]],
+                        }, ensure_ascii=False), flush=True)
                     if matchday_focus.parse_daily_card(
                             message, route, discord.utils.utcnow()):
                         await self.handle_daily_card(message)
