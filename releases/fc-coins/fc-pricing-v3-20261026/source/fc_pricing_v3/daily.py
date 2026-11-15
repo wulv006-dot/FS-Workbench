@@ -135,7 +135,7 @@ def collect_marketing_context(review_date, outcomes, payment_days):
 def curve_review_outcomes(date, online):
     from .business_source import amount
     import hashlib
-    sys.path.insert(0, '/opt/fs-exact-range-20261001')
+    sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
     from shared_es_facts import read
     shared = read(dict(start=date, end=date, site_id='266', gid='1327'))
     coverage = dict(shared.get('coverage') or {})
