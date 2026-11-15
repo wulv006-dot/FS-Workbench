@@ -127,6 +127,20 @@ class SixCost(unittest.TestCase):
         detail['deliveries'][0]['total'] = '198'
         self.assertIsNone(self.collector.verified_delivery_cost(self.tab, row, {'300': detail}))
 
+    def test_balancing_delivery_does_not_make_mixed_unit_item_valid(self):
+        self.native_verifier.stop()
+        arrivals = [('4627030', '1.03', '398.000000', '409.94'),
+                    ('4627034', '1028.97', '0.000010', '0.01')]
+        detail = dict(complete=True,
+            goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty='1030', used='1030')],
+            deliveries=[dict(id=did, pid='9', qty=qty, gift='0', price=cost, total=total)
+                        for did, qty, cost, total in arrivals])
+        for did, qty, cost, total in arrivals:
+            with self.subTest(delivery=did):
+                raw = dict(self.raw(did, cost, 0), order_id='300', quantity=qty, gift='0', cost_total=total)
+                _, row = self.collector.valid_record(raw)
+                self.assertIsNone(self.collector.verified_delivery_cost(self.tab, row, {'300': detail}))
+
     def test_duplicate_same_record_does_not_count_twice(self):
         result = self.run_collect([self.rows[:3], self.rows[:3]+self.rows[3:], []])
         self.assertEqual(len(result['costs'][0]['sample_records']), 6)
