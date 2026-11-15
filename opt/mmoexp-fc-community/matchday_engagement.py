@@ -12,6 +12,7 @@ UNIFY_FOOTBALL_ID = 1332364544869142538
 COOLDOWN_SECONDS = 900
 MAX_MESSAGE_AGE_SECONDS = 180
 SCORE = re.compile(r'^(.{2,60}?)\s+(\d{1,2})\s*[—–-]\s*(\d{1,2})\s+(.{2,60})$')
+VERSUS = re.compile(r'^(.{2,60}?)\s+vs\.?\s+(.{2,60})$', re.IGNORECASE)
 LONDON = ZoneInfo('Europe/London')
 
 
@@ -102,9 +103,6 @@ def parse_unify_football(message, config, now):
     if not created_at or not -30 <= now - created_at.timestamp() <= MAX_MESSAGE_AGE_SECONDS:
         return None
     lines = _card_lines(message)
-    match = _match_line(lines)
-    if not match:
-        return None
     text = '\n'.join(lines).lower()
     if any(word in text for word in ('full time', 'full-time', 'fulltime', 'final whistle')):
         kind = 'final'
@@ -114,9 +112,18 @@ def parse_unify_football(message, config, now):
         kind = 'goal'
     elif 'red card' in text:
         kind = 'red_card'
-    elif any(word in text for word in ('kick-off', 'kickoff', 'match started')):
+    elif any(word in text for word in ('kick off', 'kick-off', 'kickoff', 'match started')):
         kind = 'kickoff'
     else:
+        return None
+    match = _match_line(lines)
+    if not match and kind == 'kickoff':
+        for line in lines:
+            teams = VERSUS.fullmatch(line)
+            if teams:
+                match = (*teams.groups(), '0–0')
+                break
+    if not match:
         return None
     home, away, score = match
     key = '{}|{}'.format(home.casefold(), away.casefold())
