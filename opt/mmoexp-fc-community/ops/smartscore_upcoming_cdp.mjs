@@ -226,14 +226,19 @@ export async function run(argv = process.argv.slice(2)) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const log = (status, detail) => {
+    if (!process.argv.includes('--send')) return;
     mkdirSync(STATE_DIR, { recursive: true });
     appendFileSync(join(STATE_DIR, 'smartscore-upcoming-run.jsonl'),
       JSON.stringify({ at: new Date().toISOString(), status, detail }) + '\n');
   };
-  run().then(result => { console.log(JSON.stringify(result)); log('ok', result); })
+  run().then(result => {
+    console.log(JSON.stringify(result));
+    log('ok', result);
+  })
     .catch(error => {
       console.error('ERROR: ' + error.message);
-      log('error', error.message);
+      try { log('error', error.message); }
+      catch (logError) { console.error('Log write failed: ' + logError.message); }
       process.exitCode = 1;
     });
 }
