@@ -399,7 +399,7 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_temporary_cost_protection_20261114",
+      "revision": "fc_v61_cross_day_order_attribution_20261115",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -411,7 +411,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "1f9075056a309c184f0e311fdbb3999df6a67612deed620850a212399d0fafe8",
+        "sha256": "db4af74ac14db896ba1b9f489a143d50a63fce62f2cd6385f31636772607de6f",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -428,7 +428,8 @@
         "fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4",
         "fc.pricing.constraints@fc_v61_native_all_two_band_20261113",
         "fc.pricing.constraints@fc_v61_100k_market_two_band_20261113",
-        "fc.pricing.constraints@fc_v61_d3_d1_es_ready_20261114"
+        "fc.pricing.constraints@fc_v61_d3_d1_es_ready_20261114",
+        "fc.pricing.constraints@fc_v61_temporary_cost_protection_20261114"
       ],
       "provenance": [
         {
@@ -509,6 +510,12 @@
           "kind": "direct_user_archive_priority_and_recent_discount",
           "date": "2026-11-14",
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md"
+        },
+        {
+          "kind": "direct_user_sync_verified_v6_cross_day_attribution",
+          "date": "2026-11-15",
+          "evidence": "https://github.com/wulv006-dot/FS-Workbench/pull/1098",
+          "scope": "Read-only FC pricing review method for native V6 order binding and matched cross-day comparisons"
         }
       ],
       "consumers": [
@@ -1220,7 +1227,7 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc_v61_temporary_cost_protection_20261114",
+      "revision": "fc_v61_cross_day_order_attribution_20261115",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1233,7 +1240,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "1f9075056a309c184f0e311fdbb3999df6a67612deed620850a212399d0fafe8",
+        "sha256": "db4af74ac14db896ba1b9f489a143d50a63fce62f2cd6385f31636772607de6f",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1254,7 +1261,8 @@
         "fc.pricing.v3@20261111-lootbar-no-coupon",
         "fc.pricing.v3@fc_v61_native_all_two_band_20261113",
         "fc.pricing.v3@fc_v61_100k_market_two_band_20261113",
-        "fc.pricing.v3@fc_v61_d3_d1_es_ready_20261114"
+        "fc.pricing.v3@fc_v61_d3_d1_es_ready_20261114",
+        "fc.pricing.v3@fc_v61_temporary_cost_protection_20261114"
       ],
       "provenance": [
         {
@@ -1352,6 +1360,12 @@
           "kind": "direct_user_archive_priority_and_recent_discount",
           "date": "2026-11-14",
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md"
+        },
+        {
+          "kind": "direct_user_sync_verified_v6_cross_day_attribution",
+          "date": "2026-11-15",
+          "evidence": "https://github.com/wulv006-dot/FS-Workbench/pull/1098",
+          "scope": "Read-only FC pricing review method for native V6 order binding and matched cross-day comparisons"
         }
       ],
       "consumers": [
