@@ -175,7 +175,11 @@ class FocusStore:
                 (str(guild_id), day.isoformat()))
 
     def selected(self, guild_id, match_key, now):
+        return self.selected_source_id(guild_id, match_key, now) is not None
+
+    def selected_source_id(self, guild_id, match_key, now):
         with sqlite3.connect(self.path) as db:
-            return db.execute('''SELECT 1 FROM matchday_focus WHERE guild_id=?
+            row = db.execute('''SELECT source_id FROM matchday_focus WHERE guild_id=?
                 AND match_key=? AND status='sent' AND kickoff BETWEEN ? AND ?''',
-                (str(guild_id), match_key, now - 12 * 3600, now + 24 * 3600)).fetchone() is not None
+                (str(guild_id), match_key, now - 12 * 3600, now + 24 * 3600)).fetchone()
+        return row[0] if row else None

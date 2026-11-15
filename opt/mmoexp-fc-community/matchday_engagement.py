@@ -34,10 +34,13 @@ def validate_matchday_config(config):
             raise ValueError('Matchday route must use the test or official guild')
         channel_keys = {'source_channel_id', 'discussion_channel_id',
                         'players_channel_id', 'coins_channel_id'}
-        if not isinstance(route, dict) or set(route) not in (channel_keys, channel_keys | {'provider'}):
+        if (not isinstance(route, dict) or not channel_keys <= set(route)
+                or set(route) - channel_keys - {'provider', 'score_channel_id'}):
             raise ValueError('Invalid matchday route')
         if not all(_snowflake(route[key]) for key in channel_keys):
             raise ValueError('Invalid matchday channel')
+        if 'score_channel_id' in route and not _snowflake(route['score_channel_id']):
+            raise ValueError('Invalid matchday score channel')
         if route.get('provider') != 'unify_football':
             raise ValueError('Invalid matchday provider')
     return config
@@ -88,7 +91,8 @@ def parse_unify_football(message, config, now):
         return None
     route = config['routes'].get(str(guild.id))
     if (not route or route.get('provider') != 'unify_football'
-            or channel.id != route['source_channel_id'] or author.id != UNIFY_FOOTBALL_ID):
+            or channel.id != route.get('score_channel_id', route['source_channel_id'])
+            or author.id != UNIFY_FOOTBALL_ID):
         return None
     if (author.bot is not True or getattr(message, 'webhook_id', None) is not None
             or getattr(message, 'interaction_metadata', None) is not None
