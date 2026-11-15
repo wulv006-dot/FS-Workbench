@@ -111,6 +111,7 @@ class ChatClient(discord.Client):
         self.focus_config = config.get('matchday_focus') or {}
         self.focus_store = None
         self.focus_lock = asyncio.Lock()
+        self.focus_retry_task = None
         if self.matchday_config and self.matchday_config['enabled']:
             self.matchday_store = matchday_engagement.MatchPulseStore(
                 self.matchday_config.get('state_path') or
@@ -139,7 +140,7 @@ class ChatClient(discord.Client):
         if self.focus_store is not None:
             await self.recover_daily_card()
 
-    async def recover_daily_card(self):
+    async def recover_daily_card(self, schedule_retry=True):
         """A same-day Unify card can still be used after a bot restart."""
         for guild_id in self.focus_config['guild_ids']:
             route = self.matchday_config['routes'][guild_id]
@@ -159,12 +160,12 @@ class ChatClient(discord.Client):
                         unify_cards += 1
                     if matchday_focus.is_empty_daily_card(
                             message, route, discord.utils.utcnow()):
-                        await self.handle_daily_card(message)
+                        await self.handle_daily_card(message, schedule_retry=schedule_retry)
                         continue
                     if selection_open and matchday_focus.parse_daily_card(
                             message, route, discord.utils.utcnow()):
                         recognized += 1
-                        await self.handle_daily_card(message)
+                        await self.handle_daily_card(message, schedule_retry=schedule_retry)
                         if not self.focus_store.may_select(
                                 int(guild_id), day, self.focus_config.get('weekly_limit', 2)):
                             selection_open = False
@@ -211,11 +212,12 @@ class ChatClient(discord.Client):
             print('Matchday intro failed: ' + type(exc).__name__, flush=True)
 
     async def close(self):
-        for task in (self.topic_task, self.followup_task):
+        for task in (self.topic_task, self.followup_task, self.focus_retry_task):
             if task is not None and task is not asyncio.current_task():
                 task.cancel()
         self.topic_task = None
         self.followup_task = None
+        self.focus_retry_task = None
         await super().close()
 
     async def add_commands(self):
@@ -279,7 +281,11 @@ class ChatClient(discord.Client):
             await self.send_match_pulse(channel, message.id, pulse,
                                         message.created_at.timestamp(), attempts=3)
 
-    async def handle_daily_card(self, message):
+    async def retry_daily_card(self):
+        await asyncio.sleep(300)
+        await self.recover_daily_card(schedule_retry=False)
+
+    async def handle_daily_card(self, message, schedule_retry=True):
         if message.guild is None or str(message.guild.id) not in self.focus_config['guild_ids']:
             return
         route = self.matchday_config['routes'][str(message.guild.id)]
@@ -312,6 +318,9 @@ class ChatClient(discord.Client):
             except (chat_brain.ChatBrainError, ValueError) as exc:
                 print('Matchday focus selection skipped: {} response={!r}'.format(
                     type(exc).__name__, locals().get('answer', '')[:240]), flush=True)
+                if schedule_retry and (self.focus_retry_task is None or
+                                       self.focus_retry_task.done()):
+                    self.focus_retry_task = asyncio.create_task(self.retry_daily_card())
                 return
             if choice is None:
                 self.focus_store.skip_source(message.guild.id, message.id)
