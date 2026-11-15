@@ -196,8 +196,8 @@ class ChatBrain:
                 'and national-team matches. If none is broadly interesting, return NONE; '
                 'never fill a quota. Use only the supplied '
                 'fixtures; do not add facts, scores or lineups. Reply exactly NONE or '
-                'N|one short lively English discussion question ending with ?. '
-                'N is the fixture number. No explanation.')},
+                'a fixture number followed by | and one short English question. '
+                'Example: 3|Who wins midfield tonight? No explanation.')},
             {'role': 'user', 'content': '\n'.join(lines)},
         ]
         for provider in self.providers:
