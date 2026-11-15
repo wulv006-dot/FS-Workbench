@@ -39,6 +39,47 @@ class CurveWindows(unittest.TestCase):
         self.assertEqual(result['curve_training_observations'][0]['curve_key'], outcome['curve_key'])
         self.assertNotIn('private-live-order', str(result))
 
+    def test_production_curve_only_window_binds_and_reaches_daily_profit(self):
+        from fc_pricing_v3 import daily
+        now, order, window = fixture()
+        del window['action']['base_prices']
+        window['origin'] = 'observed_native_curve_window'
+        window['plan_id'] = 'curve-plan'
+        window['curve_selection'] = {'PS': {'assignment': dict(
+            platform='PS', segment='large', plan_id='curve-plan',
+            primary_curve_key=curve_key(window['action']['curves']['PS']),
+            starts_at=window['opened_at'], ends_at=now.isoformat(),
+            label='C', actual_label='CURRENT')}}
+        actual = source.bind_price_windows([order], [window], now)
+        self.assertEqual(actual['actual_outcomes'][0]['group'], 'PS')
+        self.assertEqual(actual['curve_training_observations'][0]['effective_price_usd'], '10')
+        date = daily.instant(actual['actual_outcomes'][0]['occurred_at']).astimezone(source.TZ).date().isoformat()
+        summary = daily.profit_summary(actual, [window], [], date, 'curve-plan')
+        self.assertEqual(summary['active_plan']['totals']['orders'], 1)
+        group = summary['review_day']['groups'][0]
+        self.assertEqual((group['group'], group['segment'], group['label']), ('PS', 'large', 'CURRENT'))
+
+    def test_daily_review_reuses_shared_paid_day_and_hourly_outcomes(self):
+        import hashlib
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from fc_pricing_v3 import daily
+        date = '2026-11-14'
+        def make(number, paid='1'):
+            return dict(order_no=number, site_id=266, gid=1327, pay_status=paid,
+                        paytime=date+' 12:23:44', amount_usd_format='8.25')
+        orders = [make('coin'), make('items'), make('unpaid', '2')]
+        product = '货币(Gold)'
+        lines = [{'订单号': hashlib.sha256(row['order_no'].encode()).hexdigest(),
+                  '产品类型': product if row['order_no']!='items' else 'Items'} for row in orders]
+        shared = dict(rows=orders, dataset=dict(rows=lines), coverage=dict(admin_complete=True))
+        online = dict(actual_outcomes=[dict(price_window_id='saved')])
+        with patch.dict('sys.modules', {'shared_es_facts': SimpleNamespace(read=lambda scope: shared)}):
+            result = daily.curve_review_outcomes(date, online)
+        self.assertIs(result['online'], online)
+        self.assertEqual(result['actual']['hourly'][12], dict(hour=12, orders=1, net_paid_usd='8.25'))
+        self.assertEqual(len(result['payment_days']), 1)
+
     def test_payment_after_change_keeps_creation_curve(self):
         now, order, first = fixture()
         second = deepcopy(first)
