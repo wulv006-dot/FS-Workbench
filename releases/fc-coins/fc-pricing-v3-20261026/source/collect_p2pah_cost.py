@@ -68,8 +68,7 @@ READ_ROWS = r"""() => ({
     return platform?{platform:platform.toUpperCase(),record_id:c[1]?.innerText.trim(),
       delivery_type:c[2]?.innerText.trim(),trade_at:c[5]?.innerText.trim(),cny_per_1k:c[9]?.innerText.trim(),
       order_id:c[4]?.querySelector('a')?.getAttribute('href')?.match(/\/order\/admin_order\/look\/id\/(\d+)\.html/)?.[1],
-      quantity:c[7]?.innerText.trim(),gift:c[8]?.innerText.trim(),cost_total:c[10]?.innerText.trim(),
-      supplier:c[13]?.innerText.trim()}:null;
+      quantity:c[7]?.innerText.trim(),gift:c[8]?.innerText.trim(),cost_total:c[10]?.innerText.trim()}:null;
   }).filter(Boolean)
 })"""
 
@@ -92,8 +91,6 @@ READ_ORDER = r"""async (orderId) => {
 
 ORDER_DELIVERY = "\u8ba2\u5355\u53d1\u8d27"
 NON_COST_TYPES = {"\u91c7\u8d2d\u6253\u6b3e", "\u9500\u552e\u8865\u53d1", "\u9500\u552e\u8d60\u9001"}
-# Remove this exclusion after the FS OMS sender consistently records FC shipments in K.
-FS_OMS_SUPPLIER = re.compile(r'(?<![a-z])fs[\s_./-]*oms(?![a-z])', re.I)
 
 
 def valid_record(raw: dict):
@@ -105,8 +102,6 @@ def valid_record(raw: dict):
     if delivery_type != ORDER_DELIVERY:
         # Missing or unknown type cannot fall back to an older cost or be retried as a timeout.
         raise ValueError("cost_delivery_type_unverified")
-    if FS_OMS_SUPPLIER.search(str(raw.get('supplier') or '')):
-        return None
     record_id = str(raw.get("record_id") or "")
     if not re.fullmatch(r"\d+", record_id):
         return None
@@ -171,14 +166,17 @@ def verified_delivery_cost(tab, record, order_cache):
         return None
 
     scale = Decimal(1)
-    if delivered * 1000 <= purchased and shipment_number(goods[0]['used']) != purchased:
-        # A completed item with one shipment can expose the same quantity in M
-        # in its delivery record and in K in its original goods line.
-        if (delivered * 1000 != purchased or detail['complete'] is not True
-                or shipment_number(goods[0]['used']) != delivered
-                or sum(row['pid'] == delivery['pid'] for row in deliveries) != 1):
-            return None
-        scale = Decimal(1000)
+    if delivered * 1000 <= purchased:
+        used = shipment_number(goods[0]['used'])
+        item_deliveries = [row for row in deliveries if row['pid'] == delivery['pid']]
+        # Order may correct the goods total before it corrects the underlying shipment.
+        if (delivered * 1000 == purchased and detail['complete'] is True
+                and used in (delivered, purchased) and len(item_deliveries) == 1):
+            scale = Decimal(1000)
+        else:
+            amounts = [shipment_number(row[key]) for row in item_deliveries for key in ('qty', 'gift')]
+            if used != purchased or None in amounts or sum(amounts) != purchased:
+                return None
     result = {key: value for key, value in record.items() if key != 'order_delivery'}
     result.update(cny_per_1k=str(unit_cost / scale), cny_per_k=str(unit_cost / scale),
                   quantity_evidence=dict(delivered_k=str(delivered * scale), ordered_k=str(purchased),
