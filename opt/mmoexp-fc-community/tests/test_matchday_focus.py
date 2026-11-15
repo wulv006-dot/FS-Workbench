@@ -79,6 +79,8 @@ class FocusTests(unittest.TestCase):
     def test_choice_is_one_number_or_none_without_extra_claims(self):
         self.assertEqual(parse_choice('4|Spain or England: who owns midfield tonight?', 4),
                          (3, 'Spain or England: who owns midfield tonight?'))
+        self.assertEqual(parse_choice("N|3|Will Belgium's defence hold up against Italy?", 4),
+                         (2, "Will Belgium's defence hold up against Italy?"))
         self.assertIsNone(parse_choice('NONE', 4))
         with self.assertRaises(ValueError):
             parse_choice('5|A question about the match?', 4)

@@ -289,7 +289,8 @@ class ChatClient(discord.Client):
                 answer = await self.brain.select_matchday(fixtures)
                 choice = matchday_focus.parse_choice(answer, len(fixtures))
             except (chat_brain.ChatBrainError, ValueError) as exc:
-                print('Matchday focus selection skipped: ' + type(exc).__name__, flush=True)
+                print('Matchday focus selection skipped: {} response={!r}'.format(
+                    type(exc).__name__, locals().get('answer', '')[:240]), flush=True)
                 return
             if choice is None:
                 self.focus_store.skip(message.guild.id, day, message.id)
