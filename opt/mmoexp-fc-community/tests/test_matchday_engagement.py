@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-from matchday_engagement import (MatchPulseStore, followup_due_at, parse_smart_score,
+from matchday_engagement import (MatchPulseStore, followup_due_at, parse_match_event,
+                                 parse_smart_score,
                                  prompt_text, validate_matchday_config)
 
 TEST_GUILD = 1565922092518613064
@@ -30,7 +31,38 @@ def message(mid, body, author=1496068397757366273, channel=SOURCE, now=None):
                            jump_url='https://discord.com/channels/{}/{}/{}'.format(TEST_GUILD, SOURCE, mid))
 
 
+def unify_message(mid, title, score, now=None):
+    event = message(mid, score, author=1332364544869142538, now=now)
+    event.embeds[0].title = title
+    return event
+
+
+UNIFY_CONFIG = {'enabled': True, 'routes': {str(TEST_GUILD): dict(
+    CONFIG['routes'][str(TEST_GUILD)], provider='unify_football')}}
+
+
 class MatchdayEngagementTests(unittest.TestCase):
+    def test_unify_real_card_shapes_and_source_isolation(self):
+        validate_matchday_config(UNIFY_CONFIG)
+        now = time.time()
+        goal = unify_message(1571546825184256152, "[67'] ⚽️ GOAAAAAAAAAAL!",
+                             'Cyprus  1 - 3  Montenegro\nLeague: Nations League - League C', now)
+        pulse = parse_match_event(goal, UNIFY_CONFIG, now)
+        self.assertEqual((pulse.home, pulse.away, pulse.score, pulse.kind, pulse.source_name),
+                         ('Cyprus', 'Montenegro', '1–3', 'goal', 'UnifyFootball'))
+        half = unify_message(1571537266675818698, 'HALFTIME', 'Latvia 0 - 0 Armenia', now)
+        self.assertEqual(parse_match_event(half, UNIFY_CONFIG, now).kind, 'half_time')
+        self.assertIsNone(parse_match_event(goal, CONFIG, now))
+        self.assertIsNone(parse_match_event(message(goal.id, 'Cyprus 1 - 3 Montenegro', now=now),
+                                            UNIFY_CONFIG, now))
+        self.assertIsNone(parse_match_event(unify_message(goal.id, goal.embeds[0].title,
+                            'Cyprus 1 - 3 Montenegro', now - 400), UNIFY_CONFIG, now))
+        goal.interaction_metadata = object()
+        self.assertIsNone(parse_match_event(goal, UNIFY_CONFIG, now))
+        with self.assertRaises(ValueError):
+            validate_matchday_config({'enabled': True, 'routes': {str(TEST_GUILD): dict(
+                UNIFY_CONFIG['routes'][str(TEST_GUILD)], provider='unknown')}})
+
     def test_discord_py_enforces_supplied_nonce(self):
         from discord.http import handle_message_parameters
 
@@ -159,6 +191,29 @@ class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(channel.send.await_args.kwargs['view'].children), 3)
             self.assertEqual(channel.send.await_args.kwargs['nonce'], event.id)
             self.assertIn('Smart Score public update:', client.history[SOURCE][-1][1])
+            await client.close()
+
+    async def test_unify_event_posts_one_discussion_card_with_source_link(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            chat_config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(TEST_GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': dict(UNIFY_CONFIG, state_path=str(Path(directory) / 'pulse.sqlite3'))}
+            client = ChatClient(chat_config)
+            channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=TEST_GUILD), send=AsyncMock())
+            client.get_channel = lambda channel_id: channel if channel_id == SOURCE else None
+            event = unify_message(1571546825184256152, "[67'] ⚽️ GOAAAAAAAAAAL!",
+                                  'Cyprus  1 - 3  Montenegro')
+            await client.on_message(event)
+            await client.on_message(event)
+            self.assertEqual(channel.send.await_count, 1)
+            sent = channel.send.await_args.kwargs
+            self.assertIn('Cyprus vs Montenegro', sent['embed'].description)
+            self.assertIn('UnifyFootball', sent['embed'].footer.text)
+            self.assertEqual(sent['view'].children[0].label, 'UnifyFootball update')
+            self.assertEqual(sent['view'].children[0].url, event.jump_url)
+            self.assertIn('UnifyFootball public update:', client.history[SOURCE][-1][1])
             await client.close()
 
     async def test_retry_uses_same_discord_nonce(self):
