@@ -113,6 +113,28 @@ class MatchdayEngagementTests(unittest.TestCase):
         self.assertIsNone(parse_match_event(message(1, body, channel=3, now=now), CONFIG, now))
         self.assertIsNone(parse_match_event(message(1, body, now=now-400), CONFIG, now))
 
+    def test_var_disallowed_goal_corrects_a_posted_score_once(self):
+        now = time.time()
+        goal = unify_message(1571630123386409092, "[53'] ⚽️ GOAAAAAAAAAAL!",
+                             'A. Guler (Turkey)\nFrance 1 - 1 Turkey', now)
+        correction = unify_message(1571634149775769661, "[53'] VAR REVIEW",
+                                   'Goal Disallowed\nArda Güler (Turkey)\n'
+                                   'Overturned · on-field call: Goal confirmed\n'
+                                   'France 1 - 0 Turkey', now)
+        pulse = parse_match_event(correction, UNIFY_CONFIG, now)
+        self.assertEqual((pulse.kind, pulse.score), ('correction', '1–0'))
+        self.assertIn('goal disallowed', prompt_text(pulse))
+        with tempfile.TemporaryDirectory() as directory:
+            store = MatchPulseStore(Path(directory) / 'pulse.sqlite3')
+            self.assertTrue(store.claim(goal.id, parse_match_event(goal, UNIFY_CONFIG, now), now))
+            self.assertTrue(store.claim(correction.id, pulse, now + 1))
+            repeat = unify_message(correction.id + 1, "[53'] VAR REVIEW",
+                                   'Goal Disallowed\nFrance 1 - 0 Turkey', now)
+            self.assertFalse(store.claim(repeat.id, parse_match_event(repeat, UNIFY_CONFIG, now), now + 2))
+            later = unify_message(correction.id + 2, "[76'] ⚽️ GOAAAAAAAAAAL!",
+                                  'France 2 - 0 Turkey', now)
+            self.assertTrue(store.claim(later.id, parse_match_event(later, UNIFY_CONFIG, now), now + 3))
+
     def test_cooldown_and_single_final(self):
         now = time.time()
         kickoff = parse_match_event(message(1571184986541789366, 'Kosovo 0 — 0 Israel\nMatch Started', now=now), CONFIG, now)

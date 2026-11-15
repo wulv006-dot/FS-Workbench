@@ -106,6 +106,8 @@ def parse_unify_football(message, config, now):
     text = '\n'.join(lines).lower()
     if any(word in text for word in ('full time', 'full-time', 'fulltime', 'final whistle')):
         kind = 'final'
+    elif 'var review' in text and 'goal disallowed' in text:
+        kind = 'correction'
     elif any(word in text for word in ('half time', 'half-time', 'halftime')):
         kind = 'half_time'
     elif re.search(r'\bgoa+l!', text):
@@ -181,6 +183,8 @@ class MatchPulseStore:
             state = '{}|{}'.format(pulse.kind, pulse.score)
             if pulse.kind == 'goal':
                 should_post = not row or pulse.score != previous_score
+            elif pulse.kind == 'correction':
+                should_post = bool(row and pulse.score != previous_score)
             elif pulse.kind == 'final':
                 should_post = (not row or pulse.kind != previous_kind
                                or (previous_score and pulse.score != previous_score))
@@ -272,6 +276,8 @@ class MatchPulseStore:
 
 def prompt_text(pulse):
     names = '{} vs {}'.format(pulse.home, pulse.away)
+    if pulse.kind == 'correction':
+        return 'VAR: goal disallowed. **{} {}** is the corrected score. What did you make of the call?'.format(names, pulse.score)
     if pulse.kind == 'final':
         return 'Full time: **{} {}**. Who was your player of the match?'.format(names, pulse.score)
     if pulse.kind == 'half_time':
