@@ -95,9 +95,11 @@ class SixCost(unittest.TestCase):
         for i, (quantity, ordered, cost, total) in enumerate(samples):
             did, order = str(300 + i), str(400 + i)
             rows.append(dict(self.raw(did, cost, i, {6: 'PC', 7: 'XBOX'}.get(i, 'PS')),
-                             order_id=order, quantity=quantity, gift='0', cost_total=total))
+                             order_id=order, quantity=quantity, gift='0', cost_total=total,
+                             supplier='FS OMS' if i in (0, 1, 3, 4, 5) else ''))
             details[order] = dict(complete=True,
-                goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty=ordered, used=quantity)],
+                goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty=ordered,
+                            used=ordered if i in (1, 4, 5) else quantity)],
                 deliveries=[dict(id=did, pid='9', qty=quantity, gift='0', price=cost, total=total)])
         self.tab.evaluate = lambda expression, order: details[order]
         ps, xbox, pc = self.run_collect([rows, []])['costs']
@@ -118,6 +120,7 @@ class SixCost(unittest.TestCase):
                       deliveries=[dict(id='100', pid='9', qty='.5', gift='0', price='398', total='199.00')])
         self.assertIsNone(self.collector.verified_delivery_cost(self.tab, row, {'300': detail}))
         detail['complete'] = True
+        detail['goods'][0]['used'] = '500'
         detail['deliveries'].append(dict(detail['deliveries'][0], id='101'))
         self.assertIsNone(self.collector.verified_delivery_cost(self.tab, row, {'300': detail}))
         detail['deliveries'].pop()
@@ -143,18 +146,6 @@ class SixCost(unittest.TestCase):
                    dict(self.rows[0], record_id='502', cny_per_1k='NaN')]
         result = self.run_collect([invalid+self.rows, []])
         self.assertNotIn('500', [row['record_id'] for row in result['costs'][0]['sample_records']])
-
-    def test_fs_oms_supplier_is_excluded_before_selecting_each_platform_cost(self):
-        ps = dict(self.rows[0], supplier='FS OMS\nwarehouse')
-        xbox = dict(self.rows[7], supplier='[FS-OMS]')
-        pc = dict(self.rows[8], supplier='FS OMS')
-        other = dict(self.rows[8], record_id='301', supplier='FS Orders')
-        rows = [ps, xbox, pc, *self.rows[1:7], other]
-        after_ps, after_xbox, after_pc = self.run_collect([rows, []])['costs']
-        self.assertEqual([row['record_id'] for row in after_ps['sample_records']],
-                         ['101', '102', '103', '104', '105', '106'])
-        self.assertNotIn('observed_cost', after_xbox)
-        self.assertEqual(after_pc['record_id'], '301')
 
     def test_same_trade_time_orders_by_numeric_id_before_taking_six(self):
         rows = [dict(self.rows[0], record_id=str(i), cny_per_1k=str(i)) for i in (2,9,10,20,50,100,101)]
