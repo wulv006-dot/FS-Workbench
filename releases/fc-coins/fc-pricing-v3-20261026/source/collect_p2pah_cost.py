@@ -165,18 +165,22 @@ def verified_delivery_cost(tab, record, order_cache):
     if not purchased or not delivered or not total or abs(delivered * unit_cost - total) > Decimal('.01'):
         return None
 
+    item_amounts = [(shipment_number(row['qty']), shipment_number(row['gift']))
+                    for row in deliveries if row['pid'] == delivery['pid']]
+    # A balancing shipment can hide a million-unit entry without adding real procurement.
+    if len(item_amounts) > 1 and any(None not in pair and sum(pair) * 1000 == purchased
+                                     for pair in item_amounts):
+        return None
     scale = Decimal(1)
     if delivered * 1000 <= purchased:
         used = shipment_number(goods[0]['used'])
-        item_deliveries = [row for row in deliveries if row['pid'] == delivery['pid']]
         # Order may correct the goods total before it corrects the underlying shipment.
         if (delivered * 1000 == purchased and detail['complete'] is True
-                and used in (delivered, purchased) and len(item_deliveries) == 1):
+                and used in (delivered, purchased) and len(item_amounts) == 1):
             scale = Decimal(1000)
-        else:
-            amounts = [shipment_number(row[key]) for row in item_deliveries for key in ('qty', 'gift')]
-            if used != purchased or None in amounts or sum(amounts) != purchased:
-                return None
+        elif (used != purchased or any(None in pair for pair in item_amounts)
+              or sum(sum(pair) for pair in item_amounts) != purchased):
+            return None
     result = {key: value for key, value in record.items() if key != 'order_delivery'}
     result.update(cny_per_1k=str(unit_cost / scale), cny_per_k=str(unit_cost / scale),
                   quantity_evidence=dict(delivered_k=str(delivered * scale), ordered_k=str(purchased),
