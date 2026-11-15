@@ -132,6 +132,45 @@ def collect_marketing_context(review_date, outcomes, payment_days):
     return marketing_unavailable('es_publication_not_observed')
 
 
+def curve_review_outcomes(date, online):
+    from .business_source import amount
+    import hashlib
+    sys.path.insert(0, '/opt/fs-exact-range-20261001')
+    from shared_es_facts import read
+    shared = read(dict(start=date, end=date, site_id='266', gid='1327'))
+    coverage = dict(shared.get('coverage') or {})
+    if not coverage.get('admin_complete'):
+        coverage['status'] = 'partial'
+    else:
+        coverage['status'] = 'complete'
+    labels = {}
+    for line in (shared.get('dataset') or {}).get('rows', []):
+        labels.setdefault(line.get('订单号'), set()).add(line.get('产品类型'))
+    selected, payment_days = {}, {}
+    for row in shared.get('rows', []):
+        if str(row.get('site_id')) != '266' or str(row.get('gid')) != '1327':
+            raise ValueError('daily_shared_scope_invalid')
+        if str(row.get('pay_status')) != '1':
+            continue
+        sn = row['order_no']
+        types = labels.get(hashlib.sha256(sn.encode()).hexdigest(), set())
+        if types != {'货币(Gold)'}:
+            if not types or '货币(Gold)' in types:
+                coverage['status'] = 'partial'
+            continue
+        if str(row.get('status')) in ('22','111','112','191') or str(row.get('status_format','')).startswith('已退款'):
+            continue
+        paid = amount(row.get('amount_usd_format'))
+        paytime = str(row.get('paytime',''))
+        if sn in selected or paid is None or paid < 0 or paytime[:10] != date:
+            coverage['status'] = 'partial'
+            continue
+        selected[sn] = (dict(paidAt=datetime.fromisoformat(paytime).replace(tzinfo=LOCAL).isoformat(),
+                             salesUsd=str(paid)), None)
+        payment_days[hashlib.sha256(('FC27:266:'+sn).encode()).hexdigest()] = date
+    return dict(actual=hourly_actual(selected, coverage, date), online=online, payment_days=payment_days)
+
+
 def profit_summary(online,windows,operations,date,plan_id):
     """Freeze existing same-order outcomes; never collect or infer missing costs."""
     rows=[{k:v for k,v in row.items() if k!='marketing_attribution'} for row in online.get('actual_outcomes',[])]
@@ -144,6 +183,31 @@ def profit_summary(online,windows,operations,date,plan_id):
     def attribution(row):
         # A policy can change while this platform's physical price window stays open.
         window=by_window.get(row['price_window_id'],{})
+        if row.get('curve_key'):
+            from .price_curve import coin_quantity_band, curve_key
+            platform = row['platform']
+            segment = coin_quantity_band(row['purchase_k'])
+            curve = (window.get('action', {}).get('curves') or {}).get(platform)
+            key = (None, platform, 'unlabelled', segment)
+            if curve is None or curve_key(curve) != row['curve_key']:
+                return key
+            entries = [dict(at=window['opened_at'], curve_selection=window.get('curve_selection') or {})]
+            entries += [e for e in window.get('continuations', [])
+                        if 'base:'+platform in e.get('resources', [])]
+            created = instant(row['occurred_at'])
+            active = [e for e in entries if instant(e['at']) <= created]
+            if not active:
+                return key
+            latest = max(enumerate(active), key=lambda pair: (instant(pair[1]['at']), pair[0]))[1]
+            assignment = ((latest.get('curve_selection') or {}).get(platform) or {}).get('assignment') or {}
+            label = 'unlabelled'
+            if (assignment.get('platform') == platform and assignment.get('segment') == segment
+                    and assignment.get('plan_id') == window.get('plan_id')
+                    and assignment.get('primary_curve_key') == row['curve_key']
+                    and assignment.get('starts_at') and assignment.get('ends_at')
+                    and instant(assignment['starts_at']) <= created < instant(assignment['ends_at'])):
+                label = assignment.get('actual_label') or label
+            return window.get('plan_id'), platform, label, segment
         group=row.get('platform') or (row['group'] if row['group'] in PLATFORMS else row['group'].rsplit(':',1)[-1] if ':' in row['group'] else row['group'])
         price_group=row.get('price_group') or row['group']
         resources=set(native_resources(['base:'+group]))
@@ -186,7 +250,9 @@ def profit_summary(online,windows,operations,date,plan_id):
     return dict(version='pricing-daily-profit-v1',currency='USD',observed_at=coverage.get('observed_at'),
         query_complete=coverage.get('query_complete'),attribution='confirmed_window_continuations_at_creation_time_not_full_payment_day',
         cost_basis='same_order_actual_USD_receipt_minus_all_Order_procurement_USD; before_ads_payment_and_other_fees',
-        review_day=dict(local_date=date,totals=totals([r for r,_ in selected]),groups=[dict(plan_id=p,group=g,label=l,**totals(rr)) for (p,g,l),rr in sorted(grouped.items(),key=lambda item:str(item[0]))]),
+        review_day=dict(local_date=date,totals=totals([r for r,_ in selected]),groups=[dict(plan_id=key[0],group=key[1],label=key[2],
+                      **({'segment': key[3]} if len(key)==4 else {}), **totals(rr))
+                      for key,rr in sorted(grouped.items(),key=lambda item:str(item[0]))]),
         active_plan=dict(plan_id=plan_id,totals=totals([r for r,key in attributed if key[0]==plan_id])) if plan_id else None,
         source_sha256=fingerprint(dict(date=date,plan_id=plan_id,rows=rows,windows=windows,contexts=contexts)))
 
@@ -271,12 +337,22 @@ def run(body):
     if record.get('phase')=='completed':return record
     if 'actual' not in record:
         plan = db.active_plan() or {}
-        process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
-            input=json.dumps(dict(local_date=date,windows=db.all('actual_price_windows'),
-                use_shared_customer_flags=plan.get('write_protocol') == CURVE_WRITE_PROTOCOL)),text=True,
-            capture_output=True,timeout=600,cwd='/opt/fc27-cloud-browser')
-        if process.returncode:raise ValueError('pricing_daily_outcome_collection_failed')
-        outcomes=json.loads(process.stdout)
+        if plan.get('write_protocol') == CURVE_WRITE_PROTOCOL:
+            online=db.get('metadata','curve-online-context:'+plan['plan_id']) or {}
+            if online.get('smart_revision') != plan['revision']:
+                online=dict(learning_coverage=dict(status='current_curve_context_unavailable',query_complete=False))
+            process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
+                input=json.dumps(dict(action='curve_review',local_date=date,online=online)),text=True,
+                capture_output=True,timeout=60,cwd='/opt/fc27-cloud-browser')
+            if process.returncode:raise ValueError('pricing_daily_shared_review_failed')
+            outcomes=json.loads(process.stdout)
+        else:
+            process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
+                input=json.dumps(dict(local_date=date,windows=db.all('actual_price_windows'),
+                    use_shared_customer_flags=plan.get('write_protocol') == CURVE_WRITE_PROTOCOL)),text=True,
+                capture_output=True,timeout=600,cwd='/opt/fc27-cloud-browser')
+            if process.returncode:raise ValueError('pricing_daily_outcome_collection_failed')
+            outcomes=json.loads(process.stdout)
         record['actual']=outcomes['actual']
         record['price_exposure']=exposure_scope(db.all('actual_price_windows'),date)
         from .smart import STRATEGY_VERSION
@@ -406,7 +482,9 @@ def run_hourly(body):
 
 if __name__=='__main__':
     data=json.load(sys.stdin)
-    if data.get('action') == 'marketing_context':
+    if data.get('action') == 'curve_review':
+        result=curve_review_outcomes(data['local_date'],data['online'])
+    elif data.get('action') == 'marketing_context':
         try:
             result=collect_marketing_context(data['local_date'],data['outcomes'],data['payment_days'])
         except (ImportError,OSError,sqlite3.Error,ValueError,KeyError,TypeError) as error:

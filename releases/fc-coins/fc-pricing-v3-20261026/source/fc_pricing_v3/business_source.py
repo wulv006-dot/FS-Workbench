@@ -1026,9 +1026,13 @@ def _window_instant(value):
     return instant
 
 
-def _window_group(window, order, platform):
+def _window_base_group(action, platform):
     from .platforms import action_key
-    group = action_key(window['action'],platform)
+    return platform if 'curves' in action else action_key(action, platform)
+
+
+def _window_group(window, order, platform):
+    group = _window_base_group(window['action'], platform)
     region = str(order.get('region_price_lang_region_id')) if str(order.get('is_region_price')) == '1' else None
     mutable = window.get('mutable_resources') or []
     key = region + ':' + platform if region else group
@@ -1254,7 +1258,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             if old.get('status') == '已完成' and cost is not None and cost >= 0 and cny is not None and cny > 0 and amount(old.get('salesUsd')) == net:
                 contribution = str((cny - cost) * net / cny)
         actual_outcomes.append(dict(order_key=hashlib.sha256(('FC27:266:' + sn).encode()).hexdigest(),
-            price_window_id=window['operation_id'], group=action_key(window['action'],platform), price_group=group, platform=platform, occurred_at=created.isoformat(),
+            price_window_id=window['operation_id'], group=_window_base_group(window['action'], platform), price_group=group, platform=platform, occurred_at=created.isoformat(),
             actual_net_usd=str(net) if net is not None else None, actual_contribution_usd=contribution,
             coupon_present=bool(coupon_logs.get(sn)), cost_status='same_order_confirmed' if contribution is not None else 'pending',
             cost_basis='same_order_Order_shipping_CNY_margin_at_actual_USD_receipt' if contribution is not None else None))
@@ -1293,7 +1297,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             window={key: window.get(key) for key in ('operation_id', 'action', 'budget_reference', 'catalog')}))
         settlements.append(dict(order_key=hashlib.sha256(('FC27:266:' + sn).encode()).hexdigest(),
             origin='actual_bound_order', mode='production', operation_id=window['operation_id'], price_window_id=window['operation_id'],
-            group=action_key(window['action'],platform), price_group=group, platform=platform,
+            group=_window_base_group(window['action'], platform), price_group=group, platform=platform,
             occurred_at=created.isoformat(), reference_net_usd=str(replay_promotion(reference_regular, path)),
             actual_net_usd=str(net), actual_contribution_usd=contribution, source_sha256=budget_source,
             refund=False, status=str(order.get('status_format') or ''),
@@ -1318,7 +1322,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                 groups.add(resource.split(':', 1)[1])
         for key in window['action'].get('region_coefficients', {}):
             platform = key.split(':')[-1]
-            base_group = action_key(window['action'],platform)
+            base_group = _window_base_group(window['action'], platform)
             regional_identity=(Decimal(window['action']['region_coefficients'][key])!=1 or
                                'region:'+key in window.get('mutable_resources',[]) or counts[(operation,key)]>0)
             if regional_identity and platform in window.get('platforms', []) and 'base:' + base_group in window.get('mutable_resources', []):
@@ -1330,25 +1334,30 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             hours = Decimal(str((end - _window_instant(window['opened_at'])).total_seconds())) / 3600
             if hours <= 0:
                 continue
-            base_group = group if group in window['action']['base_prices'] else action_key(window['action'],group.rsplit(':',1)[-1])
-            price = Decimal(window['action']['base_prices'][base_group])
-            if ':' in group:
-                price *= Decimal(window['action']['region_coefficients'][group])
+            is_curve = 'curves' in window['action']
+            base_group = _window_base_group(window['action'], group.rsplit(':', 1)[-1]) if is_curve else (
+                group if group in window['action']['base_prices'] else action_key(window['action'], group.rsplit(':', 1)[-1]))
+            if is_curve:
+                from .price_curve import curve_key
+                if ':' in group:
+                    continue
+                try:
+                    frozen = _window_curve(window['action'], base_group)
+                    price = Decimal(next(t['native_price_usd'] for t in frozen['tiers'] if t['purchase_k']=='100'))
+                except (ValueError, KeyError, TypeError, InvalidOperation, StopIteration) as error:
+                    failures[str(error) if isinstance(error, ValueError) else type(error).__name__] += 1
+                    continue
+            else:
+                price = Decimal(window['action']['base_prices'][base_group])
+                if ':' in group:
+                    price *= Decimal(window['action']['region_coefficients'][group])
             observation = dict(mode='production', origin='actual_order_and_price_window', price_window_id=operation,
                 price_group=group, offset_kind='effective_hours', exposure=str(hours), paid_orders=counts[(operation, group)],
                 effective_price_usd=str(price), assignment_probability=window['assignment_probability'],
                 randomization_verified=window.get('randomization_verified') is True,
                 inference='randomized' if window.get('randomization_verified') is True else 'observational; not_causal',
                 as_of=now.isoformat(), source_sha256=source)
-            if 'curves' in window['action']:
-                from .price_curve import curve_key
-                if ':' in group:
-                    continue
-                try:
-                    frozen = _window_curve(window['action'], base_group)
-                except (ValueError, KeyError, TypeError, InvalidOperation) as error:
-                    failures[str(error) if isinstance(error, ValueError) else type(error).__name__] += 1
-                    continue
+            if is_curve:
                 observation.update(curve_key=curve_key(frozen),
                     price_basis='complete_frozen_curve; scalar_100k_is_projection_only')
                 observation['decision_curve_key'] = _window_decision_key(window, base_group, observation['curve_key'])
