@@ -37,6 +37,24 @@ def card(now=NOW, author=1332364544869142538):
                                GUILD, CHANNEL, SOURCE))
 
 
+def v2_card():
+    message = card()
+    message.embeds = []
+    payload = {'type': 17, 'components': [
+        {'type': 9, 'components': [{'type': 10, 'content':
+            "## 📅 Today's matches in `Nations League - League C`\n"
+            '-# **_November 15, 2026 (Europe/London)_**'}]},
+        {'type': 10, 'content':
+            '### 🏆 `Nations League - League C`\n'
+            '- **__Belarus__** vs **__Albania__** _🕒 `17:00`_\n'
+            '- **__Finland__** vs **__San Marino__** _🕒 `17:00`_\n'
+            '### 🏆 `Nations League - League A`\n'
+            '- **__France__** vs **__Turkey__** _🕒 `19:45`_\n'
+            '- **__Spain__** vs **__England__** _🕒 `19:45`_'}]}
+    message.components = [SimpleNamespace(to_dict=lambda: payload)]
+    return message
+
+
 class FocusTests(unittest.TestCase):
     def test_parse_real_daily_card_shape_and_reject_wrong_source_or_day(self):
         fixtures = parse_daily_card(card(), ROUTE, NOW)
@@ -48,6 +66,15 @@ class FocusTests(unittest.TestCase):
         self.assertEqual(fixtures[-1].kickoff.isoformat(), '2026-11-15T19:45:00+00:00')
         self.assertEqual(parse_daily_card(card(author=123), ROUTE, NOW), [])
         self.assertEqual(parse_daily_card(card(), ROUTE, NOW + dt.timedelta(days=1)), [])
+
+    def test_parse_live_components_v2_daily_card(self):
+        fixtures = parse_daily_card(v2_card(), ROUTE, NOW)
+        self.assertEqual([(f.home, f.away, f.competition) for f in fixtures], [
+            ('Belarus', 'Albania', 'Nations League - League C'),
+            ('Finland', 'San Marino', 'Nations League - League C'),
+            ('France', 'Turkey', 'Nations League - League A'),
+            ('Spain', 'England', 'Nations League - League A')])
+        self.assertEqual(parse_daily_card(v2_card(), ROUTE, NOW + dt.timedelta(days=1)), [])
 
     def test_choice_is_one_number_or_none_without_extra_claims(self):
         self.assertEqual(parse_choice('4|Spain or England: who owns midfield tonight?', 4),
@@ -117,7 +144,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             client.brain.select_matchday = AsyncMock(return_value=
                 '4|Spain or England: who owns midfield tonight?')
             async def history(limit):
-                yield card()
+                yield v2_card()
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
                 history=history, send=AsyncMock(return_value=SimpleNamespace(
                     id=1571600000000000000)))

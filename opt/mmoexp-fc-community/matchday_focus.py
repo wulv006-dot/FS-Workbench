@@ -47,8 +47,15 @@ def validate_config(config, engagement):
 
 
 def _lines(block):
-    return [line.replace('**', '').replace('`', '').strip(' •\t')
+    return [re.sub(r'^[^\w]+', '', re.sub(r'[*_`#🕒]', '', line)).strip(' •\t')
             for line in str(block or '').splitlines() if line.strip()]
+
+
+def _component_text(payload):
+    if payload.get('type') == 10:
+        yield payload.get('content', '')
+    for child in payload.get('components', ()):
+        yield from _component_text(child)
 
 
 def parse_daily_card(message, route, now):
@@ -61,15 +68,20 @@ def parse_daily_card(message, route, now):
     if (not guild or not channel or not author or author.id != UNIFY_FOOTBALL_ID or
             author.bot is not True or channel.id != route['source_channel_id'] or
             getattr(message, 'webhook_id', None) is not None or not created or
-            not -30 <= now.timestamp() - created.timestamp() <= 86400 or not embeds):
+            not -30 <= now.timestamp() - created.timestamp() <= 86400):
         return []
-    embed = embeds[0]
-    if 'today\'s matches' not in str(getattr(embed, 'title', '') or '').casefold():
-        return []
-    blocks = [getattr(embed, 'description', '')]
-    for field in getattr(embed, 'fields', ()) or ():
-        blocks.extend((getattr(field, 'name', ''), getattr(field, 'value', '')))
+    blocks = []
+    if embeds:
+        embed = embeds[0]
+        blocks = [getattr(embed, 'title', ''), getattr(embed, 'description', '')]
+        for field in getattr(embed, 'fields', ()) or ():
+            blocks.extend((getattr(field, 'name', ''), getattr(field, 'value', '')))
+    else:
+        for component in getattr(message, 'components', ()) or ():
+            blocks.extend(_component_text(component.to_dict()))
     lines = [line for block in blocks for line in _lines(block)]
+    if not any("today's matches" in line.casefold() for line in lines):
+        return []
     date_line = next((DATE.fullmatch(line) for line in lines if DATE.fullmatch(line)), None)
     if date_line is None:
         return []
