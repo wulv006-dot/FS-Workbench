@@ -148,6 +148,11 @@ class MatchPulseStore:
                 event_key TEXT PRIMARY KEY, due_at REAL NOT NULL,
                 payload TEXT NOT NULL, status TEXT NOT NULL,
                 message_id TEXT)''')
+            db.execute('''CREATE TABLE IF NOT EXISTS match_pulse_delivery (
+                source_message_id TEXT PRIMARY KEY, guild_id TEXT NOT NULL,
+                match_key TEXT NOT NULL, payload TEXT NOT NULL,
+                first_seen REAL NOT NULL, retry_after REAL NOT NULL,
+                status TEXT NOT NULL, sent_message_id TEXT)''')
 
     def claim(self, message_id, pulse, now):
         if not _snowflake(message_id):
@@ -180,7 +185,42 @@ class MatchPulseStore:
             else:
                 db.execute('INSERT INTO match_pulse VALUES(?,?,?,?,?)',
                             (str(pulse.guild_id), pulse.match_key, str(message_id), now, state))
+            if should_post:
+                db.execute('''UPDATE match_pulse_delivery SET status='superseded'
+                    WHERE guild_id=? AND match_key=? AND status='pending' ''',
+                    (str(pulse.guild_id), pulse.match_key))
+                db.execute('''INSERT OR IGNORE INTO match_pulse_delivery
+                    (source_message_id,guild_id,match_key,payload,first_seen,retry_after,status)
+                    VALUES(?,?,?,?,?,?,'pending')''',
+                    (str(message_id), str(pulse.guild_id), pulse.match_key,
+                     json.dumps(asdict(pulse), ensure_ascii=False), now, now + 15))
             return should_post
+
+    def due_deliveries(self, now):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            # Discord only guarantees nonce deduplication for a short period.
+            expired = db.execute('''SELECT source_message_id FROM match_pulse_delivery
+                WHERE status='pending' AND first_seen<=?''', (now - 120,)).fetchall()
+            db.execute('''UPDATE match_pulse_delivery SET status='unknown'
+                WHERE status='pending' AND first_seen<=?''', (now - 120,))
+            rows = db.execute('''SELECT source_message_id,payload,first_seen FROM match_pulse_delivery
+                WHERE status='pending' AND retry_after<=?
+                ORDER BY first_seen LIMIT 3''', (now,)).fetchall()
+        return [(int(mid), MatchPulse(**json.loads(payload)), first_seen)
+                for mid, payload, first_seen in rows], \
+            [int(row[0]) for row in expired]
+
+    def delivery_failed(self, source_message_id, now):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''UPDATE match_pulse_delivery SET retry_after=?
+                WHERE source_message_id=? AND status='pending' ''',
+                (now + 30, str(source_message_id)))
+
+    def delivery_sent(self, source_message_id, sent_message_id):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''UPDATE match_pulse_delivery SET status='sent',sent_message_id=?
+                WHERE source_message_id=? AND status IN ('pending','superseded')''',
+                (str(sent_message_id), str(source_message_id)))
 
     def queue_followup(self, pulse, now):
         if pulse.kind != 'final':

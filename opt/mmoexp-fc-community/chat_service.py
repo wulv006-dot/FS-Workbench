@@ -106,6 +106,7 @@ class ChatClient(discord.Client):
         self.only_channel = None if only_channel is None else str(only_channel)
         self.matchday_config = config.get('matchday_engagement')
         self.matchday_store = None
+        self.pulse_lock = asyncio.Lock()
         self.followup_task = None
         self.editorial_config = config.get('matchday_editorial')
         self.editorial_store = None
@@ -227,12 +228,17 @@ class ChatClient(discord.Client):
         pulse = matchday_engagement.parse_smart_score(message, self.matchday_config, time.time())
         if pulse is None:
             return
-        channel = self.get_channel(pulse.discussion_channel_id)
-        if channel is None or channel.guild.id != pulse.guild_id:
-            print('Matchday discussion channel unavailable source={}'.format(message.id), flush=True)
-            return
-        if not self.matchday_store.claim(message.id, pulse, time.time()):
-            return
+        async with self.pulse_lock:
+            channel = self.get_channel(pulse.discussion_channel_id)
+            if channel is None or channel.guild.id != pulse.guild_id:
+                print('Matchday discussion channel unavailable source={}'.format(message.id), flush=True)
+                return
+            if not self.matchday_store.claim(message.id, pulse, time.time()):
+                return
+            await self.send_match_pulse(channel, message.id, pulse,
+                                        message.created_at.timestamp(), attempts=3)
+
+    async def send_match_pulse(self, channel, source_id, pulse, source_at, attempts=1):
         embed = discord.Embed(title='⚽ Matchday chat',
                               description=matchday_engagement.prompt_text(pulse),
                               colour=0x2275E8)
@@ -244,11 +250,19 @@ class ChatClient(discord.Client):
         view.add_item(discord.ui.Button(label='FC27 Coins',
             url='https://discord.com/channels/{}/{}'.format(pulse.guild_id, pulse.coins_channel_id)))
         try:
-            sent = await channel.send(embed=embed, view=view,
-                                      allowed_mentions=discord.AllowedMentions.none())
+            for attempt in range(attempts):
+                try:
+                    sent = await channel.send(embed=embed, view=view, nonce=source_id,
+                                              allowed_mentions=discord.AllowedMentions.none())
+                    break
+                except discord.HTTPException:
+                    if attempt == attempts - 1:
+                        raise
+                    await asyncio.sleep(2 ** attempt)
+            self.matchday_store.delivery_sent(source_id, sent.id)
             print('Matchday pulse sent source={} discussion={} kind={} delay_ms={}'.format(
-                message.id, sent.id, pulse.kind,
-                round((time.time() - message.created_at.timestamp()) * 1000)), flush=True)
+                source_id, sent.id, pulse.kind,
+                round((time.time() - source_at) * 1000)), flush=True)
             if pulse.kind == 'final':
                 self.matchday_store.queue_followup(pulse, time.time())
             history = list(self.history.get(pulse.discussion_channel_id, ()))
@@ -256,8 +270,22 @@ class ChatClient(discord.Client):
                             matchday_engagement.prompt_text(pulse)))
             self.history[pulse.discussion_channel_id] = history[-MAX_HISTORY:]
         except discord.DiscordException as exc:
+            self.matchday_store.delivery_failed(source_id, time.time())
             print('Matchday prompt failed source={} kind={}: {}'.format(
-                message.id, pulse.kind, type(exc).__name__), flush=True)
+                source_id, pulse.kind, type(exc).__name__), flush=True)
+
+    async def send_pending_pulses_due(self, now=None):
+        now = time.time() if now is None else now
+        async with self.pulse_lock:
+            pending, expired = self.matchday_store.due_deliveries(now)
+            for source_id in expired:
+                print('Matchday delivery unconfirmed source={}'.format(source_id), flush=True)
+            for source_id, pulse, first_seen in pending:
+                channel = self.get_channel(pulse.discussion_channel_id)
+                if channel is None or channel.guild.id != pulse.guild_id:
+                    print('Matchday retry channel unavailable source={}'.format(source_id), flush=True)
+                    continue
+                await self.send_match_pulse(channel, source_id, pulse, first_seen)
 
     async def send_followups_due(self, now=None):
         now = time.time() if now is None else now
@@ -289,6 +317,7 @@ class ChatClient(discord.Client):
         await self.wait_until_ready()
         while not self.is_closed():
             try:
+                await self.send_pending_pulses_due()
                 await self.send_followups_due()
             except Exception as exc:
                 print('Match to Squad worker failed: ' + type(exc).__name__, flush=True)

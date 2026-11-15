@@ -3,7 +3,7 @@ import time
 import unittest
 import sqlite3
 from contextlib import closing
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,6 +31,13 @@ def message(mid, body, author=1496068397757366273, channel=SOURCE, now=None):
 
 
 class MatchdayEngagementTests(unittest.TestCase):
+    def test_discord_py_enforces_supplied_nonce(self):
+        from discord.http import handle_message_parameters
+
+        with handle_message_parameters(content='test', nonce=1571184986541789367) as params:
+            self.assertEqual(params.payload['nonce'], '1571184986541789367')
+            self.assertIs(params.payload['enforce_nonce'], True)
+
     def test_followup_is_next_day_even_for_early_final(self):
         final = datetime(2026, 11, 15, 9, 50, tzinfo=timezone.utc).timestamp()
         due = datetime.fromtimestamp(followup_due_at(final), timezone.utc)
@@ -71,6 +78,37 @@ class MatchdayEngagementTests(unittest.TestCase):
                 db.execute("UPDATE match_pulse SET last_kind='final'")
                 db.commit()
             self.assertFalse(store.claim(1571184986541789374, final, now+1002))
+
+    def test_pending_delivery_survives_restart_and_new_event_supersedes_it(self):
+        now = time.time()
+        first_id, second_id = 1571184986541789367, 1571184986541789369
+        first = parse_smart_score(message(first_id, 'Kosovo 1 — 0 Israel\nGoal!', now=now), CONFIG, now)
+        second = parse_smart_score(message(second_id, 'Kosovo 2 — 0 Israel\nGoal!', now=now), CONFIG, now)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'pulse.sqlite3'
+            store = MatchPulseStore(path)
+            self.assertTrue(store.claim(first_id, first, now))
+            restarted = MatchPulseStore(path)
+            self.assertEqual([mid for mid, _, _ in restarted.due_deliveries(now + 16)[0]], [first_id])
+            self.assertTrue(restarted.claim(second_id, second, now + 20))
+            self.assertEqual([mid for mid, _, _ in restarted.due_deliveries(now + 40)[0]], [second_id])
+            restarted.delivery_sent(second_id, 1571184986541789380)
+            self.assertEqual(restarted.due_deliveries(now + 50)[0], [])
+
+    def test_unconfirmed_delivery_stops_retrying_after_nonce_window(self):
+        now = time.time()
+        source_id = 1571184986541789367
+        pulse = parse_smart_score(message(source_id, 'Kosovo 1 — 0 Israel\nGoal!', now=now), CONFIG, now)
+        with tempfile.TemporaryDirectory() as directory:
+            store = MatchPulseStore(Path(directory) / 'pulse.sqlite3')
+            self.assertTrue(store.claim(source_id, pulse, now))
+            pending, expired = store.due_deliveries(now + 121)
+            self.assertEqual((pending, expired), ([], [source_id]))
+            self.assertEqual(store.due_deliveries(now + 150), ([], []))
+            with closing(sqlite3.connect(store.path)) as db:
+                status = db.execute('SELECT status FROM match_pulse_delivery WHERE source_message_id=?',
+                                    (str(source_id),)).fetchone()[0]
+            self.assertEqual(status, 'unknown')
 
     def test_ignores_status_and_configuration_messages(self):
         now = time.time()
@@ -119,7 +157,57 @@ class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(channel.send.await_count, 1)
             self.assertIn('Kosovo vs Israel', channel.send.await_args.kwargs['embed'].description)
             self.assertEqual(len(channel.send.await_args.kwargs['view'].children), 3)
+            self.assertEqual(channel.send.await_args.kwargs['nonce'], event.id)
             self.assertIn('Smart Score public update:', client.history[SOURCE][-1][1])
+            await client.close()
+
+    async def test_retry_uses_same_discord_nonce(self):
+        import discord
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            chat_config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(TEST_GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': dict(CONFIG, state_path=str(Path(directory) / 'pulse.sqlite3'))}
+            client = ChatClient(chat_config)
+            event = message(1571184986541789367, 'Kosovo 1 — 0 Israel\nGoal!')
+            failed = discord.HTTPException(SimpleNamespace(status=503, reason='Unavailable'), 'temporary')
+            channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=TEST_GUILD),
+                send=AsyncMock(side_effect=[failed, SimpleNamespace(id=1571184986541789380)]))
+            client.get_channel = lambda channel_id: channel if channel_id == SOURCE else None
+            with patch('chat_service.asyncio.sleep', new_callable=AsyncMock):
+                await client.on_message(event)
+            await client.on_message(event)
+            self.assertEqual(channel.send.await_count, 2)
+            self.assertEqual([call.kwargs['nonce'] for call in channel.send.await_args_list],
+                             [event.id, event.id])
+            await client.close()
+
+    async def test_failed_send_is_retried_from_durable_delivery(self):
+        import discord
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'pulse.sqlite3'
+            chat_config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(TEST_GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': dict(CONFIG, state_path=str(path))}
+            client = ChatClient(chat_config)
+            event = message(1571184986541789367, 'Kosovo 1 — 0 Israel\nGoal!')
+            failed = discord.HTTPException(SimpleNamespace(status=503, reason='Unavailable'), 'temporary')
+            channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=TEST_GUILD),
+                send=AsyncMock(side_effect=[failed, failed, failed,
+                                            SimpleNamespace(id=1571184986541789380)]))
+            client.get_channel = lambda channel_id: channel if channel_id == SOURCE else None
+            with patch('chat_service.asyncio.sleep', new_callable=AsyncMock):
+                await client.on_message(event)
+            self.assertEqual(channel.send.await_count, 3)
+            client.matchday_store = MatchPulseStore(path)
+            await client.send_pending_pulses_due(time.time() + 31)
+            self.assertEqual(channel.send.await_count, 4)
+            self.assertTrue(all(call.kwargs['nonce'] == event.id
+                                for call in channel.send.await_args_list))
+            self.assertEqual(client.matchday_store.due_deliveries(time.time() + 40)[0], [])
             await client.close()
 
     async def test_final_creates_one_next_morning_match_to_squad_card(self):
