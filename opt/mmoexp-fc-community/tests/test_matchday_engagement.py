@@ -45,11 +45,19 @@ UNIFY_CONFIG = {'enabled': True, 'routes': {str(TEST_GUILD): dict(
 class MatchdayEngagementTests(unittest.TestCase):
     def test_unify_real_card_shapes_and_source_isolation(self):
         validate_matchday_config(UNIFY_CONFIG)
+        private_route = dict(UNIFY_CONFIG['routes'][str(TEST_GUILD)],
+                             score_channel_id=SOURCE + 1)
+        private_config = {'enabled': True, 'routes': {str(TEST_GUILD): private_route}}
+        validate_matchday_config(private_config)
         now = time.time()
         goal = unify_message(1571546825184256152, "[67'] ⚽️ GOAAAAAAAAAAL!",
                              '## 👤 N. Krstovic (_Montenegro_)\n\n'
                              '### **Cyprus**  ` 1 - 3 `  **Montenegro**', now)
         pulse = parse_match_event(goal, UNIFY_CONFIG, now)
+        self.assertIsNone(parse_match_event(goal, private_config, now))
+        goal.channel.id = SOURCE + 1
+        self.assertIsNotNone(parse_match_event(goal, private_config, now))
+        goal.channel.id = SOURCE
         self.assertEqual((pulse.home, pulse.away, pulse.score, pulse.kind, pulse.source_name),
                          ('Cyprus', 'Montenegro', '1–3', 'goal', 'UnifyFootball'))
         half = unify_message(1571537266675818698, '',
@@ -67,6 +75,9 @@ class MatchdayEngagementTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_matchday_config({'enabled': True, 'routes': {str(TEST_GUILD): dict(
                 UNIFY_CONFIG['routes'][str(TEST_GUILD)], provider='unknown')}})
+        with self.assertRaises(ValueError):
+            validate_matchday_config({'enabled': True, 'routes': {str(TEST_GUILD): dict(
+                private_route, score_channel_id='bad')}})
 
     def test_discord_py_enforces_supplied_nonce(self):
         from discord.http import handle_message_parameters

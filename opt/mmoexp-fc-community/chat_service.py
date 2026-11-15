@@ -16,6 +16,7 @@ import os
 import random
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import discord
@@ -254,10 +255,15 @@ class ChatClient(discord.Client):
         pulse = matchday_engagement.parse_match_event(message, self.matchday_config, time.time())
         if pulse is None:
             return
-        if (self.focus_store is not None and
-                str(pulse.guild_id) in self.focus_config['guild_ids'] and
-                not self.focus_store.selected(pulse.guild_id, pulse.match_key, time.time())):
-            return
+        route = self.matchday_config['routes'][str(pulse.guild_id)]
+        if self.focus_store is not None and str(pulse.guild_id) in self.focus_config['guild_ids']:
+            source_id = self.focus_store.selected_source_id(
+                pulse.guild_id, pulse.match_key, time.time())
+            if source_id is None:
+                return
+            if route.get('score_channel_id', route['source_channel_id']) != route['source_channel_id']:
+                pulse = replace(pulse, source_url='https://discord.com/channels/{}/{}/{}'.format(
+                    pulse.guild_id, route['source_channel_id'], source_id))
         async with self.pulse_lock:
             channel = self.get_channel(pulse.discussion_channel_id)
             if channel is None or channel.guild.id != pulse.guild_id:
@@ -330,7 +336,10 @@ class ChatClient(discord.Client):
                               colour=0x2275E8)
         embed.set_footer(text='Match updates: {} · FC27 tools: MMOEXP'.format(pulse.source_name))
         view = discord.ui.View(timeout=None)
-        view.add_item(discord.ui.Button(label='{} update'.format(pulse.source_name),
+        route = self.matchday_config['routes'][str(pulse.guild_id)]
+        source_label = ('fixture' if route.get('score_channel_id', route['source_channel_id'])
+                        != route['source_channel_id'] else 'update')
+        view.add_item(discord.ui.Button(label='{} {}'.format(pulse.source_name, source_label),
                                         url=pulse.source_url))
         view.add_item(discord.ui.Button(label='FC27 Players',
             url='https://discord.com/channels/{}/{}'.format(pulse.guild_id, pulse.players_channel_id)))

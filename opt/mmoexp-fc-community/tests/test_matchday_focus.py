@@ -185,11 +185,13 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
         from chat_service import ChatClient
 
         with tempfile.TemporaryDirectory() as directory:
+            score_channel = CHANNEL + 999
             config = {
                 'chat_bot': {'enabled': True, 'allow_message_content': True,
                              'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
                                                     'keywords': []}}},
                 'matchday_engagement': dict(ENGAGEMENT,
+                    routes={str(GUILD): dict(ROUTE, score_channel_id=score_channel)},
                     state_path=str(Path(directory) / 'pulse.sqlite3')),
                 'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
                     'state_path': str(Path(directory) / 'focus.sqlite3'),
@@ -210,9 +212,9 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                           channel.send.await_args.kwargs['embed'].description)
             self.assertEqual(channel.send.await_args.kwargs['nonce'], SOURCE)
             event_at = (NOW + dt.timedelta(hours=8)).timestamp()
-            def goal(mid, home, away):
+            def goal(mid, home, away, channel_id=score_channel):
                 return SimpleNamespace(id=mid, guild=SimpleNamespace(id=GUILD),
-                    channel=SimpleNamespace(id=CHANNEL),
+                    channel=SimpleNamespace(id=channel_id),
                     author=SimpleNamespace(id=1332364544869142538, bot=True),
                     type=SimpleNamespace(value=0), webhook_id=None,
                     interaction_metadata=None, content='', embeds=[SimpleNamespace(
@@ -220,13 +222,18 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         description='{}  1 - 0  {}'.format(home, away), fields=[])],
                     created_at=dt.datetime.fromtimestamp(event_at, dt.timezone.utc),
                     jump_url='https://discord.com/channels/{}/{}/{}'.format(
-                        GUILD, CHANNEL, mid))
+                        GUILD, channel_id, mid))
             with patch('chat_service.time.time', return_value=event_at):
+                await client.on_message(goal(SOURCE + 3, 'Spain', 'England', CHANNEL))
+                self.assertEqual(channel.send.await_count, 1)
                 await client.on_message(goal(SOURCE + 1, 'France', 'Turkey'))
                 self.assertEqual(channel.send.await_count, 1)
                 await client.on_message(goal(SOURCE + 2, 'Spain', 'England'))
                 self.assertEqual(channel.send.await_count, 2)
             self.assertIn('Spain vs England', channel.send.await_args.kwargs['embed'].description)
+            button = channel.send.await_args.kwargs['view'].children[0]
+            self.assertEqual(button.label, 'UnifyFootball fixture')
+            self.assertEqual(button.url, card().jump_url)
             await client.close()
 
 
