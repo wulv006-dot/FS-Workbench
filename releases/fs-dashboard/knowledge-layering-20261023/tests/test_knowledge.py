@@ -46,7 +46,7 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_temporary_cost_protection_20261114')
+        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_cross_day_order_attribution_20261115')
         self.assertIn('合法单笔优惠仍可低毛利或亏损', v['entries'][0]['content'])
         for value in ('D-3 至 D-1','三个完整自然日','按金额加权','组合利润率 18%','25%'):
             self.assertIn(value,v['entries'][0]['content'])
@@ -60,6 +60,10 @@ class Knowledge(unittest.TestCase):
         self.assertNotIn('105K',v['entries'][0]['content'])
         self.assertNotIn('八日平均20%',v['entries'][0]['content'])
         self.assertNotIn('18:21最新自然验收', v['entries'][0]['content'])
+        self.assertNotIn('订单归属和跨日试验复盘', v['entries'][0]['content'])
+        method = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.v3'], preview=True)
+        for phrase in ('按北京时间付款日', '按订单创建时间', '同单发货记录', '同钟点重叠时段'):
+            self.assertIn(phrase, method['entries'][0]['content'])
         self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'])['status'], 'not_published')
 
     def test_email_export_current_scope_not_old_paid_defaults(self):
