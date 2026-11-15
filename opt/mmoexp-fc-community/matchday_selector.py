@@ -18,7 +18,7 @@ UTC = dt.timezone.utc
 LONDON = ZoneInfo('Europe/London')
 NEW_YORK = ZoneInfo('America/New_York')
 LOS_ANGELES = ZoneInfo('America/Los_Angeles')
-SOURCE_MAX_AGE = dt.timedelta(hours=6)
+SOURCE_MAX_AGE = dt.timedelta(hours=24)
 HORIZON = dt.timedelta(hours=48)
 MIN_LEAD = dt.timedelta(minutes=15)
 LEAGUE_WEIGHTS = {

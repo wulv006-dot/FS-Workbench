@@ -41,7 +41,7 @@ class ScoutBridgeTests(unittest.TestCase):
         source = card(self.now, [
             ('Spain', 'England', 'UEFA Nations League', self.spain_kickoff),
             ('France', 'Turkey', 'UEFA Nations League', self.spain_kickoff),
-        ])
+        ], created_at=self.now - dt.timedelta(hours=15))
         plan, receipt = merge_plan(
             self.scout, [source], {'version': 1, 'matches': [self.manual]},
             GUILD, CHANNEL, self.now)
