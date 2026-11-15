@@ -83,6 +83,24 @@ class MatchdayEngagementTests(unittest.TestCase):
 
 
 class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_missing_discussion_channel_does_not_consume_event(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            chat_config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(TEST_GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': dict(CONFIG, state_path=str(Path(directory) / 'pulse.sqlite3'))}
+            client = ChatClient(chat_config)
+            event = message(1571184986541789367, 'Kosovo 1 — 0 Israel\nGoal!')
+            client.get_channel = lambda channel_id: None
+            await client.on_message(event)
+            channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=TEST_GUILD),
+                                      send=AsyncMock(return_value=SimpleNamespace(id=1571184986541789380)))
+            client.get_channel = lambda channel_id: channel if channel_id == SOURCE else None
+            await client.on_message(event)
+            self.assertEqual(channel.send.await_count, 1)
+            await client.close()
+
     async def test_smart_score_event_posts_one_discussion_card(self):
         from chat_service import ChatClient
 
