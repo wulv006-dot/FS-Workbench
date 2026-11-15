@@ -25,7 +25,7 @@ def load(name, path):
 class SixCost(unittest.TestCase):
     def setUp(self):
         self.closed = 0
-        tab = object()
+        tab = self.tab = types.SimpleNamespace()
         browser = types.SimpleNamespace(contexts=[types.SimpleNamespace(new_page=lambda: tab)])
         def close(page):
             self.closed += 1
@@ -43,6 +43,10 @@ class SixCost(unittest.TestCase):
                 with patch('zoneinfo.ZoneInfo', lambda _: timezone(timedelta(hours=8))):
                     self.collector = load('six_cost_collector', SOURCE/'collect_p2pah_cost.py')
             self.snapshot = load('six_snapshot', SOURCE/'snapshot_layer.py')
+        self.native_verifier = patch.object(self.collector, 'verified_delivery_cost',
+            side_effect=lambda _, row, __: {k: v for k, v in row.items() if k != 'order_delivery'})
+        self.native_verifier.start()
+        self.addCleanup(self.native_verifier.stop)
         self.now = datetime.now(timezone(timedelta(hours=8))) - timedelta(minutes=1)
         self.rows = [self.raw(100+i, cost, i) for i, cost in enumerate(('.1','.2','.9','.4','.5','.6','99'))]
         self.rows += [self.raw(200, '888', 0, 'XBOX'), self.raw(300, '.77', 0, 'PC')]
@@ -78,6 +82,47 @@ class SixCost(unittest.TestCase):
         self.assertEqual(proof['sample_size'], 6)
         self.assertEqual(len(proof['observations']), 6)
         self.assertEqual(self.closed, 1)
+
+    def test_mixed_k_and_million_deliveries_are_normalized_before_taking_max(self):
+        self.native_verifier.stop()
+        samples = [
+            ('1545', '1545', '.400000', '618.00'), ('1.03', '1030', '390', '401.70'),
+            ('500', '500', '.400000', '200.00'), ('1', '1000', '394', '394.00'),
+            ('.16', '160', '370', '59.20'), ('.5', '500', '398', '199.00'),
+            ('100', '100', '.45', '45.00'), ('100', '100', '.42', '42.00'),
+        ]
+        rows, details = [], {}
+        for i, (quantity, ordered, cost, total) in enumerate(samples):
+            did, order = str(300 + i), str(400 + i)
+            rows.append(dict(self.raw(did, cost, i, {6: 'PC', 7: 'XBOX'}.get(i, 'PS')),
+                             order_id=order, quantity=quantity, gift='0', cost_total=total))
+            details[order] = dict(complete=True,
+                goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty=ordered, used=quantity)],
+                deliveries=[dict(id=did, pid='9', qty=quantity, gift='0', price=cost, total=total)])
+        self.tab.evaluate = lambda expression, order: details[order]
+        ps, xbox, pc = self.run_collect([rows, []])['costs']
+        self.assertEqual(Decimal(ps['cny_per_1k']), Decimal('.4'))
+        self.assertEqual(Decimal(xbox['observed_cost']['cny_per_1k']), Decimal('.42'))
+        self.assertEqual(Decimal(pc['cny_per_1k']), Decimal('.45'))
+        mixed = ps['sample_records'][-1]
+        self.assertEqual(Decimal(mixed['cny_per_1k']), Decimal('.398'))
+        self.assertEqual(Decimal(mixed['quantity_evidence']['delivered_k']), Decimal('500'))
+        self.assertNotIn('order_delivery', mixed)
+
+    def test_million_conversion_requires_complete_single_shipment_and_matching_cost(self):
+        self.native_verifier.stop()
+        raw = dict(self.raw(100, '398', 0), order_id='300', quantity='.5', gift='0', cost_total='199.00')
+        _, row = self.collector.valid_record(raw)
+        detail = dict(complete=False,
+                      goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty='500', used='.5')],
+                      deliveries=[dict(id='100', pid='9', qty='.5', gift='0', price='398', total='199.00')])
+        self.assertIsNone(self.collector.verified_delivery_cost(self.tab, row, {'300': detail}))
+        detail['complete'] = True
+        detail['deliveries'].append(dict(detail['deliveries'][0], id='101'))
+        self.assertIsNone(self.collector.verified_delivery_cost(self.tab, row, {'300': detail}))
+        detail['deliveries'].pop()
+        detail['deliveries'][0]['total'] = '198'
+        self.assertIsNone(self.collector.verified_delivery_cost(self.tab, row, {'300': detail}))
 
     def test_duplicate_same_record_does_not_count_twice(self):
         result = self.run_collect([self.rows[:3], self.rows[:3]+self.rows[3:], []])

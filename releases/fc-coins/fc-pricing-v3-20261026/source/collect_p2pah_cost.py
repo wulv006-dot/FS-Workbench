@@ -66,9 +66,27 @@ READ_ROWS = r"""() => ({
     const c=[...tr.children].filter(x=>x.tagName==='TD');
     const platform=c[6]?.innerText?.trim().match(/^FC\s*27\s*▶\s*(PS|XBOX|PC)$/i)?.[1];
     return platform?{platform:platform.toUpperCase(),record_id:c[1]?.innerText.trim(),
-      delivery_type:c[2]?.innerText.trim(),trade_at:c[5]?.innerText.trim(),cny_per_1k:c[9]?.innerText.trim()}:null;
+      delivery_type:c[2]?.innerText.trim(),trade_at:c[5]?.innerText.trim(),cny_per_1k:c[9]?.innerText.trim(),
+      order_id:c[4]?.querySelector('a')?.getAttribute('href')?.match(/\/order\/admin_order\/look\/id\/(\d+)\.html/)?.[1],
+      quantity:c[7]?.innerText.trim(),gift:c[8]?.innerText.trim(),cost_total:c[10]?.innerText.trim()}:null;
   }).filter(Boolean)
 })"""
+
+READ_ORDER = r"""async (orderId) => {
+  const response = await fetch(`/order/admin_order/look/id/${orderId}.html`, {
+    redirect: 'error', signal: AbortSignal.timeout(8000)
+  });
+  if (!response.ok) return null;
+  const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+  const script = [...page.scripts].map(s => s.textContent)
+    .map(s => s.match(/^\s*var\s+orderDeliveryData\s*=\s*(\{[^\n]*\});\s*$/m)?.[1]).find(Boolean);
+  if (!script) return null;
+  const goods = [...page.querySelectorAll('table.look-goods-table tbody tr[data-pid]')]
+    .map(({dataset: d}) => ({pid: d.pid, gid: d.gid, cid: d.cid, aid: d.aid, unit: d.unit, qty: d.qty, used: d.used}));
+  const deliveries = Object.values(JSON.parse(script)).map(d => ({id: d.id, pid: d.pid,
+    qty: d.qty, gift: d.give, price: d.delivery_price, total: d.delivery_amount}));
+  return {goods, deliveries, complete: !!page.querySelector('tr.log-item')?.querySelector('td.order-status-3')};
+}"""
 
 
 ORDER_DELIVERY = "\u8ba2\u5355\u53d1\u8d27"
@@ -107,7 +125,61 @@ def valid_record(raw: dict):
                         "traded_at": raw["trade_at"], "trade_at": raw["trade_at"],
                         "cny_per_k": str(cost), "cny_per_1k": str(cost),
                         "unit": "CNY/K", "status": "valid",
-                        "delivery_type": ORDER_DELIVERY, "genre": "1"}
+                        "delivery_type": ORDER_DELIVERY, "genre": "1",
+                        "order_delivery": {key: raw.get(key) for key in ('order_id', 'quantity', 'gift', 'cost_total')}}
+
+
+def shipment_number(value):
+    try:
+        number = Decimal(str(value).replace(',', ''))
+    except InvalidOperation:
+        return None
+    return number if number.is_finite() and number >= 0 else None
+
+
+def verified_delivery_cost(tab, record, order_cache):
+    native = record['order_delivery']
+    order_id = native['order_id']
+    if not isinstance(order_id, str) or not re.fullmatch(r'\d+', order_id):
+        return None
+    if order_id not in order_cache:
+        order_cache[order_id] = tab.evaluate(READ_ORDER, order_id)
+    detail = order_cache[order_id]
+    if detail is None:
+        raise ValueError('cost_order_detail_unavailable')
+    deliveries = detail['deliveries']
+    matches = [delivery for delivery in deliveries if str(delivery['id']) == record['record_id']]
+    if len(matches) != 1:
+        return None
+    delivery = matches[0]
+    goods = [row for row in detail['goods'] if row['pid'] == delivery['pid']]
+    if len(goods) != 1 or (goods[0]['gid'], goods[0]['cid'], goods[0]['unit']) != ('1322', '1', 'K'):
+        return None
+    quantity, gift, total = (shipment_number(native[key]) for key in ('quantity', 'gift', 'cost_total'))
+    unit_cost = Decimal(record['cny_per_1k'])
+    if (None in (quantity, gift, total) or (quantity, gift, total, unit_cost) !=
+            tuple(shipment_number(delivery[key]) for key in ('qty', 'gift', 'total', 'price'))):
+        return None
+    purchased = shipment_number(goods[0]['qty'])
+    delivered = quantity + gift
+    if not purchased or not delivered or not total or abs(delivered * unit_cost - total) > Decimal('.01'):
+        return None
+
+    scale = Decimal(1)
+    if delivered * 1000 <= purchased and shipment_number(goods[0]['used']) != purchased:
+        # A completed item with one shipment can expose the same quantity in M
+        # in its delivery record and in K in its original goods line.
+        if (delivered * 1000 != purchased or detail['complete'] is not True
+                or shipment_number(goods[0]['used']) != delivered
+                or sum(row['pid'] == delivery['pid'] for row in deliveries) != 1):
+            return None
+        scale = Decimal(1000)
+    result = {key: value for key, value in record.items() if key != 'order_delivery'}
+    result.update(cny_per_1k=str(unit_cost / scale), cny_per_k=str(unit_cost / scale),
+                  quantity_evidence=dict(delivered_k=str(delivered * scale), ordered_k=str(purchased),
+                                         native_quantity=str(delivered), native_unit='M' if scale == 1000 else 'K',
+                                         total_cny=str(total)))
+    return result
 
 
 CollectorTimeoutError = PlaywrightTimeoutError
@@ -187,9 +259,9 @@ def remember(records, valid):
     records[key] = (traded, record)
 
 
-def latest_ps(records):
+def latest_ps(records, limit=6):
     return sorted((value for value in records.values() if value[1]['platform'] == 'PS'),
-                  key=lambda value: (value[0], int(value[1]['record_id'])), reverse=True)[:6]
+                  key=lambda value: (value[0], int(value[1]['record_id'])), reverse=True)[:limit]
 
 
 def shared_console_cost(records, checked_at, boundary):
@@ -204,7 +276,7 @@ def shared_console_cost(records, checked_at, boundary):
                 sample_complete=True, sample_records=observations, sample_boundary=boundary)
 
 
-def collect_ps_cost(tab, observations):
+def collect_ps_cost(tab, observations, order_cache):
     end = datetime.now(SHANGHAI).replace(microsecond=0)
     for hours in (1, 2, 4, 8, 16, 32, 64, 128, 192):
         window = dict(start=end-timedelta(hours=hours), end=end)
@@ -222,9 +294,16 @@ def collect_ps_cost(tab, observations):
                 break
         if not complete:
             raise ValueError('ps_valid_delivery_sample_page_limit')
-        if len(deliveries) >= 6:
+        verified = {}
+        for traded, record in latest_ps(deliveries, limit=None):
+            normal = verified_delivery_cost(tab, record, order_cache)
+            if normal is not None:
+                remember(verified, (traded, normal))
+            if len(verified) == 6:
+                break
+        if len(verified) == 6:
             boundary = dict(complete=True, **{key: value.isoformat() for key, value in window.items()})
-            return shared_console_cost(deliveries, datetime.now(timezone.utc).isoformat(), boundary)
+            return shared_console_cost(verified, datetime.now(timezone.utc).isoformat(), boundary)
     raise ValueError('ps_valid_delivery_sample_incomplete')
 
 
@@ -238,7 +317,7 @@ def collect():
         primary_error = None
         try:
             # Preserve the existing PC rule and original page limit.
-            found = {}
+            candidates = {'XBOX': {}, 'PC': {}}
             observations = []
             for number in range(1, 16):
                 data = read_page(tab, number, observations)
@@ -248,21 +327,29 @@ def collect():
                         continue
                     traded, record = valid
                     platform = record["platform"]
-                    if platform not in found or traded > found[platform][0]:
-                        found[platform] = (traded, record)
+                    if platform in candidates:
+                        remember(candidates[platform], valid)
                 if not data["hasDataRows"] or data["empty"]:
                     break
-            console = collect_ps_cost(tab, observations)
+            order_cache = {}
+            console = collect_ps_cost(tab, observations, order_cache)
+            found = {}
+            for platform, deliveries in candidates.items():
+                for _, candidate in sorted(deliveries.values(), key=lambda value: value[0], reverse=True):
+                    normal = verified_delivery_cost(tab, candidate, order_cache)
+                    if normal is not None:
+                        found[platform] = normal
+                        break
             checked_at = datetime.now(timezone.utc).isoformat()
             records = []
             for platform in PLATFORMS:
                 if platform in ('PS', 'XBOX'):
                     record = dict(console, platform=platform)
                     if platform == 'XBOX' and platform in found:
-                        record['observed_cost'] = {**found[platform][1], 'checked_at': checked_at}
+                        record['observed_cost'] = {**found[platform], 'checked_at': checked_at}
                     records.append(record)
                 elif platform in found:
-                    records.append({**found[platform][1], "checked_at": checked_at})
+                    records.append({**found[platform], "checked_at": checked_at})
                 else:
                     records.append({"platform": platform, "status": "missing",
                                     "reason": "no_valid_recent_record"})
