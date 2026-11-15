@@ -15,6 +15,7 @@ from community import CommunityStore, CommunityError
 
 TEST_GUILD = 1565922092518613064
 OFFICIAL_GUILD = 1041923524601851914
+CHAT_QUOTE_CHANNELS = {TEST_GUILD: 1568260661010497627, OFFICIAL_GUILD: 1200330251016867880}
 QUOTE_KINDS = ('sbc', 'packs', 'gallery', 'evolutions', 'boosting', 'coins')
 
 
@@ -195,7 +196,18 @@ class ContentClient(discord.Client):
         hub = self.config.get('quote_hub')
         if hub and kind in ('evolutions', 'boosting', 'gallery', 'packs'):
             routes.setdefault(hub['guild_id'], {})[hub['channel_id']] = kind
+        if kind in ('coins', 'sbc'):
+            for guild_id, channel_id in CHAT_QUOTE_CHANNELS.items():
+                routes.setdefault(guild_id, {})[channel_id] = kind
         routes.setdefault(TEST_GUILD, {})[int(self.config.get('quote_channel_id', 0))] = kind
+        return routes
+
+    def player_routes(self):
+        from player_publish import TEST_CHANNEL
+        routes = {guild_id: {channel_id: 'players'} for guild_id, channel_id in CHAT_QUOTE_CHANNELS.items()}
+        routes[TEST_GUILD][TEST_CHANNEL] = 'players'
+        player = self.config['player_panel']
+        routes.setdefault(player['guild_id'], {})[player['channel_id']] = 'players'
         return routes
 
     async def setup_hook(self):
@@ -212,17 +224,16 @@ class ContentClient(discord.Client):
             for kind in QUOTE_KINDS:
                 self.add_view(CategoryHomeView(self.quote_provider, kind, allowed_routes=self.quote_routes(kind),
                                               presentation=self.config.get('quote_presentation')))
-            if self.config.get('quote_hub'):
-                from quote_panel import HubHomeView
-                hub = self.config['quote_hub']
+            from quote_panel import HubHomeView
+            hub = self.config.get('quote_hub')
+            if hub or self.tree.get_command('price', guild=discord.Object(TEST_GUILD)):
+                hub = hub or {'guild_id': TEST_GUILD, 'channel_id': CHAT_QUOTE_CHANNELS[TEST_GUILD]}
                 self.add_view(HubHomeView(self.quote_provider, hub['guild_id'], hub['channel_id'],
-                                          self.config.get('quote_presentation')))
+                                          self.config.get('quote_presentation'), CHAT_QUOTE_CHANNELS))
         player = self.config.get('player_panel')
         if self.quote_provider and player and player['enabled']:
             from player_panel import PlayerHomeView, PlayerCardView
-            from player_publish import TEST_CHANNEL
-            routes = {TEST_GUILD: {TEST_CHANNEL: 'players'}}
-            routes.setdefault(player['guild_id'], {})[player['channel_id']] = 'players'
+            routes = self.player_routes()
             self.add_view(PlayerHomeView(self.quote_provider, routes, self.config.get('quote_presentation')))
             for model_id in player['featured_model_ids']:
                 self.add_view(PlayerCardView(self.quote_provider, model_id, routes,
@@ -244,8 +255,15 @@ class ContentClient(discord.Client):
             from fut_panel import InformationPanelView
             panels = self.config['information_panels']
             self.add_view(InformationPanelView(self.information_store, panels['guild_id'], panels['channels']))
-        # Guild commands only. Never sync globally or register on the production guild.
+        # Guild commands only. Preserve the production guild's existing privacy commands.
         await self.tree.sync(guild=discord.Object(TEST_GUILD))
+        price_command = self.tree.get_command('price', guild=discord.Object(OFFICIAL_GUILD))
+        if price_command:
+            try:
+                await self.http.upsert_guild_command(self.application_id, OFFICIAL_GUILD,
+                                                     price_command.to_dict(self.tree))
+            except discord.HTTPException as exc:
+                print('Price command registration failed: HTTP ' + str(exc.status), flush=True)
         if self.quote_relay:
             self.relay_task = asyncio.create_task(self.run_quote_relay())
         if self.news_store:
@@ -766,6 +784,45 @@ def build_client(config, store, information_store=None):
                    or 'No registrations.'))
 
     client.tree.add_command(group, guild=discord.Object(TEST_GUILD))
+    if client.quote_provider:
+        def price_command():
+            @app_commands.command(name='price', description='Staff: post an FC27 price card in Chat')
+            @app_commands.default_permissions(manage_messages=True)
+            @app_commands.choices(card=[
+                app_commands.Choice(name='Coins', value='coins'),
+                app_commands.Choice(name='Players', value='players'),
+                app_commands.Choice(name='SBC', value='sbc'),
+                app_commands.Choice(name='Objectives & Packs', value='hub'),
+            ])
+            async def price(i: discord.Interaction, card: str):
+                if (i.user.bot or str(i.user.id) not in config['staff_user_ids']
+                        or CHAT_QUOTE_CHANNELS.get(i.guild_id) != i.channel_id):
+                    await i.response.send_message('Use this command in FC27 Chat with a staff account.', ephemeral=True)
+                    return
+                if card == 'players' and not (config.get('player_panel') or {}).get('enabled'):
+                    await i.response.send_message('Player prices are unavailable.', ephemeral=True)
+                    return
+                from quote_panel import CategoryHomeView, HubHomeView, category_embed, hub_embed
+                presentation = config.get('quote_presentation')
+                if card == 'hub':
+                    embed = hub_embed(presentation)
+                    view = HubHomeView(client.quote_provider, i.guild_id, i.channel_id, presentation,
+                                       CHAT_QUOTE_CHANNELS)
+                elif card == 'players':
+                    from player_panel import PlayerHomeView
+                    embed = category_embed('players', presentation)
+                    view = PlayerHomeView(client.quote_provider, client.player_routes(), presentation)
+                else:
+                    embed = category_embed(card, presentation)
+                    view = CategoryHomeView(client.quote_provider, card,
+                                            allowed_routes=client.quote_routes(card), presentation=presentation)
+                await i.response.send_message(embed=embed, view=view,
+                                              allowed_mentions=discord.AllowedMentions.none())
+
+            return price
+
+        for guild_id in CHAT_QUOTE_CHANNELS:
+            client.tree.add_command(price_command(), guild=discord.Object(guild_id))
     return client
 
 

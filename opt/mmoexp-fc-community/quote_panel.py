@@ -174,9 +174,12 @@ class CategoryHomeView(GuardedView):
 
 class HubHomeView(GuardedView):
     """Public hub buttons, each opening an owner-only category quote panel."""
-    def __init__(self, provider, guild_id, channel_id, presentation=None):
+    def __init__(self, provider, guild_id, channel_id, presentation=None, extra_channels=None):
+        routes = {guild_id: {channel_id: 'hub'}}
+        for extra_guild, extra_channel in (extra_channels or {}).items():
+            routes.setdefault(extra_guild, {})[extra_channel] = 'hub'
         super().__init__(provider, kind='hub',
-                         allowed_routes={guild_id: {channel_id: 'hub'}},
+                         allowed_routes=routes,
                          presentation=presentation)
         for kind in HUB_KINDS:
             self.add_item(HubOpenButton(kind, presentation))
