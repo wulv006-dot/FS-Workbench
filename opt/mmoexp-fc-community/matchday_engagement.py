@@ -8,7 +8,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-SMART_SCORE_ID = 1496068397757366273
 UNIFY_FOOTBALL_ID = 1332364544869142538
 COOLDOWN_SECONDS = 900
 MAX_MESSAGE_AGE_SECONDS = 180
@@ -39,7 +38,7 @@ def validate_matchday_config(config):
             raise ValueError('Invalid matchday route')
         if not all(_snowflake(route[key]) for key in channel_keys):
             raise ValueError('Invalid matchday channel')
-        if route.get('provider', 'smart_score') not in ('smart_score', 'unify_football'):
+        if route.get('provider') != 'unify_football':
             raise ValueError('Invalid matchday provider')
     return config
 
@@ -56,7 +55,7 @@ class MatchPulse:
     discussion_channel_id: int
     players_channel_id: int
     coins_channel_id: int
-    source_name: str = 'Smart Score'
+    source_name: str = 'UnifyFootball'
 
 
 def _card_lines(message):
@@ -76,52 +75,6 @@ def _match_line(lines):
             home, left, right, away = match.groups()
             return home, away, '{}–{}'.format(left, right)
     return None
-
-
-def _event_kind(lines):
-    text = '\n'.join(lines).lower()
-    if any(word in text for word in ('match finished', 'full time', 'full-time')):
-        return 'final'
-    if any(word in text for word in ('half time', 'half-time', 'halftime')):
-        return 'half_time'
-    if (any(word in text for word in ('goal!', 'goal scored', 'penalty goal'))
-            or re.search(r'\bg\s+o\s+a\s+l\s*!', text)):
-        return 'goal'
-    if 'red card' in text:
-        return 'red_card'
-    if any(word in text for word in ('match started', 'kick-off', 'kickoff')):
-        return 'kickoff'
-    return None
-
-
-def parse_smart_score(message, config, now):
-    if not config.get('enabled'):
-        return None
-    guild = getattr(message, 'guild', None)
-    channel = getattr(message, 'channel', None)
-    author = getattr(message, 'author', None)
-    if not guild or not channel or not author:
-        return None
-    route = config['routes'].get(str(guild.id))
-    if not route or channel.id != route['source_channel_id'] or author.id != SMART_SCORE_ID:
-        return None
-    if (author.bot is not True or getattr(message, 'webhook_id', None) is not None
-            or getattr(message, 'interaction_metadata', None) is not None
-            or getattr(getattr(message, 'type', None), 'value', getattr(message, 'type', None)) != 0):
-        return None
-    created_at = getattr(message, 'created_at', None)
-    if not created_at or not -30 <= now - created_at.timestamp() <= MAX_MESSAGE_AGE_SECONDS:
-        return None
-    lines = _card_lines(message)
-    match = _match_line(lines)
-    kind = _event_kind(lines)
-    if not match or not kind:
-        return None
-    home, away, score = match
-    key = '{}|{}'.format(home.casefold(), away.casefold())
-    return MatchPulse(guild.id, key, home, away, score, kind, message.jump_url,
-                      route['discussion_channel_id'], route['players_channel_id'],
-                      route['coins_channel_id'])
 
 
 def parse_unify_football(message, config, now):
@@ -168,11 +121,7 @@ def parse_unify_football(message, config, now):
 
 
 def parse_match_event(message, config, now):
-    guild = getattr(message, 'guild', None)
-    route = config.get('routes', {}).get(str(guild.id)) if guild else None
-    if route and route.get('provider') == 'unify_football':
-        return parse_unify_football(message, config, now)
-    return parse_smart_score(message, config, now)
+    return parse_unify_football(message, config, now)
 
 
 def followup_due_at(now):
