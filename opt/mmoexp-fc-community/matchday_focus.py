@@ -46,8 +46,9 @@ def validate_config(config, engagement):
     return config
 
 
-def _lines(block):
-    return [re.sub(r'^[^\w]+', '', re.sub(r'[*_`#🕒]', '', line)).strip(' •\t')
+def _lines(block, field_heading=False):
+    return [(re.sub(r'^[^\w]+', '', re.sub(r'[*_`#🕒]', '', line)).strip(' •\t'),
+             field_heading or bool(re.match(r'^\s*#{3}\s', line)))
             for line in str(block or '').splitlines() if line.strip()]
 
 
@@ -73,16 +74,18 @@ def parse_daily_card(message, route, now):
     blocks = []
     if embeds:
         embed = embeds[0]
-        blocks = [getattr(embed, 'title', ''), getattr(embed, 'description', '')]
+        blocks = [(getattr(embed, 'title', ''), False),
+                  (getattr(embed, 'description', ''), False)]
         for field in getattr(embed, 'fields', ()) or ():
-            blocks.extend((getattr(field, 'name', ''), getattr(field, 'value', '')))
+            blocks.extend(((getattr(field, 'name', ''), True),
+                           (getattr(field, 'value', ''), False)))
     else:
         for component in getattr(message, 'components', ()) or ():
-            blocks.extend(_component_text(component.to_dict()))
-    lines = [line for block in blocks for line in _lines(block)]
-    if not any("today's matches" in line.casefold() for line in lines):
+            blocks.extend((text, False) for text in _component_text(component.to_dict()))
+    lines = [item for block, heading in blocks for item in _lines(block, heading)]
+    if not any("today's matches" in line.casefold() for line, _ in lines):
         return []
-    date_line = next((DATE.fullmatch(line) for line in lines if DATE.fullmatch(line)), None)
+    date_line = next((DATE.fullmatch(line) for line, _ in lines if DATE.fullmatch(line)), None)
     if date_line is None:
         return []
     try:
@@ -92,7 +95,7 @@ def parse_daily_card(message, route, now):
     if date != now.astimezone(LONDON).date():
         return []
     fixtures, seen, competition = [], set(), ''
-    for line in lines:
+    for line, heading in lines:
         match = FIXTURE.fullmatch(line)
         if match:
             if not competition:
@@ -108,9 +111,7 @@ def parse_daily_card(message, route, now):
                 seen.add(fixture.key)
             if len(fixtures) >= 20:
                 break
-        elif (line != date_line[0] and len(line) <= 80 and
-              any(word in line.casefold() for word in
-                  ('league', 'cup', 'champions', 'europa', 'world', 'nations'))):
+        elif heading and line != date_line[0] and len(line) <= 80:
             competition = line
     return fixtures
 

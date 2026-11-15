@@ -76,6 +76,30 @@ class FocusTests(unittest.TestCase):
             ('Spain', 'England', 'Nations League - League A')])
         self.assertEqual(parse_daily_card(v2_card(), ROUTE, NOW + dt.timedelta(days=1)), [])
 
+    def test_daily_card_keeps_each_league_heading(self):
+        message = card()
+        message.embeds[0].fields = [
+            SimpleNamespace(name='Premier League', value='Arsenal vs Chelsea 15:00'),
+            SimpleNamespace(name='La Liga EA SPORTS', value='Real Madrid vs Barcelona 20:00'),
+            SimpleNamespace(name='Bundesliga', value='Bayern vs Dortmund 17:30'),
+            SimpleNamespace(name='Serie A', value='Inter vs Milan 19:45'),
+            SimpleNamespace(name='Ligue 1', value='PSG vs Marseille 20:00'),
+        ]
+        fixtures = parse_daily_card(message, ROUTE, NOW)
+        self.assertEqual([f.competition for f in fixtures], [
+            'Premier League', 'La Liga EA SPORTS', 'Bundesliga', 'Serie A', 'Ligue 1'])
+
+        message = v2_card()
+        message.components[0] = SimpleNamespace(to_dict=lambda: {'type': 17, 'components': [
+            {'type': 10, 'content': "## Today's matches\nNovember 15, 2026 (Europe/London)"},
+            {'type': 10, 'content': '### 🏆 `La Liga EA SPORTS`\n'
+             '- **__Real Madrid__** vs **__Barcelona__** _🕒 `20:00`_\n'
+             '### 🏆 `Bundesliga`\n'
+             '- **__Bayern__** vs **__Dortmund__** _🕒 `17:30`_'},
+        ]})
+        fixtures = parse_daily_card(message, ROUTE, NOW)
+        self.assertEqual([f.competition for f in fixtures], ['La Liga EA SPORTS', 'Bundesliga'])
+
     def test_choice_is_one_number_or_none_without_extra_claims(self):
         self.assertEqual(parse_choice('4', 4), 3)
         self.assertEqual(parse_choice('4|Spain or England: who owns midfield tonight?', 4), 3)
