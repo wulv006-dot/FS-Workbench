@@ -283,7 +283,22 @@ def prompt_text(pulse):
     if pulse.kind == 'half_time':
         return 'Half time: **{} {}**. What would you change for the second half?'.format(names, pulse.score)
     if pulse.kind == 'goal':
-        return 'Goal! **{} {}**. How does that change the match?'.format(names, pulse.score)
+        home_goals, away_goals = (int(value) for value in pulse.score.split('–'))
+        leader, trailer = ((pulse.home, pulse.away) if home_goals > away_goals
+                           else (pulse.away, pulse.home))
+        scoreline = '**{} {}**'.format(names, pulse.score)
+        if home_goals == away_goals:
+            return '⚽ Level at {}. Who finds the winner?'.format(scoreline)
+        margin = abs(home_goals - away_goals)
+        if min(home_goals, away_goals) == 0 and margin == 1:
+            return '⚽ {} strike first: {}. How should {} respond?'.format(leader, scoreline, trailer)
+        if min(home_goals, away_goals) == 0 and margin >= 3:
+            return '⚽ {} have opened up a big lead: {}. Who can spark a response for {}?'.format(
+                leader, scoreline, trailer)
+        if margin == 1:
+            return '⚽ One goal in it: {}. Who makes the next big play?'.format(scoreline)
+        return '⚽ {} lead by {}: {}. Can {} find a way back?'.format(
+            leader, margin, scoreline, trailer)
     if pulse.kind == 'red_card':
         return 'Red card in **{}**. How does that change your prediction?'.format(names)
     return '**{}** is under way. What is your call?'.format(names)
