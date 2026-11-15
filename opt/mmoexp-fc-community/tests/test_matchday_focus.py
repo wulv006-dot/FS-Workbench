@@ -156,6 +156,38 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(channel.send.await_count, 1)
             await client.close()
 
+    async def test_recovery_checks_another_league_after_a_skipped_card(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                    'keywords': []}}},
+                'matchday_engagement': dict(ENGAGEMENT,
+                    state_path=str(Path(directory) / 'pulse.sqlite3')),
+                'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
+                    'state_path': str(Path(directory) / 'focus.sqlite3')},
+            }
+            client = ChatClient(config)
+            client.brain.select_matchday = AsyncMock(side_effect=['NONE', '4'])
+            newer = card()
+            newer.id = SOURCE + 1
+            async def history(limit):
+                yield newer
+                yield card()
+            channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
+                history=history, send=AsyncMock(return_value=SimpleNamespace(
+                    id=1571600000000000000)))
+            client.get_channel = lambda cid: channel if cid == CHANNEL else None
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW), patch.object(
+                    client, 'setup_matchday_intro', new_callable=AsyncMock):
+                await client.on_ready()
+            self.assertEqual(client.brain.select_matchday.await_count, 2)
+            self.assertEqual(channel.send.await_count, 1)
+            self.assertTrue(client.focus_store.reviewed(GUILD, SOURCE + 1))
+            await client.close()
+
     async def test_quiet_day_has_no_public_post_or_repeat_model_call(self):
         from chat_service import ChatClient
 
@@ -179,6 +211,15 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 await client.on_message(card())
             self.assertEqual(client.brain.select_matchday.await_count, 1)
             channel.send.assert_not_awaited()
+            self.assertTrue(client.focus_store.may_select(GUILD, NOW.date(), 2))
+            self.assertTrue(client.focus_store.reviewed(GUILD, SOURCE))
+            client.brain.select_matchday.return_value = '4'
+            next_card = card()
+            next_card.id = SOURCE + 1
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW):
+                await client.on_message(next_card)
+            self.assertEqual(client.brain.select_matchday.await_count, 2)
+            self.assertEqual(channel.send.await_count, 1)
             await client.close()
 
     async def test_daily_card_posts_once_and_only_selected_live_match_is_hosted(self):
