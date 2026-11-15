@@ -23,7 +23,7 @@ def project_summary(raw,profile,start,end):
  q=raw.get('query') or {};p=raw.get('profile') or {};a=p.get('supplement') or {};o=p.get('primary') or {}
  period={'start':start+' 00:00','end':(date.fromisoformat(end)+timedelta(days=1)).isoformat()+' 00:00'}
  if raw.get('scopeContractId')!=SOURCE_CONTRACT or p.get('key')!=profile or q.get('start')!=start or q.get('end')!=end or q.get('timezone')!='Asia/Shanghai' or q.get('profile')!=profile or q.get('period')!=period:raise ValueError('source_contract_mismatch')
- result=dict.fromkeys(METRICS);notes={};sources={}
+ result=dict.fromkeys(METRICS);notes={};sources={};admin_game=None
  for name,src in [('Admin',a),('Order',o)]:
   meta=(raw.get('sources') or {}).get(name) or {}
   sources[name]={k:meta.get(k,src.get(k)) for k in ('status','capturedAt','sourceDataAsOf','period','stale','normalisedScope')}
@@ -37,6 +37,9 @@ def project_summary(raw,profile,start,end):
  if valid(a,'Admin'):
   filters=a.get('filters') or {}
   if not all_sites(a) or filters.get('site')!='' or filters.get('date')!=[period['start'],period['end']] or filters.get('pay_status')!=1 or filters.get('order_status')!='' or ((a.get('metrics') or {}).get('revenueUsd') or {}).get('unit')!='USD':raise ValueError('admin_all_sites_contract_mismatch')
+  game=filters.get('game')
+  if type(game) in (int,str) and (str(game).isdecimal() or game=='') and all(filters.get(k) in ('',None) for k in ('country_code','client','pay_type','discount_code','product_type','cid')):
+   admin_game=str(game)
   result.update(rev=metric(a,'revenueUsd'),ord=metric(a,'orders'))
   if not numeric(result['rev']) or result['rev']<0:result['rev']=None
   if type(result['ord']) is not int or result['ord']<0:result['ord']=None
@@ -52,7 +55,21 @@ def project_summary(raw,profile,start,end):
  if numeric(result['rev']) and numeric(result['mar']):result['prof']=round2(result['rev']*result['mar']/100)
  notes.update(rev='Admin 全站已付款销售额（USD）；付款后退款保留付款记录',ord='Admin 全站已付款订单；付款后退款保留付款记录',aov='Admin 全站已付款销售额÷已付款订单',mar='Order 全站发货统计参考率' if profile=='RS' else 'Order 全站订单统计参考率',prof='Admin 全站销售额×Order 参考利润率；USD预估非实结，不是逐单实际成本毛利')
  retained=any(src.get('capturedAt') and (raw.get('status')=='stale' or raw.get('stale') or src.get('stale') or src.get('status')=='pending') for src in sources.values())
- return {'dataScope':DATA_SCOPE,'freshness':'retained' if retained else 'fresh','values':result,'notes':notes,'sources':sources,'period':{'start':start,'end':end},'status':'available' if all(numeric(result[k]) for k in ('rev','ord','prof')) else 'partial' if any(numeric(v) for v in result.values()) else 'unavailable'}
+ return {'dataScope':DATA_SCOPE,'freshness':'retained' if retained else 'fresh','values':result,'notes':notes,'sources':sources,'period':{'start':start,'end':end},'adminGame':admin_game,'status':'available' if all(numeric(result[k]) for k in ('rev','ord','prof')) else 'partial' if any(numeric(v) for v in result.values()) else 'unavailable'}
+
+def other_games(platform, listed):
+ values=dict.fromkeys(('rev','ord'))
+ leaves=[row for project in listed for row in project.get('components',[project])]
+ ids=[row.get('adminGame') for row in leaves]
+ period=platform.get('period')
+ if platform.get('adminGame')=='' and ids and all(ids) and len(set(ids))==len(ids) and all(row.get('period')==period for row in leaves):
+  for key in values:
+   total=platform['values'].get(key)
+   parts=[row['values'].get(key) for row in leaves]
+   if numeric(total) and all(numeric(x) for x in parts):
+    rest=Decimal(str(total))-sum(Decimal(str(x)) for x in parts)
+    if rest>=0:values[key]=int(rest) if key=='ord' else round2(float(rest))
+ return {'period':period,'values':values,'status':'available' if all(numeric(x) for x in values.values()) else 'partial' if any(numeric(x) for x in values.values()) else 'unavailable'}
 
 def periods(day,target):
  end=day-timedelta(days=1);first=date.fromisoformat(target+'-01');active=day.strftime('%Y-%m')==target
@@ -157,13 +174,16 @@ def collect(at,targets,reader,*,cache=None,deadline_seconds=1800):
      row.update(actRev=round2(sum(x['rev'] for x in ds)) if complete else None,actOrd=sum(x['ord'] for x in ds) if complete else None,days=(hi-lo).days+1,status='available' if complete else 'partial',sourcePeriod={'start':lo.isoformat(),'end':hi.isoformat()},basis='已读取 Admin 全站逐日合计；部分缺失不凑总数')
    result['weeks'].append(row)
  # The platform history uses the same all-websites contract, never the demo's embedded totals.
- history=[]
+ history=[];other=other_games({},months)
  for i in reversed(range(6)):
   month=day.month-i;year=day.year
   while month<=0:month+=12;year-=1
   first=date(year,month,1);last=min(date(year,month,monthrange(year,month)[1]),day-timedelta(days=1))
   if last<first:continue
   q=query('MMOEXP',first.isoformat(),last.isoformat(),pin=last.month!=day.month,required=('rev','ord'))
+  if period['active'] and period['observed'] and month==day.month:other=other_games(q,months)
   history.append({'lab':str(month)+'月','start':first.isoformat(),'end':last.isoformat(),'rev':q['values']['rev'],'ord':q['values']['ord'],'prof':q['values']['prof'],'mtd':month==day.month,'status':q['status'],'sources':q.get('sources',{})})
  result={'contract':CONTRACT,'dataScope':DATA_SCOPE,'businessDate':day.isoformat(),'generatedAt':at.isoformat(),'validUntil':datetime.combine(day+timedelta(days=1),datetime.min.time(),SH).isoformat(),'timezone':'Asia/Shanghai','targetPeriod':targets['period'],'targetVersion':fingerprint(targets),'period':period,'projects':projects,'platformHistory':history,'forecastMethod':'累计实际÷已过完整日×目标月天数；线性情景，不是承诺','profitPolicy':'Admin 全站金额×Order 参考利润率；预估非实结','status':'available' if all(p['month']['status']=='available' and p['month'].get('freshness')=='fresh' for p in projects) else 'partial'}
+ result['otherGames']=other
+ if period['active'] and period['observed'] and other['status']!='available':result['status']='partial'
  result['snapshotId']='management-'+fingerprint(result)[:24];return result

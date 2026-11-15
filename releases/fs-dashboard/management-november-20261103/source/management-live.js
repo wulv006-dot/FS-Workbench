@@ -61,12 +61,15 @@ function overview(){
  renderTimeProgress();
  $('overviewPeriod').textContent='三组进度 · 健康度责任到人 · 目标沙盘与经营决策 · 目标周期 '+data.targetPeriod+' · 数据截至 '+data.period.end+' · 已过 '+data.period.observed+'/'+data.period.month_days+' 个完整日';
  $('timeLegend').textContent='时间进度 '+pct(timeP())+'（应到位置）';
- const all=data.projects,rev=subtotal(all.map(x=>x.month.values.rev)),ord=subtotal(all.map(x=>x.month.values.ord)),prof=subtotal(all.map(x=>x.month.values.prof)),tRev=sum(all.map(x=>x.targets.rev)),tOrd=sum(all.map(x=>x.targets.ord));
+ const all=data.projects,other=data.otherGames?.values||{},revenue=subtotal(all.map(x=>x.month.values.rev)),prof=subtotal(all.map(x=>x.month.values.prof)),tRev=sum(all.map(x=>x.targets.rev)),tOrd=sum(all.map(x=>x.targets.ord));
+ const includeOther=k=>group==='ALL'&&(k==='rev'||k==='ord');
+ const total=(projects,k,include)=>subtotal([...projects.map(x=>x.month.values[k]),...(include?[other[k]]:[])]);
+ const rev=total(all,'rev',true),ord=total(all,'ord',true);
  const complete=all.filter(x=>N(x.month.values.rev)).length;
  $('topKpis').innerHTML=[['全盘营收目标',fmt(tRev),all.length+' 款合计 · '+data.targetPeriod],
   [rev.complete?'当前 MTD 营收':'已知 MTD 营收小计',fmt(rev.value),'项目覆盖 '+rev.count+'/'+rev.total+' · 完成 '+pct(monthEligible()&&rev.complete?ratio(rev.value,tRev):null)+' · 应到 '+pct(timeP())],
   [ord.complete?'MTD 订单':'已知 MTD 订单小计',fmt(ord.value,'ord'),'项目覆盖 '+ord.count+'/'+ord.total+' · 目标 '+fmt(tOrd,'ord')+' 单'],
-  [prof.complete?'MTD 预估利润':'已知 MTD 预估利润小计',fmt(prof.value),'项目覆盖 '+prof.count+'/'+prof.total+' · 参考利润率 '+pct(prof.complete&&rev.complete?ratio(prof.value,rev.value):null)]
+  [prof.complete?'MTD 预估利润':'已知 MTD 预估利润小计',fmt(prof.value),'单列项目覆盖 '+prof.count+'/'+prof.total+' · 参考利润率 '+pct(prof.complete&&revenue.complete?ratio(prof.value,revenue.value):null)]
  ].map(x=>'<div class="kp"><div class="l">'+esc(x[0])+'</div><div class="n">'+esc(x[1])+'</div><div class="s">'+esc(x[2])+'</div></div>').join('');
  $('groupCards').innerHTML=config.overview.groups.map(g=>{
   const ps=all.filter(x=>x.group===g.key),known=subtotal(ps.map(x=>x.month.values.rev)),a=known.complete?known.value:null,t=sum(ps.map(x=>x.targets.rev)),p=known.complete?sum(ps.map(x=>x.forecast.rev)):null,pc=monthEligible()?ratio(a,t):null,delta=N(pc)?pc-timeP():null;
@@ -74,8 +77,10 @@ function overview(){
  }).join('');
  const selected=rows().slice().sort((a,b)=>(b.targets[metric]||0)-(a.targets[metric]||0));
  $('rows').innerHTML=selected.map((p,i)=>{const original=config.overview.games.find(g=>g.profile===p.profile),a=p.month.values[metric],t=p.targets[metric],pc=monthEligible()?ratio(a,t):null,delta=N(pc)?pc-timeP():null;return '<tr class="clickable" data-file="'+esc(original.file)+'" tabindex="0"><td><span class="rank'+(i<3?' top':'')+'">'+(i+1)+'</span><span class="gname">'+esc(p.name)+' <span class="tag '+esc(original.tier==='长尾'?'long':original.tier)+'">'+esc(original.tier)+'</span></span><div class="gmeta">'+esc(p.group+' · '+p.owner+' · '+original.regime)+'</div></td><td class="barcell">'+bar(a,t,p.forecast[metric])+'</td><td class="num"><span class="badge '+badges(pc,timeP())+'">'+pct(pc)+'</span></td><td class="num nums"><div class="act">'+fmt(a,metric)+'</div><div class="tgt">目标 '+fmt(t,metric)+'</div></td><td class="num nums"><div class="gap '+(N(delta)?delta>=0?'ahead':'behind':'flat')+'">'+(N(delta)?(delta>=0?'超前 ':'落后 ')+Math.abs(delta).toFixed(1)+'p':'未评估')+'</div><div class="tgt">预测达成 '+pct(monthEligible()?ratio(p.forecast[metric],t):null)+'</div></td></tr>';}).join('');
- const known=subtotal(selected.map(x=>x.month.values[metric])),a=known.complete?known.value:null,t=sum(selected.map(x=>x.targets[metric])),p=known.complete?sum(selected.map(x=>x.forecast[metric])):null;
- $('footrow').innerHTML='<td>'+esc(group==='ALL'?'全盘（'+all.length+' 款）':group)+(known.complete?' 合计':' 已知小计')+' · 项目覆盖 '+known.count+'/'+known.total+'</td><td>'+bar(a,t,p)+'</td><td class="num">'+pct(monthEligible()?ratio(a,t):null)+'</td><td class="num nums"><div class="act">'+fmt(known.value,metric)+'</div><div class="tgt">目标 '+fmt(t,metric)+'</div></td><td class="num nums">月末线性预测 '+(known.complete?fmt(p,metric):'未评估')+'</td>';
+ const showOther=includeOther(metric);
+ if(showOther)$('rows').insertAdjacentHTML('beforeend','<tr><td><span class="gname">其他游戏</span><div class="gmeta">未单列游戏 · 计入全盘完成额</div></td><td class="barcell">无单独目标</td><td class="num">—</td><td class="num nums"><div class="act">'+fmt(other[metric],metric)+'</div></td><td class="num nums">'+(N(other[metric])?'—':'待核对')+'</td></tr>');
+ const known=total(selected,metric,showOther),a=known.complete?known.value:null,t=sum(selected.map(x=>x.targets[metric])),p=known.complete?sum([...selected.map(x=>x.forecast[metric]),...(showOther?[data.period.observed>0?other[metric]/data.period.observed*data.period.month_days:null]:[])]):null;
+ $('footrow').innerHTML='<td>'+esc(group==='ALL'?(showOther?'全盘（含其他游戏）':'单列项目') :group)+(known.complete?' 合计':' 已知小计')+' · 项目覆盖 '+known.count+'/'+known.total+'</td><td>'+bar(a,t,p)+'</td><td class="num">'+pct(monthEligible()?ratio(a,t):null)+'</td><td class="num nums"><div class="act">'+fmt(known.value,metric)+'</div><div class="tgt">目标 '+fmt(t,metric)+'</div></td><td class="num nums">月末线性预测 '+(known.complete?fmt(p,metric):'未评估')+'</td>';
  for(const [kind,id] of [['good','hbGood'],['bad','hbBad']]){const ps=all.filter(x=>health(x,timeP())===kind);$(id).innerHTML=ps.length?ps.map(p=>'<div class="item"><div><span class="nm">'+esc(p.name)+'</span> <span class="ow">'+esc(p.owner)+'</span><div class="ow">完成率 '+pct(ratio(p.month.values.rev,p.targets.rev))+' · 月末线性预测 '+fmt(p.forecast.rev)+'</div></div><span class="vl">'+pct(ratio(p.month.values.rev,p.targets.rev)-timeP())+'</span></div>').join(''):'<div class="empty">当前没有满足该进度条件的已读取项目；缺失项目不算健康。</div>';}
  $('dataNote').textContent='数据截至 '+data.period.end+' · 全站营收可用 '+complete+'/'+all.length+' · 灰色为线性预测，非承诺';
  platformChart();$('foot').textContent=data.profitPolicy+'。正式目标沿用 '+data.targetPeriod+' DY 基线；逐日快照与最新区间统计可能有时间水位差异。';

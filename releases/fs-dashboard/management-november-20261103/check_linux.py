@@ -7,8 +7,11 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT/'source'))
-import management_v2_runner as runner
 import management_facts as facts
+with patch.dict(sys.modules,{'management_config_store':SimpleNamespace(
+ load_active=lambda path:json.loads(Path(path).read_text(encoding='utf8'))
+)}):
+ import management_v2_runner as runner
 from management_facts import fingerprint,stable
 real_collect=runner.collect
 real_read_query=facts.read_query
@@ -30,6 +33,12 @@ with tempfile.TemporaryDirectory(prefix='management-november-test-') as temp:
  assert result['targetVersion']==fingerprint(json.loads(target.read_text(encoding='utf8')))
  history=list((root/'journal/history').glob('*.json'));assert len(history)==1 and json.loads(history[0].read_text())==old
  assert runner.run(**kwargs)['status']=='already_completed' and len(invoked)==1
+ earlier=json.loads(journal.read_text(encoding='utf8'))
+ earlier.pop('factsRevision')
+ journal.write_text(json.dumps(earlier),encoding='utf8')
+ assert runner.run(**kwargs)['factsRevision']==runner.FACTS_REVISION
+ assert len(invoked)==2
+ assert any(json.loads(p.read_text())==earlier for p in (root/'journal/history').glob('*.json'))
 print(json.dumps({'platform':sys.platform,'python':sys.version.split()[0],'same_day_target_change':'passed','old_journal_preserved':'passed','same_version_idempotency':'passed','native_flock':'passed'}))
 
 # Keep the real collector/runner/publication; simulate only source replies and elapsed time.

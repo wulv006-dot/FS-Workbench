@@ -41,6 +41,20 @@ class NovemberTests(unittest.TestCase):
   r=facts.aggregate_components([row(120,3,30),row(None,None,None)])
   self.assertIsNone(r['values']['rev']);self.assertIsNone(r['values']['ord'])
 
+class OtherGamesTests(unittest.TestCase):
+ def test_exact_disjoint_totals_only(self):
+  period={'start':'2026-11-01','end':'2026-11-14'}
+  def row(game,rev,ord):
+   return {'adminGame':game,'period':period,'values':{'rev':rev,'ord':ord}}
+  platform=row('',100.15,10)
+  cod=row('1335',30.12,3)
+  gta={'components':[row('711',50.03,5),row('550',20,1)]}
+  self.assertEqual(facts.other_games(platform,[cod,gta])['values'],{'rev':0,'ord':1})
+  for invalid in ([cod,cod], [cod,row(None,12,2)], [cod,dict(cod,adminGame='1',period={})]):
+   self.assertEqual(facts.other_games(platform,invalid)['status'],'unavailable')
+  self.assertEqual(facts.other_games(platform,[cod,row('711',None,5)])['values'],{'rev':None,'ord':2})
+  self.assertEqual(facts.other_games(platform,[row('711',101,11)])['status'],'unavailable')
+
 class QueryRetryTests(unittest.TestCase):
  def reply(self):
   period={'start':'2026-11-01 00:00','end':'2026-11-09 00:00'}
