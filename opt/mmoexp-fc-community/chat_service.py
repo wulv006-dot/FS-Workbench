@@ -120,6 +120,8 @@ class ChatClient(discord.Client):
 
     # -- lifecycle ---------------------------------------------------------
     async def setup_hook(self):
+        self.pulse_lock = asyncio.Lock()
+        self.focus_lock = asyncio.Lock()
         await self.add_commands()
         for guild_id in guild_ids(self.chat_config):
             await self.tree.sync(guild=discord.Object(guild_id))
