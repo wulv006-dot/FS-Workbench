@@ -167,7 +167,7 @@ class ChatClient(discord.Client):
                         await self.handle_daily_card(message)
                         if not self.focus_store.may_select(
                                 int(guild_id), day, self.focus_config.get('weekly_limit', 2)):
-                            break
+                            selection_open = False
                 print('Matchday focus recovery guild={} scanned={} unify={} recognized={}'.format(
                     guild_id, scanned, unify_cards, recognized), flush=True)
             except discord.DiscordException as exc:
