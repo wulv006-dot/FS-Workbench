@@ -5,7 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from matchday_focus import FocusStore, parse_choice, parse_daily_card, validate_config
+from matchday_focus import (FocusStore, is_empty_daily_card, parse_choice,
+                            parse_daily_card, validate_config)
 
 
 GUILD = 1565922092518613064
@@ -56,6 +57,24 @@ def v2_card():
 
 
 class FocusTests(unittest.TestCase):
+    def test_only_fresh_unify_no_match_card_in_source_is_empty(self):
+        message = card()
+        message.embeds = [SimpleNamespace(
+            title='😴 No matches today in `ENGLAND: Premier League`',
+            description='The football gods are taking a break today — no matches lined up in '
+                        '**`ENGLAND: Premier League`**!')]
+        message.components = []
+        self.assertTrue(is_empty_daily_card(message, ROUTE, NOW))
+        self.assertFalse(is_empty_daily_card(message, ROUTE, NOW + dt.timedelta(days=2)))
+        message.channel.id = CHANNEL + 1
+        self.assertFalse(is_empty_daily_card(message, ROUTE, NOW))
+        message.channel.id = CHANNEL
+        message.author.id = 123
+        self.assertFalse(is_empty_daily_card(message, ROUTE, NOW))
+        message.author.id = 1332364544869142538
+        message.embeds[0].title = "Today's matches in Premier League"
+        self.assertFalse(is_empty_daily_card(message, ROUTE, NOW))
+
     def test_parse_real_daily_card_shape_and_reject_wrong_source_or_day(self):
         fixtures = parse_daily_card(card(), ROUTE, NOW)
         self.assertEqual([(f.home, f.away, f.competition) for f in fixtures], [
@@ -139,6 +158,71 @@ class FocusTests(unittest.TestCase):
 
 
 class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_restart_clears_existing_empty_card_even_after_focus_decision(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                    'keywords': []}}},
+                'matchday_engagement': dict(ENGAGEMENT,
+                    state_path=str(Path(directory) / 'pulse.sqlite3')),
+                'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
+                    'state_path': str(Path(directory) / 'focus.sqlite3')},
+            }
+            client = ChatClient(config)
+            client.focus_store.may_select = lambda *_: False
+            message = card()
+            message.embeds = [SimpleNamespace(
+                title='😴 No matches today in `ENGLAND: Premier League`',
+                description='No matches lined up in `ENGLAND: Premier League`')]
+            message.components = []
+            message.delete = AsyncMock()
+            async def history(limit):
+                yield message
+            channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
+                                      history=history)
+            client.get_channel = lambda cid: channel if cid == CHANNEL else None
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW), patch.object(
+                    client, 'setup_matchday_intro', new_callable=AsyncMock):
+                await client.on_ready()
+            message.delete.assert_awaited_once()
+            await client.close()
+
+    async def test_empty_unify_card_is_deleted_without_hosting_or_touching_other_bot(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                    'keywords': []}}},
+                'matchday_engagement': dict(ENGAGEMENT,
+                    state_path=str(Path(directory) / 'pulse.sqlite3')),
+                'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
+                    'state_path': str(Path(directory) / 'focus.sqlite3')},
+            }
+            client = ChatClient(config)
+            client.brain.select_matchday = AsyncMock()
+            message = card()
+            message.embeds = [SimpleNamespace(
+                title='😴 No matches today in `ENGLAND: Premier League`',
+                description='The football gods are taking a break today — no matches lined up in '
+                            '**`ENGLAND: Premier League`**!')]
+            message.components = []
+            message.delete = AsyncMock()
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW):
+                await client.on_message(message)
+            message.delete.assert_awaited_once()
+            client.brain.select_matchday.assert_not_awaited()
+
+            message.author.id = 123
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW):
+                await client.on_message(message)
+            message.delete.assert_awaited_once()
+            await client.close()
+
     async def test_ai_selector_sends_only_verified_fixture_candidates(self):
         from chat_brain import ChatBrain
 
