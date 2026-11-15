@@ -160,9 +160,11 @@ class ChatClient(discord.Client):
                         unify_cards += 1
                     if matchday_focus.parse_daily_card(
                             message, route, discord.utils.utcnow()):
-                        recognized = 1
+                        recognized += 1
                         await self.handle_daily_card(message)
-                        break
+                        if not self.focus_store.may_select(
+                                int(guild_id), day, self.focus_config.get('weekly_limit', 2)):
+                            break
                 print('Matchday focus recovery guild={} scanned={} unify={} recognized={}'.format(
                     guild_id, scanned, unify_cards, recognized), flush=True)
             except discord.DiscordException as exc:
@@ -285,7 +287,8 @@ class ChatClient(discord.Client):
         day = now.astimezone(matchday_focus.LONDON).date()
         async with self.focus_lock:
             limit = self.focus_config.get('weekly_limit', 2)
-            if not self.focus_store.may_select(message.guild.id, day, limit):
+            if (not self.focus_store.may_select(message.guild.id, day, limit)
+                    or self.focus_store.reviewed(message.guild.id, message.id)):
                 return
             channel = self.get_channel(route['discussion_channel_id'])
             if channel is None or channel.guild.id != message.guild.id:
@@ -299,7 +302,7 @@ class ChatClient(discord.Client):
                     type(exc).__name__, locals().get('answer', '')[:240]), flush=True)
                 return
             if choice is None:
-                self.focus_store.skip(message.guild.id, day, message.id)
+                self.focus_store.skip_source(message.guild.id, message.id)
                 return
             index = choice
             fixture = fixtures[index]

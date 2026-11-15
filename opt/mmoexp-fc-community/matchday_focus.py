@@ -134,6 +134,9 @@ class FocusStore:
                 source_id TEXT NOT NULL, match_key TEXT, kickoff REAL,
                 question TEXT, status TEXT NOT NULL, posted_id TEXT,
                 PRIMARY KEY (guild_id, london_day))''')
+            db.execute('''CREATE TABLE IF NOT EXISTS matchday_focus_reviewed (
+                guild_id TEXT NOT NULL, source_id TEXT NOT NULL,
+                PRIMARY KEY (guild_id, source_id))''')
 
     def may_select(self, guild_id, day, weekly_limit):
         start = day - dt.timedelta(days=day.weekday())
@@ -156,11 +159,16 @@ class FocusStore:
                 (str(guild_id), day.isoformat(), str(source_id), fixture.key,
                  fixture.kickoff.timestamp(), question)).rowcount == 1
 
-    def skip(self, guild_id, day, source_id):
+    def skip_source(self, guild_id, source_id):
         with sqlite3.connect(self.path, timeout=5) as db:
-            db.execute('''INSERT OR IGNORE INTO matchday_focus
-                (guild_id,london_day,source_id,status) VALUES(?,?,?,'skipped')''',
-                (str(guild_id), day.isoformat(), str(source_id)))
+            db.execute('''INSERT OR IGNORE INTO matchday_focus_reviewed
+                (guild_id,source_id) VALUES(?,?)''', (str(guild_id), str(source_id)))
+
+    def reviewed(self, guild_id, source_id):
+        with sqlite3.connect(self.path) as db:
+            return db.execute('''SELECT 1 FROM matchday_focus_reviewed
+                WHERE guild_id=? AND source_id=?''',
+                (str(guild_id), str(source_id))).fetchone() is not None
 
     def finish(self, guild_id, day, posted_id):
         with sqlite3.connect(self.path, timeout=5) as db:
