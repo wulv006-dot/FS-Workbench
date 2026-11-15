@@ -552,10 +552,10 @@ class ChatClient(discord.Client):
 
     async def post_surprise(self, channel, code, text):
         embed = discord.Embed(title='\U0001F381 FC27 surprise drop',
-                              description=text or 'Limited discount code',
+                              description=text or 'Community discount code',
                               colour=discord.Colour.gold())
         embed.add_field(name='Code', value='`' + code + '`', inline=False)
-        embed.set_footer(text='Limited quantity, final price at checkout')
+        embed.set_footer(text='Eligibility and final price confirmed at checkout')
         await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
     # -- stickers ----------------------------------------------------------
