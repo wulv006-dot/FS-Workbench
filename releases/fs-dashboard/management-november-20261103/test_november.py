@@ -49,7 +49,7 @@ class QueryRetryTests(unittest.TestCase):
    'filters':{'site':'','date':list(period.values()),'pay_status':1,'order_status':''},
    'metrics':{'revenueUsd':metric(2831.95,'USD'),'orders':metric(82,'orders'),'newCustomers':metric(27,'people')}}
   order={'status':'available','normalisedScope':'all-websites','period':period,'currency':'USD','metrics':{'profitMarginPct':metric(25,'percent')}}
-  return {'http_status':200,'body':{'status':'available','scopeContractId':facts.SOURCE_CONTRACT,
+  return {'http_status':200,'body':{'status':'available','scopeContractId':'admin-paid-order-labelled-supplement-v3-scope-repeat',
    'query':{'profile':'WOW_FOREVER','start':'2026-11-01','end':'2026-11-08','timezone':'Asia/Shanghai','period':period},
    'sources':{'Admin':{'status':'available'},'Order':{'status':'available'}},
    'profile':{'key':'WOW_FOREVER','supplement':admin,'primary':order}}}

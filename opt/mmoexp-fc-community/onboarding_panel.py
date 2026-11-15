@@ -45,8 +45,8 @@ class WelcomeView(OnboardingView):
             self.add_item(WelcomeButton(action, label, emoji))
         self.children[-1].disabled = self.community_role_id is None
         if self.guild_id == OFFICIAL_GUILD:
-            self.add_item(discord.ui.Button(label='Players', emoji='⚽',
-                url=f'https://discord.com/channels/{OFFICIAL_GUILD}/{PLAYER_CHANNEL}'))
+            self.add_item(discord.ui.Button(label='Matchday', emoji='📅',
+                url=f'https://discord.com/channels/{OFFICIAL_GUILD}/{MATCHDAY_CHANNEL}'))
 
 
 class PopularClubView(OnboardingView):
