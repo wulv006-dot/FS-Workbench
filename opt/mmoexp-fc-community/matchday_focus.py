@@ -116,13 +116,13 @@ def parse_daily_card(message, route, now):
 
 
 def parse_choice(answer, count):
-    match = re.fullmatch(r'(?:N\|)?([1-9]|1\d|20)\s*\|\s*([^\n\r@<>]{10,140}\?)',
+    match = re.fullmatch(r'(?:N\|)?([1-9]|1\d|20)(?:\s*\|\s*[^\n\r@<>]{10,140}\?)?',
                          answer.strip(), re.I)
     if answer.strip() == 'NONE':
         return None
     if not match or int(match[1]) > count:
         raise ValueError('Invalid matchday selection')
-    return int(match[1]) - 1, match[2].strip()
+    return int(match[1]) - 1
 
 
 class FocusStore:

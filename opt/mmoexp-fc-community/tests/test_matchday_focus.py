@@ -77,13 +77,12 @@ class FocusTests(unittest.TestCase):
         self.assertEqual(parse_daily_card(v2_card(), ROUTE, NOW + dt.timedelta(days=1)), [])
 
     def test_choice_is_one_number_or_none_without_extra_claims(self):
-        self.assertEqual(parse_choice('4|Spain or England: who owns midfield tonight?', 4),
-                         (3, 'Spain or England: who owns midfield tonight?'))
-        self.assertEqual(parse_choice("N|3|Will Belgium's defence hold up against Italy?", 4),
-                         (2, "Will Belgium's defence hold up against Italy?"))
+        self.assertEqual(parse_choice('4', 4), 3)
+        self.assertEqual(parse_choice('4|Spain or England: who owns midfield tonight?', 4), 3)
+        self.assertEqual(parse_choice("N|3|Will Belgium's defence hold up against Italy?", 4), 2)
         self.assertIsNone(parse_choice('NONE', 4))
         with self.assertRaises(ValueError):
-            parse_choice('5|A question about the match?', 4)
+            parse_choice('5', 4)
         with self.assertRaises(ValueError):
             parse_choice('4|@everyone who wins?', 4)
 
@@ -122,9 +121,9 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
         fixtures = parse_daily_card(card(), ROUTE, NOW)
         with patch.dict('os.environ', {'ARK_API_KEY': 'synthetic-test-key'}):
             brain = ChatBrain({})
-        brain._ask = AsyncMock(return_value='4|Who owns midfield tonight?')
+        brain._ask = AsyncMock(return_value='4')
         answer = await brain.select_matchday(fixtures)
-        self.assertEqual(parse_choice(answer, len(fixtures))[0], 3)
+        self.assertEqual(parse_choice(answer, len(fixtures)), 3)
         prompt = brain._ask.await_args.args[1]
         self.assertIn('Spain vs England', prompt[1]['content'])
         self.assertIn('never fill a quota', prompt[0]['content'])
@@ -143,8 +142,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     'state_path': str(Path(directory) / 'focus.sqlite3')},
             }
             client = ChatClient(config)
-            client.brain.select_matchday = AsyncMock(return_value=
-                '4|Spain or England: who owns midfield tonight?')
+            client.brain.select_matchday = AsyncMock(return_value='4')
             async def history(limit):
                 yield v2_card()
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
@@ -198,8 +196,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     'weekly_limit': 2},
             }
             client = ChatClient(config)
-            client.brain.select_matchday = AsyncMock(return_value=
-                '4|Spain or England: who owns midfield tonight?')
+            client.brain.select_matchday = AsyncMock(return_value='4')
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
                 send=AsyncMock(return_value=SimpleNamespace(id=1571600000000000000)))
             client.get_channel = lambda cid: channel if cid == CHANNEL else None
@@ -209,6 +206,8 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(channel.send.await_count, 1)
             self.assertEqual(client.brain.select_matchday.await_count, 1)
             self.assertIn('Spain vs England', channel.send.await_args.kwargs['embed'].description)
+            self.assertIn('Who are you backing: Spain or England?',
+                          channel.send.await_args.kwargs['embed'].description)
             self.assertEqual(channel.send.await_args.kwargs['nonce'], SOURCE)
             event_at = (NOW + dt.timedelta(hours=8)).timestamp()
             def goal(mid, home, away):
