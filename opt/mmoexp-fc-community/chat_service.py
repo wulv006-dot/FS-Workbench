@@ -225,11 +225,13 @@ class ChatClient(discord.Client):
 
     async def handle_match_pulse(self, message):
         pulse = matchday_engagement.parse_smart_score(message, self.matchday_config, time.time())
-        if pulse is None or not self.matchday_store.claim(message.id, pulse, time.time()):
+        if pulse is None:
             return
         channel = self.get_channel(pulse.discussion_channel_id)
         if channel is None or channel.guild.id != pulse.guild_id:
-            print('Matchday discussion channel unavailable', flush=True)
+            print('Matchday discussion channel unavailable source={}'.format(message.id), flush=True)
+            return
+        if not self.matchday_store.claim(message.id, pulse, time.time()):
             return
         embed = discord.Embed(title='⚽ Matchday chat',
                               description=matchday_engagement.prompt_text(pulse),
@@ -254,7 +256,8 @@ class ChatClient(discord.Client):
                             matchday_engagement.prompt_text(pulse)))
             self.history[pulse.discussion_channel_id] = history[-MAX_HISTORY:]
         except discord.DiscordException as exc:
-            print('Matchday prompt failed: ' + type(exc).__name__, flush=True)
+            print('Matchday prompt failed source={} kind={}: {}'.format(
+                message.id, pulse.kind, type(exc).__name__), flush=True)
 
     async def send_followups_due(self, now=None):
         now = time.time() if now is None else now
