@@ -11,6 +11,7 @@ Usage:
 
 import argparse
 import asyncio
+import datetime as dt
 import json
 import os
 import random
@@ -175,6 +176,7 @@ class ChatClient(discord.Client):
             await self.setup_matchday_intro()
             if self.focus_store is not None:
                 await self.recover_daily_card()
+                await self.reconcile_game_chat_invites()
         finally:
             self.focus_recovered.set()
             if self.followup_task is None:
@@ -625,6 +627,37 @@ class ChatClient(discord.Client):
                     self.focus_store.unknown_game_chat_invite(row)
                     print('Matchday game chat invite result unknown: ' +
                           type(exc).__name__, flush=True)
+                    await self.reconcile_game_chat_invites(now)
+
+    async def reconcile_game_chat_invites(self, now=None):
+        """Read back ambiguous sends; never resend a card with an unknown outcome."""
+        if self.focus_store is None or self.user is None:
+            return
+        now = time.time() if now is None else now
+        for guild_id, channel_id in self.focus_config.get('game_chat_channels', {}).items():
+            channel = self.get_channel(int(channel_id))
+            if channel is None or channel.guild.id != int(guild_id):
+                continue
+            route = self.matchday_config['routes'][guild_id]
+            for row in self.focus_store.unresolved_game_chat_invites(guild_id, now):
+                focus_url = 'https://discord.com/channels/{}/{}/{}'.format(
+                    guild_id, route['discussion_channel_id'], row['posted_id'])
+                since = dt.datetime.fromtimestamp(row['kickoff'] - 3660, dt.timezone.utc)
+                try:
+                    # shortcut: If 500 newer messages hide this card, leave it unknown for manual review.
+                    async for message in channel.history(limit=500, after=since):
+                        if getattr(getattr(message, 'author', None), 'id', None) != self.user.id:
+                            continue
+                        if any(getattr(button, 'url', None) == focus_url
+                               for action in (getattr(message, 'components', None) or ())
+                               for button in getattr(action, 'children', ())):
+                            self.focus_store.finish_game_chat_invite(row, message.id)
+                            print('Matchday game chat invite recovered focus={} message={}'.format(
+                                row['posted_id'], message.id), flush=True)
+                            break
+                except Exception as exc:
+                    print('Matchday game chat invite readback failed focus={} reason={}'.format(
+                        row['posted_id'], type(exc).__name__), flush=True)
 
     async def run_followups(self):
         await self.focus_recovered.wait()

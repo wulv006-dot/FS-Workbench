@@ -322,8 +322,22 @@ class FocusStore:
         with sqlite3.connect(self.path, timeout=5) as db:
             db.execute('''UPDATE matchday_game_chat_invite
                 SET status='sent',message_id=? WHERE guild_id=? AND london_day=?
-                AND source_id=? AND status='sending' ''',
+                AND source_id=? AND status IN ('sending','unknown') ''',
                 (str(message_id), row['guild_id'], row['london_day'], row['source_id']))
+
+    def unresolved_game_chat_invites(self, guild_id, now):
+        with sqlite3.connect(self.path) as db:
+            rows = db.execute('''SELECT f.guild_id,f.london_day,f.source_id,
+                f.match_key,f.kickoff,f.posted_id FROM matchday_focus f
+                JOIN matchday_game_chat_invite i ON i.guild_id=f.guild_id
+                    AND i.london_day=f.london_day AND i.source_id=f.source_id
+                WHERE f.guild_id=? AND f.status='sent' AND f.posted_id IS NOT NULL
+                    AND i.status IN ('sending','unknown') AND i.message_id IS NULL
+                    AND f.kickoff BETWEEN ? AND ?
+                ORDER BY f.kickoff LIMIT 4''',
+                (str(guild_id), now - 86400, now + 3600)).fetchall()
+        return [dict(zip(('guild_id', 'london_day', 'source_id', 'match_key',
+                          'kickoff', 'posted_id'), row)) for row in rows]
 
     def unknown_game_chat_invite(self, row):
         with sqlite3.connect(self.path, timeout=5) as db:
