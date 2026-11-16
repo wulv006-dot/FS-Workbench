@@ -208,10 +208,10 @@ class ChatClient(discord.Client):
         match_source = 'UnifyFootball'
         embed = discord.Embed(
             title='🏟️ FC27 Matchday Lounge',
-            description=('Follow live football and predictions with **{}** in Matchday. '
-                         'Talk fixtures, goals and players here. Pick a club in Welcome, then tap '
-                         '**My club today**; '
-                         'MMOEXP FC Assistant handles private FUT price checks.').format(match_source),
+            description=('Watch fixtures and predict with **{}** in Matchday. '
+                         'To chat here, tap **Join FC27** in <#1568663362567413820> '
+                         '(or pick a club there). Then try **My club today**. '
+                         'MMOEXP FC Assistant keeps FUT price checks private.').format(match_source),
             colour=0x2275E8)
         view = self.matchday_intro_view or self.build_matchday_intro_view(route)
         marker = Path(__file__).parent / 'var' / 'matchday-intro.json'
