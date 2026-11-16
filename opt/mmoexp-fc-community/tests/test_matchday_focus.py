@@ -1,8 +1,10 @@
 import asyncio
 import datetime as dt
 import json
+import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -302,17 +304,78 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     'game_chat_channels': {str(GUILD): str(CHANNEL)}},
             }
             client = ChatClient(config)
+            client._connection.user = SimpleNamespace(id=999)
             client.focus_store.reserve(GUILD, NOW.date(), SOURCE, fixture, 'Who wins?', 2)
             client.focus_store.finish(GUILD, NOW.date(), SOURCE + 1)
+            async def history(**kwargs):
+                for item in ():
+                    yield item
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
-                                      send=AsyncMock(side_effect=TimeoutError()))
+                                      send=AsyncMock(side_effect=TimeoutError()), history=history)
             client.get_channel = lambda cid: channel if cid == CHANNEL else None
             due = NOW.timestamp() + 1800
             await client.send_game_chat_invites_due(due)
             await client.send_game_chat_invites_due(due + 60)
             channel.send.assert_awaited_once()
             self.assertEqual(client.focus_store.due_game_chat_invites(GUILD, due), [])
+            with closing(sqlite3.connect(client.focus_store.path)) as db:
+                self.assertEqual(db.execute('SELECT status FROM matchday_game_chat_invite'
+                                            ).fetchone()[0], 'unknown')
             await client.close()
+
+    async def test_ambiguous_invite_is_recovered_from_its_focus_link(self):
+        from chat_service import ChatClient
+
+        fixture = DailyFixture('Spain', 'England', 'Nations League',
+                               NOW + dt.timedelta(minutes=90), 'https://example.com')
+        for ambiguous_state in ('sending', 'unknown'):
+            with self.subTest(ambiguous_state=ambiguous_state), tempfile.TemporaryDirectory() as directory:
+                config = {
+                    'chat_bot': {'enabled': True, 'allow_message_content': True,
+                                 'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                        'keywords': []}}},
+                    'matchday_engagement': dict(ENGAGEMENT,
+                        state_path=str(Path(directory) / 'pulse.sqlite3')),
+                    'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
+                        'state_path': str(Path(directory) / 'focus.sqlite3'),
+                        'game_chat_channels': {str(GUILD): str(CHANNEL)}},
+                }
+                client = ChatClient(config)
+                client._connection.user = SimpleNamespace(id=999)
+                client.focus_store.reserve(GUILD, NOW.date(), SOURCE, fixture, 'Who wins?', 2)
+                client.focus_store.finish(GUILD, NOW.date(), SOURCE + 1)
+                due = NOW.timestamp() + 1800
+                row, = client.focus_store.due_game_chat_invites(GUILD, due)
+                self.assertTrue(client.focus_store.reserve_game_chat_invite(row, due))
+                if ambiguous_state == 'unknown':
+                    client.focus_store.unknown_game_chat_invite(row)
+                focus_url = 'https://discord.com/channels/{}/{}/{}'.format(
+                    GUILD, ENGAGEMENT['routes'][str(GUILD)]['discussion_channel_id'], SOURCE + 1)
+                unrelated = SimpleNamespace(id=SOURCE + 2,
+                    author=SimpleNamespace(id=999),
+                    components=[SimpleNamespace(children=[SimpleNamespace(url='https://example.com')])])
+                original = SimpleNamespace(id=SOURCE + 3,
+                    author=SimpleNamespace(id=999),
+                    components=[SimpleNamespace(children=[SimpleNamespace(url=focus_url)])])
+                calls = []
+
+                async def history(**kwargs):
+                    calls.append(kwargs)
+                    yield unrelated
+                    yield original
+
+                channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
+                                          history=history, send=AsyncMock())
+                client.get_channel = lambda cid: channel if cid == CHANNEL else None
+                await client.reconcile_game_chat_invites(due)
+                await client.reconcile_game_chat_invites(due)
+                self.assertEqual(len(calls), 1)
+                self.assertEqual(client.focus_store.unresolved_game_chat_invites(GUILD, due), [])
+                with closing(sqlite3.connect(client.focus_store.path)) as db:
+                    self.assertEqual(db.execute('SELECT status,message_id FROM '
+                        'matchday_game_chat_invite').fetchone(), ('sent', str(SOURCE + 3)))
+                channel.send.assert_not_awaited()
+                await client.close()
 
     async def test_my_club_button_reads_current_role_and_replies_privately(self):
         from chat_service import ChatClient, OFFICIAL_GUILD
