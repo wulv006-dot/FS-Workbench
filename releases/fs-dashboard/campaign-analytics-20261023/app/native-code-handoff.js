@@ -149,17 +149,44 @@
   // Guests sign in on this page through the main-site login endpoints (same origin,
   // so the main-site session cookie is set directly; nothing passes through FS).
   const LOGIN_PROVIDERS=['google','facebook'];
-  const loginHeaders={'X-Requested-With':'XMLHttpRequest','Content-Type':'application/x-www-form-urlencoded'};
+  // Byte-for-byte the request the main-site jQuery login box sends (observed
+  // 2026-11-16 on /Fc-27/Coins.html): these headers and only usname/passwd/remPwd/site_id.
+  const loginHeaders={'X-Requested-With':'XMLHttpRequest','Accept':'application/json, text/javascript, */*; q=0.01','Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'};
   const loginMessage=json=>typeof json?.msg==='string'&&json.msg.trim()&&json.msg.length<300?json.msg.trim():'Sign-in failed. Please try again.';
-  // Same fields as the main-site .jq-user-box form; RiskGuard fields are attached
-  // the same way when that main-site script is present. Single POST, no retry.
-  async function mainSiteLogin({email,password,remember=true,origin=root.location?.origin,fetchImpl=root.fetch?.bind(root),siteId='266'}={}){
+  const LOGIN_TIMEOUT_MS=15000;
+  async function loginFetch(fetchImpl,path,init,timeoutMs){
+    const controller=typeof AbortController==='function'?new AbortController():null,timer=controller?setTimeout(()=>controller.abort(),timeoutMs):null;
+    try{return await fetchImpl(path,{...init,...(controller?{signal:controller.signal}:{})});}
+    catch(error){if(error?.name==='AbortError')fail('LOGIN_TIMEOUT');throw error;}
+    finally{if(timer)clearTimeout(timer);}
+  }
+  // RiskGuard fields are attached the same way when that main-site script is
+  // present (it is not loaded on current main-site pages). Single POST, no retry.
+  async function mainSiteLogin({email,password,remember=true,origin=root.location?.origin,fetchImpl=root.fetch?.bind(root),siteId='266',timeoutMs=LOGIN_TIMEOUT_MS}={}){
     if(origin!=='https://www.mmoexp.com'||typeof fetchImpl!=='function')fail('LOGIN_ORIGIN_UNVERIFIED');
-    const fields={usname:String(email??'').trim(),passwd:String(password??''),remPwd:remember?'true':'false',loginbindkey:'',site_id:siteId};
+    const fields={usname:String(email??'').trim(),passwd:String(password??''),remPwd:remember?'true':'false',site_id:siteId};
     try{if(typeof root.RiskGuard?.attach==='function')root.RiskGuard.attach(fields);}catch{}
-    const response=await fetchImpl('/user/login.html',{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:loginHeaders,body:new URLSearchParams(fields).toString()});
+    const response=await loginFetch(fetchImpl,'/user/login.html',{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:loginHeaders,body:new URLSearchParams(fields).toString()},timeoutMs);
     let json;try{json=await response.json();}catch{fail('LOGIN_RESPONSE_INVALID');}
-    return json?.code===1?{state:'signed_in'}:{state:'rejected',message:loginMessage(json)};
+    return Number(json?.code)===1?{state:'signed_in'}:{state:'rejected',message:loginMessage(json)};
+  }
+  // Header state for the event pages: signed-in flag from the carnival user API,
+  // cart count and avatar from the same /ajax/html fragment the main-site header uses.
+  async function mainSiteAccount({origin=root.location?.origin,fetchImpl=root.fetch?.bind(root)}={}){
+    if(origin!=='https://www.mmoexp.com'||typeof fetchImpl!=='function')return {state:'unavailable'};
+    const get=path=>loginFetch(fetchImpl,path,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{'X-Requested-With':'XMLHttpRequest'}},LOGIN_TIMEOUT_MS);
+    const user=await (await get('/ajax/carnival/user')).json();
+    if(Number(user?.code)!==1||typeof user.data?.logged_in!=='boolean')fail('ACCOUNT_RESPONSE_INVALID');
+    let cart=0,avatar=null,frame=null;
+    try{
+      const html=await (await get('/ajax/html')).text();
+      const count=/class="[^"]*\bcart-total\b[^"]*"[^>]*>\s*(\d{1,4})\s*</.exec(html);if(count)cart=Number(count[1]);
+      // Signed-in header (observed 2026-11-16): img.user-avatar-img is the face and
+      // img.member-level-avatar__frame the member-level frame drawn over it.
+      const src=cls=>{const tag=new RegExp('<img\\b[^>]*\\bclass="[^"]*\\b'+cls+'\\b[^"]*"[^>]*>').exec(html);const m=tag&&/\bsrc="([^"]+)"/.exec(tag[0]);if(!m)return null;const url=new URL(m[1].replace(/&amp;/g,'&'),origin);return url.protocol==='https:'?url.href:null;};
+      if(user.data.logged_in){avatar=src('user-avatar-img');frame=src('member-level-avatar__frame');}
+    }catch{}
+    return {state:user.data.logged_in?'signed_in':'guest',cart,avatar,frame};
   }
   // Main-site social login: the endpoint returns the provider authorize URL and
   // brings the shopper back to returnUrl (this event page) after sign-in.
@@ -168,9 +195,9 @@
     if(origin!=='https://www.mmoexp.com'||typeof fetchImpl!=='function')fail('LOGIN_ORIGIN_UNVERIFIED');
     const back=new URL(returnUrl,origin);if(back.origin!==origin)fail('LOGIN_ORIGIN_UNVERIFIED');
     const path='/user/login.html?act=loginapp&selfurl='+encodeURIComponent(back.origin+back.pathname)+'&site_id='+siteId+'&type='+provider;
-    const response=await fetchImpl(path,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:loginHeaders});
+    const response=await loginFetch(fetchImpl,path,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:loginHeaders},LOGIN_TIMEOUT_MS);
     let json;try{json=await response.json();}catch{fail('LOGIN_RESPONSE_INVALID');}
-    const target=json?.code===1&&typeof json.data?.redirect_url==='string'?new URL(json.data.redirect_url,origin):null;
+    const target=Number(json?.code)===1&&typeof json.data?.redirect_url==='string'?new URL(json.data.redirect_url,origin):null;
     if(!target||target.protocol!=='https:')return {state:'rejected',message:loginMessage(json)};
     return {state:'redirect',url:target.href};
   }
@@ -185,7 +212,9 @@
       if(json?.code!==1||!json.data||typeof json.data!=='object')fail('COUPON_RESPONSE_INVALID');
       return json.data;
     };
-    const listed=await call('/ajax/carnival/coupon?slot='+encodeURIComponent(slot));
+    // A failed read means the coupon service is unreachable and nothing was claimed:
+    // treat it as switched off. Only a claim POST with an unknown result stops checkout.
+    let listed;try{listed=await call('/ajax/carnival/coupon?slot='+encodeURIComponent(slot));}catch{return {state:'unavailable'};}
     if(listed.enabled!==true||listed.error||listed.slot!==slot)return {state:'unavailable'};
     if(listed.logged_in!==true)return {state:'login_required',slot};
     const coupons=(Array.isArray(listed.list)?listed.list:[]).filter(c=>Number.isSafeInteger(c?.coupon_id)&&c.coupon_id>0&&c.can_claim===true);
@@ -357,5 +386,5 @@
       });
     }};
   }
-  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard,claimActivityCoupon,COUPON_SLOTS,mainSiteLogin,socialLoginUrl,LOGIN_PROVIDERS};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
+  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard,claimActivityCoupon,COUPON_SLOTS,mainSiteLogin,socialLoginUrl,mainSiteAccount,LOGIN_PROVIDERS};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
 })(typeof globalThis==='undefined'?this:globalThis);

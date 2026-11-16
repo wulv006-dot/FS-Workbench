@@ -232,9 +232,29 @@
 .fca-login-form label { display: grid; gap: 6px; font-size: 14px; font-weight: 700; }
 .fca-login-form input { font: inherit; font-weight: 400; color: var(--fca-ink); min-height: 46px; padding: 10px 14px; border: 1px solid #c9d7ea; border-radius: 10px; background: #fff; }
 .fca-login-form input:focus-visible { outline: 2px solid #096de7; outline-offset: 1px; }
-.fca-login-form .fca-inline-note:empty { display: none; }
 .fca-login-form .fca-primary { width: 100%; }
+.fca-login-form input[aria-invalid="true"] { border-color: #d92d20; background: #fff8f7; }
+.fca-login-error { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 1px solid #f4b4ae; border-radius: 10px; background: #fef3f2; color: #b42318; font-size: 14px; font-weight: 700; line-height: 1.45; }
+.fca-login-error::before { content: "!"; flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; background: #d92d20; color: #fff; font-size: 12px; }
+.fca-login-error[hidden] { display: none; }
+.fca-login-progress { margin: 0; font-size: 13px; color: var(--fca-muted); }
+.fca-login-progress:empty { display: none; }
+.fca-login-foot { margin: 14px 0 0; font-size: 13px; color: var(--fca-muted); text-align: center; }
+.fca-login-foot a { color: #096de7; font-weight: 700; text-decoration: underline; }
 @media (max-width: 520px) { .fca-login-social { grid-template-columns: 1fr; } }
+/* Header account area mirrors the main-site header: cart badge, Log In pill, avatar. */
+.fca-account { display: flex; align-items: center; gap: 14px; flex: none; }
+.fca-store-nav + .fca-account { margin-left: 8px; }
+.fca-account-cart { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid #2a3a5c; color: #fff; }
+.fca-account-cart:hover { border-color: #4b6aa3; }
+.fca-account-count { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ff4d4f; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.fca-account-count[hidden], .fca-account-login[hidden], .fca-account-user[hidden] { display: none; }
+.fca-demo-header .fca-account-login { min-height: 44px; padding: 0 22px; border: 0; border-radius: 22px; background: #0a6ff2; color: #fff; font-size: 15px; font-weight: 700; }
+.fca-demo-header .fca-account-login:hover { background: #2a85ff; }
+.fca-account-user { position: relative; display: block; width: 44px; height: 44px; flex: none; }
+.fca-account-face { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); border-radius: 50%; object-fit: cover; display: block; background: #0d1a33; }
+.fca-account-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.fca-account-frame[hidden] { display: none; }
 .fca-noscript { padding: 25px; background: #edf5ff; border-radius: 10px; }
 .fca-noscript a { margin-right: 20px; color: #0069d9; text-decoration: underline; }
 
@@ -265,6 +285,8 @@
   .fca-demo-header-inner { gap: 12px; padding: 10px 16px; min-height: 64px; }
   .fca-brand img { width: 130px; }
   .fca-store-nav { display: none; }
+  .fca-account { margin-left: auto; gap: 10px; }
+  .fca-demo-header .fca-account-login { padding: 0 16px; font-size: 14px; }
   .fca-language { margin-left: auto; }
   .fca-language button { min-width: 48px; min-height: 48px; padding-inline: 8px; }
   .fca-view-nav-inner { width: 100%; }

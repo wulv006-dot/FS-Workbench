@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {checkout,claimActivityCoupon,mainSiteLogin,socialLoginUrl}=require('../native-code-handoff.js');
+const {checkout,claimActivityCoupon,mainSiteLogin,socialLoginUrl,mainSiteAccount}=require('../native-code-handoff.js');
 const origin='https://www.mmoexp.com';
 // Synthetic main-site /ajax/carnival responses; no real coupon or account data.
 function site({enabled=true,logged_in=true,list=[{coupon_id:9001,can_claim:true}],claim=id=>({claim_status:'claimed',coupon_id:id,member_coupon_id:77}),http=200}={}){
@@ -26,7 +26,10 @@ test('disabled activity, empty slot, unknown page or other origin never claims',
 });
 test('unconfirmed claim or HTTP failure throws so the caller keeps the code path',async()=>{
  await assert.rejects(claimActivityCoupon({pageId:'fc27-weekly',origin,fetchImpl:site({claim:()=>({claim_status:'failed'})}).fetchImpl}),/COUPON_CLAIM_UNCONFIRMED/);
- await assert.rejects(claimActivityCoupon({pageId:'fc27-weekly',origin,fetchImpl:site({http:500}).fetchImpl}),/COUPON_HTTP_REJECTED/);
+ // A failed coupon read claims nothing, so it is the switched-off state, not a stop.
+ assert.equal((await claimActivityCoupon({pageId:'fc27-weekly',origin,fetchImpl:site({http:500}).fetchImpl})).state,'unavailable');
+ let posts=0;const claimDown=async(path,init)=>{if(init.method==='POST'){posts++;throw new TypeError('network down');}return {ok:true,json:async()=>({code:1,data:{enabled:true,logged_in:true,slot:'fc_weekly',list:[{coupon_id:9001,can_claim:true}]}})};};
+ await assert.rejects(claimActivityCoupon({pageId:'fc27-weekly',origin,fetchImpl:claimDown}),/network down/);assert.equal(posts,1);
 });
 test('coupon-claimed checkout adds to cart and navigates without staging the code',async()=>{
  const data=new Map(),storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};let posts=0,navigated=null;
@@ -49,7 +52,23 @@ test('email sign-in posts the main-site login fields once, same origin',async()=
  const s=loginSite({code:1,msg:'ok',data:{}});
  assert.deepEqual(await mainSiteLogin({email:' a@b.co ',password:'secret1',origin,fetchImpl:s.fetchImpl}),{state:'signed_in'});
  assert.equal(s.calls.length,1);assert.equal(s.calls[0].path,'/user/login.html');assert.equal(s.calls[0].init.method,'POST');assert.equal(s.calls[0].init.credentials,'same-origin');
- assert.deepEqual(Object.fromEntries(new URLSearchParams(s.calls[0].init.body)),{usname:'a@b.co',passwd:'secret1',remPwd:'true',loginbindkey:'',site_id:'266'});
+ // Exactly the main-site jQuery login request (captured 2026-11-16): no loginbindkey.
+ assert.deepEqual(Object.fromEntries(new URLSearchParams(s.calls[0].init.body)),{usname:'a@b.co',passwd:'secret1',remPwd:'true',site_id:'266'});
+ assert.equal(s.calls[0].init.headers.Accept,'application/json, text/javascript, */*; q=0.01');
+ assert.equal(s.calls[0].init.headers['Content-Type'],'application/x-www-form-urlencoded; charset=UTF-8');
+});
+test('a hung login request ends with LOGIN_TIMEOUT instead of spinning forever',async()=>{
+ const hang=async(_path,init)=>new Promise((_resolve,reject)=>init.signal.addEventListener('abort',()=>reject(Object.assign(new Error('aborted'),{name:'AbortError'}))));
+ await assert.rejects(mainSiteLogin({email:'a@b.co',password:'secret1',origin,fetchImpl:hang,timeoutMs:20}),/LOGIN_TIMEOUT/);
+});
+test('header account state: guest, signed in with avatar and cart count',async()=>{
+ const page=(logged_in,html)=>async path=>({ok:true,json:async()=>({code:1,data:{logged_in}}),text:async()=>html});
+ const guestHtml='<li class="cart-area area"><span class="cart-total">2</span></li><li class="user-area jq-user-area area"><img class="userimg" src="/mmoexp-v250528/img/user.png"></li>';
+ assert.deepEqual(await mainSiteAccount({origin,fetchImpl:page(false,guestHtml)}),{state:'guest',cart:2,avatar:null,frame:null});
+ // Signed-in markup as served by /ajax/html on 2026-11-16 (structure only).
+ const userHtml='<span class="cart-total" style="">5</span><li class="user-areas area"><a class="userche jq-userche userche-photo"><span class="member-level-avatar member-level-avatar--2"><img class="user-avatar-img member-level-avatar__face" src="/mmoexp-v250528/images/vip/2/avatar.png"><img class="member-level-avatar__frame" src="/mmoexp-v250528/images/vip/2/avatar-frame.png"></span></a></li>';
+ assert.deepEqual(await mainSiteAccount({origin,fetchImpl:page(true,userHtml)}),{state:'signed_in',cart:5,avatar:origin+'/mmoexp-v250528/images/vip/2/avatar.png',frame:origin+'/mmoexp-v250528/images/vip/2/avatar-frame.png'});
+ assert.equal((await mainSiteAccount({origin:'https://evil.example',fetchImpl:page(true,userHtml)})).state,'unavailable');
 });
 test('rejected sign-in returns the main-site message; other origins never post',async()=>{
  assert.deepEqual(await mainSiteLogin({email:'a@b.co',password:'wrong12',origin,fetchImpl:loginSite({code:0,msg:'Wrong password!'}).fetchImpl}),{state:'rejected',message:'Wrong password!'});
