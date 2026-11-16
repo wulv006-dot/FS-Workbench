@@ -483,6 +483,7 @@ class NativeWorkspace:
                     candidates = [(path, size) for path, size in candidates
                                   if 0 < size <= MAX_BYTES
                                   and not any(part.startswith('.') for part in Path(path).parts)
+                                  and path in reported_output
                                   and re.search(r'(?<![\w.-])' + re.escape(path) + r'(?![\w.-])',
                                                 reported_output)]
                     if not 0 < len(candidates) <= 1000:
