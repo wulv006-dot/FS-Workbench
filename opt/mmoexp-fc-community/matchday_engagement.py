@@ -275,12 +275,13 @@ class MatchPulseStore:
             db.execute('''UPDATE match_followup SET status='unknown'
                 WHERE event_key=? AND status='sending' ''', (key,))
 
-    def overdue_followups(self, now):
+    def overdue_followups(self, now, guild_id):
         with sqlite3.connect(self.path) as db:
             rows = db.execute('''SELECT f.event_key,f.payload FROM match_followup f
                 LEFT JOIN match_followup_alert a ON a.event_key=f.event_key
-                WHERE f.status!='sent' AND f.due_at<=? AND a.event_key IS NULL
-                ORDER BY f.due_at LIMIT 3''', (now - 600,)).fetchall()
+                WHERE f.event_key LIKE ? AND f.status!='sent' AND f.due_at<=?
+                AND a.event_key IS NULL ORDER BY f.due_at LIMIT 3''',
+                ('{}:%'.format(guild_id), now - 600)).fetchall()
         return [(key, MatchPulse(**json.loads(payload))) for key, payload in rows]
 
     def claim_followup_alert(self, key):
