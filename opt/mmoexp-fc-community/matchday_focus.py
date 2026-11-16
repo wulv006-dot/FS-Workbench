@@ -3,6 +3,7 @@
 import datetime as dt
 import re
 import sqlite3
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -13,6 +14,26 @@ from matchday_engagement import UNIFY_FOOTBALL_ID
 LONDON = ZoneInfo('Europe/London')
 FIXTURE = re.compile(r'^(.{2,60}?)\s+vs\.?\s+(.{2,60}?)\s+([01]?\d|2[0-3]):([0-5]\d)$', re.I)
 DATE = re.compile(r'^([A-Z][a-z]+ \d{1,2}, \d{4})\s*\(Europe/London\)$')
+CLUB_ALIASES = {
+    'ajax': ('AFC Ajax',), 'atletico': ('Atletico Madrid', 'Atletico de Madrid'),
+    'barcelona': ('FC Barcelona',), 'benfica': ('SL Benfica',),
+    'bayern': ('Bayern Munich', 'Bayern München'), 'dortmund': ('Borussia Dortmund',),
+    'bournemouth': ('AFC Bournemouth',), 'brighton': ('Brighton & Hove Albion',),
+    'celtic': ('Celtic FC',), 'coventry': ('Coventry City',),
+    'hull': ('Hull City',), 'inter': ('Inter Milan', 'Internazionale'),
+    'ipswich': ('Ipswich Town',), 'leeds': ('Leeds United',),
+    'leicester': ('Leicester City',),
+    'leverkusen': ('Bayer Leverkusen', 'Bayer 04 Leverkusen'),
+    'lyon': ('Olympique Lyonnais',),
+    'man_city': ('Manchester City',), 'man_united': ('Manchester United',),
+    'marseille': ('Olympique Marseille', 'Olympique de Marseille'),
+    'milan': ('AC Milan',), 'newcastle': ('Newcastle United',),
+    'nottingham_forest': ('Nottingham Forest',),
+    'psg': ('Paris Saint-Germain', 'Paris SG'), 'psv': ('PSV Eindhoven',),
+    'rangers': ('Rangers FC',), 'roma': ('AS Roma',),
+    'tottenham': ('Tottenham Hotspur', 'Tottenham', 'Spurs'),
+    'west_ham': ('West Ham United',),
+}
 
 
 @dataclass(frozen=True)
@@ -84,7 +105,7 @@ def is_empty_daily_card(message, route, now):
             'no matches lined up in ' in description)
 
 
-def parse_daily_card(message, route, now):
+def parse_daily_card(message, route, now, include_started=False):
     """Only a fresh public Unify daily card in the configured source channel counts."""
     embeds = getattr(message, 'embeds', ()) or ()
     if not _trusted_daily_source(message, route, now):
@@ -120,7 +141,7 @@ def parse_daily_card(message, route, now):
                 continue
             home, away, hour, minute = match.groups()
             kickoff = dt.datetime.combine(date, dt.time(int(hour), int(minute)), LONDON)
-            if kickoff.timestamp() <= now.timestamp() - 300:
+            if not include_started and kickoff.timestamp() <= now.timestamp() - 300:
                 continue
             fixture = DailyFixture(home.strip(), away.strip(), competition, kickoff,
                                    message.jump_url)
@@ -132,6 +153,18 @@ def parse_daily_card(message, route, now):
         elif heading and line != date_line[0] and len(line) <= 80:
             competition = line
     return fixtures
+
+
+def club_fixtures(slug, fixtures):
+    """Match a selected club exactly, including common official-name variants."""
+    def key(value):
+        plain = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode()
+        return re.sub(r'[^a-z0-9]+', ' ', plain.casefold()).strip()
+
+    names = {key(slug.replace('_', ' '))}
+    names.update(key(alias) for alias in CLUB_ALIASES.get(slug, ()))
+    return [fixture for fixture in fixtures
+            if key(fixture.home) in names or key(fixture.away) in names]
 
 
 def parse_choice(answer, count):
