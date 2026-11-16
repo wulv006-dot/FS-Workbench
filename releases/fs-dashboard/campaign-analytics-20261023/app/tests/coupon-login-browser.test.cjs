@@ -14,8 +14,8 @@ function fixture(){
    bindings:refs.map(({ref,aid})=>({activity_id:'fc27-season2',page_id:'fc27-weekly',product_key:'admin-'+ref.goods_id,quantity:{value:'1',unit:'item'},attributes:[],off_percent:10,code:'FCSCOUT10',native:{category:'new_items',id:ref.goods_id,group:'1',num:'1',aid,attr:''}}))}};
  return {config,snapshot};
 }
-async function openPage(browser,site){
- const {config,snapshot}=fixture(),context=await browser.newContext(),page=await context.newPage();page.setDefaultTimeout(5000);
+async function openPage(browser,site,url='https://www.mmoexp.com/events/Weekly-Scout.html',init=null){
+ const {config,snapshot}=fixture(),context=await browser.newContext(),page=await context.newPage();page.setDefaultTimeout(5000);if(init)await context.addInitScript(init);site.adopted||=[];site.pageUrls||=[];page.on('framenavigated',frame=>{if(frame===page.mainFrame())site.pageUrls.push(frame.url());});
  page.on('pageerror',e=>site.errors.push(e.message));
  await page.route('**/*',route=>{
   const req=route.request(),u=new URL(req.url());
@@ -25,6 +25,7 @@ async function openPage(browser,site){
   if(u.pathname.endsWith('/api/campaign/config'))return route.fulfill({json:snapshot});
   if(u.pathname.endsWith('/api/campaign/capabilities'))return route.fulfill({json:{integration_mode:'preview',live_checkout:false}});
   if(u.pathname==='/ajax/carnival/user')return route.fulfill({json:{code:1,data:{logged_in:site.loggedIn,enabled:true}}});
+  if(u.pathname==='/ajax/html'&&u.searchParams.has('ba-user-token')){site.adopted.push(u.searchParams.get('ba-user-token'));if(u.searchParams.get('ba-user-token')===site.socialToken)site.loggedIn=true;}
   if(u.pathname==='/ajax/html')return route.fulfill({contentType:'text/html',body:'<li class="cart-area area"><span class="cart-total">'+site.cart+'</span></li>'+(site.loggedIn?'<li class="user-areas area"><span class="member-level-avatar"><img class="user-avatar-img member-level-avatar__face" src="https://assets.mmoexp.com/avatar/fixture.png"><img class="member-level-avatar__frame" src="https://assets.mmoexp.com/avatar/frame.png"></span></li>':'<li class="user-area jq-user-area area"><img class="userimg" src="/mmoexp-v250528/img/user.png"></li>')});
   if(u.pathname==='/ajax/carnival/coupon')return route.fulfill({json:{code:1,data:{enabled:true,logged_in:site.loggedIn,slot:u.searchParams.get('slot'),list:[{coupon_id:1395,can_claim:site.loggedIn}]}}});
   if(u.pathname==='/ajax/carnival/claim'){site.claims.push(Object.fromEntries(new URLSearchParams(req.postData())));return route.fulfill({json:{code:1,data:{claim_status:'claimed',coupon_id:1395,member_coupon_id:555}}});}
@@ -35,7 +36,7 @@ async function openPage(browser,site){
   const asset=u.pathname.replace(/^\/events\//,''),file=path.join(app,asset);if(!file.startsWith(app)||!fs.existsSync(file))return route.fulfill({status:404,body:''});
   return route.fulfill({contentType:({'.html':'text/html','.js':'application/javascript','.css':'text/css'})[path.extname(file)]||'application/octet-stream',body:asset==='catalog.js'?'window.FC_ACTIVITY_CONFIG='+JSON.stringify(config)+';':fs.readFileSync(file)});
  });
- await page.goto('https://www.mmoexp.com/events/Weekly-Scout.html');
+ await page.goto(url);
  return {page,context};
 }
 test('guest: Log In header, wrong password feedback, login continues to coupon claim and cart',async()=>{
@@ -90,6 +91,24 @@ test('signed in: avatar header, checkout claims without a dialog; mobile header 
   await page.locator('#submit-selection').click();await page.waitForURL('**/Cart.html');
   assert.equal(site.logins.length,0);assert.equal(site.claims.length,1);
   assert.deepEqual(site.posts,[{category:'new_items',id:'802',group:'1',num:'1',attr:'',aid:'21585'}]);
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('pending_member_coupon_id')),'555');
+  assert.deepEqual(site.errors,[]);
+ }finally{await browser.close();}
+});
+test('social login return: token leaves the address bar, main site sets the session, review resumes to cart',async()=>{
+ const browser=await chromium.launch({headless:true}),site={loggedIn:false,cart:1,password:'x',socialToken:'tok-1234567890-abcdef',posts:[],claims:[],logins:[],errors:[]};
+ try{
+  const resume=JSON.stringify({view:'weekly',platform:'pc',keys:[key],at:Date.now()});
+  const {page}=await openPage(browser,site,'https://www.mmoexp.com/events/Weekly-Scout.html?utm_source=x&ba-user-token='+site.socialToken+'&member_welcome=1',`sessionStorage.setItem('fs-fc27-login-resume',${JSON.stringify(resume)})`);
+  assert.equal(new URL(page.url()).search,'?utm_source=x','token and welcome flag are stripped from the address');
+  await page.locator('.fca-account-user').waitFor({state:'visible'});
+  assert.deepEqual(site.adopted,[site.socialToken],'token handed to the main site exactly once');
+  await page.locator('#review-dialog[open]').waitFor();
+  await page.waitForFunction(()=>document.querySelector('#review-status').textContent.includes('You are logged in'));
+  assert.match(await page.locator('#review-items').innerText(),/Coupon fixture bundle/);
+  await page.locator('#submit-selection').click();await page.waitForURL('**/Cart.html');
+  assert.equal(site.logins.length,0);assert.equal(site.claims.length,1);
+  assert.deepEqual(site.posts,[{category:'new_items',id:'803',group:'1',num:'1',attr:'',aid:'21589'}]);
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('pending_member_coupon_id')),'555');
   assert.deepEqual(site.errors,[]);
  }finally{await browser.close();}

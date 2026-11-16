@@ -406,5 +406,9 @@
   document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(priceRetryTimer);return;}if(missingNativePrices()){priceRetryCount=0;refreshPublishedPrices();}});
   document.querySelectorAll('.fca-language,#lang-zh,#lang-en').forEach(element=>element.remove());
   document.documentElement.lang='en';root.dataset.defaultLanguage='en';
-  render();refreshAccount();if(standalone)publishedConfig().then(()=>{render();warmPrices();signal('view');resumeAfterLogin();});else{warmPrices();signal('view');}
+  // A social login lands here with a token the main site still has to turn into its
+  // session cookie; finish that before the header and the restored review read it.
+  // Never let account wiring block the page itself (e.g. a preview without the module).
+  const socialLogin=standalone&&typeof window.CampaignNativeCodeHandoff?.adoptSocialLogin==='function'?window.CampaignNativeCodeHandoff.adoptSocialLogin().catch(()=>({state:'failed'})):Promise.resolve({state:'none'});
+  render();socialLogin.then(refreshAccount);if(standalone)publishedConfig().then(()=>{render();warmPrices();signal('view');socialLogin.then(resumeAfterLogin);});else{warmPrices();signal('view');}
 })();
