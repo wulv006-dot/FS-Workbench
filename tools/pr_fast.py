@@ -1494,6 +1494,7 @@ def main():
             node(release+"/frontend/test_order_email_workspace.cjs")
         elif group=="hermes-conversation":
             release="releases/fs-dashboard/hermes-conversation-20261018"
+            units(release+"/tests",["test_conversation_native.NativeWorkspaceTests.test_reported_attachment_exports_when_build_files_exceed_workspace_limits"])
             # Class partitions require the complete two-class module, without a loader hook.
             layout=ast.parse((ROOT/release/"deploy/test_runtime_materials.py").read_text(encoding="utf-8"))
             if ({n.name for n in ast.walk(layout) if isinstance(n,ast.ClassDef)}!={"NativePublisher","RuntimeMaterials"}
