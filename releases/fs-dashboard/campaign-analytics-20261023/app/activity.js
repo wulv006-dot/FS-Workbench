@@ -408,6 +408,7 @@
   document.documentElement.lang='en';root.dataset.defaultLanguage='en';
   // A social login lands here with a token the main site still has to turn into its
   // session cookie; finish that before the header and the restored review read it.
-  const socialLogin=standalone?window.CampaignNativeCodeHandoff.adoptSocialLogin().catch(()=>({state:'failed'})):Promise.resolve({state:'none'});
+  // Never let account wiring block the page itself (e.g. a preview without the module).
+  const socialLogin=standalone&&typeof window.CampaignNativeCodeHandoff?.adoptSocialLogin==='function'?window.CampaignNativeCodeHandoff.adoptSocialLogin().catch(()=>({state:'failed'})):Promise.resolve({state:'none'});
   render();socialLogin.then(refreshAccount);if(standalone)publishedConfig().then(()=>{render();warmPrices();signal('view');socialLogin.then(resumeAfterLogin);});else{warmPrices();signal('view');}
 })();
