@@ -103,9 +103,9 @@
     const values=items.map(display),currency=values[0]?.currency||'USD';
     if(!priced||!items.length||items.some(item=>item.preview_only&&!item.native_offer?.checkout_ready)||values.some(v=>v.baseAmount===undefined||v.amount===null||v.currency!==currency))return '';
     const base=values.reduce((sum,v)=>sum+v.baseAmount,0),saved=values.reduce((sum,v)=>sum+v.discountAmount,0);
-    return '<span class="fca-price-breakdown"><span><span>Listed subtotal</span><span>'+escape(money(base,currency))+'</span></span><span class="fca-saving-row"><span>Activity savings</span><strong>−'+escape(money(saved,currency))+'</strong></span></span><small class="fca-price-terms">Activity code applied in the original cart. Final eligibility, fees and payable total are confirmed there.</small>';
+    return '<span class="fca-price-breakdown"><span><span>Listed subtotal</span><span>'+escape(money(base,currency))+'</span></span><span class="fca-saving-row"><span>Activity savings</span><strong>−'+escape(money(saved,currency))+'</strong></span></span><small class="fca-price-terms">Your 10% coupon is added to your account and applied in the cart. Final fees and payable total are confirmed there.</small>';
   }
-  function totalLabel(items){return savings(items)?'Item total with activity code':'Item total · confirm in cart';}
+  function totalLabel(items){return savings(items)?'Item total with 10% coupon':'Item total · confirm in cart';}
 
   function total(items){if(items.some(item=>item.preview_only&&!item.native_offer))return 'Price unavailable';const values=items.map(display),currency=values[0]?.currency||'USD';if(unavailableSelection||values.some(v=>v.amount===null||v.currency!==currency))return t('点击核对现价','Check current total');const amount=values.reduce((sum,v)=>sum+v.amount,0);return live&&adapter?adapter.total(amount):money(amount,currency);}
   function meta(p){return [p.rating,p.position,p.version].filter(Boolean).join(' · ');}
@@ -180,7 +180,7 @@
     $('mobile-summary-total').textContent=items.length+' '+t('项','items')+' · '+total(items);$('mobile-review').textContent=t('核对方案','Review lineup');$('mobile-review').disabled=!items.length||state.busy||state.submitted;
     root.querySelectorAll('input,select,button[data-view],button[data-toggle-product],button[data-toggle-bundle]').forEach(el=>el.disabled=state.busy||state.submitted||(el.dataset.toggleBundle!==undefined&&!offer(el.dataset.toggleBundle)));
     renderSeo();guards();
-    if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算在原购物车完成，活动优惠码由购物车自动应用。','Prices are read live for the selected platform. Checkout continues in the original cart, which applies the activity code; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
+    if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算时 10% 优惠券发到账户并在购物车自动使用。','Prices are read live for the selected platform. At checkout a 10% coupon is added to your account and applied in the cart; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
     if(missingNativePrices())$('activity-message').textContent=priceRefreshPending?'Checking current prices from the original store. Items without a current price cannot be purchased.':'Current prices are unavailable. Refresh this page to check again. Items without a current price cannot be purchased.';
     signal('render');
     if(focusId&&$(focusId)&&document.activeElement!==$(focusId))$(focusId).focus({preventScroll:true});
@@ -214,7 +214,7 @@
     if(state.busy||state.submitted)return;
     if(standalone){state.busy=true;render();await publishedConfig();state.busy=false;if(pageState(state.view)!=='active'){render();return;}}
     priceGeneration++;state.busy=true;render();
-    try{const items=Array.isArray(override)?override:selected();review=await freshReview(standalone?items.filter(item=>item&&scoped([item.key]).length):items);if(!review.length)return;reviewFingerprint=fingerprint(review);renderReview();$('continue-cart').hidden=true;$('submit-selection').hidden=false;nativeReview=null;try{if(standalone&&!review.some(item=>item.preview_only&&!item.native_offer?.checkout_ready))nativeReview=nativePlan(review);}catch{}$('submit-selection').disabled=(config.activityPricing?.strategy==='native_discount_code'&&!nativeReview)||review.some(item=>item.preview_only&&!item.native_offer?.checkout_ready);status(nativeReview?'Continue adds these exact items to the cart with your 10% offer: signed-in accounts receive a coupon that the cart applies automatically; otherwise the activity code is carried. Final eligibility and totals are confirmed in the cart. Coupons and points cannot be combined.':review.some(item=>item.preview_only&&!item.native_offer?.checkout_ready)?'Preview only. Price, quantity and purchase mapping require verification.':live?t('商品与现价已重新确认。分别加入原购物车，原结算和交付说明继续适用。','Availability and prices refreshed. Items go into the existing cart with the original checkout and delivery requirements.'):t('本地体验价：按你指定的活动9折规则计算，尚未加购、下单或付款；券码与积分的抵扣需在原结算中核算。','No price or discount is confirmed. Campaign checkout is not connected; nothing has been added to the cart.'));$('review-dialog').showModal();signal('review',{ids:review.map(item=>item.offer.id),includeSbc:review.some(item=>item.kind==='sbc')});}
+    try{const items=Array.isArray(override)?override:selected();review=await freshReview(standalone?items.filter(item=>item&&scoped([item.key]).length):items);if(!review.length)return;reviewFingerprint=fingerprint(review);renderReview();$('continue-cart').hidden=true;$('submit-selection').hidden=false;nativeReview=null;try{if(standalone&&!review.some(item=>item.preview_only&&!item.native_offer?.checkout_ready))nativeReview=nativePlan(review);}catch{}$('submit-selection').disabled=(config.activityPricing?.strategy==='native_discount_code'&&!nativeReview)||review.some(item=>item.preview_only&&!item.native_offer?.checkout_ready);status(nativeReview?'Continue adds a 10% coupon to your MMOEXP account (log in first if needed), then adds these exact items to the cart, where the coupon is applied automatically. Coupons and points cannot be combined.':review.some(item=>item.preview_only&&!item.native_offer?.checkout_ready)?'Preview only. Price, quantity and purchase mapping require verification.':live?t('商品与现价已重新确认。分别加入原购物车，原结算和交付说明继续适用。','Availability and prices refreshed. Items go into the existing cart with the original checkout and delivery requirements.'):t('本地体验价：按你指定的活动9折规则计算，尚未加购、下单或付款；券码与积分的抵扣需在原结算中核算。','No price or discount is confirmed. Campaign checkout is not connected; nothing has been added to the cart.'));$('review-dialog').showModal();signal('review',{ids:review.map(item=>item.offer.id),includeSbc:review.some(item=>item.kind==='sbc')});}
     catch(error){$('activity-message').hidden=false;$('activity-message').textContent=t('暂时无法确认当前商品，请到原商店核对后再试。','Unable to confirm the current items. Check the original shop before trying again.');}
     finally{state.busy=false;render();}
   }
@@ -244,12 +244,15 @@
         const fresh=nativePlan(review);
         if(fresh.signature!==nativeReview.signature){nativeReview=null;status('Published configuration changed. Close this review and check the selection again. No cart request was sent.');return;}
         const selection=nativeSelection(review),host=window.FCActivityHost.createNative(published,selection);
-        // Account coupon first; any non-confirmed result keeps the original code handoff.
+        // Coupon only: guests sign in first and a failed claim stops before Cart/add.
+        // Only when the coupon service itself is switched off ("unavailable") does the
+        // published activity code remain the silent fallback, so the page can still sell.
         let coupon;try{coupon=await window.CampaignNativeCodeHandoff.claimActivityCoupon({pageId:selection.page_id,origin:window.location.origin});}catch(error){coupon={state:'unknown'};}
-        if(coupon.state==='login_required'&&!state.guestCheckout){status('Sign in to receive your 10% coupon, or continue as a guest with the activity code.');openLogin();return;}
+        if(coupon.state==='login_required'){status('Sign in to receive your 10% coupon. Nothing was added to the cart yet.');openLogin(true);return;}
+        if(coupon.state==='unknown'){status('Your 10% coupon could not be added right now. Nothing was added to the cart; please try again.');return;}
         signal('coupon-claim',{state:coupon.state});
         const result=await window.CampaignNativeCodeHandoff.checkoutPublished({snapshot:published,selection,storage:window.sessionStorage,host,origin:window.location.origin,couponClaimed:coupon.state==='claimed',memberCouponId:coupon.coupons?.[0]?.member_coupon_id??null,onCartConfirmed:({items})=>signal('cart-result',{outcomes:items.map(item=>({id:item.native_payload.id,state:'confirmed'})),complete:true}),navigate:url=>window.location.assign(url)});
-        state.submitted=true;status(result.state==='navigation_attempted_coupon_claimed'?'Coupon added to your account. Opening the cart, where it is applied at checkout.':result.state==='navigation_attempted_not_applied'?'Native cart handoff attempted. Discount Apply and final totals are not confirmed by this page.':'The original native operation requires inspection. Do not submit again; check the original cart.');
+        state.submitted=true;status(result.state==='navigation_attempted_coupon_claimed'?'Coupon added to your account. Opening the cart, where it is applied automatically.':result.state==='navigation_attempted_not_applied'?'Opening the cart. Final discount and totals are confirmed there.':'The original native operation requires inspection. Do not submit again; check the original cart.');
       }catch(error){status((error.code||error.message||'NATIVE_HANDOFF_UNAVAILABLE')+'. No successful checkout is confirmed. Inspect the original operation before another attempt.');}
       finally{state.busy=false;render();}
       return;
@@ -289,56 +292,90 @@
   // Sign-in for the account coupon. Credentials go straight from this browser to
   // the main-site login endpoint (same origin); they are never stored or tracked.
   const RESUME_KEY='fs-fc27-login-resume',RESUME_MAX_AGE=20*60*1000;
+  let continueCheckoutAfterLogin=false;
+  function saveResume(){if(!review.length)return;try{sessionStorage.setItem(RESUME_KEY,JSON.stringify({view:state.view,platform:state.platform,keys:review.map(item=>item.key),at:Date.now()}));}catch{}}
   function loginDialog(){
     let dialog=$('login-dialog');if(dialog)return dialog;
     dialog=document.createElement('dialog');dialog.id='login-dialog';dialog.className='fca-dialog fca-login-dialog';dialog.setAttribute('aria-labelledby','login-title');
-    dialog.innerHTML='<div class="fca-dialog-header"><p class="fca-eyebrow">MMOEXP · Sign in</p><button class="fca-dialog-close" type="button" data-login-close aria-label="Close">×</button></div>'
-      +'<h2 id="login-title">Sign in to get your 10% coupon</h2>'
+    dialog.innerHTML='<div class="fca-dialog-header"><p class="fca-eyebrow">MMOEXP · Log in</p><button class="fca-dialog-close" type="button" data-login-close aria-label="Close">×</button></div>'
+      +'<h2 id="login-title">Log in to get your 10% coupon</h2>'
       +'<p class="fca-inline-note">Use your MMOEXP account. The coupon goes to your account and the cart applies it automatically.</p>'
       +'<div class="fca-login-social">'+window.CampaignNativeCodeHandoff.LOGIN_PROVIDERS.map(p=>'<button type="button" class="fca-secondary" data-login-provider="'+p+'">Continue with '+(p==='google'?'Google':'Facebook')+'</button>').join('')+'</div>'
       +'<form class="fca-login-form" novalidate><label>Email<input type="email" name="email" autocomplete="username" maxlength="120" required></label>'
       +'<label>Password<input type="password" name="password" autocomplete="current-password" maxlength="32" required></label>'
-      +'<p class="fca-inline-note" data-login-status role="status" aria-live="polite"></p><button type="submit" class="fca-primary">Sign in and continue</button></form>'
-      +'<button type="button" class="fca-secondary" data-login-guest>Continue as guest with the activity code</button>';
+      +'<p class="fca-login-error" data-login-error role="alert" hidden></p><p class="fca-login-progress" data-login-progress aria-live="polite"></p>'
+      +'<button type="submit" class="fca-primary" data-login-submit>Log in and continue</button></form>'
+      +'<p class="fca-login-foot">No account yet? <a href="https://www.mmoexp.com/#login" data-login-signup>Create one on MMOEXP</a></p>';
     root.appendChild(dialog);
-    const form=dialog.querySelector('form'),note=dialog.querySelector('[data-login-status]');let pending=false;
-    const busy=value=>{pending=value;dialog.querySelectorAll('button,input').forEach(el=>{el.disabled=value;});};
+    const form=dialog.querySelector('form'),error=dialog.querySelector('[data-login-error]'),progress=dialog.querySelector('[data-login-progress]'),submitButton=dialog.querySelector('[data-login-submit]');let pending=false;
+    const showError=(text,field)=>{progress.textContent='';error.textContent=text;error.hidden=false;[form.email,form.password].forEach(input=>input.setAttribute('aria-invalid',String(field==='both'||input===field)));const target=field==='both'?form.password:field;if(target){target.focus();if(target===form.password)target.select();}};
+    const clearError=()=>{error.hidden=true;error.textContent='';form.email.removeAttribute('aria-invalid');form.password.removeAttribute('aria-invalid');};
+    const busy=(value,label)=>{pending=value;dialog.querySelectorAll('button,input').forEach(el=>{el.disabled=value;});submitButton.textContent=value&&label?label:'Log in and continue';progress.textContent=value&&label?label:'';};
     dialog.querySelector('[data-login-close]').addEventListener('click',()=>{if(!pending)dialog.close();});
     dialog.addEventListener('cancel',event=>{if(pending)event.preventDefault();});
-    dialog.querySelector('[data-login-guest]').addEventListener('click',()=>{if(pending)return;state.guestCheckout=true;dialog.close();signal('login',{method:'guest'});submit();});
+    form.addEventListener('input',()=>{if(!error.hidden)clearError();});
+    dialog.querySelector('[data-login-signup]').addEventListener('click',()=>saveResume());
     dialog.querySelectorAll('[data-login-provider]').forEach(button=>button.addEventListener('click',async()=>{
-      if(pending)return;busy(true);note.textContent='Opening '+button.textContent.replace('Continue with ','')+'…';
+      if(pending)return;clearError();busy(true,'Opening '+(button.dataset.loginProvider==='google'?'Google':'Facebook')+'…');
       try{
-        try{sessionStorage.setItem(RESUME_KEY,JSON.stringify({view:state.view,platform:state.platform,keys:review.map(item=>item.key),at:Date.now()}));}catch{}
+        saveResume();
         const result=await window.CampaignNativeCodeHandoff.socialLoginUrl({provider:button.dataset.loginProvider,returnUrl:window.location.href,origin:window.location.origin});
         if(result.state==='redirect'){signal('login',{method:button.dataset.loginProvider});window.location.assign(result.url);return;}
-        note.textContent=result.message;
-      }catch{note.textContent='Sign-in is unavailable right now. Try again or continue as a guest.';}
-      busy(false);
+        busy(false);showError(result.message,null);
+      }catch(caught){busy(false);showError(caught?.code==='LOGIN_TIMEOUT'?'The login service did not respond. Please try again.':'Login is unavailable right now. Please try again.',null);}
     }));
     form.addEventListener('submit',async event=>{
-      event.preventDefault();if(pending)return;
+      event.preventDefault();if(pending)return;clearError();
       const email=form.email.value.trim(),password=form.password.value;
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){note.textContent='Enter the email address of your MMOEXP account.';form.email.focus();return;}
-      if(password.length<6){note.textContent='Enter your password (at least 6 characters).';form.password.focus();return;}
-      busy(true);note.textContent='Signing in…';
-      try{
-        const result=await window.CampaignNativeCodeHandoff.mainSiteLogin({email,password,origin:window.location.origin});
-        if(result.state==='signed_in'){form.reset();busy(false);dialog.close();signal('login',{method:'email'});submit();return;}
-        note.textContent=result.message;
-      }catch{note.textContent='Sign-in could not be confirmed. Try again or continue as a guest.';}
-      form.password.value='';busy(false);
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showError('Enter the email address of your MMOEXP account.',form.email);return;}
+      if(password.length<6){showError('Enter your password (at least 6 characters).',form.password);return;}
+      busy(true,'Logging in…');
+      let result;
+      try{result=await window.CampaignNativeCodeHandoff.mainSiteLogin({email,password,origin:window.location.origin});}
+      catch(caught){busy(false);showError(caught?.code==='LOGIN_TIMEOUT'?'The login service did not respond within 15 seconds. Please try again.':'Login could not be confirmed. Please try again.',null);return;}
+      busy(false);
+      // Keep what was typed on failure so the shopper only fixes the wrong part.
+      if(result.state!=='signed_in'){showError(/invalid email or password/i.test(result.message)?'Incorrect email or password. Check them and try again.':result.message,'both');return;}
+      form.reset();dialog.close();signal('login',{method:'email'});refreshAccount();
+      if(continueCheckoutAfterLogin){continueCheckoutAfterLogin=false;submit();}
     });
     return dialog;
   }
-  function openLogin(){const dialog=loginDialog();dialog.querySelector('[data-login-status]').textContent='';if(!dialog.open)dialog.showModal();}
+  function openLogin(forCheckout=false){
+    continueCheckoutAfterLogin=forCheckout;const dialog=loginDialog();
+    dialog.querySelector('[data-login-error]').hidden=true;dialog.querySelector('[data-login-progress]').textContent='';
+    if(!dialog.open)dialog.showModal();
+  }
+  // Header account area, same states as the main-site header: Log In button for
+  // guests, avatar for signed-in shoppers, cart with its item count.
+  function accountArea(){
+    const inner=document.querySelector('.fca-demo-header-inner');if(!inner)return null;
+    let area=inner.querySelector('.fca-account');if(area)return area;
+    area=document.createElement('div');area.className='fca-account';
+    area.innerHTML='<a class="fca-account-cart" href="https://www.mmoexp.com/Cart.html" aria-label="Cart"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01"/></svg><span class="fca-account-count" hidden></span></a>'
+      +'<button type="button" class="fca-account-login" data-account-login hidden>Log In</button>'
+      +'<a class="fca-account-user" href="https://www.mmoexp.com/Ucenter/" aria-label="My account" hidden><img alt="" width="40" height="40" src="https://www.mmoexp.com/mmoexp-v250528/img/user.png"></a>';
+    inner.appendChild(area);
+    area.querySelector('[data-account-login]').addEventListener('click',()=>{saveResume();openLogin(false);});
+    return area;
+  }
+  async function refreshAccount(){
+    if(!standalone||window.location.origin!=='https://www.mmoexp.com')return;
+    const area=accountArea();if(!area)return;
+    let account;try{account=await window.CampaignNativeCodeHandoff.mainSiteAccount({origin:window.location.origin});}catch{return;}
+    if(account.state==='unavailable')return;
+    const count=area.querySelector('.fca-account-count');count.hidden=!(account.cart>0);count.textContent=account.cart>99?'99+':String(account.cart||'');
+    area.querySelector('[data-account-login]').hidden=account.state==='signed_in';
+    const user=area.querySelector('.fca-account-user');user.hidden=account.state!=='signed_in';
+    if(account.avatar)user.querySelector('img').src=account.avatar;
+  }
   // Social sign-in leaves the page; bring the reviewed selection back afterwards.
   function resumeAfterLogin(){
     let saved=null;try{saved=JSON.parse(sessionStorage.getItem(RESUME_KEY)||'null');sessionStorage.removeItem(RESUME_KEY);}catch{return;}
     if(!saved||saved.view!==state.view||!Array.isArray(saved.keys)||!saved.keys.length||!(Date.now()-saved.at<RESUME_MAX_AGE))return;
     if(['ps','xbox','pc'].includes(saved.platform)){state.platform=saved.platform;const radio=root.querySelector('input[name=platform][value='+state.platform+']');if(radio)radio.checked=true;}
     const items=saved.keys.map(key=>product(key)?offer(key):null).filter(Boolean);
-    if(items.length)openReview(items).then(()=>{if(nativeReview)status('Signed in. Continue to add these items; your 10% coupon is claimed automatically.');});
+    if(items.length)openReview(items).then(()=>{if(nativeReview)status('You are logged in. Continue to add these items; your 10% coupon is added automatically.');});
   }
   root.addEventListener('click',async event=>{
     const previewPlatform=event.target.closest('[data-preview-platform]');if(previewPlatform&&!state.busy){state.platform=previewPlatform.dataset.previewPlatform;const radio=root.querySelector('input[name=platform][value='+state.platform+']');if(radio)radio.checked=true;render();return;}
@@ -364,9 +401,9 @@
   });
   $('review-selection').addEventListener('click',openReview);$('mobile-review').addEventListener('click',openReview);$('submit-selection').addEventListener('click',submit);
   root.querySelector('[data-close-dialog]').addEventListener('click',()=>{if(!state.busy)$('review-dialog').close();});$('review-dialog').addEventListener('cancel',event=>{if(state.busy)event.preventDefault();});
-  if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算在原购物车完成，活动优惠码由购物车自动应用。','Prices are read live for the selected platform. Checkout continues in the original cart, which applies the activity code; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
+  if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算时 10% 优惠券发到账户并在购物车自动使用。','Prices are read live for the selected platform. At checkout a 10% coupon is added to your account and applied in the cart; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
   document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(priceRetryTimer);return;}if(missingNativePrices()){priceRetryCount=0;refreshPublishedPrices();}});
   document.querySelectorAll('.fca-language,#lang-zh,#lang-en').forEach(element=>element.remove());
   document.documentElement.lang='en';root.dataset.defaultLanguage='en';
-  render();if(standalone)publishedConfig().then(()=>{render();warmPrices();signal('view');resumeAfterLogin();});else{warmPrices();signal('view');}
+  render();refreshAccount();if(standalone)publishedConfig().then(()=>{render();warmPrices();signal('view');resumeAfterLogin();});else{warmPrices();signal('view');}
 })();
