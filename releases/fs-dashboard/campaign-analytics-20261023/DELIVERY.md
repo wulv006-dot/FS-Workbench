@@ -209,6 +209,19 @@
 - 未验证：手机宽度线上实测（本地 390px 截图检查过）；24 小时限领的线上专项验证。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T143252Z`。
 
+### 2026-11-16 `nav-20261116T150739Z`（PR #1184）活动券追踪与消费归因，优惠码统计保留
+
+- 来源：PR #1184（`pr-fast` success），合并 `9b5f58761003e4d6f08927ddd415ec23e67510a2`。候选目录 `/var/tmp/fs-campaign-release80-candidate`，manifest `69797417c7b7…`；发布 `app/activity.js`、`app/seasonal/activity-analytics.js`、`app/analytics/{backend-client,coupon-usage(新),dashboard,funnel-core,production-server,server,statistics-refresh}`、`backend/bridge.py`、`backend/campaign_backend/discount_revenue.py` 和静态清单；`statistics-retry.mjs`、`google-traffic.mjs`、`backend/google_traffic.py` 因发布工具的依赖校验一并放入，内容未变。发布前核对了线上这些文件与上一版仓库内容一致（忽略换行），没有覆盖仓库外的改动。
+- 页面追踪：线上三页使用的 `seasonal/activity-analytics.js` 新增 `activity_coupon_claim`，只带领取状态（claimed）、是否沿用（coupon_reused）和券模板 ID；不带账号或会员券 ID。`activity.js` 在领券后把这三项交给追踪器。漏斗新增 `couponClaims`（新领券的访问批次）和 `couponReused`（沿用已领券的访问批次），随 PostHog 查询、计划汇总一起保存。
+- FS 归因：后端新增只读动作 `coupon_usage`（`discount_revenue.py`）。累计发放/使用取自券 1395 的记录（先核对 `param_code=carnival_202611`、站点 266、游戏 1327）；窗口内使用取自 `user/memberCouponLog`，按券模板过滤、按使用时间分窗（单窗最多 28 天）；Admin 订单只用来识别退款，个别日志订单在订单列表里查不到时按日志状态与金额，不整体失败。日志 `status` 在 Admin 页面标为“订单支付状态”（1 已付款、0 未付款）。输出已付款/未付款/含退款订单、付款金额、券抵扣、买家数、用券后 90 天复购（Admin 口径，截至读取时），以及领取→使用（累计）和用券订单付款率；分母为 0 时给空值，不记零。
+- 看板：`/analytics/api/coupon-usage`（需登录，匿名 302）和 FC 看板「活动券使用与转化」面板，位于「活动码付款收入」之后，含“优惠码（保留）+ 优惠券 = 合计”对照；读取失败显示不可用。优惠码收入、FCSCOUT10 口径及三页合计的说明未改。
+- 验证：
+  - 测试：后端 `test_coupon_usage.py`；Node `coupon-usage.test.mjs`；漏斗、追踪、看板浏览器用例；页面事件不含账号标识的断言。
+  - 预发布干跑：在 187 上用 Python 3.9 对真实 Admin 数据跑完整读取路径（券 1343、11-16 窗口），41 条使用记录与 Admin 原始总数一致，订单全部匹配，券标识只在内存中替换。
+  - 线上读回（正式站）：已部署的 `bridge.py` 对券 1395 返回累计发放 16、使用 0、窗口内无使用记录；FS 看板切到 FC27 后面板显示 16 / 0 / 0.0%、码与券对照行；三页 200，线上脚本含新事件监听和领券参数。
+- 未验证：线上真实“领券事件”未触发（统计事件需访客同意，不替用户点同意）；券 1395 目前没有真实使用订单，付款金额、抵扣和复购在真实订单出现后才能读到数字；逐日发放未单独读取。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T150739Z`。
+
 ---
 
 ## 回退与边界
