@@ -86,8 +86,10 @@ class WeeklyRewardPanelTests(unittest.IsolatedAsyncioTestCase):
             await choice.children[0].callback(player)
         self.assertFalse(consent.has_consent(TEST_GUILD, str(PLAYER), current_week()))
 
-    async def test_test_guild_card_says_no_coupon_is_issued(self):
-        self.assertIn('Pilot only', reward_embed(pilot=True).description)
+    async def test_test_guild_card_limits_reward_claims_to_pilot(self):
+        pilot = reward_embed(pilot=True).description
+        self.assertIn('public weekly rewards are not open', pilot)
+        self.assertIn('No player ID has been shared with Unify', pilot)
         self.assertNotIn('Pilot only', reward_embed().description)
 
     async def test_config_is_off_by_default_and_staff_command_is_scoped(self):

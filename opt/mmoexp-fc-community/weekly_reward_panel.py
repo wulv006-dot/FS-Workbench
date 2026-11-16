@@ -10,8 +10,9 @@ from weekly_reward_consent import current_week
 
 def reward_embed(pilot=False):
     if pilot:
-        description = ('Pilot only: try the private join, withdraw and reward-check buttons. '
-                       'No coupon is issued or player ID shared yet.')
+        description = ('Pilot only: test the private join, withdraw and reward-check buttons. '
+                       'One owner-only coupon delivery test succeeded; public weekly rewards '
+                       'are not open. No player ID has been shared with Unify.')
     else:
         description = ('Finished in this server’s verified weekly prediction top 20? '
                        'Tap below to check privately. Eligible players can enter the '
@@ -136,7 +137,7 @@ class WeeklyClaimView(discord.ui.View):
                                                     ephemeral=True)
             return
         state = 'You have joined this week.' if joined else 'You have not joined this week.'
-        notice = 'Pilot only: no ID is shared and no coupon is issued yet. ' if self.pilot else ''
+        notice = 'Pilot only: public rewards are closed; no ID goes to Unify. ' if self.pilot else ''
         await interaction.response.send_message(
             (notice + '{} If you finish in this server’s weekly prediction top 20, Unify may '
              'share your Discord user ID and final rank with MMOEXP to check your '
