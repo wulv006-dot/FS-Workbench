@@ -5,8 +5,8 @@ from pathlib import Path
 
 from match_rewards import RewardError
 from match_rewards_delivery import RewardDelivery
-from verified_prize_claim import (DISCOUNT_PERCENT, GAME_ID, SITE_ID,
-                                  VALID_DAYS_AFTER_CLAIM, WEEKLY_CAP,
+from verified_prize_claim import (COUPON_STOCK_CAP, DISCOUNT_PERCENT, GAME_ID, SITE_ID,
+                                  VALID_DAYS_AFTER_CLAIM, WINNER_CAP,
                                   VerifiedPrizeClaims, validate_campaign_coupon)
 
 
@@ -29,7 +29,8 @@ class VerifiedPrizeClaimTests(unittest.TestCase):
 
     def test_campaign_rule_is_explicit(self):
         self.assertEqual((DISCOUNT_PERCENT, VALID_DAYS_AFTER_CLAIM,
-                          WEEKLY_CAP, SITE_ID, GAME_ID), (8, 7, 30, 266, 1327))
+                          COUPON_STOCK_CAP, WINNER_CAP, SITE_ID, GAME_ID),
+                         (8, 7, 30, 20, 266, 1327))
         self.assertEqual(len(validate_campaign_coupon(COUPON)), 64)
         for change in ({"reduce": "90"}, {"max_reduce": "50"},
                        {"days": 1}, {"game_id": 0}, {"limit_qty": 31},
@@ -62,10 +63,10 @@ class VerifiedPrizeClaimTests(unittest.TestCase):
         with self.assertRaisesRegex(RewardError, "Player already"):
             self.store.issue("2026-W47", "unify-proof:other", "unify-player:1",
                              COUPON, expires_at=500, now=100)
-        for n in range(2, 31):
+        for n in range(2, WINNER_CAP + 1):
             self.issue(n)
         with self.assertRaisesRegex(RewardError, "cap reached"):
-            self.issue(31)
+            self.issue(WINNER_CAP + 1)
 
     def test_invalid_and_expired_ticket(self):
         with self.assertRaisesRegex(RewardError, "Invalid ticket"):

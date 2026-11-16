@@ -19,7 +19,8 @@ from match_rewards import RewardError, coupon_snapshot_fingerprint
 WEEK = re.compile(r"20[0-9]{2}-W(?:0[1-9]|[1-4][0-9]|5[0-3])\Z")
 EVIDENCE = re.compile(r"[A-Za-z0-9:_-]{8,128}\Z")
 FINGERPRINT = re.compile(r"[0-9a-f]{64}\Z")
-WEEKLY_CAP = 30
+COUPON_STOCK_CAP = 30
+WINNER_CAP = 20
 DISCOUNT_PERCENT = 8
 VALID_DAYS_AFTER_CLAIM = 7
 SITE_ID = 266
@@ -33,7 +34,7 @@ def validate_campaign_coupon(row):
     expected = {"type": 1, "fetch_scene": 4, "status": 1,
                 "mode_type": 2, "time_effect": 2, "days": VALID_DAYS_AFTER_CLAIM,
                 "site_id": SITE_ID, "game_id": GAME_ID,
-                "limit_qty": WEEKLY_CAP, "repeat_qty": 1, "is_open": 0}
+                "limit_qty": COUPON_STOCK_CAP, "repeat_qty": 1, "is_open": 0}
     try:
         exact = all(int(row[key]) == value for key, value in expected.items())
         ratio = Decimal(str(row["reduce"])) == Decimal(100 - DISCOUNT_PERCENT)
@@ -52,7 +53,7 @@ def validate_campaign_coupon(row):
 
 
 class VerifiedPrizeClaims:
-    """One bearer ticket per approved event; 30 tickets and one account per week."""
+    """One bearer ticket per approved event; 20 winners and one account per week."""
 
     def __init__(self, path):
         self.path = str(Path(path))
@@ -132,7 +133,7 @@ class VerifiedPrizeClaims:
                 raise RewardError("Player already has a ticket this week")
             count = db.execute("SELECT COUNT(*) FROM verified_prize_claims WHERE week_key=?",
                                (week_key,)).fetchone()[0]
-            if count >= WEEKLY_CAP:
+            if count >= WINNER_CAP:
                 raise RewardError("Weekly ticket cap reached")
             db.execute("""INSERT INTO verified_prize_claims
                        (claim_id,ticket_hash,week_key,evidence_id,subject_hash,coupon_id,
