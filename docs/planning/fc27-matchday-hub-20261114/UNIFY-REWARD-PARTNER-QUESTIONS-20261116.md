@@ -2,7 +2,9 @@
 
 状态：2026-11-16 已获用户授权，通过 UnifyFootball 官网 `/contact` 的 Feature Wanted 表单发送；网页 `POST /api/contact` 返回 HTTP 200、`success: true`、`Your message has been sent!`。表单未给工单号。**等待对方回复，不能视作已提供接口或同意外部奖励。**
 
-MMOEXP Official Club（服务器 `1041923524601851914`）已使用 UnifyPredictions 和 Top Predictors。希望用户继续在 UnifyFootball 内竞猜，在玩家自愿兑换时由 MMOEXP 向本人网站账户发放 FC27 小额优惠券。官网的 [UnifyPredictions](https://unifyfootball-web.com/features/server/fixture-predictions) 和 [排行榜](https://unifyfootball-web.com/features/general/global-leaderboards)介绍了 PP 与榜单，但未列出外部兑奖接口；[UnifyCompetitions](https://unifyfootball-web.com/features/member/unify-competitions)建议非平台代币奖励联系团队。
+2026-11-17 进展：Antonio 已在官方群 `#ticket-9290` 回复，确认 PP 当前只用于排名、不能扣减或兑换；认可讨论受控服务端接线与服务器专属合同，表示无公开测试环境，可借开发流程与功能开关测试，并询问认证、数据使用与玩家同意、定制预算。我们已在工单澄清**每周预测榜最终前 20 名**、8% FC27 券、7 天、每人每周一次；询问最终榜单/资格回执、周次时区、最小试点报价与工期。已加 Antonio 好友并私聊说明，尚未收到这一轮的答复，**未承诺费用或合同**。以下五点是最初询问的历史清单；以后续澄清的前 20 名规则为准。
+
+MMOEXP Official Club（服务器 `1041923524601851914`）已使用 UnifyPredictions 和 Top Predictors。最新业务规则是本服务器**每周预测排行榜最终前 20 名**可各领一张 FC27 8% 优惠券，领取后 7 天有效，每人每周一次；不按 Predictor 身份组等级，也不按每场结算发券。希望用户继续在 UnifyFootball 内竞猜，在玩家自愿领取时由 MMOEXP 向本人网站账户发券。官网的 [UnifyPredictions](https://unifyfootball-web.com/features/server/fixture-predictions) 和 [排行榜](https://unifyfootball-web.com/features/general/global-leaderboards)介绍了 PP 与榜单，但未列出外部兑奖接口；[UnifyCompetitions](https://unifyfootball-web.com/features/member/unify-competitions)建议非平台代币奖励联系团队。
 
 需要对方确认五点，优先询问其可直接承接的方案：
 
