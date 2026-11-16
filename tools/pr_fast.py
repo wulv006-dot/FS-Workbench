@@ -476,6 +476,7 @@ def select(paths):
                     'opt/d4follow/console_config.py', 'opt/d4follow/game_parameters.py',
                     'opt/d4follow/engine.py', 'opt/d4follow/core_gold.py',
                     'opt/d4follow/core_poe1.py', 'opt/d4follow/srv_exec.py',
+                    'opt/d4follow/_p2pah_srv/p2pah_local.py',
                     'opt/d4follow/core_dd373_cost.py', 'opt/d4follow/core_wow_sources.py',
                     'opt/d4follow/core_wow_gold.py', 'opt/d4follow/wow_gold_apply.py',
                     'opt/d4follow/templates/console.html', 'tools/release_d4follow.py'):

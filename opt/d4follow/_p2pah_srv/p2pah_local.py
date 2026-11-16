@@ -651,10 +651,23 @@ def _search_kw(kw):
 
 
 def game_of(cfg, key):
-    """该 key 属于哪个游戏（对照项.游戏）；查不到按暗黑4"""
+    """该 key 属于哪个游戏（对照项.游戏）；查不到按暗黑4
+
+    2026-11-16 加显式映射 `p2pah.商品所属游戏 = {key: 游戏名}`。
+    背景：PoE1 神圣石专线**不进 对照项**（它不走 IGGM 定价），只登记了
+    `p2pah.商品ID映射`。于是 game_of 查不到 → 回落「暗黑破坏神4」 →
+    game_gid_of 给 456 → fetch_all_needed 跑到 D4 的 300 多页里去找 PoE1 的
+    商品ID，永远找不到、翻页翻到十几分钟才收工（实测工单一律 391s 被判 unknown）。
+    本表优先级低于 对照项，只兜「没进对照项但有后台商品ID」的专线商品。
+    """
     for it in ((cfg.get("商品映射") or {}).get("对照项") or []):
         if it.get("key") == key:
             return it.get("游戏") or "暗黑破坏神4"
+    m = (cfg.get("p2pah") or {}).get("商品所属游戏") or {}
+    if isinstance(m, dict):
+        v = m.get(key)
+        if isinstance(v, str) and v:
+            return v
     return "暗黑破坏神4"
 
 
