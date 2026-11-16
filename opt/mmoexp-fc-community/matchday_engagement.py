@@ -163,6 +163,8 @@ class MatchPulseStore:
                 event_key TEXT PRIMARY KEY, due_at REAL NOT NULL,
                 payload TEXT NOT NULL, status TEXT NOT NULL,
                 message_id TEXT)''')
+            db.execute('''CREATE TABLE IF NOT EXISTS match_followup_alert (
+                event_key TEXT PRIMARY KEY, message_id TEXT)''')
             db.execute('''CREATE TABLE IF NOT EXISTS match_pulse_delivery (
                 source_message_id TEXT PRIMARY KEY, guild_id TEXT NOT NULL,
                 match_key TEXT NOT NULL, payload TEXT NOT NULL,
@@ -272,6 +274,24 @@ class MatchPulseStore:
         with sqlite3.connect(self.path, timeout=5) as db:
             db.execute('''UPDATE match_followup SET status='unknown'
                 WHERE event_key=? AND status='sending' ''', (key,))
+
+    def overdue_followups(self, now):
+        with sqlite3.connect(self.path) as db:
+            rows = db.execute('''SELECT f.event_key,f.payload FROM match_followup f
+                LEFT JOIN match_followup_alert a ON a.event_key=f.event_key
+                WHERE f.status!='sent' AND f.due_at<=? AND a.event_key IS NULL
+                ORDER BY f.due_at LIMIT 3''', (now - 600,)).fetchall()
+        return [(key, MatchPulse(**json.loads(payload))) for key, payload in rows]
+
+    def claim_followup_alert(self, key):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            return db.execute('''INSERT OR IGNORE INTO match_followup_alert
+                (event_key) VALUES(?)''', (key,)).rowcount == 1
+
+    def finish_followup_alert(self, key, message_id):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''UPDATE match_followup_alert SET message_id=?
+                WHERE event_key=?''', (str(message_id), key))
 
 
 def prompt_text(pulse):

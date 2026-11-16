@@ -571,7 +571,37 @@ class ChatClient(discord.Client):
                 await self.alert_missing_daily_card()
             except Exception as exc:
                 print('Matchday daily source check failed: ' + type(exc).__name__, flush=True)
+            try:
+                await self.alert_overdue_followups()
+            except Exception as exc:
+                print('Match to Squad overdue check failed: ' + type(exc).__name__, flush=True)
             await asyncio.sleep(60)
+
+    async def alert_overdue_followups(self, now=None):
+        ops_id = self.focus_config.get('ops_channel_id')
+        if self.matchday_store is None or not ops_id:
+            return
+        overdue = self.matchday_store.overdue_followups(
+            time.time() if now is None else now)
+        if not overdue:
+            return
+        channel = self.get_channel(int(ops_id))
+        if channel is None or channel.guild.id != OFFICIAL_GUILD:
+            print('Match to Squad alert channel unavailable', flush=True)
+            return
+        for key, pulse in overdue:
+            if pulse.guild_id != OFFICIAL_GUILD or not self.matchday_store.claim_followup_alert(key):
+                continue
+            try:
+                sent = await channel.send(
+                    '⚠️ Match to Squad follow-up is overdue or unconfirmed in <#{}>. '
+                    'Check the channel and delivery log before retrying.'.format(
+                        pulse.discussion_channel_id),
+                    allowed_mentions=discord.AllowedMentions.none())
+                self.matchday_store.finish_followup_alert(key, sent.id)
+            except discord.DiscordException as exc:
+                # shortcut: an uncertain Discord send is not retried, to avoid duplicate ops alerts.
+                print('Match to Squad alert result unknown: ' + type(exc).__name__, flush=True)
 
     async def alert_missing_daily_card(self, now=None):
         ops_id = self.focus_config.get('ops_channel_id')

@@ -445,9 +445,11 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             client.is_closed = iter([False, True]).__next__
             client.send_pending_pulses_due = AsyncMock(side_effect=RuntimeError('pulse failed'))
             client.alert_missing_daily_card = AsyncMock()
+            client.alert_overdue_followups = AsyncMock()
             with patch('chat_service.asyncio.sleep', new_callable=AsyncMock):
                 await client.run_followups()
             client.alert_missing_daily_card.assert_awaited_once()
+            client.alert_overdue_followups.assert_awaited_once()
             client.is_closed = is_closed
             await client.close()
 
