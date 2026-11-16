@@ -9,7 +9,8 @@ from unittest.mock import AsyncMock, patch
 from content_bot import TEST_GUILD, build_client, validate_config
 from community import CommunityStore
 from verified_prize_claim import VerifiedPrizeClaims
-from weekly_reward_panel import WeeklyClaimView
+from weekly_reward_consent import WeeklyRewardConsent, current_week
+from weekly_reward_panel import WeeklyClaimView, reward_embed
 
 
 COUPON = dict(id=2001, title='FC27 weekly reward', type=1, fetch_scene=4,
@@ -25,7 +26,7 @@ def interaction(guild=TEST_GUILD, channel=CHANNEL, player=PLAYER):
         guild_id=guild, channel_id=channel,
         user=SimpleNamespace(id=player, bot=False),
         response=SimpleNamespace(send_message=AsyncMock(), send_modal=AsyncMock(),
-                                 defer=AsyncMock()),
+                                 defer=AsyncMock(), edit_message=AsyncMock()),
         followup=SimpleNamespace(send=AsyncMock()),
     )
 
@@ -66,6 +67,29 @@ class WeeklyRewardPanelTests(unittest.IsolatedAsyncioTestCase):
         wrong.response.send_modal.assert_not_awaited()
         self.assertTrue(wrong.response.send_message.call_args.kwargs['ephemeral'])
 
+    async def test_private_opt_in_can_be_withdrawn_and_cannot_be_stolen(self):
+        consent = WeeklyRewardConsent(Path(self.tmp.name) / 'weekly.sqlite3', 't' * 32)
+        view = WeeklyClaimView(TEST_GUILD, CHANNEL, self.store, self.delivery,
+                               consent=consent)
+        player = interaction()
+        await view.children[1].callback(player)
+        self.assertTrue(player.response.send_message.call_args.kwargs['ephemeral'])
+        choice = player.response.send_message.call_args.kwargs['view']
+        other = interaction(player=444444444444444444)
+        await choice.children[0].callback(other)
+        self.assertFalse(consent.has_consent(TEST_GUILD, str(PLAYER), current_week()))
+        await choice.children[0].callback(player)
+        self.assertTrue(consent.has_consent(TEST_GUILD, str(PLAYER), current_week()))
+        await choice.children[1].callback(player)
+        self.assertFalse(consent.has_consent(TEST_GUILD, str(PLAYER), current_week()))
+        with patch('weekly_reward_panel.current_week', return_value='2099-W01'):
+            await choice.children[0].callback(player)
+        self.assertFalse(consent.has_consent(TEST_GUILD, str(PLAYER), current_week()))
+
+    async def test_test_guild_card_says_no_coupon_is_issued(self):
+        self.assertIn('Pilot only', reward_embed(pilot=True).description)
+        self.assertNotIn('Pilot only', reward_embed().description)
+
     async def test_config_is_off_by_default_and_staff_command_is_scoped(self):
         base = {'guild_id': TEST_GUILD, 'staff_user_ids': [str(PLAYER)]}
         store = CommunityStore(Path(self.tmp.name) / 'content.sqlite3', base['staff_user_ids'])
@@ -80,9 +104,11 @@ class WeeklyRewardPanelTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(enabled.close)
         self.assertIsNotNone(enabled.tree.get_command('weekly-reward-card',
                                                        guild=discord.Object(TEST_GUILD)))
-        with patch.object(enabled.tree, 'sync', new=AsyncMock()):
-            await enabled.setup_hook()
+        with patch.dict('os.environ', {'FC27_WEEKLY_CONSENT_KEY': 's' * 32}):
+            with patch.object(enabled.tree, 'sync', new=AsyncMock()):
+                await enabled.setup_hook()
         self.assertIsInstance(enabled.weekly_reward_view, WeeklyClaimView)
+        self.assertEqual(len(enabled.weekly_reward_view.children), 2)
         for bad in ({'guild_id': TEST_GUILD, 'channel_id': 'not-an-id'},
                     {'guild_id': TEST_GUILD, 'channel_id': 555555555555555555},
                     {'guild_id': 1, 'channel_id': CHANNEL}):

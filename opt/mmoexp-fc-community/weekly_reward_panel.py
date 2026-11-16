@@ -5,15 +5,21 @@ import asyncio
 import discord
 
 from match_rewards import RewardError
+from weekly_reward_consent import current_week
 
 
-def reward_embed():
+def reward_embed(pilot=False):
+    if pilot:
+        description = ('Pilot only: try the private join, withdraw and reward-check buttons. '
+                       'No coupon is issued or player ID shared yet.')
+    else:
+        description = ('Finished in this server’s verified weekly prediction top 20? '
+                       'Tap below to check privately. Eligible players can enter their '
+                       'MMOEXP account email for one 8% FC27 coupon, valid for 7 days '
+                       'after claiming.')
     return discord.Embed(
         title='🏆 FC27 Weekly Prediction Rewards',
-        description=('Finished in this server’s verified weekly prediction top 20? '
-                     'Tap below to check privately. Eligible players can enter their '
-                     'MMOEXP account email for one 8% FC27 coupon, valid for 7 days '
-                     'after claiming.'),
+        description=description,
         colour=0x2275E8,
     )
 
@@ -60,13 +66,85 @@ class WeeklyEmailModal(discord.ui.Modal, title='Claim your FC27 reward'):
                                         allowed_mentions=discord.AllowedMentions.none())
 
 
+class WeeklyConsentChoiceView(discord.ui.View):
+    def __init__(self, guild_id, player_id, week_key, consent):
+        super().__init__(timeout=180)
+        self.guild_id = guild_id
+        self.player_id = player_id
+        self.week_key = week_key
+        self.consent = consent
+
+    async def _change(self, interaction, agree):
+        if (interaction.guild_id != self.guild_id or
+                str(interaction.user.id) != self.player_id):
+            await interaction.response.send_message('This choice belongs to another player.',
+                                                    ephemeral=True)
+            return
+        if current_week() != self.week_key:
+            await interaction.response.edit_message(
+                content='The prediction week changed. Open the rewards card again.', view=None)
+            return
+        try:
+            action = self.consent.agree if agree else self.consent.withdraw
+            week = await asyncio.to_thread(action, self.guild_id, self.player_id)
+        except Exception:
+            await interaction.response.edit_message(
+                content='Weekly rewards are temporarily unavailable.', view=None)
+            return
+        message = ('✅ Joined weekly rewards for {}. Check back after the final results.'
+                   if agree else '🔕 Your weekly rewards opt-in for {} was removed.')
+        await interaction.response.edit_message(content=message.format(week), view=None)
+
+    @discord.ui.button(label='I agree', style=discord.ButtonStyle.success)
+    async def agree(self, interaction, _button):
+        await self._change(interaction, True)
+
+    @discord.ui.button(label='Withdraw', style=discord.ButtonStyle.secondary)
+    async def withdraw(self, interaction, _button):
+        await self._change(interaction, False)
+
+
 class WeeklyClaimView(discord.ui.View):
-    def __init__(self, guild_id, channel_id, store, delivery):
+    def __init__(self, guild_id, channel_id, store, delivery, consent=None, pilot=False):
         super().__init__(timeout=None)
         self.guild_id = guild_id
         self.channel_id = channel_id
         self.store = store
         self.delivery = delivery
+        self.consent = consent
+        self.pilot = pilot
+        if consent is not None:
+            button = discord.ui.Button(label='Join weekly rewards', emoji='🏆',
+                                       style=discord.ButtonStyle.secondary,
+                                       custom_id='fc27:weekly-opt-in')
+            button.callback = self.manage_consent
+            self.add_item(button)
+
+    async def manage_consent(self, interaction):
+        if (interaction.guild_id != self.guild_id or
+                interaction.channel_id != self.channel_id or interaction.user.bot):
+            await interaction.response.send_message('Open this card in the FC27 rewards channel.',
+                                                    ephemeral=True)
+            return
+        try:
+            week_key = current_week()
+            joined = await asyncio.to_thread(self.consent.has_consent,
+                                             self.guild_id, str(interaction.user.id),
+                                             week_key)
+        except Exception:
+            await interaction.response.send_message('Weekly rewards are temporarily unavailable.',
+                                                    ephemeral=True)
+            return
+        state = 'You have joined this week.' if joined else 'You have not joined this week.'
+        notice = 'Pilot only: no ID is shared and no coupon is issued yet. ' if self.pilot else ''
+        await interaction.response.send_message(
+            (notice + '{} If you finish in this server’s weekly prediction top 20, Unify may '
+             'share your Discord user ID and final rank with MMOEXP to check your '
+             '8% FC27 coupon eligibility. Your MMOEXP email stays private to MMOEXP. '
+             'You can withdraw before weekly results are sent.').format(state),
+            view=WeeklyConsentChoiceView(self.guild_id, str(interaction.user.id),
+                                         week_key, self.consent),
+            ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
 
     @discord.ui.button(label='Check my reward', emoji='🎁', style=discord.ButtonStyle.primary,
                        custom_id='fc27:weekly-claim')

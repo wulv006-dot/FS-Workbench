@@ -229,12 +229,17 @@ class ContentClient(discord.Client):
         if self.config.get('weekly_rewards'):
             from match_rewards_delivery import CouponBridge, WeeklyEmailDelivery
             from verified_prize_claim import VerifiedPrizeClaims
+            from weekly_reward_consent import WeeklyRewardConsent
             from weekly_reward_panel import WeeklyClaimView
             rewards = self.config['weekly_rewards']
-            claims = VerifiedPrizeClaims(Path(self.store.path).parent / 'weekly-rewards.sqlite3')
+            db_path = Path(self.store.path).parent / 'weekly-rewards.sqlite3'
+            claims = VerifiedPrizeClaims(db_path)
+            consent_key = os.environ.get('FC27_WEEKLY_CONSENT_KEY')
+            consent = WeeklyRewardConsent(db_path, consent_key) if consent_key else None
             self.weekly_reward_view = WeeklyClaimView(
                 rewards['guild_id'], rewards['channel_id'], claims,
-                WeeklyEmailDelivery(claims, CouponBridge()))
+                WeeklyEmailDelivery(claims, CouponBridge()), consent=consent,
+                pilot=rewards['guild_id'] == TEST_GUILD)
             self.add_view(self.weekly_reward_view)
         if self.config.get('order_panel') is not None:
             from order_panel import build_panel
@@ -840,8 +845,13 @@ def build_client(config, store, information_store=None):
                 await i.response.send_message('Use this in the configured FC27 rewards channel as staff.',
                                               ephemeral=True)
                 return
+            if client.weekly_reward_view.consent is None:
+                await i.response.send_message('Weekly reward opt-in is not ready.', ephemeral=True)
+                return
             from weekly_reward_panel import reward_embed
-            await i.response.send_message(embed=reward_embed(), view=client.weekly_reward_view,
+            await i.response.send_message(
+                embed=reward_embed(pilot=rewards['guild_id'] == TEST_GUILD),
+                view=client.weekly_reward_view,
                                           allowed_mentions=discord.AllowedMentions.none())
 
         client.tree.add_command(weekly_reward_card,
