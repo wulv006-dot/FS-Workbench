@@ -48,7 +48,7 @@ FS 由创建者吴律统一掌控，是以 Hermes 为智能中枢的 AI 驱动�
 | 核对经营数据口径 | `data:validate-data` |
 | 活动页、落地页设计（含发布到主站 MMOEXP 的跨域页面） | `design:design-critique`、`design:accessibility-review`、`design:ux-copy`，交接时用 `design:design-handoff` |
 
-活动页的内容与结构以 `docs/standards/fc27/DESIGN-TEMPLATE.md` 和对应活动合同（如 `docs/planning/activity-center-v3/`）为准；FS 工作台内部界面以 `ui-system/README.md` 为准，两者不混用样式。设计技能只提供评审与写作辅助，不改变上述文档、业务规则、跨域接入合同或发布流程；跨域页面的手机宽度、主题和实际嵌入效果仍须在真实入口核对。营销、数据可视化以外的其余插件技能与本项目开发无关，不主动使用。
+活动页的内容与结构以 `docs/standards/fc27/DESIGN-TEMPLATE.md` 和对应活动合同（如 `docs/planning/activity-center-v3/`）为准；FS 工作台内部界面以 `ui-system/README.md` 为准，两者不混用样式。设计技能只提供评审与写作辅助，不改变上述文档、业务规则、跨域接入合同或发布流程；跨域页面的手机宽度、主题和实际嵌入效果仍须在真实入口核对。营销类等其余插件技能与本项目开发无关，不主动使用。
 
 ### CodeGraph 与源码核对
 
