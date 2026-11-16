@@ -2,6 +2,8 @@
 
 状态：2026-11-16 已完成可独立测试的**站内积分兑换账本**；尚未接入玩家入口、站内竞猜结算或真实自动发券。不能把 UnifyFootball 的 PP 宣传为现可兑换 MMOEXP 优惠券。
 
+网站会员身份和本人券包的具体接线要求见 [网站会员身份接线合同](SITE-MEMBER-REWARD-INTERFACE-20261116.md)。
+
 ## 现场事实与边界
 
 - UnifyFootball 已在官方群自然结算过一次竞猜，并在服务器 Top Predictors 榜单显示 2 PP；该公开卡的文字仅有用户名和分数，未提供该行稳定的 Discord 用户 ID、兑换扣分接口或服务端领奖回执。官网介绍了竞猜、积分榜和可选的 Predictor 身份组，**没有公开承诺可供第三方核验与扣减 PP 的接口**：[UnifyPredictions](https://unifyfootball-web.com/features/server/fixture-predictions)、[排行榜](https://unifyfootball-web.com/features/general/global-leaderboards)。不能靠截图、用户名匹配或 Discord 身份组当作现金券资格。
