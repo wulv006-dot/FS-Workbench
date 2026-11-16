@@ -1,9 +1,9 @@
 // 生成 187 发布包（候选目录 + manifest + inspect）。
 //
 // 用法（在仓库任意目录运行，或用 FS_REPO 指定仓库根）：
-//   node make_stage.cjs <scratch目录> <发布号> <合并提交SHA> <requestId> <模块相对路径...>
+//   node make_stage.mjs <scratch目录> <发布号> <合并提交SHA> <requestId> <模块相对路径...>
 // 例：
-//   node make_stage.cjs "$SCRATCH" 81 9b5f587... fs-campaign-xxx-pr1190 \
+//   node make_stage.mjs "$SCRATCH" 81 9b5f587... fs-campaign-xxx-pr1190 \
 //     app/activity.js app/seasonal/activity-analytics.js backend/bridge.py
 //
 // 做的事：
@@ -12,12 +12,12 @@
 //   3. 写出 stage.sh：在 187 上建 /var/tmp/fs-campaign-release<发布号>-candidate、生成 release-manifest.json、
 //      运行 publish.py inspect（不改线上），并打印 MANIFEST_SHA。
 // 本脚本不上传、不 apply；上传和 apply 见 references/release-and-verify.md。
-const fs = require('fs');
-const cp = require('child_process');
+import fs from 'node:fs';
+import cp from 'node:child_process';
 
 const [scratch, rel, commit, requestId, ...given] = process.argv.slice(2);
 if (!scratch || !rel || !/^[0-9a-f]{40}$/.test(commit || '') || !requestId || !given.length) {
-  console.error('usage: node make_stage.cjs <scratch> <releaseNo> <40-hex merge commit> <requestId> <module-relative files...>');
+  console.error('usage: node make_stage.mjs <scratch> <releaseNo> <40-hex merge commit> <requestId> <module-relative files...>');
   process.exit(2);
 }
 const repo = process.env.FS_REPO || cp.execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();

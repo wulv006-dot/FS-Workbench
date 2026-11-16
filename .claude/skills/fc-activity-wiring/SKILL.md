@@ -33,9 +33,9 @@ description: FC27/MMOEXP 活动页（www.mmoexp.com/events/*.html）的接线与
 | `references/tracking-and-attribution.md` | 事件、隐私边界、漏斗到看板的链路、券归因口径 |
 | `references/release-and-verify.md` | 测试工具、发布步骤、发布后价格窗口、真实入口验收、交付记录 |
 | `references/pitfalls.md` | 已踩过的坑（先读这个能省很多时间） |
-| `scripts/make_stage.cjs` | 生成 187 发布包和 inspect 脚本（自动补发布器要求的依赖文件） |
-| `scripts/drift_check.cjs` | 发布前核对线上文件与上一版仓库内容有无漂移 |
-| `scripts/playwright-shim.template.js` | 本机没有 npm 时用本机 Chrome 跑浏览器测试 |
+| `scripts/make_stage.mjs` | 生成 187 发布包和 inspect 脚本（自动补发布器要求的依赖文件） |
+| `scripts/drift_check.mjs` | 发布前核对线上文件与上一版仓库内容有无漂移 |
+| `scripts/playwright-shim.index.js.template` | 本机没有 npm 时用本机 Chrome 跑浏览器测试 |
 
 ## 流程
 
@@ -46,7 +46,7 @@ description: FC27/MMOEXP 活动页（www.mmoexp.com/events/*.html）的接线与
 4. **追踪与归因**：新页加进追踪器的路由表、活动注册和漏斗里的活动列表；事件字段只增不带账号标识；券归因按页面合计，如需分页要先和用户确认口径。
 5. **测试**：先写或改测试再改实现；本地用 shim 跑相关浏览器用例；改动前就红的用例先在基线上确认再排除。
 6. **PR**：CI（`pr-fast`）通过即可合并（用户已长期授权）；落后于 main 先 `gh pr update-branch`；偶发失败先看是否为已知时序问题，再重跑，不要硬改测试。
-7. **发布**：用 `scripts/make_stage.cjs` 生成发布包，先 `inspect`，核对线上文件与上一版仓库内容无漂移，再 `apply`；备份点写进交付记录。
+7. **发布**：用 `scripts/make_stage.mjs` 生成发布包，先 `inspect`，核对线上文件与上一版仓库内容无漂移，再 `apply`；备份点写进交付记录。
 8. **统一验收一次**：按下面清单在正式站读回；不替访客点统计同意，不输入密码。
 9. **记录**：`DELIVERY.md` 追加一节（来源 PR、发布文件、读回结果、未验证项、回退点）；只追加。
 
