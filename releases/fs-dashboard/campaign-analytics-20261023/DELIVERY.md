@@ -173,6 +173,42 @@
 - 未验证：Facebook 的完整授权流程（只确认了授权地址和回调 `api.mmoexp.com/auth/callback/facebook`）。线上手机宽度未实测，CI 已在 390px 宽度下断言页面无横向溢出、头像可见。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T110448Z`。
 
+### 2026-11-16 `nav-20261116T115927Z`（PR #1171）同一账号 24 小时只给一张券
+
+- 来源：PR #1171（`pr-fast` success），合并 `20fc246d668909686c0011af2dff8780ecaa9e0e`。候选目录 `/var/tmp/fs-campaign-release76-candidate`，manifest `e601057afaa4…`；`activity.js`、`native-code-handoff.js`、`activity.css` 和静态清单有变化。
+- 内容：`claimActivityCoupon` 在浏览器本地按账号记录最近一次领券（`localStorage` 键 `fs-fc27-coupon-claims-v1`），24 小时内再次确认沿用已领到的那张券，不再向 `/ajax/carnival/claim` 发新领取；超过 24 小时才重新领。主站服务端冷却没有做（用户决定先不开任务）。
+- 验证：单元测试覆盖冷却命中、过期、账号隔离。线上验证尚未专门做（用户明确先发布、验证晚点）。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T115927Z`。
+
+### 2026-11-16 `nav-20261116T140355Z`（PR #1177、#1178）换阵容不再冲突；FAQ 补充 24 小时限领
+
+- 来源：PR #1177 合并 `207b149d0ded77da33a0089c584bee90eb886170`、PR #1178 合并 `893ac854192f661ab9412d04432c86037f99fcf8`（均 `pr-fast` success）。候选目录 `/var/tmp/fs-campaign-release77-candidate`，manifest `41196b04d9bf…`；发布 `native-code-handoff.js`、`activity-content.js`、`Player-Trio.html`、`Sbc-Companions.html`、`Weekly-Scout.html`、`index.html` 和静态清单。
+- 起因：用户验证时，同一标签页里第一次加购成功跳到购物车后，再选另一套阵容确认，报 `OPERATION_CONFLICT`，发生在任何购物车请求之前。根因是 `sessionStorage` 里的页面操作记录（`fs-native-page:*`）在成功交接后不释放，其签名含所选阵容；与购物车里是否有东西无关，所以没有做清空购物车。
+- 修复：上一次操作已确认加购并跳转（`fs-native-cart:<id>` 状态为 `navigation_attempted_*`）且这次阵容不同，就开新操作；同一阵容仍按原样重放、不重复加购；UNKNOWN 或未完成的操作仍然阻断。
+- FAQ：三页新增 “How often can I receive the 10% coupon?”，说明每个账号 24 小时内只能领取一次，期间重复下单不会再获得优惠券，冷却结束后可重新应用。
+- 线上读回：三页 200 且均含新 FAQ；同一标签页连续选两套不同阵容，第二套直接进入购物车，不再冲突。
+- 未部署：`activity-fragment-*.html` 和 `page-template.html`。线上这几份与仓库本来就有较多差异（模板 85 行、片段 40 多行），不在静态清单内，本次不覆盖。
+- 同一阵容再次确认仍是重放：页面提示正在打开购物车但不会跳转也不会再加购，这是现有测试规定的行为，未改。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T140355Z`。
+
+### 2026-11-16 `nav-20261116T141615Z`（PR #1179）三人组、SBC 整组加购
+
+- 来源：PR #1179（`pr-fast` success），合并 `12d57edf3ba4420815de91829c491e45fef4e6c1`。候选目录 `/var/tmp/fs-campaign-release78-candidate`，manifest `f258f811f67e…`；`activity.js`、`activity.css`、`activity-content.js` 和静态清单有变化。
+- 内容：三人组的三张球员卡没有各自的加购按钮，一个按钮整组添加或移除。SBC 的两个搭档下拉移到各自商品卡内，一个按钮把两位搭档一起加入；选“Include SBC completion”时连同 SBC 服务共 3 件。SBC 服务不再能单独被选中。Weekly Scout 不变。
+- 测试：新增 `group-add-browser.test.cjs`；逐张点击的旧用例改为点整组按钮。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T141615Z`。
+
+### 2026-11-16 `nav-20261116T143252Z`（PR #1181）整组卡片不再有任何单张按钮
+
+- 来源：PR #1181（`pr-fast` success，第一次因 `ops-presentation-browser.mjs` 的管理中心编辑器重载时序偶发失败，原样重跑通过），合并 `11ba9bd42dd2dd595c4f724457ff3f9bbc001ac9`。候选目录 `/var/tmp/fs-campaign-release79-candidate`，manifest `067cef7a2bba…`；`activity-content.js` 和静态清单有变化。
+- 起因：用户发现价格暂时不可用时，整组卡片仍显示灰色的 “Purchasing unavailable” 单张按钮。现在整组卡片任何状态下都不渲染按钮，只显示小标签，整组按钮是唯一操作入口，价格没好时置灰。
+- 线上读回（正式站，测试账号，价格同步完成后）：
+  - Player-Trio：卡片无按钮；整组按钮一点 3 件进清单，$39.93；确认后购物车新增 Seydou Doumbia、Emmanuel Emenike、Victor Ibarbo 三件，10% 券自动应用（折扣 -$12.51）。
+  - Sbc-Companions：卡片无按钮，两个下拉在卡内；整组加入 2 件 $13.63，含 SBC 服务 3 件 $14.91，审核弹窗列出 3 行。SBC 整组的实际加购没有在线上确认，只验证到审核弹窗。
+- 价格同步：每次发布后公开配置里 FC 三页的现价会短暂缺失（页面显示 Price unavailable，整组按钮置灰），发布后约 1 分钟恢复；本次 14:32 发布后 14:34 读回三页都有现价。
+- 未验证：手机宽度线上实测（本地 390px 截图检查过）；24 小时限领的线上专项验证。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T143252Z`。
+
 ---
 
 ## 回退与边界
