@@ -11,7 +11,7 @@
 
 ## 资格与身份
 
-[Discord Developer Policy 第 16 条](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy)不允许将 API Data 用作福利资格判断，第 20 条不允许抓取 Discord 服务数据。既有 [奖励合同](REWARDS-REDEMPTION-20261116.md)因此不接受机器人读取 Unify 身份组、排行榜、消息或截图来签发现金券。身份组的视觉效果可保留，但发券资格必须来自独立、可审计的最终周榜证明，例如 Unify 合作方提供的受控服务端资格回执；其返回需含稳定玩家引用、名次、最终资格、唯一结算 ID、周次、撤销语义和可验证签名或受控调用身份。未拿到此证明前，不能把“周榜前 20 名领取 8% 券”宣传为已上线。
+[Discord Developer Policy 第 16 条](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy)限制将 API Data 用作福利资格判断，第 20 条禁止抓取 Discord 服务数据；[Developer Terms 第 13 条](https://support-dev.discord.com/hc/en-us/articles/8562894815383-Discord-Developer-Terms-of-Service)把 API Data 定义为通过 API 获得的数据。既有 [奖励合同](REWARDS-REDEMPTION-20261116.md)因此不接受机器人读取 Unify 身份组、排行榜、消息或截图来签发现金券。Unify 合作方若提供受控、签名的最终周榜回执，可以解决名次真伪和用户对应问题，但**签名本身不会改变数据来源，也不能单独证明可据此发放站外优惠券**。正式使用 Unify 周榜发券前还需确认该数据流的 Discord 政策适用与授权；若没有明确许可，现金券资格改由 MMOEXP 站内自愿参与并独立结算的预测记录产生，Unify 榜单只保留群内娱乐展示。身份组的视觉效果可保留。无论采用哪一路，资格回执均须含稳定玩家引用、名次、最终资格、唯一结算 ID、周次、撤销语义和可验证签名或受控调用身份；在来源及核验未闭环前，不能把“周榜前 20 名领取 8% 券”宣传为已上线。
 
 首期可以由管理员根据**不来自 Discord API 抓取或机器人角色判定**的合规独立证明，签发一条内部资格。证明须包含本服务器、最终周次、名次 1–20、稳定 Discord 用户 ID 及榜单版本/结算 ID；若结算改判，须有撤销或更正语义。当前代码只处理已经批准的资格，**不验证上游证明、名次，也没有公开签发 API**，因此不能把它单独用于上线前 20 名活动。`evidence_id` 和签发时的 `subject_ref` 必须由可信签发端提供；`subject_ref` 填对应的 Discord 用户 ID 字符串，领取时由当前用户的 Discord 身份作为 `claimant_ref` 核对。不得用玩家自报、昵称或机器人从 Discord API 读出的身份组代替上游资格证明。同一证明、同一玩家 ID 和同一规范化邮箱在同一周都只能使用一次；Admin 券模板另以 `repeat_qty=1` 限制同一站内账号重复领取。内部凭证不向玩家展示，SQLite 不保存原始凭证或明文邮箱。
 
@@ -39,7 +39,7 @@
 
 ## 尚未完成
 
-- Unify 合作方的最终每周前 20 名资格证明、结算时区和改判处理；不能以 Discord API 读取代替。已在 `#ticket-9290` 向 Antonio 澄清该规则并询问接口与报价。
+- Unify 合作方的最终每周前 20 名资格证明、结算时区和改判处理，以及该数据用于站外优惠券资格的政策适用确认；不能以 Discord API 读取代替，也不能把合作方签名等同于平台许可。已在 `#ticket-9290` 向 Antonio 澄清榜单规则并询问接口与报价。
 - 本周模板 `1397` 已由 Admin Web 建立但仍关闭；187 自动建券权限、禁用创建与启用的真实回执仍待验证。代码模块未创建任何券。
 - FS 后台签发页及可信周榜导入尚未接线；私密邮箱表单已有代码但未在 Discord 测试群部署验收。邮箱定向发券可复用已运行的 Lucky Loot/`CouponGrant/import` 路径，无需等待会员查询接口。站内账号归属的强验证仍属后续增强，首期须明确邮箱送达规则。
 - 实际 Admin 发券、网站券包及支付结算验收。上线状态仍为**未上线**。
