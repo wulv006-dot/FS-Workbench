@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{chromium}=require('playwright');
 // Trio and SBC are bought as one set: the cards have no add button of their own, the SBC
 // companion pickers sit inside their cards, and one button adds the whole set to the lineup.
-function fixture(view){
+function fixture(view,{noPrice=false}={}){
   const app=path.resolve(__dirname,'..'),config=structuredClone(require('../catalog.json')),keys=['201','202','203','204'].map(id=>'model-266-1327-'+id),core=keys[0],players=keys.slice(1),products=[],contracts={},bindings=[];
   for(let i=0;i<keys.length;i++){const id=String(201+i),goods=String(601+i),ref={site_id:'266',game_id:'1327',model_id:id,goods_id:goods},native='admin-'+goods,quantity={min:'1',max:'1',step:'1',unit:'item',group:'1'};
     config.products[keys[i]]={key:keys[i],title:'Fixture '+id,kind:i?'player':'sbc',preview_only:true,model_id:id,platforms:{ps:{id:goods,aid:'21587',binding_state:'verified',product_ref:ref}}};
@@ -11,10 +11,11 @@ function fixture(view){
   config.weekly.ids=players.slice(0,2);config.weekly.bundleIds=[];config.trio.ids=players;config.bundles.ids=[];
   config.sbc={...config.sbc,ids:[core],defaultId:core,bundleIds:[],routes:{[core]:{picks:players.slice(0,2),alternatives:[players[2]],label:{en:'Companion ideas'}}}};
   const snapshot={schema_version:1,release_id:'fixture',config_hash:'a'.repeat(64),pages:[{page_id:'fc27-'+view,activity_id:'fc27-season2',active:true,product_keys:products.map(p=>p.key)}],products,seasonal_model_contracts:contracts,native_checkout:{status:'configured',verification_ref:'fixture',valid_from:'2020-01-01T00:00:00Z',valid_until:'2099-01-01T00:00:00Z',origin:'https://www.mmoexp.com',cart_path:'/Cart.html',consumer_behavior_confirmed:true,bindings}};
+  if(noPrice)for(const c of Object.values(contracts))for(const row of c.combinations)delete row.price;
   return {app,config,snapshot,players};
 }
-async function open(browser,view){
-  const f=fixture(view),page=await browser.newPage();page.setDefaultTimeout(5000);let writes=0;
+async function open(browser,view,options){
+  const f=fixture(view,options),page=await browser.newPage();page.setDefaultTimeout(5000);let writes=0;
   await page.route('**/*',async route=>{const req=route.request(),url=new URL(req.url());if(req.method()==='POST'){writes++;return route.abort();}
     if(url.pathname.endsWith('/api/campaign/config'))return route.fulfill({json:f.snapshot});
     if(url.pathname.endsWith('/api/campaign/capabilities'))return route.fulfill({json:{integration_mode:'preview',live_checkout:false}});
@@ -58,5 +59,14 @@ test('sbc: companion pickers live inside the cards; one button adds both, plus t
     assert.equal(await count(),'2','changing a companion keeps the set selected');
     assert(await page.locator('#companion-1 option[value="'+players[2]+'"]').isDisabled(),'the same player cannot fill both slots');
     await page.locator('input[name=core-mode][value=service]').check();assert.equal(await count(),'3','including the service while a set is selected adds it');
+  }finally{await browser.close();}
+});
+test('while prices are unavailable no card shows a button of its own; only the disabled group button remains',async()=>{
+  const browser=await chromium.launch({headless:true});
+  try{for(const [view,grid] of [['trio','#product-grid'],['sbc','#sbc-lineup']]){
+    const {page}=await open(browser,view,{noPrice:true});
+    assert.equal(await page.locator(grid+' .fca-card button').count(),0,view+' cards have no button, not even a disabled one');
+    assert.equal(await page.locator(grid+' [data-toggle-group]').isDisabled(),true,view+' group button is disabled until prices are ready');
+    await page.close();}
   }finally{await browser.close();}
 });
