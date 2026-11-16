@@ -147,6 +147,32 @@
 - 未验证：真实账号的 Google、Facebook 完整授权流程；邮箱登录的真实提交；登录弹窗在手机宽度下的显示效果。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T100745Z`。
 
+### 2026-11-16 `nav-20261116T104906Z`（PR #1166）登录错误反馈、顶栏登录态、只用券结账
+
+- 来源：PR #1166（`pr-fast` success，含新增浏览器端到端测试 `coupon-login-browser.test.cjs`），合并 `934bc6e391d2415d5f65938eb4dbacbd34965440`。候选目录 `/var/tmp/fs-campaign-release74-candidate`，manifest `c6aa6621bf7e…`；`activity.js`、`activity.css`、`native-code-handoff.js` 和静态清单有变化，4 个边界文件不变，`inspect` 报 `sourceCAS/protectedCAS passed`。
+- 起因（用户验收未通过）：输入未注册账号后，主站返回「Invalid email or password」，页面却只显示成灰色小字，还清空了自动填充的密码，用户看起来像卡死；顶栏没有登录态；页面仍保留优惠码文案和「游客用码」入口。
+- 内容：
+  - 登录请求与在主站 `/Fc-27/Coins.html` 抓到的原生请求逐字段一致：只提交 usname、passwd、remPwd、site_id，不带 loginbindkey，Accept 和 Content-Type 与 jQuery 发出的相同。
+  - 登录失败时：显示红色 `role=alert` 提示，两个输入框标红，保留已输入内容，提交按钮显示「Logging in…」，超过 15 秒判定超时。
+  - 三页顶栏在运行时注入：未登录显示 Log In 按钮；已登录显示头像和等级相框（取 `/ajax/html` 中的 `user-avatar-img` 和 `member-level-avatar__frame`），并显示购物车数量。
+  - 只用券：去掉游客用码入口和所有码相关文案。读取券列表失败时视为券服务关闭，静默回退到已发布的码；只有领取请求结果不明时才停止加购。
+- 评估后未采用：整套或只搬主站登录框。实测主站页头 HTML 约 610KB；登录框依赖 jQuery、`start.min.js` 和约 14KB 的 `GV` 内联配置；载入 `public.min.css` 后活动页原有顶栏变成空白。长期方案改由主站开发提供官方登录组件。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T104906Z`。
+
+### 2026-11-16 `nav-20261116T110448Z`（PR #1168）Google/Facebook 登录在活动页生效
+
+- 来源：PR #1168（`pr-fast` success），合并 `e8ca752127a8877165ff8448feeb16a33d8f9489`。候选目录 `/var/tmp/fs-campaign-release75-candidate`，manifest `45d29808b1e7…`；`activity.js`、`native-code-handoff.js` 和静态清单有变化。
+- 起因（线上验收发现）：第三方登录跳回 `?ba-user-token=…&member_welcome=1` 后，用户仍是未登录，令牌也一直留在地址栏。主站页面会在服务端把这个参数换成 `ba-user-token` Cookie 再去掉参数；活动页由 FS 提供，这两步都没有做。已在线上验证：把同一令牌交给主站 `/ajax/html` 请求一次，就会下发 Cookie。
+- 内容：`native-code-handoff.js` 加载后立即从地址栏去掉令牌，早于统计脚本和浏览历史；格式合法的令牌只保存在内存中，并且只交给 `/ajax/html` 一次。`activity.js` 等这一步完成后，再刷新顶栏、恢复之前选的商品；如果页面缺少该模块，不影响页面渲染。
+- 真实入口验收（正式站，用户账号，均未付款）：
+  - 未登录：三页顶栏显示 Log In 和购物车数量；点结账会弹出登录框，此时不加购。
+  - Google：在 Weekly 页选 Barcelona Player Bundle → 登录 → 跳回后地址栏已无令牌，`logged_in=true`，头像显示，所选商品恢复 → 确认 → 领到 1033789 → 购物车自动选中，$96.13 抵扣 -$9.61。
+  - 邮箱：用户本人在 Trio 页选择 Florian Wirtz 和 Jakub Błaszczykowski，点击「Log in and continue」→ 领到 1033803 → 购物车自动选中，$111.27 抵扣 -$11.13。
+  - SBC 页（已登录）：Lyon Women Player Bundle → 领到 1033779 → $64.89 抵扣 -$6.49。
+  - 错误反馈：替换登录函数模拟失败返回，红框提示、输入框标红、内容保留、按钮恢复均正常；邮箱格式错误时同样显示红框。
+- 未验证：Facebook 的完整授权流程（只确认了授权地址和回调 `api.mmoexp.com/auth/callback/facebook`）。线上手机宽度未实测，CI 已在 390px 宽度下断言页面无横向溢出、头像可见。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T110448Z`。
+
 ---
 
 ## 回退与边界
