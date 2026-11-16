@@ -189,6 +189,37 @@ class MatchdayEngagementTests(unittest.TestCase):
                                     (str(source_id),)).fetchone()[0]
             self.assertEqual(status, 'unknown')
 
+    def test_followup_waits_for_latest_confirmed_final_score(self):
+        now = time.time()
+        final = MatchPulse(TEST_GUILD, 'kosovo|israel', 'Kosovo', 'Israel', '2–0',
+            'final', 'https://discord.com/channels/1/2/3', SOURCE, SOURCE, SOURCE)
+        corrected = MatchPulse(TEST_GUILD, final.match_key, final.home, final.away,
+            '1–0', 'correction', final.source_url, SOURCE, SOURCE, SOURCE)
+        other = MatchPulse(TEST_GUILD, 'england|france', 'England', 'France', '1–1',
+            'final', final.source_url, SOURCE, SOURCE, SOURCE)
+        with tempfile.TemporaryDirectory() as directory:
+            store = MatchPulseStore(Path(directory) / 'pulse.sqlite3')
+            due = followup_due_at(now) + 1
+            store.queue_followup(final, now)
+            self.assertEqual(store.due_followups(due), [])
+            self.assertTrue(store.claim(1571184986541789372, final, now))
+            key, ready_final = store.due_followups(due)[0]
+            self.assertEqual(ready_final.score, '2–0')
+            self.assertTrue(store.claim(1571184986541789373, corrected, now + 1))
+            self.assertEqual(store.due_followups(due), [])
+            self.assertFalse(store.reserve_followup(key))
+            self.assertTrue(store.claim(1571184986541789374, other, now + 2))
+            store.queue_followup(other, now + 2)
+            self.assertEqual([pulse.match_key for _, pulse in store.due_followups(due)],
+                             [other.match_key])
+            updated_final = MatchPulse(TEST_GUILD, final.match_key, final.home, final.away,
+                corrected.score, 'final', final.source_url, SOURCE, SOURCE, SOURCE)
+            self.assertTrue(store.claim(1571184986541789375, updated_final, now + 3))
+            store.queue_followup(updated_final, now + 3)
+            self.assertEqual({pulse.match_key: pulse.score for _, pulse in
+                              store.due_followups(due)},
+                             {final.match_key: '1–0', other.match_key: '1–1'})
+
     def test_ignores_status_and_configuration_messages(self):
         now = time.time()
         self.assertIsNone(parse_match_event(message(1, 'Live Subscription Active\nMatch\n**Kosovo** vs **Israel**\nPush Notifications\nGoals · Half Time', now=now), CONFIG, now))
@@ -237,6 +268,8 @@ class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
             sent_pulse = MatchPulse(OFFICIAL_GUILD, 'other-match', 'A', 'B', '1–0',
                 'final', pulse.source_url, SOURCE, SOURCE, SOURCE)
             client.matchday_store.queue_followup(sent_pulse, now)
+            self.assertTrue(client.matchday_store.claim(1571184986541789388,
+                sent_pulse, now))
             with closing(sqlite3.connect(client.matchday_store.path)) as db:
                 sent_key = db.execute("SELECT event_key FROM match_followup WHERE status='pending' "
                                       "AND event_key LIKE '%other-match%'").fetchone()[0]
