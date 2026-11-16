@@ -210,7 +210,9 @@
       if(json?.code!==1||!json.data||typeof json.data!=='object')fail('COUPON_RESPONSE_INVALID');
       return json.data;
     };
-    const listed=await call('/ajax/carnival/coupon?slot='+encodeURIComponent(slot));
+    // A failed read means the coupon service is unreachable and nothing was claimed:
+    // treat it as switched off. Only a claim POST with an unknown result stops checkout.
+    let listed;try{listed=await call('/ajax/carnival/coupon?slot='+encodeURIComponent(slot));}catch{return {state:'unavailable'};}
     if(listed.enabled!==true||listed.error||listed.slot!==slot)return {state:'unavailable'};
     if(listed.logged_in!==true)return {state:'login_required',slot};
     const coupons=(Array.isArray(listed.list)?listed.list:[]).filter(c=>Number.isSafeInteger(c?.coupon_id)&&c.coupon_id>0&&c.can_claim===true);

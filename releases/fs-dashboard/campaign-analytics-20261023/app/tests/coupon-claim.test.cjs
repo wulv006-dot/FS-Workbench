@@ -26,7 +26,10 @@ test('disabled activity, empty slot, unknown page or other origin never claims',
 });
 test('unconfirmed claim or HTTP failure throws so the caller keeps the code path',async()=>{
  await assert.rejects(claimActivityCoupon({pageId:'fc27-weekly',origin,fetchImpl:site({claim:()=>({claim_status:'failed'})}).fetchImpl}),/COUPON_CLAIM_UNCONFIRMED/);
- await assert.rejects(claimActivityCoupon({pageId:'fc27-weekly',origin,fetchImpl:site({http:500}).fetchImpl}),/COUPON_HTTP_REJECTED/);
+ // A failed coupon read claims nothing, so it is the switched-off state, not a stop.
+ assert.equal((await claimActivityCoupon({pageId:'fc27-weekly',origin,fetchImpl:site({http:500}).fetchImpl})).state,'unavailable');
+ let posts=0;const claimDown=async(path,init)=>{if(init.method==='POST'){posts++;throw new TypeError('network down');}return {ok:true,json:async()=>({code:1,data:{enabled:true,logged_in:true,slot:'fc_weekly',list:[{coupon_id:9001,can_claim:true}]}})};};
+ await assert.rejects(claimActivityCoupon({pageId:'fc27-weekly',origin,fetchImpl:claimDown}),/network down/);assert.equal(posts,1);
 });
 test('coupon-claimed checkout adds to cart and navigates without staging the code',async()=>{
  const data=new Map(),storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};let posts=0,navigated=null;
