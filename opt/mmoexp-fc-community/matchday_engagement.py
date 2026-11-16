@@ -257,11 +257,32 @@ class MatchPulseStore:
     def due_followups(self, now):
         with sqlite3.connect(self.path) as db:
             rows = db.execute('''SELECT event_key,payload FROM match_followup
-                WHERE status='pending' AND due_at<=? ORDER BY due_at LIMIT 2''', (now,)).fetchall()
-        return [(key, MatchPulse(**json.loads(payload))) for key, payload in rows]
+                WHERE status='pending' AND due_at<=? ORDER BY due_at''', (now,)).fetchall()
+            ready = []
+            for key, payload in rows:
+                pulse = MatchPulse(**json.loads(payload))
+                state = db.execute('''SELECT last_kind FROM match_pulse
+                    WHERE guild_id=? AND match_key=?''',
+                    (str(pulse.guild_id), pulse.match_key)).fetchone()
+                if state and state[0] == 'final|{}'.format(pulse.score):
+                    ready.append((key, pulse))
+                    if len(ready) == 2:
+                        break
+        return ready
 
     def reserve_followup(self, key):
         with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('''SELECT payload FROM match_followup
+                WHERE event_key=? AND status='pending' ''', (key,)).fetchone()
+            if row is None:
+                return False
+            pulse = MatchPulse(**json.loads(row[0]))
+            state = db.execute('''SELECT last_kind FROM match_pulse
+                WHERE guild_id=? AND match_key=?''',
+                (str(pulse.guild_id), pulse.match_key)).fetchone()
+            if state is None or state[0] != 'final|{}'.format(pulse.score):
+                return False
             return db.execute('''UPDATE match_followup SET status='sending'
                 WHERE event_key=? AND status='pending' ''', (key,)).rowcount == 1
 
