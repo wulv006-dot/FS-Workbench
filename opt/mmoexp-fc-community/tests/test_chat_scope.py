@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
-from chat_service import ChatClient, quote_link_view
+from chat_service import ChatClient, order_link_view, quote_link_view
 
 
 class ChatScopeTests(unittest.IsolatedAsyncioTestCase):
@@ -20,6 +20,14 @@ class ChatScopeTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(destination, view.children[0].url)
         self.assertIsNone(quote_link_view(1041923524601851914, 'That pack was great!'))
         self.assertIsNone(quote_link_view(1565922092518613064, 'How much are coins?'))
+
+    def test_order_help_links_to_live_private_card(self):
+        view = order_link_view(1041923524601851914, 'Where is my order?')
+        self.assertEqual([button.label for button in view.children], ['Check my order'])
+        self.assertTrue(view.children[0].url.endswith(
+            '/1570789310813442080/1570795908205903873'))
+        self.assertIsNone(order_link_view(1041923524601851914, 'Order of play was odd'))
+        self.assertIsNone(order_link_view(1565922092518613064, 'Where is my order?'))
 
     async def test_unmentioned_price_question_gets_one_live_quote_entry(self):
         router = SimpleNamespace(in_scope=Mock(return_value=True),
@@ -42,10 +50,32 @@ class ChatScopeTests(unittest.IsolatedAsyncioTestCase):
                       message.reply.await_args.kwargs['view'].children[0].url)
         client.limiter.record.assert_called_once()
 
+        message.content = 'How much is my order?'
+        self.assertTrue(await ChatClient.handle_chat(client, message))
+        self.assertEqual(message.reply.await_count, 2)
+        self.assertIn('1570795908205903873',
+                      message.reply.await_args.kwargs['view'].children[0].url)
+        client.brain.reply.assert_awaited_once()
+
         message.channel.id = 1571043570268242014
         message.content = 'How much injury time?'
         self.assertFalse(await ChatClient.handle_chat(client, message))
-        message.reply.assert_awaited_once()
+        self.assertEqual(message.reply.await_count, 2)
+
+    async def test_order_slash_reply_is_private_even_when_ai_is_unavailable(self):
+        client = SimpleNamespace(
+            router=SimpleNamespace(in_scope=Mock(return_value=True)),
+            brain=SimpleNamespace(ready=False, reply=AsyncMock()),
+            limiter=SimpleNamespace(allow=Mock(return_value=True), record=Mock()))
+        response = SimpleNamespace(send_message=AsyncMock())
+        interaction = SimpleNamespace(guild_id=1041923524601851914,
+                                      channel_id=1200330251016867880,
+                                      user=SimpleNamespace(id=456), response=response)
+        await ChatClient.do_chat(client, interaction, 'Where is my order?')
+        self.assertTrue(response.send_message.await_args.kwargs['ephemeral'])
+        self.assertIn('1570795908205903873',
+                      response.send_message.await_args.kwargs['view'].children[0].url)
+        client.brain.reply.assert_not_awaited()
 
     async def test_staff_text_trigger_outside_fc_is_ignored(self):
         surprise = SimpleNamespace(is_staff=Mock())
