@@ -16,10 +16,19 @@ from community import CommunityStore, CommunityError
 TEST_GUILD = 1565922092518613064
 OFFICIAL_GUILD = 1041923524601851914
 CHAT_QUOTE_CHANNELS = {TEST_GUILD: 1568260661010497627, OFFICIAL_GUILD: 1200330251016867880}
+WEEKLY_REWARD_CHANNELS = {TEST_GUILD: 1568260661010497627,
+                          OFFICIAL_GUILD: 1571043454136484082}
 QUOTE_KINDS = ('sbc', 'packs', 'gallery', 'evolutions', 'boosting', 'coins')
 
 
 def validate_config(config):
+    rewards = config.get('weekly_rewards')
+    if rewards is not None:
+        if (not isinstance(rewards, dict) or set(rewards) != {'guild_id', 'channel_id'}
+                or rewards['guild_id'] not in (TEST_GUILD, OFFICIAL_GUILD)
+                or type(rewards['channel_id']) is not int
+                or rewards['channel_id'] != WEEKLY_REWARD_CHANNELS[rewards['guild_id']]):
+            raise ValueError('Invalid weekly rewards channel.')
     if config.get('order_panel') is not None:
         from order_panel import validate_order_config
         validate_order_config(config['order_panel'])
@@ -174,6 +183,7 @@ class ContentClient(discord.Client):
         self.club_lock = asyncio.Lock()
         self.quote_provider = None
         self.quote_relay = None
+        self.weekly_reward_view = None
         self.relay_task = None
         self.news_store = None
         self.news_tasks = []
@@ -216,6 +226,16 @@ class ContentClient(discord.Client):
         return routes
 
     async def setup_hook(self):
+        if self.config.get('weekly_rewards'):
+            from match_rewards_delivery import CouponBridge, WeeklyEmailDelivery
+            from verified_prize_claim import VerifiedPrizeClaims
+            from weekly_reward_panel import WeeklyClaimView
+            rewards = self.config['weekly_rewards']
+            claims = VerifiedPrizeClaims(Path(self.store.path).parent / 'weekly-rewards.sqlite3')
+            self.weekly_reward_view = WeeklyClaimView(
+                rewards['guild_id'], rewards['channel_id'], claims,
+                WeeklyEmailDelivery(claims, CouponBridge()))
+            self.add_view(self.weekly_reward_view)
         if self.config.get('order_panel') is not None:
             from order_panel import build_panel
             self.order_panel = build_panel(self.config['order_panel'], Path(self.store.path).parent,
@@ -267,13 +287,15 @@ class ContentClient(discord.Client):
             self.add_view(InformationPanelView(self.information_store, panels['guild_id'], panels['channels']))
         # Guild commands only. Preserve the production guild's existing privacy commands.
         await self.tree.sync(guild=discord.Object(TEST_GUILD))
-        price_command = self.tree.get_command('price', guild=discord.Object(OFFICIAL_GUILD))
-        if price_command:
+        for command_name in ('price', 'weekly-reward-card'):
+            command = self.tree.get_command(command_name, guild=discord.Object(OFFICIAL_GUILD))
+            if not command:
+                continue
             try:
                 await self.http.upsert_guild_command(self.application_id, OFFICIAL_GUILD,
-                                                     price_command.to_dict(self.tree))
+                                                     command.to_dict(self.tree))
             except discord.HTTPException as exc:
-                print('Price command registration failed: HTTP ' + str(exc.status), flush=True)
+                print(command_name + ' command registration failed: HTTP ' + str(exc.status), flush=True)
         if self.quote_relay:
             self.relay_task = asyncio.create_task(self.run_quote_relay())
         if self.news_store:
@@ -806,6 +828,24 @@ def build_client(config, store, information_store=None):
                    or 'No registrations.'))
 
     client.tree.add_command(group, guild=discord.Object(TEST_GUILD))
+    if config.get('weekly_rewards'):
+        @app_commands.command(name='weekly-reward-card',
+                              description='Staff: post the FC27 weekly reward entry card')
+        @app_commands.default_permissions(manage_messages=True)
+        async def weekly_reward_card(i: discord.Interaction):
+            rewards = config['weekly_rewards']
+            if (i.user.bot or str(i.user.id) not in config['staff_user_ids']
+                    or i.guild_id != rewards['guild_id']
+                    or i.channel_id != rewards['channel_id']):
+                await i.response.send_message('Use this in the configured FC27 rewards channel as staff.',
+                                              ephemeral=True)
+                return
+            from weekly_reward_panel import reward_embed
+            await i.response.send_message(embed=reward_embed(), view=client.weekly_reward_view,
+                                          allowed_mentions=discord.AllowedMentions.none())
+
+        client.tree.add_command(weekly_reward_card,
+                                guild=discord.Object(config['weekly_rewards']['guild_id']))
     if client.quote_provider:
         def price_command():
             @app_commands.command(name='price', description='Staff: post an FC27 price card in Chat')

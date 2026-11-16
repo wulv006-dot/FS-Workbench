@@ -218,6 +218,17 @@ class VerifiedPrizeClaims:
                 "SELECT * FROM verified_prize_claims WHERE claim_id=?",
                 (row["claim_id"],)).fetchone())
 
+    def open_week_for_player(self, claimant_ref, now=None):
+        """Find the latest unexpired approved week for one authenticated player."""
+        if not isinstance(claimant_ref, str) or not EVIDENCE.fullmatch(claimant_ref):
+            raise RewardError("Verified player reference is required")
+        with self._db() as db:
+            row = db.execute("""SELECT week_key FROM verified_prize_claims
+                          WHERE subject_hash=? AND expires_at>? ORDER BY week_key DESC LIMIT 1""",
+                             (hashlib.sha256(claimant_ref.encode()).hexdigest(),
+                              int(time.time() if now is None else now))).fetchone()
+            return row["week_key"] if row else None
+
     def _reserve(self, db, row, site_member_id, ts):
         if row["member_id"] == site_member_id:
             return self._claim_view(row)
