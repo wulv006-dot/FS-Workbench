@@ -29,6 +29,27 @@ FS 由创建者吴律统一掌控，是以 Hermes 为智能中枢的 AI 驱动�
 - 不覆盖、清理或提交其他 Agent 的未提交代码，不为准备新任务而重置其他任务的分支或工作区；Git 与共享发布操作继续串行。
 - 完成后按照 `docs/ops/HOTFIX.md` 及实际仓库规则提交 PR，明确报告提交 SHA、PR、检查结果、合并状态和部署状态。未检查、未合并或未部署须如实标明；提交或合并不代表已部署，也不新增生产发布授权。
 
+### 开工技能与技能选择（2026-11-16）
+
+开发任务的开工与收尾清单见 `fs-task` 技能（`.agents/skills/fs-task/` 供 Codex，`.claude/skills/fs-task/` 供 Claude，两份保持同内容）。它只按顺序落实本节与 HOTFIX 的既有规则，不新增规则；冲突以本文件和 `docs/ops/HOTFIX.md` 为准。开始改仓库前先用它。
+
+技能按描述自动匹配，匹配不稳时按下表手动点名（Claude 侧技能名带 `mattpocock-skills:` 前缀）：
+
+| 场景 | 用 |
+|---|---|
+| 开工、提交、开 PR、交付报告 | `fs-task` |
+| 报错、异常、变慢 | `diagnosing-bugs` |
+| 有明确输入输出的逻辑（如定价、计算） | `tdd` |
+| PR 前审查 | `code-review`，需要精简时加 `simplify` |
+| 涉及登录、凭据、writer、权限 | `security-review` |
+| 合并或 rebase 冲突 | `resolving-merge-conflicts` |
+| 术语、ADR | `domain-modeling` |
+| FC27 月报 | `fc27-monthly-report` |
+| 核对经营数据口径 | `data:validate-data` |
+| 活动页、落地页设计（含发布到主站 MMOEXP 的跨域页面） | `design:design-critique`、`design:accessibility-review`、`design:ux-copy`，交接时用 `design:design-handoff` |
+
+活动页的内容与结构以 `docs/standards/fc27/DESIGN-TEMPLATE.md` 和对应活动合同（如 `docs/planning/activity-center-v3/`）为准；FS 工作台内部界面以 `ui-system/README.md` 为准，两者不混用样式。设计技能只提供评审与写作辅助，不改变上述文档、业务规则、跨域接入合同或发布流程；跨域页面的手机宽度、主题和实际嵌入效果仍须在真实入口核对。营销、数据可视化以外的其余插件技能与本项目开发无关，不主动使用。
+
 ### CodeGraph 与源码核对
 
 在 FS 项目开始功能开发、修复或重构任务时，先调用 CodeGraph MCP 的 `codegraph_explore`，查询相关模块、调用关系和影响范围，再回看当前源码、测试与实际发布映射后实施修改。查询限于本任务 FS Worktree，每次显式指定其绝对路径 `projectPath`；代码图只提供导航，不证明生产版本、权限或业务运行状态。
