@@ -25,7 +25,7 @@ async function openPage(browser,site){
   if(u.pathname.endsWith('/api/campaign/config'))return route.fulfill({json:snapshot});
   if(u.pathname.endsWith('/api/campaign/capabilities'))return route.fulfill({json:{integration_mode:'preview',live_checkout:false}});
   if(u.pathname==='/ajax/carnival/user')return route.fulfill({json:{code:1,data:{logged_in:site.loggedIn,enabled:true}}});
-  if(u.pathname==='/ajax/html')return route.fulfill({contentType:'text/html',body:'<li class="cart-area area"><span class="cart-total">'+site.cart+'</span></li><li class="user-area jq-user-area area"><img class="userimg" src="'+(site.loggedIn?'https://assets.mmoexp.com/avatar/fixture.png':'/mmoexp-v250528/img/user.png')+'"></li>'});
+  if(u.pathname==='/ajax/html')return route.fulfill({contentType:'text/html',body:'<li class="cart-area area"><span class="cart-total">'+site.cart+'</span></li>'+(site.loggedIn?'<li class="user-areas area"><span class="member-level-avatar"><img class="user-avatar-img member-level-avatar__face" src="https://assets.mmoexp.com/avatar/fixture.png"><img class="member-level-avatar__frame" src="https://assets.mmoexp.com/avatar/frame.png"></span></li>':'<li class="user-area jq-user-area area"><img class="userimg" src="/mmoexp-v250528/img/user.png"></li>')});
   if(u.pathname==='/ajax/carnival/coupon')return route.fulfill({json:{code:1,data:{enabled:true,logged_in:site.loggedIn,slot:u.searchParams.get('slot'),list:[{coupon_id:1395,can_claim:site.loggedIn}]}}});
   if(u.pathname==='/ajax/carnival/claim'){site.claims.push(Object.fromEntries(new URLSearchParams(req.postData())));return route.fulfill({json:{code:1,data:{claim_status:'claimed',coupon_id:1395,member_coupon_id:555}}});}
   if(u.pathname==='/user/login.html'){const body=Object.fromEntries(new URLSearchParams(req.postData()));site.logins.push({fields:Object.keys(body).sort(),accept:req.headers()['accept']});const ok=body.passwd===site.password;if(ok)site.loggedIn=true;return route.fulfill({json:ok?{code:1,msg:'ok',data:{}}:{code:0,msg:'Invalid email or password'}});}
@@ -78,7 +78,8 @@ test('signed in: avatar header, checkout claims without a dialog; mobile header 
   const {page}=await openPage(browser,site);
   await page.locator('.fca-account-user').waitFor({state:'visible'});
   assert.equal(await page.locator('.fca-account-login').isVisible(),false);
-  assert.equal(await page.locator('.fca-account-user img').getAttribute('src'),'https://assets.mmoexp.com/avatar/fixture.png');
+  assert.equal(await page.locator('.fca-account-face').getAttribute('src'),'https://assets.mmoexp.com/avatar/fixture.png');
+  assert.equal(await page.locator('.fca-account-frame').getAttribute('src'),'https://assets.mmoexp.com/avatar/frame.png');
   assert.equal(await page.locator('.fca-account-count').innerText(),'5');
   await page.setViewportSize({width:390,height:844});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'header fits at phone width');

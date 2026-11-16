@@ -177,14 +177,16 @@
     const get=path=>loginFetch(fetchImpl,path,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{'X-Requested-With':'XMLHttpRequest'}},LOGIN_TIMEOUT_MS);
     const user=await (await get('/ajax/carnival/user')).json();
     if(Number(user?.code)!==1||typeof user.data?.logged_in!=='boolean')fail('ACCOUNT_RESPONSE_INVALID');
-    let cart=0,avatar=null;
+    let cart=0,avatar=null,frame=null;
     try{
       const html=await (await get('/ajax/html')).text();
       const count=/class="[^"]*\bcart-total\b[^"]*"[^>]*>\s*(\d{1,4})\s*</.exec(html);if(count)cart=Number(count[1]);
-      const area=html.indexOf('jq-user-area'),img=area>=0?/<img\b[^>]*\bsrc="([^"]+)"/.exec(html.slice(area,area+4000)):null;
-      if(img){const url=new URL(img[1].replace(/&amp;/g,'&'),origin);if(url.protocol==='https:'&&!/\/img\/user\.png$/.test(url.pathname))avatar=url.href;}
+      // Signed-in header (observed 2026-11-16): img.user-avatar-img is the face and
+      // img.member-level-avatar__frame the member-level frame drawn over it.
+      const src=cls=>{const tag=new RegExp('<img\\b[^>]*\\bclass="[^"]*\\b'+cls+'\\b[^"]*"[^>]*>').exec(html);const m=tag&&/\bsrc="([^"]+)"/.exec(tag[0]);if(!m)return null;const url=new URL(m[1].replace(/&amp;/g,'&'),origin);return url.protocol==='https:'?url.href:null;};
+      if(user.data.logged_in){avatar=src('user-avatar-img');frame=src('member-level-avatar__frame');}
     }catch{}
-    return {state:user.data.logged_in?'signed_in':'guest',cart,avatar};
+    return {state:user.data.logged_in?'signed_in':'guest',cart,avatar,frame};
   }
   // Main-site social login: the endpoint returns the provider authorize URL and
   // brings the shopper back to returnUrl (this event page) after sign-in.

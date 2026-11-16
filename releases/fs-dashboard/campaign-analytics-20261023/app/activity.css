@@ -251,8 +251,10 @@
 .fca-account-count[hidden], .fca-account-login[hidden], .fca-account-user[hidden] { display: none; }
 .fca-demo-header .fca-account-login { min-height: 44px; padding: 0 22px; border: 0; border-radius: 22px; background: #0a6ff2; color: #fff; font-size: 15px; font-weight: 700; }
 .fca-demo-header .fca-account-login:hover { background: #2a85ff; }
-.fca-account-user { display: block; width: 44px; height: 44px; border-radius: 50%; overflow: hidden; border: 2px solid #4b6aa3; background: #0d1a33; }
-.fca-account-user img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fca-account-user { position: relative; display: block; width: 44px; height: 44px; flex: none; }
+.fca-account-face { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); border-radius: 50%; object-fit: cover; display: block; background: #0d1a33; }
+.fca-account-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.fca-account-frame[hidden] { display: none; }
 .fca-noscript { padding: 25px; background: #edf5ff; border-radius: 10px; }
 .fca-noscript a { margin-right: 20px; color: #0069d9; text-decoration: underline; }
 

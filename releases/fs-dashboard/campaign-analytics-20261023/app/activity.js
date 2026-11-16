@@ -354,7 +354,7 @@
     area=document.createElement('div');area.className='fca-account';
     area.innerHTML='<a class="fca-account-cart" href="https://www.mmoexp.com/Cart.html" aria-label="Cart"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01"/></svg><span class="fca-account-count" hidden></span></a>'
       +'<button type="button" class="fca-account-login" data-account-login hidden>Log In</button>'
-      +'<a class="fca-account-user" href="https://www.mmoexp.com/Ucenter/" aria-label="My account" hidden><img alt="" width="40" height="40" src="https://www.mmoexp.com/mmoexp-v250528/img/user.png"></a>';
+      +'<a class="fca-account-user" href="https://www.mmoexp.com/Ucenter.html" aria-label="My account" hidden><img class="fca-account-face" alt="" width="44" height="44" src="https://www.mmoexp.com/mmoexp-v250528/img/user.png"><img class="fca-account-frame" alt="" width="44" height="44" hidden></a>';
     inner.appendChild(area);
     area.querySelector('[data-account-login]').addEventListener('click',()=>{saveResume();openLogin(false);});
     return area;
@@ -367,7 +367,8 @@
     const count=area.querySelector('.fca-account-count');count.hidden=!(account.cart>0);count.textContent=account.cart>99?'99+':String(account.cart||'');
     area.querySelector('[data-account-login]').hidden=account.state==='signed_in';
     const user=area.querySelector('.fca-account-user');user.hidden=account.state!=='signed_in';
-    if(account.avatar)user.querySelector('img').src=account.avatar;
+    if(account.avatar)user.querySelector('.fca-account-face').src=account.avatar;
+    const frame=user.querySelector('.fca-account-frame');frame.hidden=!account.frame;if(account.frame)frame.src=account.frame;
   }
   // Social sign-in leaves the page; bring the reviewed selection back afterwards.
   function resumeAfterLogin(){

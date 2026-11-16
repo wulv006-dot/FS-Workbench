@@ -64,9 +64,10 @@ test('a hung login request ends with LOGIN_TIMEOUT instead of spinning forever',
 test('header account state: guest, signed in with avatar and cart count',async()=>{
  const page=(logged_in,html)=>async path=>({ok:true,json:async()=>({code:1,data:{logged_in}}),text:async()=>html});
  const guestHtml='<li class="cart-area area"><span class="cart-total">2</span></li><li class="user-area jq-user-area area"><img class="userimg" src="/mmoexp-v250528/img/user.png"></li>';
- assert.deepEqual(await mainSiteAccount({origin,fetchImpl:page(false,guestHtml)}),{state:'guest',cart:2,avatar:null});
- const userHtml='<span class="cart-total" style="">5</span><li class="user-area jq-user-area area"><img class="userimg" src="https://assets.mmoexp.com/avatar/u1.png"></li>';
- assert.deepEqual(await mainSiteAccount({origin,fetchImpl:page(true,userHtml)}),{state:'signed_in',cart:5,avatar:'https://assets.mmoexp.com/avatar/u1.png'});
+ assert.deepEqual(await mainSiteAccount({origin,fetchImpl:page(false,guestHtml)}),{state:'guest',cart:2,avatar:null,frame:null});
+ // Signed-in markup as served by /ajax/html on 2026-11-16 (structure only).
+ const userHtml='<span class="cart-total" style="">5</span><li class="user-areas area"><a class="userche jq-userche userche-photo"><span class="member-level-avatar member-level-avatar--2"><img class="user-avatar-img member-level-avatar__face" src="/mmoexp-v250528/images/vip/2/avatar.png"><img class="member-level-avatar__frame" src="/mmoexp-v250528/images/vip/2/avatar-frame.png"></span></a></li>';
+ assert.deepEqual(await mainSiteAccount({origin,fetchImpl:page(true,userHtml)}),{state:'signed_in',cart:5,avatar:origin+'/mmoexp-v250528/images/vip/2/avatar.png',frame:origin+'/mmoexp-v250528/images/vip/2/avatar-frame.png'});
  assert.equal((await mainSiteAccount({origin:'https://evil.example',fetchImpl:page(true,userHtml)})).state,'unavailable');
 });
 test('rejected sign-in returns the main-site message; other origins never post',async()=>{
