@@ -139,6 +139,21 @@
 .fca-companion-picker label { display: block; margin-bottom: 9px; font-size: 13px; font-weight: 700; }
 .fca-companion-picker select { width: 100%; min-height: 48px; padding: 12px; border: 1px solid #b7cce7; border-radius: 7px; background: white; font-size: 16px; color: #16365e; }
 .fca-pairing-note { grid-column: 1 / -1; margin-top: 0; }
+.fca-card-picker { min-width: 0; min-height: 74px; margin: 10px 0 0; }
+.fca-card-picker label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 700; color: var(--fca-ink); }
+.fca-card-picker select { width: 100%; min-height: 44px; padding: 10px; border: 1px solid #b7cce7; border-radius: 7px; background: white; font-size: 15px; color: #16365e; }
+.fca-card-picker-spacer { visibility: hidden; }
+.fca-group-bar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 20px; border: 1px solid #cfdeef; border-radius: 10px; background: #ffffffde; }
+.fca-group-bar strong { display: block; font-size: 16px; color: var(--fca-ink); }
+.fca-group-bar p { margin: 4px 0 0; font-size: 12px; line-height: 1.6; color: var(--fca-muted); }
+.fca-group-bar .fca-action, .fca-group-bar .fca-secondary { flex: none; min-width: 280px; }
+@media (max-width: 700px) {
+  .fca-card-picker { min-height: 56px; margin-top: 6px; }
+  .fca-card-picker label { font-size: 9px; margin-bottom: 4px; }
+  .fca-card-picker select { min-height: 34px; padding: 4px; font-size: 11px; }
+  .fca-group-bar { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+  .fca-group-bar .fca-action, .fca-group-bar .fca-secondary { min-width: 0; width: 100%; }
+}
 .fca-bundle-contents { margin: 12px 0; font-size: 12px; }
 .fca-bundle-contents summary { min-height: 44px; display: list-item; padding: 10px 0; cursor: pointer; font-weight: 700; color: #0969d5; }
 .fca-bundle-contents ul { padding-left: 16px; color: #4b6282; line-height: 1.7; }

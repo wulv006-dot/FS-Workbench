@@ -71,7 +71,9 @@
   }
   function selected(){
     if(standalone&&pageState(state.view)!=='active')return [];
-    try{const keys=state.view==='sbc'?[...(state.coreMode==='service'?[state.core]:[]),...state.companions.filter(key=>state.chosenCompanions.has(key))]:state.view==='trio'?[...state.trio]:[...state.weekly];const ids=[...new Set([...keys,...state.bundles])];const items=scoped(ids).map(key=>offer(key));unavailableSelection=items.some(item=>!item);return items.filter(Boolean);}catch(error){unavailableSelection=true;return [];}
+    // Trio and SBC are bought as one set: nothing is selected until the set is added, and an
+    // SBC service never goes into the lineup on its own (it travels with its two companions).
+    try{const keys=state.view==='sbc'?(state.chosenCompanions.size?[...(state.coreMode==='service'?[state.core]:[]),...state.companions.filter(key=>state.chosenCompanions.has(key))]:[]):state.view==='trio'?[...state.trio]:[...state.weekly];const ids=[...new Set([...keys,...state.bundles])];const items=scoped(ids).map(key=>offer(key));unavailableSelection=items.some(item=>!item);return items.filter(Boolean);}catch(error){unavailableSelection=true;return [];}
   }
   function currentMedia(){return config.page_media?.['fc27-'+state.view]||published?.page_media?.['fc27-'+state.view]||{};}
   // The published page config carries operator-edited hero copy. Hero text is
@@ -111,9 +113,31 @@
   function meta(p){return [p.rating,p.position,p.version].filter(Boolean).join(' · ');}
   function offer(key){try{const p=product(key);if(p?.preview_only){const native=standalone&&published?core.nativeModelOffer(p,state.platform,published,'fc27-'+state.view):p.native_offers?.[state.platform];return {...p,...(native?{native_offer:native}:{}),offer:{id:p.platforms?.[state.platform]?.id??null,group:native?.quantity.group??null,quantity:native?.quantity.value??null},amount:native?.price.base_minor??null};}return core.line(p,state.platform);}catch(error){return null;}}
   function picked(key){return selected().some(p=>p.key===key);}
-  function card(key,{label='',fixed=false,owned=false}={}){
+  // The set that is bought together on the trio and SBC pages: all three trio players, or the
+  // two SBC companions (plus the SBC service when "Include SBC completion" is chosen).
+  function groupExpected(){return state.view==='trio'?config.trio.ids:[...(state.coreMode==='service'?[state.core]:[]),...state.companions];}
+  function groupReady(){
+    const keys=groupExpected();
+    if(!keys.length||standalone&&scoped(keys,state.view==='sbc'?'sbc':undefined).length!==keys.length)return false;
+    return keys.every(key=>{const item=offer(key);return item&&!(item.preview_only&&!item.native_offer?.checkout_ready);});
+  }
+  // A picked set can always be removed, even when a price has expired meanwhile.
+  function groupEnabled(){return groupPicked()||groupReady();}
+  function groupPicked(){const set=state.view==='trio'?state.trio:state.chosenCompanions,keys=state.view==='trio'?config.trio.ids:state.companions;return keys.length>0&&keys.every(key=>set.has(key));}
+  function groupBar(){
+    const trio=state.view==='trio',service=!trio&&state.coreMode==='service',on=groupPicked();
+    const title=trio?'Buy the trio together':service?'SBC completion + two companions':'Both companions together';
+    const note=trio?'All three players go into your cart in one step. You can still remove any of them in the cart.':service?'The SBC service and both companions go into your cart in one step. You can still remove any of them in the cart.':'Both companions go into your cart in one step. You can still remove either one in the cart.';
+    const label=on?'Selected · Remove':trio?'Add all 3 players to my lineup':service?'Add SBC + 2 companions to my lineup':'Add both companions to my lineup';
+    return `<div class="fca-group-bar"><div><strong>${escape(title)}</strong><p>${escape(note)}</p></div><button type="button" class="${on?'fca-secondary':'fca-action'}" data-toggle-group aria-pressed="${on}"${groupEnabled()?'':' disabled'}>${escape(label)}</button></div>`;
+  }
+  function companionPicker(i,pool){
+    const current=route(state.core);
+    return `<div class="fca-card-picker"><label for="companion-${i}">${escape(t('搭档 '+(i+1)+' · '+current.label.zh,'Companion '+(i+1)+' · '+current.label.en))}</label><select id="companion-${i}" data-companion-slot="${i}" name="companion${i+1}">${pool.map(option=>`<option value="${escape(option)}" ${option===state.companions[i]?'selected':''} ${option===state.companions[1-i]?'disabled':''}>${escape(product(option).title)}</option>`).join('')}</select></div>`;
+  }
+  function card(key,{label='',fixed=false,owned=false,grouped=false,pickerHtml=''}={}){
     if(!product(key))return '';const item=offer(key);
-    return content.card(product(key),{lang:state.lang,label,fixed,owned,picked:picked(key),price:display(item).text,originalPrice:display(item).originalText,discountPercent:config.activityPricing?.discountPercent,unavailable:!item,platform:state.platform,nativeOffer:item?.native_offer??null,...imageOptions(key)});
+    return content.card(product(key),{lang:state.lang,label,fixed,owned,grouped,pickerHtml,picked:picked(key),price:display(item).text,originalPrice:display(item).originalText,discountPercent:config.activityPricing?.discountPercent,unavailable:!item,platform:state.platform,nativeOffer:item?.native_offer??null,...imageOptions(key)});
   }
   function renderSeo(){
     const ids=standalone?scoped(state.view==='sbc'?[state.core,...state.companions]:state.view==='trio'?config.trio.ids:config.weekly.ids):state.view==='sbc'?[state.core,...state.companions]:undefined;
@@ -164,11 +188,12 @@
     if(sbc){
       $('product-grid').innerHTML='';
       const select=$('core-select');select.innerHTML=scoped(config.sbc.ids,'sbc').map(key=>`<option value="${escape(key)}" ${key===state.core?'selected':''}>${escape(product(key).title)}</option>`).join('');
-      $('core-mode-help').textContent=state.coreMode==='owned'?t('核心不加入购买清单，也不计入金额。你只购买两位搭档。','Your owned core is excluded. Add the recommended companions you want to your lineup.'):t('清单包含所选 SBC 代做服务与两张搭档球员卡。服务资源与交付要求沿用原 SBC 订单说明。','SBC completion is included. Add any recommended companions you want separately. Existing SBC order scope, resources and delivery requirements apply.');
+      $('core-mode-help').textContent=state.coreMode==='owned'?t('核心不加入购买清单，也不计入金额。你只购买两位搭档。','Your owned core is excluded. Choose two companions and add them together.'):t('清单包含所选 SBC 代做服务与两张搭档球员卡。服务资源与交付要求沿用原 SBC 订单说明。','SBC completion is added together with your two companions. Existing SBC order scope, resources and delivery requirements apply.');
       const current=route(state.core),pool=scoped([...new Set([...current.picks,...current.alternatives])],'sbc');
-      $('sbc-lineup').innerHTML=card(state.core,{label:t('你的 SBC 核心','YOUR SBC CORE'),fixed:true,owned:state.coreMode==='owned'})+state.companions.map((key,i)=>card(key,{label:t('搭档 '+(i+1),'COMPANION '+(i+1)),fixed:false})).join('');
-      $('sbc-options').innerHTML=state.companions.map((key,i)=>`<div class="fca-companion-picker"><label for="companion-${i}">${escape(t('搭档 '+(i+1)+' · '+current.label.zh,'Companion '+(i+1)+' · '+current.label.en))}</label><select id="companion-${i}" data-companion-slot="${i}" name="companion${i+1}">${pool.map(option=>`<option value="${escape(option)}" ${option===key?'selected':''} ${option===state.companions[1-i]?'disabled':''}>${escape(product(option).title)}</option>`).join('')}</select></div>`).join('')+`<p class="fca-inline-note fca-pairing-note">${escape(t('这是搭配灵感，不承诺满化学。请核对游戏内位置、联赛与现有阵容。','Pairing ideas do not guarantee full chemistry. Check in-game positions, leagues and your existing lineup.'))}</p>`;
-    }else {$('sbc-lineup').innerHTML='';$('sbc-options').innerHTML='';$('product-grid').innerHTML=scoped(state.view==='trio'?config.trio.ids:config.weekly.ids).map((key,i)=>card(key,{label:state.view==='trio'?config.trio.roles[i][state.lang]:config.weekly.edition[state.lang],fixed:false})).join('');}
+      const service=state.coreMode==='service';
+      $('sbc-lineup').innerHTML=card(state.core,{label:t('你的 SBC 核心','YOUR SBC CORE'),fixed:!service,grouped:service,owned:!service,pickerHtml:'<div class="fca-card-picker fca-card-picker-spacer" aria-hidden="true"></div>'})+state.companions.map((key,i)=>card(key,{label:t('搭档 '+(i+1),'COMPANION '+(i+1)),fixed:false,grouped:true,pickerHtml:companionPicker(i,pool)})).join('')+groupBar();
+      $('sbc-options').innerHTML=`<p class="fca-inline-note fca-pairing-note">${escape(t('这是搭配灵感，不承诺满化学。请核对游戏内位置、联赛与现有阵容。','Pairing ideas do not guarantee full chemistry. Check in-game positions, leagues and your existing lineup.'))}</p>`;
+    }else {$('sbc-lineup').innerHTML='';$('sbc-options').innerHTML='';$('product-grid').innerHTML=scoped(state.view==='trio'?config.trio.ids:config.weekly.ids).map((key,i)=>card(key,{label:state.view==='trio'?config.trio.roles[i][state.lang]:config.weekly.edition[state.lang],fixed:false,grouped:state.view==='trio'})).join('')+(state.view==='trio'?groupBar():'');}
     $('bundle-heading').textContent=t('也可以选商店现有阵容包。','Or start with an existing player bundle.');
     $('bundle-grid').innerHTML=scoped(bundleIdsForView()).map(key=>content.bundle(product(key),{lang:state.lang,price:display(offer(key)).text,originalPrice:display(offer(key)).originalText,discountPercent:config.activityPricing?.discountPercent,checked:state.bundles.has(key),platform:state.platform,nativeOffer:offer(key)?.native_offer??null,...imageOptions(key)})).join('');
     const items=selected(),snapshotDate=new Intl.DateTimeFormat(state.lang==='zh'?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',timeZone:'Asia/Shanghai'}).format(new Date(config.capturedAt));$('summary-count').textContent=String(items.length);$('summary-total').textContent=total(items);$('summary-note').textContent=t('精确商品分别列出，已有核心不重复购买；当前展示为 '+snapshotDate+' 公开价格快照。','Exact items are listed separately. Owned cores are excluded. Public price snapshot: '+snapshotDate+'.');$('review-selection').disabled=!items.length||state.busy||state.submitted;
@@ -178,7 +203,7 @@
     if(unavailableSelection)$('summary-note').textContent=t('当前选择含暂不可用商品，请更换平台或搭档后再核对。','Your selection includes an unavailable item. Change platform or companions before continuing.');
     if(live&&!unavailableSelection)$('summary-note').textContent=t('价格来自现售商品，购买前再次确认。原购物车优惠及交付要求继续适用。','Current listed items are rechecked before purchase. Existing cart discounts and delivery requirements apply.');
     $('mobile-summary-total').textContent=items.length+' '+t('项','items')+' · '+total(items);$('mobile-review').textContent=t('核对方案','Review lineup');$('mobile-review').disabled=!items.length||state.busy||state.submitted;
-    root.querySelectorAll('input,select,button[data-view],button[data-toggle-product],button[data-toggle-bundle]').forEach(el=>el.disabled=state.busy||state.submitted||(el.dataset.toggleBundle!==undefined&&!offer(el.dataset.toggleBundle)));
+    root.querySelectorAll('input,select,button[data-view],button[data-toggle-product],button[data-toggle-bundle],button[data-toggle-group]').forEach(el=>el.disabled=state.busy||state.submitted||(el.dataset.toggleBundle!==undefined&&!offer(el.dataset.toggleBundle))||(el.dataset.toggleGroup!==undefined&&!groupEnabled()));
     renderSeo();guards();
     if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算时 10% 优惠券发到账户并在购物车自动使用。','Prices are read live for the selected platform. At checkout a 10% coupon is added to your account and applied in the cart; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
     if(missingNativePrices())$('activity-message').textContent=priceRefreshPending?'Checking current prices from the original store. Items without a current price cannot be purchased.':'Current prices are unavailable. Refresh this page to check again. Items without a current price cannot be purchased.';
@@ -385,6 +410,8 @@
     if(view&&standalone){event.preventDefault();if(pageState(view.dataset.view)!=='active'){render();return;}state.busy=true;render();await publishedConfig(view.dataset.view);state.busy=false;if(pageState(view.dataset.view)!=='active'){render();return;}if(view.tagName==='A'){window.location.href=view.href;return;}}
     if(view){state.view=view.dataset.view;state.bundles.clear();render();warmPrices();signal('view');}
     if(standalone&&pageState(state.view)!=='active'){render();return;}
+    const group=event.target.closest('[data-toggle-group]');
+    if(group&&!group.disabled&&groupEnabled()){const trio=state.view==='trio',set=trio?state.trio:state.chosenCompanions,keys=trio?config.trio.ids:state.companions,all=groupPicked();keys.forEach(key=>all?set.delete(key):set.add(key));render();signal('selection',{ids:selected().map(item=>item.offer.id),action:'group_toggle',includeSbc:state.coreMode==='service'});return;}
     if(pick){const key=pick.dataset.toggleProduct;if(standalone&&!scoped([key]).length)return;const chosen=state.view==='trio'?state.trio:state.view==='sbc'?state.chosenCompanions:state.weekly;chosen.has(key)?chosen.delete(key):chosen.add(key);render();signal('selection',{ids:selected().map(item=>item.offer.id),action:'product_toggle'});}
     if(bundle&&(!standalone||scoped([bundle.dataset.toggleBundle]).length))openReview([offer(bundle.dataset.toggleBundle)]);
   });
