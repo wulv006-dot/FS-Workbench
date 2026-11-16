@@ -33,6 +33,7 @@ from club_panel import CLUBS
 
 MAX_HISTORY = 10
 OFFICIAL_GUILD = 1041923524601851914
+FC_GAME_CHAT = 1200330251016867880
 FC27_WELCOME_URL = ('https://discord.com/channels/1041923524601851914/'
                     '1568663362567413820/1568666884289732751')
 PRICE_INTENT = re.compile(r'\b(?:price|prices|cost|costs|quote|quotes|how\s+much)\b|价格|报价|多少钱', re.I)
@@ -783,6 +784,9 @@ class ChatClient(discord.Client):
         trigger = self.router.route(guild_id, channel_id, message.author.id, False, content,
                                     mentioned_bot=mentioned, replied_to_bot=replied,
                                     in_topic=in_topic)
+        if (trigger is None and guild_id == OFFICIAL_GUILD and
+                channel_id == FC_GAME_CHAT and PRICE_INTENT.search(content)):
+            trigger = 'price'
         if trigger is None:
             return False
         if not self.brain.ready:
