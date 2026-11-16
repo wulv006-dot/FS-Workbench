@@ -1,6 +1,6 @@
 # UnifyFootball 竞猜奖励合作核对单
 
-状态：待取得联系授权并由 UnifyFootball 团队回答；尚未发送，不能视作对方承诺。
+状态：2026-11-16 已获用户授权，通过 UnifyFootball 官网 `/contact` 的 Feature Wanted 表单发送；网页 `POST /api/contact` 返回 HTTP 200、`success: true`、`Your message has been sent!`。表单未给工单号。**等待对方回复，不能视作已提供接口或同意外部奖励。**
 
 MMOEXP Official Club（服务器 `1041923524601851914`）已使用 UnifyPredictions 和 Top Predictors。希望用户继续在 UnifyFootball 内竞猜，在玩家自愿兑换时由 MMOEXP 向本人网站账户发放 FC27 小额优惠券。官网的 [UnifyPredictions](https://unifyfootball-web.com/features/server/fixture-predictions) 和 [排行榜](https://unifyfootball-web.com/features/general/global-leaderboards)介绍了 PP 与榜单，但未列出外部兑奖接口；[UnifyCompetitions](https://unifyfootball-web.com/features/member/unify-competitions)建议非平台代币奖励联系团队。
 
@@ -13,3 +13,5 @@ MMOEXP Official Club（服务器 `1041923524601851914`）已使用 UnifyPredicti
 5. **测试与结算**：是否提供测试服务器/测试事件、重放和改判样例、速率限制、接口稳定性及技术联系人？
 
 若对方只提供“获奖名单”或榜单截图，无法核实稳定身份和防重，不能接自动发券。若提供单次获奖证明但无 PP 扣减，做**每个证明事件至多一次的奖品领取**；若还提供原子扣减，才做累计 PP 兑换。无论哪种，MMOEXP 侧都需再次核实本人网站会员和已验证邮箱，使用固定批次向 Admin 发券，未知回执不重发。
+
+本次联系只提交 MMOEXP Official Club 的服务器 ID、需求与回邮地址；未提交机器人密钥、玩家名单或群内消息。收到答复后先核对接口和数据使用范围，再决定接线方式，不因提交成功重复发同一请求。
