@@ -12,6 +12,7 @@ from matchday_engagement import UNIFY_FOOTBALL_ID
 
 
 LONDON = ZoneInfo('Europe/London')
+DEFAULT_SETTLE_SECONDS = 300
 FIXTURE = re.compile(r'^(.{2,60}?)\s+vs\.?\s+(.{2,60}?)\s+([01]?\d|2[0-3]):([0-5]\d)$', re.I)
 DATE = re.compile(r'^([A-Z][a-z]+ \d{1,2}, \d{4})\s*\(Europe/London\)$')
 CLUB_ALIASES = {
@@ -57,12 +58,14 @@ def validate_config(config, engagement):
     path = config.get('state_path')
     guilds = config.get('guild_ids')
     limit = config.get('weekly_limit', 2)
+    settle = config.get('settle_seconds', DEFAULT_SETTLE_SECONDS)
     routes = (engagement or {}).get('routes') or {}
     if (not isinstance(path, str) or not Path(path).is_absolute() or
             not isinstance(guilds, list) or not 1 <= len(guilds) <= 2 or
             any(not isinstance(g, str) or g not in routes for g in guilds) or
             len(set(guilds)) != len(guilds) or
-            type(limit) is not int or not 1 <= limit <= 4):
+            type(limit) is not int or not 1 <= limit <= 4 or
+            type(settle) is not int or not 0 <= settle <= 900):
         raise ValueError('Invalid matchday focus scope')
     return config
 
@@ -168,7 +171,7 @@ def club_fixtures(slug, fixtures):
 
 
 def parse_choice(answer, count):
-    match = re.fullmatch(r'(?:N\|)?([1-9]|1\d|20)(?:\s*\|\s*[^\n\r@<>]{10,140}\?)?',
+    match = re.fullmatch(r'(?:N\|)?([1-9]\d{0,2})(?:\s*\|\s*[^\n\r@<>]{10,140}\?)?',
                          answer.strip(), re.I)
     if answer.strip() == 'NONE':
         return None
