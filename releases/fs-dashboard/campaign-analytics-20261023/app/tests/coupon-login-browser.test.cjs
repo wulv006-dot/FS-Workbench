@@ -18,7 +18,10 @@ async function openPage(browser,site){
  const {config,snapshot}=fixture(),context=await browser.newContext(),page=await context.newPage();page.setDefaultTimeout(5000);
  page.on('pageerror',e=>site.errors.push(e.message));
  await page.route('**/*',route=>{
-  const req=route.request(),u=new URL(req.url());assert.equal(u.origin,'https://www.mmoexp.com');
+  const req=route.request(),u=new URL(req.url());
+  // Only the avatar fixture lives on the asset host; anything else off-site is a failure.
+  if(u.origin==='https://assets.mmoexp.com'&&u.pathname.startsWith('/avatar/'))return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=','base64')});
+  if(u.origin!=='https://www.mmoexp.com'){site.errors.push('off-site request '+u.origin);return route.abort();}
   if(u.pathname.endsWith('/api/campaign/config'))return route.fulfill({json:snapshot});
   if(u.pathname.endsWith('/api/campaign/capabilities'))return route.fulfill({json:{integration_mode:'preview',live_checkout:false}});
   if(u.pathname==='/ajax/carnival/user')return route.fulfill({json:{code:1,data:{logged_in:site.loggedIn,enabled:true}}});
