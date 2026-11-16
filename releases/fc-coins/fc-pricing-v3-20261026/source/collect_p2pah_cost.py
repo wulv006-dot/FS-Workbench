@@ -73,11 +73,18 @@ READ_ROWS = r"""() => ({
 })"""
 
 READ_ORDER = r"""async (orderId) => {
-  const response = await fetch(`/order/admin_order/look/id/${orderId}.html`, {
-    redirect: 'error', signal: AbortSignal.timeout(8000)
-  });
-  if (!response.ok) return null;
-  const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+  let html;
+  try {
+    const response = await fetch(`/order/admin_order/look/id/${orderId}.html`, {
+      redirect: 'error', signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) return null;
+    html = await response.text();
+  } catch (error) {
+    if (error.name === 'TimeoutError') return {timed_out: true};
+    throw error;
+  }
+  const page = new DOMParser().parseFromString(html, 'text/html');
   const script = [...page.scripts].map(s => s.textContent)
     .map(s => s.match(/^\s*var\s+orderDeliveryData\s*=\s*(\{[^\n]*\});\s*$/m)?.[1]).find(Boolean);
   if (!script) return null;
@@ -143,10 +150,16 @@ def verified_delivery_cost(tab, record, order_cache):
     if not isinstance(order_id, str) or not re.fullmatch(r'\d+', order_id):
         return None
     if order_id not in order_cache:
-        order_cache[order_id] = tab.evaluate(READ_ORDER, order_id)
+        for _ in range(2):
+            detail = tab.evaluate(READ_ORDER, order_id)
+            if detail is None:
+                raise ValueError('cost_order_detail_unavailable')
+            if detail.get('timed_out') is not True:
+                order_cache[order_id] = detail
+                break
+        else:
+            raise ValueError('cost_order_detail_timeout')
     detail = order_cache[order_id]
-    if detail is None:
-        raise ValueError('cost_order_detail_unavailable')
     deliveries = detail['deliveries']
     matches = [delivery for delivery in deliveries if str(delivery['id']) == record['record_id']]
     if len(matches) != 1:
