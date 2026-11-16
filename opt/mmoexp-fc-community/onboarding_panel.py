@@ -1,7 +1,7 @@
 """Compact welcome navigation and opt-in, permissionless FC27 membership."""
 import discord
 
-from club_panel import CLUBS, ClubButton, ClubPanelView, MENTIONS, ROLE_CHANGE_LOCK, club_embed, safe_club_role
+from club_panel import CLUBS, ClubButton, ClubPanelView, MENTIONS, ROLE_CHANGE_LOCK, club_embed, safe_community_role
 
 OFFICIAL_GUILD = 1041923524601851914
 PLAYER_CHANNEL = 1568878333087719454
@@ -117,7 +117,7 @@ class WelcomeButton(discord.ui.Button):
             guild, view = interaction.guild, self.view
             bot = guild.me
             target = guild.get_role(view.community_role_id) if view.community_role_id else None
-            if bot and bot.guild_permissions.manage_roles and safe_club_role(target, bot, guild):
+            if bot and bot.guild_permissions.manage_roles and safe_community_role(target, bot, guild):
                 try:
                     member = await guild.fetch_member(interaction.user.id)
                     if member.id == interaction.user.id and not member.bot:
