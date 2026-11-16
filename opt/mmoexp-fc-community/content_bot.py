@@ -20,6 +20,9 @@ QUOTE_KINDS = ('sbc', 'packs', 'gallery', 'evolutions', 'boosting', 'coins')
 
 
 def validate_config(config):
+    if config.get('order_panel') is not None:
+        from order_panel import validate_order_config
+        validate_order_config(config['order_panel'])
     if config.get('game_picker') is not None:
         from game_picker import validate_game_config
         validate_game_config(config['game_picker'])
@@ -156,10 +159,12 @@ class ContentClient(discord.Client):
         intents = discord.Intents.none()
         intents.guilds = True
         intents.guild_messages = True
+        intents.guild_reactions = bool(config.get('order_panel'))
         intents.message_content = bool((config.get('quote_relay') or {}).get('content_filter', False))
         super().__init__(intents=intents, allowed_mentions=discord.AllowedMentions.none())
         self.tree = app_commands.CommandTree(self)
         self.store = store
+        self.order_panel = None
         self.rate = OrderedDict()
         self.mention_rate = OrderedDict()
         self.config = config
@@ -211,6 +216,11 @@ class ContentClient(discord.Client):
         return routes
 
     async def setup_hook(self):
+        if self.config.get('order_panel') is not None:
+            from order_panel import build_panel
+            self.order_panel = build_panel(self.config['order_panel'], Path(self.store.path).parent,
+                                           self.config.get('quote_presentation'))
+            self.add_view(self.order_panel)
         if self.config.get('game_picker'):
             from game_picker import GamePickerView
             self.add_view(GamePickerView(self.config['game_picker']))
@@ -405,6 +415,12 @@ class ContentClient(discord.Client):
             await self.setup_player_panel()
         if self.config.get('club_panels'):
             await self.setup_club_panels()
+        if self.order_panel is not None:
+            from order_panel import publish_panel
+            try:
+                await publish_panel(self)
+            except Exception as exc:
+                print('Order panel setup failed: ' + type(exc).__name__, flush=True)
 
     async def setup_quote_panel(self):
         from quote_panel import CategoryHomeView, category_embed
@@ -675,6 +691,11 @@ class ContentClient(discord.Client):
         await message.channel.send("Hey! What are we exploring in FUT today? Pick a card below.",
                                    embed=home_embed(), view=FutHomeView(self.store),
                                    allowed_mentions=discord.AllowedMentions.none())
+
+    async def on_raw_reaction_add(self, payload):
+        if self.order_panel is not None:
+            from order_panel import handle_reaction
+            await handle_reaction(self, payload)
 
     async def run_action(self, interaction, action, *args, formatter=str):
         if interaction.guild_id != TEST_GUILD or interaction.channel_id is None or interaction.user.bot:
