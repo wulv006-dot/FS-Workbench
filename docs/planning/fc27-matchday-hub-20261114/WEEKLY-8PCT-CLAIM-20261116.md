@@ -30,6 +30,8 @@
 
 187 隔离验证：生产 FC 内容服务使用的 Python 链接 SQLite `3.7.17`，不支持原先的条件唯一索引。已改为普通 `(week_key, member_id)` 与 `(week_key, recipient_email_hash)` 唯一索引；SQLite 允许多个 `NULL`，仍可约束非空会员/邮箱每周一次。候选文件仅上传至 `/opt/mmoexp-fc-weekly-stage-20261117-c9d22d8`，在生产 Python 环境中私密入口 3 项、资格/邮箱账本 12 项测试通过。未改动服务或生产数据库，Discord 按钮与真实优惠券仍未验收。
 
+2026-11-17 05:00 前再次核对上线来源：187 正在运行的 `/opt/mmoexp-fc-community/content_bot.py` 包含尚未回到当前 `origin/main` 的 `privacy_panel` 命令和内置聊天逻辑；本分支的候选文件与线上相差约 341 行。正式群 API 实际注册了 `/privacy`、`/privacy-delete`、`/price`，测试群另有 `/fc`；线上 `content.config.json` 的内置 `chat_bot` 当前未启用，独立 FC Chat 服务仍在运行。隐私命令来源已定位为 DSH 的 `dsh/fc27-chat-bot-20261113` 分支（引入提交 `dafe15b`），但该分支最新文件与线上并非同一 blob。整文件替换会删除仍在用的隐私命令，因此**没有**把本草稿部署到运行服务或打开测试群领奖入口。后续由该分支负责人先核对线上差异并回灌，或在活动版本中明确合并其已运行的隐私增量；本任务只接周领奖增量，保持现有命令可用，再执行测试群真实 Discord 验收。
+
 ## 接线顺序与验收
 
 1. 在 Admin Web 预建或从已授权的 187 自动创建**当周独立券模板**，只读核对 `mode_type=2/reduce=92`、`max_reduce=0`、`time_effect=2/days=7`、`site_id=266/game_id=1327`、`limit_qty=30/repeat_qty=1`、`attain=0`、`is_open=0`。`is_open=0` 表示不叠加主站折扣码，**不是券的启停开关**；启停字段为 `status`。2026-11-17 从 187 现有 Admin 代理只读读回本周券 `1397`：`status=0`（禁用）、`is_open=0`、`limit_qty=30`、`repeat_qty=1`、`mode_type=2`、`reduce=92.00`、`days=7`、`site_id=266`、`game_id=1327`。代码签发资格时要求 `status=1` 并锁定详情指纹；资格/入口未接牢前保持 `status=0`，日后启用后再签发，不能先在禁用状态签发后改变状态。现有 1395 是 10% 券；1387/1385 是历史试券，均不能复用。187 身份的 `market/coupon/add` 当前权限须重新核对，不能凭浏览器管理员权限推断。
