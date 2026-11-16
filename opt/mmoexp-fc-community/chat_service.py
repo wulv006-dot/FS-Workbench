@@ -150,6 +150,9 @@ class ChatClient(discord.Client):
     async def setup_hook(self):
         self.pulse_lock = asyncio.Lock()
         self.focus_lock = asyncio.Lock()
+        # The client is constructed before discord.py starts its event loop.
+        # Recreate the gate on the loop that runs the background worker.
+        self.focus_recovered = asyncio.Event()
         await self.add_commands()
         route = (self.matchday_config or {}).get('routes', {}).get(str(OFFICIAL_GUILD))
         if route and self.matchday_config.get('enabled'):
@@ -164,6 +167,7 @@ class ChatClient(discord.Client):
             self.topic_task = asyncio.create_task(self.run_topics())
         if self.matchday_store is not None and not self.post_topic_now:
             self.followup_task = asyncio.create_task(self.run_followups())
+            print('Matchday worker scheduled', flush=True)
 
     async def on_ready(self):
         print('FC chat ready guilds={}'.format([guild.id for guild in self.guilds]), flush=True)
@@ -173,6 +177,17 @@ class ChatClient(discord.Client):
                 await self.recover_daily_card()
         finally:
             self.focus_recovered.set()
+            if self.followup_task is None:
+                worker_state = 'missing'
+            elif self.followup_task.cancelled():
+                worker_state = 'cancelled'
+            elif self.followup_task.done():
+                worker_error = self.followup_task.exception()
+                worker_state = 'failed:{}:{}'.format(
+                    type(worker_error).__name__, str(worker_error)[:200])
+            else:
+                worker_state = 'pending'
+            print('Matchday recovery released worker task={}'.format(worker_state), flush=True)
 
     async def recover_daily_card(self, schedule_retry=True):
         """A same-day Unify card can still be used after a bot restart."""
@@ -612,8 +627,8 @@ class ChatClient(discord.Client):
                           type(exc).__name__, flush=True)
 
     async def run_followups(self):
-        await self.wait_until_ready()
         await self.focus_recovered.wait()
+        print('Matchday worker ready', flush=True)
         while not self.is_closed():
             try:
                 await self.send_pending_pulses_due()
