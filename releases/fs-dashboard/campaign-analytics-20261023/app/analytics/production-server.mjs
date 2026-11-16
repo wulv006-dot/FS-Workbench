@@ -8,6 +8,7 @@ import {randomBytes} from 'node:crypto';
 import {report} from './server.mjs';
 import {reportContext} from './report-context.mjs';
 import {makeDiscountRevenue} from './discount-revenue.mjs';
+import {makeCouponUsage} from './coupon-usage.mjs';
 import {makeOriginTraffic} from './origin-traffic.mjs';
 import {makeGoogleTraffic} from './google-traffic.mjs';
 import {readStatisticsSnapshot} from './statistics-refresh.mjs';
@@ -36,7 +37,7 @@ vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8')
 const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path.join(base,'catalog.json'),'utf8'));
 const prefix=process.env.CAMPAIGN_PREFIX||'/dashboard/analytics/campaigns/',origin=process.env.CAMPAIGN_ORIGIN||'https://47.85.224.112',dir=process.env.CAMPAIGN_DATA||'/var/lib/fs-campaign-dashboard';
 const store=makeStore(dir,catalog,cfg.registry),secretFile=path.join(dir,'posthog-secret.json'),csrf=randomBytes(32).toString('hex');
-const discountRevenue=makeDiscountRevenue();
+const discountRevenue=makeDiscountRevenue(),couponUsage=makeCouponUsage();
 const originTraffic=makeOriginTraffic();
 const googleTraffic=makeGoogleTraffic();
 const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal/campaign-data.js'),'utf8'),seasonalBox);
@@ -234,6 +235,7 @@ export const server=http.createServer(async(req,res)=>{
    return json(res,200,{...readStatisticsSnapshot({directory:path.join(dir,'statistics-refresh'),published,kind:url.searchParams.get('kind'),activity:url.searchParams.get('activity')||'mmoexp-seasonal'}),context:reportContext(publicDir,url.searchParams.get('activity')||'mmoexp-seasonal')});
   }
   if(relative==='analytics/api/discount-revenue'){const result=await discountRevenue(url.searchParams);return json(res,result.status,result.body);}
+  if(relative==='analytics/api/coupon-usage'){const result=await couponUsage(url.searchParams);return json(res,result.status,result.body);}
   if(relative==='analytics/api/origin-traffic')return json(res,200,await originTraffic(url.searchParams));
   if(relative==='analytics/api/google-traffic')return json(res,200,await googleTraffic(url.searchParams));
   if(relative==='analytics/api/report'){const state=store.read();const result=await report(url.searchParams,{token:secret(),project:cfg.projectId,registry:state.registry,revision:state.revision,context:reportContext(publicDir,url.searchParams.get('activity')||'mmoexp-seasonal')});return json(res,result.status,result.body);}
