@@ -1,11 +1,12 @@
 import datetime as dt
+import json
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from matchday_focus import (FocusStore, is_empty_daily_card, parse_choice,
+from matchday_focus import (DailyFixture, FocusStore, club_fixtures, is_empty_daily_card, parse_choice,
                             parse_daily_card, validate_config)
 
 
@@ -95,6 +96,23 @@ class FocusTests(unittest.TestCase):
             ('Spain', 'England', 'Nations League - League A')])
         self.assertEqual(parse_daily_card(v2_card(), ROUTE, NOW + dt.timedelta(days=1)), [])
 
+    def test_my_club_uses_today_only_and_exact_team_aliases(self):
+        evening = NOW + dt.timedelta(hours=8)
+        self.assertEqual(parse_daily_card(card(), ROUTE, evening), [])
+        self.assertEqual(len(parse_daily_card(card(), ROUTE, evening,
+                                              include_started=True)), 4)
+        self.assertEqual(parse_daily_card(card(), ROUTE, evening + dt.timedelta(days=1),
+                                          include_started=True), [])
+        fixtures = [
+            DailyFixture('Manchester City', 'Chelsea', 'Premier League', NOW, 'https://example.com/1'),
+            DailyFixture('Inter Milan', 'Juventus', 'Serie A', NOW, 'https://example.com/2'),
+            DailyFixture('Paris Saint-Germain', 'Lyon', 'Ligue 1', NOW, 'https://example.com/3'),
+        ]
+        self.assertEqual(club_fixtures('man_city', fixtures), fixtures[:1])
+        self.assertEqual(club_fixtures('milan', fixtures), [])
+        self.assertEqual(club_fixtures('inter', fixtures), fixtures[1:2])
+        self.assertEqual(club_fixtures('psg', fixtures), fixtures[2:])
+
     def test_daily_card_keeps_each_league_heading(self):
         message = card()
         message.embeds[0].fields = [
@@ -158,6 +176,64 @@ class FocusTests(unittest.TestCase):
 
 
 class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_my_club_button_reads_current_role_and_replies_privately(self):
+        from chat_service import ChatClient, OFFICIAL_GUILD
+
+        official_route = dict(ROUTE, source_channel_id=1571043454136484082,
+                              discussion_channel_id=1571043570268242014)
+        config = {
+            'chat_bot': {'enabled': True, 'allow_message_content': True,
+                         'routes': {str(OFFICIAL_GUILD): {'channels': {
+                             str(official_route['discussion_channel_id']): {}}, 'keywords': []}}},
+            'matchday_engagement': {'enabled': True,
+                'routes': {str(OFFICIAL_GUILD): official_route}},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            config['matchday_engagement']['state_path'] = str(Path(directory) / 'pulse.sqlite3')
+            client = ChatClient(config)
+            view = client.build_matchday_intro_view(official_route)
+            self.assertTrue(view.is_persistent())
+            client.add_view(view)
+            button = next(item for item in view.children if item.custom_id == 'fc:matchday:my-club')
+            self.assertEqual(len(view.children), 5)
+
+            role_id = 1571600000000000011
+            member = SimpleNamespace(id=7, bot=False, roles=[SimpleNamespace(id=role_id)])
+            guild = SimpleNamespace(id=OFFICIAL_GUILD,
+                                    fetch_member=AsyncMock(return_value=member))
+            interaction = SimpleNamespace(guild_id=OFFICIAL_GUILD,
+                channel_id=official_route['discussion_channel_id'], guild=guild,
+                user=SimpleNamespace(id=7),
+                response=SimpleNamespace(defer=AsyncMock(), send_message=AsyncMock()),
+                followup=SimpleNamespace(send=AsyncMock()))
+            match = DailyFixture('Manchester City', 'Chelsea', 'Premier League', NOW,
+                                 'https://discord.com/channels/1041923524601851914/1571043454136484082/123')
+
+            async def history(limit):
+                self.assertEqual(limit, 50)
+                yield card()
+
+            channel = SimpleNamespace(id=official_route['source_channel_id'],
+                                      guild=guild, history=history)
+            client.get_channel = lambda channel_id: channel
+            club_config = json.dumps({'club_panels': {'guild_id': OFFICIAL_GUILD,
+                                      'role_ids': {'man_city': role_id}}})
+            with patch('chat_service.Path.read_text', return_value=club_config), \
+                    patch('chat_service.discord.utils.utcnow', return_value=NOW), \
+                    patch('chat_service.matchday_focus.parse_daily_card', return_value=[match]):
+                await button.callback(interaction)
+            response = interaction.followup.send.await_args
+            self.assertTrue(response.kwargs['ephemeral'])
+            self.assertIn('Manchester City vs Chelsea', response.args[0])
+            self.assertEqual(response.kwargs['view'].children[0].url, match.source_url)
+
+            member.roles = []
+            with patch('chat_service.Path.read_text', return_value=club_config):
+                await button.callback(interaction)
+            response = interaction.followup.send.await_args
+            self.assertIn('Choose one club', response.args[0])
+            await client.close()
+
     async def test_restart_clears_existing_empty_card_even_after_focus_decision(self):
         from chat_service import ChatClient
 

@@ -27,8 +27,11 @@ import chat_panel
 import chat_schedule
 import matchday_engagement
 import matchday_focus
+from club_panel import CLUBS
 
 MAX_HISTORY = 10
+OFFICIAL_GUILD = 1041923524601851914
+CLUB_LABELS = {slug: label for section in CLUBS.values() for slug, label in section}
 
 HOW_TO_CHAT = ('\u2022 @ me in a normal message\n'
                '\u2022 reply to this card\n'
@@ -69,6 +72,21 @@ def validate_config(config):
 
 def guild_ids(chat_config):
     return [int(guild) for guild in chat_config['routes']]
+
+
+class MyClubButton(discord.ui.Button):
+    def __init__(self, client, route):
+        super().__init__(label='My club today', emoji='📅',
+                         custom_id='fc:matchday:my-club', style=discord.ButtonStyle.secondary)
+        self.client, self.route = client, route
+
+    async def callback(self, interaction):
+        if (interaction.guild_id != OFFICIAL_GUILD or
+                interaction.channel_id != self.route['discussion_channel_id']):
+            await interaction.response.send_message('Open this in FC27 Match Chat.', ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        await self.client.show_my_club(interaction, self.route)
 
 
 class ChatClient(discord.Client):
@@ -112,6 +130,7 @@ class ChatClient(discord.Client):
         self.focus_store = None
         self.focus_lock = asyncio.Lock()
         self.focus_retry_task = None
+        self.matchday_intro_view = None
         if self.matchday_config and self.matchday_config['enabled']:
             self.matchday_store = matchday_engagement.MatchPulseStore(
                 self.matchday_config.get('state_path') or
@@ -124,6 +143,10 @@ class ChatClient(discord.Client):
         self.pulse_lock = asyncio.Lock()
         self.focus_lock = asyncio.Lock()
         await self.add_commands()
+        route = (self.matchday_config or {}).get('routes', {}).get(str(OFFICIAL_GUILD))
+        if route and self.matchday_config.get('enabled'):
+            self.matchday_intro_view = self.build_matchday_intro_view(route)
+            self.add_view(self.matchday_intro_view)
         for guild_id in guild_ids(self.chat_config):
             await self.tree.sync(guild=discord.Object(guild_id))
         targets = chat_panel.topic_targets(self.chat_config)
@@ -175,32 +198,22 @@ class ChatClient(discord.Client):
                 print('Matchday focus recovery unavailable: ' + type(exc).__name__, flush=True)
 
     async def setup_matchday_intro(self):
-        route = (self.matchday_config or {}).get('routes', {}).get('1041923524601851914')
+        route = (self.matchday_config or {}).get('routes', {}).get(str(OFFICIAL_GUILD))
         if not route or not (self.matchday_config or {}).get('enabled'):
             return
         channel = self.get_channel(route['discussion_channel_id'])
-        if channel is None or channel.guild.id != 1041923524601851914:
+        if channel is None or channel.guild.id != OFFICIAL_GUILD:
             print('Matchday intro channel unavailable', flush=True)
             return
         match_source = 'UnifyFootball'
         embed = discord.Embed(
             title='🏟️ FC27 Matchday Lounge',
             description=('Follow live football and predictions with **{}** in Matchday. '
-                         'Talk fixtures, goals and players here. Choose your club in Welcome; '
+                         'Talk fixtures, goals and players here. Pick a club in Welcome, then tap '
+                         '**My club today**; '
                          'MMOEXP FC Assistant handles private FUT price checks.').format(match_source),
             colour=0x2275E8)
-        view = discord.ui.View(timeout=None)
-        for label, target in (
-                ('Live matches', route['source_channel_id']),
-                ('FC27 Players', route['players_channel_id']),
-                ('FC27 Coins', route['coins_channel_id']),
-                ('Choose a club', 1568663362567413820)):
-            view.add_item(discord.ui.Button(label=label,
-                url='https://discord.com/channels/1041923524601851914/{}'.format(target)))
-        view.add_item(discord.ui.Button(
-            label='🏆 Leaderboard',
-            url='https://discord.com/channels/1041923524601851914/'
-                '1571043454136484082/1571686702513266708'))
+        view = self.matchday_intro_view or self.build_matchday_intro_view(route)
         marker = Path(__file__).parent / 'var' / 'matchday-intro.json'
         try:
             if marker.exists():
@@ -214,6 +227,70 @@ class ChatClient(discord.Client):
                 temporary.replace(marker)
         except (discord.DiscordException, OSError, ValueError, KeyError) as exc:
             print('Matchday intro failed: ' + type(exc).__name__, flush=True)
+
+    def build_matchday_intro_view(self, route):
+        view = discord.ui.View(timeout=None)
+        for label, target in (
+                ('Live matches', route['source_channel_id']),
+                ('FC27 Players', route['players_channel_id']),
+                ('FC27 Coins', route['coins_channel_id'])):
+            view.add_item(discord.ui.Button(label=label,
+                url='https://discord.com/channels/{}/{}'.format(OFFICIAL_GUILD, target)))
+        view.add_item(MyClubButton(self, route))
+        view.add_item(discord.ui.Button(
+            label='🏆 Leaderboard',
+            url='https://discord.com/channels/1041923524601851914/'
+                '1571043454136484082/1571686702513266708'))
+        return view
+
+    async def show_my_club(self, interaction, route):
+        links = discord.ui.View(timeout=None)
+        try:
+            # Read current role IDs from the owner bot so a club switch needs no second config edit.
+            config = json.loads((Path(__file__).parent / 'content.config.json').read_text(encoding='utf-8'))
+            clubs = config['club_panels']
+            if clubs['guild_id'] != OFFICIAL_GUILD:
+                raise ValueError('Club route unavailable')
+            member = await interaction.guild.fetch_member(interaction.user.id)
+            if member.id != interaction.user.id or member.bot:
+                raise ValueError('Member unavailable')
+            held = {role.id for role in member.roles}
+            selected = [slug for slug, role_id in clubs['role_ids'].items()
+                        if slug in CLUB_LABELS and role_id in held]
+            if len(selected) != 1:
+                text = 'Choose one club in FC27 Welcome first.'
+                links.add_item(discord.ui.Button(label='Choose a club', url=
+                    'https://discord.com/channels/{}/1568663362567413820'.format(OFFICIAL_GUILD)))
+            else:
+                slug = selected[0]
+                channel = self.get_channel(route['source_channel_id'])
+                if channel is None or channel.guild.id != OFFICIAL_GUILD:
+                    raise ValueError('Matchday channel unavailable')
+                now = discord.utils.utcnow()
+                fixtures = []
+                async for message in channel.history(limit=50):
+                    fixtures.extend(matchday_focus.parse_daily_card(
+                        message, route, now, include_started=True))
+                matches = sorted(matchday_focus.club_fixtures(slug, fixtures),
+                                 key=lambda fixture: fixture.kickoff)
+                if matches:
+                    match = matches[0]
+                    text = '**{} today** · {} vs {} · {} · <t:{}:t>'.format(
+                        CLUB_LABELS[slug], match.home, match.away, match.competition,
+                        int(match.kickoff.timestamp()))
+                    links.add_item(discord.ui.Button(label='Open match card', url=match.source_url))
+                elif fixtures:
+                    text = 'No {} fixture in today’s Matchday cards.'.format(CLUB_LABELS[slug])
+                else:
+                    text = 'No fixtures available in today’s Matchday feed.'
+                links.add_item(discord.ui.Button(label='All matches', url=
+                    'https://discord.com/channels/{}/{}'.format(
+                        OFFICIAL_GUILD, route['source_channel_id'])))
+        except (discord.DiscordException, OSError, ValueError, KeyError) as exc:
+            print('Matchday club lookup unavailable: ' + type(exc).__name__, flush=True)
+            text, links = 'Matchday is unavailable right now. Try again shortly.', None
+        await interaction.followup.send(text, view=links, ephemeral=True,
+                                        allowed_mentions=discord.AllowedMentions.none())
 
     async def close(self):
         for task in (self.topic_task, self.followup_task, self.focus_retry_task):
