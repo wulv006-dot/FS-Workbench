@@ -254,6 +254,35 @@ class CostInputs(unittest.TestCase):
             blocked = run([source], revisions=[invalid], **options)
             self.assertIn('upper_below_known_partial', blocked['gaps'])
 
+    def test_completed_single_million_delivery_keeps_its_original_cny_total(self):
+        orders = list(rows_for([2, 3, 4], quantity='2000K Coins + 60K Free x1 = $160'))
+        source = attachment(orders)
+        data = facts(orders, cost='824', delivery_fields=dict(qty='2060', gift='0', cost_unit='.40'))
+        old = data['orders'][-1]
+        old['observed_cost_cny'] = '865.20'
+        old['cost_records'][0].update(quantity='2.06', cost_unit_cny='420', cost_cny='865.20')
+        before = deepcopy(data)
+        options = dict(rate=fx(), basis='PROMISED_DELIVERED_K', ordinary_forecast=True)
+        proven = run([source], revisions=[data], **options)
+        self.assertEqual(proven['status'], 'calculated', proven['gaps'])
+        self.assertEqual(proven['selected_window']['ordinary_delivery_orders'], 3)
+        self.assertAlmostEqual(proven['diagnostic_estimate']['stress_unit_usd'], Decimal('.42') / 7)
+        self.assertEqual(data, before)
+
+        for incomplete, split in ((True, False), (False, True)):
+            with self.subTest(incomplete=incomplete, split=split):
+                unsafe = deepcopy(data)
+                order = unsafe['orders'][-1]
+                if incomplete:
+                    order['status'] = '处理中'
+                if split:
+                    order['cost_records'].append(dict(order['cost_records'][0],
+                        cost_record_id='balancing-record', quantity='2057.94',
+                        cost_unit_cny='0.00001', cost_cny='.02'))
+                    order['observed_cost_cny'] = '865.22'
+                blocked = run([source], revisions=[unsafe], **options)
+                self.assertIn('upper_below_known_partial', blocked['gaps'])
+
     def test_attachment_amount_is_cny_observation_and_never_rewrites_actuals(self):
         orders = list(rows_for([1]))
         original = attachment(orders, cost='70')

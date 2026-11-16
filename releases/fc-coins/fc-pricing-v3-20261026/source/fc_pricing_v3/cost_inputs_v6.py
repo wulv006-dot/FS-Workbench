@@ -229,11 +229,13 @@ def _facts(revisions, as_of):
                           shipment_window_complete=proof.get('shipment_window_complete') is True)
 
 
-def _delivery_quantity_evidence(records, purchase, bonus):
+def _delivery_quantity_evidence(records, purchase, bonus, *, completed_ordinary=False):
     """Corroborate a historical Coins quantity without inferring it from a CNY total."""
     if not records or purchase is None or bonus is None:
         return 'unverified'
+    promised = purchase + bonus
     total_quantity = Decimal(0)
+    million_quantity = False
     for record in records:
         quantity = _number(record.get('quantity'))
         gift = _number(record.get('gift'), zero=True)
@@ -246,9 +248,13 @@ def _delivery_quantity_evidence(records, purchase, bonus):
         if gift or abs(quantity * unit_cost - cost) > Decimal('.01'):
             return 'unverified'
         total_quantity += quantity
-    if total_quantity == purchase + bonus:
+        million_quantity |= quantity * 1000 == promised
+    # An old OMS entry can coexist with a balancing shipment that only makes the raw sum look correct.
+    if million_quantity and len(records) > 1:
+        return 'unverified'
+    if total_quantity == promised or (completed_ordinary and million_quantity):
         return 'matches_promised_delivered_k'
-    if total_quantity > purchase + bonus:
+    if total_quantity > promised:
         return 'exceeds_promised_delivered_k'
     return 'unverified'
 
@@ -321,7 +327,8 @@ def _window(rows, layer, quantity_basis, *, start, end, proof, source_available,
                 gaps['order_facts_paid_time_mismatch'] += 1
             elif d2_observed is not None and (observed is None or d2_generated >= source_at or d2_observed == observed):
                 actual, observed = (None if ordinary_forecast else d2_actual), d2_observed
-                quantity_evidence = _delivery_quantity_evidence(d2_records, purchase, bonus)
+                quantity_evidence = _delivery_quantity_evidence(d2_records, purchase, bonus,
+                    completed_ordinary=ordinary_forecast and ordinary_complete)
                 delivery_quantities[quantity_evidence] += 1
                 exact_quantity = quantity_evidence == 'matches_promised_delivered_k'
                 completed_overdelivery = ordinary_complete and quantity_evidence == 'exceeds_promised_delivered_k'
