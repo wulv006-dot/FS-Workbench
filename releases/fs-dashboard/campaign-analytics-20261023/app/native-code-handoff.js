@@ -221,7 +221,19 @@
     if(!target||target.protocol!=='https:')return {state:'rejected',message:loginMessage(json)};
     return {state:'redirect',url:target.href};
   }
-  async function claimActivityCoupon({pageId,origin=root.location?.origin,fetchImpl=root.fetch?.bind(root)}={}){
+  // One activity coupon per account per 24h across the three pages (2026-11-16 user
+  // rule). The carnival API exposes no claim time, so this browser remembers the last
+  // grant per uid and hands that same coupon to the cart instead of claiming again.
+  // Client-side only: the binding limit must also be enforced in /ajax/carnival/claim.
+  const CLAIM_COOLDOWN_MS=24*60*60*1000,CLAIM_LEDGER_KEY='fs-fc27-coupon-claims-v1';
+  function claimLedger(storage){
+    return {
+      read(uid){try{const all=JSON.parse(storage?.getItem(CLAIM_LEDGER_KEY)||'{}'),row=all?.[uid];return row&&Number.isSafeInteger(row.member_coupon_id)&&row.member_coupon_id>0&&Number.isFinite(row.at)?row:null;}catch{return null;}},
+      write(uid,row){try{let all={};try{all=JSON.parse(storage.getItem(CLAIM_LEDGER_KEY)||'{}')||{};}catch{}all[uid]=row;storage.setItem(CLAIM_LEDGER_KEY,JSON.stringify(all));}catch{}}
+    };
+  }
+  const defaultStorage=()=>{try{return root.localStorage;}catch{return null;}};
+  async function claimActivityCoupon({pageId,origin=root.location?.origin,fetchImpl=root.fetch?.bind(root),storage=defaultStorage(),now=Date.now(),cooldownMs=CLAIM_COOLDOWN_MS}={}){
     const slot=COUPON_SLOTS[pageId];
     if(!slot||origin!=='https://www.mmoexp.com'||typeof fetchImpl!=='function')return {state:'unavailable'};
     const call=async(path,body)=>{
@@ -239,6 +251,13 @@
     if(listed.logged_in!==true)return {state:'login_required',slot};
     const coupons=(Array.isArray(listed.list)?listed.list:[]).filter(c=>Number.isSafeInteger(c?.coupon_id)&&c.coupon_id>0&&c.can_claim===true);
     if(!coupons.length)return {state:'unavailable'};
+    // Without a confirmed uid the cooldown cannot be keyed; claim as before.
+    let uid=null;try{const user=await call('/ajax/carnival/user');if(user.logged_in===true&&Number.isSafeInteger(Number(user.uid))&&Number(user.uid)>0)uid=String(Number(user.uid));}catch{}
+    const ledger=claimLedger(storage),last=uid?ledger.read(uid):null;
+    if(last&&now-last.at>=0&&now-last.at<cooldownMs){
+      // Same coupon again: the cart selects it if still unused; once used, no new one until the window ends.
+      return {state:'claimed',slot,reused:true,next_claim_at:last.at+cooldownMs,coupons:[{coupon_id:last.coupon_id,member_coupon_id:last.member_coupon_id}]};
+    }
     const claimed=[];
     for(const coupon of coupons){
       // Single POST, no retry: an unknown claim falls back to the code path.
@@ -246,6 +265,7 @@
       if(data.claim_status!=='claimed'||data.coupon_id!==coupon.coupon_id||!Number.isSafeInteger(data.member_coupon_id)||data.member_coupon_id<=0)fail('COUPON_CLAIM_UNCONFIRMED');
       claimed.push({coupon_id:data.coupon_id,member_coupon_id:data.member_coupon_id});
     }
+    if(uid&&claimed.length)ledger.write(uid,{coupon_id:claimed[0].coupon_id,member_coupon_id:claimed[0].member_coupon_id,at:now});
     return {state:'claimed',slot,coupons:claimed};
   }
   // Compose the existing native batch and native code consumer. The caller must
@@ -406,5 +426,5 @@
       });
     }};
   }
-  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard,claimActivityCoupon,COUPON_SLOTS,mainSiteLogin,socialLoginUrl,mainSiteAccount,takeSocialLoginToken,adoptSocialLogin,LOGIN_PROVIDERS};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
+  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard,claimActivityCoupon,COUPON_SLOTS,mainSiteLogin,socialLoginUrl,mainSiteAccount,takeSocialLoginToken,adoptSocialLogin,LOGIN_PROVIDERS,CLAIM_COOLDOWN_MS};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
 })(typeof globalThis==='undefined'?this:globalThis);
