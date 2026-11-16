@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import discord
 
 TEST_GUILD = 1565922092518613064
+OFFICIAL_GUILD = 1041923524601851914
 
 
 class Provider:
@@ -25,6 +26,27 @@ class Provider:
 
 
 class QuotePanelTests(unittest.IsolatedAsyncioTestCase):
+    async def test_official_quote_cards_require_an_fc_role_but_remain_visible(self):
+        from quote_panel import CategoryHomeView, FC_ROLE_IDS, FC_WELCOME_CHANNEL
+
+        channel = 987654321
+        home = CategoryHomeView(self.provider, 'sbc', allowed_routes={OFFICIAL_GUILD: {channel: 'sbc'}})
+        newcomer = self.interaction(guild=OFFICIAL_GUILD)
+        newcomer.channel_id = channel
+        self.assertFalse(await home.interaction_check(newcomer))
+        self.assertIn(f'<#{FC_WELCOME_CHANNEL}>', newcomer.response.send_message.await_args.args[0])
+        self.assertTrue(newcomer.response.send_message.await_args.kwargs['ephemeral'])
+        for role_id in FC_ROLE_IDS:
+            with self.subTest(role_id=role_id):
+                member = self.interaction(guild=OFFICIAL_GUILD)
+                member.channel_id = channel
+                member.user.roles = [SimpleNamespace(id=role_id)]
+                self.assertTrue(await home.interaction_check(member))
+        staff = self.interaction(guild=OFFICIAL_GUILD)
+        staff.channel_id = channel
+        staff.user.guild_permissions = SimpleNamespace(administrator=True)
+        self.assertTrue(await home.interaction_check(staff))
+
     async def test_hub_buttons_open_private_category_quotes_only_in_the_hub(self):
         from quote_panel import HubHomeView, HUB_KINDS
 
