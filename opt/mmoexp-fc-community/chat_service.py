@@ -31,6 +31,8 @@ from club_panel import CLUBS
 
 MAX_HISTORY = 10
 OFFICIAL_GUILD = 1041923524601851914
+FC27_WELCOME_URL = ('https://discord.com/channels/1041923524601851914/'
+                    '1568663362567413820/1568666884289732751')
 CLUB_LABELS = {slug: label for section in CLUBS.values() for slug, label in section}
 
 HOW_TO_CHAT = ('\u2022 @ me in a normal message\n'
@@ -252,6 +254,7 @@ class ChatClient(discord.Client):
             label='🏆 Leaderboard',
             url='https://discord.com/channels/1041923524601851914/'
                 '1571043454136484082/1571686702513266708'))
+        view.add_item(discord.ui.Button(label='👋 Join FC27 to chat', url=FC27_WELCOME_URL))
         return view
 
     async def show_my_club(self, interaction, route):
@@ -473,6 +476,9 @@ class ChatClient(discord.Client):
             view.add_item(discord.ui.Button(label='Build your FC27 XI', url=
                 'https://discord.com/channels/{}/{}'.format(
                     message.guild.id, route['players_channel_id'])))
+            if message.guild.id == OFFICIAL_GUILD:
+                view.add_item(discord.ui.Button(label='👋 Join FC27 to chat',
+                                                url=FC27_WELCOME_URL))
             try:
                 sent = await channel.send(embed=embed, view=view, nonce=selected_source_id,
                                           allowed_mentions=discord.AllowedMentions.none())

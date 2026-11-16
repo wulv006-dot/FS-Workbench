@@ -302,7 +302,9 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(view.is_persistent())
             client.add_view(view)
             button = next(item for item in view.children if item.custom_id == 'fc:matchday:my-club')
-            self.assertEqual(len(view.children), 5)
+            self.assertEqual(len(view.children), 6)
+            join = next(item for item in view.children if item.label == '👋 Join FC27 to chat')
+            self.assertTrue(join.url.endswith('/1568663362567413820/1568666884289732751'))
 
             role_id = 1571600000000000011
             member = SimpleNamespace(id=7, bot=False, roles=[SimpleNamespace(id=role_id)])
