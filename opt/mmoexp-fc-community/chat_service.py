@@ -15,6 +15,7 @@ import datetime as dt
 import json
 import os
 import random
+import re
 import sys
 import time
 from dataclasses import replace
@@ -34,12 +35,35 @@ MAX_HISTORY = 10
 OFFICIAL_GUILD = 1041923524601851914
 FC27_WELCOME_URL = ('https://discord.com/channels/1041923524601851914/'
                     '1568663362567413820/1568666884289732751')
+PRICE_INTENT = re.compile(r'\b(?:price|prices|cost|costs|quote|quotes|how\s+much)\b|价格|报价|多少钱', re.I)
+QUOTE_DESTINATIONS = (
+    (re.compile(r'\bcoins?\b|金币', re.I), 'Coins', '1568663210901504041'),
+    (re.compile(r'\bplayers?\b|球员', re.I), 'Players', '1568878333087719454'),
+    (re.compile(r'\bsbcs?\b', re.I), 'SBC', '1301379787696377926'),
+    (re.compile(r'\b(?:packs?|evos?|evolutions?|objectives?|obj|gallery|boosting)\b|进化|代练|收藏馆', re.I),
+     'OBJ & Packs', '1571045541922611200'),
+)
 CLUB_LABELS = {slug: label for section in CLUBS.values() for slug, label in section}
 
 HOW_TO_CHAT = ('\u2022 @ me in a normal message\n'
                '\u2022 reply to this card\n'
                '\u2022 or type /chat followed by your question\n'
                '\u2022 keywords work too: SBC, squad, pack, evo')
+
+
+def quote_link_view(guild_id, text):
+    """Offer a live private quote entry only for explicit price questions."""
+    if guild_id != OFFICIAL_GUILD or not PRICE_INTENT.search(text):
+        return None
+    label, url = 'FC27 prices', FC27_WELCOME_URL
+    for pattern, category, channel_id in QUOTE_DESTINATIONS:
+        if pattern.search(text):
+            label = category + ' prices'
+            url = 'https://discord.com/channels/{}/{}'.format(OFFICIAL_GUILD, channel_id)
+            break
+    view = discord.ui.View(timeout=None)
+    view.add_item(discord.ui.Button(label='Check ' + label, url=url))
+    return view
 
 
 def load_config(path):
@@ -780,6 +804,9 @@ class ChatClient(discord.Client):
         self.history[channel_id] = history[-MAX_HISTORY:]
         sticker = self.sticker_for(getattr(message, 'guild', None), answer)
         extra = {'stickers': [sticker]} if sticker is not None else {}
+        quote_view = quote_link_view(guild_id, content)
+        if quote_view is not None:
+            extra['view'] = quote_view
         await message.reply(answer[:1900],
                             mention_author=True,
                             allowed_mentions=discord.AllowedMentions(users=[message.author]),
@@ -811,6 +838,9 @@ class ChatClient(discord.Client):
         self.history[interaction.channel_id] = history[-MAX_HISTORY:]
         sticker = self.sticker_for(getattr(interaction, 'guild', None), answer)
         extra = {'stickers': [sticker]} if sticker is not None else {}
+        quote_view = quote_link_view(interaction.guild_id, text)
+        if quote_view is not None:
+            extra['view'] = quote_view
         await interaction.followup.send('<@{}> {}'.format(interaction.user.id, answer), **extra)
 
     async def do_drop(self, interaction):
