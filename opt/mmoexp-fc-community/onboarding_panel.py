@@ -8,10 +8,12 @@ PLAYER_CHANNEL = 1568878333087719454
 SBC_CHANNEL = 1301379787696377926
 HUB_CHANNEL = 1571045541922611200
 MATCHDAY_CHANNEL = 1571043454136484082
+MATCH_CHAT_CHANNEL = 1571043570268242014
 CHANNELS = {
     'news': (('📰 Latest news', 1501757710381748254),),
     'daily': (('⚽ Players', PLAYER_CHANNEL), ('🧩 SBCs', SBC_CHANNEL),
-              ('🎒 Objectives & packs', HUB_CHANNEL), ('📅 Matchday', MATCHDAY_CHANNEL)),
+              ('🎒 Objectives & packs', HUB_CHANNEL), ('📅 Matchday', MATCHDAY_CHANNEL),
+              ('💬 Match Chat', MATCH_CHAT_CHANNEL)),
     'prices': (('⚽ Players', PLAYER_CHANNEL), ('💰 Coins', 1568663210901504041),
                ('🧩 SBCs', SBC_CHANNEL), ('🎒 Objectives & packs', HUB_CHANNEL)),
 }
@@ -45,8 +47,8 @@ class WelcomeView(OnboardingView):
             self.add_item(WelcomeButton(action, label, emoji))
         self.children[-1].disabled = self.community_role_id is None
         if self.guild_id == OFFICIAL_GUILD:
-            self.add_item(discord.ui.Button(label='Matchday', emoji='📅',
-                url=f'https://discord.com/channels/{OFFICIAL_GUILD}/{MATCHDAY_CHANNEL}'))
+            self.add_item(discord.ui.Button(label='Match Chat', emoji='💬',
+                url=f'https://discord.com/channels/{OFFICIAL_GUILD}/{MATCH_CHAT_CHANNEL}'))
 
 
 class PopularClubView(OnboardingView):
