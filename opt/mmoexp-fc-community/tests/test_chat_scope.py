@@ -2,10 +2,25 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
-from chat_service import ChatClient
+from chat_service import ChatClient, quote_link_view
 
 
 class ChatScopeTests(unittest.IsolatedAsyncioTestCase):
+    def test_price_questions_get_a_direct_category_entry(self):
+        cases = {
+            'How much are FC coins?': '1568663210901504041',
+            'Player price for Mbappe?': '1568878333087719454',
+            'SBC quote please': '1301379787696377926',
+            'What do packs cost?': '1571045541922611200',
+            'What is the price?': '1568663362567413820/1568666884289732751',
+        }
+        for question, destination in cases.items():
+            with self.subTest(question=question):
+                view = quote_link_view(1041923524601851914, question)
+                self.assertIn(destination, view.children[0].url)
+        self.assertIsNone(quote_link_view(1041923524601851914, 'That pack was great!'))
+        self.assertIsNone(quote_link_view(1565922092518613064, 'How much are coins?'))
+
     async def test_staff_text_trigger_outside_fc_is_ignored(self):
         surprise = SimpleNamespace(is_staff=Mock())
         client = SimpleNamespace(router=SimpleNamespace(in_scope=Mock(return_value=False)),
