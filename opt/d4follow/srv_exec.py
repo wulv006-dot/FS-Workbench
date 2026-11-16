@@ -557,6 +557,20 @@ def host_clear_via_dc_proxy(timeout=40):
     return False, note
 
 
+def _svc_profile(plan):
+    """容器内浏览器 profile 目录。默认 /srv/_srv_profile。
+
+    2026-11-16：允许工单用 `plan["profile"]` 指定**独立 profile**。
+    背景：同一份 profile 被两路并发打开时，chromium 会**阻塞在 profile 锁上不返回**
+    —— 实测 PoE1 工单因此卡满 391 秒被判 unknown（同一时段金币单正常，因为它们没撞上）。
+    只接受 `/srv/` 下的绝对路径且不许 `..`，非法/缺省一律回落默认值。
+    """
+    p = plan.get("profile") if isinstance(plan, dict) else None
+    if isinstance(p, str) and p.startswith("/srv/") and ".." not in p:
+        return p
+    return "/srv/_srv_profile"
+
+
 def run_once():
     """跑一轮：有单就执行（返回 True），没单/不满足条件返回 False。"""
     cfg = read_cfg()
@@ -717,7 +731,7 @@ def run_once():
            "--plan", "/srv/_jobs/%s.json" % jid,
            "--confirm",
            "--config", "/srv/_cfg/config.json",
-           "--profile", "/srv/_srv_profile"]
+           "--profile", _svc_profile(plan)]
 
     t0 = time.time()
     log("  ▶ 容器执行：%s" % " ".join(cmd[-9:]))

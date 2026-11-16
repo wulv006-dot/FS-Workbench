@@ -2256,6 +2256,9 @@ def _poe1_round(t, cfg, con, ts):
         "clearcache": _want_cache,
         "clearcache_来源": "config POE1定价.清缓存 = %s" % _want_cache,
         "价格口径": "items[].old / new 都是后台「$每个价格」(unit_price)",
+        # 2026-11-16：本专线用**独立浏览器 profile**，避免与背包/其他并发容器抢
+        # /srv/_srv_profile 的锁（撞上会阻塞到 unknown，实测 391 秒）。
+        "profile": "/srv/_poe1_profile",
     }
     with open(fp, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
