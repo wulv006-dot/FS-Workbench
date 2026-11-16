@@ -561,6 +561,8 @@ class ChatClient(discord.Client):
         content = message.content or ''
         if not content.strip():
             return False
+        if not self.router.in_scope(guild_id, channel_id):
+            return False
 
         if self.surprise is not None and self.surprise.is_staff(message.author.id):
             if self.surprise.is_trigger(content) and self.surprise.allow():
@@ -607,6 +609,9 @@ class ChatClient(discord.Client):
         return True
 
     async def do_chat(self, interaction, text):
+        if not self.router.in_scope(interaction.guild_id, interaction.channel_id):
+            await interaction.response.send_message('Use /chat in FC27 Chat or Match Chat.', ephemeral=True)
+            return
         if not self.brain.ready:
             await interaction.response.send_message('Chat is not configured yet.', ephemeral=True)
             return
@@ -631,6 +636,9 @@ class ChatClient(discord.Client):
         await interaction.followup.send('<@{}> {}'.format(interaction.user.id, answer), **extra)
 
     async def do_drop(self, interaction):
+        if not self.router.in_scope(interaction.guild_id, interaction.channel_id):
+            await interaction.response.send_message('Use /drop in FC27 Chat or Match Chat.', ephemeral=True)
+            return
         if self.surprise is None:
             await interaction.response.send_message('Drops are not configured.', ephemeral=True)
             return
@@ -681,6 +689,9 @@ class ChatClient(discord.Client):
             channel = self.get_channel(int(channel_id))
             if channel is None:
                 print('Topic channel missing: ' + str(channel_id), flush=True)
+                continue
+            if not self.router.in_scope(channel.guild.id, channel.id):
+                print('Topic channel outside FC chat routes: ' + str(channel_id), flush=True)
                 continue
             embed = discord.Embed(
                 title='\U0001F4AC FC27 daily topic',

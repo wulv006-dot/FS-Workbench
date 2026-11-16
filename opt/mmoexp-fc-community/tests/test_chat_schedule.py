@@ -15,7 +15,8 @@ class TopicScheduleTests(unittest.IsolatedAsyncioTestCase):
                       '1568260661010497627': {}}}},
                   'topic_channel': '1568260661010497627'}}
         client = ChatClient(config)
-        channel = SimpleNamespace(send=AsyncMock())
+        channel = SimpleNamespace(id=1568260661010497627,
+                                  guild=SimpleNamespace(id=1565922092518613064), send=AsyncMock())
         client.get_channel = lambda _: channel
         await client.send_topics()
         channel.send.assert_not_awaited()
@@ -28,12 +29,27 @@ class TopicScheduleTests(unittest.IsolatedAsyncioTestCase):
                   'topic_channel': '1568260661010497627',
                   'topics': [' Which FC squad are you building? ']}}
         client = ChatClient(config)
-        channel = SimpleNamespace(send=AsyncMock())
+        channel = SimpleNamespace(id=1568260661010497627,
+                                  guild=SimpleNamespace(id=1565922092518613064), send=AsyncMock())
         client.get_channel = lambda _: channel
         await client.send_topics()
         channel.send.assert_awaited_once()
         self.assertEqual(channel.send.await_args.kwargs['embed'].description,
                          'Which FC squad are you building?')
+        await client.close()
+
+    async def test_topic_outside_chat_routes_is_not_posted(self):
+        config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                  'routes': {'1565922092518613064': {'channels': {
+                      '1568260661010497627': {}}}},
+                  'topic_channel': '1568260661010497628',
+                  'topics': ['Which FC squad are you building?']}}
+        client = ChatClient(config)
+        channel = SimpleNamespace(id=1568260661010497628,
+                                  guild=SimpleNamespace(id=1565922092518613064), send=AsyncMock())
+        client.get_channel = lambda _: channel
+        await client.send_topics()
+        channel.send.assert_not_awaited()
         await client.close()
 
     def test_london_schedule_accounts_for_daylight_saving(self):

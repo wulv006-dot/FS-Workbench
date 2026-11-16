@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from community import CommunityStore
-from content_bot import build_client, TEST_GUILD
+from content_bot import build_client, TEST_GUILD, CHAT_QUOTE_CHANNELS
 
 
 class MentionTests(unittest.IsolatedAsyncioTestCase):
@@ -16,13 +16,14 @@ class MentionTests(unittest.IsolatedAsyncioTestCase):
         self.client._connection.user = SimpleNamespace(id=1568239618111832094)
         self.addAsyncCleanup(self.client.close)
 
-    def message(self, guild=TEST_GUILD, bot=False, mentions=True):
+    def message(self, guild=TEST_GUILD, bot=False, mentions=True, channel_id=None):
         return SimpleNamespace(guild=SimpleNamespace(id=guild), author=SimpleNamespace(id=123,bot=bot),
             mentions=[self.client.user] if mentions else [], content='hello',
-            channel=SimpleNamespace(send=AsyncMock()), webhook_id=None)
+            channel=SimpleNamespace(id=channel_id or CHAT_QUOTE_CHANNELS[TEST_GUILD], send=AsyncMock()), webhook_id=None)
 
     async def test_only_explicit_human_mention_in_test_guild_replies(self):
-        for m in [self.message(guild=1041923524601851914),self.message(bot=True),self.message(mentions=False)]:
+        for m in [self.message(guild=1041923524601851914),self.message(bot=True),
+                  self.message(mentions=False), self.message(channel_id=1568260661010497628)]:
             await self.client.on_message(m)
             m.channel.send.assert_not_awaited()
         m = self.message()
