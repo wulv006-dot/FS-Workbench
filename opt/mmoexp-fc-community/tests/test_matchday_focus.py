@@ -458,7 +458,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 description='No matches lined up in `ENGLAND: Premier League`')]
             message.components = []
             message.delete = AsyncMock()
-            async def history(limit):
+            async def history(limit, **kwargs):
                 yield message
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
                                       history=history)
@@ -570,7 +570,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 description='No matches lined up in `ENGLAND: Premier League`')]
             empty.components = []
             empty.delete = AsyncMock()
-            async def history(limit):
+            async def history(limit, **kwargs):
                 yield v2_card()
                 yield empty
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
@@ -664,7 +664,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             newer.embeds[0].title = "Today's matches in Premier League"
             newer.embeds[0].fields = [SimpleNamespace(
                 name='Premier League', value='Small Town vs Valley FC 17:00')]
-            async def history(limit):
+            async def history(limit, **kwargs):
                 yield newer
                 yield card()
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),

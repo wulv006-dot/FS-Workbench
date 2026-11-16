@@ -231,6 +231,46 @@ class MatchdayEngagementTests(unittest.TestCase):
 
 
 class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_restart_recovers_recent_unify_goals_once(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(TEST_GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': dict(UNIFY_CONFIG,
+                    state_path=str(Path(directory) / 'pulse.sqlite3'))}
+            client = ChatClient(config)
+            now = time.time()
+            stale = unify_message(1571184986541789360, '[41\'] ⚽️ GOAAAAAAAAAAL!',
+                                  'Spain 1 - 0 England', now - 400)
+            first = unify_message(1571184986541789361, '[67\'] ⚽️ GOAAAAAAAAAAL!',
+                                  'Spain 1 - 0 England', now - 90)
+            second = unify_message(1571184986541789362, '[82\'] ⚽️ GOAAAAAAAAAAL!',
+                                   'Spain 2 - 0 England', now - 45)
+            untrusted = unify_message(1571184986541789363, '[90\'] ⚽️ GOAAAAAAAAAAL!',
+                                      'Spain 3 - 0 England', now - 30)
+            untrusted.author.id = 42
+            history_args = []
+
+            async def history(**kwargs):
+                history_args.append(kwargs)
+                for event in (stale, first, second, untrusted):
+                    yield event
+
+            channel = SimpleNamespace(id=SOURCE, guild=SimpleNamespace(id=TEST_GUILD),
+                history=history, send=AsyncMock(side_effect=[
+                    SimpleNamespace(id=1571184986541789380),
+                    SimpleNamespace(id=1571184986541789381)]))
+            client.get_channel = lambda channel_id: channel if channel_id == SOURCE else None
+            await client.recover_recent_pulses()
+            await client.recover_recent_pulses()
+            self.assertEqual(channel.send.await_count, 2)
+            self.assertTrue(all(args['limit'] == 100 and args['oldest_first']
+                                for args in history_args))
+            self.assertEqual([call.kwargs['nonce'] for call in channel.send.await_args_list],
+                             [first.id, second.id])
+            await client.close()
+
     async def test_overdue_followup_alerts_ops_once_without_public_repost(self):
         from chat_service import ChatClient, OFFICIAL_GUILD
 

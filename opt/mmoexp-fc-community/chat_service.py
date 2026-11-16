@@ -220,6 +220,8 @@ class ChatClient(discord.Client):
             if self.focus_store is not None:
                 await self.recover_daily_card()
                 await self.reconcile_game_chat_invites()
+            if self.matchday_store is not None:
+                await self.recover_recent_pulses()
         finally:
             self.focus_recovered.set()
             if self.followup_task is None:
@@ -269,6 +271,25 @@ class ChatClient(discord.Client):
                     guild_id, scanned, unify_cards, recognized), flush=True)
             except discord.DiscordException as exc:
                 print('Matchday focus recovery unavailable: ' + type(exc).__name__, flush=True)
+
+    async def recover_recent_pulses(self):
+        """Catch Unify score events sent during a brief chat-bot restart."""
+        cutoff = discord.utils.utcnow() - dt.timedelta(
+            seconds=matchday_engagement.MAX_MESSAGE_AGE_SECONDS)
+        for guild_id, route in self.matchday_config['routes'].items():
+            source_id = route.get('score_channel_id', route['source_channel_id'])
+            channel = self.get_channel(source_id)
+            if channel is None or channel.guild.id != int(guild_id):
+                print('Matchday pulse source channel unavailable guild={}'.format(guild_id),
+                      flush=True)
+                continue
+            try:
+                async for message in channel.history(
+                        limit=100, after=cutoff, oldest_first=True):
+                    await self.handle_match_pulse(message)
+            except discord.DiscordException as exc:
+                print('Matchday pulse recovery unavailable guild={} reason={}'.format(
+                    guild_id, type(exc).__name__), flush=True)
 
     async def setup_matchday_intro(self):
         route = (self.matchday_config or {}).get('routes', {}).get(str(OFFICIAL_GUILD))
