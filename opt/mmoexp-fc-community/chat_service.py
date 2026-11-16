@@ -197,6 +197,10 @@ class ChatClient(discord.Client):
                 ('Choose a club', 1568663362567413820)):
             view.add_item(discord.ui.Button(label=label,
                 url='https://discord.com/channels/1041923524601851914/{}'.format(target)))
+        view.add_item(discord.ui.Button(
+            label='🏆 Leaderboard',
+            url='https://discord.com/channels/1041923524601851914/'
+                '1571043454136484082/1571686702513266708'))
         marker = Path(__file__).parent / 'var' / 'matchday-intro.json'
         try:
             if marker.exists():
