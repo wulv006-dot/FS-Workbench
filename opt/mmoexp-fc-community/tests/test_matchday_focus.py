@@ -188,9 +188,101 @@ class FocusTests(unittest.TestCase):
                 validate_config(dict(good, guild_ids=['999999999999999999']), ENGAGEMENT)
             with self.assertRaises(ValueError):
                 validate_config(dict(good, ops_channel_id='not-a-channel'), ENGAGEMENT)
+            validate_config(dict(good, game_chat_channels={str(GUILD): str(CHANNEL)}),
+                            ENGAGEMENT)
+            with self.assertRaises(ValueError):
+                validate_config(dict(good, game_chat_channels={'999': str(CHANNEL)}),
+                                ENGAGEMENT)
+
+    def test_game_chat_invite_is_due_only_before_kickoff_and_once(self):
+        fixture = DailyFixture('Spain', 'England', 'Nations League',
+                               NOW + dt.timedelta(minutes=90), 'https://example.com')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'focus.sqlite3'
+            store = FocusStore(path)
+            self.assertEqual(store.due_game_chat_invites(GUILD, NOW.timestamp()), [])
+            self.assertTrue(store.reserve(GUILD, NOW.date(), SOURCE, fixture,
+                                          'Who wins?', 2))
+            store.finish(GUILD, NOW.date(), SOURCE + 1)
+            self.assertEqual(store.due_game_chat_invites(GUILD, NOW.timestamp()), [])
+            due = NOW.timestamp() + 1800
+            row, = store.due_game_chat_invites(GUILD, due)
+            self.assertTrue(store.reserve_game_chat_invite(row, due))
+            self.assertFalse(FocusStore(path).reserve_game_chat_invite(row, due))
+            store.finish_game_chat_invite(row, SOURCE + 2)
+            self.assertEqual(FocusStore(path).due_game_chat_invites(GUILD, due), [])
+            self.assertEqual(store.due_game_chat_invites(GUILD,
+                             fixture.kickoff.timestamp() + 1), [])
 
 
 class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_selected_match_invites_fc_chat_once_with_both_links(self):
+        from chat_service import ChatClient
+
+        fixture = DailyFixture('Spain', 'England', 'Nations League',
+                               NOW + dt.timedelta(minutes=90),
+                               'https://discord.com/channels/{}/{}/{}'.format(
+                                   GUILD, CHANNEL, SOURCE))
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                    'keywords': []}}},
+                'matchday_engagement': dict(ENGAGEMENT,
+                    state_path=str(Path(directory) / 'pulse.sqlite3')),
+                'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
+                    'state_path': str(Path(directory) / 'focus.sqlite3'),
+                    'game_chat_channels': {str(GUILD): str(CHANNEL)}},
+            }
+            client = ChatClient(config)
+            client.focus_store.reserve(GUILD, NOW.date(), SOURCE, fixture, 'Who wins?', 2)
+            client.focus_store.finish(GUILD, NOW.date(), SOURCE + 1)
+            channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
+                send=AsyncMock(return_value=SimpleNamespace(id=SOURCE + 2)))
+            client.get_channel = lambda cid: channel if cid == CHANNEL else None
+            await client.send_game_chat_invites_due(NOW.timestamp())
+            channel.send.assert_not_awaited()
+            await client.send_game_chat_invites_due(NOW.timestamp() + 1800)
+            await client.send_game_chat_invites_due(NOW.timestamp() + 1801)
+            channel.send.assert_awaited_once()
+            view = channel.send.await_args.kwargs['view']
+            self.assertEqual([button.label for button in view.children],
+                             ['Predict with Unify', 'Join match chat'])
+            self.assertTrue(view.children[0].url.endswith('/' + str(SOURCE)))
+            self.assertTrue(view.children[1].url.endswith('/' + str(SOURCE + 1)))
+            await client.close()
+
+    async def test_uncertain_invite_result_is_not_reposted(self):
+        from chat_service import ChatClient
+
+        fixture = DailyFixture('Spain', 'England', 'Nations League',
+                               NOW + dt.timedelta(minutes=90),
+                               'https://discord.com/channels/{}/{}/{}'.format(
+                                   GUILD, CHANNEL, SOURCE))
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                    'keywords': []}}},
+                'matchday_engagement': dict(ENGAGEMENT,
+                    state_path=str(Path(directory) / 'pulse.sqlite3')),
+                'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
+                    'state_path': str(Path(directory) / 'focus.sqlite3'),
+                    'game_chat_channels': {str(GUILD): str(CHANNEL)}},
+            }
+            client = ChatClient(config)
+            client.focus_store.reserve(GUILD, NOW.date(), SOURCE, fixture, 'Who wins?', 2)
+            client.focus_store.finish(GUILD, NOW.date(), SOURCE + 1)
+            channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
+                                      send=AsyncMock(side_effect=TimeoutError()))
+            client.get_channel = lambda cid: channel if cid == CHANNEL else None
+            due = NOW.timestamp() + 1800
+            await client.send_game_chat_invites_due(due)
+            await client.send_game_chat_invites_due(due + 60)
+            channel.send.assert_awaited_once()
+            self.assertEqual(client.focus_store.due_game_chat_invites(GUILD, due), [])
+            await client.close()
+
     async def test_my_club_button_reads_current_role_and_replies_privately(self):
         from chat_service import ChatClient, OFFICIAL_GUILD
 

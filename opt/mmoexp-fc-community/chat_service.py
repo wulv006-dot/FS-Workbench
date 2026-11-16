@@ -64,6 +64,11 @@ def validate_config(config):
     if config.get('matchday_focus') is not None:
         matchday_focus.validate_config(config['matchday_focus'],
                                        config.get('matchday_engagement'))
+        for guild_id, channel_id in config['matchday_focus'].get(
+                'game_chat_channels', {}).items():
+            route = chat_config['routes'].get(guild_id, {})
+            if channel_id not in route.get('channels', {}):
+                raise ValueError('Matchday invite target must be an FC chat channel')
     token_env = config.get('token_env', 'DISCORD_CHAT_BOT_TOKEN')
     if not os.environ.get(token_env):
         raise ValueError('missing bot token in environment variable ' + token_env)
@@ -558,6 +563,48 @@ class ChatClient(discord.Client):
                 self.matchday_store.unknown_followup(key)
                 print('Match to Squad result unknown: ' + type(exc).__name__, flush=True)
 
+    async def send_game_chat_invites_due(self, now=None):
+        if self.focus_store is None:
+            return
+        now = time.time() if now is None else now
+        for guild_id, channel_id in self.focus_config.get('game_chat_channels', {}).items():
+            channel = self.get_channel(int(channel_id))
+            if (channel is None or channel.guild.id != int(guild_id) or
+                    not self.router.in_scope(int(guild_id), int(channel_id))):
+                print('Matchday game chat channel unavailable', flush=True)
+                continue
+            for row in self.focus_store.due_game_chat_invites(guild_id, now):
+                home, separator, away = row['match_key'].partition('|')
+                if not separator or not self.focus_store.reserve_game_chat_invite(row, now):
+                    continue
+                fixture = '{} vs {}'.format(discord.utils.escape_markdown(home.title()),
+                                            discord.utils.escape_markdown(away.title()))
+                embed = discord.Embed(
+                    title='⚽ Today’s matchday pick',
+                    description=('**{}** · Kickoff <t:{}:t>\n'
+                                 'Make your prediction, then join the match chat.').format(
+                        fixture, int(row['kickoff'])), colour=0x2275E8)
+                embed.set_footer(text='Football: UnifyFootball · FC27 community: MMOEXP')
+                view = discord.ui.View(timeout=None)
+                view.add_item(discord.ui.Button(label='Predict with Unify',
+                    url='https://discord.com/channels/{}/{}/{}'.format(
+                        guild_id, self.matchday_config['routes'][guild_id]['source_channel_id'],
+                        row['source_id'])))
+                view.add_item(discord.ui.Button(label='Join match chat',
+                    url='https://discord.com/channels/{}/{}/{}'.format(
+                        guild_id, self.matchday_config['routes'][guild_id]['discussion_channel_id'],
+                        row['posted_id'])))
+                try:
+                    sent = await channel.send(embed=embed, view=view,
+                        allowed_mentions=discord.AllowedMentions.none())
+                    self.focus_store.finish_game_chat_invite(row, sent.id)
+                    print('Matchday game chat invite sent focus={} message={}'.format(
+                        row['posted_id'], sent.id), flush=True)
+                except Exception as exc:
+                    self.focus_store.unknown_game_chat_invite(row)
+                    print('Matchday game chat invite result unknown: ' +
+                          type(exc).__name__, flush=True)
+
     async def run_followups(self):
         await self.wait_until_ready()
         await self.focus_recovered.wait()
@@ -567,6 +614,11 @@ class ChatClient(discord.Client):
                 await self.send_followups_due()
             except Exception as exc:
                 print('Match to Squad worker failed: ' + type(exc).__name__, flush=True)
+            try:
+                await self.send_game_chat_invites_due()
+            except Exception as exc:
+                print('Matchday game chat invite worker failed: ' +
+                      type(exc).__name__, flush=True)
             try:
                 await self.alert_missing_daily_card()
             except Exception as exc:

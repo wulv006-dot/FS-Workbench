@@ -72,6 +72,11 @@ def validate_config(config, engagement):
                                     not ops_channel.isdigit() or
                                     '1041923524601851914' not in guilds):
         raise ValueError('Invalid matchday focus ops channel')
+    game_chat_channels = config.get('game_chat_channels', {})
+    if (not isinstance(game_chat_channels, dict) or
+            any(g not in guilds or not isinstance(channel, str) or
+                not channel.isdigit() for g, channel in game_chat_channels.items())):
+        raise ValueError('Invalid matchday game chat channels')
     return config
 
 
@@ -201,6 +206,10 @@ class FocusStore:
                 guild_id TEXT NOT NULL, london_day TEXT NOT NULL,
                 observed INTEGER NOT NULL DEFAULT 0, alert_status TEXT,
                 alert_message_id TEXT, PRIMARY KEY (guild_id, london_day))''')
+            db.execute('''CREATE TABLE IF NOT EXISTS matchday_game_chat_invite (
+                guild_id TEXT NOT NULL, london_day TEXT NOT NULL,
+                source_id TEXT NOT NULL, status TEXT NOT NULL, message_id TEXT,
+                PRIMARY KEY (guild_id, london_day))''')
 
     def record_daily_source(self, guild_id, day):
         with sqlite3.connect(self.path, timeout=5) as db:
@@ -283,3 +292,41 @@ class FocusStore:
                 AND match_key=? AND status='sent' AND kickoff BETWEEN ? AND ?''',
                 (str(guild_id), match_key, now - 12 * 3600, now + 24 * 3600)).fetchone()
         return row[0] if row else None
+
+    def due_game_chat_invites(self, guild_id, now):
+        """Only selected fixtures in their final hour before kickoff qualify."""
+        with sqlite3.connect(self.path) as db:
+            rows = db.execute('''SELECT f.guild_id,f.london_day,f.source_id,
+                f.match_key,f.kickoff,f.posted_id FROM matchday_focus f
+                LEFT JOIN matchday_game_chat_invite i ON i.guild_id=f.guild_id
+                    AND i.london_day=f.london_day
+                WHERE f.guild_id=? AND f.status='sent' AND f.posted_id IS NOT NULL
+                    AND f.match_key IS NOT NULL AND f.kickoff>?
+                    AND f.kickoff<=? AND i.guild_id IS NULL
+                ORDER BY f.kickoff LIMIT 2''',
+                (str(guild_id), now, now + 3600)).fetchall()
+        return [dict(zip(('guild_id', 'london_day', 'source_id', 'match_key',
+                          'kickoff', 'posted_id'), row)) for row in rows]
+
+    def reserve_game_chat_invite(self, row, now):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            return db.execute('''INSERT OR IGNORE INTO matchday_game_chat_invite
+                (guild_id,london_day,source_id,status)
+                SELECT guild_id,london_day,source_id,'sending' FROM matchday_focus
+                WHERE guild_id=? AND london_day=? AND source_id=?
+                    AND status='sent' AND kickoff>? AND kickoff<=?''',
+                (row['guild_id'], row['london_day'], row['source_id'],
+                 now, now + 3600)).rowcount == 1
+
+    def finish_game_chat_invite(self, row, message_id):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''UPDATE matchday_game_chat_invite
+                SET status='sent',message_id=? WHERE guild_id=? AND london_day=?
+                AND source_id=? AND status='sending' ''',
+                (str(message_id), row['guild_id'], row['london_day'], row['source_id']))
+
+    def unknown_game_chat_invite(self, row):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''UPDATE matchday_game_chat_invite SET status='unknown'
+                WHERE guild_id=? AND london_day=? AND source_id=? AND status='sending' ''',
+                (row['guild_id'], row['london_day'], row['source_id']))
