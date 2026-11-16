@@ -83,7 +83,7 @@
     return {options,items:bindings.map(b=>({product_key:b.product_key,native_payload:{...b.native},...(b.observed_serialization?{observed_serialization:true}:{}),offer:{id:Number(b.native.id),group:Number(b.native.group),quantity:Number(b.native.num),aid:b.native.aid?Number(b.native.aid):null}})),
       signature:stable([snapshot.release_id,snapshot.config_hash,{verification_ref:config.verification_ref,valid_from:config.valid_from,valid_until:config.valid_until,origin:config.origin,cart_path:config.cart_path,consumer_behavior_confirmed:config.consumer_behavior_confirmed},bindings,selection]),page_id:selection.page_id,activity_id:selection.activity_id,...(reveal_request?{reveal_request}:{})};
   }
-  async function checkoutPublished({snapshot,selection,storage,host,navigate,origin,onCartConfirmed,cartGuard}){
+  async function checkoutPublished({snapshot,selection,storage,host,navigate,origin,onCartConfirmed,cartGuard,couponClaimed=false}){
     if(snapshot?.native_checkout_claim_required){
       if(typeof host?.claimSelection!=='function')fail('NATIVE_SELECTION_CLAIM_REQUIRED');
       const receipt=await host.claimSelection(selection);
@@ -102,7 +102,7 @@
     let operation;try{operation=JSON.parse(storage.getItem(key)||'null');}catch{fail('OPERATION_RECORD_UNREADABLE');}
     if(operation&&operation.signature!==approved.signature)fail('OPERATION_CONFLICT');
     if(!operation){operation={id:root.crypto.randomUUID(),signature:approved.signature};const text=JSON.stringify(operation);storage.setItem(key,text);if(storage.getItem(key)!==text)fail('OPERATION_RECORD_UNCONFIRMED');}
-    return checkout({storage,options:approved.options,operationId:operation.id,items:approved.items,host,navigate,onCartConfirmed,liveVerified:true});
+    return checkout({storage,options:approved.options,operationId:operation.id,items:approved.items,host,navigate,onCartConfirmed,liveVerified:true,couponClaimed:couponClaimed===true&&selection.page_id!=='seasonal-vault'});
   }
   function plan({origin,cartUrl,sameTab,code,consumerBehaviorConfirmed=false}){
     if(typeof cartUrl!=='string')throw new Error('HANDOFF_ORIGIN_UNVERIFIED');
@@ -141,9 +141,43 @@
     // reconcile the same ID, never restage a consumed key or auto-navigate.
     return stage(storage,options,operation,persist);
   }
+  // Account coupon in place of the pending code (2026-11-16). The main-site Admin
+  // "entry coupons" whitelist per slot decides which coupon is granted; this page
+  // only maps its page to a slot. Anything other than a confirmed claim returns a
+  // non-claimed state so the caller keeps the existing code handoff (no lost 10%).
+  const COUPON_SLOTS={'fc27-weekly':'fc_weekly','fc27-sbc':'fc_sbc','fc27-trio':'fc_trio'};
+  // Main-site login has no return-to-page entry yet; null keeps guests on the code path.
+  const COUPON_LOGIN_URL=null;
+  async function claimActivityCoupon({pageId,origin=root.location?.origin,fetchImpl=root.fetch?.bind(root)}={}){
+    const slot=COUPON_SLOTS[pageId];
+    if(!slot||origin!=='https://www.mmoexp.com'||typeof fetchImpl!=='function')return {state:'unavailable'};
+    const call=async(path,body)=>{
+      const response=await fetchImpl(path,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',
+        headers:{'X-Requested-With':'XMLHttpRequest',...(body?{'Content-Type':'application/x-www-form-urlencoded'}:{})},...(body?{body}:{})});
+      if(!response.ok)fail('COUPON_HTTP_REJECTED');
+      const json=await response.json();
+      if(json?.code!==1||!json.data||typeof json.data!=='object')fail('COUPON_RESPONSE_INVALID');
+      return json.data;
+    };
+    const listed=await call('/ajax/carnival/coupon?slot='+encodeURIComponent(slot));
+    if(listed.enabled!==true||listed.error||listed.slot!==slot)return {state:'unavailable'};
+    if(listed.logged_in!==true)return {state:'login_required',slot,loginUrl:COUPON_LOGIN_URL};
+    const coupons=(Array.isArray(listed.list)?listed.list:[]).filter(c=>Number.isSafeInteger(c?.coupon_id)&&c.coupon_id>0&&c.can_claim===true);
+    if(!coupons.length)return {state:'unavailable'};
+    const claimed=[];
+    for(const coupon of coupons){
+      // Single POST, no retry: an unknown claim falls back to the code path.
+      const data=await call('/ajax/carnival/claim','slot='+encodeURIComponent(slot)+'&coupon_id='+coupon.coupon_id);
+      if(data.claim_status!=='claimed'||data.coupon_id!==coupon.coupon_id||!Number.isSafeInteger(data.member_coupon_id)||data.member_coupon_id<=0)fail('COUPON_CLAIM_UNCONFIRMED');
+      claimed.push({coupon_id:data.coupon_id,member_coupon_id:data.member_coupon_id});
+    }
+    return {state:'claimed',slot,coupons:claimed};
+  }
   // Compose the existing native batch and native code consumer. The caller must
   // supply current, validated native lines; this does not enable a live gate.
-  async function checkout({storage,options,operationId,items,host,navigate,onCartConfirmed,liveVerified=false}){
+  // couponClaimed=true: an account coupon was confirmed before Cart/add, so the
+  // pending code is not staged (code and coupon are exclusive in the native cart).
+  async function checkout({storage,options,operationId,items,host,navigate,onCartConfirmed,liveVerified=false,couponClaimed=false}){
     if(liveVerified!==true)throw new Error('NATIVE_CHECKOUT_NOT_VERIFIED');
     // The UI may change while a native POST is pending. Freeze this operation's
     // source values before any await; its journal must describe every sent line.
@@ -173,6 +207,12 @@
       const outcomes=await host.batch().run(items,rows=>{record={...record,outcomes:rows.map(r=>({id:r.id,state:r.state}))};persist(record);});
       record={...record,outcomes:outcomes.map(r=>({id:r.id,state:r.state}))};
       if(outcomes.length!==items.length||outcomes.some((r,i)=>r.id!==items[i].offer.id||r.state!=='confirmed'))return persist({...record,state:'cart_incomplete_inspect_original'});
+      if(couponClaimed===true){
+        record=persist({...record,state:'navigation_attempted_coupon_claimed'});
+        try{if(typeof onCartConfirmed==='function')onCartConfirmed({code:null,coupon:true,items:structuredClone(items)});}catch{}
+        navigate(handoff.cartUrl);
+        return record;
+      }
       persist({...record,state:'cart_confirmed_code_pending'});
       const staged=stageDurable(storage,options,operationId);
       if(staged.state!=='staged_not_applied')return persist({...record,state:'code_unknown_inspect_original'});
@@ -287,5 +327,5 @@
       });
     }};
   }
-  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
+  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard,claimActivityCoupon,COUPON_SLOTS};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
 })(typeof globalThis==='undefined'?this:globalThis);
