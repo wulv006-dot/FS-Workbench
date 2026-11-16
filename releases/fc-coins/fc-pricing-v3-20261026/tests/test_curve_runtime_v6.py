@@ -64,7 +64,7 @@ class CurveRuntime(unittest.TestCase):
             live = make_curve(deepcopy(frozen['final_curve']['native_payload']), live['identity'])
             previous = {'segments': frozen['segments']}
 
-    def test_ps_small_labels_and_pairs_use_the_confirmed_large_protection_curve(self):
+    def test_small_labels_and_pairs_use_the_confirmed_large_protection_curve(self):
         from decimal import Decimal
         from fc_pricing_v3.price_curve import compile_curve, curve_key, read_curve, TWO_BAND_PRICE_EDIT
         from fc_pricing_v3.smart import paired_exposure
@@ -106,7 +106,9 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(paired_exposure([a], [b])[3], Decimal('3'))
         self.assertIsNone(paired_exposure([a], [observed('B', '9.7', '104')]))
         self.assertEqual(observed('B', '9.7', '103', protected_small='10')['label'], 'CURRENT')
-        self.assertEqual(observed('B', '9.7', '103', platform='XBOX')['label'], 'CURRENT')
+        for platform in ('XBOX', 'PC'):
+            self.assertEqual(observed('B', '9.7', '103', platform=platform)['label'], 'B')
+            self.assertEqual(observed('B', '9.7', '103', platform=platform, protected_small='10')['label'], 'CURRENT')
 
     def test_large_reference_scales_price_and_gift_without_scaling_unit_price(self):
         from decimal import Decimal

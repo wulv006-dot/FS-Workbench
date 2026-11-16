@@ -1505,9 +1505,9 @@ def _prove_temporary_curve(platform, inputs, current, state, previous):
                      cost_protection=protection,
                      large_market_reference=large_market_comparison(frozen.get('market_reference', []), normal, final))
     # The pairing code checks the other band's exact confirmed tiers for both arms.
-    ps_small_unchanged = (platform == 'PS' and selection['segment'] == 'small' and active.keys() == {'large'}
-                          and segment_terms(normal, 'small') == segment_terms(final, 'small'))
-    labels = frozen['labels'] if ps_small_unchanged or not (active or selection.get('restore_other_band')) else []
+    small_unchanged = (selection['segment'] == 'small' and active.keys() == {'large'}
+                       and segment_terms(normal, 'small') == segment_terms(final, 'small'))
+    labels = frozen['labels'] if small_unchanged or not (active or selection.get('restore_other_band')) else []
     if key == curve_key(current):
         return dict(status='KEEP', current_key=key, proof=_validated_curve(current, inputs['primary_inputs'][key]),
                     selection=_curve_assignment_result(selection, current, key, labels), gaps=frozen['gaps'])
