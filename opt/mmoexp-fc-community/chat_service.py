@@ -582,7 +582,7 @@ class ChatClient(discord.Client):
         if self.matchday_store is None or not ops_id:
             return
         overdue = self.matchday_store.overdue_followups(
-            time.time() if now is None else now)
+            time.time() if now is None else now, OFFICIAL_GUILD)
         if not overdue:
             return
         channel = self.get_channel(int(ops_id))

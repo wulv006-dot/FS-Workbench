@@ -215,9 +215,14 @@ class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
             pulse = MatchPulse(OFFICIAL_GUILD, 'spain-england', 'Spain', 'England', '2–3',
                 'final', 'https://discord.com/channels/1/2/3', SOURCE, SOURCE, SOURCE)
             now = time.time()
+            for index in range(4):
+                client.matchday_store.queue_followup(MatchPulse(
+                    TEST_GUILD, 'old-test-{}'.format(index), 'A', 'B', '1–0', 'final',
+                    pulse.source_url, SOURCE, SOURCE, SOURCE), now - 86400)
             client.matchday_store.queue_followup(pulse, now)
             with closing(sqlite3.connect(client.matchday_store.path)) as db:
-                due = db.execute('SELECT due_at FROM match_followup').fetchone()[0]
+                due = db.execute('SELECT due_at FROM match_followup WHERE event_key LIKE ?',
+                                 ('{}:%'.format(OFFICIAL_GUILD),)).fetchone()[0]
             ops = SimpleNamespace(guild=SimpleNamespace(id=OFFICIAL_GUILD),
                                   send=AsyncMock(return_value=SimpleNamespace(id=456)))
             client.get_channel = lambda channel_id: ops if channel_id == ops_id else None
@@ -228,7 +233,7 @@ class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
             await client.alert_overdue_followups(due + 1200)
             ops.send.assert_awaited_once()
             self.assertIn('overdue or unconfirmed', ops.send.await_args.args[0])
-            self.assertEqual(client.matchday_store.overdue_followups(due + 1200), [])
+            self.assertEqual(client.matchday_store.overdue_followups(due + 1200, OFFICIAL_GUILD), [])
             sent_pulse = MatchPulse(OFFICIAL_GUILD, 'other-match', 'A', 'B', '1–0',
                 'final', pulse.source_url, SOURCE, SOURCE, SOURCE)
             client.matchday_store.queue_followup(sent_pulse, now)
