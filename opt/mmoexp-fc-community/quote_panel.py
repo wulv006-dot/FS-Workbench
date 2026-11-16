@@ -12,6 +12,9 @@ import discord
 from club_panel import brand_embed
 
 TEST_GUILD = 1565922092518613064
+OFFICIAL_GUILD = 1041923524601851914
+FC_ROLE_IDS = frozenset((1263726836160925696, 1568664882650288159))
+FC_WELCOME_CHANNEL = 1568663362567413820
 MENTIONS = discord.AllowedMentions.none()
 CATEGORIES = {
     'sbc': ('SBC', '🧩', 0xF28C28, 'Find the SBC service that fits your squad.'),
@@ -150,6 +153,15 @@ class GuardedView(discord.ui.View):
             await interaction.response.send_message('This menu is not available to you.', ephemeral=True,
                                                     allowed_mentions=MENTIONS)
             return False
+        if interaction.guild_id == OFFICIAL_GUILD:
+            roles = getattr(interaction.user, 'roles', ())
+            permissions = getattr(interaction.user, 'guild_permissions', None)
+            if not (permissions and permissions.administrator) and not any(
+                    role.id in FC_ROLE_IDS for role in roles):
+                await interaction.response.send_message(
+                    f'Join FC27 in <#{FC_WELCOME_CHANNEL}> to use this card.', ephemeral=True,
+                    allowed_mentions=MENTIONS)
+                return False
         return True
 
 
