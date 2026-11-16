@@ -67,11 +67,15 @@ class RewardStore:
                     status TEXT NOT NULL,
                     job_id TEXT,
                     member_coupon_id TEXT,
+                    recipient_email_hash TEXT,
                     created_at INTEGER NOT NULL,
                     updated_at INTEGER NOT NULL,
                     UNIQUE(offer_id, site_member_id)
                 );
             """)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(reward_claims)")}
+            if "recipient_email_hash" not in columns:
+                db.execute("ALTER TABLE reward_claims ADD COLUMN recipient_email_hash TEXT")
 
     @contextmanager
     def _db(self):
@@ -195,13 +199,26 @@ class RewardStore:
                 db.execute("""UPDATE reward_claims SET status='reserved',updated_at=?
                               WHERE claim_id=? AND status='void'""", (ts, claim_id))
             else:
-                db.execute("INSERT INTO reward_claims VALUES (?,?,?,?,?,'reserved',NULL,NULL,?,?)",
-                           (claim_id, offer_id, site_member_id, batch_no, offer["cost_points"], ts, ts))
+                db.execute("""INSERT INTO reward_claims
+                    (claim_id,offer_id,site_member_id,batch_no,cost_points,status,created_at,updated_at)
+                    VALUES (?,?,?,?,?,'reserved',?,?)""",
+                    (claim_id, offer_id, site_member_id, batch_no, offer["cost_points"], ts, ts))
             return dict(db.execute("SELECT * FROM reward_claims WHERE claim_id=?",
                                    (claim_id,)).fetchone())
 
-    def begin_grant(self, claim_id, current_coupon_fingerprint, now=None):
-        """Return the stable Admin batch once; caller must verify site member email."""
+    def grant_target(self, claim_id):
+        """Read the reserved claim and its immutable coupon offer for preflight."""
+        with self._db() as db:
+            row = db.execute("""SELECT c.*,o.coupon_id,o.enabled FROM reward_claims c
+                                JOIN reward_offers o ON c.offer_id=o.offer_id
+                                WHERE c.claim_id=?""", (claim_id,)).fetchone()
+            return dict(row) if row else None
+
+    def begin_grant(self, claim_id, current_coupon_fingerprint,
+                    recipient_email_hash, now=None):
+        """Reserve the single Admin POST and retain a hash of its verified recipient."""
+        if not isinstance(recipient_email_hash, str) or not FINGERPRINT.fullmatch(recipient_email_hash):
+            raise RewardError("Verified recipient fingerprint is required")
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("""SELECT c.*,o.coupon_id,o.coupon_fingerprint FROM reward_claims c
@@ -211,8 +228,9 @@ class RewardStore:
                 raise RewardError("Claim is not ready for a first grant")
             if row["coupon_fingerprint"] != current_coupon_fingerprint:
                 raise RewardError("Coupon terms changed; grant is paused")
-            db.execute("UPDATE reward_claims SET status='sending',updated_at=? WHERE claim_id=?",
-                       (int(now or time.time()), claim_id))
+            db.execute("""UPDATE reward_claims SET status='sending',recipient_email_hash=?,updated_at=?
+                          WHERE claim_id=?""",
+                       (recipient_email_hash, int(now or time.time()), claim_id))
             return {"coupon_id": row["coupon_id"], "batch_no": row["batch_no"],
                     "site_member_id": row["site_member_id"]}
 

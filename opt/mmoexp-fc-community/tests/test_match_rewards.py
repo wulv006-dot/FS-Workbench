@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from match_rewards import RewardError, RewardStore, coupon_snapshot_fingerprint
 
 
 FINGERPRINT = "a" * 64
+RECIPIENT_HASH = "c" * 64
 
 
 class MatchRewardsTests(unittest.TestCase):
@@ -34,15 +36,18 @@ class MatchRewardsTests(unittest.TestCase):
         self.assertEqual(self.store.balance(10), 0)
         self.assertEqual(self.store.claim("test-2026", 10)["claim_id"], claim["claim_id"])
         with self.assertRaisesRegex(RewardError, "changed"):
-            self.store.begin_grant(claim["claim_id"], "b" * 64)
-        dispatch = self.store.begin_grant(claim["claim_id"], FINGERPRINT, now=201)
+            self.store.begin_grant(claim["claim_id"], "b" * 64, RECIPIENT_HASH)
+        dispatch = self.store.begin_grant(claim["claim_id"], FINGERPRINT,
+                                          RECIPIENT_HASH, now=201)
         self.assertEqual(dispatch["site_member_id"], 10)
         self.assertEqual(dispatch["batch_no"], claim["batch_no"])
+        self.assertEqual(self.store.grant_target(claim["claim_id"])["recipient_email_hash"],
+                         RECIPIENT_HASH)
         self.store.record_grant_result(claim["claim_id"], "unknown", now=202)
         self.store.configure_offer("test-2026", 1385, FINGERPRINT, 3, 2, enabled=False)
         self.assertEqual(self.store.claim_status("test-2026", 10)["status"], "unknown")
         with self.assertRaisesRegex(RewardError, "not ready"):
-            self.store.begin_grant(claim["claim_id"], FINGERPRINT)
+            self.store.begin_grant(claim["claim_id"], FINGERPRINT, RECIPIENT_HASH)
         with self.assertRaisesRegex(RewardError, "unsubmitted"):
             self.store.void_before_grant(claim["claim_id"])
         self.assertEqual(self.store.claim_status("test-2026", 10)["status"], "unknown")
@@ -51,7 +56,7 @@ class MatchRewardsTests(unittest.TestCase):
     def test_pending_job_reconciles_to_one_member_coupon(self):
         self.credit()
         claim = self.store.claim("test-2026", 10)
-        self.store.begin_grant(claim["claim_id"], FINGERPRINT)
+        self.store.begin_grant(claim["claim_id"], FINGERPRINT, RECIPIENT_HASH)
         with self.assertRaisesRegex(RewardError, "job ID"):
             self.store.record_grant_result(claim["claim_id"], "pending")
         self.store.record_grant_result(claim["claim_id"], "pending", job_id="job-1")
@@ -65,6 +70,22 @@ class MatchRewardsTests(unittest.TestCase):
         with self.assertRaises(RewardError):
             self.store.record_grant_result(claim["claim_id"], "confirmed",
                                            member_coupon_id="member-coupon-2")
+
+    def test_parallel_grant_starts_allow_one_admin_post(self):
+        self.credit()
+        claim = self.store.claim("test-2026", 10)
+
+        def begin(_):
+            try:
+                return self.store.begin_grant(claim["claim_id"], FINGERPRINT,
+                                              RECIPIENT_HASH)["batch_no"]
+            except RewardError:
+                return None
+
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            results = list(workers.map(begin, range(2)))
+        self.assertEqual(results.count(claim["batch_no"]), 1)
+        self.assertEqual(results.count(None), 1)
 
     def test_unsubmitted_reservation_can_be_reused_without_new_batch(self):
         self.credit()
@@ -114,8 +135,24 @@ class MatchRewardsTests(unittest.TestCase):
         claim = self.store.claim("test-2026", 10)
         self.store.configure_offer("test-2026", 1385, FINGERPRINT, 3, 2, enabled=False)
         with self.assertRaisesRegex(RewardError, "not ready"):
-            self.store.begin_grant(claim["claim_id"], FINGERPRINT)
+            self.store.begin_grant(claim["claim_id"], FINGERPRINT, RECIPIENT_HASH)
         self.assertEqual(self.store.claim_status("test-2026", 10)["status"], "reserved")
+
+    def test_existing_ledger_gets_recipient_hash_column_without_losing_claims(self):
+        path = Path(self.tmp.name) / "existing.sqlite3"
+        with sqlite3.connect(path) as db:
+            db.execute("""CREATE TABLE reward_claims (
+                claim_id TEXT PRIMARY KEY, offer_id TEXT, site_member_id INTEGER,
+                batch_no TEXT, cost_points INTEGER, status TEXT, job_id TEXT,
+                member_coupon_id TEXT, created_at INTEGER, updated_at INTEGER)""")
+            db.execute("INSERT INTO reward_claims VALUES (?,?,?,?,?,?,?,?,?,?)",
+                       ("claim-1", "pilot", 42, "batch-1", 3, "reserved", None, None, 1, 1))
+        RewardStore(path)
+        with sqlite3.connect(path) as db:
+            self.assertIn("recipient_email_hash",
+                          {row[1] for row in db.execute("PRAGMA table_info(reward_claims)")})
+            self.assertEqual(db.execute("SELECT status FROM reward_claims").fetchone()[0],
+                             "reserved")
 
 
 if __name__ == "__main__":
