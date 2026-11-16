@@ -45,6 +45,8 @@
 
 06:14 再以当前草稿分支重做隔离合并：187 现网 `content_bot.py` SHA256 仍为 `517522df...`，与本机只读快照一致；以共同祖先合并后仅有正式群命令同步一处冲突，保留现网完整同步即可。最终候选相对现网**增加 48 行、删除 0 行**，保留 `/privacy`、`/privacy-delete` 和内置聊天代码。将该候选与参与模块放在 `/opt/mmoexp-fc-weekly-stage-20261117-c9d22d8/optin`，用生产 Python 3.9 跑内容机器人 7 项、隐私 24 项、领奖入口与参与 8 项，共 **39 项全部通过**。本地合并候选在 `.agent_runtime/weekly-live-reconcile-20261117/optin-merge/merged.py`，未入 Git；这是测试候选，不是可直接替换生产的发布源。正式服务和测试群频道均未修改，真实按钮尚未点验。
 
+为使测试群发布源可回溯，已从上述逐行合并结果生成 [现网增量补丁](WEEKLY-OPTIN-LIVE-DELTA-20261117.patch)：以当前现网 SHA256 `517522dfe63fa4411aa81d081afce53c5703ea51a8a3bd35356baf99319c8cc2` 为唯一基线，仅增 48 行；在本地独立副本 `git apply --check` 与实际应用均成功，应用后规范化 LF 内容 SHA256 `9b6d4c3494403706cabdd9c76001611cdc6d7d6e4f4fb9aa2295c60bf8cc3b01`，与 187 隔离测试候选一致。补丁只是测试群试点的可审计增量，正式源文件回灌仍须与 DSH 聊天/隐私代码负责人协调。当前未将此补丁应用到线上服务。
+
 ## 接线顺序与验收
 
 1. 在 Admin Web 预建或从已授权的 187 自动创建**当周独立券模板**，只读核对 `mode_type=2/reduce=92`、`max_reduce=0`、`time_effect=2/days=7`、`site_id=266/game_id=1327`、`limit_qty=30/repeat_qty=1`、`attain=0`、`is_open=0`。`is_open=0` 表示不叠加主站折扣码，**不是券的启停开关**；启停字段为 `status`。2026-11-17 从 187 现有 Admin 代理只读读回本周券 `1397`：`status=0`（禁用）、`is_open=0`、`limit_qty=30`、`repeat_qty=1`、`mode_type=2`、`reduce=92.00`、`days=7`、`site_id=266`、`game_id=1327`。代码签发资格时要求 `status=1` 并锁定详情指纹；资格/入口未接牢前保持 `status=0`，日后启用后再签发，不能先在禁用状态签发后改变状态。现有 1395 是 10% 券；1387/1385 是历史试券，均不能复用。187 身份的 `market/coupon/add` 当前权限须重新核对，不能凭浏览器管理员权限推断。
