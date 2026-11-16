@@ -192,7 +192,7 @@ def price_targets(cfg, cost_rmb):
     return base, out
 
 
-def build_plan(cfg, log=print, known=None, need_retry=False):
+def _build_currency_plan(cfg, log=print, known=None, need_retry=False, persist=None):
     """采成本 + 算目标价 + 判定动作。任何闸门不过都**抛错**（调用方决定 hold）。
 
     need_retry=True：上一张 PoE1 工单没确认成功（执行器没跑完 / 写失败 / 结果待核实）
@@ -208,8 +208,11 @@ def build_plan(cfg, log=print, known=None, need_retry=False):
         " → 均价 ￥%.5f/个"
         % (int(p["采样条数"]), info["跳过"], info["用条数"],
            info["总数量"], info["总价"], cost))
-    if not (0.05 <= cost <= 200):
-        raise RuntimeError("成本 ￥%.4f 不在合理区间（0.05~200），疑似口径漂移" % cost)
+    floor = float(p.get("最低成本", 0.05))
+    ceiling = float(p.get("最高成本", 200))
+    if not (floor <= cost <= ceiling):
+        raise RuntimeError("成本 ￥%.6f 不在合理区间（%g~%g），疑似口径漂移"
+                           % (cost, floor, ceiling))
 
     last_cost = st.get("cost_rmb")
     if last_cost:
@@ -217,7 +220,7 @@ def build_plan(cfg, log=print, known=None, need_retry=False):
         if dev > float(p["最大单轮变动"]):
             blocked = int(st.get("blocked") or 0) + 1
             st["blocked"] = blocked
-            save_state(st)
+            (persist or save_state)(st)
             msg = ("成本相对上次 ￥%.5f 偏离 %.1f%% > %.0f%%"
                    % (float(last_cost), dev * 100, float(p["最大单轮变动"]) * 100))
             if blocked >= 4:
@@ -234,22 +237,25 @@ def build_plan(cfg, log=print, known=None, need_retry=False):
                 st["blocked"] = 0
 
     base, targets = price_targets(cfg, cost)
-    log("  [PoE1] 售价：Divine Orb = $%.5f（￥%.5f ÷ %.2f ÷ %.2f）"
-        % (base, cost, 1 - float(p["利润率"]), float(p["汇率USDCNY"])))
+    log("  [PoE1] 售价：%s = $%.5f（￥%.5f ÷ %.2f ÷ %.2f）"
+        % (p.get("币种名称", "Divine Orb"), base, cost,
+           1 - float(p["利润率"]), float(p["汇率USDCNY"])))
 
     items, written = [], {}
     old_map = st.get("targets") or {}
-    # 20 倍不变量：两个商品必须严格 20 倍。历史记录里破了就无条件重写。
-    _ids = [str(it["id"]) for it in (p.get("商品") or [])]
+    # 每个币种按已核实的付费数量计算组合包；赠品不计入付费倍数。
+    products = p.get("商品") or []
     inv_ok = True
-    if len(_ids) >= 2 and old_map.get(_ids[0]) and old_map.get(_ids[1]):
+    if products and old_map.get(str(products[0]["id"])):
         try:
-            inv_ok = abs(float(old_map[_ids[1]]) - 20 * float(old_map[_ids[0]])) <= 1e-4
+            reference = float(old_map[str(products[0]["id"])]) / float(products[0].get("倍数") or 1)
+            inv_ok = all(abs(float(old_map[str(it["id"])]) -
+                            round(reference * float(it.get("倍数") or 1), 5)) <= 1e-4
+                         for it in products if old_map.get(str(it["id"])))
         except (TypeError, ValueError):
-            inv_ok = True
+            inv_ok = False
     if not inv_ok:
-        log("  [PoE1] ⚠ 记录里的 20 倍关系已不成立（%s / %s）→ 本轮强制重写"
-            % (old_map.get(_ids[0]), old_map.get(_ids[1])))
+        log("  [PoE1] ⚠ 记录里的组合包倍数关系已不成立 → 本轮强制重写")
     min_step = float(p["最小改价幅度"])
 
     for it in p.get("商品") or []:
@@ -289,10 +295,80 @@ def build_plan(cfg, log=print, known=None, need_retry=False):
         "用条数": info["用条数"], "跳过条数": info["跳过"],
         "自校验最大偏差": info["自校验最大偏差"],
         "利润率": float(p["利润率"]), "汇率USDCNY": float(p["汇率USDCNY"]),
-        "倍数关系": "×20", "样本": info["样本"],
+        "倍数关系": {str(it["id"]): it.get("倍数") or 1 for it in products},
+        "样本": info["样本"],
         "items": items,
         "targets": written,
         "next_state": {"ts": dt.datetime.now().isoformat(timespec="seconds"),
                        "cost_rmb": round(cost, 6), "base_usd": base,
                        "targets": written, "blocked": 0},
     }
+
+
+def build_plan(cfg, log=print, known=None, need_retry=False):
+    """同一调度内分别采集/保护每个币种；旧神圣石状态保持原结构。"""
+    p = _p(cfg)
+    extras = [x for x in p.get("附加币种", []) if x.get("启用", True)]
+    if not extras:
+        return _build_currency_plan(cfg, log, known, need_retry)
+    import copy
+    original = copy.deepcopy(known if isinstance(known, dict) else load_state())
+    states = copy.deepcopy(original.get("currencies") or {})
+    next_state = copy.deepcopy(original)
+    plans, errors, ids = [], {}, set()
+    groups = [("divine", {}, original)] + [
+        (x["key"], x, states.get(x["key"], {})) for x in extras]
+    keys = [key for key, _, _ in groups]
+    if len(keys) != len(set(keys)):
+        raise ValueError("PoE1币种key重复")
+    # 先校验所有ID，不能把一个商品同时按两个成本定价。
+    for key, override, old in groups:
+        for it in override.get("商品", p.get("商品") or []):
+            rid = str(it["id"])
+            if rid in ids or float(it.get("倍数") or 1) <= 0:
+                raise ValueError("PoE1商品ID重复或数量无效：" + rid)
+            ids.add(rid)
+    for key, override, old in groups:
+        settings = dict(p)
+        settings.pop("附加币种", None)
+        settings.update(override)
+        single_cfg = dict(cfg)
+        single_cfg[SECTION] = settings
+
+        def persist(value, currency=key):
+            latest = load_state()
+            if currency == "divine":
+                latest.update(value)
+            else:
+                latest.setdefault("currencies", {})[currency] = value
+            save_state(latest)
+
+        try:
+            log("  [PoE1] 币种：%s" % settings.get("币种名称", "Divine Orb"))
+            plan = _build_currency_plan(single_cfg, log, copy.deepcopy(old), need_retry, persist)
+            plans.append((key, plan))
+            if key == "divine":
+                next_state.update(plan["next_state"])
+            else:
+                states[key] = dict(plan["next_state"], last_plan=plan["items"],
+                                   利润率=plan["利润率"], 成本_元每个=plan["成本_元每个"])
+        except Exception as error:
+            errors[key] = str(error)
+            log("  [PoE1] %s 本轮保持：%s" % (key, error))
+            persisted = load_state()
+            if key == "divine":
+                next_state["blocked"] = persisted.get("blocked", old.get("blocked", 0))
+            else:
+                states[key] = (persisted.get("currencies") or {}).get(key, old)
+    if not plans:
+        raise RuntimeError("PoE1全部币种采集失败：%s" % errors)
+    result = dict(plans[0][1])
+    result["items"] = [it for _, plan in plans for it in plan["items"]]
+    result["targets"] = {rid: value for _, plan in plans for rid, value in plan["targets"].items()}
+    result["币种"] = {key: {k: v for k, v in plan.items() if k != "next_state"}
+                      for key, plan in plans}
+    result["币种错误"] = errors
+    result["倍数关系"] = {it["id"]: it["倍数"] for it in result["items"]}
+    next_state["currencies"] = states
+    result["next_state"] = next_state
+    return result

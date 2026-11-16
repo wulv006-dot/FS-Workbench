@@ -149,8 +149,9 @@ def console_snapshot(root, api):
             last=st.get('ts') or sch.get('上次')
             enabled=bool(doc.get('启用'))
             source='DD373'
-            rule='成本÷(1−%.0f%%) ｜ 20 倍档'%(float(doc.get('利润率',.30))*100)
-            region_count=len(doc.get('商品') or [])
+            extras=[x for x in doc.get('附加币种',[]) if x.get('启用',True)]
+            rule='成本÷(1−%.0f%%) ｜ 按商品数量定价'%(float(doc.get('利润率',.30))*100)
+            region_count=len(doc.get('商品') or [])+sum(len(x.get('商品') or []) for x in extras)
             items,gold=[],[]
         else:
             sch=schedule.get(source_name,{})
@@ -243,9 +244,9 @@ def monitor_snapshot(root, api, game_id):
                 'current':number(r.get('old')),'target':number(r.get('new')),
                 'action':r.get('动作'),'note':r.get('原因')})
         notes=['现价来自上一次成功写入本专线的目标价；实际后台价格以工单记录为准。',
-               '成本口径：DD373 神圣石挂单（跳过最低 1 条）加权均价 ÷（1−%.0f%%）÷ 汇率。'
+               '成本口径：各币种分别取 DD373 挂单（跳过最低 1 条）加权均价 ÷（1−%.0f%%）÷ 汇率。'
                % (float(doc.get('利润率',.30))*100),
-               '38588451 Divine Orb = P；71488529 Divine Orb(20+1 Free) = 20 × P。']
+               '神圣石：单个=P，20+1档=20×P；混沌石：单个=C，1000+100档=1000×C（仅已启用币种执行）。']
         if not rows:
             notes.insert(0,'暂未读到本专线的采集记录。')
         columns=[{'key':'title','label':'商品'},{'key':'category','label':'类型与单位'},

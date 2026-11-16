@@ -15,7 +15,7 @@ def main():
     if args.group in ("console", "all"):
         pr_fast.units("releases/rpg-console/console-v2-20261112/tests",
                       ["test_game_parameters", "test_console_config", "test_integration",
-                       "test_safety_review", "test_release_safety"])
+                       "test_safety_review", "test_release_safety", "test_poe1_currencies"])
     if args.group in ("rpg", "all"):
         pr_fast.units("tools", ["pr_fast_tests.RPGGuards", "pr_fast_tests.RPGModuleContracts"])
         pr_fast.units("opt/d4follow", ["test_wow_sources", "test_iggm_local_first"])

@@ -1199,7 +1199,7 @@ def main():
         elif group=="rpg-console":
             units("releases/rpg-console/console-v2-20261112/tests",
                   ["test_game_parameters", "test_console_config", "test_integration",
-                   "test_safety_review", "test_release_safety"])
+                   "test_safety_review", "test_release_safety", "test_poe1_currencies"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
         elif group=="lucky-loot":

@@ -2247,12 +2247,14 @@ def _poe1_round(t, cfg, con, ts):
         "kind": "p2pah-apply-ticket",
         "ts": dt.datetime.now().isoformat(timespec="seconds"),
         "游戏": ["流放之路1"],
-        "专线": "POE1 神圣石（DD373 成本 → 后台物品标价）",
+        "专线": "POE1 货币（DD373 成本 → 后台物品标价）",
         "count": len(items), "items": items,
         "成本_元每个": plan.get("成本_元每个"),
         "挂单数": plan.get("DD373_挂单数"),
         "利润率": plan.get("利润率"),
-        "倍数关系": "71488529 = 20 × 38588451（写后由执行器逐件复核）",
+        "倍数关系": plan.get("倍数关系"),
+        "币种": plan.get("币种"),
+        "币种错误": plan.get("币种错误"),
         "clearcache": _want_cache,
         "clearcache_来源": "config POE1定价.清缓存 = %s" % _want_cache,
         "价格口径": "items[].old / new 都是后台「$每个价格」(unit_price)",
@@ -2267,7 +2269,7 @@ def _poe1_round(t, cfg, con, ts):
         "%s %s→%s" % (i["title"], _usd(i["old"] or 0), _usd(i["new"])) for i in items)))
     try:
         jid = store.local_job_add(
-            con, kind="write", title="PoE1 神圣石改价 %d 件" % len(items),
+            con, kind="write", title="PoE1 货币改价 %d 件" % len(items),
             plan_path=fp, plan=payload,
             summary="、".join("%s→%s" % (_usd(i["old"] or 0), _usd(i["new"])) for i in items),
             actor="poe1-auto", exec_mode=_mode)

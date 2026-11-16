@@ -173,12 +173,15 @@ def get_game_schema(game_id, doc, common_cfg=None):
                      help='超过则本轮不改价；连续 4 轮仍在闸门外会自动放行。'),
                 _num(doc,'min_change','最小改价幅度',p+['最小改价幅度'],.002,0,.5,
                      unit='%',scale=100,step=.1,
-                     help='目标价与现行价差异小于此值不发写请求；20 倍关系被改坏时强制纠正。'),
+                     help='目标价与现行价差异小于此值不发写请求；组合包数量倍数被改坏时强制纠正。'),
             ]
             readonly += [
-                {'label':'成本来源','value':'DD373 流放之路（国际服）· POE1 · 巫影(标准) · 神圣石挂单'},
+                {'label':'成本来源','value':'DD373 流放之路（国际服）· POE1 · 巫影(标准)；各启用币种分别采价'},
                 {'label':'后台位置','value':'gid=157 · 服务区 18858 · 类目 76 Currency'},
                 {'label':'写入商品','value':'38588451 Divine Orb = P；71488529 Divine Orb(20+1 Free) = 20 × P'},
+                {'label':'附加币种','value':'；'.join('%s：%s'%(x.get('币种名称',x.get('key')),
+                    '，'.join('%s ×%s'%(it.get('名称'),it.get('倍数',1)) for it in x.get('商品',[])))
+                    for x in get_path(doc,['POE1定价','附加币种'],[]) if x.get('启用',True)) or '无'},
                 {'label':'换算汇率','value':get_path(doc,['POE1定价','汇率USDCNY'],6.65)},
                 {'label':'未接入项','value':'IGGM 竞品跟价 / 千岛进货成本 / 前端折扣换算（本条专线都不使用）'},
             ]
