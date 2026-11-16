@@ -101,9 +101,10 @@
     if(cartGuard&&selection.page_id==='seasonal-vault')return cartGuard.checkout({snapshot,selection,approved,storage,host,navigate,onCartConfirmed});
     let operation;try{operation=JSON.parse(storage.getItem(key)||'null');}catch{fail('OPERATION_RECORD_UNREADABLE');}
     // A hand-off that already reached the cart page (Cart/add confirmed, then
-    // navigated) is finished. It must not block the next lineup in this tab, or a
-    // second visit after the first cart. An UNKNOWN or incomplete one still blocks.
-    if(operation){let finished=false;try{const prior=JSON.parse(storage.getItem('fs-native-cart:'+operation.id)||'null');finished=typeof prior?.state==='string'&&prior.state.startsWith('navigation_attempted');}catch{}if(finished)operation=null;}
+    // navigated) is finished, so it must not block a different lineup in this tab.
+    // The same lineup still replays without a second POST. An UNKNOWN or incomplete
+    // operation still blocks.
+    if(operation&&operation.signature!==approved.signature){let finished=false;try{const prior=JSON.parse(storage.getItem('fs-native-cart:'+operation.id)||'null');finished=typeof prior?.state==='string'&&prior.state.startsWith('navigation_attempted');}catch{}if(finished)operation=null;}
     if(operation&&operation.signature!==approved.signature)fail('OPERATION_CONFLICT');
     if(!operation){operation={id:root.crypto.randomUUID(),signature:approved.signature};const text=JSON.stringify(operation);storage.setItem(key,text);if(storage.getItem(key)!==text)fail('OPERATION_RECORD_UNCONFIRMED');}
     return checkout({storage,options:approved.options,operationId:operation.id,items:approved.items,host,navigate,onCartConfirmed,liveVerified:true,couponClaimed:couponClaimed===true&&selection.page_id!=='seasonal-vault',memberCouponId});

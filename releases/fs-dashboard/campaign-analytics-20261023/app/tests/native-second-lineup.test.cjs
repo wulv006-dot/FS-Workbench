@@ -22,9 +22,9 @@ test('a different lineup after a finished hand-off starts a new operation',async
   assert.equal((await f.run('p2')).state,'navigation_attempted_coupon_claimed');
   assert.deepEqual(f.state.posts,[[601],[602]]);assert.equal(f.state.navigations,2);
 });
-test('the same lineup again after a finished hand-off goes to the cart again',async()=>{
+test('the same lineup again after a finished hand-off still replays without a second POST',async()=>{
   const f=fixture();await f.run('p1');await f.run('p1');
-  assert.deepEqual(f.state.posts,[[601],[601]]);assert.equal(f.state.navigations,2);
+  assert.deepEqual(f.state.posts,[[601]]);
 });
 test('an unknown or incomplete operation still blocks a different lineup',async()=>{
   const f=fixture();f.state.mode='unknown';assert.equal((await f.run('p1')).state,'cart_incomplete_inspect_original');
