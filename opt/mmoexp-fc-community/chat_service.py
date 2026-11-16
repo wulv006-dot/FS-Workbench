@@ -363,7 +363,8 @@ class ChatClient(discord.Client):
                                         message.created_at.timestamp(), attempts=3)
 
     async def retry_daily_card(self):
-        await asyncio.sleep(300)
+        await asyncio.sleep(self.focus_config.get(
+            'settle_seconds', matchday_focus.DEFAULT_SETTLE_SECONDS))
         await self.recover_daily_card(schedule_retry=False)
 
     async def handle_daily_card(self, message, schedule_retry=True):
@@ -384,8 +385,17 @@ class ChatClient(discord.Client):
         if not fixtures:
             return
         day = now.astimezone(matchday_focus.LONDON).date()
+        limit = self.focus_config.get('weekly_limit', 2)
+        if (not self.focus_store.may_select(message.guild.id, day, limit)
+                or self.focus_store.reviewed(message.guild.id, message.id)):
+            return
+        if (now - message.created_at).total_seconds() < self.focus_config.get(
+                'settle_seconds', matchday_focus.DEFAULT_SETTLE_SECONDS):
+            if schedule_retry and (self.focus_retry_task is None or
+                                   self.focus_retry_task.done()):
+                self.focus_retry_task = asyncio.create_task(self.retry_daily_card())
+            return
         async with self.focus_lock:
-            limit = self.focus_config.get('weekly_limit', 2)
             if (not self.focus_store.may_select(message.guild.id, day, limit)
                     or self.focus_store.reviewed(message.guild.id, message.id)):
                 return
@@ -393,9 +403,28 @@ class ChatClient(discord.Client):
             if channel is None or channel.guild.id != message.guild.id:
                 print('Matchday focus discussion channel unavailable', flush=True)
                 return
+            source = self.get_channel(route['source_channel_id'])
+            if source is None or source.guild.id != message.guild.id:
+                print('Matchday focus source channel unavailable', flush=True)
+                return
+            candidates, source_ids, seen = [], set(), set()
+            for fixture in fixtures:
+                candidates.append((message.id, fixture))
+                seen.add(fixture.key)
+            source_ids.add(message.id)
+            async for card in source.history(limit=200):
+                card_fixtures = matchday_focus.parse_daily_card(card, route, now)
+                if card_fixtures:
+                    source_ids.add(card.id)
+                for fixture in card_fixtures:
+                    if fixture.key not in seen:
+                        candidates.append((card.id, fixture))
+                        seen.add(fixture.key)
+            if not candidates:
+                return
             try:
-                answer = await self.brain.select_matchday(fixtures)
-                choice = matchday_focus.parse_choice(answer, len(fixtures))
+                answer = await self.brain.select_matchday([fixture for _, fixture in candidates])
+                choice = matchday_focus.parse_choice(answer, len(candidates))
             except (chat_brain.ChatBrainError, ValueError) as exc:
                 print('Matchday focus selection skipped: {} response={!r}'.format(
                     type(exc).__name__, locals().get('answer', '')[:240]), flush=True)
@@ -404,13 +433,13 @@ class ChatClient(discord.Client):
                     self.focus_retry_task = asyncio.create_task(self.retry_daily_card())
                 return
             if choice is None:
-                self.focus_store.skip_source(message.guild.id, message.id)
+                for source_id in source_ids:
+                    self.focus_store.skip_source(message.guild.id, source_id)
                 return
-            index = choice
-            fixture = fixtures[index]
+            selected_source_id, fixture = candidates[choice]
             question = 'Who are you backing: {} or {}?'.format(
                 fixture.home, fixture.away)
-            if not self.focus_store.reserve(message.guild.id, day, message.id,
+            if not self.focus_store.reserve(message.guild.id, day, selected_source_id,
                                             fixture, question, limit):
                 return
             embed = discord.Embed(
@@ -428,11 +457,11 @@ class ChatClient(discord.Client):
                 'https://discord.com/channels/{}/{}'.format(
                     message.guild.id, route['players_channel_id'])))
             try:
-                sent = await channel.send(embed=embed, view=view, nonce=message.id,
+                sent = await channel.send(embed=embed, view=view, nonce=selected_source_id,
                                           allowed_mentions=discord.AllowedMentions.none())
                 self.focus_store.finish(message.guild.id, day, sent.id)
                 print('Matchday focus sent source={} discussion={}'.format(
-                    message.id, sent.id), flush=True)
+                    selected_source_id, sent.id), flush=True)
             except discord.DiscordException as exc:
                 self.focus_store.unknown(message.guild.id, day)
                 print('Matchday focus result unknown: ' + type(exc).__name__, flush=True)

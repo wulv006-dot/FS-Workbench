@@ -169,7 +169,7 @@ class FocusTests(unittest.TestCase):
     def test_config_is_explicit_subset_of_matchday_routes(self):
         with tempfile.TemporaryDirectory() as directory:
             good = {'enabled': True, 'guild_ids': [str(GUILD)],
-                    'state_path': str(Path(directory) / 'focus.sqlite3')}
+                    'state_path': str(Path(directory) / 'focus.sqlite3'), 'settle_seconds': 0}
             validate_config(good, ENGAGEMENT)
             with self.assertRaises(ValueError):
                 validate_config(dict(good, guild_ids=['999999999999999999']), ENGAGEMENT)
@@ -245,7 +245,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 'matchday_engagement': dict(ENGAGEMENT,
                     state_path=str(Path(directory) / 'pulse.sqlite3')),
                 'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
-                    'state_path': str(Path(directory) / 'focus.sqlite3')},
+                    'state_path': str(Path(directory) / 'focus.sqlite3'), 'settle_seconds': 0},
             }
             client = ChatClient(config)
             client.focus_store.may_select = lambda *_: False
@@ -277,7 +277,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 'matchday_engagement': dict(ENGAGEMENT,
                     state_path=str(Path(directory) / 'pulse.sqlite3')),
                 'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
-                    'state_path': str(Path(directory) / 'focus.sqlite3')},
+                    'state_path': str(Path(directory) / 'focus.sqlite3'), 'settle_seconds': 0},
             }
             client = ChatClient(config)
             client.brain.select_matchday = AsyncMock()
@@ -312,6 +312,11 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Spain vs England', prompt[1]['content'])
         self.assertIn('never fill a quota', prompt[0]['content'])
 
+    def test_choice_accepts_a_match_beyond_the_first_card(self):
+        self.assertEqual(parse_choice('27', 35), 26)
+        with self.assertRaises(ValueError):
+            parse_choice('36', 35)
+
     async def test_restart_recovers_today_card_without_duplicate_post(self):
         from chat_service import ChatClient
 
@@ -323,7 +328,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 'matchday_engagement': dict(ENGAGEMENT,
                     state_path=str(Path(directory) / 'pulse.sqlite3')),
                 'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
-                    'state_path': str(Path(directory) / 'focus.sqlite3')},
+                    'state_path': str(Path(directory) / 'focus.sqlite3'), 'settle_seconds': 0},
             }
             client = ChatClient(config)
             client.brain.select_matchday = AsyncMock(return_value='4')
@@ -349,7 +354,45 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(channel.send.await_count, 1)
             await client.close()
 
-    async def test_recovery_checks_another_league_after_a_skipped_card(self):
+    async def test_recovery_selects_from_all_league_cards_in_one_model_call(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                    'keywords': []}}},
+                'matchday_engagement': dict(ENGAGEMENT,
+                    state_path=str(Path(directory) / 'pulse.sqlite3')),
+                'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
+                    'state_path': str(Path(directory) / 'focus.sqlite3'), 'settle_seconds': 0},
+            }
+            client = ChatClient(config)
+            client.brain.select_matchday = AsyncMock(return_value='5')
+            newer = card()
+            newer.id = SOURCE + 1
+            newer.embeds[0].title = "Today's matches in Premier League"
+            newer.embeds[0].fields = [SimpleNamespace(
+                name='Premier League', value='Small Town vs Valley FC 17:00')]
+            async def history(limit):
+                yield newer
+                yield card()
+            channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
+                history=history, send=AsyncMock(return_value=SimpleNamespace(
+                    id=1571600000000000000)))
+            client.get_channel = lambda cid: channel if cid == CHANNEL else None
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW), patch.object(
+                    client, 'setup_matchday_intro', new_callable=AsyncMock):
+                await client.on_ready()
+            self.assertEqual(client.brain.select_matchday.await_count, 1)
+            self.assertEqual(len(client.brain.select_matchday.await_args.args[0]), 5)
+            self.assertEqual(channel.send.await_count, 1)
+            self.assertIn('Spain vs England', channel.send.await_args.kwargs['embed'].description)
+            self.assertEqual(client.focus_store.selected_source_id(
+                GUILD, 'spain|england', NOW.timestamp()), str(SOURCE))
+            await client.close()
+
+    async def test_new_card_waits_before_selecting_daily_focus(self):
         from chat_service import ChatClient
 
         with tempfile.TemporaryDirectory() as directory:
@@ -363,22 +406,17 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     'state_path': str(Path(directory) / 'focus.sqlite3')},
             }
             client = ChatClient(config)
-            client.brain.select_matchday = AsyncMock(side_effect=['NONE', '4'])
-            newer = card()
-            newer.id = SOURCE + 1
+            client.brain.select_matchday = AsyncMock(return_value='4')
             async def history(limit):
-                yield newer
                 yield card()
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
-                history=history, send=AsyncMock(return_value=SimpleNamespace(
-                    id=1571600000000000000)))
+                history=history, send=AsyncMock())
             client.get_channel = lambda cid: channel if cid == CHANNEL else None
-            with patch('chat_service.discord.utils.utcnow', return_value=NOW), patch.object(
-                    client, 'setup_matchday_intro', new_callable=AsyncMock):
-                await client.on_ready()
-            self.assertEqual(client.brain.select_matchday.await_count, 2)
-            self.assertEqual(channel.send.await_count, 1)
-            self.assertTrue(client.focus_store.reviewed(GUILD, SOURCE + 1))
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW):
+                await client.on_message(card())
+            client.brain.select_matchday.assert_not_awaited()
+            channel.send.assert_not_awaited()
+            self.assertIsNotNone(client.focus_retry_task)
             await client.close()
 
     async def test_quiet_day_has_no_public_post_or_repeat_model_call(self):
@@ -392,12 +430,14 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 'matchday_engagement': dict(ENGAGEMENT,
                     state_path=str(Path(directory) / 'pulse.sqlite3')),
                 'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
-                    'state_path': str(Path(directory) / 'focus.sqlite3')},
+                    'state_path': str(Path(directory) / 'focus.sqlite3'), 'settle_seconds': 0},
             }
             client = ChatClient(config)
             client.brain.select_matchday = AsyncMock(return_value='NONE')
+            async def history(limit):
+                yield card()
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
-                                      send=AsyncMock())
+                                      history=history, send=AsyncMock())
             client.get_channel = lambda cid: channel if cid == CHANNEL else None
             with patch('chat_service.discord.utils.utcnow', return_value=NOW):
                 await client.on_message(card())
@@ -428,7 +468,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 'matchday_engagement': dict(ENGAGEMENT,
                     state_path=str(Path(directory) / 'pulse.sqlite3')),
                 'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
-                    'state_path': str(Path(directory) / 'focus.sqlite3')},
+                    'state_path': str(Path(directory) / 'focus.sqlite3'), 'settle_seconds': 0},
             }
             client = ChatClient(config)
             client.brain.select_matchday = AsyncMock(
@@ -465,12 +505,15 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     state_path=str(Path(directory) / 'pulse.sqlite3')),
                 'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
                     'state_path': str(Path(directory) / 'focus.sqlite3'),
-                    'weekly_limit': 2},
+                    'weekly_limit': 2, 'settle_seconds': 0},
             }
             client = ChatClient(config)
             client.brain.select_matchday = AsyncMock(return_value='4')
+            async def history(limit):
+                yield card()
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
-                send=AsyncMock(return_value=SimpleNamespace(id=1571600000000000000)))
+                history=history, send=AsyncMock(return_value=SimpleNamespace(
+                    id=1571600000000000000)))
             client.get_channel = lambda cid: channel if cid == CHANNEL else None
             with patch('chat_service.discord.utils.utcnow', return_value=NOW):
                 await client.on_message(card())
