@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-from matchday_engagement import (MatchPulseStore, followup_due_at, parse_match_event,
+from matchday_engagement import (MatchPulse, MatchPulseStore, followup_due_at, parse_match_event,
 
                                  prompt_text, validate_matchday_config)
 
@@ -200,6 +200,47 @@ class MatchdayEngagementTests(unittest.TestCase):
 
 
 class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_overdue_followup_alerts_ops_once_without_public_repost(self):
+        from chat_service import ChatClient, OFFICIAL_GUILD
+
+        ops_id = 1568699207022285040
+        with tempfile.TemporaryDirectory() as directory:
+            config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                'routes': {str(OFFICIAL_GUILD): {'channels': {str(SOURCE): {}}, 'keywords': []}}},
+                'matchday_engagement': {'enabled': True, 'routes': {str(OFFICIAL_GUILD):
+                    dict(CONFIG['routes'][str(TEST_GUILD)])},
+                    'state_path': str(Path(directory) / 'pulse.sqlite3')}}
+            client = ChatClient(config)
+            client.focus_config = {'ops_channel_id': str(ops_id)}
+            pulse = MatchPulse(OFFICIAL_GUILD, 'spain-england', 'Spain', 'England', '2–3',
+                'final', 'https://discord.com/channels/1/2/3', SOURCE, SOURCE, SOURCE)
+            now = time.time()
+            client.matchday_store.queue_followup(pulse, now)
+            with closing(sqlite3.connect(client.matchday_store.path)) as db:
+                due = db.execute('SELECT due_at FROM match_followup').fetchone()[0]
+            ops = SimpleNamespace(guild=SimpleNamespace(id=OFFICIAL_GUILD),
+                                  send=AsyncMock(return_value=SimpleNamespace(id=456)))
+            client.get_channel = lambda channel_id: ops if channel_id == ops_id else None
+            await client.alert_overdue_followups(due + 599)
+            ops.send.assert_not_awaited()
+            await client.alert_overdue_followups(due + 600)
+            client.matchday_store = MatchPulseStore(Path(directory) / 'pulse.sqlite3')
+            await client.alert_overdue_followups(due + 1200)
+            ops.send.assert_awaited_once()
+            self.assertIn('overdue or unconfirmed', ops.send.await_args.args[0])
+            self.assertEqual(client.matchday_store.overdue_followups(due + 1200), [])
+            sent_pulse = MatchPulse(OFFICIAL_GUILD, 'other-match', 'A', 'B', '1–0',
+                'final', pulse.source_url, SOURCE, SOURCE, SOURCE)
+            client.matchday_store.queue_followup(sent_pulse, now)
+            with closing(sqlite3.connect(client.matchday_store.path)) as db:
+                sent_key = db.execute("SELECT event_key FROM match_followup WHERE status='pending' "
+                                      "AND event_key LIKE '%other-match%'").fetchone()[0]
+            self.assertTrue(client.matchday_store.reserve_followup(sent_key))
+            client.matchday_store.finish_followup(sent_key, 789)
+            await client.alert_overdue_followups(due + 1200)
+            ops.send.assert_awaited_once()
+            await client.close()
+
     async def test_match_locks_use_the_client_running_loop(self):
         from chat_service import ChatClient
 
