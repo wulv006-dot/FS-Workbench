@@ -34,6 +34,32 @@ def load_tests(loader, tests, pattern):
 
 
 class NativeWorkspaceTests(unittest.TestCase):
+    def test_reported_attachment_exports_when_build_files_exceed_workspace_limits(self):
+        from conversation_files import MAX_BYTES
+        from conversation_native import NativeWorkspace
+        for scratch_count in (1, 1001):
+            with self.subTest(scratch_count=scratch_count), tempfile.TemporaryDirectory() as root:
+                store = ConversationStore(Path(root) / 'store')
+                cid = store.create('alice')['conversation_id']
+                bridge = NativeWorkspace(store, Path(root) / 'native')
+                workspace = Path(bridge.prepare('alice', cid)['workspace'])
+                scratch = workspace / 'dependencies'
+                scratch.mkdir()
+                with (scratch / 'font.ttf').open('wb') as font:
+                    font.truncate(MAX_BYTES + 1)
+                for index in range(scratch_count):
+                    (scratch / f'dependency-{index}.txt').write_bytes(b'build input')
+                (workspace / 'report.pdf').write_bytes(b'%PDF-test')
+                (workspace / 'unreported.pdf').write_bytes(b'not a deliverable')
+                run = 'run_' + 'a' * 32
+                with self.assertRaisesRegex(ValueError, 'native_file_kind_or_size|native_file_count'):
+                    bridge.collect('alice', cid, run)
+                cards = bridge.collect('alice', cid, run, reported_output='PDF: `report.pdf`')
+                self.assertEqual([card['filename'] for card in cards], ['report.pdf'])
+                self.assertEqual(ConversationFiles(store).read('alice', cid, cards[0]['file_id'])['content'],
+                                 b'%PDF-test')
+                self.assertEqual(bridge.collect('alice', cid, run), cards)
+
     def test_intermediate_empty_and_hidden_files_do_not_block_real_exports(self):
         from conversation_native import NativeWorkspace
         with tempfile.TemporaryDirectory() as root:
