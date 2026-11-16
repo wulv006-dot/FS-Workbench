@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {checkout,claimActivityCoupon}=require('../native-code-handoff.js');
+const {checkout,claimActivityCoupon,mainSiteLogin,socialLoginUrl}=require('../native-code-handoff.js');
 const origin='https://www.mmoexp.com';
 // Synthetic main-site /ajax/carnival responses; no real coupon or account data.
 function site({enabled=true,logged_in=true,list=[{coupon_id:9001,can_claim:true}],claim=id=>({claim_status:'claimed',coupon_id:id,member_coupon_id:77}),http=200}={}){
@@ -41,4 +41,25 @@ test('a failed cart add with a claimed coupon does not navigate',async()=>{
  const r=await checkout({storage,options:{origin,cartUrl:'/Cart.html',sameTab:true,code:'SYNTHETIC',consumerBehaviorConfirmed:true},operationId:'coupon-2',items:[{offer:{id:123,group:1,quantity:1,aid:456}}],liveVerified:true,couponClaimed:true,
   host:{batch:()=>({run:async()=>[{id:123,state:'rejected'}]})},navigate:()=>navigated++});
  assert.equal(r.state,'cart_incomplete_inspect_original');assert.equal(navigated,0);
+});
+function loginSite(response){const calls=[];return {calls,fetchImpl:async(path,init)=>{calls.push({path,init});return {ok:true,json:async()=>response};}};}
+test('email sign-in posts the main-site login fields once, same origin',async()=>{
+ const s=loginSite({code:1,msg:'ok',data:{}});
+ assert.deepEqual(await mainSiteLogin({email:' a@b.co ',password:'secret1',origin,fetchImpl:s.fetchImpl}),{state:'signed_in'});
+ assert.equal(s.calls.length,1);assert.equal(s.calls[0].path,'/user/login.html');assert.equal(s.calls[0].init.method,'POST');assert.equal(s.calls[0].init.credentials,'same-origin');
+ assert.deepEqual(Object.fromEntries(new URLSearchParams(s.calls[0].init.body)),{usname:'a@b.co',passwd:'secret1',remPwd:'true',loginbindkey:'',site_id:'266'});
+});
+test('rejected sign-in returns the main-site message; other origins never post',async()=>{
+ assert.deepEqual(await mainSiteLogin({email:'a@b.co',password:'wrong12',origin,fetchImpl:loginSite({code:0,msg:'Wrong password!'}).fetchImpl}),{state:'rejected',message:'Wrong password!'});
+ const s=loginSite({code:1});await assert.rejects(mainSiteLogin({email:'a@b.co',password:'secret1',origin:'https://evil.example',fetchImpl:s.fetchImpl}),/LOGIN_ORIGIN_UNVERIFIED/);assert.equal(s.calls.length,0);
+});
+test('social sign-in returns the provider URL with this page as selfurl',async()=>{
+ const s=loginSite({code:1,msg:'authorize url',data:{redirect_url:'https://www.facebook.com/dialog/oauth?x=1'}});
+ assert.deepEqual(await socialLoginUrl({provider:'facebook',returnUrl:origin+'/events/Weekly-Scout.html?utm=a#top',origin,fetchImpl:s.fetchImpl}),{state:'redirect',url:'https://www.facebook.com/dialog/oauth?x=1'});
+ assert.equal(s.calls[0].path,'/user/login.html?act=loginapp&selfurl='+encodeURIComponent(origin+'/events/Weekly-Scout.html')+'&site_id=266&type=facebook');
+});
+test('social sign-in rejects unknown providers, foreign return pages and non-https targets',async()=>{
+ await assert.rejects(socialLoginUrl({provider:'steam',returnUrl:origin+'/events/x.html',origin,fetchImpl:loginSite({}).fetchImpl}),/LOGIN_PROVIDER_INVALID/);
+ await assert.rejects(socialLoginUrl({provider:'google',returnUrl:'https://evil.example/x',origin,fetchImpl:loginSite({}).fetchImpl}),/LOGIN_ORIGIN_UNVERIFIED/);
+ assert.equal((await socialLoginUrl({provider:'google',returnUrl:origin+'/events/x.html',origin,fetchImpl:loginSite({code:1,data:{redirect_url:'javascript:alert(1)'}}).fetchImpl})).state,'rejected');
 });

@@ -146,8 +146,34 @@
   // only maps its page to a slot. Anything other than a confirmed claim returns a
   // non-claimed state so the caller keeps the existing code handoff (no lost 10%).
   const COUPON_SLOTS={'fc27-weekly':'fc_weekly','fc27-sbc':'fc_sbc','fc27-trio':'fc_trio'};
-  // Main-site login has no return-to-page entry yet; null keeps guests on the code path.
-  const COUPON_LOGIN_URL=null;
+  // Guests sign in on this page through the main-site login endpoints (same origin,
+  // so the main-site session cookie is set directly; nothing passes through FS).
+  const LOGIN_PROVIDERS=['google','facebook'];
+  const loginHeaders={'X-Requested-With':'XMLHttpRequest','Content-Type':'application/x-www-form-urlencoded'};
+  const loginMessage=json=>typeof json?.msg==='string'&&json.msg.trim()&&json.msg.length<300?json.msg.trim():'Sign-in failed. Please try again.';
+  // Same fields as the main-site .jq-user-box form; RiskGuard fields are attached
+  // the same way when that main-site script is present. Single POST, no retry.
+  async function mainSiteLogin({email,password,remember=true,origin=root.location?.origin,fetchImpl=root.fetch?.bind(root),siteId='266'}={}){
+    if(origin!=='https://www.mmoexp.com'||typeof fetchImpl!=='function')fail('LOGIN_ORIGIN_UNVERIFIED');
+    const fields={usname:String(email??'').trim(),passwd:String(password??''),remPwd:remember?'true':'false',loginbindkey:'',site_id:siteId};
+    try{if(typeof root.RiskGuard?.attach==='function')root.RiskGuard.attach(fields);}catch{}
+    const response=await fetchImpl('/user/login.html',{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:loginHeaders,body:new URLSearchParams(fields).toString()});
+    let json;try{json=await response.json();}catch{fail('LOGIN_RESPONSE_INVALID');}
+    return json?.code===1?{state:'signed_in'}:{state:'rejected',message:loginMessage(json)};
+  }
+  // Main-site social login: the endpoint returns the provider authorize URL and
+  // brings the shopper back to returnUrl (this event page) after sign-in.
+  async function socialLoginUrl({provider,returnUrl,origin=root.location?.origin,fetchImpl=root.fetch?.bind(root),siteId='266'}={}){
+    if(!LOGIN_PROVIDERS.includes(provider))fail('LOGIN_PROVIDER_INVALID');
+    if(origin!=='https://www.mmoexp.com'||typeof fetchImpl!=='function')fail('LOGIN_ORIGIN_UNVERIFIED');
+    const back=new URL(returnUrl,origin);if(back.origin!==origin)fail('LOGIN_ORIGIN_UNVERIFIED');
+    const path='/user/login.html?act=loginapp&selfurl='+encodeURIComponent(back.origin+back.pathname)+'&site_id='+siteId+'&type='+provider;
+    const response=await fetchImpl(path,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:loginHeaders});
+    let json;try{json=await response.json();}catch{fail('LOGIN_RESPONSE_INVALID');}
+    const target=json?.code===1&&typeof json.data?.redirect_url==='string'?new URL(json.data.redirect_url,origin):null;
+    if(!target||target.protocol!=='https:')return {state:'rejected',message:loginMessage(json)};
+    return {state:'redirect',url:target.href};
+  }
   async function claimActivityCoupon({pageId,origin=root.location?.origin,fetchImpl=root.fetch?.bind(root)}={}){
     const slot=COUPON_SLOTS[pageId];
     if(!slot||origin!=='https://www.mmoexp.com'||typeof fetchImpl!=='function')return {state:'unavailable'};
@@ -161,7 +187,7 @@
     };
     const listed=await call('/ajax/carnival/coupon?slot='+encodeURIComponent(slot));
     if(listed.enabled!==true||listed.error||listed.slot!==slot)return {state:'unavailable'};
-    if(listed.logged_in!==true)return {state:'login_required',slot,loginUrl:COUPON_LOGIN_URL};
+    if(listed.logged_in!==true)return {state:'login_required',slot};
     const coupons=(Array.isArray(listed.list)?listed.list:[]).filter(c=>Number.isSafeInteger(c?.coupon_id)&&c.coupon_id>0&&c.can_claim===true);
     if(!coupons.length)return {state:'unavailable'};
     const claimed=[];
@@ -327,5 +353,5 @@
       });
     }};
   }
-  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard,claimActivityCoupon,COUPON_SLOTS};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
+  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard,claimActivityCoupon,COUPON_SLOTS,mainSiteLogin,socialLoginUrl,LOGIN_PROVIDERS};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
 })(typeof globalThis==='undefined'?this:globalThis);
