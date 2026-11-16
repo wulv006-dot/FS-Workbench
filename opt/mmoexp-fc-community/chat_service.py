@@ -822,7 +822,7 @@ class ChatClient(discord.Client):
                 description=topic,
                 color=0x5865F2)
             embed.add_field(name='How to talk to me', value=HOW_TO_CHAT, inline=False)
-            embed.set_footer(text='No prices or order details here \u00b7 use the order panel for that')
+            embed.set_footer(text='Prices: FC Assistant cards \u00b7 Orders: FC27 VIP Support > Check my order')
             try:
                 await channel.send(embed=embed,
                                    allowed_mentions=discord.AllowedMentions.none())
