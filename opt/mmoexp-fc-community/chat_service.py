@@ -240,6 +240,16 @@ class ChatClient(discord.Client):
         """A same-day Unify card can still be used after a bot restart."""
         for guild_id in self.focus_config['guild_ids']:
             route = self.matchday_config['routes'][guild_id]
+            ops_id = self.focus_config.get('ops_channel_id')
+            if int(guild_id) == OFFICIAL_GUILD and ops_id:
+                ops = self.get_channel(int(ops_id))
+                if ops is not None and ops.guild.id == OFFICIAL_GUILD:
+                    try:
+                        async for message in ops.history(limit=200):
+                            await self.handle_daily_card(message, schedule_retry=False)
+                    except discord.DiscordException as exc:
+                        print('Matchday private heartbeat recovery unavailable: ' +
+                              type(exc).__name__, flush=True)
             channel = self.get_channel(route['source_channel_id'])
             if channel is None or channel.guild.id != int(guild_id):
                 print('Matchday focus source channel unavailable guild={}'.format(guild_id),
@@ -467,6 +477,18 @@ class ChatClient(discord.Client):
             return
         route = self.matchday_config['routes'][str(message.guild.id)]
         now = discord.utils.utcnow()
+        ops_id = self.focus_config.get('ops_channel_id')
+        if (message.guild.id == OFFICIAL_GUILD and ops_id and
+                message.channel.id == int(ops_id)):
+            private_route = dict(route, source_channel_id=int(ops_id))
+            if (message.created_at.astimezone(matchday_focus.LONDON).date() ==
+                    now.astimezone(matchday_focus.LONDON).date() and
+                    (matchday_focus.is_empty_daily_card(message, private_route, now) or
+                     matchday_focus.parse_daily_card(
+                         message, private_route, now, include_started=True))):
+                self.focus_store.record_daily_source(message.guild.id,
+                    now.astimezone(matchday_focus.LONDON).date())
+            return
         if matchday_focus.is_empty_daily_card(message, route, now):
             # An old placeholder can still be within the 24-hour source window after midnight.
             if (message.created_at.astimezone(matchday_focus.LONDON).date() ==
@@ -790,8 +812,7 @@ class ChatClient(discord.Client):
         try:
             sent = await channel.send(
                 '⚠️ No UnifyFootball daily fixture card was seen today. '
-                'Check the Matchday subscription and app status. '
-                'Empty no-match cards count as a healthy delivery.',
+                'Check the private daily heartbeat subscription and app status.',
                 allowed_mentions=discord.AllowedMentions.none())
             self.focus_store.finish_missing_source(OFFICIAL_GUILD, local.date(), sent.id)
         except discord.DiscordException as exc:
