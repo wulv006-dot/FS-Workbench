@@ -37,6 +37,11 @@ FC_GAME_CHAT = 1200330251016867880
 FC27_WELCOME_URL = ('https://discord.com/channels/1041923524601851914/'
                     '1568663362567413820/1568666884289732751')
 PRICE_INTENT = re.compile(r'\b(?:price|prices|cost|costs|quote|quotes|how\s+much)\b|价格|报价|多少钱', re.I)
+ORDER_INTENT = re.compile(
+    r'\b(?:my\s+order|order\s+(?:status|tracking|help)|track\s+(?:my\s+)?order|'
+    r'delivery\s+status|refund|where\s+is\s+my\s+order)\b|订单|退款', re.I)
+ORDER_CARD_URL = ('https://discord.com/channels/1041923524601851914/'
+                  '1570789310813442080/1570795908205903873')
 QUOTE_DESTINATIONS = (
     (re.compile(r'\bcoins?\b|金币', re.I), 'Coins', '1568663210901504041'),
     (re.compile(r'\bplayers?\b|球员', re.I), 'Players', '1568878333087719454'),
@@ -65,6 +70,19 @@ def quote_link_view(guild_id, text):
     view = discord.ui.View(timeout=None)
     view.add_item(discord.ui.Button(label='Check ' + label, url=url))
     return view
+
+
+def order_link_view(guild_id, text):
+    """Take order questions to the existing private lookup before human support."""
+    if guild_id != OFFICIAL_GUILD or not ORDER_INTENT.search(text):
+        return None
+    view = discord.ui.View(timeout=None)
+    view.add_item(discord.ui.Button(label='Check my order', url=ORDER_CARD_URL))
+    return view
+
+
+ORDER_HELP = ("Let's check that privately. Tap **Check my order** below. "
+              "If it needs a person, the result will offer a support ticket.")
 
 
 def load_config(path):
@@ -784,11 +802,20 @@ class ChatClient(discord.Client):
         trigger = self.router.route(guild_id, channel_id, message.author.id, False, content,
                                     mentioned_bot=mentioned, replied_to_bot=replied,
                                     in_topic=in_topic)
+        order_view = order_link_view(guild_id, content)
         if (trigger is None and guild_id == OFFICIAL_GUILD and
-                channel_id == FC_GAME_CHAT and PRICE_INTENT.search(content)):
-            trigger = 'price'
+                channel_id == FC_GAME_CHAT and
+                (PRICE_INTENT.search(content) or ORDER_INTENT.search(content))):
+            trigger = 'help'
         if trigger is None:
             return False
+        if order_view is not None:
+            if not self.limiter.allow(message.author.id, channel_id):
+                return False
+            self.limiter.record(message.author.id, channel_id)
+            await message.reply(ORDER_HELP, view=order_view, mention_author=True,
+                allowed_mentions=discord.AllowedMentions(users=[message.author]))
+            return True
         if not self.brain.ready:
             print('chat brain is not configured, ignoring trigger ' + trigger, flush=True)
             return False
@@ -808,9 +835,9 @@ class ChatClient(discord.Client):
         self.history[channel_id] = history[-MAX_HISTORY:]
         sticker = self.sticker_for(getattr(message, 'guild', None), answer)
         extra = {'stickers': [sticker]} if sticker is not None else {}
-        quote_view = quote_link_view(guild_id, content)
-        if quote_view is not None:
-            extra['view'] = quote_view
+        help_view = quote_link_view(guild_id, content)
+        if help_view is not None:
+            extra['view'] = help_view
         await message.reply(answer[:1900],
                             mention_author=True,
                             allowed_mentions=discord.AllowedMentions(users=[message.author]),
@@ -820,6 +847,16 @@ class ChatClient(discord.Client):
     async def do_chat(self, interaction, text):
         if not self.router.in_scope(interaction.guild_id, interaction.channel_id):
             await interaction.response.send_message('Use /chat in FC27 Chat or Match Chat.', ephemeral=True)
+            return
+        order_view = order_link_view(interaction.guild_id, text)
+        if order_view is not None:
+            if not self.limiter.allow(interaction.user.id, interaction.channel_id):
+                await interaction.response.send_message('Slow down a little, try again shortly.',
+                                                        ephemeral=True)
+                return
+            self.limiter.record(interaction.user.id, interaction.channel_id)
+            await interaction.response.send_message(ORDER_HELP, view=order_view,
+                ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
             return
         if not self.brain.ready:
             await interaction.response.send_message('Chat is not configured yet.', ephemeral=True)
@@ -842,9 +879,9 @@ class ChatClient(discord.Client):
         self.history[interaction.channel_id] = history[-MAX_HISTORY:]
         sticker = self.sticker_for(getattr(interaction, 'guild', None), answer)
         extra = {'stickers': [sticker]} if sticker is not None else {}
-        quote_view = quote_link_view(interaction.guild_id, text)
-        if quote_view is not None:
-            extra['view'] = quote_view
+        help_view = quote_link_view(interaction.guild_id, text)
+        if help_view is not None:
+            extra['view'] = help_view
         await interaction.followup.send('<@{}> {}'.format(interaction.user.id, answer), **extra)
 
     async def do_drop(self, interaction):
