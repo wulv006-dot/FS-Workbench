@@ -334,13 +334,15 @@ class ChatClient(discord.Client):
                 return
             embed = discord.Embed(
                 title='🏟️ Matchday pick',
-                description=('**{} vs {}** · {}\nKickoff: <t:{}:F>\n\n{}').format(
+                description=('**{} vs {}** · {}\nKickoff: <t:{}:F>\n\n{}\n'
+                             'Open the fixtures, choose this match, then tap **Predict**.').format(
                     fixture.home, fixture.away, fixture.competition,
                     int(fixture.kickoff.timestamp()), question),
                 colour=0x2275E8)
             embed.set_footer(text='Fixture: UnifyFootball · FC27 community: MMOEXP')
             view = discord.ui.View(timeout=None)
-            view.add_item(discord.ui.Button(label='See fixtures', url=fixture.source_url))
+            view.add_item(discord.ui.Button(label='⚽ Open fixtures to predict',
+                                            url=fixture.source_url))
             view.add_item(discord.ui.Button(label='Build your FC27 XI', url=
                 'https://discord.com/channels/{}/{}'.format(
                     message.guild.id, route['players_channel_id'])))
