@@ -84,3 +84,17 @@ test('social sign-in rejects unknown providers, foreign return pages and non-htt
  await assert.rejects(socialLoginUrl({provider:'google',returnUrl:'https://evil.example/x',origin,fetchImpl:loginSite({}).fetchImpl}),/LOGIN_ORIGIN_UNVERIFIED/);
  assert.equal((await socialLoginUrl({provider:'google',returnUrl:origin+'/events/x.html',origin,fetchImpl:loginSite({code:1,data:{redirect_url:'javascript:alert(1)'}}).fetchImpl})).state,'rejected');
 });
+test('social login token is stripped from the address and handed to the main site once',async()=>{
+ const {takeSocialLoginToken,adoptSocialLogin}=require('../native-code-handoff.js');
+ const replaced=[];const history={state:null,replaceState:(_s,_t,url)=>replaced.push(url)};
+ const loc={origin,pathname:'/events/Player-Trio.html',search:'?utm_source=x&ba-user-token=abcDEF12-3456-7890&member_welcome=1',hash:'#build'};
+ assert.equal(takeSocialLoginToken(loc,history),'abcDEF12-3456-7890');
+ assert.deepEqual(replaced,['/events/Player-Trio.html?utm_source=x#build']);
+ assert.equal(takeSocialLoginToken({...loc,search:'?utm_source=x'},history),null);assert.equal(replaced.length,1,'no token, no rewrite');
+ assert.equal(takeSocialLoginToken({...loc,origin:'https://evil.example'},history),null);
+ assert.equal(takeSocialLoginToken({...loc,search:'?ba-user-token=%3Cscript%3E&member_welcome=1'},history),null,'malformed tokens are dropped, still stripped');
+ const calls=[];const fetchImpl=async(path,init)=>{calls.push({path,credentials:init.credentials});return {ok:true};};
+ assert.deepEqual(await adoptSocialLogin({fetchImpl,token:'abcDEF12-3456-7890'}),{state:'adopted'});
+ assert.deepEqual(calls,[{path:'/ajax/html?ba-user-token=abcDEF12-3456-7890&member_welcome=1',credentials:'same-origin'}]);
+ assert.deepEqual(await adoptSocialLogin({fetchImpl,token:null}),{state:'none'});assert.equal(calls.length,1);
+});

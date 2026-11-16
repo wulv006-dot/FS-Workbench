@@ -149,6 +149,26 @@
   // Guests sign in on this page through the main-site login endpoints (same origin,
   // so the main-site session cookie is set directly; nothing passes through FS).
   const LOGIN_PROVIDERS=['google','facebook'];
+  // Main-site social login returns to selfurl with ?ba-user-token=…&member_welcome=1.
+  // Main-site pages turn that parameter into the session cookie server-side and then
+  // strip it; the event pages are served by FS, so take it out of the address bar at
+  // once (before analytics or history keep it) and hand it to a main-site endpoint.
+  function takeSocialLoginToken(loc,history){
+    if(!loc||loc.origin!=='https://www.mmoexp.com')return null;
+    const query=new URLSearchParams(loc.search||''),token=query.get('ba-user-token');
+    if(token===null&&query.get('member_welcome')!=='1')return null;
+    query.delete('ba-user-token');query.delete('member_welcome');
+    try{history?.replaceState(history.state,'',loc.pathname+(query.toString()?'?'+query.toString():'')+(loc.hash||''));}catch{}
+    return typeof token==='string'&&/^[A-Za-z0-9._-]{8,256}$/.test(token)?token:null;
+  }
+  let pendingSocialToken=null;
+  try{pendingSocialToken=takeSocialLoginToken(root.location,root.history);}catch{}
+  async function adoptSocialLogin({fetchImpl=root.fetch?.bind(root),token=pendingSocialToken}={}){
+    pendingSocialToken=null;
+    if(!token||typeof fetchImpl!=='function')return {state:'none'};
+    const response=await loginFetch(fetchImpl,'/ajax/html?ba-user-token='+encodeURIComponent(token)+'&member_welcome=1',{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{'X-Requested-With':'XMLHttpRequest'}},LOGIN_TIMEOUT_MS);
+    return {state:response.ok?'adopted':'failed'};
+  }
   // Byte-for-byte the request the main-site jQuery login box sends (observed
   // 2026-11-16 on /Fc-27/Coins.html): these headers and only usname/passwd/remPwd/site_id.
   const loginHeaders={'X-Requested-With':'XMLHttpRequest','Accept':'application/json, text/javascript, */*; q=0.01','Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'};
@@ -386,5 +406,5 @@
       });
     }};
   }
-  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard,claimActivityCoupon,COUPON_SLOTS,mainSiteLogin,socialLoginUrl,mainSiteAccount,LOGIN_PROVIDERS};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
+  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard,claimActivityCoupon,COUPON_SLOTS,mainSiteLogin,socialLoginUrl,mainSiteAccount,takeSocialLoginToken,adoptSocialLogin,LOGIN_PROVIDERS};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
 })(typeof globalThis==='undefined'?this:globalThis);
