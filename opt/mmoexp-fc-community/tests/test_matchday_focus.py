@@ -503,6 +503,106 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             message.delete.assert_awaited_once()
             await client.close()
 
+    async def test_private_unify_heartbeat_counts_without_deleting_or_selecting(self):
+        from chat_service import ChatClient, OFFICIAL_GUILD
+
+        ops_id = 1568699207022285040
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(OFFICIAL_GUILD): {'channels': {str(CHANNEL): {}},
+                                                              'keywords': []}}},
+                'matchday_engagement': {'enabled': True,
+                    'routes': {str(OFFICIAL_GUILD): dict(ROUTE)},
+                    'state_path': str(Path(directory) / 'pulse.sqlite3')},
+                'matchday_focus': {'enabled': True, 'guild_ids': [str(OFFICIAL_GUILD)],
+                    'state_path': str(Path(directory) / 'focus.sqlite3'),
+                    'ops_channel_id': str(ops_id)},
+            }
+            client = ChatClient(config)
+            client.brain.select_matchday = AsyncMock()
+            message = card()
+            message.guild.id = OFFICIAL_GUILD
+            message.channel.id = ops_id
+            message.embeds = [SimpleNamespace(
+                title='😴 No matches today in `EUROPE: UEFA Nations League`',
+                description='No matches lined up in `EUROPE: UEFA Nations League`')]
+            message.components = []
+            message.delete = AsyncMock()
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW):
+                await client.on_message(message)
+            message.delete.assert_not_awaited()
+            client.brain.select_matchday.assert_not_awaited()
+            self.assertFalse(client.focus_store.claim_missing_source(OFFICIAL_GUILD, NOW.date()))
+            await client.close()
+
+    async def test_restart_recovers_private_heartbeat_when_public_source_is_empty(self):
+        from chat_service import ChatClient, OFFICIAL_GUILD
+
+        ops_id = 1568699207022285040
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(OFFICIAL_GUILD): {'channels': {str(CHANNEL): {}},
+                                                              'keywords': []}}},
+                'matchday_engagement': {'enabled': True,
+                    'routes': {str(OFFICIAL_GUILD): dict(ROUTE)},
+                    'state_path': str(Path(directory) / 'pulse.sqlite3')},
+                'matchday_focus': {'enabled': True, 'guild_ids': [str(OFFICIAL_GUILD)],
+                    'state_path': str(Path(directory) / 'focus.sqlite3'),
+                    'ops_channel_id': str(ops_id)},
+            }
+            client = ChatClient(config)
+            client.brain.select_matchday = AsyncMock()
+            message = card()
+            message.guild.id = OFFICIAL_GUILD
+            message.channel.id = ops_id
+
+            async def history(limit):
+                self.assertEqual(limit, 200)
+                yield message
+
+            ops = SimpleNamespace(id=ops_id, guild=SimpleNamespace(id=OFFICIAL_GUILD),
+                                  history=history,
+                                  send=AsyncMock(return_value=SimpleNamespace(id=12345)))
+            client.get_channel = lambda channel_id: ops if channel_id == ops_id else None
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW), patch.object(
+                    client, 'setup_matchday_intro', new_callable=AsyncMock):
+                await client.on_ready()
+                await client.alert_missing_daily_card(NOW)
+            ops.send.assert_not_awaited()
+            client.brain.select_matchday.assert_not_awaited()
+            self.assertFalse(client.focus_store.claim_missing_source(OFFICIAL_GUILD, NOW.date()))
+            await client.close()
+
+    async def test_private_heartbeat_rejects_other_bots_and_yesterday(self):
+        from chat_service import ChatClient, OFFICIAL_GUILD
+
+        ops_id = 1568699207022285040
+        for author, posted in ((123, NOW),
+                               (1332364544869142538, NOW - dt.timedelta(days=1))):
+            with self.subTest(author=author, posted=posted), tempfile.TemporaryDirectory() as directory:
+                config = {
+                    'chat_bot': {'enabled': True, 'allow_message_content': True,
+                                 'routes': {str(OFFICIAL_GUILD): {'channels': {str(CHANNEL): {}},
+                                                                  'keywords': []}}},
+                    'matchday_engagement': {'enabled': True,
+                        'routes': {str(OFFICIAL_GUILD): dict(ROUTE)},
+                        'state_path': str(Path(directory) / 'pulse.sqlite3')},
+                    'matchday_focus': {'enabled': True, 'guild_ids': [str(OFFICIAL_GUILD)],
+                        'state_path': str(Path(directory) / 'focus.sqlite3'),
+                        'ops_channel_id': str(ops_id)},
+                }
+                client = ChatClient(config)
+                message = card(now=posted, author=author)
+                message.guild.id = OFFICIAL_GUILD
+                message.channel.id = ops_id
+                with patch('chat_service.discord.utils.utcnow', return_value=NOW):
+                    await client.on_message(message)
+                self.assertTrue(client.focus_store.claim_missing_source(
+                    OFFICIAL_GUILD, NOW.date()))
+                await client.close()
+
     async def test_yesterday_empty_card_does_not_mask_missing_today(self):
         from chat_service import ChatClient
 
