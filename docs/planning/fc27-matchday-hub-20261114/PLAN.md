@@ -1,6 +1,6 @@
 # FC27 内容聚合与真实足球赛事区
 
-> **2026-11-15 执行基线：**用户指定 [FC27 Discord 内容驱动增长与转化项目方案](FC27-DISCORD-OPERATIONS-BASELINE.md) 为最终改造方案。本文件记录早期频道施工与技术回执；两者冲突时按新方案执行。公共同场观赛与讨论为主，球队身份只用于自选提醒和入口；Hermes 每日自动选题与排期属于待开发能力，不能写成已上线。
+> **2026-11-16 状态更新：**Smart Score 赛事路线已退役，正式群现以 UnifyFootball 的每日赛程、自动比分和竞猜为底座；FC Chat Assistant 只把选中的焦点赛事件带到公开 Match Chat。七项赛事配置当前依赖试用，长期覆盖仍须单独验收。本文件保留 11 月 14–15 日频道施工和旧方案回执；下方 Smart Score 章节是历史方案，**不得作为当前接线或发布指令**。现行奖励边界见 [积分兑换账本](REWARDS-REDEMPTION-20261116.md)。用户指定的 [FC27 Discord 内容驱动增长与转化项目方案](FC27-DISCORD-OPERATIONS-BASELINE.md) 仍为运营目标；与现场不一致时以当前运行配置和回执为准。
 
 ## 已核对的现场（2026-11-14）
 
@@ -35,7 +35,9 @@ EasySBC 订阅迁到新频道后，relay 仅信任其应用 ID、指定群和频
 
 游戏身份选择后的私密导航也要同步更新 `game_picker.FC_GUIDE_GROUPS` 和线上 `game_picker` 配置中 FC 的 `channel_ids`：主入口保留 Welcome、News、Coins、Players、SBC、OBJ & Packs、Chat，新增 Matchday、Match Chat 和客服；旧四个单项来源频道在迁移后从导航名单移除。代码常量改动本身不会让未列入在线配置的频道出现。
 
-## 足球赛事产品：Smart Score 为底座
+## 2026-11-14 历史赛事路线：Smart Score（已退役）
+
+本节记录当时的赛事选型、计划与测试限制。Smart Score 的直播订阅、自动竞猜命令和公开事件触发均不再是正式群运行方案；这些记录仅供追溯，不要照此重新配置。
 
 Smart Score 负责真实比赛查询、直播事件、胜负/比分竞猜、球员赛后评分和群内积分榜。MMOEXP FC Assistant 负责 Welcome 球队身份、FC27 商品私密报价、赛事导航、运营活动和奖励领取；FC27 Chat Assistant 负责赛前话题、半场讨论和赛后复盘。三者共同服务同一赛事专区，不复制 Smart Score 的赛程数据采集。测试回执和当前限制见 [SMART-SCORE-PILOT-20261114.md](SMART-SCORE-PILOT-20261114.md)。
 
