@@ -31,6 +31,7 @@ os.chdir(ROOT)
 import core_front
 import core_gold
 import core_iggm
+import core_poe1
 import core_qd
 import engine
 import game_parameters
@@ -716,6 +717,14 @@ def track_games(cfg):
     try:
         import core_gold as _cg
         for _g in _cg.game_names(cfg):
+            if _g and _g not in have:
+                have.append(_g)
+    except Exception:
+        pass
+    # 2026-11-16：PoE1 神圣石专线同理 —— 它没有对照项（定价不走 IGGM），
+    #   不并进来就永远不在 due 里，config 里配的 0.25h 会白配。
+    try:
+        for _g in core_poe1.game_names(cfg):
             if _g and _g not in have:
                 have.append(_g)
     except Exception:
@@ -2164,6 +2173,107 @@ def _pick_exec_mode(cfg, con, log=None):
     return "local" if fresh else "server"
 
 
+def _poe1_last_job(con):
+    """最近一张 PoE1 工单（用于「上单没跑成就重出」的自愈判定）。"""
+    try:
+        row = con.execute(
+            "SELECT id,status,result_json,created_at FROM local_job "
+            "WHERE title LIKE 'PoE1%' ORDER BY created_at DESC LIMIT 1").fetchone()
+    except Exception:                                  # noqa: BLE001
+        return None
+    if not row:
+        return None
+    d = dict(row)
+    try:
+        d["result"] = json.loads(d.get("result_json") or "{}")
+    except Exception:                                  # noqa: BLE001
+        d["result"] = {}
+    return d
+
+
+def _poe1_round(t, cfg, con, ts):
+    """PoE1 神圣石专线：DD373 采成本 → 算目标价 → 出工单（走 RPG 现成的队列 + 执行器）。
+
+    2026-11-16 合并进 RPG 系统：不算进 engine 的对照项评估（那条链的定价基数是 IGGM），
+    但**调度、工单队列、srv_exec 执行、改价记录、清缓存**全部沿用现成的那套。
+    """
+    pend = con.execute(
+        "SELECT COUNT(*) FROM local_job WHERE title LIKE 'PoE1%'"
+        " AND status IN ('pending','dispatched')").fetchone()[0]
+    if pend:
+        t.log("  [PoE1] 已有 %d 张本专线工单在队列里（等待/执行中）→ 本轮不重复出单" % pend)
+        return None
+    last = _poe1_last_job(con)
+    need_retry = False
+    if last:
+        ws = (last.get("result") or {}).get("write_state")
+        need_retry = not (last.get("status") == "done" and ws == "confirmed")
+        if need_retry:
+            t.log("  [PoE1] 上一张工单 %s 未确认成功（status=%s / write_state=%s）"
+                  "→ 本轮重出，不因「幅度不足」卡住"
+                  % (last.get("id"), last.get("status"), ws))
+
+    plan = core_poe1.build_plan(cfg, log=t.log, need_retry=need_retry)
+
+    # 无论本轮改不改价，都把「最近一轮计划」落盘：监控页 / 排障都读这一份。
+    st = dict(plan.get("next_state") or {})
+    st["last_plan"] = [{"title": x.get("title"), "old": x.get("old"), "new": x.get("new"),
+                        "动作": x.get("动作"), "原因": x.get("原因"),
+                        "倍数": x.get("倍数"), "id": x.get("id")}
+                       for x in (plan.get("items") or [])]
+    st["利润率"] = plan.get("利润率")
+    st["成本_元每个"] = plan.get("成本_元每个")
+    st["DD373_挂单数"] = plan.get("DD373_挂单数")
+    core_poe1.save_state(st)
+
+    todo = [x for x in (plan.get("items") or []) if x.get("动作") == "改价"]
+    if not todo:
+        t.log("  [PoE1] 本轮无需改价（目标价已在最小改价幅度内）")
+        return plan
+
+    items = []
+    for x in todo:
+        items.append({"key": x["key"], "title": x["title"], "ids": [x["id"]],
+                      "gid": x["gid"], "old": x.get("old"), "new": x["new"],
+                      "倍数": x.get("倍数"), "direction": "涨" if (x.get("old") or 0) < x["new"] else "降"})
+    _cf = (cfg.get("跟价") or {}).get("缓存刷新") or {}
+    _want_cache = bool((cfg.get("POE1定价") or {}).get("清缓存", True)) \
+        and bool(_cf.get("自动刷新", True))
+    outdir = os.path.join(ROOT, "output")
+    os.makedirs(outdir, exist_ok=True)
+    fp = os.path.join(outdir, "PoE1改价工单_%s.json"
+                      % dt.datetime.now().strftime("%Y%m%d_%H%M%S"))
+    payload = {
+        "kind": "p2pah-apply-ticket",
+        "ts": dt.datetime.now().isoformat(timespec="seconds"),
+        "游戏": ["流放之路1"],
+        "专线": "POE1 神圣石（DD373 成本 → 后台物品标价）",
+        "count": len(items), "items": items,
+        "成本_元每个": plan.get("成本_元每个"),
+        "挂单数": plan.get("DD373_挂单数"),
+        "利润率": plan.get("利润率"),
+        "倍数关系": "71488529 = 20 × 38588451（写后由执行器逐件复核）",
+        "clearcache": _want_cache,
+        "clearcache_来源": "config POE1定价.清缓存 = %s" % _want_cache,
+        "价格口径": "items[].old / new 都是后台「$每个价格」(unit_price)",
+    }
+    with open(fp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    _mode = _pick_exec_mode(cfg, con, log=t.log)
+    t.log("  [PoE1] 工单 %d 件：%s" % (len(items), "、".join(
+        "%s %s→%s" % (i["title"], _usd(i["old"] or 0), _usd(i["new"])) for i in items)))
+    try:
+        jid = store.local_job_add(
+            con, kind="write", title="PoE1 神圣石改价 %d 件" % len(items),
+            plan_path=fp, plan=payload,
+            summary="、".join("%s→%s" % (_usd(i["old"] or 0), _usd(i["new"])) for i in items),
+            actor="poe1-auto", exec_mode=_mode)
+        t.log("  [PoE1] ▶ 已派单 %s（%s）" % (jid, "服务器执行器" if _mode == "server" else "本机执行器"))
+    except Exception as e:                             # noqa: BLE001
+        t.log("  [PoE1] ⚠ 派单失败（工单已落盘，可手工执行）：%r" % (e,))
+    return plan
+
+
 def task_collect(t, opts):
     """采集一轮：IGGM（服务器直连）+ 我方前端（MMOEXP 公开页）+ 千岛（用本机推送的最近快照）
 
@@ -2700,6 +2810,16 @@ def task_collect(t, opts):
                     t.log("      ⚠ %s" % it["错误"])
         except Exception:
             t.log("  ✘ 金币抓取失败（不影响物品跟价）：%s" % traceback.format_exc()[-400:])
+
+    # ---- 3.8) PoE1 神圣石专线（DD373 成本 → 后台物品标价）----
+    # 2026-11-16 合并：不再是独立脚本 + 独立定时器，改由本系统的采集心跳按 0.25h 周期驱动，
+    #   出单走 local_job(kind=write) → srv_exec → p2pah_local write，与物品改价同一条执行链。
+    if core_poe1.enabled(cfg) and "流放之路1" in due:
+        try:
+            _poe1_round(t, cfg, con, ts)
+        except Exception:
+            t.log("  ✘ [PoE1] 本轮失败（不影响其他游戏）：%s"
+                  % traceback.format_exc()[-400:])
 
     # ---- 4) 引擎 ----
     qd_map = build_qd_map(cfg, con, qd_ts) if qd_ts else {}
