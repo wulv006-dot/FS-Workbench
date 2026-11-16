@@ -7,6 +7,7 @@ GAMES = [
     {'id': 'wow', 'name': 'WoW Forever', 'file': 'wow_gold_config.json'},
     {'id': 'd4', 'name': '暗黑破坏神4', 'file': 'config.json'},
     {'id': 'poe2', 'name': '流放之路2', 'file': 'config.json'},
+    {'id': 'poe1', 'name': '流放之路1', 'file': 'config.json'},
     {'id': 'arc', 'name': 'ARC Raiders', 'file': 'config.json'},
     {'id': 'msc', 'name': 'MapleStory Classic World', 'file': 'config.json'},
     {'id': 'aa', 'name': '上古世纪编年史', 'file': 'aa_gold_config.json'},
@@ -117,7 +118,7 @@ def get_game_schema(game_id, doc, common_cfg=None):
                          {'label':'单价计价单位','value':get_path(doc,p+['单价计价单位'],1000)},
                          {'label':'运行周期','value':'约 15 分钟；由独立定时任务控制'}]
     else:
-        schedule_default = {'d4':3,'poe2':3,'arc':3,'aion2':.25,'msc':3,'dad':12,'wardogs':6}[game_id]
+        schedule_default = {'d4':3,'poe2':3,'poe1':.25,'arc':3,'aion2':.25,'msc':3,'dad':12,'wardogs':6}[game_id]
         fields.append(_num(doc,'interval_hours','采集周期',['运行','采集周期小时',name],
                            schedule_default,.25,24,unit='小时',group='运行',step=.25,
                            kind='select',options=SCHEDULE_CHOICES,
@@ -150,6 +151,37 @@ def get_game_schema(game_id, doc, common_cfg=None):
             readonly += [{'label':'定价方式','value':get_path(doc,policy+['模式'],'dd373_only')},
                          {'label':'货源不足处理','value':'保持当前价格' if game_id=='msc' else '现行无货保护价'},
                          {'label':'跳过最低挂单','value':'1 条（沿用现行规则）'}]
+        elif game_id=='poe1':
+            # 2026-11-16：PoE1 神圣石专线。定价口径 = DD373 挂单均价 ÷ (1−利润率) ÷ 汇率，
+            # 与 IGGM 跟价、千岛成本无关；后台两个商品强制 20 倍关系。
+            p=['POE1定价']
+            fields += [
+                _field(doc,'enabled','启用此游戏自动改价',p+['启用'],True,None,None,
+                       kind='boolean',group='运行',
+                       help='下一轮读取。在途工单仍按已生成内容执行。'),
+                _num(doc,'margin','目标利润率',p+['利润率'],.30,0,.95,
+                     unit='%',scale=100,step=.1,
+                     help='售价 = DD373 成本 ÷（1−利润率）÷ 汇率。'),
+                _num(doc,'sample_rows','成本采样条数',p+['采样条数'],20,2,30,
+                     unit='条',group='采集',kind='integer',step=1,
+                     help='DD373 一页 20 条；接口最多给 30 条。'),
+                _num(doc,'skip_lowest','跳过最低挂单数',p+['跳过最低条数'],1,0,10,
+                     unit='条',group='采集',kind='integer',step=1,
+                     help='先整条剔除最便宜的 N 条，再在剩余挂单上算加权均价。'),
+                _num(doc,'max_step','单轮最大成本变动',p+['最大单轮变动'],.35,.01,.95,
+                     unit='%',scale=100,step=.1,
+                     help='超过则本轮不改价；连续 4 轮仍在闸门外会自动放行。'),
+                _num(doc,'min_change','最小改价幅度',p+['最小改价幅度'],.002,0,.5,
+                     unit='%',scale=100,step=.1,
+                     help='目标价与现行价差异小于此值不发写请求；20 倍关系被改坏时强制纠正。'),
+            ]
+            readonly += [
+                {'label':'成本来源','value':'DD373 流放之路（国际服）· POE1 · 巫影(标准) · 神圣石挂单'},
+                {'label':'后台位置','value':'gid=157 · 服务区 18858 · 类目 76 Currency'},
+                {'label':'写入商品','value':'38588451 Divine Orb = P；71488529 Divine Orb(20+1 Free) = 20 × P'},
+                {'label':'换算汇率','value':get_path(doc,['POE1定价','汇率USDCNY'],6.65)},
+                {'label':'未接入项','value':'IGGM 竞品跟价 / 千岛进货成本 / 前端折扣换算（本条专线都不使用）'},
+            ]
         elif game_id=='dad':
             p=['金币固定跟价',name]
             fields += [

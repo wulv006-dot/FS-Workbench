@@ -15,6 +15,7 @@ GAME_LIST = [
     ('wow', '魔兽无限', 'WoW Forever', 'wow_gold_config.json'),
     ('d4', '暗黑破坏神4', '暗黑破坏神4', 'config.json'),
     ('poe2', '流放之路2', '流放之路2', 'config.json'),
+    ('poe1', '流放之路1', '流放之路1', 'config.json'),
     ('arc', 'ARC Raiders', 'ARC Raiders', 'config.json'),
     ('msc', '冒险岛怀旧服', 'MapleStory Classic World', 'config.json'),
     ('aa', '上古世纪编年史', 'ArcheAge Chronicles', 'aa_gold_config.json'),
@@ -137,6 +138,20 @@ def console_snapshot(root, api):
             else:
                 rule='常规 %.0f%% · 薄区 %.0f%%'%(float(p.get('常规利润率',.30))*100,float(p.get('薄区利润率',.50))*100)
             if not doc: attention+=1
+        elif game_id=='poe1':
+            # 2026-11-16：PoE1 神圣石专线（DD373 成本 → 后台物品标价），没有对照项、没有金币行，
+            # 状态与最近一轮计划都从 data/poe1_state.json 读。
+            doc=cfg.get('POE1定价') or {}
+            st=read_json(Path(root)/'data'/'poe1_state.json',{}) or {}
+            sch=schedule.get(source_name,{})
+            interval=float(sch.get('周期小时') or .25)*60
+            schedule_label=('%g 分钟'%interval) if interval<60 else ('%g 小时'%(interval/60))
+            last=st.get('ts') or sch.get('上次')
+            enabled=bool(doc.get('启用'))
+            source='DD373'
+            rule='成本÷(1−%.0f%%) ｜ 20 倍档'%(float(doc.get('利润率',.30))*100)
+            region_count=len(doc.get('商品') or [])
+            items,gold=[],[]
         else:
             sch=schedule.get(source_name,{})
             interval=float(sch.get('周期小时') or 6)*60
@@ -219,6 +234,26 @@ def monitor_snapshot(root, api, game_id):
             {'key':'inventory','label':'库存 ('+('G' if wow else '万金')+')','type':'number'},
             {'key':'action','label':'本轮动作'},{'key':'note','label':'说明'}]
         return {'id':game_id,'name':name,'updated_at':led.get('ts'),'unit':unit,'columns':columns,'rows':rows,'notes':notes}
+    if game_id=='poe1':
+        # 2026-11-16：PoE1 专线的「最近一轮计划」直接来自 data/poe1_state.json。
+        st=read_json(Path(root)/'data'/'poe1_state.json',{}) or {}
+        doc=cfg.get('POE1定价') or {}
+        for r in (st.get('last_plan') or []):
+            rows.append({'title':r.get('title'),'category':'道具 / USD',
+                'current':number(r.get('old')),'target':number(r.get('new')),
+                'action':r.get('动作'),'note':r.get('原因')})
+        notes=['现价来自上一次成功写入本专线的目标价；实际后台价格以工单记录为准。',
+               '成本口径：DD373 神圣石挂单（跳过最低 1 条）加权均价 ÷（1−%.0f%%）÷ 汇率。'
+               % (float(doc.get('利润率',.30))*100),
+               '38588451 Divine Orb = P；71488529 Divine Orb(20+1 Free) = 20 × P。']
+        if not rows:
+            notes.insert(0,'暂未读到本专线的采集记录。')
+        columns=[{'key':'title','label':'商品'},{'key':'category','label':'类型与单位'},
+            {'key':'current','label':'上轮标价 (USD)','type':'number'},
+            {'key':'target','label':'本轮目标 (USD)','type':'number'},
+            {'key':'action','label':'本轮动作'},{'key':'note','label':'说明'}]
+        return {'id':game_id,'name':name,'updated_at':st.get('ts'),'unit':'USD/个',
+                'columns':columns,'rows':rows,'notes':notes}
     items,gold=game_rows(cfg,api,source_name)
     keymap={str(x.get('key')):x for x in items+gold}
     with closing(database(root)) as con:
