@@ -310,6 +310,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(parse_choice(answer, len(fixtures)), 3)
         prompt = brain._ask.await_args.args[1]
         self.assertIn('Spain vs England', prompt[1]['content'])
+        self.assertIn('Sun 19:45 London / Sun 14:45 New York', prompt[1]['content'])
         self.assertIn('never fill a quota', prompt[0]['content'])
 
     def test_choice_accepts_a_match_beyond_the_first_card(self):

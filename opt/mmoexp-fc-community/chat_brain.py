@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import re
+from zoneinfo import ZoneInfo
 
 import aiohttp
 
@@ -187,13 +188,20 @@ class ChatBrain:
 
     async def select_matchday(self, fixtures):
         """One small daily call; the verified fixture card remains the fact source."""
-        lines = ['{}. {} vs {} | {}'.format(i, f.home, f.away, f.competition)
+        london = ZoneInfo('Europe/London')
+        eastern = ZoneInfo('America/New_York')
+        lines = ['{}. {} vs {} | {} | {} London / {} New York'.format(
+                 i, f.home, f.away, f.competition,
+                 f.kickoff.astimezone(london).strftime('%a %H:%M'),
+                 f.kickoff.astimezone(eastern).strftime('%a %H:%M'))
                  for i, f in enumerate(fixtures, start=1)]
         messages = [
             {'role': 'system', 'content': (
                 'Choose at most one standout football fixture for an English-speaking '
                 'FC27 community in the UK and US. Prefer major European leagues, cups '
-                'and national-team matches. If none is broadly interesting, return NONE; '
+                'and national-team matches. Consider whether UK and US fans can join '
+                'the discussion at kickoff when fixtures are otherwise comparable. '
+                'If none is broadly interesting, return NONE; '
                 'never fill a quota. Use only the supplied '
                 'fixtures; do not add facts, scores or lineups. Reply exactly NONE or '
                 'the fixture number, such as 3. No explanation.')},
