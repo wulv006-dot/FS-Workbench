@@ -87,9 +87,13 @@ test('signed in: avatar header, checkout claims without a dialog; mobile header 
   assert(await page.locator('.fca-account-user').isVisible());
   await page.setViewportSize({width:1280,height:800});
   await page.locator('#bundle-grid [data-preview-model]').waitFor();await page.locator('input[name=platform][value=xbox]').check();
+  const claimEvents=[];await page.exposeFunction('recordClaim',detail=>claimEvents.push(detail));
+  await page.evaluate(()=>document.getElementById('fc-activity').addEventListener('fcactivity:coupon-claim',e=>window.recordClaim(e.detail)));
   await page.locator('#bundle-grid [data-toggle-bundle]').click();await page.locator('#review-dialog[open]').waitFor();
   await page.locator('#submit-selection').click();await page.waitForURL('**/Cart.html');
   assert.equal(site.logins.length,0);assert.equal(site.claims.length,1);
+  assert.equal(claimEvents.length,1);assert.deepEqual([claimEvents[0].state,claimEvents[0].reused,claimEvents[0].couponId],['claimed',false,1395],'the page reports the claim step and coupon template to its tracker');
+  assert(!JSON.stringify(claimEvents).match(/555|member|uid/i),'nothing about the account or the member coupon');
   assert.deepEqual(site.posts,[{category:'new_items',id:'802',group:'1',num:'1',attr:'',aid:'21585'}]);
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('pending_member_coupon_id')),'555');
   assert.deepEqual(site.errors,[]);

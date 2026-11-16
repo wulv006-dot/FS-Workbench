@@ -10,13 +10,13 @@
     const template=templates[filter.template]||templates.commerce,{steps,labels}=template,windowHours=Number(filter.windowHours)|| (filter.template==='reward'?720:24);
     if(!Number.isFinite(windowHours)||windowHours<1||windowHours>720)throw Error('转化窗口需为1–720小时');
     const groups=new Map(),ids=new Set();
-    for(const e of events){const p=e.properties||{},t=Date.parse(e.timestamp);const journey=filter.template==='reward'?p.reward_journey_id:p.activity_visit_id;if(!Number.isFinite(t)||!journey||!p.activity_id||!steps.includes(e.event)&&!['activity_engaged','activity_click','activity_selection','activity_review','activity_cart_result'].includes(e.event))continue;
+    for(const e of events){const p=e.properties||{},t=Date.parse(e.timestamp);const journey=filter.template==='reward'?p.reward_journey_id:p.activity_visit_id;if(!Number.isFinite(t)||!journey||!p.activity_id||!steps.includes(e.event)&&!['activity_engaged','activity_click','activity_selection','activity_review','activity_cart_result','activity_coupon_claim'].includes(e.event))continue;
       if(p.event_id&&ids.has(p.event_id))continue;if(p.event_id)ids.add(p.event_id);
       if(filter.match&&filter.match!=='all'&&p.match_id!==filter.match)continue;
       if((filter.template==='prediction'||filter.template==='reward')&&!p.match_id)continue;
       const key=p.activity_id+':'+journey+':'+(filter.template==='prediction'||filter.template==='reward'?(p.match_id||'missing'): '');if(!groups.has(key))groups.set(key,[]);groups.get(key).push({...e,t});}
     const seasonalOffers=new Map(),journeys=new Map(),seasonalTotals=Object.fromEntries(['gameViews','revealed','selected','reviewed','cart','unconfirmed'].map(k=>[k,new Set()]));
-    const counts=steps.map(()=>0),products=new Map(),sources=new Map(),daily=new Map(),visitors=new Set(),clickers=new Set();let active=0,revenue=0,orders=new Set(),reviews=0,sbcSelections=0,visits=0;
+    const counts=steps.map(()=>0),products=new Map(),sources=new Map(),daily=new Map(),visitors=new Set(),clickers=new Set();let active=0,revenue=0,orders=new Set(),reviews=0,sbcSelections=0,couponClaims=0,couponReused=0,visits=0;
     for(const rows of groups.values()){
       rows.sort((a,b)=>a.t-b.t);const first=rows.find(r=>r.event===steps[0]);if(!first)continue;const p=first.properties,date=first.timestamp.slice(0,10);
       if(!activityMatches(filter.activity,p.activity_id))continue;
@@ -32,6 +32,8 @@
       for(let i=0;i<steps.length;i++){const row=windowRows.find(r=>r.t>=last&&r.event===steps[i]);if(!row)break;counts[i]++;matched++;last=row.t;}
       if(matched===steps.length){source.paid++;day.paid++;}
       if(windowRows.some(r=>r.event==='activity_review'))reviews++;
+      if(windowRows.some(r=>r.event==='activity_coupon_claim'&&r.properties.coupon_state==='claimed'&&r.properties.coupon_reused!==true))couponClaims++;
+      if(windowRows.some(r=>r.event==='activity_coupon_claim'&&r.properties.coupon_state==='claimed'&&r.properties.coupon_reused===true))couponReused++;
       if(windowRows.some(r=>r.event==='activity_selection'&&r.properties.include_sbc))sbcSelections++;
       const exposed=new Set(),clicked=new Set();
       for(const r of windowRows){const q=r.properties;
@@ -67,7 +69,7 @@
       }
       for(const id of new Set([...exposed,...clicked])){const item=products.get(id)||{id,exposures:0,selections:0};if(exposed.has(id))item.exposures++;if(clicked.has(id))item.selections++;products.set(id,item);}
     }
-    return {template:filter.template||'commerce',windowHours,visits,visitors:visitors.size,clickers:clickers.size,activeSeconds:visits?Math.round(active/visits):null,revenueMinor:revenue,orders:orders.size,reviews,sbcSelections,
+    return {template:filter.template||'commerce',windowHours,visits,visitors:visitors.size,clickers:clickers.size,activeSeconds:visits?Math.round(active/visits):null,revenueMinor:revenue,orders:orders.size,reviews,sbcSelections,couponClaims,couponReused,
       steps:steps.map((event,i)=>({event,label:labels[i],count:counts[i],rate:i&&counts[i-1]?counts[i]/counts[i-1]:i===0&&counts[0]?1:null})),
       seasonalTotals:Object.fromEntries(Object.entries(seasonalTotals).map(([k,v])=>[k,v.size])),seasonalGames:[...journeys.values()].map(j=>Object.fromEntries(Object.entries(j).map(([k,v])=>[k,v instanceof Set?v.size:v]))),
       seasonalOffers:[...seasonalOffers.values()].map(x=>({releaseId:x.releaseId,gameId:x.gameId,modelId:x.modelId,offPercent:x.offPercent,slot:x.slot,discountCodes:[...x.codes].sort(),exposedVisits:x.exposed.size,revealedVisits:x.reveals.size,selectedVisits:x.selected.size,cartConfirmations:x.cartConfirmations})),

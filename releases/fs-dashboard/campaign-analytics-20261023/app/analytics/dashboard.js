@@ -46,11 +46,43 @@
    const response=await fetch('api/discount-revenue?'+params,{credentials:'same-origin',signal:AbortSignal.timeout(125000)}),r=await response.json();
    if(generation!==revenueGeneration)return;
    if(!response.ok||r.status!=='available'||r.coverage?.complete!==true)throw Error(r.message||'付款订单读取未完成');
-   if(fc){fcRevenue=r;renderFcRevenueCard();}
+   if(fc){fcRevenue=r;renderFcRevenueCard();renderCouponPanel();}
    section.innerHTML='<h2 id="revenue-title">'+(fc?'FC三页合计用码付款':'活动码付款收入')+'</h2><p class="muted">'+(fc?'FCSCOUT10 已付款用码订单为三页合计；不归给当前单页，不与单页访客漏斗相除。':'只统计 MMOEXP 的 12 个活动专属码。')+'按上方 UTC 付款日期和游戏筛选；不按访客设备、渠道拆分，不计算访客付款转化率。</p><div class="metrics">'+[['用码付款订单',num(r.totals.paid_orders)],['付款订单金额 · USD',usd(r.totals.paid_usd_minor)],['含退款的付款订单',num(r.totals.refunded_orders)]].map(([k,v])=>'<article class="metric"><span>'+k+'</span><strong>'+v+'</strong></article>').join('')+'</div><p>后台付款显示金额：'+esc(r.paid_currencies.map(x=>x.currency+' '+x.amount).join(' · ')||'当前窗口无付款')+'</p><p class="muted">整单金额采用 Admin 付款订单美元口径；混合购物车不分摊到商品。退款保留原付款记录并另列笔数；退款金额和净收入尚未核实，不按 0 计算。更新时间：'+esc(bjt(r.generated_at))+'（北京时间），最多缓存 10 分钟。</p><div class="report-table-wrap" tabindex="0" role="region" aria-labelledby="revenue-title"><table><thead><tr>'+['游戏','活动专属码','折扣','付款订单','订单金额 · USD','含退款订单'].map(x=>'<th scope="col">'+x+'</th>').join('')+'</tr></thead><tbody>'+r.codes.map(x=>'<tr><th scope="row">'+esc(gameNames[x.game_id]||x.game_id)+'</th><td>'+esc(x.code)+'</td><td>'+num(x.off_percent)+'% OFF</td><td>'+num(x.paid_orders)+'</td><td>'+usd(x.paid_usd_minor)+'</td><td>'+num(x.refunded_orders)+'</td></tr>').join('')+'</tbody></table></div>';
    if(fc)section.insertAdjacentHTML('beforeend',productSalesHtml(r.product_sales));
    if($('payment-read-state'))$('payment-read-state').textContent='活动码付款收入已接入；逐访客结账、付款回传未接入';
   }catch(error){if(generation!==revenueGeneration)return;if(fc){fcRevenue={status:'unavailable'};renderFcRevenueCard();}section.innerHTML='<h2>活动码付款收入</h2><p role="status">'+esc(error.name==='TimeoutError'?'付款订单查询超时，请更新分析重试；未完成不记为零。':error.message)+'</p>';}
+ }
+
+ let couponGeneration=0,couponUsage=null;
+ const pctText=v=>v==null?'—':(v*100).toFixed(1)+'%';
+ function renderCouponPanel(){
+  let section=$('coupon-usage');
+  if(!fcActivity()){if(section)section.hidden=true;return;}
+  if(!section){section=document.createElement('section');section.id='coupon-usage';section.className='panel';($('discount-revenue')||$('metrics')).after(section);}
+  section.hidden=false;const c=couponUsage;
+  if(!c||c.status==='loading'){section.innerHTML='<h2>活动券使用与转化</h2><p role="status">正在读取券使用记录，行为统计可继续查看…</p>';return;}
+  if(c.status==='test')return void(section.innerHTML='<h2>活动券使用与转化</h2><p>测试模式不查询或混入正式订单。请切换正式访客数据查看活动券。</p>');
+  if(c.status!=='available'){section.innerHTML='<h2>活动券使用与转化</h2><p role="status">'+esc(c.message||'活动券使用记录暂不可读；未完成不记为零。')+'</p>';return;}
+  const t=c.totals,cp=c.coupon,rate=c.conversion,code=fcRevenue?.status==='available'?fcRevenue.totals:null;
+  const cards=[['已领取券 · 累计',num(cp.issued_total)],['已使用券 · 累计',num(cp.used_total)],['领取→使用 · 累计',pctText(rate.claim_to_use)],['窗口内用券订单',num(t.used_orders)],['其中已付款',num(t.paid_orders)],['用券订单付款率',pctText(rate.paid_per_use)],['用券付款金额 · USD',usd(t.paid_usd_minor)],['券抵扣金额 · USD',usd(t.discount_usd_minor)],['用券付款买家',num(t.unique_buyers)],['含退款订单',num(t.refunded_orders)],['用券后90天复购订单',num(t.repurchase_orders)],['90天复购金额 · USD',usd(t.repurchase_usd_minor)]];
+  const compare=code?'<p>优惠码（保留）：'+(code.paid_orders==null?'':num(code.paid_orders)+' 单 · ')+usd(code.paid_usd_minor)+'；优惠券：'+num(t.paid_orders)+' 单 · '+usd(t.paid_usd_minor)+'；两者合计：'+(code.paid_orders==null?'':num(code.paid_orders+t.paid_orders)+' 单 · ')+usd(code.paid_usd_minor+t.paid_usd_minor)+'。优惠码与优惠券互斥，不会同时用在一张订单上。</p>':'';
+  const rows=c.daily.map(d=>'<tr><th>'+esc(d.date)+'</th><td>'+num(d.used_orders)+'</td><td>'+num(d.paid_orders)+'</td><td>'+usd(d.paid_usd_minor)+'</td></tr>').join('');
+  section.innerHTML='<h2>活动券使用与转化 · FC三页合计</h2><p class="muted">三页共用一张统一券（'+esc(cp.title||'')+'，ID '+esc(cp.coupon_id)+'），不按页面拆分；与优惠码并行统计，原优惠码数据不变。发放与使用累计来自券记录，窗口内使用来自用户优惠券使用记录。</p><div class="metrics">'+cards.map(([k,v])=>'<article class="metric"><span>'+k+'</span><strong>'+v+'</strong></article>').join('')+'</div>'+compare+(rows?'<div class="report-table-wrap"><table><thead><tr><th>日期（UTC）</th><th>用券订单</th><th>已付款</th><th>付款金额 · USD</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p class="muted">当前窗口没有券使用记录。</p>')+'<p class="muted">'+esc(c.note||'')+(c.coverage?.orders_unmatched?' 其中 '+num(c.coverage.orders_unmatched)+' 笔订单在订单列表里未找到，付款状态与金额按用券记录。':'')+'</p>';
+ }
+ async function loadCouponUsage(filter,force=false){
+  const generation=++couponGeneration;
+  if(!fcActivity()){couponUsage=null;renderCouponPanel();return;}
+  if(filter.mode!=='live'){couponUsage={status:'test'};renderCouponPanel();return;}
+  couponUsage={status:'loading'};renderCouponPanel();
+  const params=new URLSearchParams(Object.fromEntries(['activity','mode','from','to'].map(k=>[k,filter[k]||''])));
+  if(force)params.set('refresh','1');
+  try{
+   const response=await fetch('api/coupon-usage?'+params,{credentials:'same-origin',signal:AbortSignal.timeout(125000)}),r=await response.json();
+   if(generation!==couponGeneration)return;
+   if(!response.ok||r.status!=='available'||r.coverage?.complete!==true)throw Error(r.message||'活动券使用记录读取未完成');
+   couponUsage=r;
+  }catch(error){if(generation!==couponGeneration)return;couponUsage={status:'unavailable',message:error.name==='TimeoutError'?'活动券使用记录查询超时，请更新分析重试；未完成不记为零。':error.message};}
+  renderCouponPanel();
  }
  let trafficState=null,trafficGeneration=0;
  async function loadTraffic(filter,force){
@@ -141,7 +173,7 @@
   const max=Math.max(1,...report.daily.map(x=>x.visits));$('trend').innerHTML=report.daily.length?'<div class="trend">'+report.daily.map(d=>`<div class="day"><b>${num(d.visits)}</b><div class="day-bar" style="height:${d.visits/max*100}px"></div><span>${esc(d.date.slice(5))}</span><small>${missing?'付款待接入':d.paid+' 完成批次'}</small></div>`).join('')+'</div>':'<p class="empty">暂无趋势数据</p>';
   $('products').innerHTML=report.products.length?report.products.slice(0,12).map(p=>`<tr><td>${esc(currentContext?.products?.[p.id]||window.FC_ACTIVITY_CONFIG.products[p.id]?.name||p.id)}</td><td>${num(p.exposures)}</td><td>${num(p.selections)}</td></tr>`).join(''):'<tr><td colspan="3">暂无商品事件</td></tr>';
   renderFcRevenueCard();
-  $('intent').innerHTML=[[mode==='local'?'点击会话数':'点击访客数',report.clickers],['查看购买清单的批次',report.reviews],['选择 SBC 代做的批次',report.sbcSelections],['平均前台参与时长',report.activeSeconds==null?'—':report.activeSeconds+' 秒']].map(([label,value])=>`<div class="channel"><span>${label}</span><strong>${unavailable?'—':esc(value)}</strong></div>`).join('');
+  $('intent').innerHTML=[[mode==='local'?'点击会话数':'点击访客数',report.clickers],['查看购买清单的批次',report.reviews],['选择 SBC 代做的批次',report.sbcSelections],...(report.couponClaims===undefined?[]:[['领取活动券的批次',report.couponClaims],['沿用已领券的批次',report.couponReused]]),['平均前台参与时长',report.activeSeconds==null?'—':report.activeSeconds+' 秒']].map(([label,value])=>`<div class="channel"><span>${label}</span><strong>${unavailable?'—':esc(value)}</strong></div>`).join('');
  }
  function normalizeFilters(){if(seasonal()){for(const id of ['platform','match'])$(id).value='all';$('template').value='commerce';}}
  function productSalesHtml(sales){
@@ -149,7 +181,7 @@
   return '<h3>活动商品销量 · 付款订单行</h3><p>'+(available?'当前区间付款订单行已完整核对。':partial?'仅部分付款订单已取得商品行，以下为已覆盖部分，不代表完整销量。':'付款订单行暂不可用；未将缺测记为零。')+(sales?.coverage?' 已覆盖 '+num(sales.coverage.covered_paid_orders)+' / '+num(sales.coverage.eligible_paid_orders)+' 个活动付款订单。':'')+'</p>'+(sales?.rows_truncated?'<p class="muted">显示前 '+rows.length+' / 共 '+num(sales.total_products)+' 个商品，完整明细请使用自选查询；未展示的商品不代表无销量。</p>':'')+((available||partial)&&rows.length?'<div class="report-table-wrap" tabindex="0" role="region" aria-label="活动付款商品销量"><table><thead><tr>'+['商品','平台','付款订单','购买数量','含退款订单','退款订单购买数量'].map(x=>'<th scope="col">'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.map(x=>'<tr><th scope="row">'+esc(x.title||x.product_id)+'</th><td>'+esc(x.platform||'未提供')+'</td><td>'+num(x.paid_orders)+'</td><td>'+esc(x.quantity)+' '+esc(x.unit)+'</td><td>'+(x.refunded_orders==null?'—':num(x.refunded_orders))+'</td><td>'+(x.refunded_quantity==null?'—':esc(x.refunded_quantity)+' '+esc(x.unit))+'</td></tr>').join('')+'</tbody></table></div>':available?'<p>完整查询：当前区间活动商品销量为 0。</p>':'')+'<p class="muted">按活动付款订单中核实的商品行统计，不使用曝光、选择或加购替代销量；整单美元金额不分摊到商品，退款单列，不冒充净销量。退款订单购买数量仅标记含退款订单的原购买数量，非实际退货或退款件数。</p>';
  }
  function renderFcSnapshot(v,behavior,revenue){
-  fcRevenue=revenue?{status:'available',totals:{paid_usd_minor:revenue.paidUsdMinor}}:{status:'unavailable'};
+  fcRevenue=revenue?{status:'available',totals:{paid_usd_minor:revenue.paidUsdMinor,paid_orders:revenue.paidOrders}}:{status:'unavailable'};
   show(behavior?.report||null,'live');
   const traffic=v.sources?.traffic?.lastSuccess?.summary;const trafficPanel=$('basic-traffic-report');trafficPanel.innerHTML='<h2>三页基础访问量 · 页面请求估算</h2><div class="metrics"><article class="metric"><span>正式活动文档请求</span><strong>'+(traffic?num(traffic.pageRequests):'—')+'</strong></article></div><p>统计截至 '+esc(bjt(v.sources?.traffic?.lastSuccess?.at))+'（北京时间）。仅187侧成功文档GET；刷新重复计数、边缘缓存可能漏计，不代表实际人数。</p>';
   $('mode-notice').textContent='三页共用一份活动汇总 · 服务器按北京时间00:00 / 08:00 / 16:00汇总；页面每10分钟读取快照，手动更新分析读取当前区间最新来源。';
@@ -167,7 +199,7 @@
    currentContext=v.context||null;currentDiagnostics=null;
    if(currentContext?.games)$('game').innerHTML='<option value="all">全部游戏</option>'+currentContext.games.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+'</option>').join('');
    $('from').value=v.window.from;$('to').value=v.window.to;
-   if(fcActivity()){renderFcSnapshot(v,behavior,revenue);return;}
+   if(fcActivity()){renderFcSnapshot(v,behavior,revenue);void loadCouponUsage({activity:$('activity').value,mode:'live',from:v.window.from,to:v.window.to},false);return;}
    showSeasonal(behavior?{visits:behavior.visits,visitors:behavior.sessionVisitors,seasonalTotals:behavior.totals,seasonalGames:behavior.byGame}:null,'live');
    $('mode-notice').textContent='服务器计划汇总 · 北京时间00:00 / 08:00 / 16:00更新；页面刷新仅读保存结果，不重新采集。';
    const labels={traffic:'页面请求估算',behavior:'已授权行为',revenue:'活动码付款'};
@@ -187,7 +219,7 @@
   if(mode!=='live'||['game','device','source'].some(k=>filter[k]&&filter[k]!=='all')||filter.windowHours!=='24')$('statistics-scope').value='custom';
   if(window.CampaignServer&&(seasonal()||fcActivity())&&mode==='live'&&$('statistics-scope').value!=='custom')return refreshScheduled(gen);
   scheduleStatus.hidden=true;
-  void loadRevenue(filter,forceRevenue===true);void loadTraffic(filter,forceRevenue===true);
+  void loadRevenue(filter,forceRevenue===true);void loadCouponUsage(filter,forceRevenue===true);void loadTraffic(filter,forceRevenue===true);
   $('mode-notice').textContent=mode==='demo'?'演示模式 · 所有人数与金额均为虚构样本，不代表真实经营结果。':mode==='local'?'本机埋点体验 · 仅显示同源浏览器的最近 1,500 条预览事件；无外传、无真实成交。':mode==='test'?'PostHog 联调数据 · 从实际项目查询 test 事件，仅用于接入验收，不代表正式经营结果。':'真实数据模式 · 仅显示 FS 服务端查询结果；未接入不会用演示数据代替。';
   if(mode==='live'||mode==='test'){show(null,mode);$('feedback').textContent='正在查询接入状态…';try{const response=await fetch('api/report?'+new URLSearchParams(filter),{signal:AbortSignal.timeout(20000),credentials:'same-origin'});const result=await response.json();if([400,401,403].includes(response.status)||result.status==='not_configured')autoRefreshAllowed=false;if(!response.ok)throw Error(result.status==='not_configured'?'PostHog 尚未配置；请先在连接页录入只读密钥。':result.message||'真实数据接口不可用，请确认服务仍运行。');if(gen!==generation)return;if(result.status!=='available'||!result.report)throw Error(result.message||'数据暂不可用');currentContext=result.context||null;currentDiagnostics=result.diagnostics||null;if(currentContext?.games){const selected=$('game').value;$('game').innerHTML='<option value="all">全部游戏</option>'+currentContext.games.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+'</option>').join('');if(currentContext.games.some(g=>g.id===selected))$('game').value=selected;}show(result.report,mode);$('feedback').textContent='查询结果时间：'+bjt(result.generatedAt)+'（北京时间） · 正式查询最多缓存5分钟 · '+result.coverage;}catch(error){if(gen===generation){show(null,mode);$('feedback').textContent=error.message;}}return;}
   let events=[];try{events=mode==='demo'?window.activityDemoEvents(defaults):JSON.parse(localStorage.getItem('fc-activity-events-v1')||'[]');}catch{$('feedback').textContent='本地事件存储不可用。';}show(core.summarize(events,filter),mode);

@@ -22,7 +22,7 @@ from campaign_backend.core import ContractError, source_identity
 from campaign_backend.models import request_scope, project_model, resolve_model, historical_image, player_type
 from campaign_backend.provider import (scope as provider_scope, model_provider, model_provider_batch,
                                       category_pool, resolve_category_pool)
-from campaign_backend.discount_revenue import read_revenue, query_window
+from campaign_backend.discount_revenue import read_revenue, read_coupon_usage, query_window
 
 
 def model_image(model):
@@ -48,7 +48,7 @@ def capabilities():
             order_discount_readback=False, authoritative_quote=False, cart_handoff=False),
         configured_read_routes=True, verification_status='not_verified_by_this_backend',
         implemented_management_actions=['benefit_detail', 'benefit_edit', 'benefit_toggle', 'benefit_restore', 'operation_lookup',
-            'operation_reconcile', 'analysis_reconcile', 'analysis_summary', 'discount_revenue', 'catalog_mapping_read'],
+            'operation_reconcile', 'analysis_reconcile', 'analysis_summary', 'discount_revenue', 'coupon_usage', 'catalog_mapping_read'],
         mutation_reason='EXACT_WRITE_AND_READBACK_MAPPING_REQUIRED')
 
 
@@ -84,6 +84,13 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
             reader.close()
     if action == 'capabilities':
         return capabilities()
+    if action == 'coupon_usage':
+        query_window(request)
+        reader = reader_factory()
+        try:
+            return read_coupon_usage(reader, request)
+        finally:
+            reader.close()
     if action == 'discount_revenue':
         query_window(request)
         reader = reader_factory()

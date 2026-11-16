@@ -21,7 +21,7 @@
       device:matchMedia('(max-width: 700px)').matches?'mobile':'desktop',activity_visit_id:entry?.id,
       activity_session_id:session,source:entry?.source||'direct',campaign:entry?.campaign||'',...extra};
   }
-  const permitted=new Set(['page_id','game_id','model_id','off_percent','discount_code','slot','release_id','config_hash','server_id','quantity_value','quantity_unit','test_run_id','schema_version','activity_id','catalog_version','view','platform','language','environment','device','activity_visit_id','activity_session_id','source','campaign','product_id','product_ids','include_sbc','core_id','action','complete','confirmed_ids','failed_count','active_seconds','depth','target','event_id','distinct_id','token','$insert_id','$session_id','$window_id','$lib','$lib_version','$process_person_profile']);
+  const permitted=new Set(['coupon_state','coupon_reused','coupon_id','page_id','game_id','model_id','off_percent','discount_code','slot','release_id','config_hash','server_id','quantity_value','quantity_unit','test_run_id','schema_version','activity_id','catalog_version','view','platform','language','environment','device','activity_visit_id','activity_session_id','source','campaign','product_id','product_ids','include_sbc','core_id','action','complete','confirmed_ids','failed_count','active_seconds','depth','target','event_id','distinct_id','token','$insert_id','$session_id','$window_id','$lib','$lib_version','$process_person_profile']);
   function clean(props){return Object.fromEntries(Object.entries(props).filter(([k])=>permitted.has(k)));}
   function emit(event,extra={}){
     if(!entry)return; // Do not emit a restored-scroll event before the activity visit exists.
@@ -48,6 +48,8 @@
   root.addEventListener('fcactivity:view',e=>start(e.detail));
   root.addEventListener('fcactivity:render',e=>{state={...state,...e.detail};if(entry)observe();});
   root.addEventListener('fcactivity:selection',e=>{state={...state,...e.detail};emit('activity_selection',{product_ids:e.detail.ids||[],include_sbc:!!e.detail.includeSbc,core_id:e.detail.coreId,action:e.detail.action||'selection'});});
+  // Which coupon step happened, never who: no account or member-coupon identifier is sent.
+  root.addEventListener('fcactivity:coupon-claim',e=>{const d=e.detail||{};emit('activity_coupon_claim',{coupon_state:safe(d.state),coupon_reused:d.reused===true,coupon_id:Number.isSafeInteger(d.couponId)&&d.couponId>0?d.couponId:undefined});});
   root.addEventListener('fcactivity:review',e=>emit('activity_review',{product_ids:e.detail.ids||[],include_sbc:!!e.detail.includeSbc}));
   root.addEventListener('fcactivity:cart-result',e=>{const rows=e.detail.outcomes||[],confirmed=rows.filter(x=>x.state==='confirmed').map(x=>String(x.id));emit('activity_cart_result',{complete:!!e.detail.complete,confirmed_ids:confirmed,failed_count:rows.length-confirmed.length});if(!preview&&confirmed.length)emit('activity_add_to_cart',{product_ids:confirmed,complete:!!e.detail.complete});});
   root.addEventListener('click',e=>{const el=e.target.closest('button,a');if(!el||el.disabled)return;const id=el.id||el.dataset.toggleBundle||el.dataset.toggleProduct||el.dataset.view||el.dataset.gameCard||el.dataset.randomReveal||el.dataset.buySlot;if(id)emit('activity_click',{target:safe(id)||'control'});},true);
