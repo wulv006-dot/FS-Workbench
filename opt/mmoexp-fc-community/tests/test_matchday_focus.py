@@ -427,6 +427,30 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(client.focus_store.claim_missing_source(OFFICIAL_GUILD, NOW.date()))
             await client.close()
 
+    async def test_pulse_worker_error_does_not_skip_daily_source_check(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                    'keywords': []}}},
+                'matchday_engagement': dict(ENGAGEMENT,
+                    state_path=str(Path(directory) / 'pulse.sqlite3')),
+            }
+            client = ChatClient(config)
+            client.focus_recovered.set()
+            client.wait_until_ready = AsyncMock()
+            is_closed = client.is_closed
+            client.is_closed = iter([False, True]).__next__
+            client.send_pending_pulses_due = AsyncMock(side_effect=RuntimeError('pulse failed'))
+            client.alert_missing_daily_card = AsyncMock()
+            with patch('chat_service.asyncio.sleep', new_callable=AsyncMock):
+                await client.run_followups()
+            client.alert_missing_daily_card.assert_awaited_once()
+            client.is_closed = is_closed
+            await client.close()
+
     async def test_recovery_selects_from_all_league_cards_in_one_model_call(self):
         from chat_service import ChatClient
 

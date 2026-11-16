@@ -565,9 +565,12 @@ class ChatClient(discord.Client):
             try:
                 await self.send_pending_pulses_due()
                 await self.send_followups_due()
-                await self.alert_missing_daily_card()
             except Exception as exc:
                 print('Match to Squad worker failed: ' + type(exc).__name__, flush=True)
+            try:
+                await self.alert_missing_daily_card()
+            except Exception as exc:
+                print('Matchday daily source check failed: ' + type(exc).__name__, flush=True)
             await asyncio.sleep(60)
 
     async def alert_missing_daily_card(self, now=None):
