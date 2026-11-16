@@ -21,6 +21,32 @@ class ChatScopeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(quote_link_view(1041923524601851914, 'That pack was great!'))
         self.assertIsNone(quote_link_view(1565922092518613064, 'How much are coins?'))
 
+    async def test_unmentioned_price_question_gets_one_live_quote_entry(self):
+        router = SimpleNamespace(in_scope=Mock(return_value=True),
+                                 route=Mock(return_value=None))
+        client = SimpleNamespace(
+            router=router, surprise=None, topic_threads={}, user=None,
+            brain=SimpleNamespace(ready=True, reply=AsyncMock(return_value='Check the live card.')),
+            limiter=SimpleNamespace(allow=Mock(return_value=True), record=Mock()),
+            history={}, sticker_for=Mock(return_value=None))
+        message = SimpleNamespace(
+            guild=SimpleNamespace(id=1041923524601851914),
+            channel=SimpleNamespace(id=1200330251016867880,
+                                    typing=Mock(return_value=AsyncMock())),
+            author=SimpleNamespace(id=456, display_name='fan'),
+            content='How much are FC coins?', reference=None, reply=AsyncMock())
+
+        self.assertTrue(await ChatClient.handle_chat(client, message))
+        message.reply.assert_awaited_once()
+        self.assertIn('1568663210901504041',
+                      message.reply.await_args.kwargs['view'].children[0].url)
+        client.limiter.record.assert_called_once()
+
+        message.channel.id = 1571043570268242014
+        message.content = 'How much injury time?'
+        self.assertFalse(await ChatClient.handle_chat(client, message))
+        message.reply.assert_awaited_once()
+
     async def test_staff_text_trigger_outside_fc_is_ignored(self):
         surprise = SimpleNamespace(is_staff=Mock())
         client = SimpleNamespace(router=SimpleNamespace(in_scope=Mock(return_value=False)),
