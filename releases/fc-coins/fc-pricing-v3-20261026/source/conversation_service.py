@@ -633,7 +633,8 @@ class ConversationService:
             report=find(self.native,native['binding'])
             if native['stopped'] and report is None:
                 return
-            self.native.complete(user, conversation_id, turn['id'], run_id)
+            reported = output if report is None and native.get('pricing_context') is None else None
+            self.native.complete(user, conversation_id, turn['id'], run_id, reported_output=reported)
             if report is not None:finish(self.native,native['binding'],'completed',output)
         # The final status survives a lost SSE transport; duplicate terminal reads are safe.
         if not self.store.has_event(user, conversation_id, run_id, "run.completed"):

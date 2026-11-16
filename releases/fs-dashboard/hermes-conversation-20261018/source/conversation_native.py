@@ -3,9 +3,10 @@
 This module contains no model client or agent loop. User text and attachment bytes
 remain unchanged; the runtime supplies the actual native tools and their sandbox.
 """
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from contextvars import ContextVar
 import hashlib
+from itertools import islice
 import json
 import os
 from pathlib import Path
@@ -286,7 +287,12 @@ def workspace_regular_files(root):
         for directory,dirs,names in os.walk(root,followlinks=False):
             for name in [*dirs,*names]:
                 if (Path(directory)/name).is_symlink():raise ValueError('native_linked_file')
-            for name in sorted(names):yield (Path(directory)/name).relative_to(root).as_posix()
+            for name in sorted(names):
+                path = Path(directory) / name
+                info = path.stat()
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                    raise ValueError('native_file_kind_or_size')
+                yield path.relative_to(root).as_posix(), info.st_size
         return
     def walk(fd,prefix):
         with os.scandir(fd) as entries:
@@ -298,7 +304,7 @@ def workspace_regular_files(root):
                 child=os.open(name,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
                 try:yield from walk(child,relative+'/')
                 finally:os.close(child)
-            elif stat.S_ISREG(info.st_mode):yield relative
+            elif stat.S_ISREG(info.st_mode) and info.st_nlink == 1:yield relative,info.st_size
             else:raise ValueError('native_nonregular_workspace_entry')
     fd=os.open(root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
     try:yield from walk(fd,'')
@@ -446,7 +452,7 @@ class NativeWorkspace:
                                         'path': row['path'], 'sha256': row['sha256'], 'size': item['size']})
         return {'workspace': str(workspace), 'profile': str(profile), 'files': attachments}
 
-    def collect(self, owner, cid, run_id, *, authorize=None, publish=None, turn_id=None):
+    def collect(self, owner, cid, run_id, *, authorize=None, publish=None, turn_id=None, reported_output=None):
         from conversation_files import MAX_BYTES
         if not re.fullmatch('run_[a-f0-9]{32}', run_id or ''):
             raise ValueError('native_run_id')
@@ -463,10 +469,25 @@ class NativeWorkspace:
                 return cards
             known = {row['path']: dict(row) for row in db.execute('SELECT * FROM native_workspace_files WHERE cid=?', (cid,))}
             cards = []
-            count = 0
-            for relative in workspace_regular_files(workspace):
-                count += 1
-                if count > 1000:raise ValueError('native_file_count')
+            with closing(workspace_regular_files(workspace)) as entries:
+                candidates = list(islice(entries, 1001))
+                limit_error = ('native_file_count' if len(candidates) > 1000 else
+                               'native_file_kind_or_size' if any(size > MAX_BYTES for _, size in candidates) else None)
+                if limit_error:
+                    if not reported_output:
+                        raise ValueError(limit_error)
+                    # Reported deliverables can still fit when build files exceed the export limits.
+                    candidates.extend(islice(entries, 10001 - len(candidates)))
+                    if len(candidates) > 10000:
+                        raise ValueError(limit_error)
+                    candidates = [(path, size) for path, size in candidates
+                                  if 0 < size <= MAX_BYTES
+                                  and not any(part.startswith('.') for part in Path(path).parts)
+                                  and re.search(r'(?<![\w.-])' + re.escape(path) + r'(?![\w.-])',
+                                                reported_output)]
+                    if not 0 < len(candidates) <= 1000:
+                        raise ValueError(limit_error)
+            for relative, _ in candidates:
                 raw=regular_bytes(workspace/relative,MAX_BYTES,root=workspace)
                 # Caches and empty intermediate files are not downloadable
                 # outputs. Keep them in the workspace without failing valid
@@ -1199,7 +1220,7 @@ class NativeConversation:
                     value['ready'] = False
                     self.write_admission(row['binding']['session_id'], value)
 
-    def complete(self, owner, cid, turn_id, run_id):
+    def complete(self, owner, cid, turn_id, run_id, *, reported_output=None):
         row = self.row(owner, cid, turn_id)
         if row is None or row['stopped']:
             return []
@@ -1213,7 +1234,8 @@ class NativeConversation:
             files = bindings.bound(db, owner, cid, turn_id)
             files['generated'] = sorted(set(files['generated']) | {item['file_id'] for item in cards})
             bindings.write(cid, turn_id, files)
-        return self.workspace.collect(owner,cid,run_id,authorize=authorized,publish=publish,turn_id=turn_id)
+        return self.workspace.collect(owner,cid,run_id,authorize=authorized,publish=publish,turn_id=turn_id,
+                                      reported_output=reported_output)
 
     def append_event(self, owner, cid, turn_id, run_id, sequence, event):
         with self.store.db() as db:
