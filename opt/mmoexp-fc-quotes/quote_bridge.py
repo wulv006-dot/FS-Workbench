@@ -15,7 +15,7 @@ def dispatch(provider, request):
     if not isinstance(request, dict) or set(request) != {'action', 'args'}:
         raise ValueError('Invalid request')
     action, args = request['action'], request['args']
-    counts = {'catalog': 1, 'options': 1, 'quote': 2,
+    counts = {'catalog': 1, 'options': 1, 'quote': 2, 'quote_for_platform': 2,
               'player_search': 2, 'player_tags': 0, 'player_tag': 2, 'player_featured': 1, 'player_preview': 1, 'player_manage_search': 2,
               'player_manage_selection': 0, 'player_manage_tags': 0, 'player_manage_inspect': 1, 'player_manage_match': 1}
     if not isinstance(action, str) or action not in counts or not isinstance(args, list) or len(args) != counts[action]:
@@ -40,6 +40,10 @@ def dispatch(provider, request):
             raise ValueError('Invalid page')
     elif action in ('player_tags', 'player_manage_tags', 'player_manage_selection'):
         pass
+    elif action == 'quote_for_platform':
+        if (not isinstance(args[0], str) or not re.fullmatch(r'players:[1-9][0-9]{0,11}', args[0])
+                or not isinstance(args[1], str) or args[1] not in ('PC', 'Xbox Series X|S', 'PlayStation 5')):
+            raise ValueError('Invalid player platform quote')
     elif action == 'catalog':
         if not isinstance(args[0], str) or args[0] not in CATEGORIES:
             raise ValueError('Invalid category')
@@ -78,6 +82,9 @@ class SocketProvider:
 
     def quote(self, product_id, option_id):
         return self.call('quote', [str(product_id), str(option_id)])
+
+    def quote_for_platform(self, product_id, platform):
+        return self.call('quote_for_platform', [str(product_id), platform])
 
     def player_search(self, query, page=1):
         return self.call('player_search', [query, page])

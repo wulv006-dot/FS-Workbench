@@ -80,6 +80,31 @@ class PlayerCatalogTests(unittest.TestCase):
         self.client.row['price'] = self.client.row['unit_price'] = '5.1'
         self.assertEqual(catalog.quote('players:101', '201')['amount'], '5.10')
 
+    def test_platform_quote_uses_one_live_goods_read_and_rejects_bad_mapping(self):
+        calls = []
+        original = self.client.get_goods
+        def counted(goods_id):
+            calls.append(goods_id)
+            return original(goods_id)
+        self.client.get_goods = counted
+        self.assertEqual(self.catalog.quote_for_platform('players:101', 'PlayStation 5')['amount'], '4.41')
+        self.assertEqual(calls, [201])
+        self.client.row['price'] = self.client.row['unit_price'] = '6.22'
+        self.assertEqual(self.catalog.quote_for_platform('players:101', 'PlayStation 5')['amount'], '6.22')
+        for platform in ('PC', 'wrong'):
+            with self.assertRaises(ValueError):
+                self.catalog.quote_for_platform('players:101', platform)
+        self.client.list_goods = lambda **kwargs: SimpleNamespace(rows=[goods(), dict(goods(), id=202)], total=2)
+        with self.assertRaises(ValueError):
+            self.catalog.quote_for_platform('players:101', 'PlayStation 5')
+        self.client.list_goods = lambda **kwargs: SimpleNamespace(rows=[goods()], total=2)
+        with self.assertRaises(ValueError):
+            self.catalog.quote_for_platform('players:101', 'PlayStation 5')
+        self.client.list_goods = lambda **kwargs: SimpleNamespace(rows=[goods()], total=1)
+        self.client.row['mid'] = 102
+        with self.assertRaises(ValueError):
+            self.catalog.quote_for_platform('players:101', 'PlayStation 5')
+
     def test_quote_rejects_unverified_or_complex_goods(self):
         catalog = PlayerCatalog(self.client, verified_prices={101: [21587]})
         for change in ({'aid': 99999}, {'site_id': 0}, {'mid': 102}, {'status': 0},

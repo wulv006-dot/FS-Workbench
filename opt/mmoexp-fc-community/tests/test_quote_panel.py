@@ -26,6 +26,17 @@ class Provider:
 
 
 class QuotePanelTests(unittest.IsolatedAsyncioTestCase):
+    async def test_player_price_uses_one_platform_quote(self):
+        from quote_panel import fetch_quote
+        provider = Mock()
+        provider.quote_for_platform.return_value = dict(title='Player', option_label='PC',
+                                                        amount='37.84', currency='USD', price_basis='sale',
+                                                        url='https://www.mmoexp.com/item', queried_at=1700000000)
+        self.assertEqual(fetch_quote(provider, 'players:101', 'PC', 'players')['amount'], '37.84')
+        provider.quote_for_platform.assert_called_once_with('players:101', 'PC')
+        provider.options.assert_not_called()
+        provider.quote.assert_not_called()
+
     async def test_official_quote_cards_require_an_fc_role_but_remain_visible(self):
         from quote_panel import CategoryHomeView, FC_ROLE_IDS, FC_WELCOME_CHANNEL
 

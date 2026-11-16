@@ -257,3 +257,34 @@ class PlayerCatalog:
         amount = _decimal(row['price']).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         return {'title': card['title'], 'option_label': AREAS[_integer(row['aid'])], 'amount': str(amount),
                 'currency': 'USD', 'price_basis': 'sale', 'url': URL, 'queried_at': int(time.time())}
+
+    def quote_for_platform(self, product_id, platform):
+        """Resolve one live platform in a single Admin listing and goods read."""
+        aid = next((key for key, label in AREAS.items() if label == platform), None)
+        if aid is None:
+            raise ValueError('invalid player platform')
+        mid = _product(product_id)
+        card = self._model(mid)
+        result = self.client.list_goods(gid=GID, mid=mid, site_id=SITE, page=1, limit=25)
+        if type(result.total) is not int or result.total != len(result.rows) or len(result.rows) > 25:
+            raise ValueError('incomplete player goods')
+        rows, seen = [], set()
+        for item in result.rows:
+            item_aid = _integer(item['aid'])
+            if item_aid not in AREAS:
+                continue
+            if item_aid in seen:
+                raise ValueError('ambiguous player platform')
+            seen.add(item_aid)
+            if item_aid == aid:
+                rows.append(item)
+        if len(rows) != 1:
+            raise ValueError('player mapping unavailable')
+        goods_id = _integer(rows[0]['id'])
+        row = self.client.get_goods(goods_id)
+        if (not self._valid_goods(row, mid, card) or _integer(row['id']) != goods_id
+                or _integer(row['aid']) != aid):
+            raise ValueError('player quote unavailable')
+        amount = _decimal(row['price']).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return {'title': card['title'], 'option_label': platform, 'amount': str(amount),
+                'currency': 'USD', 'price_basis': 'sale', 'url': URL, 'queried_at': int(time.time())}

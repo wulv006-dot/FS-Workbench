@@ -29,6 +29,8 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(service.catalog('players')[0]['id'], 'players:101')
             option = service.options('players:101')[0]['id']
             self.assertEqual(service.quote('players:101', option)['amount'], '7.00')
+            self.assertEqual(dispatch(service, {'action': 'quote_for_platform',
+                                                'args': ['players:101', 'PlayStation 5']})['amount'], '7.00')
             service.catalog('packs')
             base.catalog.assert_called_once_with('packs')
             cfg['verified_prices'] = {}
@@ -155,6 +157,9 @@ class ServiceTests(unittest.TestCase):
             path.write_text(json.dumps({'player_panel':cfg}))
             self.assertEqual(service.options('players:102'), [{'id':'201','label':'PlayStation 5'}])
             self.assertEqual(service.quote('players:102','201')['amount'],'4.41')
+            fast_quote = service.quote_for_platform('players:102', 'PlayStation 5')
+            self.assertEqual(fast_quote['amount'], '4.41')
+            self.assertEqual(fast_quote['quoted_product_id'], 'players:101')
             cfg['verified_prices']['101']=[21587]
             path.write_text(json.dumps({'player_panel':cfg}))
             client.models.append(model(103))
