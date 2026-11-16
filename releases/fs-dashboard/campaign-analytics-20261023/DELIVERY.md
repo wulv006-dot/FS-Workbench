@@ -127,6 +127,26 @@
 - 回退点：`/var/backups/fs-campaign-batch-20261028/`（改造前 5 个文件）、`/var/backups/fs-campaign-price-timeout-20261028/`、`/var/backups/fs-campaign-price-current-20261028T1945/`。
 - 遗留：单轮约 190s 主要耗在 44 次模型详情（约 4s/次，历史 0.3s），组内并发可提速，本轮未做；`release_id` / `state.published` 未随本次部署更新；D4 替换 WoW 未上线。
 
+### 2026-11-16 `nav-20261116T095231Z`（PR #1160）FC 三页领账户券 + 活动页登录
+
+- 来源：PR #1160（head `26c4bbc`，`pr-fast` success），合并 `3ed7aa298f9b2d67b9f1efd36af133a29b96f75b`。候选目录 `/var/tmp/fs-campaign-release72-candidate`，manifest `bc69d6d76054…`。
+- 目标 8 个：`app/activity.js`、`app/activity.css`、`app/native-code-handoff.js`、`app/runtime/static-manifest.json`，加 4 个必需边界文件（原样，哈希不变）。`inspect` 报 `sourceCAS/protectedCAS passed`、`mutations:false`；apply 返回 `applied-awaiting-actual-http-role-acceptance`。
+- 发布前基线：线上 `activity.js`、`activity.css` 与合并前 main 的内容一致，只是换行为 CRLF（转成 CRLF 后哈希完全一致）。本次改为发布合并提交的 LF 原文。
+- 静态清单：110 个键不变，只更新这 3 个文件的哈希。
+- 内容：结账时先按 slot 调用主站 `/ajax/carnival/coupon` 和 `/claim`。页面对应的 slot 为 `fc27-weekly→fc_weekly`、`fc27-sbc→fc_sbc`、`fc27-trio→fc_trio`。领券成功后不再暂存优惠码。未登录用户会看到登录弹窗，支持邮箱、Google、Facebook 登录，也可以选择以游客身份继续走带码流程。
+- 读回时发现问题：领券和加购都成功了，但购物车没有选中任何券（优惠 $0）。由下一次发布修复。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T095231Z`。
+
+### 2026-11-16 `nav-20261116T100745Z`（PR #1161）购物车自动选中刚领取的券
+
+- 来源：PR #1161（`pr-fast` success），合并 `80778ecdfdcc26a479a876b87207fa55006075bd`。候选目录 `/var/tmp/fs-campaign-release73-candidate`，manifest `cfa6e6d50dda…`。
+- 目标 8 个，有变化的是 `activity.js`、`native-code-handoff.js` 和静态清单；`activity.css` 和 4 个边界文件哈希不变。`inspect` 报 `sourceCAS/protectedCAS passed`。
+- 内容：主站购物车只会在加载时根据 `sessionStorage.pending_member_coupon_id`（`applyPendingMemberCoupon`）选中对应的券，所以领券成功后先把 `member_coupon_id` 写入这个键，再跳转购物车。
+- 真实入口读回：测试账号在 `www.mmoexp.com/events/Player-Trio.html` 上选择 Victor Ibarbo → Confirm，领到 `member_coupon_id=1033749` 并完成加购，跳转 `/Cart.html` 后自动选中 1033749，商品价 $153.76 抵扣 -$15.38（10%）；`pending_member_coupon_id` 和 `pending_discount_code` 都已被购物车消费，未付款。三页静态资源 `?v=` 均为新哈希，Weekly 页控制台无报错。
+- 相关 Admin 配置（正式站点 266）：券 1395 `FC27 Event 10% Coupon`（9 折、无门槛、领取后 7 天有效、不限领取次数）；carnival 的入口 `fc_weekly`、`fc_sbc`、`fc_trio` 都挂 1395；总开关开启，起止时间 2026-11-15 至 2026-12-02，档位券为空。
+- 未验证：真实账号的 Google、Facebook 完整授权流程；邮箱登录的真实提交；登录弹窗在手机宽度下的显示效果。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T100745Z`。
+
 ---
 
 ## 回退与边界
