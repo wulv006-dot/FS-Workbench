@@ -102,6 +102,22 @@ class ProductProvider:
                 seen_platforms.add(option['label'])
         raise ValueError('Selected player option is no longer available')
 
+    def quote_for_platform(self, product_id, platform):
+        if not isinstance(product_id, str) or not product_id.startswith('players:'):
+            raise ValueError('invalid player product')
+        player, targets = self._player_quote_targets(product_id)
+        for target in targets:
+            try:
+                quote = player.quote_for_platform(target, platform)
+            except ValueError:
+                if target == product_id:
+                    raise
+                continue
+            if target != product_id:
+                quote.update(requested_product_id=product_id, quoted_product_id=target)
+            return quote
+        raise ValueError('Selected player platform is no longer available')
+
     def player_search(self, query, page):
         return self.players()[0].search(query, page=page)
 

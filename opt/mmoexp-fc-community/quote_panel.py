@@ -422,6 +422,11 @@ class PriceButton(discord.ui.Button):
 
 
 def fetch_quote(provider, product, platform, kind):
+    if kind == 'players' and hasattr(provider, 'quote_for_platform'):
+        quote = validate_quote(provider.quote_for_platform(product, platform), kind)
+        if quote['option_label'] != platform:
+            raise ValueError('Mismatched platform')
+        return quote
     options = provider.options(product)
     matches = [str(row['id']) for row in options if row['label'] == platform]
     if len(matches) != 1 or not matches[0]:
