@@ -126,6 +126,28 @@ class ClubPanelTests(unittest.IsolatedAsyncioTestCase):
         await self.press('chelsea')
         self.assertEqual({role.id for role in self.member.roles}, {99, 12, 14})
 
+    async def test_official_fc27_send_overwrites_allow_club_and_join_only_in_fc_rooms(self):
+        from club_panel import ClubPanelView, FC27_SEND_CHANNELS, OFFICIAL_GUILD, safe_community_role
+        community = Role(14)
+        self.roles[14] = community
+        self.guild.id = OFFICIAL_GUILD
+        self.guild.channels = [SimpleNamespace(id=channel_id,
+            overwrites_for=lambda role: discord.PermissionOverwrite(send_messages=role.id == 14))
+            for channel_id in FC27_SEND_CHANNELS]
+        self.view = ClubPanelView(OFFICIAL_GUILD, 200, 'england', self.mapping, community_role_id=14)
+        self.assertTrue(safe_community_role(community, self.guild.me, self.guild))
+        await self.press('arsenal', self.interaction(guild_id=OFFICIAL_GUILD))
+        self.assertEqual({role.id for role in self.member.roles}, {99, 11, 14})
+        self.guild.channels.append(SimpleNamespace(id=999,
+            overwrites_for=lambda role: discord.PermissionOverwrite(send_messages=role.id == 14)))
+        self.assertFalse(safe_community_role(community, self.guild.me, self.guild))
+        self.guild.channels.pop()
+        self.guild.channels.append(SimpleNamespace(id=next(iter(FC27_SEND_CHANNELS)),
+            overwrites_for=lambda role: discord.PermissionOverwrite(manage_messages=role.id == 14)))
+        self.assertFalse(safe_community_role(community, self.guild.me, self.guild))
+        self.assertFalse(safe_community_role(Role(14, permissions=discord.Permissions(administrator=True).value),
+                                             self.guild.me, self.guild))
+
     async def test_failed_switch_rolls_back_only_new_community_marker(self):
         from club_panel import ClubPanelView
         self.roles[14] = Role(14)

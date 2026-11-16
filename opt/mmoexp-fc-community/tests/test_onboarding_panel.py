@@ -37,6 +37,18 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         await self.click('join')
         self.assertEqual(self.member.add_roles.await_count, 1)
 
+    async def test_join_accepts_official_fc27_chat_overwrites(self):
+        from club_panel import FC27_SEND_CHANNELS, OFFICIAL_GUILD
+        from onboarding_panel import WelcomeView
+        self.guild.id = OFFICIAL_GUILD
+        self.guild.channels = [SimpleNamespace(id=channel_id,
+            overwrites_for=lambda role: discord.PermissionOverwrite(send_messages=role.id == 14))
+            for channel_id in FC27_SEND_CHANNELS]
+        self.welcome = WelcomeView(dict(self.clubs, guild_id=OFFICIAL_GUILD))
+        interaction = await self.click('join', self.interaction(guild_id=OFFICIAL_GUILD))
+        self.assertEqual({role.id for role in self.member.roles}, {99, 14})
+        self.assertIn('You’re in', interaction.followup.send.await_args.args[0])
+
     async def test_join_rejects_wrong_route_bot_and_unsafe_role(self):
         for interaction in [self.interaction(guild_id=101), self.interaction(channel_id=201),
                             self.interaction(user=SimpleNamespace(id=4, bot=True))]:

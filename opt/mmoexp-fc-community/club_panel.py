@@ -69,6 +69,25 @@ def safe_club_role(role, bot_member, guild):
                         for channel in getattr(guild, 'channels', ())))
 
 
+OFFICIAL_GUILD = 1041923524601851914
+FC27_SEND_CHANNELS = frozenset((1200330251016867880, 1280777367219998786,
+                                1571043570268242014))
+SEND_MESSAGES = discord.Permissions(send_messages=True).value
+
+
+def safe_community_role(role, bot_member, guild):
+    """FC27 membership may grant Send Messages only in the three FC chat rooms."""
+    if (role is None or role.is_default() or role.managed or role.permissions.value != 0
+            or not role < bot_member.top_role):
+        return False
+    for channel in getattr(guild, 'channels', ()):
+        allowed, _ = channel.overwrites_for(role).pair()
+        if allowed.value and (guild.id != OFFICIAL_GUILD or channel.id not in FC27_SEND_CHANNELS
+                              or allowed.value & ~SEND_MESSAGES):
+            return False
+    return True
+
+
 class ClubPanelView(discord.ui.View):
     def __init__(self, guild_id, channel_id, section, role_ids, emoji_map=None, community_role_id=None):
         super().__init__(timeout=None)
@@ -117,7 +136,7 @@ class ClubButton(discord.ui.Button):
             target = guild.get_role(view.role_ids.get(self.slug))
             community_role = guild.get_role(view.community_role_id) if view.community_role_id else None
             if (bot and bot.guild_permissions.manage_roles and safe_club_role(target, bot, guild)
-                    and (view.community_role_id is None or safe_club_role(community_role, bot, guild))):
+                    and (view.community_role_id is None or safe_community_role(community_role, bot, guild))):
                 added = []
                 try:
                     member = await guild.fetch_member(interaction.user.id)
