@@ -64,6 +64,50 @@ class CurveRuntime(unittest.TestCase):
             live = make_curve(deepcopy(frozen['final_curve']['native_payload']), live['identity'])
             previous = {'segments': frozen['segments']}
 
+    def test_ps_small_labels_and_pairs_use_the_confirmed_large_protection_curve(self):
+        from decimal import Decimal
+        from fc_pricing_v3.price_curve import compile_curve, curve_key, read_curve, TWO_BAND_PRICE_EDIT
+        from fc_pricing_v3.smart import paired_exposure
+        from test_curve_strategy_v6 import fixture
+
+        current, reference, episode = fixture()
+        editor = dict(current['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
+        current = read_curve(current['native_payload'], current['identity'], editor)
+
+        def observed(label, small, large, *, platform='PS', protected_small=None):
+            normal = compile_curve(current, {'anchor_prices_usd': {100: small}}, editor)
+            controls = {1000: large}
+            segments = {'large': {'target': large}}
+            if protected_small is not None:
+                controls[100] = protected_small
+                segments['small'] = {'target': protected_small}
+            final = compile_curve(normal, {'anchor_prices_usd': controls}, editor)
+            state = dict(reference=reference, episode=episode)
+            previous = {'segments': segments}
+            key = curve_key(final)
+            frozen = dict(reference_curve_id=reference['reference_curve_id'],
+                comparison_episode_id=episode['comparison_episode_id'], previous=previous,
+                status='PROVEN', final_key=key, labels=[label], normal_curve=normal,
+                final_curve=final, normal_anchors={}, final_anchors={}, segments=segments, gaps=[],
+                preference=dict(segment='small', label=label, restore_other_band=True,
+                                assignment={'background_curve_key': None}))
+            with patch.object(runtime, '_validated_curve', return_value={'status': 'PROVEN'}):
+                row = runtime._prove_temporary_curve(platform, dict(temporary_cost_protection=frozen,
+                    primary_inputs={key: {}}), final, state, previous)
+            self.assertEqual(row['status'], 'KEEP')
+            self.assertEqual(row['selection']['cost_protection']['segments'], segments)
+            assignment = row['selection']['assignment']
+            return dict(label=assignment['actual_label'], prices=[key], intervals=[[0, 10800]],
+                        display_regime_key=assignment['background_curve_key'])
+
+        a = observed('A', '10', '103')
+        b = observed('B', '9.7', '103')
+        self.assertEqual((a['label'], b['label']), ('A', 'B'))
+        self.assertEqual(paired_exposure([a], [b])[3], Decimal('3'))
+        self.assertIsNone(paired_exposure([a], [observed('B', '9.7', '104')]))
+        self.assertEqual(observed('B', '9.7', '103', protected_small='10')['label'], 'CURRENT')
+        self.assertEqual(observed('B', '9.7', '103', platform='XBOX')['label'], 'CURRENT')
+
     def test_large_reference_scales_price_and_gift_without_scaling_unit_price(self):
         from decimal import Decimal
         from fc_pricing_v3.curve_strategy_v6 import large_market_comparison, large_market_reference
