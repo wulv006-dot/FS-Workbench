@@ -150,6 +150,19 @@ def followup_text(pulse):
             'Share your choice below.').format(pulse.home, pulse.score, pulse.away)
 
 
+def _routine_blowout_goal(previous_score, current_score):
+    before = re.fullmatch(r'(\d+)–(\d+)', previous_score)
+    after = re.fullmatch(r'(\d+)–(\d+)', current_score)
+    if not before or not after:
+        return False
+    old = tuple(map(int, before.groups()))
+    new = tuple(map(int, after.groups()))
+    return (abs(old[0] - old[1]) >= 3 and abs(new[0] - new[1]) >= 3
+            and (old[0] > old[1]) == (new[0] > new[1])
+            and new[0] >= old[0] and new[1] >= old[1]
+            and sum(new) > sum(old))
+
+
 class MatchPulseStore:
     def __init__(self, path):
         self.path = str(Path(path))
@@ -184,7 +197,8 @@ class MatchPulseStore:
             previous_kind, _, previous_score = row[2].partition('|') if row else ('', '', '')
             state = '{}|{}'.format(pulse.kind, pulse.score)
             if pulse.kind == 'goal':
-                should_post = not row or pulse.score != previous_score
+                should_post = (not row or (pulse.score != previous_score
+                               and not _routine_blowout_goal(previous_score, pulse.score)))
             elif pulse.kind == 'correction':
                 should_post = bool(row and pulse.score != previous_score)
             elif pulse.kind == 'final':

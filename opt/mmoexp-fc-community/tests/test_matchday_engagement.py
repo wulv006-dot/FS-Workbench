@@ -158,6 +158,42 @@ class MatchdayEngagementTests(unittest.TestCase):
                 db.commit()
             self.assertFalse(store.claim(1571184986541789374, final, now+1002))
 
+    def test_large_lead_posts_once_then_waits_for_final(self):
+        now = time.time()
+        source_id = 1571993856201719830
+        with tempfile.TemporaryDirectory() as directory:
+            store = MatchPulseStore(Path(directory) / 'pulse.sqlite3')
+
+            def pulse(score, kind='goal'):
+                return MatchPulse(TEST_GUILD, 'germany|netherlands', 'Germany', 'Netherlands',
+                    score, kind, 'https://discord.com/channels/1/2/3', SOURCE, SOURCE, SOURCE)
+
+            for offset, score in enumerate(('1–0', '2–0', '3–0')):
+                self.assertTrue(store.claim(source_id + offset, pulse(score), now + offset))
+            self.assertFalse(store.claim(source_id + 3, pulse('4–0'), now + 3))
+            self.assertFalse(store.claim(source_id + 4, pulse('5–0'), now + 4))
+            with closing(sqlite3.connect(store.path)) as db:
+                last_id, last_kind = db.execute(
+                    'SELECT last_message_id,last_kind FROM match_pulse').fetchone()
+            self.assertEqual((last_id, last_kind), (str(source_id + 4), 'goal|3–0'))
+            self.assertTrue(store.claim(source_id + 5, pulse('5–0', 'final'), now + 5))
+
+    def test_comeback_goals_still_prompt_after_large_lead(self):
+        now = time.time()
+        source_id = 1571993856201719830
+        with tempfile.TemporaryDirectory() as directory:
+            store = MatchPulseStore(Path(directory) / 'pulse.sqlite3')
+
+            def pulse(score):
+                return MatchPulse(TEST_GUILD, 'germany|netherlands', 'Germany', 'Netherlands',
+                    score, 'goal', 'https://discord.com/channels/1/2/3', SOURCE, SOURCE, SOURCE)
+
+            self.assertTrue(store.claim(source_id, pulse('3–0'), now))
+            self.assertFalse(store.claim(source_id + 1, pulse('4–0'), now + 1))
+            self.assertTrue(store.claim(source_id + 2, pulse('4–2'), now + 2))
+            self.assertTrue(store.claim(source_id + 3, pulse('4–3'), now + 3))
+            self.assertTrue(store.claim(source_id + 4, pulse('4–4'), now + 4))
+
     def test_pending_delivery_survives_restart_and_new_event_supersedes_it(self):
         now = time.time()
         first_id, second_id = 1571184986541789367, 1571184986541789369
