@@ -32,7 +32,7 @@
 
 ## 接线顺序与验收
 
-1. 在 Admin Web 预建或从已授权的 187 自动创建**当周独立券模板**，只读核对 `mode_type=2/reduce=92`、`max_reduce=0`、`time_effect=2/days=7`、`site_id=266/game_id=1327`、`limit_qty=30/repeat_qty=1`、`attain=0`、`is_open=0`。本周券为 `1397`，当前关闭、0 领取，代码只接受已启用且现场详情完全匹配的券；资格/入口未接牢前保持关闭。现有 1395 是 10% 券；1387/1385 是历史试券，均不能复用。187 身份的 `market/coupon/add` 当前权限须重新核对，不能凭浏览器管理员权限推断。
+1. 在 Admin Web 预建或从已授权的 187 自动创建**当周独立券模板**，只读核对 `mode_type=2/reduce=92`、`max_reduce=0`、`time_effect=2/days=7`、`site_id=266/game_id=1327`、`limit_qty=30/repeat_qty=1`、`attain=0`、`is_open=0`。`is_open=0` 表示不叠加主站折扣码，**不是券的启停开关**；启停字段为 `status`。2026-11-17 从 187 现有 Admin 代理只读读回本周券 `1397`：`status=0`（禁用）、`is_open=0`、`limit_qty=30`、`repeat_qty=1`、`mode_type=2`、`reduce=92.00`、`days=7`、`site_id=266`、`game_id=1327`。代码签发资格时要求 `status=1` 并锁定详情指纹；资格/入口未接牢前保持 `status=0`，日后启用后再签发，不能先在禁用状态签发后改变状态。现有 1395 是 10% 券；1387/1385 是历史试券，均不能复用。187 身份的 `market/coupon/add` 当前权限须重新核对，不能凭浏览器管理员权限推断。
 2. 由可信运营或 Unify 合作服务提供最终周榜的前 20 名证明，逐一验证排名和稳定 Discord 用户 ID，再生成 `evidence_id` 与 `subject_ref`；本周最多签发 20 个内部资格记录。券模板仍可保持 30 张库存上限，不能以库存替代资格判断。避免从 Discord API 角色或榜单推断资格。内部凭证不需要发给玩家。
 3. 玩家在 FC27 活动私密入口只提交 MMOEXP 邮箱；按交互用户 ID 调用 `redeem_email_for_player`，再由 `WeeklyEmailDelivery.deliver` 向该邮箱发券。同一 Discord 玩家或邮箱第二次领取、另一玩家冒领、同一证明重复签发或已签发 20 张均拒绝；Admin 模板对同一会员账号另有 `repeat_qty=1`。名次 1–20 的真实性仍须由可信签发端校验，当前账本不验证上游榜单或名次。Discord 公开频道不得回复邮箱或券号。
 4. 用受控测试账户验收：领取后券包显示、7 天倒计时、FC27 限定、8% 无最高减免、实际结算显示；模拟超时仅对原批次对账。下一周使用新模板与新周次，再验同一账号能够领取新周券。测试完成后才开启正式入口。
