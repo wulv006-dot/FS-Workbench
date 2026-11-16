@@ -67,6 +67,11 @@ def validate_config(config, engagement):
             type(limit) is not int or not 1 <= limit <= 4 or
             type(settle) is not int or not 0 <= settle <= 900):
         raise ValueError('Invalid matchday focus scope')
+    ops_channel = config.get('ops_channel_id')
+    if ops_channel is not None and (not isinstance(ops_channel, str) or
+                                    not ops_channel.isdigit() or
+                                    '1041923524601851914' not in guilds):
+        raise ValueError('Invalid matchday focus ops channel')
     return config
 
 
@@ -192,6 +197,38 @@ class FocusStore:
             db.execute('''CREATE TABLE IF NOT EXISTS matchday_focus_reviewed (
                 guild_id TEXT NOT NULL, source_id TEXT NOT NULL,
                 PRIMARY KEY (guild_id, source_id))''')
+            db.execute('''CREATE TABLE IF NOT EXISTS matchday_daily_source (
+                guild_id TEXT NOT NULL, london_day TEXT NOT NULL,
+                observed INTEGER NOT NULL DEFAULT 0, alert_status TEXT,
+                alert_message_id TEXT, PRIMARY KEY (guild_id, london_day))''')
+
+    def record_daily_source(self, guild_id, day):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''INSERT OR IGNORE INTO matchday_daily_source
+                (guild_id,london_day,observed) VALUES(?,?,1)''',
+                (str(guild_id), day.isoformat()))
+            db.execute('''UPDATE matchday_daily_source SET observed=1
+                WHERE guild_id=? AND london_day=?''',
+                (str(guild_id), day.isoformat()))
+
+    def claim_missing_source(self, guild_id, day):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            return db.execute('''INSERT OR IGNORE INTO matchday_daily_source
+                (guild_id,london_day,observed,alert_status) VALUES(?,?,0,'sending')''',
+                (str(guild_id), day.isoformat())).rowcount == 1
+
+    def finish_missing_source(self, guild_id, day, message_id):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''UPDATE matchday_daily_source
+                SET alert_status='sent',alert_message_id=?
+                WHERE guild_id=? AND london_day=? AND alert_status='sending' ''',
+                (str(message_id), str(guild_id), day.isoformat()))
+
+    def unknown_missing_source(self, guild_id, day):
+        with sqlite3.connect(self.path, timeout=5) as db:
+            db.execute('''UPDATE matchday_daily_source SET alert_status='unknown'
+                WHERE guild_id=? AND london_day=? AND alert_status='sending' ''',
+                (str(guild_id), day.isoformat()))
 
     def may_select(self, guild_id, day, weekly_limit):
         start = day - dt.timedelta(days=day.weekday())

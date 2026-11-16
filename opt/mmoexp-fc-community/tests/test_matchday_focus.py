@@ -166,6 +166,19 @@ class FocusTests(unittest.TestCase):
                                           fixtures[0], 'Who wins this one?', 2))
             self.assertFalse(again.may_select(GUILD, day + dt.timedelta(days=2), 2))
 
+    def test_daily_source_heartbeat_survives_restart_and_alerts_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'focus.sqlite3'
+            store = FocusStore(path)
+            store.record_daily_source(GUILD, NOW.date())
+            self.assertFalse(FocusStore(path).claim_missing_source(GUILD, NOW.date()))
+            tomorrow = NOW.date() + dt.timedelta(days=1)
+            self.assertTrue(store.claim_missing_source(GUILD, tomorrow))
+            self.assertFalse(FocusStore(path).claim_missing_source(GUILD, tomorrow))
+            store.finish_missing_source(GUILD, tomorrow, 12345)
+            store.record_daily_source(GUILD, tomorrow)
+            self.assertFalse(FocusStore(path).claim_missing_source(GUILD, tomorrow))
+
     def test_config_is_explicit_subset_of_matchday_routes(self):
         with tempfile.TemporaryDirectory() as directory:
             good = {'enabled': True, 'guild_ids': [str(GUILD)],
@@ -173,6 +186,8 @@ class FocusTests(unittest.TestCase):
             validate_config(good, ENGAGEMENT)
             with self.assertRaises(ValueError):
                 validate_config(dict(good, guild_ids=['999999999999999999']), ENGAGEMENT)
+            with self.assertRaises(ValueError):
+                validate_config(dict(good, ops_channel_id='not-a-channel'), ENGAGEMENT)
 
 
 class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
@@ -264,6 +279,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     client, 'setup_matchday_intro', new_callable=AsyncMock):
                 await client.on_ready()
             message.delete.assert_awaited_once()
+            self.assertFalse(client.focus_store.claim_missing_source(GUILD, NOW.date()))
             await client.close()
 
     async def test_empty_unify_card_is_deleted_without_hosting_or_touching_other_bot(self):
@@ -297,6 +313,32 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             with patch('chat_service.discord.utils.utcnow', return_value=NOW):
                 await client.on_message(message)
             message.delete.assert_awaited_once()
+            await client.close()
+
+    async def test_yesterday_empty_card_does_not_mask_missing_today(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                    'keywords': []}}},
+                'matchday_engagement': dict(ENGAGEMENT,
+                    state_path=str(Path(directory) / 'pulse.sqlite3')),
+                'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
+                    'state_path': str(Path(directory) / 'focus.sqlite3')},
+            }
+            client = ChatClient(config)
+            message = card(now=NOW - dt.timedelta(hours=13))
+            message.embeds = [SimpleNamespace(
+                title='😴 No matches today in `ENGLAND: Premier League`',
+                description='No matches lined up in `ENGLAND: Premier League`')]
+            message.components = []
+            message.delete = AsyncMock()
+            with patch('chat_service.discord.utils.utcnow', return_value=NOW):
+                await client.on_message(message)
+            message.delete.assert_awaited_once()
+            self.assertTrue(client.focus_store.claim_missing_source(GUILD, NOW.date()))
             await client.close()
 
     async def test_ai_selector_sends_only_verified_fixture_candidates(self):
@@ -353,6 +395,36 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 empty.delete.assert_awaited_once()
                 await client.on_ready()
             self.assertEqual(channel.send.await_count, 1)
+            self.assertFalse(client.focus_store.claim_missing_source(GUILD, NOW.date()))
+            await client.close()
+
+    async def test_missing_daily_card_alerts_private_ops_once_after_ten_london(self):
+        from chat_service import ChatClient, OFFICIAL_GUILD
+
+        ops_id = 1568699207022285040
+        route = dict(ROUTE)
+        config = {
+            'chat_bot': {'enabled': True, 'allow_message_content': True,
+                         'routes': {str(OFFICIAL_GUILD): {'channels': {str(CHANNEL): {}},
+                                                          'keywords': []}}},
+            'matchday_engagement': {'enabled': True, 'routes': {str(OFFICIAL_GUILD): route}},
+            'matchday_focus': {'enabled': True, 'guild_ids': [str(OFFICIAL_GUILD)],
+                'state_path': '', 'ops_channel_id': str(ops_id)},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            config['matchday_focus']['state_path'] = str(Path(directory) / 'focus.sqlite3')
+            config['matchday_engagement']['state_path'] = str(Path(directory) / 'pulse.sqlite3')
+            client = ChatClient(config)
+            ops = SimpleNamespace(id=ops_id, guild=SimpleNamespace(id=OFFICIAL_GUILD),
+                                  send=AsyncMock(return_value=SimpleNamespace(id=12345)))
+            client.get_channel = lambda channel_id: ops if channel_id == ops_id else None
+            await client.alert_missing_daily_card(NOW.replace(hour=9))
+            ops.send.assert_not_awaited()
+            await client.alert_missing_daily_card(NOW)
+            await client.alert_missing_daily_card(NOW + dt.timedelta(minutes=1))
+            ops.send.assert_awaited_once()
+            self.assertIn('No UnifyFootball daily fixture card', ops.send.await_args.args[0])
+            self.assertFalse(client.focus_store.claim_missing_source(OFFICIAL_GUILD, NOW.date()))
             await client.close()
 
     async def test_recovery_selects_from_all_league_cards_in_one_model_call(self):

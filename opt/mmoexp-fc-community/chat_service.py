@@ -131,6 +131,7 @@ class ChatClient(discord.Client):
         self.focus_lock = asyncio.Lock()
         self.focus_retry_task = None
         self.matchday_intro_view = None
+        self.focus_recovered = asyncio.Event()
         if self.matchday_config and self.matchday_config['enabled']:
             self.matchday_store = matchday_engagement.MatchPulseStore(
                 self.matchday_config.get('state_path') or
@@ -159,9 +160,12 @@ class ChatClient(discord.Client):
 
     async def on_ready(self):
         print('FC chat ready guilds={}'.format([guild.id for guild in self.guilds]), flush=True)
-        await self.setup_matchday_intro()
-        if self.focus_store is not None:
-            await self.recover_daily_card()
+        try:
+            await self.setup_matchday_intro()
+            if self.focus_store is not None:
+                await self.recover_daily_card()
+        finally:
+            self.focus_recovered.set()
 
     async def recover_daily_card(self, schedule_retry=True):
         """A same-day Unify card can still be used after a bot restart."""
@@ -185,13 +189,15 @@ class ChatClient(discord.Client):
                             message, route, discord.utils.utcnow()):
                         await self.handle_daily_card(message, schedule_retry=schedule_retry)
                         continue
-                    if selection_open and matchday_focus.parse_daily_card(
+                    if matchday_focus.parse_daily_card(
                             message, route, discord.utils.utcnow()):
-                        recognized += 1
-                        await self.handle_daily_card(message, schedule_retry=schedule_retry)
-                        if not self.focus_store.may_select(
-                                int(guild_id), day, self.focus_config.get('weekly_limit', 2)):
-                            selection_open = False
+                        self.focus_store.record_daily_source(guild_id, day)
+                        if selection_open:
+                            recognized += 1
+                            await self.handle_daily_card(message, schedule_retry=schedule_retry)
+                            if not self.focus_store.may_select(
+                                    int(guild_id), day, self.focus_config.get('weekly_limit', 2)):
+                                selection_open = False
                 print('Matchday focus recovery guild={} scanned={} unify={} recognized={}'.format(
                     guild_id, scanned, unify_cards, recognized), flush=True)
             except discord.DiscordException as exc:
@@ -373,6 +379,11 @@ class ChatClient(discord.Client):
         route = self.matchday_config['routes'][str(message.guild.id)]
         now = discord.utils.utcnow()
         if matchday_focus.is_empty_daily_card(message, route, now):
+            # An old placeholder can still be within the 24-hour source window after midnight.
+            if (message.created_at.astimezone(matchday_focus.LONDON).date() ==
+                    now.astimezone(matchday_focus.LONDON).date()):
+                self.focus_store.record_daily_source(
+                    message.guild.id, now.astimezone(matchday_focus.LONDON).date())
             try:
                 await message.delete()
                 print('Matchday empty card removed guild={} source={}'.format(
@@ -385,6 +396,7 @@ class ChatClient(discord.Client):
         if not fixtures:
             return
         day = now.astimezone(matchday_focus.LONDON).date()
+        self.focus_store.record_daily_source(message.guild.id, day)
         limit = self.focus_config.get('weekly_limit', 2)
         if (not self.focus_store.may_select(message.guild.id, day, limit)
                 or self.focus_store.reviewed(message.guild.id, message.id)):
@@ -548,13 +560,40 @@ class ChatClient(discord.Client):
 
     async def run_followups(self):
         await self.wait_until_ready()
+        await self.focus_recovered.wait()
         while not self.is_closed():
             try:
                 await self.send_pending_pulses_due()
                 await self.send_followups_due()
+                await self.alert_missing_daily_card()
             except Exception as exc:
                 print('Match to Squad worker failed: ' + type(exc).__name__, flush=True)
             await asyncio.sleep(60)
+
+    async def alert_missing_daily_card(self, now=None):
+        ops_id = self.focus_config.get('ops_channel_id')
+        if self.focus_store is None or not ops_id:
+            return
+        local = (now or discord.utils.utcnow()).astimezone(matchday_focus.LONDON)
+        if local.hour < 10:
+            return
+        if not self.focus_store.claim_missing_source(OFFICIAL_GUILD, local.date()):
+            return
+        channel = self.get_channel(int(ops_id))
+        if channel is None or channel.guild.id != OFFICIAL_GUILD:
+            self.focus_store.unknown_missing_source(OFFICIAL_GUILD, local.date())
+            print('Matchday daily source alert channel unavailable', flush=True)
+            return
+        try:
+            sent = await channel.send(
+                '⚠️ No UnifyFootball daily fixture card was seen today. '
+                'Check the Matchday subscription and app status. '
+                'Empty no-match cards count as a healthy delivery.',
+                allowed_mentions=discord.AllowedMentions.none())
+            self.focus_store.finish_missing_source(OFFICIAL_GUILD, local.date(), sent.id)
+        except discord.DiscordException as exc:
+            self.focus_store.unknown_missing_source(OFFICIAL_GUILD, local.date())
+            print('Matchday daily source alert unknown: ' + type(exc).__name__, flush=True)
 
     async def handle_chat(self, message):
         guild_id, channel_id = message.guild.id, message.channel.id
