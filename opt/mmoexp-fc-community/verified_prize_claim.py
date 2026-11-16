@@ -14,6 +14,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from match_rewards import RewardError, coupon_snapshot_fingerprint
+from match_rewards_delivery import email_fingerprint, normalized_email
 
 
 WEEK = re.compile(r"20[0-9]{2}-W(?:0[1-9]|[1-4][0-9]|5[0-3])\Z")
@@ -82,6 +83,9 @@ class VerifiedPrizeClaims:
                 CREATE UNIQUE INDEX IF NOT EXISTS verified_prize_one_member_week
                     ON verified_prize_claims(week_key, member_id)
                     WHERE member_id IS NOT NULL;
+                CREATE UNIQUE INDEX IF NOT EXISTS verified_prize_one_email_week
+                    ON verified_prize_claims(week_key, recipient_email_hash)
+                    WHERE recipient_email_hash IS NOT NULL;
             """)
 
     @staticmethod
@@ -166,7 +170,7 @@ class VerifiedPrizeClaims:
             return self._reserve(db, row, site_member_id, ts)
 
     def redeem_for_player(self, week_key, claimant_ref, site_member_id, now=None):
-        """Private bot flow: authenticated winner supplies only an MMOEXP email."""
+        """Legacy member-ID path; the email-only path is redeem_email_for_player."""
         if not isinstance(week_key, str) or not WEEK.fullmatch(week_key):
             raise RewardError("Invalid reward week")
         if not isinstance(claimant_ref, str) or not EVIDENCE.fullmatch(claimant_ref):
@@ -183,6 +187,36 @@ class VerifiedPrizeClaims:
                 raise RewardError("No verified reward for this player and week")
             return self._reserve(db, row, site_member_id,
                                  int(time.time() if now is None else now))
+
+    def redeem_email_for_player(self, week_key, claimant_ref, email, now=None):
+        """Reserve one weekly reward using the winner's private email input."""
+        if not isinstance(week_key, str) or not WEEK.fullmatch(week_key):
+            raise RewardError("Invalid reward week")
+        if not isinstance(claimant_ref, str) or not EVIDENCE.fullmatch(claimant_ref):
+            raise RewardError("Verified player reference is required")
+        recipient_hash = email_fingerprint(normalized_email(email))
+        claimant_hash = hashlib.sha256(claimant_ref.encode()).hexdigest()
+        ts = int(time.time() if now is None else now)
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("""SELECT * FROM verified_prize_claims
+                          WHERE week_key=? AND subject_hash=?""",
+                             (week_key, claimant_hash)).fetchone()
+            if not row:
+                raise RewardError("No verified reward for this player and week")
+            if row["recipient_email_hash"] == recipient_hash:
+                return self._claim_view(row)
+            if row["status"] != "issued" or row["expires_at"] <= ts:
+                raise RewardError("Ticket unavailable or expired")
+            try:
+                db.execute("""UPDATE verified_prize_claims SET recipient_email_hash=?,
+                              status='reserved',updated_at=? WHERE claim_id=? AND status='issued'""",
+                           (recipient_hash, ts, row["claim_id"]))
+            except sqlite3.IntegrityError:
+                raise RewardError("Account already claimed this week") from None
+            return self._claim_view(db.execute(
+                "SELECT * FROM verified_prize_claims WHERE claim_id=?",
+                (row["claim_id"],)).fetchone())
 
     def _reserve(self, db, row, site_member_id, ts):
         if row["member_id"] == site_member_id:
@@ -223,6 +257,8 @@ class VerifiedPrizeClaims:
                 raise RewardError("Claim is not ready for a first grant")
             if row["coupon_fingerprint"] != current_coupon_fingerprint:
                 raise RewardError("Coupon terms changed; grant is paused")
+            if row["recipient_email_hash"] and row["recipient_email_hash"] != recipient_email_hash:
+                raise RewardError("Reward email changed after reservation")
             db.execute("""UPDATE verified_prize_claims SET status='sending',
                           recipient_email_hash=?,updated_at=? WHERE claim_id=?""",
                        (recipient_email_hash, int(time.time() if now is None else now), claim_id))
