@@ -1,3 +1,4 @@
+import asyncio
 import datetime as dt
 import json
 import tempfile
@@ -216,6 +217,36 @@ class FocusTests(unittest.TestCase):
 
 
 class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_setup_hook_rebinds_worker_gate_to_current_loop(self):
+        from chat_service import ChatClient
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                'chat_bot': {'enabled': True, 'allow_message_content': True,
+                             'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                    'keywords': []}}},
+                'matchday_engagement': dict(ENGAGEMENT,
+                    state_path=str(Path(directory) / 'pulse.sqlite3')),
+            }
+            client = ChatClient(config)
+            stale_gate = client.focus_recovered
+            stale_gate._loop = object()  # Emulate client construction on another loop.
+            client.add_commands = AsyncMock()
+            client.tree.sync = AsyncMock()
+            client.is_closed = iter([False, True]).__next__
+            client.send_pending_pulses_due = AsyncMock()
+            client.send_followups_due = AsyncMock()
+            client.send_game_chat_invites_due = AsyncMock()
+            client.alert_missing_daily_card = AsyncMock()
+            client.alert_overdue_followups = AsyncMock()
+            with patch('chat_service.asyncio.sleep', new_callable=AsyncMock):
+                await client.setup_hook()
+                self.assertIsNot(client.focus_recovered, stale_gate)
+                client.focus_recovered.set()
+                await asyncio.wait_for(client.followup_task, timeout=1)
+            client.send_followups_due.assert_awaited_once()
+            await client.close()
+
     async def test_selected_match_invites_fc_chat_once_with_both_links(self):
         from chat_service import ChatClient
 
@@ -534,7 +565,9 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             }
             client = ChatClient(config)
             client.focus_recovered.set()
-            client.wait_until_ready = AsyncMock()
+            # on_ready already released focus_recovered; the worker must not
+            # depend on a second readiness gate that can remain unset.
+            client.wait_until_ready = AsyncMock(side_effect=RuntimeError('ready gate unavailable'))
             is_closed = client.is_closed
             client.is_closed = iter([False, True]).__next__
             client.send_pending_pulses_due = AsyncMock(side_effect=RuntimeError('pulse failed'))
@@ -544,6 +577,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 await client.run_followups()
             client.alert_missing_daily_card.assert_awaited_once()
             client.alert_overdue_followups.assert_awaited_once()
+            client.wait_until_ready.assert_not_awaited()
             client.is_closed = is_closed
             await client.close()
 
