@@ -658,7 +658,8 @@ class ContentClient(discord.Client):
     async def on_message(self, message):
         if self.quote_relay:
             self.quote_relay.accept(message, time.time())
-        if (not message.guild or message.guild.id != TEST_GUILD or message.author.bot
+        if (not message.guild or message.guild.id != TEST_GUILD
+                or message.channel.id != CHAT_QUOTE_CHANNELS[TEST_GUILD] or message.author.bot
                 or message.webhook_id or not self.user
                 or not any(user.id == self.user.id for user in message.mentions)):
             return
