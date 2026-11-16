@@ -30,10 +30,12 @@ test('unconfirmed claim or HTTP failure throws so the caller keeps the code path
 });
 test('coupon-claimed checkout adds to cart and navigates without staging the code',async()=>{
  const data=new Map(),storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};let posts=0,navigated=null;
- const opts={storage,options:{origin,cartUrl:'/Cart.html',sameTab:true,code:'SYNTHETIC',consumerBehaviorConfirmed:true},operationId:'coupon-1',items:[{offer:{id:123,group:1,quantity:1,aid:456}}],liveVerified:true,couponClaimed:true,
+ const opts={storage,options:{origin,cartUrl:'/Cart.html',sameTab:true,code:'SYNTHETIC',consumerBehaviorConfirmed:true},operationId:'coupon-1',items:[{offer:{id:123,group:1,quantity:1,aid:456}}],liveVerified:true,couponClaimed:true,memberCouponId:77,
   host:{batch:()=>({run:async()=>{posts++;return [{id:123,state:'confirmed'}];}})},navigate:url=>navigated=url};
  const r=await checkout(opts);
  assert.equal(r.state,'navigation_attempted_coupon_claimed');assert.equal(data.has('pending_discount_code'),false);assert.equal(navigated,origin+'/Cart.html');
+ // The native cart selects this member coupon from its own pending key on load.
+ assert.equal(data.get('pending_member_coupon_id'),'77');
  await checkout(opts);assert.equal(posts,1);
 });
 test('a failed cart add with a claimed coupon does not navigate',async()=>{
