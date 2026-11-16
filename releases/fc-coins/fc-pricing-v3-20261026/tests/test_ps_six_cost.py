@@ -8,7 +8,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
@@ -140,6 +140,26 @@ class SixCost(unittest.TestCase):
                 raw = dict(self.raw(did, cost, 0), order_id='300', quantity=qty, gift='0', cost_total=total)
                 _, row = self.collector.valid_record(raw)
                 self.assertIsNone(self.collector.verified_delivery_cost(self.tab, row, {'300': detail}))
+
+    def test_order_detail_timeout_retries_the_same_record_once(self):
+        self.native_verifier.stop()
+        raw = dict(self.raw(100, '.4', 0), order_id='300', quantity='500', gift='0', cost_total='200')
+        _, row = self.collector.valid_record(raw)
+        detail = dict(complete=True,
+            goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty='500', used='500')],
+            deliveries=[dict(id='100', pid='9', qty='500', gift='0', price='.4', total='200')])
+        timeout = {'timed_out': True}
+        self.tab.evaluate = Mock(side_effect=[timeout, detail])
+        verified = self.collector.verified_delivery_cost(self.tab, row, {})
+        self.assertEqual(Decimal(verified['cny_per_1k']), Decimal('.4'))
+        self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list], ['300', '300'])
+
+        self.tab.evaluate = Mock(return_value=timeout)
+        cache = {}
+        with self.assertRaisesRegex(ValueError, 'cost_order_detail_timeout'):
+            self.collector.verified_delivery_cost(self.tab, row, cache)
+        self.assertEqual(self.tab.evaluate.call_count, 2)
+        self.assertEqual(cache, {})
 
     def test_duplicate_same_record_does_not_count_twice(self):
         result = self.run_collect([self.rows[:3], self.rows[:3]+self.rows[3:], []])
