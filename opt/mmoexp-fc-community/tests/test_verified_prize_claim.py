@@ -41,20 +41,42 @@ class VerifiedPrizeClaimTests(unittest.TestCase):
     def test_ticket_is_hashed_and_one_account_per_week(self):
         first = self.issue()
         self.assertNotIn(first["ticket"], Path(self.store.path).read_bytes().decode("latin1"))
-        claimed = self.store.redeem(first["ticket"], 42, now=200)
+        claimed = self.store.redeem(first["ticket"], "unify-player:1", 42, now=200)
         self.assertEqual(claimed["status"], "reserved")
         self.assertNotIn("ticket_hash", claimed)
         self.assertNotIn("subject_hash", claimed)
-        self.assertEqual(self.store.redeem(first["ticket"], 42, now=201)["claim_id"],
+        self.assertEqual(self.store.redeem(first["ticket"], "unify-player:1", 42, now=201)["claim_id"],
                          claimed["claim_id"])
         with self.assertRaisesRegex(RewardError, "unavailable"):
-            self.store.redeem(first["ticket"], 43, now=201)
+            self.store.redeem(first["ticket"], "unify-player:1", 43, now=201)
         second = self.issue(2)
         with self.assertRaisesRegex(RewardError, "already claimed"):
-            self.store.redeem(second["ticket"], 42, now=201)
+            self.store.redeem(second["ticket"], "unify-player:2", 42, now=201)
         next_week = self.issue(3, week="2026-W48")
-        self.assertEqual(self.store.redeem(next_week["ticket"], 42, now=201)["status"],
+        self.assertEqual(self.store.redeem(next_week["ticket"], "unify-player:3", 42, now=201)["status"],
                          "reserved")
+
+    def test_forwarded_ticket_cannot_be_redeemed_by_another_player(self):
+        ticket = self.issue()
+        with self.assertRaisesRegex(RewardError, "another player"):
+            self.store.redeem(ticket["ticket"], "unify-player:2", 43, now=200)
+        self.assertEqual(self.store.redeem(ticket["ticket"], "unify-player:1", 42,
+                                           now=200)["status"], "reserved")
+        with self.assertRaisesRegex(RewardError, "another player"):
+            self.store.redeem(ticket["ticket"], "unify-player:2", 42, now=201)
+
+    def test_private_claim_needs_only_the_authenticated_player(self):
+        self.issue()
+        with self.assertRaisesRegex(RewardError, "No verified reward"):
+            self.store.redeem_for_player("2026-W47", "unify-player:2", 43, now=200)
+        claim = self.store.redeem_for_player("2026-W47", "unify-player:1", 42,
+                                             now=200)
+        self.assertEqual(claim["status"], "reserved")
+        self.assertEqual(self.store.redeem_for_player("2026-W47", "unify-player:1",
+                                                       42, now=201)["claim_id"],
+                         claim["claim_id"])
+        with self.assertRaisesRegex(RewardError, "unavailable"):
+            self.store.redeem_for_player("2026-W47", "unify-player:1", 43, now=201)
 
     def test_evidence_and_weekly_limit_are_atomic(self):
         self.issue()
@@ -70,17 +92,17 @@ class VerifiedPrizeClaimTests(unittest.TestCase):
 
     def test_invalid_and_expired_ticket(self):
         with self.assertRaisesRegex(RewardError, "Invalid ticket"):
-            self.store.redeem("wrong", 42, now=200)
+            self.store.redeem("wrong", "unify-player:1", 42, now=200)
         ticket = self.issue()
         with self.assertRaisesRegex(RewardError, "expired"):
-            self.store.redeem(ticket["ticket"], 42, now=500)
+            self.store.redeem(ticket["ticket"], "unify-player:1", 42, now=500)
 
     def test_parallel_claim_of_same_week_has_one_winner(self):
-        tickets = [self.issue(n)["ticket"] for n in (1, 2)]
+        tickets = [(self.issue(n)["ticket"], "unify-player:{}".format(n)) for n in (1, 2)]
 
-        def redeem(token):
+        def redeem(item):
             try:
-                return self.store.redeem(token, 42, now=200)["claim_id"]
+                return self.store.redeem(item[0], item[1], 42, now=200)["claim_id"]
             except RewardError:
                 return None
 
@@ -93,7 +115,7 @@ class VerifiedPrizeClaimTests(unittest.TestCase):
         issued = self.store.issue("2026-W47", "unify-proof:one",
                                   "unify-player:one", coupon,
                                   expires_at=500, now=100)
-        claim = self.store.redeem(issued["ticket"], 42, now=200)
+        claim = self.store.redeem(issued["ticket"], "unify-player:one", 42, now=200)
 
         class Adapter:
             grants = []
@@ -117,7 +139,7 @@ class VerifiedPrizeClaimTests(unittest.TestCase):
         issued = self.store.issue("2026-W47", "unify-proof:confirm",
                                   "unify-player:confirm", COUPON,
                                   expires_at=500, now=100)
-        claim = self.store.redeem(issued["ticket"], 42, now=200)
+        claim = self.store.redeem(issued["ticket"], "unify-player:confirm", 42, now=200)
 
         class Adapter:
             grants = 0

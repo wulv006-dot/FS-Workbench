@@ -53,7 +53,7 @@ def validate_campaign_coupon(row):
 
 
 class VerifiedPrizeClaims:
-    """One bearer ticket per approved event; 20 winners and one account per week."""
+    """One player-bound ticket per approved event; 20 winners per week."""
 
     def __init__(self, path):
         self.path = str(Path(path))
@@ -144,34 +144,61 @@ class VerifiedPrizeClaims:
                         "FC27W_" + claim_id.upper(), ts, expires_at, ts))
         return {"claim_id": claim_id, "ticket": token}
 
-    def redeem(self, ticket, site_member_id, now=None):
-        """Atomically bind a ticket to one verified MMOEXP account."""
+    def redeem(self, ticket, claimant_ref, site_member_id, now=None):
+        """Bind the named winner's ticket to one verified MMOEXP account."""
         ts = int(time.time() if now is None else now)
         if not isinstance(ticket, str) or len(ticket) < 32 or len(ticket) > 128:
             raise RewardError("Invalid ticket")
+        if not isinstance(claimant_ref, str) or not EVIDENCE.fullmatch(claimant_ref):
+            raise RewardError("Verified player reference is required")
         if type(site_member_id) is not int or site_member_id <= 0:
             raise RewardError("Verified MMOEXP member is required")
         digest = hashlib.sha256(ticket.encode()).hexdigest()
+        claimant_hash = hashlib.sha256(claimant_ref.encode()).hexdigest()
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM verified_prize_claims WHERE ticket_hash=?",
                              (digest,)).fetchone()
             if not row:
                 raise RewardError("Invalid ticket")
-            if row["member_id"] == site_member_id:
-                return self._claim_view(row)
-            if row["status"] != "issued" or row["expires_at"] <= ts:
-                raise RewardError("Ticket unavailable or expired")
-            try:
-                db.execute("""UPDATE verified_prize_claims
-                              SET member_id=?,status='reserved',updated_at=?
-                              WHERE claim_id=? AND status='issued'""",
-                           (site_member_id, ts, row["claim_id"]))
-            except sqlite3.IntegrityError:
-                raise RewardError("Account already claimed this week") from None
-            return self._claim_view(db.execute(
-                "SELECT * FROM verified_prize_claims WHERE claim_id=?",
-                (row["claim_id"],)).fetchone())
+            if row["subject_hash"] != claimant_hash:
+                raise RewardError("Ticket belongs to another player")
+            return self._reserve(db, row, site_member_id, ts)
+
+    def redeem_for_player(self, week_key, claimant_ref, site_member_id, now=None):
+        """Private bot flow: authenticated winner supplies only an MMOEXP email."""
+        if not isinstance(week_key, str) or not WEEK.fullmatch(week_key):
+            raise RewardError("Invalid reward week")
+        if not isinstance(claimant_ref, str) or not EVIDENCE.fullmatch(claimant_ref):
+            raise RewardError("Verified player reference is required")
+        if type(site_member_id) is not int or site_member_id <= 0:
+            raise RewardError("Verified MMOEXP member is required")
+        claimant_hash = hashlib.sha256(claimant_ref.encode()).hexdigest()
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("""SELECT * FROM verified_prize_claims
+                          WHERE week_key=? AND subject_hash=?""",
+                             (week_key, claimant_hash)).fetchone()
+            if not row:
+                raise RewardError("No verified reward for this player and week")
+            return self._reserve(db, row, site_member_id,
+                                 int(time.time() if now is None else now))
+
+    def _reserve(self, db, row, site_member_id, ts):
+        if row["member_id"] == site_member_id:
+            return self._claim_view(row)
+        if row["status"] != "issued" or row["expires_at"] <= ts:
+            raise RewardError("Ticket unavailable or expired")
+        try:
+            db.execute("""UPDATE verified_prize_claims
+                          SET member_id=?,status='reserved',updated_at=?
+                          WHERE claim_id=? AND status='issued'""",
+                       (site_member_id, ts, row["claim_id"]))
+        except sqlite3.IntegrityError:
+            raise RewardError("Account already claimed this week") from None
+        return self._claim_view(db.execute(
+            "SELECT * FROM verified_prize_claims WHERE claim_id=?",
+            (row["claim_id"],)).fetchone())
 
     def grant_target(self, claim_id):
         with self._db() as db:
