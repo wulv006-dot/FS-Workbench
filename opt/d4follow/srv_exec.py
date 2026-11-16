@@ -637,6 +637,59 @@ def run_once():
     with open(plan_path, "w", encoding="utf-8") as f:
         json.dump(plan, f, ensure_ascii=False, indent=1)
 
+    # 2026-11-07：空工单短路 —— 0 行待改时**不启容器、不判 unknown**。
+    # 背景 J20261107085148：整单 hold（目标价=现价），容器里 cmd_writegold 只打一行
+    # 「工单里没有可执行的金币项」就 return 0、不写结果文件 ⇒ execution_state() 拿不到
+    # result ⇒ 落 "unknown" ⇒ 看护报 rpg_pricing_unknown，并触发「禁止重复执行」待核告警。
+    # 实际零写入。过滤口径与 _p2pah_srv/p2pah_local.py cmd_writegold 保持一致。
+    _items = plan.get("items") if isinstance(plan, dict) else plan
+    _n_act = 0
+    if isinstance(_items, list):
+        for _it in _items:
+            if not isinstance(_it, dict):
+                continue
+            _new = _it.get("采购成本_新")
+            if _new is None:
+                _new = _it.get("new")
+            # 2026-11-16 修：两类工单的行标识不一样，必须分开认。
+            #   · 金币工单：一行 = 一个服务区，标识是「后台行ID / row_id」；
+            #   · **物品工单：一行 = 一个商品，标识是「ids」（后台商品ID 列表）**。
+            # 原判据只认前者 ⇒ 所有物品工单都被判成「0 行待改」短路成 skipped_empty。
+            # 实测 J20261116100914 / 130920 / 153930 三单全部如此，物品侧（D4/PoE2/ARC…）
+            # 自 2026-11-07 起一次都没有真正写出去，却被记成 done + 零写入 —— 静默失效。
+            _row = _it.get("后台行ID") or _it.get("row_id")
+            if _row is None:
+                _ids = _it.get("ids")
+                if isinstance(_ids, (list, tuple)):
+                    _row = [x for x in _ids if str(x).strip()] or None
+                elif _ids:
+                    _row = _ids
+            if not _row or _new is None:
+                continue
+            if str(_it.get("动作") or "").lower() == "hold":
+                continue
+            _n_act += 1
+    if _n_act == 0:
+        _res0 = {"ok": True, "fail": 0, "jobs": [], "mismatch": [],
+                 "write_state": "skipped_empty", "write_attempts": 0,
+                 "empty_ticket": True, "original_job_id": jid,
+                 "publication_status": "nothing_to_write",
+                 "note": "工单 0 行待改（全部 hold / 被闸门跳过）——零写入，"
+                         "无需改价、无需清缓存"}
+        S.local_job_finish(
+            con, jid, ok=True,
+            log="工单 %d 行、可执行 0 行（全部 hold / 被闸门跳过）→ 未发任何写请求，按完成记"
+                % (len(_items) if isinstance(_items, list) else 0),
+            result=_res0, agent="srv-exec")
+        ST["done"] += 1
+        ST.update({"state": "idle", "job": None, "kind": None,
+                   "last_result": {"job": jid, "kind": kind, "ok": True, "sec": 0.0,
+                                   "ts": dt.datetime.now().isoformat(timespec="seconds"),
+                                   "rc": 0, "why": "", "write_state": "skipped_empty",
+                                   "publication_status": "nothing_to_write"}})
+        log("  ⏭ 工单 %s：0 行待改（全部 hold / 被闸门跳过）→ 不发写请求（不判 unknown）" % jid)
+        return True
+
     cmd = [DOCKER, "run", "--rm", "--init", "--memory", "3g", "--memory-swap", "3g",
            "--cpus", "2",
            "--network", "fc27-cloud-net",
@@ -715,6 +768,23 @@ def run_once():
         res["publication_status"] = (
             "cache_failed" if ok and res.get("clearcache_wanted") and res.get("clearcache_ok") is False
             else "backend_complete" if ok else "unconfirmed")
+
+    # 2026-11-09：prewrite_failed（零写入，重放绝对安全）且还有重试次数 ⇒ 原地退避重排。
+    # 现场：J20261109222851 取 order cookie 时 broker 回 order_probe_transport_unavailable。
+    # broker 的探测结果缓存 20 秒，客户端 21s×3 的重试全落在同一个失败窗口里；
+    # 转本机兜底又因为本机执行器长期离线而白丢（单子最后烂成 failed）。
+    # 这里退避 45 秒（跨过 20 秒缓存窗口）后原样重排；到上限仍走原来的兜底逻辑。
+    if (not ok and write_state == "prewrite_failed"
+            and int(phase.get("write_attempts") or 0) == 0
+            and int(job.get("attempts") or 0) + 1 < 3):
+        _try_n = int(job.get("attempts") or 0) + 1
+        _requeue(con, jid, "prewrite_failed（零写入，第 %d 次）→ 退避 45 秒重排" % _try_n)
+        ST.update({"state": "idle", "job": None, "kind": None,
+                   "note": "prewrite_failed 退避重排中（零写入，安全）"})
+        log("  ↩ prewrite_failed 零写入 → 退避 45 秒重排（第 %d 次尝试）" % _try_n)
+        flush_state()
+        time.sleep(45)
+        return True
 
     tail = [ln for ln in out.strip().splitlines() if ln.strip()][-160:]
     S.local_job_finish(con, jid, ok=ok, log="\n".join(tail), result=res, agent="srv-exec")
