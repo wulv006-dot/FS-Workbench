@@ -14,9 +14,9 @@ def reward_embed(pilot=False):
                        'No coupon is issued or player ID shared yet.')
     else:
         description = ('Finished in this server’s verified weekly prediction top 20? '
-                       'Tap below to check privately. Eligible players can enter their '
-                       'MMOEXP account email for one 8% FC27 coupon, valid for 7 days '
-                       'after claiming.')
+                       'Tap below to check privately. Eligible players can enter the '
+                       'MMOEXP email where the 8% FC27 coupon should be delivered. '
+                       'The coupon is valid for 7 days after claiming.')
     return discord.Embed(
         title='🏆 FC27 Weekly Prediction Rewards',
         description=description,
@@ -25,7 +25,7 @@ def reward_embed(pilot=False):
 
 
 class WeeklyEmailModal(discord.ui.Modal, title='Claim your FC27 reward'):
-    email = discord.ui.TextInput(label='Your MMOEXP account email',
+    email = discord.ui.TextInput(label='MMOEXP email to receive the coupon',
                                  placeholder='name@example.com', max_length=254)
 
     def __init__(self, week_key, player_id, store, delivery):
@@ -53,7 +53,7 @@ class WeeklyEmailModal(discord.ui.Modal, title='Claim your FC27 reward'):
                 result = claim
             status = result['status']
             message = {
-                'confirmed': '✅ Your 8% FC27 coupon has reached your MMOEXP account.',
+                'confirmed': '✅ Your 8% FC27 coupon has reached the MMOEXP account for that email.',
                 'pending': '⏳ Your coupon is processing. Check again here with the same email.',
                 'sending': '⏳ Your coupon is processing. Please wait before checking again.',
                 'unknown': 'We could not confirm delivery. Staff will review the original request.',
