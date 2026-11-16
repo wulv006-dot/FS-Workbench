@@ -81,11 +81,9 @@ class VerifiedPrizeClaims:
                     UNIQUE(week_key, subject_hash)
                 );
                 CREATE UNIQUE INDEX IF NOT EXISTS verified_prize_one_member_week
-                    ON verified_prize_claims(week_key, member_id)
-                    WHERE member_id IS NOT NULL;
+                    ON verified_prize_claims(week_key, member_id);
                 CREATE UNIQUE INDEX IF NOT EXISTS verified_prize_one_email_week
-                    ON verified_prize_claims(week_key, recipient_email_hash)
-                    WHERE recipient_email_hash IS NOT NULL;
+                    ON verified_prize_claims(week_key, recipient_email_hash);
             """)
 
     @staticmethod
