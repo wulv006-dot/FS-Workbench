@@ -46,6 +46,7 @@ FS 由创建者吴律统一掌控，是以 Hermes 为智能中枢的 AI 驱动�
 | 术语、ADR | `domain-modeling` |
 | FC27 月报 | `fc27-monthly-report` |
 | 核对经营数据口径 | `data:validate-data` |
+| 活动页的发券、登录态、结账交接、页面追踪、优惠码/券归因，及发布到 187 与线上验收 | `fc-activity-wiring`（`.claude/skills/` 供 Claude，`.agents/skills/` 供 Codex，两份同内容） |
 | 活动页、落地页设计（含发布到主站 MMOEXP 的跨域页面） | `design:design-critique`、`design:accessibility-review`、`design:ux-copy`，交接时用 `design:design-handoff` |
 
 活动页的内容与结构以 `docs/standards/fc27/DESIGN-TEMPLATE.md` 和对应活动合同（如 `docs/planning/activity-center-v3/`）为准；FS 工作台内部界面以 `ui-system/README.md` 为准，两者不混用样式。设计技能只提供评审与写作辅助，不改变上述文档、业务规则、跨域接入合同或发布流程；跨域页面的手机宽度、主题和实际嵌入效果仍须在真实入口核对。营销类等其余插件技能与本项目开发无关，不主动使用。
