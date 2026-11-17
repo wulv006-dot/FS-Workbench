@@ -869,19 +869,24 @@ def _curve_insurance_context(db, platform, evidence, now):
                     or instant(row['resource_closed_at']['base:' + platform]) > cutoff)]
     day = max(windows, key=lambda row: instant(row['opened_at']), default=None)
     reference = None
-    for op in sorted(db.all('operations'), key=lambda row: row.get('created_at', ''), reverse=True):
-        if (op.get('status') not in ('COMPLETED', 'NO_CHANGE')
-                or platform not in (op.get('bundle', {}).get('action', {}).get('curves') or {})):
-            continue
-        try:
-            confirmed_curve_window(op)
-        except ValueError:
-            continue
-        snapshot = db.get('pricing_snapshots', op['bundle']['snapshot_id']) or {}
-        cost = (snapshot.get('evidence', {}).get('costs') or {}).get(platform) or {}
-        selected = (op['bundle'].get('curve_selection') or {}).get(platform) or {}
-        reference = selected.get('confirmed_cost_cny_per_k') or cost.get('cny_per_1k')
-        break
+    with db.connect() as conn:
+        for raw, in conn.execute('SELECT body FROM operations ORDER BY rowid DESC'):
+            op = json.loads(raw)
+            if (op.get('status') not in ('COMPLETED', 'NO_CHANGE')
+                    or platform not in (op.get('bundle', {}).get('action', {}).get('curves') or {})):
+                continue
+            try:
+                confirmed_curve_window(op)
+            except ValueError:
+                continue
+            snapshot = db.get('pricing_snapshots', op['bundle']['snapshot_id'], conn) or {}
+            cost = (snapshot.get('evidence', {}).get('costs') or {}).get(platform) or {}
+            selected = (op['bundle'].get('curve_selection') or {}).get(platform) or {}
+            reference = selected.get('confirmed_cost_cny_per_k') or cost.get('cny_per_1k')
+            break
+        # Old strategy rows contain large forecasts; project only this release's natural rounds.
+        decisions = [json.loads(raw) for raw, in conn.execute(
+            'SELECT body FROM strategy_decisions WHERE body LIKE ?', ('%"automatic_curve_round": true%',))]
     own = ((evidence.get('storefront') or {}).get('rows') or {}).get(platform) or {}
     market = []
     for source, region in (('Lootbar', '0'), ('U7Buy', '0'), ('ArabUT', '21')):
@@ -892,7 +897,7 @@ def _curve_insurance_context(db, platform, evidence, now):
             market.append(rows[0]['usd_per_delivered_100k'])
     rounds = 0
     seen = set()
-    decisions = sorted(db.all('strategy_decisions'), key=lambda row: row.get('created_at', ''), reverse=True)
+    decisions.sort(key=lambda row: row.get('created_at', ''), reverse=True)
     for decision in decisions:
         if not decision.get('automatic_curve_round') or decision.get('curve_round_id') in seen:
             continue
