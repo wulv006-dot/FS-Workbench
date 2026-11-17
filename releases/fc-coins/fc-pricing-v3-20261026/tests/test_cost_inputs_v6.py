@@ -114,6 +114,30 @@ def run(attachments, *, revisions=(), rate=None, as_of=AS_OF, basis='PURCHASE_K'
 
 
 class CostInputs(unittest.TestCase):
+    def test_current_samples_discard_thousandfold_costs_before_selecting_maximum(self):
+        from fc_pricing_v3.cost_inputs_v6 import filter_cost_samples
+
+        rows = [dict(record_id=str(i), cny_per_1k=value, cny_per_k=value)
+                for i, value in enumerate(('.39', '.40', '.41', '.40', '390', '398'))]
+        cost = dict(platform='PS', status='valid', sample_records=rows, cny_per_1k='398')
+        result = filter_cost_samples(cost, '.40')
+        self.assertEqual(result['cny_per_1k'], '.41')
+        self.assertEqual(len(result['sample_records']), 4)
+        self.assertEqual([row['record_id'] for row in result['sample_insurance']['outliers']], ['4', '5'])
+        self.assertTrue(all(row['status'] == 'outlier' for row in result['sample_insurance']['outliers']))
+        self.assertEqual(cost['cny_per_1k'], '398')
+
+    def test_insufficient_filtered_samples_make_the_platform_cost_unavailable(self):
+        from fc_pricing_v3.cost_inputs_v6 import filter_cost_samples
+
+        rows = [dict(cny_per_1k=value) for value in ('.4', '.4', '390', '398', '400', '400')]
+        result = filter_cost_samples(dict(status='valid', sample_records=rows), '.4')
+        self.assertEqual(result['status'], 'missing')
+        self.assertEqual(result['reason'], 'curve_cost_sample_outlier')
+        self.assertEqual(result['sample_insurance']['valid_count'], 2)
+        for value, expected in (('.05', 'valid'), ('5', 'valid'), ('.049', 'missing'), ('5.01', 'missing')):
+            self.assertEqual(filter_cost_samples(dict(status='valid', cny_per_1k=value))['status'], expected)
+
     def test_reads_complete_original_delivery_days_and_applies_only_newer_covered_rows(self):
         scope = dict(site_id='266', gid='1327', start='2026-11-06', end='2026-11-08')
         raw = dict(site_id='266', gid='1327', order_no='fixture-order', paytime='2026-11-06 10:00:00',

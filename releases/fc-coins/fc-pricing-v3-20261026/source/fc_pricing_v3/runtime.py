@@ -520,10 +520,17 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
                 ordinary_forecast=True, selected_orders=tuple(matches), current_cost=current_cost)
 
     paths = []
+    valid_records = {str(record['record_id']) for record in
+                     ((current_cost or {}).get('sample_records') or [current_cost or {}])
+                     if record.get('record_id') and (current_cost or {}).get('status') == 'valid'
+                     and (current_cost or {}).get('source_platform', platform) == platform}
+    for estimate in estimates.values():
+        valid_records.update((estimate.get('sample_insurance') or {}).get('valid_record_ids') or [])
+    insufficient_samples = len(valid_records) < 3
     for quantity in sorted(tiers | {format(value.normalize(), 'f') for value in quantities.values()}, key=Decimal):
         path = quotes[quantity]
         estimate = estimates.get(quantity_group(number(quantity)))
-        if estimate and estimate['status'] == 'calculated':
+        if estimate and estimate['status'] == 'calculated' and not insufficient_samples:
             units = estimate['diagnostic_estimate']
             total = number(path['promised_delivered_k'])
             path.update(cost_status='verified', quantity_basis='PROMISED_DELIVERED_K',
@@ -533,18 +540,23 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
                         **{kind + '_cost_usd': str(total * units[kind + '_unit_usd'])
                            for kind in ('expected', 'safe', 'stress')})
         else:
-            path['ordinary_cost_gaps'] = (estimate['gaps'] if estimate else
+            path['ordinary_cost_gaps'] = (['curve_cost_sample_outlier'] if insufficient_samples else estimate['gaps'] if estimate else
                                           ['ordinary_delivery_cost_sample_missing'])
         paths.append(path)
 
     propagation = (route or {}).get('propagation_revision')
     domain_gaps = list(average['gap_counts'])
+    if insufficient_samples:
+        domain_gaps.append('curve_cost_sample_outlier')
+    if current_cost and current_cost.get('reason') == 'curve_cost_sample_outlier':
+        domain_gaps.append('curve_cost_sample_outlier')
     if not propagation:
         domain_gaps.append('curve_native_route_unavailable')
     quantity_revision = fingerprint(dict(model=MODEL, curve_key=key, paths=[p['quote_ref'] for p in paths]))
     return dict(baskets=build_planning_baskets(platform, key, closed, recent, repriced,
                                                paid_cutoff=paid_cutoff, as_of=now),
-                evidence=dict(curve_key=key, paths=paths, average_discount=average),
+                evidence=dict(curve_key=key, paths=paths, average_discount=average,
+                              cost_sample_insurance={name: row.get('sample_insurance') for name, row in estimates.items()}),
                 domain=dict(platform=platform, curve_key=key, version=MODEL,
                             coverage_status='partial' if domain_gaps else 'complete',
                             coverage_gaps=sorted(domain_gaps),
@@ -845,6 +857,60 @@ def _same_hour_curve_performance(platform, online, now):
     return result
 
 
+def _curve_insurance_context(db, platform, evidence, now):
+    from .curve_strategy_v6 import band_anchors, large_market_reference
+
+    cutoff = now - timedelta(hours=24)
+    windows = [row for row in db.all('actual_price_windows')
+               if row.get('write_protocol') == CURVE_WRITE_PROTOCOL
+               and platform in (row.get('action', {}).get('curves') or {})
+               and instant(row['opened_at']) <= cutoff
+               and (row.get('resource_closed_at', {}).get('base:' + platform) is None
+                    or instant(row['resource_closed_at']['base:' + platform]) > cutoff)]
+    day = max(windows, key=lambda row: instant(row['opened_at']), default=None)
+    reference = None
+    for op in sorted(db.all('operations'), key=lambda row: row.get('created_at', ''), reverse=True):
+        if (op.get('status') not in ('COMPLETED', 'NO_CHANGE')
+                or platform not in (op.get('bundle', {}).get('action', {}).get('curves') or {})):
+            continue
+        try:
+            confirmed_curve_window(op)
+        except ValueError:
+            continue
+        snapshot = db.get('pricing_snapshots', op['bundle']['snapshot_id']) or {}
+        cost = (snapshot.get('evidence', {}).get('costs') or {}).get(platform) or {}
+        selected = (op['bundle'].get('curve_selection') or {}).get(platform) or {}
+        reference = selected.get('confirmed_cost_cny_per_k') or cost.get('cny_per_1k')
+        break
+    own = ((evidence.get('storefront') or {}).get('rows') or {}).get(platform) or {}
+    market = []
+    for source, region in (('Lootbar', '0'), ('U7Buy', '0'), ('ArabUT', '21')):
+        offers = [row for row in evidence.get('competitor_offers', []) if row.get('source') == source]
+        rows = large_market_reference(platform, offers, now, region_id=region,
+            delivery_method=own.get('delivery_method') or 'comfort_trade')
+        if len(rows) == 1:
+            market.append(rows[0]['usd_per_delivered_100k'])
+    rounds = 0
+    seen = set()
+    snapshots = sorted(db.all('pricing_snapshots'), key=lambda row: row.get('created_at', ''), reverse=True)
+    for snapshot in snapshots:
+        if not snapshot.get('automatic_curve_round') or snapshot.get('curve_round_id') in seen:
+            continue
+        seen.add(snapshot['curve_round_id'])
+        row = next((row for row in snapshot.get('result', {}).get('rows', []) if row['platform'] == platform), None)
+        if row is None:
+            continue
+        below_margin = ((row.get('selection') or {}).get('price_insurance') or {}).get('below_margin')
+        if not below_margin and row['status'] not in ('READY', 'KEEP'):
+            continue
+        if not below_margin:
+            break
+        rounds += 1
+    return dict(day_anchors=band_anchors(day['action']['curves'][platform]) if day else {},
+                day_window_id=day['operation_id'] if day else None,
+                market_per_100k=market, confirmed_cost_cny_per_k=reference, below_margin_rounds=rounds)
+
+
 def collect_curve_catalogues(evidence, platforms):
     """Collect current saved Goods rows for the same run's private proof inputs."""
     from contextlib import closing
@@ -939,16 +1005,27 @@ def collect_curve_catalogues(evidence, platforms):
     learning_windows = db.all('actual_price_windows') if plan and online and plan['mode'] == 'smart' else []
     for platform, entry in collected.items():
         average = average_discount(discount_source, platform, paid_cutoff)
+        from .cost_inputs_v6 import filter_cost_samples
+        context = _curve_insurance_context(db, platform, evidence, now)
+        cost = filter_cost_samples((evidence.get('costs') or {}).get(platform), context['confirmed_cost_cny_per_k'])
+        entry['price_insurance'] = context
+        entry['cost_sample_insurance'] = (cost or {}).get('sample_insurance')
+        entry['confirmed_cost_cny_per_k'] = (cost or {}).get('cny_per_1k') if (cost or {}).get('status') == 'valid' else None
+        if cost and cost.get('reason') == 'curve_cost_sample_outlier':
+            db.incident('curve_cost_sample_outlier', 'cost', [platform])
 
         def proof(curve):
             return _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now,
                 average=average, route=entry['native_route'], facts=facts, fx=evidence.get('fx'),
-                current_cost=(evidence.get('costs') or {}).get(platform))
+                current_cost=cost)
 
         entry.update(captured_at=now.isoformat(), valid_until=valid_until.isoformat(), pricing_assumption=MODEL,
                      primary_inputs={key: proof(curve) for key, curve in entry.pop('candidates').items()},
                      all_inputs={curve_key(curve): proof(curve) for curve in entry['all_targets'].values()},
                      performance=_same_hour_curve_performance(platform, online, now))
+        if any('curve_cost_sample_outlier' in item['domain']['coverage_gaps']
+               for item in entry['primary_inputs'].values()):
+            db.incident('curve_cost_sample_outlier', 'cost', [platform])
         current = entry['primary_curve']
         state = db.curve_strategy_state(platform)
         if learning_windows and state:
@@ -1055,7 +1132,8 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
             prices = band_anchors(base)
             controls = {}
             for band in affected:
-                floors = [minimum_band_price(row, band, ANCHORS[band], prices[band], zero_line_only=True) for row in failed]
+                floors = [minimum_band_price(row, band, ANCHORS[band], prices[band], zero_line_only=True,
+                          current_anchor=observed[band]) for row in failed]
                 if any(floor is None for floor in floors):
                     frozen.update(status=FAILED, gaps=['curve_cost_protection_band_floor_unavailable'])
                     return
@@ -1074,25 +1152,64 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
                 bands = [band for band in dict.fromkeys([*bands, *ANCHORS]) if band in affected]
             prices = band_anchors(base)
             for band in bands:
-                floors = [minimum_band_price(row, band, ANCHORS[band], prices[band]) for row in failed]
+                floors = [minimum_band_price(row, band, ANCHORS[band], prices[band],
+                          current_anchor=observed[band]) for row in failed]
                 if all(floor is not None for floor in floors):
                     final = compile_curve(base, dict(anchor_prices_usd={ANCHORS[band]: str(max(floors))}), editor)
                     break
         if final is normal or final.get('compilation_status') != 'EDITOR_CANDIDATE':
             frozen.update(status=FAILED, gaps=sorted({gap for row in failed for gap in row['hard_failures']}))
             return
+    insurance = None
+    if 'price_insurance' in entry:
+        from coin_all_sync_job import curve_price_insurance
+        try:
+            insurance = curve_price_insurance(current, final, entry['price_insurance'])
+        except ValueError as error:
+            frozen.update(status='PROOF_INCOMPLETE', gaps=[str(error)])
+            return
+        if insurance['clipped']:
+            final = compile_curve(final, dict(anchor_prices_usd={ANCHORS[band]: price
+                                  for band, price in insurance['anchors'].items()}), editor)
+            if final.get('compilation_status') != 'EDITOR_CANDIDATE':
+                frozen.update(gaps=final['gaps'])
+                return
+        frozen['price_insurance'] = insurance
     final_key = curve_key(final)
     entry['primary_inputs'][final_key] = (normal_input if final_key == normal_key else inputs_for(final))
+    exception = None
+    upward = {band: row for band, row in (insurance or {}).get('clipped', {}).items()
+              if Decimal(row['bounded']) > Decimal(observed[band])}
+    if upward:
+        exception = dict(before_anchors=observed, clipped=upward,
+                         round=entry['price_insurance']['below_margin_rounds'] + 1)
+        entry['primary_inputs'][final_key]['domain']['price_insurance'] = exception
     checked = _validated_curve(final, entry['primary_inputs'][final_key])
+    if insurance:
+        insurance.update(below_margin=bool(checked.get('price_insurance', {}).get('below_margin')))
     if checked['status'] != PROVEN:
         frozen.update(status=checked['status'], gaps=checked['gaps'] + checked['hard_failures'])
+        if insurance and insurance['below_margin'] and exception['round'] > 2:
+            frozen['gaps'].append('pricing_curve_margin_exception_exhausted')
+        frozen['preference'] = dict(preference, price_insurance=insurance)
         return
     if final_key != curve_key(current):
         target = _all_curve_target(entry['all_before'], final)
         entry['all_targets'][final_key] = target
         entry['all_inputs'][curve_key(target)] = all_normal_input if final_key == normal_key else inputs_for(target)
+        if exception:
+            entry['all_inputs'][curve_key(target)]['domain']['price_insurance'] = exception
+        all_checked = _validated_curve(target, entry['all_inputs'][curve_key(target)])
+        if insurance:
+            insurance['below_margin'] |= bool(all_checked.get('price_insurance', {}).get('below_margin'))
+        if all_checked['status'] != PROVEN:
+            frozen.update(status=all_checked['status'], gaps=all_checked['gaps'] + all_checked['hard_failures'],
+                          preference=dict(preference, price_insurance=insurance))
+            if insurance and insurance['below_margin'] and exception['round'] > 2:
+                frozen['gaps'].append('pricing_curve_margin_exception_exhausted')
+            return
     normal_prices, final_prices = band_anchors(normal), band_anchors(final)
-    if any(Decimal(final_prices[band]) < Decimal(price) for band, price in normal_prices.items()):
+    if not insurance and any(Decimal(final_prices[band]) < Decimal(price) for band, price in normal_prices.items()):
         frozen.update(status=FAILED, gaps=['curve_cost_protection_below_normal_candidate'])
         return
     segments = {band: dict(normal=normal_prices[band], target=final_prices[band])
@@ -1171,7 +1288,8 @@ def _writable_curve_trial(platform, inputs, current, candidate, after, all_froze
         return False
     before_hash = fingerprint(editable(current['native_payload'])) if inputs.get('native_route') else None
     bundle = dict(before_action={'curves': {platform: before}}, action={'curves': {platform: after}},
-                  curve_proofs={platform: proof}, curve_primary_before_hashes={platform: before_hash})
+                  curve_proofs={platform: proof}, curve_primary_before_hashes={platform: before_hash},
+                  curve_price_insurance={platform: inputs.get('price_insurance', {})})
     try:
         curve_catalog_plan(bundle, platform, capability)
     except ValueError:
@@ -1463,7 +1581,8 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
         return dict(status=proof['status'], gaps=proof['gaps'] + proof['hard_failures'])
     before_hash = fingerprint(editable(current['native_payload'])) if route else None
     bundle = dict(before_action={'curves': {platform: before}}, action={'curves': {platform: after}},
-                  curve_proofs={platform: proof}, curve_primary_before_hashes={platform: before_hash})
+                  curve_proofs={platform: proof}, curve_primary_before_hashes={platform: before_hash},
+                  curve_price_insurance={platform: inputs.get('price_insurance', {})})
     try:
         curve_catalog_plan(bundle, platform, capability)
     except ValueError as error:
@@ -1504,6 +1623,10 @@ def _prove_temporary_curve(platform, inputs, current, state, previous):
                      normal_anchors=normal_anchors, final_anchors=final_anchors,
                      cost_protection=protection,
                      large_market_reference=large_market_comparison(frozen.get('market_reference', []), normal, final))
+    if 'price_insurance' in inputs:
+        selection.update(price_insurance=frozen.get('price_insurance'),
+                         cost_sample_insurance=inputs.get('cost_sample_insurance'),
+                         confirmed_cost_cny_per_k=inputs.get('confirmed_cost_cny_per_k'))
     # The pairing code checks the other band's exact confirmed tiers for both arms.
     small_unchanged = (selection['segment'] == 'small' and active.keys() == {'large'}
                        and segment_terms(normal, 'small') == segment_terms(final, 'small'))
@@ -1526,7 +1649,8 @@ def _prove_temporary_curve(platform, inputs, current, state, previous):
     before_hash = fingerprint(editable(current['native_payload'])) if route else None
     try:
         curve_catalog_plan(dict(before_action={'curves': {platform: before}}, action={'curves': {platform: after}},
-                                curve_proofs={platform: proof}, curve_primary_before_hashes={platform: before_hash}),
+                                curve_proofs={platform: proof}, curve_primary_before_hashes={platform: before_hash},
+                                curve_price_insurance={platform: inputs.get('price_insurance', {})}),
                            platform, capability)
     except ValueError as error:
         return dict(status='PROOF_INCOMPLETE', gaps=[str(error)], selection=selection)
@@ -1611,6 +1735,7 @@ def _prove_curve_restore(platform, inputs, original, source_id, now):
     selection = dict(label='RESTORE')
     bundle = dict(before_action={'curves': {platform: before}}, action={'curves': {platform: after}},
                   curve_proofs={platform: proof}, curve_primary_before_hashes={platform: before_hash},
+                  curve_price_insurance={platform: inputs.get('price_insurance', {})},
                   restore_source_execution_id=source_id)
     try:
         curve_catalog_plan(bundle, platform, capability)
@@ -1686,6 +1811,12 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
         ready = []
     rows = [dict(platform=p, status=decisions[p]['status'], gaps=decisions[p].get('gaps', []),
                  selection=decisions[p].get('selection')) for p in platforms]
+    if active:
+        for row in rows:
+            for code in row['gaps']:
+                if code in ('pricing_curve_daily_move_exceeded', 'pricing_curve_out_of_market_range',
+                            'pricing_curve_margin_exception_exhausted', 'curve_cost_sample_outlier'):
+                    db.incident(code, 'curve_price_insurance', [row['platform']])
     status = ('READY' if active and ready else 'NO_PRICE_CHANGE'
               if all(decisions[p]['status'] == 'KEEP' for p in platforms) else 'PROOF_INCOMPLETE')
     if not ready and any(decisions[p]['status'] == FAILED for p in platforms):
@@ -1719,6 +1850,7 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
             before_action=dict(curves={p: decisions[p]['before'] for p in ready}),
             action=dict(curves={p: decisions[p]['target'] for p in ready}),
             curve_proofs={p: decisions[p]['proof'] for p in ready}, price_control=control,
+            curve_price_insurance={p: frozen[p].get('price_insurance', {}) for p in ready},
             curve_selection={p: decisions[p]['selection'] for p in ready},
             curve_native_routes={p: decisions[p]['native_route'] for p in ready if decisions[p]['native_route']},
             curve_primary_before_hashes={p: decisions[p]['primary_before_hash'] for p in ready
@@ -1737,6 +1869,8 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
         result['decision_receipt'] = receipt
     snapshot = dict(snapshot_id=evidence['run_id'], origin='live_collector', mode='production',
                     plan_id=plan['plan_id'] if active else None, plan_revision=plan['revision'] if active else None,
+                    automatic_curve_round=bool(active and not restore_id and not request.get('manual_requested')),
+                    curve_round_id=request.get('v3_operation_id'),
                     write_protocol=CURVE_WRITE_PROTOCOL, created_at=now.isoformat(), evidence=evidence, result=result)
     if restore_id:
         snapshot['curve_restore_preview_id'] = restore_id

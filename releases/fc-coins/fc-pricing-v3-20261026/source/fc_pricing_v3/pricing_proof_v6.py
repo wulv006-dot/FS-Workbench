@@ -348,6 +348,31 @@ def validate_curve(curve, baskets, evidence, validation_domain):
                       hard_margin=_decimal_string(HARD_MARGIN), target=_target(main), gaps=sorted(set(gaps)),
                       hard_failures=sorted(failures),
                       status=INCOMPLETE if gaps else FAILED if failures else PROVEN)
+        insurance = validation_domain.get('price_insurance')
+        if insurance is not None:
+            from decimal import ROUND_FLOOR
+            from .curve_strategy_v6 import band_anchors
+
+            anchors = band_anchors(curve)
+            clipped = insurance.get('clipped') or {}
+            before = insurance.get('before_anchors') or {}
+            valid = bool(clipped) and type(insurance.get('round')) is int and insurance['round'] > 0
+            for band, row in clipped.items():
+                old = _decimal(before.get(band))
+                requested = _decimal(row.get('requested'))
+                bounded = _decimal(row.get('bounded'))
+                valid = valid and old is not None and requested is not None and bounded is not None
+                if valid:
+                    valid = (requested > bounded > old and band in anchors
+                             and Decimal(anchors[band]) == bounded
+                             and bounded == (old * Decimal('1.10')).quantize(Decimal('.01'), rounding=ROUND_FLOOR))
+            if not valid:
+                result['gaps'].append('pricing_curve_margin_exception_invalid')
+                result['status'] = INCOMPLETE
+            elif failures and all(value.startswith('platform_margin:') for value in failures) and not gaps:
+                result['price_insurance'] = dict(insurance, below_margin=True)
+                if insurance['round'] <= 2:
+                    result.update(status=PROVEN, waived_hard_failures=result['hard_failures'], hard_failures=[])
         if average is not None:
             result['average_discount'] = average
     result['proof_hash'] = fingerprint(result)
