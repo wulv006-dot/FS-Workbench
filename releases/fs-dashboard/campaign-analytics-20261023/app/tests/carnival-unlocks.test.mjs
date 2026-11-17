@@ -51,6 +51,17 @@ test('an Admin failure is reported as "try again" and keeps the last paid-use li
  assert.equal(JSON.parse(fs.readFileSync(path.join(publicDir,CARNIVAL_UNLOCKS_FILE),'utf8')).uses.length,1,'last good list stays');
 });
 
+test('during an internal test only the test coupon is read before the event',async t=>{
+ const {carnival,verifier,state,calls,publicDir}=setup(t,'2026-11-17T10:00:00-05:00');
+ fs.writeFileSync(path.join(publicDir,'carnival-test.json'),JSON.stringify({open_until:'2026-11-18T23:00:00-05:00',coupon_id:1601,slot:'carnival_test'}));
+ carnival.draw({uid:'42',game:'wow',items:[0,1,2]});
+ state.now+=60000;state.reply={status:'available',generated_at:'t',uses:[{uid:'42',set:'wow',used_at:new Date(state.now-1000).toISOString()}]};
+ carnival.verify({uid:'42',game:'wow'});
+ assert.deepEqual(await verifier.refresh(),{status:'checked',requests:1});
+ assert.deepEqual(calls,[{action:'carnival_unlocks',test_coupon_id:1601}]);
+ assert.equal(status(carnival,'42','wow').can_draw,true);
+});
+
 test('idle outside the carnival window',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'verify-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  fs.writeFileSync(path.join(dir,'0'.repeat(32)+'-fc27.json'),'{}');

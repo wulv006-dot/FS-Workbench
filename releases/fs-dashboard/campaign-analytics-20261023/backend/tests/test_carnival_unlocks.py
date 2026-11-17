@@ -48,6 +48,20 @@ class CarnivalUnlocks(unittest.TestCase):
         with self.assertRaises(ContractError):
             read_carnival_unlocks(reader, {'action': 'carnival_unlocks', 'uid': '1'})
 
+    def test_internal_test_coupon_unlocks_every_set_before_the_event_only(self):
+        reader = Reader([log(1601, 9, use_time='2026-11-18 10:00:00')])
+        out = read_carnival_unlocks(reader, {'action': 'carnival_unlocks', 'test_coupon_id': 1601})
+        self.assertEqual(sorted(u['set'] for u in out['uses']), ['aion2', 'd4', 'fc27', 'mix', 'poe', 'wow'])
+        self.assertEqual(out['basis'], 'mystery_test_coupon_paid_use')
+        _, filters = reader.calls[0]
+        self.assertEqual(filters[1], ('coupon_id', 'IN', '1601'))
+        self.assertEqual(filters[2], ('use_time', 'RANGE', '2026-11-17 00:00:00,2026-11-19 12:59:59'))
+        with self.assertRaises(ContractError):
+            carnival_unlocks([log(1401, 9)], '1601')
+        for bad in ('1601', True, 0, -1):
+            with self.assertRaises(ContractError):
+                read_carnival_unlocks(reader, {'action': 'carnival_unlocks', 'test_coupon_id': bad})
+
 
 if __name__ == '__main__':
     unittest.main()

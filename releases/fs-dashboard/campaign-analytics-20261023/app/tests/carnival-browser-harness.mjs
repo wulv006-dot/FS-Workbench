@@ -12,7 +12,7 @@ const types={'.js':'application/javascript','.html':'text/html','.css':'text/css
 
 export function mainSite({signedIn=true}={}){
  const claims=[];let memberCoupon=9000;
- const coupons={carnival_home:[1399],ms_fc27:[1401,1403,1405],bf_items:[1513,1443,1445,1447,1515,1455,1457,1459],bf_vouchers_1128:[1469,1471,1473,1475]};
+ const coupons={carnival_home:[1399],ms_fc27:[1401,1403,1405],bf_items:[1513,1443,1445,1447,1515,1455,1457,1459],bf_vouchers_1128:[1469,1471,1473,1475],carnival_test:[1601]};
  // Every goods id the page asks for gets one listed row; currency rows carry quantity tiers.
  function goods(form){
   const top=Number(form.get('top_cid')),row=id=>({id,status:1,auto_off:0,min_qty:1,price_discount_format:'10.00',game_area_format:'Israphel - Asmodian',
@@ -30,8 +30,9 @@ export function mainSite({signedIn=true}={}){
  }};
 }
 
-export async function open(t,{clock='2026-11-28T13:00:00-05:00',signedIn=true}={}){
+export async function open(t,{clock='2026-11-28T13:00:00-05:00',signedIn=true,internalTest=null}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carnival-page-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ if(internalTest)fs.writeFileSync(path.join(dir,'carnival-test.json'),JSON.stringify(internalTest));
  const tick={ms:Date.parse(clock)},paidUses=[];
  const carnival=createCarnival({dir,publishedDir:dir,now:()=>tick.ms}),site=mainSite({signedIn});
  // The dashboard side of "verify": answers queued requests from a simulated Admin coupon log.
