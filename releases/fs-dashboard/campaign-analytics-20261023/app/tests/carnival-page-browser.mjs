@@ -1,0 +1,57 @@
+// Carnival landing page browser checks (run as its own script by pr_fast; see carnival-browser-harness.mjs).
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {createCarnival} from '../runtime/carnival.mjs';
+import {mainSite,open,app,types,chromium} from './carnival-browser-harness.mjs';
+
+test('home coupon, Black Friday session and gacha spend',async t=>{
+ const {page,site,errors}=await open(t);
+ await page.locator('#heroEarlyBtn').click();await page.locator('#couponClaimBtn').click();
+ await page.waitForFunction(()=>document.getElementById('heroEarlyBtn').classList.contains('claimed'));
+ assert.deepEqual(site.claims.at(-1),{slot:'carnival_home',coupon_id:1399});
+ // Session 4 (Nov 28, 12:00–16:00 ET) is live: products and vouchers are released.
+ await page.waitForFunction(()=>document.querySelectorAll('#flashGrid [data-carnival-product]').length===4);
+ await page.waitForFunction(()=>!document.querySelector('#flashGrid [data-carnival-product]:disabled'));
+ await page.locator('.store-categories [data-category="voucher"]').click();
+ await page.locator('#flashGrid [data-carnival-voucher]').first().click();
+ await page.waitForFunction(n=>document.querySelectorAll('#flashGrid [data-carnival-voucher]:not(:disabled)').length===4,null);
+ assert.deepEqual(site.claims.at(-1),{slot:'bf_vouchers_1128',coupon_id:1469});
+ // A product coupon is claimed and the page stays put; going to the product is the member's click.
+ await page.locator('.store-categories [data-category="currency"]').click();
+ await page.locator('#flashGrid [data-carnival-product]').first().click();
+ await page.waitForSelector('#mysteryFlowMask.show [data-carnival-go]');
+ assert.deepEqual(site.claims.at(-1),{slot:'bf_items',coupon_id:1513});
+ assert.equal(await page.locator('[data-carnival-go]').getAttribute('href'),'/Fc-27/Coins.html');
+ assert.match(page.url(),/\/events\/Carnival\.html/);
+ await page.evaluate(()=>closeMysteryFlow());
+ assert.equal(await page.locator('#spendVal').textContent(),'$150.00');
+ assert.equal(await page.locator('#drawBtn').isDisabled(),true,'capsule draws stay closed until the claim interface exists');
+ assert.deepEqual(errors,[]);
+});
+
+test('before Black Friday no products reach the page',async t=>{
+ const {page}=await open(t,{clock:'2026-11-20T10:00:00-05:00'});
+ await page.locator('a[href="#flash"]').first().click();
+ await page.waitForFunction(()=>document.querySelectorAll('#flashGrid .flash-mystery').length===4);
+ assert.equal(await page.locator('#flashGrid [data-carnival-product]').count(),0);
+});
+
+test('first visit asks the analytics question on the carnival page',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carnival-consent-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const carnival=createCarnival({dir,publishedDir:dir,now:()=>Date.parse('2026-11-20T10:00:00-05:00')}),site=mainSite();
+ const browser=await chromium.launch({headless:true});t.after(()=>browser.close());
+ const page=await browser.newPage();await page.clock.setFixedTime(new Date('2026-11-20T10:00:00-05:00'));
+ await page.route('**/*',async route=>{const req=route.request(),url=new URL(req.url());if(url.origin!=='https://www.mmoexp.com')return route.fulfill({status:204,body:''});
+  if(url.pathname==='/events/api/carnival/schedule')return route.fulfill({json:carnival.schedule()});
+  if(url.pathname==='/events/api/carnival/mystery')return route.fulfill({json:carnival.state(url.searchParams)});
+  const answer=site.handle(url,req);if(answer!==null)return typeof answer==='string'?route.fulfill({body:answer}):route.fulfill({json:answer});
+  const file=path.join(app,url.pathname.replace(/^\/events\//,''));return fs.existsSync(file)?route.fulfill({contentType:types[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)}):route.fulfill({status:404,body:''});});
+ await page.goto('https://www.mmoexp.com/events/Carnival.html');
+ await page.waitForSelector('dialog#seasonal-analytics-choice[open]');
+ await page.getByRole('button',{name:'No thanks'}).click();
+ assert.equal(await page.evaluate(()=>localStorage.getItem('mmoexp-event-analytics-consent-v1')),'denied');
+ assert.equal(await page.evaluate(()=>window.FCActivityAnalytics.status().consent),false);
+});

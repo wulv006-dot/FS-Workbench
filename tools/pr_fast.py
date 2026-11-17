@@ -1025,6 +1025,8 @@ def main():
             units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
             subprocess.run([sys.executable,"-I","-B",str(folder.parent/"backend/runtime_tests/test_statistics_refresh.py")],check=True,timeout=15,cwd=ROOT)
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/carnival-mystery-browser.mjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/carnival-page-browser.mjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operator-dashboard-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/draft-compat-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/products-model-media-browser.cjs")
