@@ -183,7 +183,7 @@ def collect_shipping(session, period):
     begin, stop = period['start']+':00', end.strftime('%Y-%m-%d %H:%M:%S')
     rows = collect(session, begin[:10], stop[:10], since=begin, until=stop, source='', gid='1322')
     params = dict(genre='1',gid='1322',aid='0',cid='-1',status='-1',op_id='0',show_ccy='-1',
-                  is_stock='',keyword='',sn='',start=begin,end=stop,**{'source[]':''})
+                  keyword='',sn='',wid='',start=begin,end=stop,**{'source[]':'','ship_source[]':''})
     proof = {'reconciliation_status':'not_verified','native_summary_reconciled':False,'echo_precision':'second'}
     def unverified(reason):
         return dict(rows=rows,coverage={**proof,'reconciliation_reason':reason})

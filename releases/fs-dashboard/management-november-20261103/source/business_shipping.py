@@ -28,8 +28,8 @@ def filters(q):
     begin,stop=(datetime.strptime(q['period'][k],'%Y-%m-%d %H:%M') for k in ('start','end'))
     if stop<=begin:raise ValueError('shipping_period_invalid')
     return dict(genre='1',gid=s['gid'],aid='0',cid=s['cid'],status='-1',op_id='0',
-                **{'source[]':'www.mmoexp.com' if s['site']=='main' else ''},
-                is_stock='',show_ccy='-1',start=q['period']['start'],end=q['period']['end'],keyword='',sn='')
+                **{'source[]':'www.mmoexp.com' if s['site']=='main' else '', 'ship_source[]':''},
+                show_ccy='-1',start=q['period']['start'],end=q['period']['end'],keyword='',sn='',wid='')
 
 def project(raw,q):
     want=filters(q)

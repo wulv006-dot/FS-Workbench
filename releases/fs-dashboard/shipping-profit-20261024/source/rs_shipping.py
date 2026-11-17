@@ -13,8 +13,8 @@ def filters(q):
     if stop<=begin:raise ValueError('shipping_period_invalid')
     return dict(genre='1',gid='506',aid=str(SERVERS[q['rs_server']][0] or '0'),
                 cid=ORDER_TYPES[q['rs_category']] or '-1',status='-1',op_id='0',
-                **{'source[]':'' if q['rs_site']=='all' else SITES[q['rs_site']][1]},
-                is_stock='',show_ccy='-1',start=q['period']['start'],end=q['period']['end'],keyword='',sn='')
+                **{'source[]':'' if q['rs_site']=='all' else SITES[q['rs_site']][1], 'ship_source[]':''},
+                show_ccy='-1',start=q['period']['start'],end=q['period']['end'],keyword='',sn='',wid='')
 
 def project(raw,q):
     want=filters(q)
