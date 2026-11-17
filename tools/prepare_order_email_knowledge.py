@@ -424,7 +424,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     payloads['runtime/knowledge-load-policy.json'] = encoded(policy)
     payloads['artifact/originals/policy.json'] = policy_raw
     baseline_patch = None
-    if preserve_routes and baseline_proof['after_sha256'] != preflight['protected'][BASELINE_TARGET]:
+    if (preserve_routes and not baseline_proof.get('retained_current_git')
+            and baseline_proof['after_sha256'] != preflight['protected'][BASELINE_TARGET]):
         before_digest = preflight['protected'][BASELINE_TARGET]
         baseline_patch = dict(contract='fc-v61-current-baseline-patch-v1',
                               before_sha256=before_digest, after_sha256=baseline_proof['after_sha256'])
