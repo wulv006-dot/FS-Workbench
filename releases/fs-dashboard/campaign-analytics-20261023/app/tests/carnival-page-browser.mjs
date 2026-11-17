@@ -29,7 +29,7 @@ test('home coupon, Black Friday session and gacha spend',async t=>{
  assert.equal(site.cart.clears,0,'nothing touches the cart before the member asks to check out');
  await page.evaluate(()=>closeMysteryFlow());
  assert.equal(await page.locator('#spendVal').textContent(),'$150.00');
- assert.equal(await page.locator('#drawBtn').isDisabled(),true,'capsule draws stay closed until the claim interface exists');
+ assert.equal(await page.locator('#drawBtn').isDisabled(),true,'capsule draws open on Nov 30');
  assert.deepEqual(errors,[]);
 });
 
@@ -55,7 +55,59 @@ test('capsule tiers follow the paid total the main site reports, and grow as it 
   await page.waitForFunction(s=>document.getElementById('spendVal').textContent===s,'$'+spend.toFixed(2));
   assert.deepEqual(await read(),{spend:'$'+spend.toFixed(2),hit},'paid total $'+spend);
  }
- assert.equal(await page.locator('#drawBtn').isDisabled(),true,'claims wait for the main-site tier interface');
+ assert.equal(await page.locator('#drawBtn').isDisabled(),true,'capsule draws open on Nov 30');
+ assert.deepEqual(errors,[]);
+});
+
+const CM='2026-11-30T10:00:00-05:00';
+const capsuleClaims=site=>site.claims.filter(c=>c.slot==='capsule').map(c=>c.coupon_id);
+async function draw(page){
+ await page.waitForFunction(()=>!document.getElementById('drawBtn').disabled);
+ await page.locator('#drawBtn').click();
+ await page.waitForSelector('#modalMask.show');
+ const won=await page.locator('#gachaCoupon .unified-coupon').count();
+ await page.evaluate(()=>closeModal());return won;
+}
+
+test('capsule: one $1000 order claims all six tiers in one draw',async t=>{
+ const {page,site,errors}=await open(t,{clock:CM});
+ site.spend=1000;await page.reload();
+ await page.waitForFunction(()=>document.getElementById('drawBtn').textContent.includes('6'));
+ assert.equal(await draw(page),6);
+ assert.deepEqual(capsuleClaims(site),[1501,1503,1505,1507,1509,1511]);
+ await page.waitForFunction(()=>document.getElementById('drawBtn').disabled&&/POOL CLEARED/.test(document.getElementById('drawBtn').textContent));
+ assert.equal(await page.locator('#pool .pitem.gone').count(),6);
+ assert.deepEqual(errors,[]);
+});
+
+test('capsule: spend that grows claims only the newly reached tiers, never twice',async t=>{
+ const {page,site,errors}=await open(t,{clock:CM});
+ // $150 → $1 and $100 tiers.
+ assert.equal(await draw(page),2);assert.deepEqual(capsuleClaims(site),[1501,1503]);
+ // No new spend: nothing to draw.
+ await page.reload();await page.waitForFunction(()=>/SPEND MORE/.test(document.getElementById('drawBtn').textContent));
+ assert.equal(await page.locator('#drawBtn').isDisabled(),true);
+ // $610 crosses two tiers at once.
+ site.spend=610;await page.reload();
+ assert.equal(await draw(page),2);assert.deepEqual(capsuleClaims(site),[1501,1503,1505,1507]);
+ // $1000 reaches the last two.
+ site.spend=1000;await page.reload();
+ assert.equal(await draw(page),2);assert.deepEqual(capsuleClaims(site),[1501,1503,1505,1507,1509,1511]);
+ // A refund lowers the paid total; coupons already issued stay issued (Admin revokes by hand).
+ site.spend=200;await page.reload();await page.waitForFunction(()=>/POOL CLEARED/.test(document.getElementById('drawBtn').textContent));
+ assert.equal(capsuleClaims(site).length,6);
+ assert.deepEqual(errors,[]);
+});
+
+test('capsule: below $1 nothing is drawn; without the Admin capsule slot draws stay closed',async t=>{
+ const {page,site,errors}=await open(t,{clock:CM});
+ site.spend=0.99;await page.reload();
+ await page.waitForFunction(()=>/SPEND MORE/.test(document.getElementById('drawBtn').textContent));
+ assert.equal(await page.locator('#drawBtn').isDisabled(),true);
+ site.spend=1000;site.capsuleSlot=false;await page.reload();
+ await page.waitForFunction(()=>/OPEN SOON/.test(document.getElementById('drawBtn').textContent));
+ assert.equal(await page.locator('#drawBtn').isDisabled(),true);
+ assert.equal(capsuleClaims(site).length,0);
  assert.deepEqual(errors,[]);
 });
 
@@ -84,6 +136,21 @@ test('before Black Friday no products reach the page',async t=>{
  await page.locator('a[href="#flash"]').first().click();
  await page.waitForFunction(()=>document.querySelectorAll('#flashGrid .flash-mystery').length===4);
  assert.equal(await page.locator('#flashGrid [data-carnival-product]').count(),0);
+});
+
+test('an ended Black Friday session still shows its line-up, greyed, stamped and closed',async t=>{
+ const {page,site,errors}=await open(t);
+ // Session 1 (Nov 27, 12:00–16:00 ET) ended before the clock (Nov 28, 13:00 ET).
+ await page.evaluate(()=>{curSess=0;renderSessTabs();renderFlash();});
+ await page.locator('.store-categories [data-category="currency"]').click();
+ await page.waitForFunction(()=>document.querySelectorAll('#flashGrid .flash-real.flash-ended').length===4);
+ const cards=await page.evaluate(()=>[...document.querySelectorAll('#flashGrid .flash-real')].map(c=>({stamp:c.querySelector('.flash-ended-stamp')?.textContent,button:c.querySelector('[data-carnival-product]').disabled,selects:[...c.querySelectorAll('select')].every(s=>s.disabled),grey:getComputedStyle(c).filter})));
+ assert.ok(cards.every(c=>c.stamp==='ENDED'&&c.button&&c.selects&&/grayscale/.test(c.grey)),JSON.stringify(cards));
+ await page.locator('#flashGrid [data-carnival-product]').first().click({force:true});
+ await page.locator('.store-categories [data-category="voucher"]').click();
+ await page.waitForFunction(()=>document.querySelectorAll('#flashGrid .flash-coupon.flash-ended [data-carnival-voucher]:disabled').length===4);
+ assert.equal(site.claims.length,0,'nothing can be claimed from an ended session');
+ assert.deepEqual(errors,[]);
 });
 
 test('placeholder cards keep the ? centred',async t=>{
@@ -119,6 +186,10 @@ test('internal test before the event: everything open and every claim uses the t
  await page.locator('#heroEarlyBtn').click();await page.locator('#couponClaimBtn').click();
  await page.waitForFunction(()=>document.getElementById('heroEarlyBtn').classList.contains('claimed'));
  assert.deepEqual(site.claims.at(-1),{slot:'carnival_test',coupon_id:1601});
+ // Tier coupons are real money off: the capsule never opens for an internal test.
+ site.spend=1000;await page.evaluate(()=>loadCapsule?.()).catch(()=>{});
+ assert.equal(await page.locator('#drawBtn').isDisabled(),true);
+ assert.match(await page.locator('#drawBtn').textContent(),/OPEN SOON/);
  await page.locator('a[href="#flash"]').first().click();
  await page.waitForFunction(()=>document.querySelectorAll('#flashGrid [data-carnival-product]:not(:disabled)').length>0);
  await page.locator('#flashGrid [data-carnival-product]').first().click();
