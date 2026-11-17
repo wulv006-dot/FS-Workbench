@@ -44,6 +44,9 @@ CURVE_STABILITY_SCOPE = 'fc-pricing-v6-stability-20261117'
 CURVE_STABILITY_TARGET_COUNT = 8
 CURVE_MARKET_SCOPE = 'fc-pricing-v6-market-anchor-20261117'
 CURVE_MARKET_TARGET_COUNT = 10
+CURVE_WEEKLY_SCOPE = 'fc-pricing-v6-weekly-ladder-20261117'
+CURVE_WEEKLY_TARGET_COUNT = 12
+CURVE_WEEKLY_NEW = frozenset(prefix+'fc_pricing_v3/weekly_ladder.py' for prefix in ('source/', 'source/hermes-copy/'))
 CURVE_STABILITY_REPOSITORY_SOURCES = {'source/collect_p2pah_cost.sh':
     'releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh'}
 
@@ -238,6 +241,12 @@ def curve_insurance_targets(source):
             **module_targets(('average_discount_v6.py', 'cost_inputs_v6.py', 'pricing_proof_v6.py', 'runtime.py'))}
 
 
+def curve_weekly_targets(source):
+    current=targets(source)
+    return {**{name:current[name] for name in ('fc27-coins.html','fc-pricing-v3.js')},
+            **module_targets(('api.py','ledger.py','runtime.py','scheduler.py','weekly_ladder.py'))}
+
+
 def curve_market_targets(source):
     return module_targets(('api.py', 'curve_strategy_v6.py', 'ledger.py', 'platforms.py', 'runtime.py'))
 
@@ -255,7 +264,7 @@ def require_curve_scope_for_imports(name, payload):
         return
     # Include local imports inside functions. A stage may import successfully
     # at startup while still failing later on an enabled quote or writer path.
-    modules = {filename.removesuffix('.py') for filename in CURVE_V6_MODULES}
+    modules = {filename.removesuffix('.py') for filename in CURVE_V6_MODULES} | {'weekly_ladder'}
     # These symbols live in existing files that have to move with V6 callers.
     curve_symbols = {
         'ledger': {'confirmed_curve_window'},

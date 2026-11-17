@@ -118,6 +118,20 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
             self.assertEqual(result['gaps'], ['pricing_curve_strategy_revision_changed'])
 
+    def test_readonly_current_preference_without_a_source_keeps_the_proven_current_curve(self):
+        from test_curve_strategy_v6 import fixture
+        from fc_pricing_v3.price_curve import curve_key
+        current,reference,episode=fixture()
+        entry=dict(primary_curve=current,all_before=current,editor_contract=current['native_contract'],
+                   primary_inputs={curve_key(current):{}},all_inputs={},all_targets={})
+        with patch('fc_pricing_v3.curve_strategy_v6.build_candidates',return_value={'candidates':[],
+                   'gaps':{'CURRENT':['normal_candidate_unavailable']}}), \
+             patch.object(runtime,'_validated_curve',return_value={'status':'PROVEN'}):
+            runtime._freeze_cost_protection('PS',entry,Mock(),dict(reference=reference,episode=episode),
+                                           None,{'competitor_offers':[]},datetime.now(timezone.utc),{})
+        self.assertEqual(entry['temporary_cost_protection']['status'],'PROVEN')
+        self.assertEqual(entry['temporary_cost_protection']['final_key'],curve_key(current))
+
     def test_market_history_keeps_seven_day_quote_evidence_and_identifies_natural_rounds(self):
         from test_curve_strategy_v6 import position_offers
 

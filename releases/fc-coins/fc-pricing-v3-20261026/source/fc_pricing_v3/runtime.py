@@ -1154,7 +1154,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
         preference = dict(preference, label=label)
         frozen['preference'] = preference
     position = None
-    if preference['source'] == 'market_anchor':
+    if preference.get('source') == 'market_anchor':
         position = market_anchor_targets(platform, current, evidence.get('competitor_offers') or [], now,
             parameters=(plan.get('parameters') or {}).get('market_anchor'), history=entry.get('market_history') or [])
         prices = position['anchors']

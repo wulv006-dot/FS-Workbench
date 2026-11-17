@@ -35,7 +35,7 @@ class ThreePlatformRelease(unittest.TestCase):
             fc=SimpleNamespace(tick=None,api=None),Path=Path,hashlib=hashlib,subprocess=SimpleNamespace(run=Mock()),
             restart_with_hermes_readiness=Mock(),original_restart=Mock(),bundle_readiness=adapter.bundle_readiness,
             bundle_bootstrap_guard=adapter.bundle_bootstrap_guard)
-        for name in ('HISTORY_READ_SCOPE','SCOPE','DELTA_SCOPE','SHADOW_SCOPE','OPERATING_SCOPE','COLLECTION_SCOPE','BIDIRECTIONAL_SCOPE','REPAIR_SCOPE','QUOTE_FRAGMENT_SCOPE','QUOTE_PREVIEW_SCOPE','DAILY_REPAIR_SCOPE','DAILY_SUMMARY_SCOPE','COUPON_DISPLAY_SCOPE','LOOTBAR_CALLER_SCOPE','CURVE_V6_SCOPE','CURVE_AVERAGE_SCOPE','CURVE_INSURANCE_SCOPE','CURVE_STABILITY_SCOPE','CURVE_MARKET_SCOPE'):
+        for name in ('HISTORY_READ_SCOPE','SCOPE','DELTA_SCOPE','SHADOW_SCOPE','OPERATING_SCOPE','COLLECTION_SCOPE','BIDIRECTIONAL_SCOPE','REPAIR_SCOPE','QUOTE_FRAGMENT_SCOPE','QUOTE_PREVIEW_SCOPE','DAILY_REPAIR_SCOPE','DAILY_SUMMARY_SCOPE','COUPON_DISPLAY_SCOPE','LOOTBAR_CALLER_SCOPE','CURVE_V6_SCOPE','CURVE_AVERAGE_SCOPE','CURVE_INSURANCE_SCOPE','CURVE_STABILITY_SCOPE','CURVE_MARKET_SCOPE','CURVE_WEEKLY_SCOPE'):
             namespace[name]=getattr(adapter,name)
         with tempfile.TemporaryDirectory() as folder:
             file=Path(folder)/'server.py';file.write_bytes(b'old')

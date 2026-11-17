@@ -20,6 +20,7 @@ TABLES = ('pricing_plans', 'pricing_snapshots', 'strategy_decisions', 'financial
           'settlements', 'monthly_targets', 'target_adjustments', 'incidents',
           'recovery_actions', 'model_versions', 'retirement_inventory', 'engine_generations')
 TABLES=TABLES+('manual_previews','market_observations','historical_inputs')
+TABLES=TABLES+('ladder_proposals',)
 PENDING = {'PREPARED', 'AUTHORIZED', 'DISPATCHED', 'UNKNOWN', 'PARTIALLY_APPLIED',
            'BACKEND_CONFIRMED', 'CACHE_CONFIRMED', 'PUBLIC_CONFIRMED'}
 

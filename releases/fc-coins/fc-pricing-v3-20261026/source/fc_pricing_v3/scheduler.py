@@ -392,6 +392,15 @@ def run_job(job):
             body['completed_at']=completed_at
             conn.execute('UPDATE durable_jobs SET state=\'done\',body=? WHERE id=?',
                          (json.dumps(dict(body,result=result)),job['id']))
+        if kind=='cycle' and not body.get('manual_requested') and not body.get('manual_preview_id') and result.get('status')!='superseded':
+            plan=db.get('pricing_plans',body['plan_id'])
+            if plan and plan.get('smart_strategy_version')=='market-anchor-v1':
+                try:
+                    from .weekly_ladder import run as weekly_run
+                    weekly_run(db,plan['plan_id'],clock())
+                except Exception as error:
+                    code=str(error) if isinstance(error,ValueError) else type(error).__name__
+                    db.incident('weekly_ladder_incomplete','daily_effect_review',['FC27'],error=code[:160])
     except Exception as exc:
         code=str(exc)
         terminal=('INFEASIBLE','CAPACITY_UNRESOLVED','pricing_generation_retired','pricing_resource_taken_over',
