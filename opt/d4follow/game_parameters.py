@@ -164,7 +164,7 @@ def get_game_schema(game_id, doc, common_cfg=None):
                      help='售价 = DD373 成本 ÷（1−利润率）÷ 汇率。'),
                 _num(doc,'sample_rows','成本采样条数',p+['采样条数'],20,2,30,
                      unit='条',group='采集',kind='integer',step=1,
-                     help='DD373 一页 20 条；接口最多给 30 条。'),
+                     help='固定条数模式使用；按数量采样的币种按各自目标累计。接口最多返回30条。'),
                 _num(doc,'skip_lowest','跳过最低挂单数',p+['跳过最低条数'],1,0,10,
                      unit='条',group='采集',kind='integer',step=1,
                      help='先整条剔除最便宜的 N 条，再在剩余挂单上算加权均价。'),
@@ -182,6 +182,8 @@ def get_game_schema(game_id, doc, common_cfg=None):
                 {'label':'附加币种','value':'；'.join('%s：%s'%(x.get('币种名称',x.get('key')),
                     '，'.join('%s ×%s'%(it.get('名称'),it.get('倍数',1)) for it in x.get('商品',[])))
                     for x in get_path(doc,['POE1定价','附加币种'],[]) if x.get('启用',True)) or '无'},
+                {'label':'数量采样','value':'；'.join('%s：低价整条累计至少%g个，达到即停'%(x.get('币种名称',x.get('key')),x['采样目标数量'])
+                    for x in get_path(doc,['POE1定价','附加币种'],[]) if x.get('启用',True) and x.get('采样目标数量')) or '未启用'},
                 {'label':'换算汇率','value':get_path(doc,['POE1定价','汇率USDCNY'],6.65)},
                 {'label':'未接入项','value':'IGGM 竞品跟价 / 千岛进货成本 / 前端折扣换算（本条专线都不使用）'},
             ]

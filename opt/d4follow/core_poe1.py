@@ -26,6 +26,7 @@ engine.evaluate 的定价基数是 **IGGM 竞品价**，而本商品的口径是
 
 import datetime as dt
 import json
+import math
 import os
 import re
 import time
@@ -121,11 +122,14 @@ def quotes(cfg, log=print):
 
 
 def compute_cost(cfg, rows):
-    """前 N 条 → 跳过最低 k 条 → 剩余按「数量加权」算均价（￥/个）。"""
+    """固定条数，或低价整条累计到目标数量；均按总价/总数量取成本。"""
     p = _p(cfg)
     n, skip = int(p["采样条数"]), int(p["跳过最低条数"])
+    target = float(p.get("采样目标数量") or 0)
+    if not math.isfinite(target) or target < 0:
+        raise ValueError("采样目标数量必须是非负有限数")
     picked = []
-    for x in (rows or [])[:n]:
+    for x in ((rows or []) if target else (rows or [])[:n]):
         try:
             amt = float(x.get("amount") or 0)       # 该条挂单的个数
             price = float(x.get("price") or 0)      # 该条挂单总价（￥）
@@ -134,13 +138,28 @@ def compute_cost(cfg, rows):
             continue
         if amt <= 0 or price <= 0:
             continue
+        if target and not all(math.isfinite(v) for v in (amt, price, sp)):
+            continue
         picked.append({"amount": amt, "price": price, "sp": sp,
                        "title": x.get("title"), "shopno": x.get("shopno")})
-    if len(picked) < int(p["最小条数"]):
+    if not target and len(picked) < int(p["最小条数"]):
         raise RuntimeError("有效挂单只有 %d 条（<%s），不写价"
                            % (len(picked), p["最小条数"]))
+    if target:
+        picked.sort(key=lambda x: x["price"] / x["amount"])
     used = picked[skip:]
-    if len(used) < int(p["最小条数"]):
+    if target:
+        selected, quantity = [], 0
+        for row in used:
+            selected.append(row)
+            quantity += row["amount"]
+            if quantity >= target:
+                break
+        if quantity < target:
+            raise RuntimeError("跳过最低 %d 条后有效挂单总量 %g < 目标 %g，不写价"
+                               % (skip, quantity, target))
+        used = selected
+    elif len(used) < int(p["最小条数"]):
         raise RuntimeError("跳过 %d 条后只剩 %d 条，不写价" % (skip, len(used)))
     q = sum(x["amount"] for x in used)
     pz = sum(x["price"] for x in used)
@@ -151,9 +170,9 @@ def compute_cost(cfg, rows):
         if x["sp"] > 0:
             dev = max(dev, abs(x["price"] / x["amount"] - x["sp"]) / x["sp"])
     return {"cost_rmb": pz / q, "总数量": q, "总价": pz, "用条数": len(used),
-            "跳过": skip, "自校验最大偏差": round(dev, 6),
+            "跳过": skip, "目标数量": target, "自校验最大偏差": round(dev, 6),
             "样本": [{"title": x["title"], "amount": x["amount"], "price": x["price"]}
-                     for x in used[:3] + used[-2:]]}
+                     for x in (used if target else used[:3] + used[-2:])]}
 
 
 # --------------------------------------------------------------------- 状态
@@ -204,10 +223,15 @@ def _build_currency_plan(cfg, log=print, known=None, need_retry=False, persist=N
     log("  [PoE1] DD373 返回 %d 条挂单" % len(rows))
     info = compute_cost(cfg, rows)
     cost = info["cost_rmb"]
-    log("  [PoE1] 成本口径：前 %d 条跳过 %d 条 → 用 %d 条，总数量 %g 个 / 总价 ￥%.2f"
-        " → 均价 ￥%.5f/个"
-        % (int(p["采样条数"]), info["跳过"], info["用条数"],
-           info["总数量"], info["总价"], cost))
+    target = info["目标数量"]
+    if target:
+        log("  [PoE1] 成本口径：跳过最低 %d 条，整条累计目标 %g 个 → 用 %d 条，总数量 %g 个 / 总价 ￥%.2f → 均价 ￥%.5f/个"
+            % (info["跳过"], target, info["用条数"], info["总数量"], info["总价"], cost))
+    else:
+        log("  [PoE1] 成本口径：前 %d 条跳过 %d 条 → 用 %d 条，总数量 %g 个 / 总价 ￥%.2f"
+            " → 均价 ￥%.5f/个"
+            % (int(p["采样条数"]), info["跳过"], info["用条数"],
+               info["总数量"], info["总价"], cost))
     floor = float(p.get("最低成本", 0.05))
     ceiling = float(p.get("最高成本", 200))
     if not (floor <= cost <= ceiling):
@@ -215,6 +239,9 @@ def _build_currency_plan(cfg, log=print, known=None, need_retry=False, persist=N
                            % (cost, floor, ceiling))
 
     last_cost = st.get("cost_rmb")
+    if target != float(st.get("采样目标数量") or 0):
+        log("  [PoE1] 采样口径已变更 → 新口径建立成本基线，保留上次目标售价比较")
+        last_cost = None
     if last_cost:
         dev = abs(cost / float(last_cost) - 1)
         if dev > float(p["最大单轮变动"]):
@@ -292,7 +319,7 @@ def _build_currency_plan(cfg, log=print, known=None, need_retry=False, persist=N
         "游戏": [GAME],
         "成本_元每个": round(cost, 5), "DD373_挂单数": len(rows),
         "总数量": info["总数量"], "总价": info["总价"],
-        "用条数": info["用条数"], "跳过条数": info["跳过"],
+        "用条数": info["用条数"], "跳过条数": info["跳过"], "采样目标数量": target,
         "自校验最大偏差": info["自校验最大偏差"],
         "利润率": float(p["利润率"]), "汇率USDCNY": float(p["汇率USDCNY"]),
         "倍数关系": {str(it["id"]): it.get("倍数") or 1 for it in products},
@@ -301,7 +328,7 @@ def _build_currency_plan(cfg, log=print, known=None, need_retry=False, persist=N
         "targets": written,
         "next_state": {"ts": dt.datetime.now().isoformat(timespec="seconds"),
                        "cost_rmb": round(cost, 6), "base_usd": base,
-                       "targets": written, "blocked": 0},
+                       "targets": written, "blocked": 0, "采样目标数量": target},
     }
 
 
