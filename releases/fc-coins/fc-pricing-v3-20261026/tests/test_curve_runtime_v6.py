@@ -27,13 +27,12 @@ class CurveRuntime(unittest.TestCase):
                 ('first', 2, True, 'READY', {'below_margin': True}),
                 ('preview', 0, False, 'KEEP', None),
                 ('unrelated_failure', 0, True, 'PROOF_INCOMPLETE', None)):
-            self.db.put('pricing_snapshots', key, dict(created_at=(now-timedelta(hours=age)).isoformat(),
+            self.db.put('strategy_decisions', key, dict(created_at=(now-timedelta(hours=age)).isoformat(),
                 automatic_curve_round=automatic, curve_round_id=key,
-                result={'rows': [dict(platform='PS', status=status, selection={'price_insurance': insurance})]}))
+                curve=[dict(platform='PS', status=status, selection={'price_insurance': insurance})]))
         self.assertEqual(runtime._curve_insurance_context(self.db, 'PS', {}, now)['below_margin_rounds'], 2)
-        self.db.put('pricing_snapshots', 'keep', dict(created_at=now.isoformat(), automatic_curve_round=True,
-            curve_round_id='keep', result={'rows': [dict(platform='PS', status='KEEP',
-                                                      selection={'price_insurance': None})]}))
+        self.db.put('strategy_decisions', 'keep', dict(created_at=now.isoformat(), automatic_curve_round=True,
+            curve_round_id='keep', curve=[dict(platform='PS', status='KEEP', selection={'price_insurance': None})]))
         self.assertEqual(runtime._curve_insurance_context(self.db, 'PS', {}, now)['below_margin_rounds'], 0)
 
     def test_fewer_than_three_distinct_platform_cost_samples_cannot_produce_a_write_proof(self):
@@ -44,7 +43,7 @@ class CurveRuntime(unittest.TestCase):
         curve, _, _ = fixture()
         current_cost = dict(platform='PS', status='valid', game='FC27', product='Game Coins', unit='CNY/K',
             genre='1', record_id='99', cny_per_1k='.4', checked_at=AS_OF.isoformat(), trade_at=CUT.isoformat())
-        for size, expected in ((1, None), (2, 'verified')):
+        for size, expected in ((1, None), (2, 'verified'), (3, 'verified')):
             orders = list(rows_for([48] * size))
             source = attachment(orders)
             source['historical_orders_coverage'].update(shared_publication_id='pin', shared_source_revision='source',
@@ -52,6 +51,10 @@ class CurveRuntime(unittest.TestCase):
             for row in source['historical_orders']:
                 row.update(single_line_unit_purchase=True, merchandise_before_discount_usd='100', actual_es_discount_usd='0')
             deliveries = facts(orders, cost='412', delivery_fields=dict(qty='1030', gift='0', cost_unit='.4'))
+            if size == 3:
+                bad = deliveries['orders'][-1]
+                bad['observed_cost_cny'] = '409940'
+                bad['cost_records'][0].update(cost_cny='409940', cost_unit_cny='398')
             frozen = runtime._average_discount_proof_input(curve, 'PS', source, source, CUT.isoformat(), AS_OF,
                 average=average_discount(source, 'PS', CUT), route={'propagation_revision': 'directory'},
                 facts=deliveries, fx=fx(), current_cost=current_cost)

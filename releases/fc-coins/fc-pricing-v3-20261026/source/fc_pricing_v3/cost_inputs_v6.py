@@ -476,8 +476,6 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
                                      for record in facts.get(row['order_key'], (None,)*5)[4] or []}),
             outliers=[dict(order_key=row['order_key'], status='outlier',
                            cny_per_k=str(normalize_cost(row, quantity_basis)['unit_usd'])) for row in outliers])
-        if outliers and sum(row['cost_complete'] for row in samples) < 3:
-            source_gaps.append('curve_cost_sample_outlier')
     upper = None
     upper_basis = None
     current_source = None

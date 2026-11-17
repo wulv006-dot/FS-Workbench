@@ -892,12 +892,12 @@ def _curve_insurance_context(db, platform, evidence, now):
             market.append(rows[0]['usd_per_delivered_100k'])
     rounds = 0
     seen = set()
-    snapshots = sorted(db.all('pricing_snapshots'), key=lambda row: row.get('created_at', ''), reverse=True)
-    for snapshot in snapshots:
-        if not snapshot.get('automatic_curve_round') or snapshot.get('curve_round_id') in seen:
+    decisions = sorted(db.all('strategy_decisions'), key=lambda row: row.get('created_at', ''), reverse=True)
+    for decision in decisions:
+        if not decision.get('automatic_curve_round') or decision.get('curve_round_id') in seen:
             continue
-        seen.add(snapshot['curve_round_id'])
-        row = next((row for row in snapshot.get('result', {}).get('rows', []) if row['platform'] == platform), None)
+        seen.add(decision['curve_round_id'])
+        row = next((row for row in decision.get('curve', []) if row['platform'] == platform), None)
         if row is None:
             continue
         below_margin = ((row.get('selection') or {}).get('price_insurance') or {}).get('below_margin')
@@ -1869,14 +1869,14 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
         result['decision_receipt'] = receipt
     snapshot = dict(snapshot_id=evidence['run_id'], origin='live_collector', mode='production',
                     plan_id=plan['plan_id'] if active else None, plan_revision=plan['revision'] if active else None,
-                    automatic_curve_round=bool(active and not restore_id and not request.get('manual_requested')),
-                    curve_round_id=request.get('v3_operation_id'),
                     write_protocol=CURVE_WRITE_PROTOCOL, created_at=now.isoformat(), evidence=evidence, result=result)
     if restore_id:
         snapshot['curve_restore_preview_id'] = restore_id
     with db.transaction() as conn:
         db.put('pricing_snapshots', evidence['run_id'], snapshot, conn)
-        db.put('strategy_decisions', evidence['run_id'], {'curve': rows}, conn)
+        db.put('strategy_decisions', evidence['run_id'], dict(curve=rows, created_at=now.isoformat(),
+            automatic_curve_round=bool(active and not restore_id and not request.get('manual_requested')),
+            curve_round_id=request.get('v3_operation_id')), conn)
         if active and not restore_id:
             for platform, decision in decisions.items():
                 if decision['status'] != 'KEEP':
