@@ -20,6 +20,38 @@ from test_price_curve_v6 import EDITOR_CONTRACT
 
 
 class CurveRuntime(unittest.TestCase):
+    def test_median_cost_replaces_old_cohort_maximum_in_the_actual_curve_proof(self):
+        from decimal import Decimal
+        from fc_pricing_v3.average_discount_v6 import average_discount
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+        from test_cost_inputs_v6 import AS_OF, CUT, attachment, facts, fx, rows_for
+        from test_curve_strategy_v6 import fixture
+
+        curve, _, _ = fixture()
+        orders = list(rows_for([48] * 3))
+        source = attachment(orders)
+        source['historical_orders_coverage'].update(shared_publication_id='pin', shared_source_revision='source',
+                                                   paid_window_start=(CUT-timedelta(days=8)).isoformat())
+        for row in source['historical_orders']:
+            row.update(single_line_unit_purchase=True, merchandise_before_discount_usd='100', actual_es_discount_usd='0')
+        cost = smooth_delivery_cost(dict(platform='PS', checked_at=AS_OF.isoformat(), v6_delivery_samples=dict(
+            window_complete=True, history_complete=True, records=[dict(platform='PS', status='valid', record_id=str(i),
+                trade_at=(AS_OF-timedelta(minutes=i)).isoformat(), cny_per_1k=value)
+                for i, value in enumerate(('.37', '.40', '.42', '.40', '.398', '.41'))])), 'PS', AS_OF, '.4')
+        frozen = runtime._average_discount_proof_input(curve, 'PS', source, source, CUT.isoformat(), AS_OF,
+            average=average_discount(source, 'PS', CUT), route={'propagation_revision': 'directory'},
+            facts=facts(orders, cost='618', delivery_fields=dict(qty='1030', gift='0', cost_unit='.6')),
+            fx=fx(), current_cost=cost)
+        path = next(row for row in frozen['evidence']['paths'] if row['purchase_k'] == '1000')
+        self.assertEqual(path['cost_status'], 'verified')
+        self.assertAlmostEqual(Decimal(path['stress_cost_usd']), Decimal('412') / 7)
+        self.assertEqual(path['cost_sample_contract'], 'latest_3h_valid_order_delivery_median_v1')
+        missing = runtime._average_discount_proof_input(curve, 'PS', source, source, CUT.isoformat(), AS_OF,
+            average=average_discount(source, 'PS', CUT), route={'propagation_revision': 'directory'},
+            facts=facts(orders, cost='412', delivery_fields=dict(qty='1030', gift='0', cost_unit='.4')),
+            fx=fx(), current_cost=smooth_delivery_cost(None, 'PS', AS_OF, '.4'))
+        self.assertTrue(all(row.get('cost_status') != 'verified' for row in missing['evidence']['paths']))
+
     def test_only_automatic_rounds_count_toward_the_two_round_margin_exception(self):
         now = datetime.now(timezone.utc)
         for key, age, automatic, status, insurance in (
@@ -170,7 +202,7 @@ class CurveRuntime(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'pricing_curve_daily_move_exceeded'):
             curve_price_insurance(current, target, dict(context, day_anchors={'small': '8', 'large': '95'}))
 
-    def test_temporary_floor_and_release_recalculate_from_the_normal_candidate(self):
+    def test_temporary_floor_releases_on_the_third_cost_retreat_round(self):
         from copy import deepcopy
         from fc_pricing_v3.average_discount_v6 import MODEL
         from fc_pricing_v3.price_curve import curve_key, read_curve, TWO_BAND_PRICE_EDIT
@@ -183,7 +215,10 @@ class CurveRuntime(unittest.TestCase):
         evidence = {'competitor_offers': []}
         now = datetime.now(timezone.utc)
         previous = {}
-        for high, expected in (('83.804', '102.2'), ('70', '95'), ('83.804', '102.2'), ('70', '95')):
+        for high, expected in (('83.804', '102.2'), ('83.7', '102.2'), ('83.7', '102.2'), ('83.7', '102.2'),
+                               ('83.804', '102.2'), ('83.9', '102.32'),
+                               ('70', '102.32'), ('70', '102.32'), ('70', '95'),
+                               ('83.804', '102.2'), ('70', '102.2'), ('70', '102.2'), ('70', '95')):
             all_row = dict(live['native_payload'], id=writer.PRODUCTS[PLATFORM][0], site_id=0)
             all_before = make_curve(all_row, dict(live['identity'], id=all_row['id'], site_id=0))
 

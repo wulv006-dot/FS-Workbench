@@ -470,7 +470,7 @@ def _shared_curve_inputs(paid_cutoff, as_of, *, code_names):
 def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now, *,
                                   average, route, facts, fx, current_cost):
     from .average_discount_v6 import MODEL, forecast_quotes, quantity_group
-    from .cost_inputs_v6 import estimate_historical_cost
+    from .cost_inputs_v6 import SMOOTH_COST_CONTRACT, _fx, estimate_historical_cost
     from .planning_baskets_v6 import build_planning_baskets
     from .price_curve import curve_key
 
@@ -506,9 +506,11 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
             layer=layer, available_at=now_text, order_revision=row['source_sha256'], evidence_ref=ref,
             quantity_only=row.get('single_line_unit_purchase') is not True)
 
+    smoothed = (current_cost or {}).get('sample_contract') == SMOOTH_COST_CONTRACT
+    rate, fx_source = _fx(fx, now) if smoothed else (None, None)
     estimates = {}
     for group, matches in groups.items():
-        if not matches or facts is None:
+        if smoothed or not matches or facts is None:
             continue
         layer = next(iter(matches.values()))['layer']
         # Original closed archives stop at midnight. Recent today is basket
@@ -530,7 +532,13 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
     for quantity in sorted(tiers | {format(value.normalize(), 'f') for value in quantities.values()}, key=Decimal):
         path = quotes[quantity]
         estimate = estimates.get(quantity_group(number(quantity)))
-        if estimate and estimate['status'] == 'calculated' and not insufficient_samples:
+        if smoothed and current_cost.get('status') == 'valid' and rate is not None and not insufficient_samples:
+            total = number(path['promised_delivered_k']) * number(current_cost['cny_per_1k']) / rate
+            path.update(cost_status='verified', quantity_basis='PROMISED_DELIVERED_K',
+                        cost_sample_contract=SMOOTH_COST_CONTRACT,
+                        cost_ref=fingerprint(dict(cost=current_cost, fx=fx_source)),
+                        **{kind + '_cost_usd': str(total) for kind in ('expected', 'safe', 'stress')})
+        elif estimate and estimate['status'] == 'calculated' and not insufficient_samples:
             units = estimate['diagnostic_estimate']
             total = number(path['promised_delivered_k'])
             path.update(cost_status='verified', quantity_basis='PROMISED_DELIVERED_K',
@@ -550,12 +558,15 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
         domain_gaps.append('curve_cost_sample_outlier')
     if current_cost and current_cost.get('reason') == 'curve_cost_sample_outlier':
         domain_gaps.append('curve_cost_sample_outlier')
+    if smoothed and rate is None:
+        domain_gaps.append('forecast_fx_unavailable_as_of')
     if not propagation:
         domain_gaps.append('curve_native_route_unavailable')
     quantity_revision = fingerprint(dict(model=MODEL, curve_key=key, paths=[p['quote_ref'] for p in paths]))
     return dict(baskets=build_planning_baskets(platform, key, closed, recent, repriced,
                                                paid_cutoff=paid_cutoff, as_of=now),
                 evidence=dict(curve_key=key, paths=paths, average_discount=average,
+                              smoothed_delivery_cost=current_cost if smoothed else None,
                               cost_sample_insurance={name: row.get('sample_insurance') for name, row in estimates.items()}),
                 domain=dict(platform=platform, curve_key=key, version=MODEL,
                             coverage_status='partial' if domain_gaps else 'complete',
@@ -1010,9 +1021,10 @@ def collect_curve_catalogues(evidence, platforms):
     learning_windows = db.all('actual_price_windows') if plan and online and plan['mode'] == 'smart' else []
     for platform, entry in collected.items():
         average = average_discount(discount_source, platform, paid_cutoff)
-        from .cost_inputs_v6 import filter_cost_samples
+        from .cost_inputs_v6 import smooth_delivery_cost
         context = _curve_insurance_context(db, platform, evidence, now)
-        cost = filter_cost_samples((evidence.get('costs') or {}).get(platform), context['confirmed_cost_cny_per_k'])
+        cost = smooth_delivery_cost((evidence.get('costs') or {}).get(platform), platform, now,
+                                    context['confirmed_cost_cny_per_k'])
         entry['price_insurance'] = context
         entry['cost_sample_insurance'] = (cost or {}).get('sample_insurance')
         entry['confirmed_cost_cny_per_k'] = (cost or {}).get('cny_per_1k') if (cost or {}).get('status') == 'valid' else None
@@ -1165,6 +1177,29 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
         if final is normal or final.get('compilation_status') != 'EDITOR_CANDIDATE':
             frozen.update(status=FAILED, gaps=sorted({gap for row in failed for gap in row['hard_failures']}))
             return
+    # Stability only holds a currently proven price; a zero-line or basket
+    # failure still goes through the normal protection and insurance path.
+    proposed = band_anchors(final)
+    protected = set(segment_changes(normal, final)) | set(active)
+    holds, release_rounds = {}, {}
+    current_checks = [_validated_curve(curve, inputs_for(curve)) for curve in (current, entry['all_before'])]
+    if all(row['status'] == PROVEN for row in current_checks):
+        for band in protected:
+            old, target = Decimal(observed[band]), Decimal(proposed[band])
+            previous_band = active.get(band) or {}
+            retreat = target < old and previous_band.get('target') == observed[band]
+            count = min(previous_band.get('release_rounds', 0) + 1, 3) if retreat else 0
+            if count:
+                release_rounds[band] = count
+            if target != old and ((retreat and count < 3) or abs(target / old - 1) < Decimal('.015')):
+                holds[band] = dict(reason='release_hysteresis' if retreat and count < 3 else 'dead_zone',
+                                   requested=str(target), kept=str(old), release_rounds=count)
+        if holds:
+            final = compile_curve(final, dict(anchor_prices_usd={ANCHORS[band]: observed[band] for band in holds}), editor)
+            if final.get('compilation_status') != 'EDITOR_CANDIDATE':
+                frozen.update(gaps=final['gaps'])
+                return
+    frozen['stability'] = holds
     insurance = None
     if 'price_insurance' in entry:
         from coin_all_sync_job import curve_price_insurance
@@ -1214,11 +1249,15 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
                 frozen['gaps'].append('pricing_curve_margin_exception_exhausted')
             return
     normal_prices, final_prices = band_anchors(normal), band_anchors(final)
-    if not insurance and any(Decimal(final_prices[band]) < Decimal(price) for band, price in normal_prices.items()):
+    if not insurance and any(Decimal(final_prices[band]) < Decimal(price) and band not in holds
+                             for band, price in normal_prices.items()):
         frozen.update(status=FAILED, gaps=['curve_cost_protection_below_normal_candidate'])
         return
     segments = {band: dict(normal=normal_prices[band], target=final_prices[band])
                 for band in segment_changes(normal, final)}
+    for band, count in release_rounds.items():
+        if band in segments:
+            segments[band]['release_rounds'] = count
     frozen.update(status=PROVEN, final_key=final_key, labels=candidate['labels'],
                   normal_anchors=normal_prices, final_anchors=final_prices, segments=segments,
                   normal_curve=normal, final_curve=final)
@@ -1627,6 +1666,7 @@ def _prove_temporary_curve(platform, inputs, current, state, previous):
                      reference_anchors=band_anchors(state['reference']['reference_curve']),
                      normal_anchors=normal_anchors, final_anchors=final_anchors,
                      cost_protection=protection,
+                     cost_stability=frozen.get('stability', {}),
                      large_market_reference=large_market_comparison(frozen.get('market_reference', []), normal, final))
     if 'price_insurance' in inputs:
         selection.update(price_insurance=frozen.get('price_insurance'),

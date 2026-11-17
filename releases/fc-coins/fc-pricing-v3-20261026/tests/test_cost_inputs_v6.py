@@ -114,6 +114,23 @@ def run(attachments, *, revisions=(), rate=None, as_of=AS_OF, basis='PURCHASE_K'
 
 
 class CostInputs(unittest.TestCase):
+    def test_v6_delivery_median_uses_the_complete_three_hour_window_per_platform(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+
+        rows = [dict(platform='PS', record_id=str(i), status='valid', cny_per_1k=value,
+                     trade_at=(AS_OF-timedelta(minutes=i*10)).isoformat())
+                for i, value in enumerate(('.37', '.40', '.42', '.40', '.398', '.41', '.30'))]
+        source = dict(platform='PS', checked_at=AS_OF.isoformat(),
+                      v6_delivery_samples=dict(records=rows, window_complete=True, history_complete=True))
+        before = deepcopy(source)
+        result = smooth_delivery_cost(source, 'PS', AS_OF, '.40')
+        self.assertEqual(result['cny_per_1k'], '0.40')
+        self.assertEqual(result['sample_contract'], 'latest_3h_valid_order_delivery_median_v1')
+        self.assertEqual(result['selected_count'], 7)
+        self.assertEqual(result['window'], 'three_hours')
+        self.assertEqual(smooth_delivery_cost(source, 'XBOX', AS_OF, '.4')['status'], 'missing')
+        self.assertEqual(source, before)
+
     def test_current_samples_discard_thousandfold_costs_before_selecting_maximum(self):
         from fc_pricing_v3.cost_inputs_v6 import filter_cost_samples
 
@@ -126,6 +143,24 @@ class CostInputs(unittest.TestCase):
         self.assertEqual([row['record_id'] for row in result['sample_insurance']['outliers']], ['4', '5'])
         self.assertTrue(all(row['status'] == 'outlier' for row in result['sample_insurance']['outliers']))
         self.assertEqual(cost['cny_per_1k'], '398')
+
+    def test_sparse_platform_falls_back_to_latest_six_after_filtering_and_requires_three(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+
+        for platform in ('PS', 'XBOX', 'PC'):
+            rows = [dict(platform=platform, status='valid', record_id=str(i), cny_per_1k=value,
+                         trade_at=(AS_OF-timedelta(minutes=age)).isoformat())
+                    for i, (age, value) in enumerate(zip((0, 60, 120, 181, 200, 240, 260),
+                                                        ('.37', '.40', '.42', '.40', '.398', '.41', '.7')))]
+            source = dict(platform=platform, checked_at=AS_OF.isoformat(), v6_delivery_samples=dict(
+                records=rows, window_complete=True, history_complete=False))
+            result = smooth_delivery_cost(source, platform, AS_OF, '.4')
+            self.assertEqual((result['cny_per_1k'], result['selected_count'], result['window']), ('0.40', 6, 'latest_six'))
+            source['v6_delivery_samples']['records'] = rows[:2]
+            self.assertEqual(smooth_delivery_cost(source, platform, AS_OF, '.4')['reason'], 'curve_cost_sample_outlier')
+            source['v6_delivery_samples'].update(records=rows, window_complete=False)
+            self.assertEqual(smooth_delivery_cost(source, platform, AS_OF, '.4')['status'], 'missing')
+
 
     def test_insufficient_filtered_samples_make_the_platform_cost_unavailable(self):
         from fc_pricing_v3.cost_inputs_v6 import filter_cost_samples
