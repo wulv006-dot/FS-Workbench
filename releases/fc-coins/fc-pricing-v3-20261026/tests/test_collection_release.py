@@ -80,6 +80,7 @@ class CollectionRelease(unittest.TestCase):
         scope['LOOTBAR_CALLER_SCOPE']=target_map.LOOTBAR_CALLER_SCOPE
         scope['CURVE_AVERAGE_SCOPE']=target_map.CURVE_AVERAGE_SCOPE
         scope['CURVE_INSURANCE_SCOPE']=target_map.CURVE_INSURANCE_SCOPE
+        scope['CURVE_STABILITY_SCOPE']=target_map.CURVE_STABILITY_SCOPE
         exec(compile(ast.Module(body=[restart],type_ignores=[]),'collection-restart','exec'),scope)
         for _ in range(2):
             scope['restart'](dict(scope='collection'))
