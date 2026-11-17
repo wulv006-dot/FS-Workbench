@@ -234,6 +234,19 @@
 - 待办：11/19 北京 13:00 前把 Admin 中 carnival 的开始/结束改为 11/19 13:00 – 12/2 13:00（Admin 写操作，需用户执行或授权）；扭蛋档位领券接口和签名 uid 待主站开发确认。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T061952Z`。
 
+### 2026-11-17 `nav-20261117T065836Z`（PR #1201）狂欢盛典顶栏、平台选择、内部测试开关
+
+- 来源：PR #1201（`pr-fast` success），合并 `4d0921e2f496fa92286ced9e0cc46091203ae948`。候选目录 `/var/tmp/fs-campaign-release82-candidate`，manifest `6b1655184719…`；发布 `Carnival.html`、`carnival.css`、`carnival-proto.js`、`carnival-live.js`、`runtime/carnival.mjs`、`analytics/carnival-unlocks.mjs`、`backend/campaign_backend/discount_revenue.py` 和静态清单。发布前核对线上这 7 个文件与上一版合并 `30a8c3bc` 内容一致。
+- 改动：顶栏与主站一致（logo、栏目链接、购物车、主站登录态，Log In 打开活动登录框），去掉中英文切换；修复 FC27 平台下拉不显示（`livePriceNotes` 覆盖了下拉外层 span）；吉祥物气泡去掉 “The item pool updates, too.”；黑五 “?” 占位卡居中。
+- 内部测试开关：运维写入 `/var/lib/fs-campaign-public/carnival-test.json`（`{open_until, coupon_id, slot}`，`open_until` 不晚于正式开始 11/19 00:00 ET）后，全部环节开放、所有领券走测试槽位和测试券，校验器只读该测试券的已付款使用；到 `open_until` 或删除文件即关闭。本次发布时该文件不存在，线上行为不变。
+- 验证：
+  - 测试：Node 160/160；浏览器 carnival 页面 7/7、神秘商店 3/3；Python `test_carnival_unlocks` 5/5。
+  - 服务：apply 成功，`fs-campaign-dashboard`、`fs-campaign-runtime` 于 14:58:44 重启并 active。
+  - 正式站读回（Chrome，已登录）：三个资源均为 `?v=20261117b`；顶栏存在、logo 加载、无语言切换、登录后 Log In 隐藏且显示头像；平台下拉可见；气泡不含旧句；`schedule` 为 upcoming 且无 `test` 字段；控制台无报错。
+- 未验证：内部测试开关的线上实测（需先建测试券、加测试槽位、开 TempActivity，属 Admin 写操作，待用户授权）；手机宽度线上实测（本地浏览器测试覆盖）。
+- 另记：`fs-campaign-statistics-refresh` 11/17 08:00 一次运行以 partial 退出（exit 2），早于本次发布，与本次改动无关。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T065836Z`。
+
 ---
 
 ## 回退与边界
