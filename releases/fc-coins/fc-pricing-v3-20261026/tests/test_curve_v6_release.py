@@ -23,6 +23,15 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_stability_release_contains_only_collector_and_two_paired_modules(self):
+        mapping = target_map.curve_stability_targets(SOURCE)
+        self.assertEqual(len(mapping), 5)
+        self.assertEqual(mapping['collect_p2pah_cost.py'], '/opt/fc27-cloud-browser/collect_p2pah_cost.py')
+        self.assertEqual(adapter.SCOPED_TARGETS[target_map.CURVE_STABILITY_SCOPE],
+                         {'source/' + name: path for name, path in mapping.items()})
+        self.assertNotIn('coin_all_sync_job.py', mapping)
+        self.assertNotIn('fc_pricing_v3/scheduler.py', mapping)
+
     def test_insurance_release_contains_only_nine_price_guard_targets(self):
         mapping = target_map.curve_insurance_targets(SOURCE)
         self.assertEqual(len(mapping), 9)

@@ -20,6 +20,7 @@ from target_map import (THREE_PLATFORM_NAMES, THREE_PLATFORM_SCOPE, THREE_PLATFO
 from target_map import CURVE_V6_EXECUTABLES, CURVE_V6_SCOPE, CURVE_V6_NEW, curve_v6_targets
 from target_map import CURVE_AVERAGE_SCOPE, CURVE_AVERAGE_NEW, curve_average_targets
 from target_map import CURVE_INSURANCE_SCOPE, curve_insurance_targets
+from target_map import CURVE_STABILITY_SCOPE, curve_stability_targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -50,6 +51,7 @@ SHADOW_TARGETS = {name: TARGETS[name] for name in SHADOW_NAMES}
 OPERATING_TARGETS={name:TARGETS[name] for name in OPERATING_NAMES}
 COLLECTION_TARGETS={name:TARGETS[name] for name in COLLECTION_NAMES}
 SCOPED_TARGETS = {
+    CURVE_STABILITY_SCOPE: {'source/' + name: path for name, path in curve_stability_targets(SOURCE).items()},
     CURVE_INSURANCE_SCOPE: {'source/' + name: path for name, path in curve_insurance_targets(SOURCE).items()},
     CURVE_AVERAGE_SCOPE: {'source/' + name: path for name, path in curve_average_targets(SOURCE).items()},
     CURVE_V6_SCOPE: CURVE_V6_TARGETS,
@@ -258,7 +260,7 @@ def checked_manifest(value):
         raise ValueError('code_release_does_not_change_business_or_timer_state')
     if value.get('releaseReady') is not True:
         raise ValueError('reviewed_code_release_required')
-    if scope in (CURVE_V6_SCOPE, CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE):
+    if scope in (CURVE_V6_SCOPE, CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE):
         if any(row['mode'] != '0o755' for row in rows if row['candidate'] in CURVE_V6_EXECUTABLES):
             raise ValueError('curve_v6_collectors_must_be_executable')
         by_name = {row['candidate']: row['sha256'] for row in rows}
@@ -407,7 +409,7 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
-        if manifest.get('scope') in (CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE):
+        if manifest.get('scope') in (CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE):
             for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service', 'fc-pricing-v3.service'):
                 subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)
                 subprocess.run(['systemctl', 'is-active', '--quiet', name], check=True, timeout=10)

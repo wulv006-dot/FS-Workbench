@@ -61,9 +61,13 @@ class SixCost(unittest.TestCase):
 
     def run_collect(self, pages=None):
         pages = pages or [self.rows, []]
+        self.v6_windows = []
         def read(tab, number, observations=None, window=None):
             rows=pages[number-1] if number <= len(pages) else []
-            return self.data([row for row in rows if row['platform']=='PS'] if window else rows)
+            if window and window.get('area') == '0':
+                self.v6_windows.append(window)
+            return self.data([row for row in rows if row['platform']=='PS']
+                             if window and window.get('area', '21942') == '21942' else rows)
         with patch.object(self.collector, 'read_page', side_effect=read):
             return self.collector.collect()
 
@@ -82,6 +86,20 @@ class SixCost(unittest.TestCase):
         self.assertEqual(proof['sample_size'], 6)
         self.assertEqual(len(proof['observations']), 6)
         self.assertEqual(self.closed, 1)
+
+    def test_v6_retains_each_platforms_three_hour_deliveries_without_console_aliasing(self):
+        rows = [self.raw(1000+index*100+i, '.4', i*2, platform)
+                for index, platform in enumerate(('PS', 'XBOX', 'PC')) for i in range(7)]
+        rows.sort(key=lambda row: row['trade_at'], reverse=True)
+        result = self.run_collect([rows, []])
+        self.assertTrue(self.v6_windows)
+        self.assertEqual(self.v6_windows[0]['end'] - self.v6_windows[0]['start'], timedelta(hours=3))
+        for cost in result['costs']:
+            samples = cost['v6_delivery_samples']
+            self.assertTrue(samples['window_complete'])
+            self.assertFalse(samples['history_complete'])
+            self.assertEqual(len(samples['records']), 7)
+            self.assertEqual({row['platform'] for row in samples['records']}, {cost['platform']})
 
     def test_mixed_k_and_million_deliveries_are_normalized_before_taking_max(self):
         self.native_verifier.stop()
@@ -195,7 +213,7 @@ class SixCost(unittest.TestCase):
             return self.data(self.rows[:6] if number == 1 else [])
         with patch.object(self.collector,'read_page',side_effect=read):
             result = self.collector.collect()
-        self.assertEqual(len(calls),17)
+        self.assertEqual(len([call for call in calls if not call[1] or call[1].get('area') != '0']), 17)
         self.assertIsNotNone(calls[-1][1])
         self.assertTrue(result['costs'][0]['sample_boundary']['complete'])
         self.assertEqual(result['costs'][2]['cny_per_1k'], '0.77')
@@ -215,7 +233,8 @@ class SixCost(unittest.TestCase):
             if number>1:
                 return self.data([])
             hours=(window['end']-window['start']).total_seconds()/3600
-            windows.append(hours)
+            if window.get('area') != '0':
+                windows.append(hours)
             return self.data(self.rows[:5] if hours==1 else self.rows[:6])
         with patch.object(self.collector,'read_page',side_effect=read):
             result=self.collector.collect()
@@ -260,7 +279,7 @@ class SixCost(unittest.TestCase):
             if window is None:
                 return self.data(self.rows if number==1 else [])
             hours=(window['end']-window['start']).total_seconds()/3600
-            if number==1:windows.append(hours)
+            if number==1 and window.get('area') != '0':windows.append(hours)
             return self.data(self.rows[:6] if hours==2 and number==1 else [])
         with patch.object(self.collector,'read_page',side_effect=read):
             result=self.collector.collect()

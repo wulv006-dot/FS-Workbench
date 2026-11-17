@@ -4,6 +4,7 @@ from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import json
+from statistics import median
 
 from .cost_model import BASES, LAYER_FIELDS, estimate_layer, normalize_cost
 from .financial import fingerprint, instant, number
@@ -21,6 +22,42 @@ ADMIN_LOSS_BUCKETS = ('ts', 'tssj', 'dc', 'cb', 'tkwtg', 'wh', 'bftk', 'qt', 'bh
                       'ts_zhui', 'tssj_zhui', 'dc_zhui', 'cb_zhui',
                       'ts_zhui_no', 'tssj_zhui_no', 'dc_zhui_no', 'cb_zhui_no', 'pianzi')
 ORDINARY_COST_BASIS = 'same_order_ordinary_delivery_total_at_verified_promised_k'
+SMOOTH_COST_CONTRACT = 'latest_3h_valid_order_delivery_median_v1'
+
+
+def smooth_delivery_cost(source, platform, as_of, confirmed_cny_per_k=None):
+    """Use evidenced same-platform deliveries, after the existing outlier filter."""
+    missing = dict(platform=platform, status='missing', sample_contract=SMOOTH_COST_CONTRACT,
+                   reason='ordinary_delivery_cost_sample_missing')
+    source = source or {}
+    captured = _instant(source.get('checked_at'))
+    now = instant(as_of)
+    evidence = source.get('v6_delivery_samples') or {}
+    if (source.get('platform') != platform or captured is None or not captured <= now
+            or now - captured > timedelta(hours=1) or evidence.get('window_complete') is not True):
+        return missing
+    records = evidence.get('records') or []
+    ids = set()
+    for row in records:
+        traded = _instant(row.get('trade_at'))
+        ident = row.get('record_id')
+        if (row.get('platform') != platform or row.get('status') != 'valid' or not ident or ident in ids
+                or traded is None or not captured - timedelta(days=8) <= traded <= captured):
+            return missing
+        ids.add(ident)
+    filtered = filter_cost_samples(dict(status='valid', sample_records=records), confirmed_cny_per_k)
+    if filtered['status'] != 'valid':
+        return dict(missing, reason='curve_cost_sample_outlier', sample_insurance=filtered['sample_insurance'])
+    ordered = sorted(filtered['sample_records'], key=lambda row: (_instant(row['trade_at']), str(row['record_id'])), reverse=True)
+    recent = [row for row in ordered if _instant(row['trade_at']) >= now - timedelta(hours=3)]
+    selected = recent if len(recent) >= 6 else ordered[:6]
+    if len(recent) < 6 and len(selected) < 6 and evidence.get('history_complete') is not True:
+        return missing
+    value = str(median([Decimal(row['cny_per_1k']) for row in selected]))
+    return dict(selected[0], platform=platform, source_platform=platform, checked_at=captured.isoformat(),
+                cny_per_1k=value, cny_per_k=value, sample_contract=SMOOTH_COST_CONTRACT,
+                selected_count=len(selected), window='three_hours' if len(recent) >= 6 else 'latest_six',
+                sample_records=selected, sample_insurance=filtered['sample_insurance'])
 
 
 def filter_cost_samples(cost, confirmed_cny_per_k=None):
