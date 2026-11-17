@@ -6,8 +6,10 @@
 //   (the origin strips cookies); the coupons themselves are claimed from the main
 //   site's carnival slots, which this server does not control.
 // - A new round unlocks once a paid order used one of that game's Mystery coupons
-//   after the round was drawn. The paid-use list is produced by the dashboard from
-//   Admin user/memberCouponLog and read here from the shared public directory.
+//   after the round was drawn. Admin is only read when the member presses "verify":
+//   this server drops a request file in dir/carnival-verify, the dashboard answers it
+//   from Admin coupon logs and writes the paid-use list plus a check stamp to the
+//   shared public directory, which is read here.
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomInt,createHash} from 'node:crypto';
@@ -36,6 +38,14 @@ export const MYSTERY_GAMES={fc27:'fc27',aion2:'aion2',wow:'wow',d4:'d4',poe1:'po
 const POOL_SIZE=9,PICKS=3;
 // Confirmed odds per card: first round 8/10/15 = 30/30/40, later rounds 40/40/20.
 export function rollDiscount(first,roll=randomInt(100)){return first?(roll<30?8:roll<60?10:15):(roll<40?8:roll<80?10:15);}
+// A member's first round always shows at least one 15% card (one random card is raised
+// to 15% when none rolled it); later rounds use the plain odds.
+export function drawRound(first,count,roll){
+ const offs=Array.from({length:count},()=>rollDiscount(first,roll?.()));
+ if(first&&!offs.includes(15))offs[roll?roll()%count:randomInt(count)]=15;
+ return offs;
+}
+const VERIFY_GAP_MS=30000,VERIFY_QUEUE_MAX=500;
 
 const VOUCHERS=[[60,5],[100,8],[150,12],[250,20]];
 const VOUCHER_IDS={'1127':[1461,1463,1465,1467],'1128':[1469,1471,1473,1475],'1129':[1477,1479,1481,1483],'1130':[1485,1487,1489,1491],'1201':[1493,1495,1497,1499]};
@@ -78,9 +88,12 @@ const gameId=v=>{if(typeof v!=='string'||!Object.hasOwn(MYSTERY_GAMES,v))fail('I
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>keys.includes(k))&&keys.every(k=>Object.hasOwn(v,k));
 
 export function createCarnival({dir,publishedDir,now=Date.now,roll}={}){
- const base=path.join(dir,'carnival-mystery');
+ const base=path.join(dir,'carnival-mystery'),queue=path.join(dir,'carnival-verify');
  // File names never contain the member id itself.
- const file=(uid,game)=>path.join(base,createHash('sha256').update('carnival-2026:'+uid).digest('hex').slice(0,32)+'-'+game+'.json');
+ const hashed=uid=>createHash('sha256').update('carnival-2026:'+uid).digest('hex').slice(0,32);
+ const file=(uid,game)=>path.join(base,hashed(uid)+'-'+game+'.json');
+ const checkKey=(uid,game)=>hashed(uid)+'-'+MYSTERY_GAMES[game];
+ const requestFile=(uid,game)=>path.join(queue,checkKey(uid,game)+'.json');
  function read(uid,game){
   const f=file(uid,game);if(!fs.existsSync(f))return {game,rounds:[]};
   let record;try{const st=fs.lstatSync(f);if(st.isSymbolicLink()||!st.isFile()||st.size>64000)throw Error();record=JSON.parse(fs.readFileSync(f,'utf8'));}catch{fail('MYSTERY_RECORD_UNKNOWN',409);}
@@ -96,12 +109,20 @@ export function createCarnival({dir,publishedDir,now=Date.now,roll}={}){
   const uses=paidUses();if(!uses)return false;const set=MYSTERY_GAMES[game];
   return uses.uses.some(u=>u.uid===uid&&u.set===set&&time(u.used_at)>time(round.drawn_at));
  }
+ // Outcome of the member's last "verify" press while the round is still locked.
+ function verifyState(uid,game,record){
+  const asked=record.verify_requested_at;if(!asked)return null;
+  if(fs.existsSync(requestFile(uid,game)))return {status:'checking'};
+  const check=paidUses()?.checked?.[checkKey(uid,game)];
+  if(check&&time(check.at)>=time(asked))return {status:check.ok?'not_found':'error'};
+  return {status:'checking'};
+ }
  function view(uid,game,record){
   const last=record.rounds.at(-1),locked=!!last&&!unlocked(uid,game,last);
   const set=MYSTERY_SETS[MYSTERY_GAMES[game]];
   return {game,coupon_slot:set.slot,rounds_drawn:record.rounds.length,
    current:locked?{round:last.round,drawn_at:last.drawn_at,picks:last.picks.map(p=>({item:p.item,off:p.off,coupon_id:set.coupons[p.off]}))}:null,
-   can_draw:!locked};
+   can_draw:!locked,verify:locked?verifyState(uid,game,record):null};
  }
  function window(){const clock=now();if(clock<time(CARNIVAL.starts_at))fail('EVENT_NOT_STARTED',409);if(clock>=time(CARNIVAL.ends_at))fail('EVENT_ENDED',409);return clock;}
  return {
@@ -115,10 +136,26 @@ export function createCarnival({dir,publishedDir,now=Date.now,roll}={}){
    const clock=window(),record=read(uid,game),last=record.rounds.at(-1);
    // An open round is returned as it is: the same picks never get a second roll.
    if(last&&!unlocked(uid,game,last))return {...view(uid,game,record),repeated:true};
-   const first=record.rounds.length===0;
-   record.rounds.push({round:record.rounds.length+1,drawn_at:new Date(clock).toISOString(),picks:items.map(item=>({item,off:rollDiscount(first,roll?.())}))});
+   const offs=drawRound(record.rounds.length===0,PICKS,roll);
+   record.rounds.push({round:record.rounds.length+1,drawn_at:new Date(clock).toISOString(),picks:items.map((item,i)=>({item,off:offs[i]}))});
+   delete record.verify_requested_at;
    fs.mkdirSync(base,{recursive:true,mode:0o700});atomic(file(uid,game),record);
    return {...view(uid,game,record),repeated:false};
+  },
+  // The member says the round's order is paid: queue one Admin check (at most one per
+  // member and coupon set every 30 seconds). The page then polls the state.
+  verify(body){
+   if(!exact(body,['uid','game']))fail('INVALID_REQUEST',400);
+   const uid=member(body.uid),game=gameId(body.game),clock=window(),record=read(uid,game);
+   const current=view(uid,game,record);if(!current.current)return current;
+   const pending=fs.existsSync(requestFile(uid,game));
+   if(pending||record.verify_requested_at&&clock-time(record.verify_requested_at)<VERIFY_GAP_MS)return current;
+   fs.mkdirSync(queue,{recursive:true,mode:0o700});
+   if(fs.readdirSync(queue).length>=VERIFY_QUEUE_MAX)fail('VERIFY_BUSY',503);
+   record.verify_requested_at=new Date(clock).toISOString();
+   atomic(requestFile(uid,game),{uid,set:MYSTERY_GAMES[game],requested_at:record.verify_requested_at});
+   atomic(file(uid,game),record);
+   return view(uid,game,record);
   },
  };
 }

@@ -7,6 +7,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import {createCarnival} from '../runtime/carnival.mjs';
+import {createCarnivalVerifier} from '../analytics/carnival-unlocks.mjs';
 const require=createRequire(import.meta.url),{chromium}=require('playwright');
 const app=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const types={'.js':'application/javascript','.html':'text/html','.css':'text/css','.webp':'image/webp'};
@@ -33,7 +34,10 @@ function mainSite({signedIn=true}={}){
 
 async function open(t,{clock='2026-11-28T13:00:00-05:00',signedIn=true}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carnival-page-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
- const carnival=createCarnival({dir,publishedDir:dir,now:()=>Date.parse(clock)}),site=mainSite({signedIn});
+ const tick={ms:Date.parse(clock)},paidUses=[];
+ const carnival=createCarnival({dir,publishedDir:dir,now:()=>tick.ms}),site=mainSite({signedIn});
+ // The dashboard side of "verify": answers queued requests from a simulated Admin coupon log.
+ const verifier=createCarnivalVerifier({publicDir:dir,requestDir:path.join(dir,'carnival-verify'),now:()=>tick.ms,read:async()=>({status:'available',generated_at:'t',uses:paidUses})});
  const browser=await chromium.launch({headless:true});t.after(()=>browser.close());
  const page=await browser.newPage({viewport:{width:1280,height:900}});page.setDefaultTimeout(8000);
  await page.clock.setFixedTime(new Date(clock));
@@ -47,15 +51,17 @@ async function open(t,{clock='2026-11-28T13:00:00-05:00',signedIn=true}={}){
    if(url.pathname==='/events/api/carnival/schedule')return route.fulfill({json:carnival.schedule()});
    if(url.pathname==='/events/api/carnival/mystery')return route.fulfill({json:carnival.state(url.searchParams)});
    if(url.pathname==='/events/api/carnival/mystery/draw')return route.fulfill({json:carnival.draw(JSON.parse(req.postData()))});
+   if(url.pathname==='/events/api/carnival/mystery/verify'){const answer=carnival.verify(JSON.parse(req.postData()));verifies++;await verifier.refresh();return route.fulfill({json:answer});}
   }catch(e){return route.fulfill({status:e.status||500,json:{code:e.code}});}
   const answer=site.handle(url,req);if(answer!==null)return typeof answer==='string'?route.fulfill({body:answer}):route.fulfill({json:answer});
   const file=path.join(app,url.pathname.replace(/^\/events\//,''));
   if(!url.pathname.startsWith('/events/')||!fs.existsSync(file))return route.fulfill({status:404,body:''});
   return route.fulfill({contentType:types[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});
  });
+ let verifies=0;
  await page.goto('https://www.mmoexp.com/events/Carnival.html');
  await page.waitForFunction(()=>document.querySelectorAll('#msPool .pcard').length===9);
- return {page,site,errors,carnival};
+ return {page,site,errors,carnival,tick,paidUses,verifies:()=>verifies};
 }
 
 test('mystery shop: live prices, one server draw that survives reload, coupon handed to the cart',async t=>{
@@ -81,6 +87,32 @@ test('mystery shop: live prices, one server draw that survives reload, coupon ha
  assert.deepEqual(errors,[]);
 });
 
+test('mystery shop: the verify button checks the order once per press and resets the round when paid',async t=>{
+ const {page,errors,tick,paidUses,verifies}=await open(t);
+ await page.locator('a[href="#mystery"]').first().click();
+ for(const i of [0,1,2])await page.locator('#msPool .pcard').nth(i).click();
+ await page.locator('.drawdeal-btn').click();
+ await page.waitForFunction(()=>document.querySelectorAll('#msResult .fcard.open').length===3);
+ const offs=await page.locator('#msResult .rv-off').allTextContents();
+ assert.ok(offs.includes('15% OFF'),'first round shows a 15% card');
+ await page.waitForSelector('#msVerifyBtn');
+ // Not paid yet.
+ await page.locator('#msVerifyBtn').click();
+ await page.waitForFunction(()=>/not completed/.test(document.getElementById('mysteryFlowTitle')?.textContent||''));
+ assert.equal(verifies(),1);
+ await page.evaluate(()=>closeMysteryFlow());
+ // Paid with this round's coupon; pressed again after the 30-second spacing.
+ tick.ms+=31000;paidUses.push({uid:'123456',set:'fc27',used_at:new Date(tick.ms-1000).toISOString()});
+ await page.locator('#msVerifyBtn').click();
+ await page.waitForFunction(()=>/verified/.test(document.getElementById('mysteryFlowTitle')?.textContent||''));
+ assert.equal(verifies(),2);
+ await page.evaluate(()=>closeMysteryFlow());
+ assert.equal(await page.locator('#msPool').isVisible(),true,'a fresh pick is open');
+ assert.equal(await page.locator('#msVerifyBtn').count(),0);
+ assert.match(await page.locator('#msTimer').textContent(),/READY/);
+ assert.deepEqual(errors,[]);
+});
+
 test('home coupon, Black Friday session and gacha spend',async t=>{
  const {page,site,errors}=await open(t);
  await page.locator('#heroEarlyBtn').click();await page.locator('#couponClaimBtn').click();
@@ -93,6 +125,14 @@ test('home coupon, Black Friday session and gacha spend',async t=>{
  await page.locator('#flashGrid [data-carnival-voucher]').first().click();
  await page.waitForFunction(n=>document.querySelectorAll('#flashGrid [data-carnival-voucher]:not(:disabled)').length===4,null);
  assert.deepEqual(site.claims.at(-1),{slot:'bf_vouchers_1128',coupon_id:1469});
+ // A product coupon is claimed and the page stays put; going to the product is the member's click.
+ await page.locator('.store-categories [data-category="currency"]').click();
+ await page.locator('#flashGrid [data-carnival-product]').first().click();
+ await page.waitForSelector('#mysteryFlowMask.show [data-carnival-go]');
+ assert.deepEqual(site.claims.at(-1),{slot:'bf_items',coupon_id:1513});
+ assert.equal(await page.locator('[data-carnival-go]').getAttribute('href'),'/Fc-27/Coins.html');
+ assert.match(page.url(),/\/events\/Carnival\.html/);
+ await page.evaluate(()=>closeMysteryFlow());
  assert.equal(await page.locator('#spendVal').textContent(),'$150.00');
  assert.equal(await page.locator('#drawBtn').isDisabled(),true,'capsule draws stay closed until the claim interface exists');
  assert.deepEqual(errors,[]);

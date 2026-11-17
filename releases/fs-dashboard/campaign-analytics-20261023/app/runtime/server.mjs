@@ -56,7 +56,7 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
         if (req.headers.origin!==origin || req.headers['content-type']!=='application/json' || req.headers['sec-fetch-site']==='cross-site') return json(req,res,403,{code:'ORIGIN_REQUIRED'});
         const routes={'api/campaign/native_plan':b=>commerce.nativePlan(b),'api/campaign/intents':b=>commerce.intent(b),'api/campaign/quote':b=>commerce.quote(b),'api/campaign/prepare_checkout':b=>commerce.prepare(b),
           'api/campaign/halloween/reveal':b=>commerce.halloweenReveal(b),'api/campaign/halloween/resolve':b=>commerce.halloweenResolve(b),
-          'api/carnival/mystery/draw':b=>carnival.draw(b)};
+          'api/carnival/mystery/draw':b=>carnival.draw(b),'api/carnival/mystery/verify':b=>carnival.verify(b)};
         if (!Object.hasOwn(routes,relative)) return json(req,res,404,{code:'NOT_FOUND'});
         return json(req,res,200,await routes[relative](await body(req)));
       }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {createCarnival,publicSchedule,rollDiscount,SESSIONS,MYSTERY_SETS} from '../carnival.mjs';
+import {createCarnival,publicSchedule,rollDiscount,drawRound,SESSIONS,MYSTERY_SETS} from '../carnival.mjs';
 
 const at=s=>Date.parse(s);
 function setup(t,clock){
@@ -19,6 +19,13 @@ test('odds: first round 30/30/40, later rounds 40/40/20',()=>{
  const count=first=>{const c={8:0,10:0,15:0};for(let r=0;r<100;r++)c[rollDiscount(first,r)]++;return c;};
  assert.deepEqual(count(true),{8:30,10:30,15:40});
  assert.deepEqual(count(false),{8:40,10:40,15:20});
+});
+
+test('a first round always has a 15% card; later rounds keep the plain odds',()=>{
+ for(let i=0;i<300;i++)assert.ok(drawRound(true,3).includes(15));
+ let without=0;for(let i=0;i<300;i++)if(!drawRound(false,3).includes(15))without++;
+ assert.ok(without>0,'later rounds can miss 15%');
+ assert.deepEqual(drawRound(true,3,(r=>()=>r.shift())([0,35,99])),[8,10,15],'no change when 15% was rolled');
 });
 
 test('Black Friday products are released only once their session starts',()=>{
@@ -53,7 +60,8 @@ test('a round is drawn once, stored per member and game, and repeats instead of 
 
 test('a paid use of the game coupon set after the draw unlocks the next round with later-round odds',t=>{
  const {carnival,state,rolls,published}=setup(t,'2026-11-20T10:00:00-05:00');
- rolls.push(0,0,0);carnival.draw({uid:'42',game:'poe2',items:[0,1,2]});
+ rolls.push(0,0,0,1);const firstRound=carnival.draw({uid:'42',game:'poe2',items:[0,1,2]});
+ assert.deepEqual(firstRound.current.picks.map(p=>p.off),[8,15,8],'first round: one card raised to 15%');
  // A use before the draw, of another set, or of another member does not unlock.
  fs.writeFileSync(path.join(published,'carnival-unlocks.json'),JSON.stringify({uses:[
   {uid:'42',set:'poe',used_at:'2026-11-20T14:00:00Z'},{uid:'42',set:'fc27',used_at:'2026-11-21T00:00:00Z'},{uid:'7',set:'poe',used_at:'2026-11-21T00:00:00Z'}]}));

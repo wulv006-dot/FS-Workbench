@@ -288,7 +288,47 @@ startMysteryPurchase=async function(index){
   <a class="buybtn" href="${esc(url)}" data-carnival-go>${say('GO TO PRODUCT','去商品页购买')}</a>
   <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
 };
-tickMs=function(){syncMysteryCooldown();document.getElementById('msTimer').textContent=msDrawsLeft?say('READY','可以翻牌'):say('UNLOCKS A FEW MINUTES AFTER PAYMENT','支付本轮商品后几分钟内解锁');};
+tickMs=function(){syncMysteryCooldown();document.getElementById('msTimer').textContent=msDrawsLeft?say('READY','可以翻牌'):say('VERIFY AFTER PAYMENT TO UNLOCK','付款后点下方按钮校验解锁');};
+// A drawn round unlocks only when the member presses "verify" after paying: the order is
+// checked against Admin once per press (no background polling of Admin).
+let verifying=false;
+const originalRenderMsActions=renderMsActions;
+renderMsActions=function(){
+  originalRenderMsActions();
+  if(!revealed||!mystery[curGame]?.current)return;
+  document.getElementById('msActions').innerHTML=`<button type="button" class="drawdeal-btn" id="msVerifyBtn" ${verifying?'disabled':''} onclick="carnivalVerifyPurchase()">${verifying?say('CHECKING YOUR ORDER…','正在校验订单…'):say('I\'VE PAID · VERIFY & RESET','已完成购买 · 校验并重置')}</button>`;
+};
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+window.carnivalVerifyPurchase=async function(){
+  if(verifying)return;
+  if(account.state!=='signed_in'){requireLogin(null);return;}
+  const game=curGame,label=`<div class="mystery-flow-label">${say('PURCHASE CHECK','购买校验')}</div>`;
+  verifying=true;renderMsActions();
+  mysteryBox(`${label}<h3 id="mysteryFlowTitle">${say('Checking your order…','正在校验订单…')}</h3><p>${say('This usually takes a few seconds.','通常需要几秒钟。')}</p>`);
+  let outcome='error';
+  try{
+    let g=await getJSON(runtime+'api/carnival/mystery/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:account.uid,game})});
+    for(let attempt=0;attempt<16;attempt++){
+      if(g?.can_draw){outcome='unlocked';break;}
+      const s=g?.verify?.status;if(s==='not_found'||s==='error'){outcome=s;break;}
+      await pause(2500);
+      const all=await getJSON(runtime+'api/carnival/mystery?uid='+encodeURIComponent(account.uid));mystery=all.games||mystery;g=mystery[game];
+    }
+  }catch{}
+  verifying=false;
+  track('fcactivity:selection',{action:'mystery_verify_'+outcome,ids:[]});
+  const close=`<button type="button" class="buybtn" onclick="closeMysteryFlow()">${say('OK','知道了')}</button>`;
+  if(outcome==='unlocked'){
+    try{const all=await getJSON(runtime+'api/carnival/mystery?uid='+encodeURIComponent(account.uid));mystery=all.games||mystery;}catch{}
+    if(curGame===game){restoreMysteryResult();renderMsZone();tickMs();}
+    mysteryBox(`${label}<h3 id="mysteryFlowTitle">${say('Purchase verified!','校验成功！')}</h3><p>${say('Your next round is ready. Pick 3 new cards and draw again.','新一轮机会已重置，重新选 3 张牌再翻吧。')}</p>${close}`);
+    return;
+  }
+  renderMsActions();
+  mysteryBox(outcome==='not_found'
+    ?`${label}<h3 id="mysteryFlowTitle">${say('Purchase not completed yet','还未完成购买')}</h3><p>${say('We couldn\'t find a paid order using this round\'s coupon. Please complete your order first, then verify again to reset.','没有找到使用本轮优惠券的已付款订单。请先完成下单付款，再回来校验重置。')}</p>${close}`
+    :`${label}<h3 id="mysteryFlowTitle">${say('We couldn\'t check right now','暂时无法校验')}</h3><p>${say('Please try again in a minute.','请稍后再试。')}</p>${close}`);
+};
 const originalSelGame=selGame;selGame=function(id){originalSelGame(id);};
 
 /* ---------------- Black Friday ---------------- */
@@ -344,8 +384,13 @@ document.getElementById('flashGrid').addEventListener('click',async e=>{
     const r=await claimSlot('bf_items',p.coupon_id);
     if(r.state==='login_required'){requireLogin(null);return;}
     if(!couponOutcome(r,p.coupon_id,'bf_items'))return;
-    handToCart(r.memberCouponId);toast(say('Coupon added. Opening the product page…','优惠券已到账，正在打开商品页…'));
-    setTimeout(()=>location.assign(p.store_url),700);
+    // Stay on the page after claiming (main-site API guide, point 2); buying is the member's next click.
+    handToCart(r.memberCouponId);
+    mysteryBox(`<div class="mystery-flow-label">${say('BLACK FRIDAY COUPON','黑五商品优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+p.off+'% OFF coupon is in your account','你的 '+p.off+'% OFF 优惠券已到账')}</h3>
+    ${couponCard({amount:p.off+'% OFF',description:esc(p.name)})}
+    <div class="mystery-flow-box"><p class="mystery-flow-disclaimer">${say('Choose this item on the store page. The coupon is selected in your cart; the final price is confirmed at checkout. Use it within 1 day.','在商品页选择该商品，购物车会自动选中这张券，最终价格以结算页为准。领取后 1 天内有效。')}</p></div>
+    <a class="buybtn" href="${esc(p.store_url)}" data-carnival-go>${say('GO TO PRODUCT','去商品页购买')}</a>
+    <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
   }finally{btn.disabled=false;}
 },true);
 
