@@ -131,10 +131,11 @@ class BaselineTests(unittest.TestCase):
             self.assertNotIn('STALE-MEMORY-COST-RULE',text)
             self.assertIn('USER-PREFERENCE-KEPT',text)
             current = text.split('### FC27 Coins V6.1 候选价格与生效确认', 1)[1].split('\n### ', 1)[0]
-            for rule in ('低于 1000K 与 1000K 及以上', '仅采购买 100K',
-                         'D-3 至 D-1', 'Admin 优惠前商品金额', '组合利润率 18%',
-                         '25% 供经营比较', '重读 MMOEXP 主站完整表',
-                         '1000K 的线性折算参考', '临时保护不改写 A'):
+            for rule in ('低于 1000K 和 1000K 及以上', '竞品只实采各平台 100K',
+                         'D-3 至 D-1', 'Admin 优惠前商品金额', '18%组合采购毛利率底线',
+                         '25%为经营目标', 'MMOEXP 主站（site 266）完整价表一致',
+                         'market-anchor-v1', '同平台近三小时有效订单发货成交中位数',
+                         '前四周逐项由吴律确认', '缺实际成本不补零或用预测代替'):
                 self.assertIn(rule, current)
             for old_rule in ('双20', 'D-9', 'D-8 至 D-2', '至少20%', '公开读回后才'):
                 self.assertNotIn(old_rule, current)
