@@ -52,7 +52,9 @@ module.exports={start,server};
 if(require.main===module)(async()=>{
  const url=await start(),browser=await chromium.launch({headless:true});
  try{
-  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.stack);});await page.goto(url);
+  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.stack);});
+  await page.clock.setFixedTime(new Date('2026-10-24T07:00:00Z'));
+  await page.goto(url);
   const category=page.locator('#shipping-category'),core=page.locator('#supplement-insights > .fsi-metrics > .fsi-metric'),separate=page.locator('[data-procurement-independent]');
   await category.waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('.fsi-metrics > .fsi-metric:nth-child(3) strong')?.textContent==='¥250.00');
   assert.match(await core.nth(1).innerText(),/1,000.00/);assert.match(await core.nth(2).innerText(),/Order发货统计/);assert.match(await core.nth(3).innerText(),/25.00/);
