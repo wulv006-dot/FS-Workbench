@@ -247,6 +247,23 @@
 - 另记：`fs-campaign-statistics-refresh` 11/17 08:00 一次运行以 partial 退出（exit 2），早于本次发布，与本次改动无关。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T065836Z`。
 
+### 2026-11-17 `nav-20261117T081421Z`（PR #1203）狂欢盛典内部测试反馈
+
+- 来源：PR #1203（`pr-fast` pass），合并 `7c4dc2366e933a46f330e8919063eda2d71d7b7d`。候选目录 `/var/tmp/fs-campaign-release83-candidate`，manifest `a028796d6844…`；发布 `Carnival.html`、`carnival.css`、`carnival-proto.js`、`carnival-live.js` 和静态清单。发布前核对线上这 4 个文件与上一版合并 `4d0921e2` 内容一致；inspect 的 sourceCAS、protectedCAS 均通过。
+- 改动：
+  - 神秘商店切换游戏恢复（`renderTabs` 不再访问已移除的演示提示）。
+  - 价格：D4、POE、ARC 大类目按标题关键字查找；AION 2 按区域 `sid` 区分同名服务器；POE 小额通货用未四舍五入的单价。
+  - 翻牌和黑五商品领券后显示「立即结算」：清空购物车，加入同一商品一次，带会员券打开 `/Cart.html`；商品页链接保留作后备。
+  - 首页 10% 券领过后按钮变灰、不可点，显示已领取。
+  - 黑五代金券卡片突出 “$X OFF” 和 COUPON，门槛和使用期限缩小。
+- Admin（用户 2026-11-17 要求）：神秘商店券 1401–1435 共 18 张，`repeat_qty` 由 3 改为 0（不限领取次数），逐张读回只有该字段变化。
+- 验证：
+  - 测试：浏览器 carnival 页面 + 神秘商店 13/13，carnival 单元测试 4/4。
+  - 服务：apply 成功，dashboard、runtime、nginx 均为 active。
+  - 正式站读回（Chrome，已登录，未动购物车）：脚本为 `?v=20261117c`；6 个游戏切换后选中状态跟随，无报错；AION 2、D4、POE1、ARC、WoW 全部有价格；FC27 球员 Achraf Hakimi 仍为 PRICE PENDING（球员类目超过翻页上限），由下一次发布修复。
+- 未验证：「立即结算」在线上真实清空并加购（会清掉用户自己的购物车，留给用户实测）；首页按钮变灰在内部测试期间看不到，因为测试券 1517 不限领取（`repeat_qty=0`），会一直显示可领，正式券 1399 限领 1 次。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T081421Z`。
+
 ---
 
 ## 回退与边界
