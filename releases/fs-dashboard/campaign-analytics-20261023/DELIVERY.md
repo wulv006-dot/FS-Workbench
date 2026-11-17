@@ -319,6 +319,17 @@
   - 已结束场次在正式站的效果：要到 11/27 场次结束后才能看到。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T095522Z`。
 
+### release 87：COD 神秘商店价格（2026-11-17）
+
+- 来源：PR #1212，合并 `5da4d13d313c291a72910be0619121829db9075a`；发布 `nav-20261117T102558Z`，manifest `001ec86f…1728`。
+- 发布文件：`Carnival.html`（`carnival-live.js?v=20261117g`）、`carnival-live.js`。发布前线上两文件与 release 86 合并 `187e570d` 一致，无漂移。
+- 问题：神秘商店 COD 的 Stock Rod 等材料一直显示 PRICE PENDING。
+  - 原因：主站 COD（Game 1335）共 452 件商品（17 页），页面每类最多读 10 页，类目 10431 的 7 件材料读不到。
+  - 修复：这 7 件改为按商品名关键字查询，已逐个核对主站只返回对应 ID。
+- 测试：carnival 套件 41/41 通过；CI `pr-fast` 通过。
+- 正式站读回：页面 200，引用 `?v=20261117g`；在浏览器打开 COD MW4，7 件材料都有价格（Stock Rod $0.27），页面上没有 PRICE PENDING。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T102558Z`。
+
 ---
 
 ## 回退与边界
