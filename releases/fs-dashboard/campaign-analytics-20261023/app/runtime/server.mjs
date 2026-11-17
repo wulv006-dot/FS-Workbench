@@ -9,6 +9,7 @@ import {readPublishedMedia} from './published-media.mjs';
 import {pageMedia} from './media-contract.mjs';
 import {applyPublicPriceCache,readPublicPriceCache} from './admin-price-cache.mjs';
 import {publicConfigCache,referenceDeadline} from './public-config-cache.mjs';
+import {createCarnival} from './carnival.mjs';
 
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.xml':'application/xml','.txt':'text/plain; charset=utf-8','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.woff2':'font/woff2'};
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'};
@@ -32,6 +33,7 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
   return applyPublicPriceCache(snapshot,current,{now:(now||Date.now)(),initial});
  };
  const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshotProvider:snapshotWithPrices,dir,mode,testAdapter,now,halloweenCatalogProvider});
+  const carnival=createCarnival({dir:dir||path.join(process.cwd(),'.carnival-runtime'),publishedDir,now:now||Date.now});
   const fileStamp=file=>{try{const s=fs.statSync(file,{bigint:true});return [String(s.ino),String(s.size),String(s.mtimeNs)].join(':');}catch(error){if(error.code==='ENOENT')return 'absent';throw error;}};
   const stamp=configStampProvider||(releaseFile&&publishedDir?()=>fileStamp(releaseFile)+'|'+fileStamp(path.join(publishedDir,'admin-reference-prices.json')):null);
   const configBody=publicConfigCache({ttlMs:configCacheMs,now:now||Date.now,stamp,render:()=>{
@@ -53,7 +55,8 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
         if (req.method!=='POST') return json(req,res,405,{code:'METHOD_NOT_ALLOWED'});
         if (req.headers.origin!==origin || req.headers['content-type']!=='application/json' || req.headers['sec-fetch-site']==='cross-site') return json(req,res,403,{code:'ORIGIN_REQUIRED'});
         const routes={'api/campaign/native_plan':b=>commerce.nativePlan(b),'api/campaign/intents':b=>commerce.intent(b),'api/campaign/quote':b=>commerce.quote(b),'api/campaign/prepare_checkout':b=>commerce.prepare(b),
-          'api/campaign/halloween/reveal':b=>commerce.halloweenReveal(b),'api/campaign/halloween/resolve':b=>commerce.halloweenResolve(b)};
+          'api/campaign/halloween/reveal':b=>commerce.halloweenReveal(b),'api/campaign/halloween/resolve':b=>commerce.halloweenResolve(b),
+          'api/carnival/mystery/draw':b=>carnival.draw(b)};
         if (!Object.hasOwn(routes,relative)) return json(req,res,404,{code:'NOT_FOUND'});
         return json(req,res,200,await routes[relative](await body(req)));
       }
@@ -61,6 +64,8 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
         const content=configBody();res.writeHead(200,{...headers,'Content-Type':'application/json; charset=utf-8'});return res.end(req.method==='HEAD'?undefined:content);
       }
       if (relative==='api/campaign/capabilities') return json(req,res,200,commerce.capabilities());
+      if (relative==='api/carnival/schedule') return json(req,res,200,carnival.schedule());
+      if (relative==='api/carnival/mystery') return json(req,res,200,carnival.state(new URL(req.url,origin).searchParams));
       if(relative==='seasonal/sitemap.xml'){
         const seo=seasonalSeo({snapshot:commerce.config(),publicBase:new URL(prefix,origin).href,enabled:seasonalIndexingEnabled,mode,now:now||Date.now});
         if(!seo)return json(req,res,404,{code:'NOT_FOUND'});
