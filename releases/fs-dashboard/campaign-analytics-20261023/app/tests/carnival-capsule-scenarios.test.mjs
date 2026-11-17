@@ -49,3 +49,7 @@ test('thresholds are inclusive and cents count',()=>{
 test('a member who skipped pressing still gets every missed tier later',()=>{
  assert.deepEqual(claim(850,[1501]).fresh,[1503,1505,1507,1509]);
 });
+
+test('a refund lowers the paid total but issued tiers are not taken back (Admin revokes by hand)',()=>{
+ assert.deepEqual(claim(200,[1501,1503,1505,1507,1509,1511]).fresh,[]);
+});
