@@ -336,7 +336,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
           try { guidance = await response.json(); } catch { /* No valid JSON guidance. */ }
           if (stale()) return;
           // Unknown/terminal source failures are not permission to retain PII.
-          const transient = new Set(['source_busy', 'source_unavailable', 'live_source_unavailable', 'export_source_unavailable']);
+          const transient = new Set(['source_busy', 'source_timeout', 'source_unavailable', 'live_source_unavailable', 'export_source_unavailable']);
           if (guidance?.error && !transient.has(guidance.error)) throw new Error();
           const bodySeconds = guidance?.retryAfter;
           const bodyDeadline = Number.isSafeInteger(bodySeconds) && bodySeconds >= 0
@@ -344,7 +344,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
           const deadlines = [deadline, bodyDeadline].filter(Number.isFinite);
           retryAt = deadlines.length ? Math.max(Date.now(), ...deadlines) : Date.now() + 60000;
           onPause();
-          status.textContent = `${progress()} 服务暂不可用，已暂停；请等待 ${Math.ceil((retryAt - Date.now()) / 1000)} 秒后手动重试。`;
+          status.textContent = `${progress()} ${guidance?.error === 'source_timeout' ? '本页读取超时' : '服务暂不可用'}，已暂停；请等待 ${Math.ceil((retryAt - Date.now()) / 1000)} 秒后手动重试。`;
           return;
         }
         if (!response.ok || response.status !== 206) throw new Error();

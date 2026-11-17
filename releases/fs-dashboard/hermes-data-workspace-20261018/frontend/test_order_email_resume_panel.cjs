@@ -150,13 +150,14 @@ for (const [code, header, delay] of [[429, '120', 120000], [503, null, 60000],
   });
 }
 
-for (const failure of [401, 403, 409, 422, 'scope', 'period', 'json', 'shape', 'address']) {
+for (const failure of [401, 403, 409, 422, 'scope', 'period', 'json', 'shape', 'address', 'source-schema']) {
   test(`invalidates and erases on ${failure}, cannot resume or export`, async () => {
     const h = await setup(); const pending = h.form.fire('submit');
     const first = await requested(h, 1);
     h.respond(0, page(first, 0, 20, 21, 'cursor'));
     const r = await requested(h, 2); const p = page(r, 20, 1, 21);
     if (typeof failure === 'number') r.resolve({ ok: false, status: failure });
+    else if (failure === 'source-schema') r.resolve({ ok: false, status: 503, json: async () => ({ error: 'source_schema_changed' }) });
     else if (failure === 'json') r.resolve({ ok: true, status: 206, json: async () => { throw new Error('private@example.com'); } });
     else {
       if (failure === 'scope') p.scope.site_id = '999';
@@ -198,3 +199,41 @@ test('cancel and dispose revoke finished CSV blobs', async () => {
   }
 });
 
+
+test('source_timeout retains accepted windows and retries only the pending page', async () => {
+  const original = Date.now; let now = 1800000000000; Date.now = () => now;
+  const h = await setup();
+  try {
+    h.fields.end.value = '2026-01-31';
+    h.fields.game_ids.children.forEach(n => { n.selected = true; });
+    const initial = h.form.fire('submit');
+    const first = await requested(h, 1); h.respond(0, page(first, 1));
+    const next = await requested(h, 2); h.respond(1, page(next, 2, 20, 21, 'timeout-cursor'));
+    const failed = await requested(h, 3);
+    failed.resolve({ ok: false, status: 503, headers: { get: () => null },
+      json: async () => ({ complete: false, error: 'source_timeout' }) });
+    await initial;
+    assert.equal(h.buttons[4].disabled, false);
+    assert.equal(h.buttons[2].disabled, true);
+    assert.match(text(h.root), /2 页.*1\/4/);
+    assert.match(text(h.root), /本页读取超时/);
+    assert.doesNotMatch(text(h.root), /名单已清除/);
+    await h.buttons[4].click(); assert.equal(h.requests.length, 3);
+    now += 60000;
+    const resumed = h.buttons[4].click();
+    const retry = await requested(h, 4);
+    assert.equal(retry.options.body, failed.options.body);
+    h.respond(3, page(retry, 22, 1, 21));
+    for (let i = 4; i < 6; i++) {
+      const r = await requested(h, i + 1); h.respond(i, page(r, 19 + i));
+    }
+    await resumed;
+    assert.equal(h.buttons[2].disabled, false);
+    assert.match(text(h.root), /5 页.*4\/4/);
+    h.buttons[2].click();
+    const csv = Buffer.from(await [...h.blobs.values()][0].arrayBuffer()).toString('utf8');
+    assert.match(csv, /Customer1@example.com/);
+    assert.match(csv, /Customer22@example.com/);
+    assert.equal(csv.split('\r\n').length - 2, 24);
+  } finally { h.widget.dispose(); Date.now = original; }
+});
