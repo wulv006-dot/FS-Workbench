@@ -36,6 +36,18 @@ async function refreshAccount(){
   }catch{account={state:'unavailable',uid:null,spend:null,tiers:null};}
   return account;
 }
+// Header sign-in state, same component and data as the FC activity pages (activity.js).
+async function refreshHeader(){
+  const area=document.querySelector('.fca-demo-header .fca-account');if(!area)return;
+  let a;try{a=await H.mainSiteAccount({origin:location.origin});}catch{return;}
+  if(!a||a.state==='unavailable')return;
+  const count=area.querySelector('.fca-account-count');count.hidden=!(a.cart>0);count.textContent=a.cart>99?'99+':String(a.cart||'');
+  area.querySelector('[data-account-login]').hidden=a.state==='signed_in';
+  const user=area.querySelector('.fca-account-user');user.hidden=a.state!=='signed_in';
+  if(a.avatar)user.querySelector('.fca-account-face').src=a.avatar;
+  const frame=user.querySelector('.fca-account-frame');frame.hidden=!a.frame;if(a.frame)frame.src=a.frame;
+}
+document.querySelector('.fca-demo-header [data-account-login]')?.addEventListener('click',()=>requireLogin(null));
 let resume=null;
 function requireLogin(then){resume=then;openLogin();}
 function openLogin(message){
@@ -76,7 +88,7 @@ async function afterLogin(){
   await refreshAccount();if(account.state!=='signed_in')return;
   document.getElementById('loginRequiredMask').classList.remove('show');
   toast(say('Signed in.','已登录。'));
-  await Promise.all([loadMystery(),refreshHomeCoupon()]);refreshDrawState();
+  await Promise.all([loadMystery(),refreshHomeCoupon(),refreshHeader()]);refreshDrawState();
   const next=resume;resume=null;if(next)runResume(next);
 }
 function runResume(r){
@@ -84,9 +96,25 @@ function runResume(r){
   else if(r.kind==='draw'&&r.game===curGame){picked=r.picked;drawDeal();}
 }
 
+/* ---------------- internal test ---------------- */
+// Before the event the server may publish a time-limited internal test (carnival-test.json on
+// 187). While it is valid every act shows as live and every claim uses the one test coupon,
+// so only the coupon delivery chain is exercised. It ends by itself at open_until.
+let TEST=null;const TEST_START='2026-11-01T00:00:00Z',REAL_EVENTS=JSON.parse(JSON.stringify(CONFIG.events));
+function applyTest(test){
+  TEST=test&&Number.isInteger(test.coupon_id)&&typeof test.slot==='string'&&Date.parse(test.open_until)>Date.now()?test:null;
+  for(const k of Object.keys(REAL_EVENTS))CONFIG.events[k]=TEST?{start:TEST_START,end:TEST.open_until}:{...REAL_EVENTS[k]};
+  document.documentElement.toggleAttribute('data-carnival-test',!!TEST);
+}
+// With every act open the prototype would jump to the last one; during a test the visitor
+// stays on the act they chose.
+const realFeaturedEvent=currentFeaturedEvent;
+currentFeaturedEvent=function(){return TEST?featuredEvent:realFeaturedEvent();};
+
 /* ---------------- coupons ---------------- */
 // One claim POST, never retried. Returns {state:'claimed'|'login_required'|'unavailable', memberCouponId}.
 async function claimSlot(slot,couponId){
+  if(TEST){slot=TEST.slot;couponId=TEST.coupon_id;}
   let info;
   try{info=await getJSON('/ajax/carnival/coupon?slot='+encodeURIComponent(slot));}catch{return {state:'unavailable'};}
   const d=info?.data;
@@ -206,7 +234,8 @@ aionSelectionChanged=function(resetServer){
   if(!revealed){picked=[];renderMsZone();}
 };
 function livePriceNotes(){
-  document.querySelectorAll('.wow-note,#fc27PlatformBar span').forEach(n=>{n.textContent=say('Live MMOEXP prices. The final price is confirmed at checkout.','价格实时取自 MMOEXP，最终以结算页为准。');});
+  // Only the note; the platform dropdown is also built from spans (.game-select-wrap).
+  document.querySelectorAll('.wow-note,#fc27PlatformBar>span:not(.game-select-wrap)').forEach(n=>{n.textContent=say('Live MMOEXP prices. The final price is confirmed at checkout.','价格实时取自 MMOEXP，最终以结算页为准。');});
 }
 
 /* ---------------- Mystery Shop ---------------- */
@@ -335,7 +364,9 @@ const originalSelGame=selGame;selGame=function(id){originalSelGame(id);};
 let schedule=null;
 async function loadSchedule(){
   try{schedule=await getJSON(runtime+'api/carnival/schedule');
-    schedule.sessions.forEach((s,i)=>{if(CONFIG.flash.sessions[i]){CONFIG.flash.sessions[i].start=s.starts_at;CONFIG.flash.sessions[i].end=s.ends_at;}});
+    applyTest(schedule.test);
+    schedule.sessions.forEach((s,i)=>{if(CONFIG.flash.sessions[i]){CONFIG.flash.sessions[i].start=TEST?TEST_START:s.starts_at;CONFIG.flash.sessions[i].end=TEST?TEST.open_until:s.ends_at;}});
+    try{updateEventGates();}catch{}
     window.dispatchEvent(new CustomEvent('carnival:schedule',{detail:schedule}));
   }catch{schedule=null;}
   renderSessTabs();renderFlash();
@@ -420,7 +451,7 @@ livePriceNotes();
 (async()=>{
   try{await H.adoptSocialLogin();}catch{}
   await refreshAccount();
-  await Promise.all([loadMystery(),refreshHomeCoupon(),loadSchedule()]);
+  await Promise.all([loadMystery(),refreshHomeCoupon(),loadSchedule(),refreshHeader()]);
   refreshDrawState();
   try{const saved=JSON.parse(sessionStorage.getItem('carnival-login-resume')||'null');sessionStorage.removeItem('carnival-login-resume');
     if(saved&&account.state==='signed_in'&&Date.now()-saved.at<20*60*1000){if(saved.game&&saved.game!==curGame)selGame(saved.game);runResume(saved);}}catch{}

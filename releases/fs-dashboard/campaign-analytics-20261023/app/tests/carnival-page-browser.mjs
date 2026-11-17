@@ -39,6 +39,47 @@ test('before Black Friday no products reach the page',async t=>{
  assert.equal(await page.locator('#flashGrid [data-carnival-product]').count(),0);
 });
 
+test('placeholder cards keep the ? centred',async t=>{
+ const {page}=await open(t,{clock:'2026-11-20T10:00:00-05:00'});
+ await page.waitForFunction(()=>document.querySelectorAll('#flashGrid .flash-mystery').length===4);
+ const gap=await page.evaluate(()=>{const card=document.querySelector('#flashGrid .flash-mystery').getBoundingClientRect(),icon=document.querySelector('#flashGrid .flash-mystery .ficon').getBoundingClientRect();return Math.abs((icon.left-card.left)-(card.right-icon.right));});
+ assert.ok(gap<=2,'left and right space differ by '+gap+'px');
+});
+
+test('header follows the main site: sign-in state, cart, no language switch',async t=>{
+ const {page}=await open(t,{clock:'2026-11-20T10:00:00-05:00'});
+ assert.equal(await page.locator('#langEn, #langZh, .lang-sw').count(),0);
+ assert.equal(await page.locator('.fca-demo-header .fca-brand img').getAttribute('src'),'assets/mmoexp-logo.png');
+ await page.waitForFunction(()=>document.querySelector('.fca-demo-header [data-account-login]').hidden);
+ assert.equal(await page.locator('.fca-demo-header .fca-account-user').isVisible(),true);
+ // FC27 platform choice is shown and switches the platform.
+ const trigger=page.locator('#fc27PlatformBar .game-select-trigger');
+ assert.equal(await trigger.isVisible(),true,'FC27 platform choice is shown');
+ assert.match(await trigger.textContent(),/PlayStation/);
+ await trigger.click();await page.locator('.game-select-menu [role="option"]',{hasText:'Xbox'}).click();
+ assert.equal(await page.locator('#fc27Platform').inputValue(),'xbox');
+});
+
+test('a guest sees Log In in the header and it opens the sign-in box',async t=>{
+ const {page}=await open(t,{clock:'2026-11-20T10:00:00-05:00',signedIn:false});
+ await page.locator('.fca-demo-header [data-account-login]').click();
+ await page.waitForSelector('#loginRequiredMask.show form.carnival-login');
+});
+
+test('internal test before the event: everything open and every claim uses the test coupon',async t=>{
+ const {page,site,errors}=await open(t,{clock:'2026-11-17T10:00:00-05:00',internalTest:{open_until:'2026-11-18T23:00:00-05:00',coupon_id:1601,slot:'carnival_test'}});
+ await page.waitForFunction(()=>document.documentElement.hasAttribute('data-carnival-test'));
+ await page.locator('#heroEarlyBtn').click();await page.locator('#couponClaimBtn').click();
+ await page.waitForFunction(()=>document.getElementById('heroEarlyBtn').classList.contains('claimed'));
+ assert.deepEqual(site.claims.at(-1),{slot:'carnival_test',coupon_id:1601});
+ await page.locator('a[href="#flash"]').first().click();
+ await page.waitForFunction(()=>document.querySelectorAll('#flashGrid [data-carnival-product]:not(:disabled)').length>0);
+ await page.locator('#flashGrid [data-carnival-product]').first().click();
+ await page.waitForSelector('#mysteryFlowMask.show [data-carnival-go]');
+ assert.deepEqual(site.claims.at(-1),{slot:'carnival_test',coupon_id:1601});
+ assert.deepEqual(errors,[]);
+});
+
 test('first visit asks the analytics question on the carnival page',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carnival-consent-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const carnival=createCarnival({dir,publishedDir:dir,now:()=>Date.parse('2026-11-20T10:00:00-05:00')}),site=mainSite();

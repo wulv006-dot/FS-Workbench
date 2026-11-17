@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {carnivalTest} from '../runtime/carnival.mjs';
 
 export const CARNIVAL_UNLOCKS_FILE='carnival-unlocks.json';
 const FROM=Date.parse('2026-11-19T00:00:00-05:00'),UNTIL=Date.parse('2026-12-03T00:00:00-05:00');
@@ -25,13 +26,16 @@ function previous(file){
 export function createCarnivalVerifier({publicDir,requestDir,read,now=Date.now,intervalMs=3000,log=()=>{}}={}){
  let timer=null,running=false;
  async function refresh(){
-  const clock=now();if(clock<FROM||clock>=UNTIL||running)return {status:'idle'};
+  // Before the event only the internal test (carnival-test.json) asks for checks, and then
+  // only that test coupon's uses are read.
+  const clock=now(),test=clock<FROM?carnivalTest(publicDir,clock):null;
+  if(clock<FROM&&!test||clock>=UNTIL||running)return {status:'idle'};
   let names;try{names=fs.readdirSync(requestDir).filter(n=>REQUEST.test(n));}catch{return {status:'idle'};}
   if(!names.length)return {status:'idle'};
   running=true;
   try{
    let data=null;
-   try{data=await read({action:'carnival_unlocks'});if(data?.status!=='available'||!Array.isArray(data.uses))throw Error('CARNIVAL_UNLOCKS_INVALID');}
+   try{data=await read(test?{action:'carnival_unlocks',test_coupon_id:test.coupon_id}:{action:'carnival_unlocks'});if(data?.status!=='available'||!Array.isArray(data.uses))throw Error('CARNIVAL_UNLOCKS_INVALID');}
    catch(error){log('CARNIVAL_UNLOCKS_UNAVAILABLE',error?.message);data=null;}
    const file=path.join(publicDir,CARNIVAL_UNLOCKS_FILE),last=previous(file),at=new Date(now()).toISOString(),checked={...last.checked};
    // ok:false = Admin could not be read; the page says "try again" instead of "not paid".
