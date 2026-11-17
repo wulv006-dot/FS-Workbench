@@ -806,7 +806,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 await client.on_message(card())
             client.brain.select_matchday.assert_not_awaited()
             channel.send.assert_not_awaited()
-            self.assertIsNotNone(client.focus_retry_task)
+            self.assertIn(SOURCE, client.focus_retry_tasks)
             await client.close()
 
     async def test_quiet_day_has_no_public_post_or_repeat_model_call(self):
@@ -834,7 +834,7 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 await client.on_message(card())
             self.assertEqual(client.brain.select_matchday.await_count, 1)
             channel.send.assert_not_awaited()
-            self.assertIsNone(client.focus_retry_task)
+            self.assertFalse(client.focus_retry_tasks)
             self.assertTrue(client.focus_store.may_select(GUILD, NOW.date(), 2))
             self.assertTrue(client.focus_store.reviewed(GUILD, SOURCE))
             client.brain.select_matchday.return_value = '4'
@@ -873,13 +873,54 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
             with patch('chat_service.discord.utils.utcnow', return_value=NOW), patch(
                     'chat_service.asyncio.sleep', new_callable=AsyncMock):
                 await client.on_message(message)
-                await client.focus_retry_task
+                task = client.focus_retry_tasks[message.id]
+                await task
             self.assertEqual(client.brain.select_matchday.await_count, 2)
             channel.send.assert_awaited_once()
             with patch('chat_service.discord.utils.utcnow', return_value=NOW):
                 await client.on_message(message)
             self.assertEqual(client.brain.select_matchday.await_count, 2)
             await client.close()
+
+    async def test_staggered_guild_cards_keep_separate_settle_retries(self):
+        from chat_service import ChatClient, OFFICIAL_GUILD
+
+        config = {'chat_bot': {'enabled': True, 'allow_message_content': True,
+                               'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                       'keywords': []}}}}
+        client = ChatClient(config)
+        first = card()
+        second = card()
+        second.id += 1
+        second.guild.id = OFFICIAL_GUILD
+        hold = asyncio.Event()
+
+        async def pending_retry(_message):
+            await hold.wait()
+
+        with patch.object(client, 'retry_daily_card', side_effect=pending_retry):
+            client.schedule_daily_retry(first)
+            client.schedule_daily_retry(second)
+            client.schedule_daily_retry(first)
+            self.assertEqual(set(client.focus_retry_tasks), {first.id, second.id})
+            self.assertEqual(len(set(client.focus_retry_tasks.values())), 2)
+        await client.close()
+
+    async def test_retry_waits_for_its_own_card_age(self):
+        from chat_service import ChatClient
+
+        client = ChatClient({'chat_bot': {'enabled': True, 'allow_message_content': True,
+                                         'routes': {str(GUILD): {'channels': {str(CHANNEL): {}},
+                                                                 'keywords': []}}},
+                             'matchday_focus': {'settle_seconds': 300}})
+        message = card(now=NOW)
+        with patch('chat_service.discord.utils.utcnow', return_value=NOW + dt.timedelta(minutes=2)), \
+                patch('chat_service.asyncio.sleep', new_callable=AsyncMock) as sleep, \
+                patch.object(client, 'handle_daily_card', new_callable=AsyncMock) as handle:
+            await client.retry_daily_card(message)
+        sleep.assert_awaited_once_with(180)
+        handle.assert_awaited_once_with(message, schedule_retry=False)
+        await client.close()
 
     async def test_daily_card_posts_once_and_only_selected_live_match_is_hosted(self):
         from chat_service import ChatClient
