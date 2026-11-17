@@ -292,7 +292,15 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
             revision=current['fc.pricing.v3']['revision'] if fc_v61 else None)
         compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
-            raise ValueError('shared_admin_es_baseline_binding_drift')
+            if not (fc_v61 and baseline_proof.get('retained_current_git') and all(
+                    r.get('baseline_compatibility', compatibility).get('mode') == 'retain_full_baseline'
+                    and re.fullmatch('[a-f0-9]{64}', r.get('baseline_compatibility', compatibility).get('sha256', ''))
+                    for r in all_routes)):
+                raise ValueError('shared_admin_es_baseline_binding_drift')
+            baseline_proof['previous_route_baselines'] = [copy.deepcopy(r.get('baseline_compatibility')) for r in all_routes]
+            for route in all_routes:
+                if 'baseline_compatibility' in route:
+                    route['baseline_compatibility'] = copy.deepcopy(compatibility)
     release_root = 'knowledge-releases/' + release
     payloads, remap, checks = {}, {}, []
     shared_rows = []
