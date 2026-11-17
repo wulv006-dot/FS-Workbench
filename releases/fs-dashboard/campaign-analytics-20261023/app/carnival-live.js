@@ -88,7 +88,7 @@ async function afterLogin(){
   await refreshAccount();if(account.state!=='signed_in')return;
   document.getElementById('loginRequiredMask').classList.remove('show');
   toast(say('Signed in.','已登录。'));
-  await Promise.all([loadMystery(),refreshHomeCoupon(),refreshHeader()]);refreshDrawState();
+  await Promise.all([loadMystery(),refreshHomeCoupon(),refreshHeader(),loadCapsule()]);refreshDrawState();
   const next=resume;resume=null;if(next)runResume(next);
 }
 function runResume(r){
@@ -134,7 +134,7 @@ async function claimSlot(slot,couponId){
 /* Buy now: the member asked for the claimed item to go straight to checkout. The cart is
  * emptied (a member coupon applies to the whole order, so other lines would block or dilute
  * it), the exact goods row is added once, and the cart page opens with the coupon selected.
- * Each request is sent once; any failure stops and leaves the product page as the way on. */
+ * Each request is sent once; any failure stops with a "try again" message. */
 const postForm=(url,form)=>fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)}).then(r=>{if(!r.ok)throw Error('HTTP_'+r.status);return r.json().catch(()=>({}));});
 function cartLine(spec,row){
   if(spec.top===1)return {category:'new_gold',id:String(row.id),group:String(spec.qty),num:'1',attr:'',aid:''};
@@ -152,10 +152,8 @@ async function buyNow(spec,memberCouponId){
   handToCart(memberCouponId);track('fcactivity:selection',{action:'buy_now',ids:[String(row.id)]});
   location.assign('/Cart.html');return {state:'navigating'};
 }
-function buyNowBlock(spec,fallback){
-  return `<button type="button" class="buybtn" data-carnival-buy>${say('CHECKOUT NOW','立即结算')}</button>
-  <p class="mystery-flow-disclaimer">${say('Your cart will be replaced with this item and the coupon applied.','购物车会被清空，只放入这件商品并自动选中这张券。')}</p>
-  <a class="carnival-store-link" href="${esc(fallback)}" data-carnival-go>${say('Or choose options on the product page','或去商品页自选规格')}</a>`;
+function buyNowBlock(){
+  return `<button type="button" class="buybtn" data-carnival-buy>${say('CHECKOUT NOW','立即结算')}</button>`;
 }
 function wireBuyNow(spec,memberCouponId){
   const b=document.querySelector('#mysteryFlowMask [data-carnival-buy]');if(!b)return;
@@ -166,7 +164,7 @@ function wireBuyNow(spec,memberCouponId){
     b.disabled=false;b.textContent=say('CHECKOUT NOW','立即结算');
     toast(r.state==='unknown'?say('We could not confirm the cart. Open your cart before trying again.','无法确认是否已加入购物车，请先打开购物车查看再重试。')
       :r.state==='rejected'&&r.message?r.message
-      :say('This item cannot be added right now. Use the product page link below.','暂时无法直接加入购物车，请用下方链接去商品页购买。'));
+      :say('This item cannot be added right now. Please try again in a moment.','暂时无法加入购物车，请稍后再试。'));
   });
 }
 function handToCart(memberCouponId){try{sessionStorage.setItem('pending_member_coupon_id',String(memberCouponId));sessionStorage.removeItem('pending_discount_code');}catch{}}
@@ -346,12 +344,6 @@ drawDeal=async function(){
   [300,1000,1700].forEach((ms,i)=>setTimeout(()=>cards[i]?.classList.add('open'),ms));
   setTimeout(()=>{msBusy=false;renderMsActions();toast(j.repeated?say('This round was already drawn.','本轮已经抽过了。'):t('revealDone'));},2400);
 };
-const STORE={fc27:'/Fc-27/Coins.html',aion2:'/Aion-2/Kinah.html',wow:'/wow-gold.html',d4:'/Diablo-4/Items.html',poe1:'/Path-of-exile/Currency.html',poe2:'/Poe-2/Currency.html',maple:'/Maplestory-classic-world/Items.html',arc:'/Arc-raiders/Items.html',codmw4:'/Cod-modern-warfare-4/Bot-lobbies.html'};
-function storeUrl(it){
-  if(it.productIds&&it.modelId!=='41217957')return '/Fc-27/Players.html';
-  if(it.storeUrl){try{const u=new URL(it.storeUrl,location.origin);if(u.origin===location.origin)return u.pathname;}catch{}}
-  return STORE[curGame]||'/';
-}
 startMysteryPurchase=async function(index){
   const r=revealed?.[index];if(!r)return;
   if(account.state!=='signed_in'){requireLogin(null);return;}
@@ -361,12 +353,12 @@ startMysteryPurchase=async function(index){
   if(result.state==='login_required'){closeMysteryFlow();requireLogin(null);return;}
   if(!couponOutcome(result,r.couponId,slot)){closeMysteryFlow();return;}
   handToCart(result.memberCouponId);
-  const price=fc27Price(r.it),url=storeUrl(r.it),spec=mysterySpec(r.it);
+  const price=fc27Price(r.it),spec=mysterySpec(r.it);
   mysteryBox(`<div class="mystery-flow-label">${say('ITEM COUPON','商品专属优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+r.off+'% OFF coupon is in your account','你的 '+r.off+'% OFF 优惠券已到账')}</h3>
   ${couponCard({amount:r.off+'% OFF',description:esc(nm(r.it))})}
   <div class="mystery-flow-box"><p>${esc(nm(gameItems()))} · ${esc(nm(r.it))}</p>${price!==null?`<p>${say('Current price','当前价格')}: $${price.toFixed(2)} → <b>$${(price*(1-r.off/100)).toFixed(2)}</b></p>`:''}
   <p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Coupons cannot be combined with other coupons or codes.','最终价格以结算页为准；不能与其他优惠券或折扣码叠加。')}</p></div>
-  ${buyNowBlock(spec,url)}
+  ${buyNowBlock()}
   <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
   wireBuyNow(spec,result.memberCouponId);
 };
@@ -443,15 +435,18 @@ renderFlash=function(){
     requestAnimationFrame(syncFlashScroll);return;
   }
   const label=live?null:st.k==='soon'?t('notStarted'):t('sessOver');
-  const cards=flashCategory==='voucher'?s.vouchers.map(v=>`<div class="fitem flash-coupon"><div class="fgame">${t('couponGame')}</div><div class="flash-ticket"><span class="flash-ticket-tag">${say('COUPON','优惠券')}</span><span class="flash-ticket-amount"><b>$${esc(v.reduce)}</b><i>OFF</i></span></div><p class="flash-ticket-min">${say('Min. spend','满')} $${esc(v.attain)}</p><p class="flash-note">${say('Use by 23:59:59 ET on the day you claim it.','领取当天 23:59:59（美东）前使用。')}</p><button class="buybtn" ${label?'disabled':''} data-carnival-voucher="${v.coupon_id}" data-slot="${esc(v.slot)}">${label||t('free')}</button></div>`)
+  // An ended session keeps its line-up visible, greyed and stamped, so members see what was on sale.
+  const over=st.k==='over',endedCls=over?' flash-ended':'',stamp=over?`<div class="flash-ended-stamp">${say('ENDED','已结束')}</div>`:'';
+  const cards=flashCategory==='voucher'?s.vouchers.map(v=>`<div class="fitem flash-coupon${endedCls}">${stamp}<div class="fgame">${t('couponGame')}</div><div class="flash-ticket"><span class="flash-ticket-tag">${say('COUPON','优惠券')}</span><span class="flash-ticket-amount"><b>$${esc(v.reduce)}</b><i>OFF</i></span></div><p class="flash-ticket-min">${say('Min. spend','满')} $${esc(v.attain)}</p><p class="flash-note">${say('Use by 23:59:59 ET on the day you claim it.','领取当天 23:59:59（美东）前使用。')}</p><button class="buybtn" ${label?'disabled':''} data-carnival-voucher="${v.coupon_id}" data-slot="${esc(v.slot)}">${label||t('free')}</button></div>`)
    :s.products.filter(p=>p.category===flashCategory).map(p=>{
     const price=cachedQuote(flashSpec(p),rerenderFlash),now=price!==null?Math.round(price*(100-p.off))/100:null;
     const opts=p.quote.server_choice==='wow'?['region','faction','realm'].map(k=>flashSelect('wow',k,{region:[['US','US'],['EU','EU'],['Asia','Asia'],['KR','KR']],faction:[['Alliance','Alliance'],['Horde','Horde']],realm:[['Normal','Normal'],['PVP','PVP'],['Roleplay','Roleplay'],['Roleplay-PVP','Roleplay-PVP']]}[k],flashSelections.wow[k])).join('')
       :Object.keys(p.quote.options).length>1?`<select aria-label="${say('Platform','平台')}" onchange="carnivalFlashOption('${esc(p.key)}',this.value)">${Object.entries(p.quote.options).map(([k,o])=>`<option value="${esc(k)}"${(flashPick[p.key]||Object.keys(p.quote.options)[0])===k?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`
       :`<span class="flash-fixed">${esc(Object.values(p.quote.options)[0].label)}</span>`;
-    return `<div class="fitem flash-real" data-product="${esc(p.key)}"><div class="off-badge">-${p.off}%</div><div class="fgame">${esc(p.game)}</div><div class="ficon flash-coin-art"><img src="${esc(p.image)}" alt="" loading="lazy"></div><h4>${esc(p.name)}</h4><div class="flash-options">${opts}</div><div class="fprice">${price!==null?`<span class="now">$${now.toFixed(2)}</span><span class="old">$${price.toFixed(2)}</span>`:`<span class="now">${say('PRICE PENDING','价格加载中')}</span>`}</div><button class="buybtn" ${label||price===null?'disabled':''} data-carnival-product="${esc(p.key)}">${label||t('grab')}</button></div>`;
+    return `<div class="fitem flash-real${endedCls}" data-product="${esc(p.key)}">${stamp}<div class="off-badge">-${p.off}%</div><div class="fgame">${esc(p.game)}</div><div class="ficon flash-coin-art"><img src="${esc(p.image)}" alt="" loading="lazy"></div><h4>${esc(p.name)}</h4><div class="flash-options">${opts}</div><div class="fprice">${price!==null?`<span class="now">$${now.toFixed(2)}</span><span class="old">$${price.toFixed(2)}</span>`:`<span class="now">${say('PRICE PENDING','价格加载中')}</span>`}</div><button class="buybtn" ${label||price===null?'disabled':''} data-carnival-product="${esc(p.key)}">${label||t('grab')}</button></div>`;
    });
   grid.innerHTML=cards.join('')||`<div class="flash-empty">${say('Products for this category are to be announced.','本场该分类商品待公布')}</div>`;
+  if(over)grid.querySelectorAll('select').forEach(x=>{x.disabled=true;});
   grid.scrollLeft=saved;requestAnimationFrame(syncFlashScroll);
 };
 document.getElementById('flashGrid').addEventListener('click',async e=>{
@@ -473,27 +468,80 @@ document.getElementById('flashGrid').addEventListener('click',async e=>{
     mysteryBox(`<div class="mystery-flow-label">${say('BLACK FRIDAY COUPON','黑五商品优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+p.off+'% OFF coupon is in your account','你的 '+p.off+'% OFF 优惠券已到账')}</h3>
     ${couponCard({amount:p.off+'% OFF',description:esc(p.name)})}
     <div class="mystery-flow-box"><p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Use it within 1 day.','最终价格以结算页为准。领取后 1 天内有效。')}</p></div>
-    ${buyNowBlock(flashSpec(p),p.store_url)}
+    ${buyNowBlock()}
     <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
     wireBuyNow(flashSpec(p),r.memberCouponId);
   }finally{btn.disabled=false;}
 },true);
 
 /* ---------------- Gacha ---------------- */
-// Spend and tiers come from the main site; the tier coupon claim interface is pending
-// from main-site development, so draws stay closed rather than being simulated.
+// Spend comes from /ajax/carnival/user. The tier coupons come from the main-site slot
+// "capsule" (Admin 入口配券), whose rows carry required_spend / unlocked / claim_status.
+// One draw claims every unlocked, unclaimed tier, one claim call each, lowest first; the main
+// site checks the spend and never issues a tier twice. Nothing is simulated on the page.
+// Internal tests (carnival-test.json) never open it: tier coupons are real money off.
+const CAPSULE_SLOT='capsule';
+let capsule={state:'unknown',rows:[]},capsuleBusy=false;
+async function loadCapsule(){
+  try{
+    const j=await getJSON('/ajax/carnival/coupon?slot='+CAPSULE_SLOT),d=j?.data;
+    if(Number(j?.code)!==1||d?.enabled!==true||d.slot!==CAPSULE_SLOT||d.error)throw Error('CAPSULE');
+    // Each row is placed on the tier whose threshold equals its required_spend.
+    const rows=(d.list||[]).map(r=>({row:r,tier:CONFIG.gacha.thresholds.indexOf(Number(r.required_spend))})).filter(x=>x.tier>=0).sort((a,b)=>a.tier-b.tier);
+    capsule={state:d.logged_in===true?'ready':'guest',rows};
+  }catch{capsule={state:'unavailable',rows:[]};}
+  CONFIG.gacha.prizes.forEach((p,i)=>{p.left=capsule.rows.some(x=>x.tier===i&&tierClaimed(x.row))?0:1;});
+  renderGlobe();renderPool();refreshDrawState();
+}
+const tierClaimed=r=>r.claim_status==='claimed';
+const tierDue=r=>r.unlocked===true&&r.can_claim===true&&!tierClaimed(r);
+async function claimTier(r){
+  let res;
+  try{res=await getJSON('/ajax/carnival/claim',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:new URLSearchParams({slot:CAPSULE_SLOT,coupon_id:String(Number(r.coupon_id))}).toString()});}
+  catch{return {state:'unknown'};}
+  if(Number(res?.code)===1)return {state:'claimed'};
+  return {state:'rejected',status:String(res?.data?.claim_status||res?.data?.error||''),message:typeof res?.msg==='string'?res.msg.slice(0,200):''};
+}
 getAuthenticatedCouponUser=function(){return account.state==='signed_in'?{uid:account.uid}:null;};
 getVerifiedOrderTotal=function(){return account.state==='signed_in'&&Number.isFinite(account.spend)?account.spend:null;};
 const originalRefreshDraw=refreshDrawState;
 refreshDrawState=function(){
   originalRefreshDraw();
-  const btn=document.getElementById('drawBtn');btn.disabled=true;
-  if(account.state!=='signed_in'){btn.textContent=say('SIGN IN TO SEE YOUR SPEND','登录查看累计消费');btn.disabled=false;btn.dataset.carnivalLogin='1';}
-  else{btn.textContent=say('CAPSULE DRAWS OPEN SOON','扭蛋抽奖即将开放');delete btn.dataset.carnivalLogin;}
+  const btn=document.getElementById('drawBtn');btn.disabled=true;delete btn.dataset.carnivalLogin;
+  const due=capsule.rows.filter(x=>tierDue(x.row)).length;
+  document.getElementById('mCost').innerHTML=say('My available draws','我的可抽次数')+` <strong>${due}</strong>`;
+  if(account.state!=='signed_in'){btn.textContent=say('SIGN IN TO SEE YOUR SPEND','登录查看累计消费');btn.disabled=false;btn.dataset.carnivalLogin='1';return;}
+  if(TEST||capsule.state!=='ready'||phaseStatus(CONFIG.events.cm).k!=='live'){btn.textContent=say('CAPSULE DRAWS OPEN SOON','扭蛋抽奖即将开放');return;}
+  if(capsuleBusy){btn.textContent=t('mShaking');return;}
+  if(due){btn.disabled=false;btn.textContent=due>1?say(`DRAW ${due} CAPSULES`,`抽取 ${due} 颗扭蛋`):t('draw');return;}
+  const all=capsule.rows.length>0&&capsule.rows.every(x=>tierClaimed(x.row));
+  btn.textContent=all?t('poolEmpty'):t('spendMore');
 };
-document.getElementById('drawBtn').addEventListener('click',e=>{
+function capsuleResult(won,failed){
+  const amount=i=>(CONFIG.gacha.prizes[i]?.name.match(/\$[0-9]+/)||[''])[0]+' OFF';
+  document.getElementById('mIcon').style.display=won.length?'none':'';
+  document.getElementById('gachaCoupon').innerHTML=won.map(x=>couponCard({amount:amount(x.tier),description:say('No-minimum coupon','无门槛优惠券'),minText:say('Min. spend: $0.00','最低消费：$0.00')})).join('');
+  document.getElementById('mTitle').textContent=won.length?say(won.length>1?`You won ${won.length} coupons!`:'You won a coupon!',won.length>1?`抽中 ${won.length} 张优惠券！`:'抽中一张优惠券！'):say('No coupon this time','本次未领到优惠券');
+  const unknown=failed.some(x=>x.res.state==='unknown');
+  document.getElementById('mDesc').textContent=(won.length?say('They are in your account and apply at checkout.','已存入你的账户，结算时可用。'):'')
+    +(failed.length?' '+(unknown?say('Some coupons could not be confirmed. Check My Coupons before trying again.','部分优惠券未能确认，请先到「我的优惠券」查看再重试。'):failed[0].res.message||say('Some coupons are not available right now.','部分优惠券暂时不可领取。')):'');
+  document.getElementById('modalMask').classList.add('show');
+}
+document.getElementById('drawBtn').addEventListener('click',async e=>{
   e.stopImmediatePropagation();e.preventDefault();
-  if(e.currentTarget.dataset.carnivalLogin)requireLogin(null);
+  const btn=e.currentTarget;
+  if(btn.dataset.carnivalLogin){requireLogin(null);return;}
+  if(capsuleBusy||btn.disabled||TEST)return;
+  const due=capsule.rows.filter(x=>tierDue(x.row));if(!due.length)return;
+  capsuleBusy=true;refreshDrawState();
+  const machine=document.getElementById('machine');machine.classList.add('shaking');document.getElementById('mScreen').textContent=t('mShaking');
+  const won=[],failed=[];
+  for(const x of due){const res=await claimTier(x.row);(res.state==='claimed'?won:failed).push({...x,res});
+    track('fcactivity:coupon-claim',{state:res.state,reused:false,couponId:Number(x.row.coupon_id)});}
+  await new Promise(r=>setTimeout(r,900));
+  machine.classList.remove('shaking');document.getElementById('mScreen').textContent=t('mIdle');
+  capsuleBusy=false;await loadCapsule();
+  capsuleResult(won,failed);
 },true);
 
 /* ---------------- codes ---------------- */
@@ -506,10 +554,10 @@ livePriceNotes();
   try{await H.adoptSocialLogin();}catch{}
   await refreshAccount();
   // The schedule says whether an internal test is on, which decides the home coupon checked.
-  await Promise.all([loadMystery(),loadSchedule().then(refreshHomeCoupon),refreshHeader()]);
+  await Promise.all([loadMystery(),loadSchedule().then(refreshHomeCoupon),refreshHeader(),loadCapsule()]);
   refreshDrawState();
   try{const saved=JSON.parse(sessionStorage.getItem('carnival-login-resume')||'null');sessionStorage.removeItem('carnival-login-resume');
     if(saved&&account.state==='signed_in'&&Date.now()-saved.at<20*60*1000){if(saved.game&&saved.game!==curGame)selGame(saved.game);runResume(saved);}}catch{}
-  setInterval(async()=>{const before=schedule?.sessions?.map(s=>s.products.length).join();await loadSchedule().catch(()=>{});if(before!==schedule?.sessions?.map(s=>s.products.length).join())renderFlash();},60000);
+  setInterval(async()=>{const before=schedule?.sessions?.map(s=>s.products.length).join();await loadSchedule().catch(()=>{});if(before!==schedule?.sessions?.map(s=>s.products.length).join())renderFlash();refreshDrawState();},60000);
 })();
 })();

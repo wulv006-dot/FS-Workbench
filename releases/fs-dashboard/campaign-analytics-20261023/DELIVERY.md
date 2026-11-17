@@ -272,6 +272,53 @@
 - 未验证：「立即结算」的线上实测（会清空用户自己的购物车，留给用户操作）。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T082159Z`。
 
+### 2026-11-17 `nav-20261117T091432Z`（PR #1207）校验修复、按游戏解锁、去掉商品页链接
+
+- 来源：PR #1207（`pr-fast` pass；中途一次 `ops-presentation-browser` 无关失败，重跑通过），合并 `bccbb1421d2e23dbcf6e6d32d09cefee3ba02b23`。候选目录 `/var/tmp/fs-campaign-release85-candidate`，manifest `7edae4613dff…`；发布 `Carnival.html`、`carnival-live.js`、`analytics/carnival-unlocks.mjs`、`runtime/carnival.mjs`、`backend/campaign_backend/discount_revenue.py` 和静态清单。发布前核对 5 个线上文件与 #1204 合并内容一致；inspect 的 sourceCAS、protectedCAS 均通过。
+- 根因：用户在线上点「校验」一直显示 “We couldn't check right now”。187 看板日志为 `CARNIVAL_UNLOCKS_UNAVAILABLE SITE_SCOPE_REQUIRED`：看板读 Admin 时没带 `site_id`，后端客户端在调用前就拒绝了。改为带 `site_id=266`，后端也只接受 266。
+- 改动：
+  - 神秘商店按游戏独立解锁（用户 11/17 确认的规则）：一次用券付款只解锁用户点了校验的那款游戏的一轮；共用券套的游戏（POE1/2；Maple、ARC、COD）不会被同一笔订单一起解锁。
+  - 「立即结算」弹窗去掉「去商品页自选」链接和购物车说明；加购失败只提示稍后再试。资源版本 `carnival-live.js?v=20261117e`。
+  - 扭蛋档位验收表 `docs/planning/carnival-landing-20261117/CAPSULE-SCENARIOS.md` 和可执行场景测试（单笔 $1000 一次领全部、累计分次领新档、不重复发），供主站领取接口对照。
+- 测试：carnival 相关 Node/浏览器 28/28、runtime carnival 8/8、Python `test_carnival_unlocks` 5/5；新增回归测试走真实 backend-client 检查。
+- 正式站读回：
+  - 服务：apply 成功，dashboard、runtime 均为 active（17:14:32 重启）。
+  - Admin 只读实测（187 上直接调后端，只输出数量）：测试券 1517 返回 available、付款使用 0 次；FC 活动券 1395 同样方式读到今天 1 笔真实付款使用，会员与时间字段解析正常。
+  - 页面引用 `carnival-live.js?v=20261117e`，脚本里已没有商品页链接。
+- 未验证：用测试券 1517 真实付款后点校验并解锁（需要用户下一笔真实订单）；扭蛋领取（主站接口未提供）。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T091432Z`。
+
+### 2026-11-17 狂欢盛典 release 86（秒杀结束置灰 + 扭蛋接主站档位券）
+
+- 来源：PR #1209，合并提交 `187e570d0f4cebe2f5e701bb756ecd1023cd582f`。release `nav-20261117T095522Z`，MANIFEST_SHA `f8e3efce…a175e5`。
+- 发布文件：`Carnival.html`、`carnival-live.js`、`carnival.css`。
+  - 发布前漂移核对：这 3 个线上文件与 `bccbb142` 的内容一致。
+- 改动：
+  - 秒杀场次结束后，商品和券仍然展示，置灰并盖「ENDED」章；按钮和平台下拉都不可点。
+  - 扭蛋接主站：
+    - 读 `/ajax/carnival/coupon?slot=capsule`，按 `required_spend` 对应到档位；
+    - 点一次就逐张调用 `/ajax/carnival/claim`，领完所有已解锁、未领过的档位券；
+    - 是否达标、会不会重复发，由主站校验。
+    - 11/30 ET 之前、内部测试期间、Admin 没有 `capsule` 入口时，都保持关闭。
+  - 累计消费按主站已完成订单计算。退款后金额会减少；已发的档位券不自动收回，由运营在 Admin 手动取消（用户 11/17 确认）。
+  - 资源版本：`carnival-live.js` 和 `carnival.css` 都是 `?v=20261117f`。
+- 测试：carnival 套件 40/40 通过，其中扭蛋浏览器用例覆盖：
+  - 单笔 $1000 一次领 6 张；
+  - 消费累计增长时只领新达到的档；
+  - 不重复发；
+  - 退款不收回已发的券；
+  - 不满 $1 不发；
+  - 没有入口时不开放；
+  - 内部测试期间不开放。
+  - 另有用例覆盖已结束场次置灰。CI `pr-fast` 通过。
+- 正式站读回：
+  - 页面 200，引用 `?v=20261117f`；线上脚本含扭蛋接线，样式含结束章。
+  - 主站 `coupon?slot=capsule` 返回 `invalid_slot`，与预期一致：Admin 入口尚未建立。
+- 未验证：
+  - 真实领取档位券：需先在 Admin 新增 `capsule` 入口（1501–1511，写操作待用户授权），且要有真实已完成订单。
+  - 已结束场次在正式站的效果：要到 11/27 场次结束后才能看到。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T095522Z`。
+
 ---
 
 ## 回退与边界
