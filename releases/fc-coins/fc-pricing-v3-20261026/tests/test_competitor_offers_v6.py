@@ -197,6 +197,8 @@ class CompetitorOffersV6(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder,patch.object(module,'ROOT',Path(folder)),\
              patch.object(module.subprocess,'run',side_effect=processes) as run,\
              patch.object(module,'collector_failure',return_value='fixture_missing'),\
+             patch('fc_pricing_v3.runtime.ledger'),\
+             patch('fc_pricing_v3.runtime._curve_insurance_context',return_value={'confirmed_cost_cny_per_k': '.4'}),\
              patch.object(module,'cost_snapshots',return_value=[dict(status='valid',platform=p) for p in module.PLATFORMS]),\
              patch.object(module,'newest_evidence',return_value=dict(status='valid',checked_at=NOW.isoformat(),cny_per_usd='7')),\
              patch.object(module,'atomic_json') as save,patch.object(module.os,'chown',create=True),patch.object(module.os,'chmod'):
@@ -204,6 +206,9 @@ class CompetitorOffersV6(unittest.TestCase):
         self.assertTrue(ready)
         self.assertEqual(run.call_args_list[1].args[0][-2:],['U7Buy','100'])
         self.assertNotIn('ItemD2R',str(run.call_args_list))
+        cost_call = next(call for call in run.call_args_list if call.args[0][0] == str(module.COST_COLLECTOR))
+        self.assertEqual(json.loads(cost_call.kwargs['env']['FC_V6_COST_REFERENCES']),
+                         {'PS': '.4', 'XBOX': '.4', 'PC': '.4'})
         stored=save.call_args.args[1]
         self.assertEqual(stored['competitor_offers'],[])
         self.assertEqual(stored['legacy_competitor_scope'],'100k_observed_only')
@@ -219,6 +224,8 @@ class CompetitorOffersV6(unittest.TestCase):
                 dict(offers['PC'],base_k='2000',usd_price='160',coupon_excluded=True)])]
         processes=[SimpleNamespace(returncode=code,stdout=b'') for code in (0,1,0,0)]
         with tempfile.TemporaryDirectory() as folder,patch.object(module,'ROOT',Path(folder)),\
+             patch('fc_pricing_v3.runtime.ledger'),\
+             patch('fc_pricing_v3.runtime._curve_insurance_context',return_value={'confirmed_cost_cny_per_k': None}),\
              patch.object(module.subprocess,'run',side_effect=processes) as run,\
              patch.object(module.glob,'glob',side_effect=[[],[str(Path(folder)/'lootbar.jsonl')],[],[],[]]),\
              patch.object(module.Path,'read_text',return_value='\n'.join(json.dumps(event) for event in events)),\

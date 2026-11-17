@@ -41,7 +41,7 @@ CURVE_AVERAGE_NEW = frozenset(prefix + 'fc_pricing_v3/average_discount_v6.py'
 CURVE_INSURANCE_SCOPE = 'fc-pricing-v6-insurance-20261117'
 CURVE_INSURANCE_TARGET_COUNT = 9
 CURVE_STABILITY_SCOPE = 'fc-pricing-v6-stability-20261117'
-CURVE_STABILITY_TARGET_COUNT = 5
+CURVE_STABILITY_TARGET_COUNT = 8
 
 # The original V3 mapping must also be available from a partial V6 stage.
 BASE_MODULES = (
@@ -236,6 +236,9 @@ def curve_insurance_targets(source):
 
 def curve_stability_targets(source):
     return {'collect_p2pah_cost.py': targets(source)['collect_p2pah_cost.py'],
+            'collect_p2pah_cost.sh': '/opt/fc27-cloud-browser/collect_p2pah_cost.sh',
+            'snapshot_layer.py': targets(source)['snapshot_layer.py'],
+            'server_quote_job.py': targets(source)['server_quote_job.py'],
             **module_targets(('cost_inputs_v6.py', 'runtime.py'))}
 
 

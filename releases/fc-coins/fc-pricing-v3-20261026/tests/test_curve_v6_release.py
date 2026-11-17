@@ -23,9 +23,9 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
-    def test_stability_release_contains_only_collector_and_two_paired_modules(self):
+    def test_stability_release_contains_only_cost_pipeline_and_two_paired_modules(self):
         mapping = target_map.curve_stability_targets(SOURCE)
-        self.assertEqual(len(mapping), 5)
+        self.assertEqual(len(mapping), 8)
         self.assertEqual(mapping['collect_p2pah_cost.py'], '/opt/fc27-cloud-browser/collect_p2pah_cost.py')
         self.assertEqual(adapter.SCOPED_TARGETS[target_map.CURVE_STABILITY_SCOPE],
                          {'source/' + name: path for name, path in mapping.items()})

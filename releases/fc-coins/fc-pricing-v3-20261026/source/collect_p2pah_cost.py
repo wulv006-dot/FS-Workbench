@@ -227,7 +227,7 @@ def read_page(page, number, observations=None, window=None):
     diagnostic = {"requested_page": number, "http_status": None,
                   "checked_at": datetime.now(timezone.utc).isoformat()}
     if window is not None:
-        diagnostic['ps_window'] = {key: value.isoformat() for key, value in window.items()}
+        diagnostic['ps_window'] = {key: window[key].isoformat() for key in ('start', 'end')}
     try:
         response = page.goto(cost_url(number, window), wait_until="commit", timeout=35000)
     except PlaywrightTimeoutError:
@@ -328,7 +328,7 @@ def collect_ps_cost(tab, observations, order_cache):
     raise ValueError('ps_valid_delivery_sample_incomplete')
 
 
-def collect_v6_delivery_samples(tab, observations, order_cache):
+def collect_v6_delivery_samples(tab, observations, order_cache, confirmed_costs=None):
     """Read complete native time windows; ID order cannot prove a time boundary."""
     end = datetime.now(SHANGHAI).replace(microsecond=0)
     result = {p: dict(records=[], window_complete=False, history_complete=False) for p in PLATFORMS}
@@ -354,12 +354,18 @@ def collect_v6_delivery_samples(tab, observations, order_cache):
                 verified[record['platform']].append(normal)
         result = {p: dict(records=rows, window_complete=True, history_complete=hours == 192)
                   for p, rows in verified.items()}
-        if all(len(rows) >= 6 for rows in verified.values()):
+        enough = []
+        for platform, rows in verified.items():
+            reference = (confirmed_costs or {}).get(platform)
+            lower, upper = ((Decimal(str(reference)) / 2, Decimal(str(reference)) * 2)
+                            if reference is not None else (Decimal('.05'), Decimal('5')))
+            enough.append(sum(lower <= Decimal(row['cny_per_1k']) <= upper for row in rows) >= 6)
+        if all(enough):
             break
     return result
 
 
-def collect():
+def collect(*, curve_v6=False, confirmed_costs=None):
     config = {}
     with sync_playwright() as playwright:
         browser = open_backend(playwright)
@@ -368,6 +374,20 @@ def collect():
         tab = browser.contexts[0].new_page()
         primary_error = None
         try:
+            if curve_v6:
+                observations = []
+                samples = collect_v6_delivery_samples(tab, observations, {}, confirmed_costs)
+                checked_at = datetime.now(timezone.utc).isoformat()
+                records = []
+                for platform in PLATFORMS:
+                    rows = samples[platform]['records']
+                    record = dict(rows[0] if rows else {}, platform=platform, checked_at=checked_at,
+                                  v6_delivery_samples=samples[platform])
+                    if not rows:
+                        record.update(status='missing', reason='ordinary_delivery_cost_sample_missing')
+                    records.append(record)
+                return dict(status='valid', cost_protocol='fc27_curve_v6', checked_at=checked_at,
+                            costs=records, page_observations=observations)
             # Preserve the existing PC rule and original page limit.
             candidates = {'XBOX': {}, 'PC': {}}
             observations = []
@@ -392,7 +412,6 @@ def collect():
                     if normal is not None:
                         found[platform] = normal
                         break
-            v6_samples = collect_v6_delivery_samples(tab, observations, order_cache)
             checked_at = datetime.now(timezone.utc).isoformat()
             records = []
             for platform in PLATFORMS:
@@ -406,8 +425,6 @@ def collect():
                 else:
                     records.append({"platform": platform, "status": "missing",
                                     "reason": "no_valid_recent_record"})
-            for record in records:
-                record['v6_delivery_samples'] = v6_samples[record['platform']]
             return {"status": "valid" if all(r["status"] == "valid" for r in records) else "incomplete",
                     "checked_at": checked_at, "costs": records, "page_observations": observations}
         except Exception as exc:
@@ -443,7 +460,9 @@ def failure_result(exc):
 
 if __name__ == "__main__":
     try:
-        result = collect()
+        references = os.environ.get('FC_V6_COST_REFERENCES')
+        result = collect(curve_v6=references is not None,
+                         confirmed_costs=json.loads(references) if references is not None else None)
         print(json.dumps(result))
         raise SystemExit(0 if result["status"] == "valid" else 1)
     except Exception as exc:

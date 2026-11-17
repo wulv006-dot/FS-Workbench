@@ -203,6 +203,9 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     offers = {platform: {} for platform in PLATFORMS}
     for cost in snapshot["costs"]:
         platform = cost.get("platform")
+        if curve_source and platform in PLATFORMS and platform not in costs and cost.get('status') == 'missing':
+            costs[platform] = cost
+            continue
         if platform not in PLATFORMS or platform in costs or cost.get("status") != "valid":
             raise ValueError("cost_invalid")
         if cost.get("run_id") != run_id or not age_ok(cost["checked_at"], now):
@@ -311,7 +314,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
                 "automation_policy_revision": policy["revision"],
                 "snapshot_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                 "quote_engine_sha256": hashlib.sha256(ENGINE_FILE.read_bytes()).hexdigest(),
-                "cost_record_ids": {p: costs[p]["record_id"] for p in PLATFORMS},
+                "cost_record_ids": {p: costs[p].get("record_id") if curve_run else costs[p]["record_id"] for p in PLATFORMS},
                 "evidence": evidence, "edits": edits, "result": result}
     if hermes_decision is not None:
         proposal['hermes_decision']=hermes_decision

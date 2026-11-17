@@ -156,7 +156,7 @@ def public_snapshots(run_id: str, source: str, payload: dict, *, requested=None)
     return result
 
 
-def cost_snapshots(run_id: str, payload: dict) -> list[dict]:
+def cost_snapshots(run_id: str, payload: dict, *, curve_v6=False) -> list[dict]:
     if payload.get("status") != "valid":
         raise ValueError("cost_collector_incomplete")
     rows = payload.get("costs") or []
@@ -164,6 +164,11 @@ def cost_snapshots(run_id: str, payload: dict) -> list[dict]:
         raise ValueError("cost_platform_coverage_incomplete")
     result = []
     for row in rows:
+        if curve_v6 and payload.get('cost_protocol') != 'fc27_curve_v6':
+            raise ValueError('v6_delivery_cost_protocol_missing')
+        if curve_v6 and row.get('status') == 'missing':
+            result.append({**row, 'run_id': run_id})
+            continue
         if row.get("genre") != "1" or row.get("delivery_type") != "\u8ba2\u5355\u53d1\u8d27":
             raise ValueError("cost_delivery_type_unverified")
         if (row.get("status") != "valid" or row.get("game") != "FC27"
@@ -179,7 +184,8 @@ def cost_snapshots(run_id: str, payload: dict) -> list[dict]:
             raise ValueError("cost_capture_stale")
         result.append({**row, "run_id": run_id})
     from fc_pricing_v3.financial import common_cost
-    common_cost({'costs': {row['platform']: row for row in result}})
+    if not curve_v6:
+        common_cost({'costs': {row['platform']: row for row in result}})
     return result
 
 
@@ -279,7 +285,14 @@ def collect_once(run_id=None, competitor_policy=None):
     before = set(glob.glob(str(ROOT / "evidence/p2pah-cost-*.json")))
     cost_failure = None
     try:
-        process = subprocess.run([str(COST_COLLECTOR)], capture_output=True, timeout=185)
+        cost_kwargs = {}
+        if competitor_policy == POLICY:
+            from fc_pricing_v3.runtime import _curve_insurance_context, ledger
+            db = ledger()
+            captured = datetime.now(timezone.utc)
+            references = {p: _curve_insurance_context(db, p, {}, captured)['confirmed_cost_cny_per_k'] for p in PLATFORMS}
+            cost_kwargs['env'] = dict(os.environ, FC_V6_COST_REFERENCES=json.dumps(references))
+        process = subprocess.run([str(COST_COLLECTOR)], capture_output=True, timeout=185, **cost_kwargs)
         if process.returncode:
             try:
                 report = json.loads(process.stdout.splitlines()[-1])
@@ -290,7 +303,7 @@ def collect_once(run_id=None, competitor_policy=None):
             except (ValueError,IndexError,AttributeError,TypeError):
                 pass
             raise ValueError(cost_failure['reason'] if cost_failure else "collector_failed")
-        costs = cost_snapshots(run_id, newest_evidence("p2pah-cost-*.json", before))
+        costs = cost_snapshots(run_id, newest_evidence("p2pah-cost-*.json", before), curve_v6=competitor_policy == POLICY)
     except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
         failures.append("P2PAH:" + (str(exc) if isinstance(exc, ValueError) else type(exc).__name__))
     fx = {"status": "missing", "reason": "fx_collector_failed"}
@@ -317,7 +330,7 @@ def collect_once(run_id=None, competitor_policy=None):
         if row["status"] == "missing":
             row["reason"] = next((failure for failure in failures
                                   if failure.startswith(row["source"] + ":")), row["reason"])
-    complete = coverage["ready"] and cost_count == 3 and fx["status"] == "valid"
+    complete = coverage["ready"] and (cost_count == 3 or competitor_policy == POLICY) and fx["status"] == "valid"
     status = "ready_for_quote" if complete else "incomplete"
     reason = None if complete else ";".join(failures) or "required_evidence_missing"
     payload = {"run_id": run_id, "created_at": started, "status": status,

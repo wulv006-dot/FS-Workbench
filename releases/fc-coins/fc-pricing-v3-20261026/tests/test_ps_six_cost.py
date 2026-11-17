@@ -59,7 +59,7 @@ class SixCost(unittest.TestCase):
     def data(self, rows):
         return dict(rows=rows, hasDataRows=bool(rows), empty=not rows,deliveryRowCount=len(rows))
 
-    def run_collect(self, pages=None):
+    def run_collect(self, pages=None, *, curve_v6=False):
         pages = pages or [self.rows, []]
         self.v6_windows = []
         def read(tab, number, observations=None, window=None):
@@ -69,7 +69,7 @@ class SixCost(unittest.TestCase):
             return self.data([row for row in rows if row['platform']=='PS']
                              if window and window.get('area', '21942') == '21942' else rows)
         with patch.object(self.collector, 'read_page', side_effect=read):
-            return self.collector.collect()
+            return self.collector.collect(curve_v6=curve_v6)
 
     def test_latest_six_then_max_excludes_expensive_seventh_and_xbox(self):
         result = self.run_collect()
@@ -91,7 +91,7 @@ class SixCost(unittest.TestCase):
         rows = [self.raw(1000+index*100+i, '.4', i*2, platform)
                 for index, platform in enumerate(('PS', 'XBOX', 'PC')) for i in range(7)]
         rows.sort(key=lambda row: row['trade_at'], reverse=True)
-        result = self.run_collect([rows, []])
+        result = self.run_collect([rows, []], curve_v6=True)
         self.assertTrue(self.v6_windows)
         self.assertEqual(self.v6_windows[0]['end'] - self.v6_windows[0]['start'], timedelta(hours=3))
         for cost in result['costs']:
@@ -100,6 +100,34 @@ class SixCost(unittest.TestCase):
             self.assertFalse(samples['history_complete'])
             self.assertEqual(len(samples['records']), 7)
             self.assertEqual({row['platform'] for row in samples['records']}, {cost['platform']})
+
+    def test_sparse_ps_does_not_block_independent_v6_xbox_and_pc_costs(self):
+        rows = [self.raw(1000+index*100+i, '.4', i, platform)
+                for index, platform in enumerate(('PS', 'XBOX', 'PC')) for i in range(4 if platform == 'PS' else 6)]
+        result = self.run_collect([rows, []], curve_v6=True)
+        normalized = self.snapshot.cost_snapshots('offline', result, curve_v6=True)
+        self.assertEqual([len(row['v6_delivery_samples']['records']) for row in normalized], [4, 6, 6])
+        self.assertEqual(result['cost_protocol'], 'fc27_curve_v6')
+
+    def test_v6_expands_again_when_an_outlier_leaves_only_five_valid_samples(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+
+        rows = [self.raw(1000+index*100+i, '.9' if platform == 'PS' and i == 5 else '.4', i, platform)
+                for index, platform in enumerate(('PS', 'XBOX', 'PC')) for i in range(6)]
+        older = self.raw(999, '.4', 240, 'PS')
+        windows = []
+        def read(tab, page, observations=None, window=None):
+            hours = (window['end']-window['start']).total_seconds() / 3600
+            windows.append(hours)
+            return self.data(rows + ([older] if hours > 3 else []) if page == 1 else [])
+        with patch.object(self.collector, 'read_page', side_effect=read):
+            result = self.collector.collect(curve_v6=True, confirmed_costs={p: '.4' for p in ('PS', 'XBOX', 'PC')})
+        ps = result['costs'][0]
+        smoothed = smooth_delivery_cost(ps, 'PS', datetime.now(timezone.utc), '.4')
+        self.assertEqual(smoothed['status'], 'valid')
+        self.assertEqual(smoothed['selected_count'], 6)
+        self.assertEqual(smoothed['cny_per_1k'], '0.4')
+        self.assertIn(6, windows)
 
     def test_mixed_k_and_million_deliveries_are_normalized_before_taking_max(self):
         self.native_verifier.stop()
@@ -262,6 +290,13 @@ class SixCost(unittest.TestCase):
                                    wait_for_timeout=lambda _:self.fail('verified empty PS page should not wait'))
         window=dict(start=self.now,end=self.now+timedelta(hours=1))
         self.assertEqual(self.collector.read_page(page,1,[],window=window),data)
+
+    def test_native_all_platform_window_keeps_area_separate_from_timestamps(self):
+        data = dict(self.empty_page(), area='0')
+        page = types.SimpleNamespace(goto=lambda *a, **k: types.SimpleNamespace(status=200),
+            evaluate=lambda _: data, wait_for_timeout=lambda _: self.fail('complete native window'))
+        window = dict(start=self.now, end=self.now+timedelta(hours=1), area='0')
+        self.assertEqual(self.collector.read_page(page, 1, [], window=window), data)
 
     def test_ps_empty_page_waits_for_document_parsing_and_pc_gate_is_unchanged(self):
         values=iter([self.empty_page(ready='loading'),self.empty_page()]);waits=[]
