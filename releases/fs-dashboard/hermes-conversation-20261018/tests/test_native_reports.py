@@ -330,7 +330,12 @@ class ReportRoute(unittest.TestCase):
         # prepare inserted the durable native reservation to test authorization;
         # this test begins immediately before the original dispatch reserves it.
         with self.store.db() as db:db.execute('DELETE FROM native_conversation_runs');db.execute("UPDATE turns SET task_id=NULL,lease=NULL")
-        calls=[];ready=[]
+        calls=[];ready=[];admissions=[]
+        admission_writer=self.native.write_admission
+        def write_admission(sid,item):
+            admissions.append(json.loads(json.dumps(item)))
+            return admission_writer(sid,item)
+        self.native.write_admission=write_admission
         def request(method,path,body=None,idempotency=None,**kwargs):
             calls.append((method,path,body,idempotency))
             self.assertEqual(self.tasks.get(self.task['id'],'alice')['state'],'DISPATCH_UNKNOWN')
@@ -343,7 +348,10 @@ class ReportRoute(unittest.TestCase):
         self.assertEqual(ready[0]['run_id'],actual['run_id']);self.assertEqual(ready[0]['state'],'RUNNING')
         self.native.dispatch('alice',self.cid,bound['turn_id'],bound['session_id'],'Why?',bound['request_id'],report_key='a'*32)
         self.assertEqual(len(calls),1)
+        self.assertEqual(admissions[-1]['model'],'deepseek-flash')
         gateway=self.h.gateways[self.task['id']]
+        self.assertEqual(gateway.budget.policy['model'],'deepseek-flash')
+        self.assertEqual(gateway.budget.policy['id'],'no-pilot-quotas-deepseek-direct-stream-tokens-only-v2')
         request_body={'messages':[{'role':'user','content':'Why?'}],'max_tokens':10,'tools':[],'enable_thinking':True,'reasoning_effort':'high'}
         fingerprint,_=gateway.budget.reserve('alice',self.task['id'],0,request_body,50)
         gateway.budget.settle(fingerprint,{'id':'response1','usage':dict(prompt_tokens=2,completion_tokens=3,total_tokens=5),

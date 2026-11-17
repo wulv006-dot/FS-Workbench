@@ -1079,7 +1079,8 @@ class NativeConversation:
             self.store.bind_task(owner, cid, turn_id, turn_id, bound['lease'])
             effort=report['effort'] if report is not None else 'high' if pricing_context is not None else 'none'
             token = self.hermes.grants.mint(owner, turn_id, bound['lease'], reasoning_effort=effort)
-            admission = {'session_id': session_id, 'token': token, 'model': 'gpt-6.1-sol' if report is not None or pricing_context is not None else 'deepseek-flash',
+            # Temporary quota recovery: keep new admissions and their gateway on the existing DeepSeek lane.
+            admission = {'session_id': session_id, 'token': token, 'model': 'deepseek-flash',
                          'prompt': '', 'conversation': True, 'ready': False,
                          'native_chat': {'binding': bound, 'environment': environment,
                                          'key': key, 'fingerprint': fingerprint, 'knowledge': knowledge}}
@@ -1114,7 +1115,6 @@ class NativeConversation:
                                     pricing_context=pricing_context)
             item_gateway = native_gateway(self.hermes.daily, scope, active_tasks=self.active_tasks,
                                           provider_lane='pricing' if pricing_context is not None else 'general',
-                                          sol=report is not None or pricing_context is not None,
                                           **({'deadline':report['deadline']} if report is not None else {}))
             with self.hermes.lock:
                 self.hermes.tokens[turn_id] = token
