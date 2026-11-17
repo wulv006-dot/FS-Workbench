@@ -131,6 +131,44 @@ async function claimSlot(slot,couponId){
   if(Number(res?.code)===1&&c?.claim_status==='claimed'&&Number(c.member_coupon_id)>0)return {state:'claimed',memberCouponId:Number(c.member_coupon_id),reused:false};
   return {state:Number(res?.code)===1?'unknown':'rejected',message:typeof res?.msg==='string'?res.msg.slice(0,200):''};
 }
+/* Buy now: the member asked for the claimed item to go straight to checkout. The cart is
+ * emptied (a member coupon applies to the whole order, so other lines would block or dilute
+ * it), the exact goods row is added once, and the cart page opens with the coupon selected.
+ * Each request is sent once; any failure stops and leaves the product page as the way on. */
+const postForm=(url,form)=>fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)}).then(r=>{if(!r.ok)throw Error('HTTP_'+r.status);return r.json().catch(()=>({}));});
+function cartLine(spec,row){
+  if(spec.top===1)return {category:'new_gold',id:String(row.id),group:String(spec.qty),num:'1',attr:'',aid:''};
+  return {category:'new_items',id:String(row.id),group:'1',num:String(Math.max(1,Number(row.min_qty)||1)),attr:'',aid:String(row.aid??spec.aid??'')};
+}
+async function buyNow(spec,memberCouponId){
+  let row;try{row=spec&&await specRow(spec);}catch{}
+  if(!row||rowPrice(row,spec.top,spec.qty)===null)return {state:'unavailable'};
+  const line=cartLine(spec,row);
+  try{const c=await postForm('/Cart/clear',{});if(Number(c?.code)===0||c?.status===false)return {state:'clear_failed'};}catch{return {state:'clear_failed'};}
+  let res;try{res=await postForm('/Cart/add.html',line);}catch{return {state:'unknown'};}
+  const value=res?.data?.cart?.add||res?.cart?.add;
+  if(res?.code===0||res?.status===false||value?.status===false)return {state:'rejected',message:String(value?.msg||res?.msg||'').slice(0,200)};
+  if(!(Number(res?.code)===1||value&&(value.details||value.cart||value.total!=null)))return {state:'unknown'};
+  handToCart(memberCouponId);track('fcactivity:selection',{action:'buy_now',ids:[String(row.id)]});
+  location.assign('/Cart.html');return {state:'navigating'};
+}
+function buyNowBlock(spec,fallback){
+  return `<button type="button" class="buybtn" data-carnival-buy>${say('CHECKOUT NOW','立即结算')}</button>
+  <p class="mystery-flow-disclaimer">${say('Your cart will be replaced with this item and the coupon applied.','购物车会被清空，只放入这件商品并自动选中这张券。')}</p>
+  <a class="carnival-store-link" href="${esc(fallback)}" data-carnival-go>${say('Or choose options on the product page','或去商品页自选规格')}</a>`;
+}
+function wireBuyNow(spec,memberCouponId){
+  const b=document.querySelector('#mysteryFlowMask [data-carnival-buy]');if(!b)return;
+  b.addEventListener('click',async()=>{
+    b.disabled=true;b.textContent=say('ADDING TO CART…','正在加入购物车…');
+    const r=await buyNow(spec,memberCouponId);
+    if(r.state==='navigating')return;
+    b.disabled=false;b.textContent=say('CHECKOUT NOW','立即结算');
+    toast(r.state==='unknown'?say('We could not confirm the cart. Open your cart before trying again.','无法确认是否已加入购物车，请先打开购物车查看再重试。')
+      :r.state==='rejected'&&r.message?r.message
+      :say('This item cannot be added right now. Use the product page link below.','暂时无法直接加入购物车，请用下方链接去商品页购买。'));
+  });
+}
 function handToCart(memberCouponId){try{sessionStorage.setItem('pending_member_coupon_id',String(memberCouponId));sessionStorage.removeItem('pending_discount_code');}catch{}}
 function couponOutcome(result,couponId,slot){
   track('fcactivity:coupon-claim',{state:result.state,reused:!!result.reused,couponId});
@@ -143,9 +181,12 @@ function couponOutcome(result,couponId,slot){
 
 /* Home 10% coupon */
 const HOME={slot:'carnival_home',coupon:1399};
+// One per member: once the account holds the coupon the button stays grey and says so.
+// During an internal test the claim goes to the test coupon, so that is what is checked.
 async function refreshHomeCoupon(){
-  try{const d=(await getJSON('/ajax/carnival/coupon?slot='+HOME.slot)).data,row=(d?.list||[]).find(c=>Number(c.coupon_id)===HOME.coupon);
-    earlyAccess=d?.logged_in===true&&row?.claim_status==='claimed';}catch{}
+  const slot=TEST?TEST.slot:HOME.slot,coupon=TEST?TEST.coupon_id:HOME.coupon;
+  try{const d=(await getJSON('/ajax/carnival/coupon?slot='+encodeURIComponent(slot))).data,row=(d?.list||[]).find(c=>Number(c.coupon_id)===coupon);
+    earlyAccess=d?.logged_in===true&&row?.can_claim!==true&&/^(claimed|used|received|limit)/.test(String(row?.claim_status||''));}catch{}
   renderEarlyBtn();
 }
 claimCoupon=async function(){
@@ -162,13 +203,14 @@ document.getElementById('couponClaimBtn').replaceWith(document.getElementById('c
 document.getElementById('couponClaimBtn').addEventListener('click',()=>claimCoupon());
 
 /* ---------------- live prices (/ajax/goods) ---------------- */
-// Goods scope observed in Admin 2026-11-17: id → [game_id, top_cid, category_id, aid].
+// Goods scope observed in Admin 2026-11-17: id → [game_id, top_cid, category_id, aid, keyword?].
+// Large categories exceed the 10-page list cap, so those rows are found by title keyword.
 const GOODS={
- 170070065:[456,2,3955,15943],186050303:[456,5,9975,15943],187495953:[456,2,3675,15943],187496117:[456,2,3675,15943],187496035:[456,2,3675,15943],187495871:[456,2,3675,15943],187495789:[456,2,3675,15943],187495707:[456,2,3675,15943],187495379:[456,2,3675,15943],
- 71488531:[157,2,2473,17725],38588459:[157,2,2473,17725],71488587:[157,2,2473,17725],38588315:[157,2,2473,17725],38588383:[157,2,2473,17725],40602987:[157,2,2473,17725],187535323:[157,2,2473,17725],45283535:[157,2,3349,17725],45283527:[157,2,3349,17725],
+ 170070065:[456,2,3955,15943,'Resplendent Spark x100'],186050303:[456,5,9975,15943,'Cuddly Conduit'],187495953:[456,2,3675,15943,'Crux of the False Prophet'],187496117:[456,2,3675,15943,'Flawless Horadric Skull'],187496035:[456,2,3675,15943,'Common Base Gear x15'],187495871:[456,2,3675,15943,'Flawless Horadric Emerald'],187495789:[456,2,3675,15943,'Flawless Horadric Sapphire'],187495707:[456,2,3675,15943,'Flawless Horadric Ruby'],187495379:[456,2,3675,15943,'Runeword Set'],
+ 71488531:[157,2,2473,17725,'Divine Orb'],38588459:[157,2,2473,17725,'Divine Orb'],71488587:[157,2,2473,17725,'Chaos Orb'],38588315:[157,2,2473,17725,'Chaos Orb'],38588383:[157,2,2473,17725,'Mirror of Kalandra'],40602987:[157,2,2473,17725,'Exalted Orb'],187535323:[157,2,2473,17725,'Divine Orb'],45283535:[157,2,3349,17725,'Bow Starter Pack'],45283527:[157,2,3349,17725,'Melee Phys Starter Pack'],
  117074411:[552,2,1338,20137],186208657:[552,2,1338,20137],186208735:[552,2,1338,20137],169682813:[552,2,1338,20137],169644111:[552,2,1338,20137],187497011:[552,2,1338,20137],169547725:[552,2,1338,20137],169547649:[552,2,1338,20137],169547573:[552,2,1338,20137],
  165167189:[1333,1,9661,21627],186209371:[1333,2,10079,21627],186282265:[1333,2,10403,21627],186282115:[1333,2,10403,21627],186282205:[1333,2,10403,21627],186209281:[1333,2,10079,21627],186282235:[1333,2,10403,21627],186282175:[1333,2,10403,21627],
- 185981107:[925,2,7111,19835],185382277:[925,2,7115,19835],112802085:[925,2,7013,19835],112802373:[925,2,7013,19835],185383333:[925,2,7113,19835],112807773:[925,2,7117,19835],112811421:[925,2,7113,19835],105267633:[925,1,6955,19835],
+ 185981107:[925,2,7111,19835,'Stencil Parts'],185382277:[925,2,7115,19835,'Fossilized Lightning'],112802085:[925,2,7013,19835,'Looting Mk.3'],112802373:[925,2,7013,19835,'Medium Shield'],185383333:[925,2,7113,19835,'ARC Data Module'],112807773:[925,2,7117,19835,'Advanced Mechanical'],112811421:[925,2,7113,19835,'Queen Reactor'],105267633:[925,1,6955,19835],
  165175543:[1335,2,9665,21629],186374427:[1335,2,10431,21629],186374619:[1335,2,10431,21629],165175575:[1335,2,9665,21631],186372891:[1335,2,10431,21629],186372603:[1335,2,10431,21629],186372507:[1335,2,10431,21629],186372699:[1335,2,10431,21629],186373083:[1335,2,10431,21629],
 };
 const lists=new Map(),quotes=new Map(),LIST_TTL=120000;
@@ -192,18 +234,25 @@ async function listRows(scope){
 function rowPrice(row,top,qty){
   if(!row||Number(row.status)!==1||Number(row.auto_off)!==0)return null;
   if(top===1){const tier=row.goods_list?.[String(qty)];const v=Number(tier?.price_discount_format);return Number.isFinite(v)&&v>0?v:null;}
-  const v=Number(row.price_discount_format)*Math.max(1,Number(row.min_qty)||1);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;
+  // The formatted price is rounded to cents, which zeroes tiny unit prices (POE orbs); use the raw one.
+  const unit=Number(row.price_discount??row.price_discount_format),v=unit*Math.max(1,Number(row.min_qty)||1);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;
 }
-// spec: {game,top,cid,aid?,goods?,area?,qty}
+// spec: {game,top,cid,aid?,keyword?,goods?,area?,sid?,qty}
 function quoteKey(spec){return JSON.stringify(spec);}
+// The one goods row a spec names, or null when it is missing or ambiguous.
+async function specRow(spec){
+  const rows=await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.keyword});
+  const match=spec.goods?rows.filter(r=>Number(r.id)===spec.goods)
+    :rows.filter(r=>String(r.game_area_format||'').trim()===spec.area&&(!spec.sid||Number(r.sid)===spec.sid));
+  return match.length===1?match[0]:null;
+}
 function cachedQuote(spec,rerender){
   if(!spec)return null;const key=quoteKey(spec),hit=quotes.get(key);
   if(hit&&Date.now()-hit.at<LIST_TTL)return hit.price;
   if(!hit?.pending){
     quotes.set(key,{...(hit||{price:null,at:0}),pending:true});
-    listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid}).then(rows=>{
-      const match=spec.goods?rows.filter(r=>Number(r.id)===spec.goods):rows.filter(r=>String(r.game_area_format||'').trim()===spec.area);
-      quotes.set(key,{price:match.length===1?rowPrice(match[0],spec.top,spec.qty):null,at:Date.now()});
+    specRow(spec).then(row=>{
+      quotes.set(key,{price:rowPrice(row,spec.top,spec.qty),at:Date.now()});
     }).catch(()=>quotes.set(key,{price:null,at:Date.now()-LIST_TTL+15000})).finally(()=>rerender());
   }
   return hit?.price??null;
@@ -212,14 +261,16 @@ const amountOf=name=>{const m=/(\d+(?:\.\d+)?)\s*K\b/i.exec(name||'');return m?N
 function mysterySpec(it){
   if(it.modelId==='41217957'){const p=document.getElementById('fc27Platform').value;return {game:1327,top:1,cid:9623,aid:PLAT[p],goods:Number(it.productIds?.[p]),qty:amountOf(it.name)};}
   if(it.productIds&&typeof it.productIds==='object'){const p=document.getElementById('fc27Platform').value;return {game:1327,top:2,cid:9627,aid:PLAT[p],goods:Number(it.productIds[p]),qty:1};}
-  if(it.aionAmount){const server=document.getElementById('aionServer').value,faction=document.getElementById('aionFaction').value;return server?{game:891,top:1,cid:6527,area:server+' - '+faction,qty:it.aionAmount}:null;}
+  // The same server name exists in several regions; the region is the goods row's sid.
+  if(it.aionAmount){const region=document.getElementById('aionRegion').value,server=document.getElementById('aionServer').value,faction=document.getElementById('aionFaction').value;return server&&AION_SID[region]?{game:891,top:1,cid:6527,area:server+' - '+faction,sid:AION_SID[region],qty:it.aionAmount}:null;}
   if(it.wowAmount){const c=it.wowChoice||wowChoice(),entry=WOW_PRICE_SNAPSHOT?.[c.region]?.[c.faction]?.[c.realm];return entry?{game:1367,top:1,cid:9991,goods:Number(entry[0]),qty:it.wowAmount}:null;}
   const id=Number(it.goodsId||it.productId||it.poeGoodsId),g=GOODS[id];
   if(!g)return null;
   // Market games: only the configured listing (PC / Windia) has a verified goods id.
   if(it.marketGame&&(it.marketChoice||marketSelections[it.marketGame])!==(it.marketGame==='maple'?'Windia':'PC'))return null;
-  return {game:g[0],top:g[1],cid:g[2],aid:g[3],goods:id,qty:g[1]===1?amountOf(it.name):1};
+  return {game:g[0],top:g[1],cid:g[2],aid:g[3],...(g[4]?{keyword:g[4]}:{}),goods:id,qty:g[1]===1?amountOf(it.name):1};
 }
+const AION_SID={EU:7741,'NA West':7743,'NA East':7745,'South America':7747,Asia:7749};
 let msRender=0;const rerenderMs=()=>{cancelAnimationFrame(msRender);msRender=requestAnimationFrame(()=>{if(!msBusy)renderMsZone();});};
 fc27Price=function(it){
   const price=cachedQuote(mysterySpec(it),rerenderMs);
@@ -309,13 +360,14 @@ startMysteryPurchase=async function(index){
   if(result.state==='login_required'){closeMysteryFlow();requireLogin(null);return;}
   if(!couponOutcome(result,r.couponId,slot)){closeMysteryFlow();return;}
   handToCart(result.memberCouponId);
-  const price=fc27Price(r.it),url=storeUrl(r.it);
+  const price=fc27Price(r.it),url=storeUrl(r.it),spec=mysterySpec(r.it);
   mysteryBox(`<div class="mystery-flow-label">${say('ITEM COUPON','商品专属优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+r.off+'% OFF coupon is in your account','你的 '+r.off+'% OFF 优惠券已到账')}</h3>
   ${couponCard({amount:r.off+'% OFF',description:esc(nm(r.it))})}
   <div class="mystery-flow-box"><p>${esc(nm(gameItems()))} · ${esc(nm(r.it))}</p>${price!==null?`<p>${say('Current price','当前价格')}: $${price.toFixed(2)} → <b>$${(price*(1-r.off/100)).toFixed(2)}</b></p>`:''}
-  <p class="mystery-flow-disclaimer">${say('Choose the same item and options on the store page. The coupon is selected in your cart; the final price is confirmed at checkout. Coupons cannot be combined with other coupons or codes.','在商品页选择同一商品和规格。购物车会自动选中这张券，最终价格以结算页为准；不能与其他优惠券或折扣码叠加。')}</p></div>
-  <a class="buybtn" href="${esc(url)}" data-carnival-go>${say('GO TO PRODUCT','去商品页购买')}</a>
+  <p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Coupons cannot be combined with other coupons or codes.','最终价格以结算页为准；不能与其他优惠券或折扣码叠加。')}</p></div>
+  ${buyNowBlock(spec,url)}
   <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
+  wireBuyNow(spec,result.memberCouponId);
 };
 tickMs=function(){syncMysteryCooldown();document.getElementById('msTimer').textContent=msDrawsLeft?say('READY','可以翻牌'):say('VERIFY AFTER PAYMENT TO UNLOCK','付款后点下方按钮校验解锁');};
 // A drawn round unlocks only when the member presses "verify" after paying: the order is
@@ -390,7 +442,7 @@ renderFlash=function(){
     requestAnimationFrame(syncFlashScroll);return;
   }
   const label=live?null:st.k==='soon'?t('notStarted'):t('sessOver');
-  const cards=flashCategory==='voucher'?s.vouchers.map(v=>`<div class="fitem flash-coupon"><div class="off-badge">$${v.reduce} OFF</div><div class="fgame">${t('couponGame')}</div><div class="ficon">🎟️</div><h4>$${v.reduce} OFF</h4><div class="fprice"><span class="now">${say('Min. spend','满')} $${v.attain}</span></div><p class="flash-note">${say('Use by 23:59:59 ET on the day you claim it.','领取当天 23:59:59（美东）前使用。')}</p><button class="buybtn" ${label?'disabled':''} data-carnival-voucher="${v.coupon_id}" data-slot="${esc(v.slot)}">${label||t('free')}</button></div>`)
+  const cards=flashCategory==='voucher'?s.vouchers.map(v=>`<div class="fitem flash-coupon"><div class="fgame">${t('couponGame')}</div><div class="flash-ticket"><span class="flash-ticket-tag">${say('COUPON','优惠券')}</span><span class="flash-ticket-amount"><b>$${esc(v.reduce)}</b><i>OFF</i></span></div><p class="flash-ticket-min">${say('Min. spend','满')} $${esc(v.attain)}</p><p class="flash-note">${say('Use by 23:59:59 ET on the day you claim it.','领取当天 23:59:59（美东）前使用。')}</p><button class="buybtn" ${label?'disabled':''} data-carnival-voucher="${v.coupon_id}" data-slot="${esc(v.slot)}">${label||t('free')}</button></div>`)
    :s.products.filter(p=>p.category===flashCategory).map(p=>{
     const price=cachedQuote(flashSpec(p),rerenderFlash),now=price!==null?Math.round(price*(100-p.off))/100:null;
     const opts=p.quote.server_choice==='wow'?['region','faction','realm'].map(k=>flashSelect('wow',k,{region:[['US','US'],['EU','EU'],['Asia','Asia'],['KR','KR']],faction:[['Alliance','Alliance'],['Horde','Horde']],realm:[['Normal','Normal'],['PVP','PVP'],['Roleplay','Roleplay'],['Roleplay-PVP','Roleplay-PVP']]}[k],flashSelections.wow[k])).join('')
@@ -419,9 +471,10 @@ document.getElementById('flashGrid').addEventListener('click',async e=>{
     handToCart(r.memberCouponId);
     mysteryBox(`<div class="mystery-flow-label">${say('BLACK FRIDAY COUPON','黑五商品优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+p.off+'% OFF coupon is in your account','你的 '+p.off+'% OFF 优惠券已到账')}</h3>
     ${couponCard({amount:p.off+'% OFF',description:esc(p.name)})}
-    <div class="mystery-flow-box"><p class="mystery-flow-disclaimer">${say('Choose this item on the store page. The coupon is selected in your cart; the final price is confirmed at checkout. Use it within 1 day.','在商品页选择该商品，购物车会自动选中这张券，最终价格以结算页为准。领取后 1 天内有效。')}</p></div>
-    <a class="buybtn" href="${esc(p.store_url)}" data-carnival-go>${say('GO TO PRODUCT','去商品页购买')}</a>
+    <div class="mystery-flow-box"><p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Use it within 1 day.','最终价格以结算页为准。领取后 1 天内有效。')}</p></div>
+    ${buyNowBlock(flashSpec(p),p.store_url)}
     <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
+    wireBuyNow(flashSpec(p),r.memberCouponId);
   }finally{btn.disabled=false;}
 },true);
 
@@ -451,7 +504,8 @@ livePriceNotes();
 (async()=>{
   try{await H.adoptSocialLogin();}catch{}
   await refreshAccount();
-  await Promise.all([loadMystery(),refreshHomeCoupon(),loadSchedule(),refreshHeader()]);
+  // The schedule says whether an internal test is on, which decides the home coupon checked.
+  await Promise.all([loadMystery(),loadSchedule().then(refreshHomeCoupon),refreshHeader()]);
   refreshDrawState();
   try{const saved=JSON.parse(sessionStorage.getItem('carnival-login-resume')||'null');sessionStorage.removeItem('carnival-login-resume');
     if(saved&&account.state==='signed_in'&&Date.now()-saved.at<20*60*1000){if(saved.game&&saved.game!==curGame)selGame(saved.game);runResume(saved);}}catch{}

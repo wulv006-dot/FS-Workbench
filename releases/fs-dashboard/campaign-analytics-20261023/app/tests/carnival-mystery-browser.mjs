@@ -28,6 +28,11 @@ test('mystery shop: live prices, one server draw that survives reload, coupon ha
  assert.equal(await page.evaluate(()=>sessionStorage.getItem('pending_member_coupon_id')),'9001');
  assert.equal(await page.locator('[data-carnival-go]').getAttribute('href'),'/Fc-27/Coins.html');
  assert.deepEqual(errors,[]);
+ // Checkout now: the cart is emptied, the drawn item is added once and the cart page opens.
+ await page.locator('#mysteryFlowMask.show [data-carnival-buy]').click();
+ await page.waitForURL('**/Cart.html');
+ assert.equal(site.cart.clears,1);
+ assert.equal(site.cart.adds.length,1);
 });
 
 test('mystery shop: the verify button checks the order once per press and resets the round when paid',async t=>{

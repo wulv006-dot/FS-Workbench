@@ -965,3 +965,19 @@ a.buybtn{display:inline-block;text-decoration:none;text-align:center}
 .analytics-choice button{margin:12px 8px 0 0;padding:10px 16px;border-radius:10px;border:1px solid #0875ff;background:#0875ff;color:#fff;font:inherit;cursor:pointer}
 .analytics-choice button+button{background:#fff;color:#0875ff}
 .analytics-settings{display:block;margin:12px auto 24px;background:none;border:0;color:inherit;opacity:.7;text-decoration:underline;font:13px/1.4 Inter,Arial,sans-serif;cursor:pointer}
+
+/* Home coupon: one per member; once claimed the button turns grey and says so. */
+.coupon-inline-btn.claimed,.coupon-inline-btn:disabled{background:#3a3f4b!important;color:#9aa1ad!important;cursor:default;opacity:1}
+.coupon-inline-btn.claimed .coupon-inline-arrow{display:none}
+
+/* Black Friday voucher card: the amount and "COUPON" lead, the conditions stay small. */
+.flash-coupon .flash-ticket{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;margin:12px 0 8px;padding:14px 10px 12px;border:2px dashed rgba(255,194,99,.7);border-radius:12px;background:linear-gradient(160deg,rgba(255,157,36,.18),rgba(255,61,94,.12))}
+.flash-coupon .flash-ticket::before,.flash-coupon .flash-ticket::after{content:"";position:absolute;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--panel)}
+.flash-coupon .flash-ticket::before{left:-9px}.flash-coupon .flash-ticket::after{right:-9px}
+.flash-ticket-tag{font-family:'Chakra Petch';font-size:12px;font-weight:700;letter-spacing:2px;color:#1c202a;background:linear-gradient(105deg,#ffe584,#ff9d24);border-radius:999px;padding:2px 12px}
+.flash-ticket-amount{display:flex;align-items:baseline;gap:6px;line-height:1;color:#ffc263;font-family:'Chakra Petch'}
+.flash-ticket-amount b{font-size:clamp(34px,3vw,42px);font-weight:900}
+.flash-ticket-amount i{font-style:normal;font-size:22px;font-weight:900;color:#ff6b5e;letter-spacing:1px}
+.flash-coupon .flash-ticket-min{margin:2px 0 0;font-size:12px;color:rgba(255,255,255,.62)}
+.flash-coupon .flash-note{font-size:11px;opacity:.55;margin:2px 0 8px;line-height:1.35}
+.mystery-flow-modal .carnival-store-link,.carnival-store-link{display:block;margin:6px 0 2px;font-size:12px;color:rgba(255,255,255,.62);text-decoration:underline}
