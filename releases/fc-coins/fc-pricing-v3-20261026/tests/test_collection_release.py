@@ -79,6 +79,7 @@ class CollectionRelease(unittest.TestCase):
             SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection',HISTORY_READ_SCOPE='history-read')
         scope['LOOTBAR_CALLER_SCOPE']=target_map.LOOTBAR_CALLER_SCOPE
         scope['CURVE_AVERAGE_SCOPE']=target_map.CURVE_AVERAGE_SCOPE
+        scope['CURVE_INSURANCE_SCOPE']=target_map.CURVE_INSURANCE_SCOPE
         exec(compile(ast.Module(body=[restart],type_ignores=[]),'collection-restart','exec'),scope)
         for _ in range(2):
             scope['restart'](dict(scope='collection'))

@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 
-from fc_pricing_v3 import adapters, runtime
+from fc_pricing_v3 import adapters, runtime, smart
 from fc_pricing_v3.dispatch import CURVE_REJECTED, CURVE_WRITE_PROTOCOL, prewrite_refusal
 from fc_pricing_v3.financial import fingerprint
 from fc_pricing_v3.ledger import Ledger
@@ -20,6 +20,156 @@ from test_price_curve_v6 import EDITOR_CONTRACT
 
 
 class CurveRuntime(unittest.TestCase):
+    def test_only_automatic_rounds_count_toward_the_two_round_margin_exception(self):
+        now = datetime.now(timezone.utc)
+        for key, age, automatic, status, insurance in (
+                ('second', 1, True, 'READY', {'below_margin': True}),
+                ('first', 2, True, 'READY', {'below_margin': True}),
+                ('preview', 0, False, 'KEEP', None),
+                ('unrelated_failure', 0, True, 'PROOF_INCOMPLETE', None)):
+            self.db.put('strategy_decisions', key, dict(created_at=(now-timedelta(hours=age)).isoformat(),
+                automatic_curve_round=automatic, curve_round_id=key,
+                curve=[dict(platform='PS', status=status, selection={'price_insurance': insurance})]))
+        self.assertEqual(runtime._curve_insurance_context(self.db, 'PS', {}, now)['below_margin_rounds'], 2)
+        self.db.put('strategy_decisions', 'keep', dict(created_at=now.isoformat(), automatic_curve_round=True,
+            curve_round_id='keep', curve=[dict(platform='PS', status='KEEP', selection={'price_insurance': None})]))
+        self.assertEqual(runtime._curve_insurance_context(self.db, 'PS', {}, now)['below_margin_rounds'], 0)
+
+    def test_fewer_than_three_distinct_platform_cost_samples_cannot_produce_a_write_proof(self):
+        from fc_pricing_v3.average_discount_v6 import average_discount
+        from test_cost_inputs_v6 import AS_OF, CUT, attachment, facts, fx, rows_for
+        from test_curve_strategy_v6 import fixture
+
+        curve, _, _ = fixture()
+        current_cost = dict(platform='PS', status='valid', game='FC27', product='Game Coins', unit='CNY/K',
+            genre='1', record_id='99', cny_per_1k='.4', checked_at=AS_OF.isoformat(), trade_at=CUT.isoformat())
+        for size, expected in ((1, None), (2, 'verified'), (3, 'verified')):
+            orders = list(rows_for([48] * size))
+            source = attachment(orders)
+            source['historical_orders_coverage'].update(shared_publication_id='pin', shared_source_revision='source',
+                paid_window_start=(CUT-timedelta(days=8)).isoformat())
+            for row in source['historical_orders']:
+                row.update(single_line_unit_purchase=True, merchandise_before_discount_usd='100', actual_es_discount_usd='0')
+            deliveries = facts(orders, cost='412', delivery_fields=dict(qty='1030', gift='0', cost_unit='.4'))
+            if size == 3:
+                bad = deliveries['orders'][-1]
+                bad['observed_cost_cny'] = '409940'
+                bad['cost_records'][0].update(cost_cny='409940', cost_unit_cny='398')
+            frozen = runtime._average_discount_proof_input(curve, 'PS', source, source, CUT.isoformat(), AS_OF,
+                average=average_discount(source, 'PS', CUT), route={'propagation_revision': 'directory'},
+                facts=deliveries, fx=fx(), current_cost=current_cost)
+            proof = runtime._validated_curve(curve, frozen)
+            path = next(row for row in proof['paths'] if row['purchase_k'] == '1000')
+            self.assertEqual(path.get('cost_status'), expected)
+            if size == 1:
+                self.assertEqual(proof['status'], 'PROOF_INCOMPLETE')
+                self.assertIn('curve_cost_sample_outlier', frozen['domain']['coverage_gaps'])
+            else:
+                self.assertNotIn('curve_cost_sample_outlier', frozen['domain']['coverage_gaps'])
+
+    def test_protected_target_is_recompiled_and_reproved_after_the_ten_percent_cap(self):
+        from decimal import Decimal
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT, curve_key, read_curve
+        from test_curve_strategy_v6 import fixture
+        from test_pricing_proof_v6 import fixture as proof_fixture
+
+        self.prepare()
+        current, reference, episode = fixture()
+        editor = dict(current['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
+        current = read_curve(current['native_payload'], current['identity'], editor)
+        all_row = dict(current['native_payload'], id=writer.PRODUCTS[PLATFORM][0], site_id=0)
+        before = read_curve(all_row, dict(current['identity'], id=all_row['id'], site_id=0), editor)
+
+        def inputs(curve):
+            from fc_pricing_v3.average_discount_v6 import MODEL
+            _, baskets, evidence, domain = proof_fixture()
+            key = curve_key(curve)
+            amount = next(row['native_price_usd'] for row in curve['tiers'] if row['purchase_k'] == '1000')
+            domain.update(curve_key=key, version=self.capability['domain_version'],
+                          source_revisions=self.capability['source_revisions'])
+            average = dict(contract=MODEL, platform=PLATFORM, site_id='266', status='complete', retained_ratio='1')
+            average['revision'] = fingerprint(average)
+            domain['source_revisions'] = dict(domain['source_revisions'], offers=average['revision'])
+            self.capability['source_revisions'] = domain['source_revisions']
+            evidence['curve_key'] = key
+            evidence['average_discount'] = average
+            evidence['paths'][0].update(curve_key=key, regular_usd=amount, net_receipt_usd=amount,
+                expected_cost_usd='100', safe_cost_usd='102', stress_cost_usd='102', known_fee_usd='0')
+            return dict(baskets=baskets, evidence=evidence, domain=domain)
+
+        entry = dict(primary_curve=current, all_before=before, editor_contract=editor, preferred_label='A',
+            segment='large', native_route=None, primary_inputs={}, all_inputs={}, all_targets={},
+            price_insurance=dict(day_anchors={'small': '10', 'large': '95'}, market_per_100k=['10'],
+                                 below_margin_rounds=0))
+        state = dict(reference=reference, episode=episode)
+        now = datetime.now(timezone.utc)
+        runtime._freeze_cost_protection(PLATFORM, entry, inputs, state, None, {'competitor_offers': []}, now, {})
+        frozen = entry['temporary_cost_protection']
+        self.assertEqual(frozen['status'], 'PROVEN', frozen)
+        self.assertEqual(Decimal(frozen['final_anchors']['large']), Decimal('104.50'))
+        with patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
+            decision = runtime._prove_temporary_curve(PLATFORM, entry, current, state, {})
+        self.assertEqual(decision['status'], 'READY', decision)
+        self.assertTrue(decision['selection']['price_insurance']['below_margin'])
+        self.assertEqual(decision['proof']['price_insurance']['round'], 1)
+        self.assertEqual(decision['proof']['waived_hard_failures'], ['platform_margin:main', 'platform_margin:recent'])
+
+    def test_capped_margin_exception_is_limited_to_two_rounds_and_never_allows_loss(self):
+        from fc_pricing_v3.pricing_proof_v6 import validate_curve
+        from test_pricing_proof_v6 import fixture
+
+        curve, baskets, evidence, domain = fixture()
+        evidence['paths'][0].update(safe_cost_usd='85', stress_cost_usd='90')
+        exception = dict(before_anchors={'small': '10', 'large': '90.91'},
+                         clipped={'large': dict(requested='105', bounded='100')}, round=1)
+        for round_number, expected in ((1, 'PROVEN'), (2, 'PROVEN'), (3, 'HARD_CONSTRAINT_FAILED')):
+            result = validate_curve(curve, baskets, evidence, dict(domain, price_insurance=dict(exception, round=round_number)))
+            self.assertEqual(result['status'], expected)
+            self.assertEqual(result['minimum_safe_procurement_margin'], '0.15')
+        evidence['paths'][0]['stress_cost_usd'] = '101'
+        result = validate_curve(curve, baskets, evidence, dict(domain, price_insurance=exception))
+        self.assertEqual(result['status'], 'HARD_CONSTRAINT_FAILED')
+
+    def test_restore_skips_move_limits_but_never_skips_market_range(self):
+        from coin_all_sync_job import curve_price_insurance
+        from fc_pricing_v3.price_curve import compile_curve, TWO_BAND_PRICE_EDIT
+        from test_curve_strategy_v6 import fixture
+
+        current, _, _ = fixture()
+        editor = dict(current['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
+        target = compile_curve(current, {'anchor_prices_usd': {100: '13'}}, editor)
+        context = dict(day_anchors={'small': '10', 'large': '95'}, market_per_100k=['10'])
+        self.assertEqual(curve_price_insurance(current, target, context, restore=True)['anchors']['small'], '13')
+        with self.assertRaisesRegex(ValueError, 'pricing_curve_out_of_market_range'):
+            curve_price_insurance(current, target, dict(context, market_per_100k=['1']), restore=True)
+        fallback = dict(context, market_per_100k=[])
+        self.assertEqual(curve_price_insurance(current, target, fallback, restore=True)['anchors']['small'], '13')
+
+    def test_thousandfold_cost_cannot_generate_the_historical_6842_price(self):
+        from fc_pricing_v3.average_discount_v6 import minimum_band_price
+
+        proof = dict(average_discount={'retained_ratio': '.904'},
+            paths=[dict(path_id='small', purchase_k='100', net_receipt_usd='7.37',
+                        stress_cost_usd='5685.71', known_fee_usd='0', zero_line_status='HARD_CONSTRAINT_FAILED')],
+            baskets=dict(main=dict(safe_cost_usd='5685.71', members=[dict(path_id='small', weight='1')]),
+                         recent=dict(safe_cost_usd='5685.71', members=[dict(path_id='small', weight='1')])))
+        self.assertIsNone(minimum_band_price(proof, 'small', '100', '8.16'))
+
+    def test_price_insurance_caps_a_fifteen_percent_move_and_blocks_daily_thirty_percent(self):
+        from coin_all_sync_job import curve_price_insurance
+        from fc_pricing_v3.price_curve import compile_curve, TWO_BAND_PRICE_EDIT
+        from test_curve_strategy_v6 import fixture
+
+        current, _, _ = fixture()
+        editor = dict(current['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
+        target = compile_curve(current, {'anchor_prices_usd': {100: '11.50'}}, editor)
+        context = dict(day_anchors={'small': '10', 'large': '95'}, market_per_100k=['10'])
+        result = curve_price_insurance(current, target, context)
+        self.assertEqual(result['anchors']['small'], '11.00')
+        self.assertEqual(result['clipped']['small']['requested'], '11.5')
+        with self.assertRaisesRegex(ValueError, 'pricing_curve_daily_move_exceeded'):
+            curve_price_insurance(current, target, dict(context, day_anchors={'small': '8', 'large': '95'}))
+
     def test_temporary_floor_and_release_recalculate_from_the_normal_candidate(self):
         from copy import deepcopy
         from fc_pricing_v3.average_discount_v6 import MODEL
@@ -484,6 +634,7 @@ class CurveRuntime(unittest.TestCase):
         after = runtime._curve_restore_target(before, old)
         inputs = dict(captured_at=now.isoformat(), valid_until=(now + timedelta(minutes=10)).isoformat(),
                       primary_curve=primary, all_before=before,
+                      price_insurance=dict(market_per_100k=['10']),
                       all_inputs={curve_key(after): frozen(after, '120')})
         with patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
             proved = runtime._prove_curve_restore('PS', inputs, old, OPERATION, now)
@@ -1008,6 +1159,9 @@ class CurveRuntime(unittest.TestCase):
                       editor_handler_sha256=EDITOR_HANDLER_SHA256, source='Admin Goods edit read only',
                       verified_domain='native stored tiers only')
         adopted = read_curve(primary, {key: primary[key] for key in IDENTITY_FIELDS}, editor)
+        self.db.put('actual_price_windows', 'previous-day', dict(operation_id='previous-day',
+            write_protocol=CURVE_WRITE_PROTOCOL, opened_at=(now-timedelta(hours=25)).isoformat(),
+            action={'curves': {PLATFORM: adopted}}, resources=['base:PS']))
         self.db.start_curve_episode(PLATFORM, 'test', 'A', initial_curve=adopted, readback_ref='fixture')
         plan = dict(self.db.get('pricing_plans', 'plan'), mode='revenue_sprint')
         self.db.put('pricing_plans', 'plan', plan)
@@ -1136,8 +1290,8 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(average['start'], (CUT - timedelta(days=3)).isoformat())
         self.assertEqual(average['end_exclusive'], CUT.isoformat())
 
-        small_facts = facts(small, cost='4.92', delivery_fields={'qty':'123','gift':'0','cost_unit':'.04'})
-        large_facts = facts(large, cost='61.20', delivery_fields={'qty':'1530','gift':'0','cost_unit':'.04'})
+        small_facts = facts(small, cost='6.15', delivery_fields={'qty':'123','gift':'0','cost_unit':'.05'})
+        large_facts = facts(large, cost='76.50', delivery_fields={'qty':'1530','gift':'0','cost_unit':'.05'})
         combined = dict(small_facts, orders=small_facts['orders'] + large_facts['orders'])
         # The paid population excludes unresolved quantity only from modelling.
         source['historical_orders'].pop()
@@ -1251,7 +1405,7 @@ class CurveRuntime(unittest.TestCase):
                        actual_es_discount_usd='0', cost_cny=None if allocated else '100000')
         lower = facts(large[:1], cost='350', delivery_fields=dict(qty='1030', gift='0', cost_unit=str(Decimal(350)/1030)))
         higher = facts(large[1:2], cost='630', delivery_fields=dict(qty='1030', gift='0', cost_unit=str(Decimal(630)/1030)))
-        small_facts = facts(small, cost='3.50', delivery_fields=dict(qty='100', gift='0', cost_unit='.035'))
+        small_facts = facts(small, cost='5', delivery_fields=dict(qty='100', gift='0', cost_unit='.05'))
         facts_value = dict(lower, orders=lower['orders'] + higher['orders'] + small_facts['orders'])
         result = runtime._average_discount_proof_input(current,'PS',source,source,CUT.isoformat(),AS_OF,
             average=average_discount(source,'PS',CUT),route={'propagation_revision':'native-directory'},

@@ -221,6 +221,47 @@ def curve_admin_manager():
     return manager
 
 
+def curve_price_insurance(before, target, context, *, restore=False):
+    """Return bounded anchor controls; the caller must compile and prove them."""
+    from decimal import ROUND_CEILING, ROUND_FLOOR
+    from statistics import median
+    from fc_pricing_v3.curve_strategy_v6 import band_anchors
+
+    observed, requested = band_anchors(before), band_anchors(target)
+    day = context.get('day_anchors') or {}
+    market = [Decimal(value) for value in context.get('market_per_100k', [])]
+    market = median(market) if market else None
+    anchors, clipped = {}, {}
+    for band, raw in requested.items():
+        current, price = Decimal(observed[band]), Decimal(raw)
+        if not restore:
+            lower = (current * Decimal('.90')).quantize(Decimal('.01'), rounding=ROUND_CEILING)
+            upper = (current * Decimal('1.10')).quantize(Decimal('.01'), rounding=ROUND_FLOOR)
+            bounded = min(upper, max(lower, price))
+            if bounded != price:
+                clipped[band] = dict(requested=raw, bounded=str(bounded))
+            price = bounded
+            if band not in day:
+                raise ValueError('pricing_curve_daily_reference_unavailable')
+            if not Decimal('.75') <= price / Decimal(day[band]) <= Decimal('1.25'):
+                raise ValueError('pricing_curve_daily_move_exceeded')
+        quantity = '100' if band == 'small' else '1000'
+        tier = next(row for row in target['tiers'] if row['purchase_k'] == quantity)
+        unit = price * 100 / (Decimal(quantity) + Decimal(tier['promised_bonus_k']))
+        if market is not None:
+            low, high = market * Decimal('.5'), market * 2
+            tested = unit
+        elif band in day:
+            low, high = Decimal(day[band]) * Decimal('.6'), Decimal(day[band]) * Decimal('1.6')
+            tested = price
+        else:
+            raise ValueError('pricing_curve_market_reference_unavailable')
+        if not low <= tested <= high:
+            raise ValueError('pricing_curve_out_of_market_range')
+        anchors[band] = str(price)
+    return dict(anchors=anchors, clipped=clipped)
+
+
 def curve_catalog_plan(bundle, platform, capability):
     """Freeze price-only changes and bind them to the original proof and Goods rows."""
     from fc_pricing_v3.financial import fingerprint
@@ -245,6 +286,17 @@ def curve_catalog_plan(bundle, platform, capability):
         raise ValueError('pricing_curve_two_band_policy_missing')
     from fc_pricing_v3.average_discount_v6 import LEGACY_MODEL, MODEL
     proof = bundle['curve_proofs'][platform]
+    insurance_context = (bundle.get('curve_price_insurance') or {}).get(platform)
+    if two_band and (insurance_context is not None or capability and capability.get('catalogue_status') == 'native_route_ready'):
+        if insurance_context is None:
+            raise ValueError('pricing_curve_insurance_evidence_missing')
+        insured = curve_price_insurance(before, target, insurance_context, restore=bool(restore))
+        if insured['clipped']:
+            raise ValueError('pricing_curve_single_move_requires_reproof')
+        exception = proof.get('price_insurance')
+        if exception and (restore or exception.get('round') != insurance_context.get('below_margin_rounds', 0) + 1
+                          or exception.get('round') not in (1, 2)):
+            raise ValueError('pricing_curve_margin_exception_exhausted')
     if (capability and capability.get('catalogue_status') == 'native_route_ready' and not two_band
             and (before['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
                  or (proof.get('average_discount') or {}).get('contract') in (MODEL, LEGACY_MODEL))):

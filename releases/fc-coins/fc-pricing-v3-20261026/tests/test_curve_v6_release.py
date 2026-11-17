@@ -23,6 +23,16 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_insurance_release_contains_only_nine_price_guard_targets(self):
+        mapping = target_map.curve_insurance_targets(SOURCE)
+        self.assertEqual(len(mapping), 9)
+        self.assertEqual(mapping['coin_all_sync_job.py'], '/opt/fc27-cloud-browser/coin_all_sync_job.py')
+        for name in ('average_discount_v6.py', 'cost_inputs_v6.py', 'pricing_proof_v6.py', 'runtime.py'):
+            self.assertEqual(mapping['fc_pricing_v3/' + name], '/opt/fc27-cloud-browser/fc_pricing_v3/' + name)
+            self.assertEqual(mapping['hermes-copy/fc_pricing_v3/' + name], '/opt/fs-hermes-fc/fc_pricing_v3/' + name)
+        self.assertEqual(adapter.SCOPED_TARGETS[target_map.CURVE_INSURANCE_SCOPE],
+                         {'source/' + name: path for name, path in mapping.items()})
+
     def git(self, *args):
         return subprocess.check_output(['git', *args], cwd=ROOT)
 

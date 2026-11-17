@@ -213,7 +213,7 @@ def repair_controls(current, proof, *, affected=None):
     return controls, failed
 
 
-def minimum_band_price(proof, segment, anchor, minimum, *, zero_line_only=False):
+def minimum_band_price(proof, segment, anchor, minimum, *, zero_line_only=False, current_anchor=None):
     """Solve the native cent grid for one band with the other band fixed."""
     from .pricing_proof_v6 import FAILED, HARD_MARGIN
 
@@ -243,11 +243,12 @@ def minimum_band_price(proof, segment, anchor, minimum, *, zero_line_only=False)
         return all(sum(net[key] * weight for key, weight in members) >= required for required, members in baskets)
 
     low = int(Decimal(minimum) / CENT)
+    limit = int(Decimal(current_anchor if current_anchor is not None else minimum) * Decimal('1.5') / CENT)
+    if low > limit:
+        return None
     if legal(low):
         return Decimal(low) * CENT
     high = low + 1
-    # Stay within the exact cent range of the editor's JavaScript numbers.
-    limit = 2 ** 48
     while high < limit and not legal(high):
         high = low + 2 * (high - low)
     if high > limit:

@@ -38,6 +38,8 @@ CURVE_AVERAGE_TOP_LEVEL = ('fc27_cloud_worker.py', 'server_quote_job.py', 'fc27-
 CURVE_AVERAGE_TARGET_COUNT = len(CURVE_AVERAGE_TOP_LEVEL) + 2 * len(CURVE_AVERAGE_MODULES)
 CURVE_AVERAGE_NEW = frozenset(prefix + 'fc_pricing_v3/average_discount_v6.py'
                               for prefix in ('source/', 'source/hermes-copy/'))
+CURVE_INSURANCE_SCOPE = 'fc-pricing-v6-insurance-20261117'
+CURVE_INSURANCE_TARGET_COUNT = 9
 
 # The original V3 mapping must also be available from a partial V6 stage.
 BASE_MODULES = (
@@ -223,6 +225,11 @@ def curve_average_targets(source):
     current = targets(source)
     return {**{name:current[name] for name in CURVE_AVERAGE_TOP_LEVEL},
             **module_targets(CURVE_AVERAGE_MODULES)}
+
+
+def curve_insurance_targets(source):
+    return {'coin_all_sync_job.py': targets(source)['coin_all_sync_job.py'],
+            **module_targets(('average_discount_v6.py', 'cost_inputs_v6.py', 'pricing_proof_v6.py', 'runtime.py'))}
 
 
 def require_curve_scope_for_imports(name, payload):

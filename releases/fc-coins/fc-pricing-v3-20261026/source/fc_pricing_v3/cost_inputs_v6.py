@@ -23,6 +23,35 @@ ADMIN_LOSS_BUCKETS = ('ts', 'tssj', 'dc', 'cb', 'tkwtg', 'wh', 'bftk', 'qt', 'bh
 ORDINARY_COST_BASIS = 'same_order_ordinary_delivery_total_at_verified_promised_k'
 
 
+def filter_cost_samples(cost, confirmed_cny_per_k=None):
+    """Exclude implausible observations without changing their source evidence."""
+    if not cost or cost.get('status') != 'valid':
+        return cost
+    reference = _number(confirmed_cny_per_k)
+    lower, upper = ((reference / 2, reference * 2) if reference is not None
+                    else (Decimal('.05'), Decimal('5')))
+    samples = cost.get('sample_records')
+    valid, outliers = [], list((cost.get('sample_insurance') or {}).get('outliers') or [])
+    for row in samples if samples is not None else [cost]:
+        price = _number(row.get('cny_per_1k'))
+        if price is not None and lower <= price <= upper:
+            valid.append(row)
+        else:
+            outliers.append(dict(row, status='outlier'))
+    evidence = dict(reference_cny_per_k=str(reference) if reference is not None else None,
+                    lower_cny_per_k=str(lower), upper_cny_per_k=str(upper),
+                    valid_count=len(valid), outliers=outliers)
+    result = dict(cost, sample_insurance=evidence)
+    if len(valid) < (3 if samples is not None else 1):
+        return dict(result, status='missing', reason='curve_cost_sample_outlier')
+    selected = max(valid, key=lambda row: Decimal(row['cny_per_1k']))
+    result.update({key: selected[key] for key in
+                   ('cny_per_1k', 'cny_per_k', 'record_id', 'trade_at', 'traded_at') if key in selected})
+    if samples is not None:
+        result['sample_records'] = valid
+    return result
+
+
 def merchant_fee_components(site_id):
     """Creator-confirmed merchant rates for MMOEXP FC27 Coins."""
     if site_id != '266':
@@ -430,6 +459,23 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
     selected = recent
     if recent['complete_comparable_orders'] < MIN_COMPLETE:
         samples, selected = window(7 * 24)
+    insurance = None
+    if ordinary_forecast:
+        current_cost = filter_cost_samples(current_cost,
+            (current_cost or {}).get('sample_insurance', {}).get('reference_cny_per_k'))
+        if current_cost and current_cost.get('reason') == 'curve_cost_sample_outlier':
+            source_gaps.append('curve_cost_sample_outlier')
+        bounds = (current_cost or {}).get('sample_insurance') or {}
+        lower = Decimal(bounds.get('lower_cny_per_k', '.05'))
+        upper_limit = Decimal(bounds.get('upper_cny_per_k', '5'))
+        outliers = [row for row in samples if row['cost_usd'] is not None
+                    and not lower <= normalize_cost(row, quantity_basis)['unit_usd'] <= upper_limit]
+        samples = [row for row in samples if row not in outliers]
+        insurance = dict(lower_cny_per_k=str(lower), upper_cny_per_k=str(upper_limit),
+            valid_record_ids=sorted({record['cost_record_id'] for row in samples if row['cost_complete']
+                                     for record in facts.get(row['order_key'], (None,)*5)[4] or []}),
+            outliers=[dict(order_key=row['order_key'], status='outlier',
+                           cny_per_k=str(normalize_cost(row, quantity_basis)['unit_usd'])) for row in outliers])
     upper = None
     upper_basis = None
     current_source = None
@@ -449,7 +495,7 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
                                sample_ref=hashlib.sha256(json.dumps([row['order_key'] for row in recent_costs]).encode()).hexdigest(),
                                earliest_delivery_at=min(delivery_at[row['order_key']] for row in recent_costs).isoformat(),
                                latest_delivery_at=max(delivery_at[row['order_key']] for row in recent_costs).isoformat())
-        if current_cost and quantity_basis == 'PROMISED_DELIVERED_K' and rate is not None:
+        if current_cost and current_cost.get('status') == 'valid' and quantity_basis == 'PROMISED_DELIVERED_K' and rate is not None:
             checked = _instant(current_cost.get('checked_at'))
             trade = _instant(current_cost.get('trade_at'))
             price = _number(current_cost.get('cny_per_1k'))
@@ -522,6 +568,7 @@ def estimate_historical_cost(attachments, layer, quantity_basis, *, as_of, layer
         result['cost_basis'] = ORDINARY_COST_BASIS
         result['cost_upper_source'] = upper_basis
         result['current_cost_source'] = current_source
+        result['sample_insurance'] = insurance
     if loss is not None:
         result['admin_loss_statistics'] = loss
     return result
