@@ -241,10 +241,11 @@ function rowPrice(row,top,qty){
 function quoteKey(spec){return JSON.stringify(spec);}
 // The one goods row a spec names, or null when it is missing or ambiguous.
 async function specRow(spec){
-  const rows=await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.keyword});
-  const match=spec.goods?rows.filter(r=>Number(r.id)===spec.goods)
-    :rows.filter(r=>String(r.game_area_format||'').trim()===spec.area&&(!spec.sid||Number(r.sid)===spec.sid));
-  return match.length===1?match[0]:null;
+  const find=rows=>{const m=spec.goods?rows.filter(r=>Number(r.id)===spec.goods)
+    :rows.filter(r=>String(r.game_area_format||'').trim()===spec.area&&(!spec.sid||Number(r.sid)===spec.sid));return m.length===1?m[0]:null;};
+  const row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.keyword}));
+  // FC 27 players: the category is longer than the page cap, so a missing row is looked up by name.
+  return row||(spec.search?find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.search})):null);
 }
 function cachedQuote(spec,rerender){
   if(!spec)return null;const key=quoteKey(spec),hit=quotes.get(key);
@@ -260,7 +261,7 @@ function cachedQuote(spec,rerender){
 const amountOf=name=>{const m=/(\d+(?:\.\d+)?)\s*K\b/i.exec(name||'');return m?Number(m[1]):null;};
 function mysterySpec(it){
   if(it.modelId==='41217957'){const p=document.getElementById('fc27Platform').value;return {game:1327,top:1,cid:9623,aid:PLAT[p],goods:Number(it.productIds?.[p]),qty:amountOf(it.name)};}
-  if(it.productIds&&typeof it.productIds==='object'){const p=document.getElementById('fc27Platform').value;return {game:1327,top:2,cid:9627,aid:PLAT[p],goods:Number(it.productIds[p]),qty:1};}
+  if(it.productIds&&typeof it.productIds==='object'){const p=document.getElementById('fc27Platform').value;return {game:1327,top:2,cid:9627,aid:PLAT[p],goods:Number(it.productIds[p]),search:String(it.name||'').trim().split(/\s+/).pop(),qty:1};}
   // The same server name exists in several regions; the region is the goods row's sid.
   if(it.aionAmount){const region=document.getElementById('aionRegion').value,server=document.getElementById('aionServer').value,faction=document.getElementById('aionFaction').value;return server&&AION_SID[region]?{game:891,top:1,cid:6527,area:server+' - '+faction,sid:AION_SID[region],qty:it.aionAmount}:null;}
   if(it.wowAmount){const c=it.wowChoice||wowChoice(),entry=WOW_PRICE_SNAPSHOT?.[c.region]?.[c.faction]?.[c.realm];return entry?{game:1367,top:1,cid:9991,goods:Number(entry[0]),qty:it.wowAmount}:null;}
