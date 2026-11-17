@@ -11,7 +11,7 @@ const modulePromise = import(dataUrl(readFileSync(join(__dirname, 'order-email-p
 // Fixture directories only; the production module contains no directory defaults.
 const sites = [{ value: '266', label: 'Fixture site' }];
 const games = [{ value: '26', label: 'Fixture A' }, { value: '27', label: 'Fixture B' }];
-const input = { site_id: '266', game_ids: ['26', '27'], start: '2026-01-01', end: '2026-01-08' };
+const input = { site_id: '266', game_ids: ['26', '27'], start: '2026-01-01', end: '2026-01-31' };
 
 class Element {
   constructor(tag, doc) {
