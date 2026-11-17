@@ -272,6 +272,22 @@
 - 未验证：「立即结算」的线上实测（会清空用户自己的购物车，留给用户操作）。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T082159Z`。
 
+### 2026-11-17 `nav-20261117T091432Z`（PR #1207）校验修复、按游戏解锁、去掉商品页链接
+
+- 来源：PR #1207（`pr-fast` pass；中途一次 `ops-presentation-browser` 无关失败，重跑通过），合并 `bccbb1421d2e23dbcf6e6d32d09cefee3ba02b23`。候选目录 `/var/tmp/fs-campaign-release85-candidate`，manifest `7edae4613dff…`；发布 `Carnival.html`、`carnival-live.js`、`analytics/carnival-unlocks.mjs`、`runtime/carnival.mjs`、`backend/campaign_backend/discount_revenue.py` 和静态清单。发布前核对 5 个线上文件与 #1204 合并内容一致；inspect 的 sourceCAS、protectedCAS 均通过。
+- 根因：用户在线上点「校验」一直显示 “We couldn't check right now”。187 看板日志为 `CARNIVAL_UNLOCKS_UNAVAILABLE SITE_SCOPE_REQUIRED`：看板读 Admin 时没带 `site_id`，后端客户端在调用前就拒绝了。改为带 `site_id=266`，后端也只接受 266。
+- 改动：
+  - 神秘商店按游戏独立解锁（用户 11/17 确认的规则）：一次用券付款只解锁用户点了校验的那款游戏的一轮；共用券套的游戏（POE1/2；Maple、ARC、COD）不会被同一笔订单一起解锁。
+  - 「立即结算」弹窗去掉「去商品页自选」链接和购物车说明；加购失败只提示稍后再试。资源版本 `carnival-live.js?v=20261117e`。
+  - 扭蛋档位验收表 `docs/planning/carnival-landing-20261117/CAPSULE-SCENARIOS.md` 和可执行场景测试（单笔 $1000 一次领全部、累计分次领新档、不重复发），供主站领取接口对照。
+- 测试：carnival 相关 Node/浏览器 28/28、runtime carnival 8/8、Python `test_carnival_unlocks` 5/5；新增回归测试走真实 backend-client 检查。
+- 正式站读回：
+  - 服务：apply 成功，dashboard、runtime 均为 active（17:14:32 重启）。
+  - Admin 只读实测（187 上直接调后端，只输出数量）：测试券 1517 返回 available、付款使用 0 次；FC 活动券 1395 同样方式读到今天 1 笔真实付款使用，会员与时间字段解析正常。
+  - 页面引用 `carnival-live.js?v=20261117e`，脚本里已没有商品页链接。
+- 未验证：用测试券 1517 真实付款后点校验并解锁（需要用户下一笔真实订单）；扭蛋领取（主站接口未提供）。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T091432Z`。
+
 ---
 
 ## 回退与边界
