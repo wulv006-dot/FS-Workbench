@@ -235,15 +235,15 @@ def curve_price_insurance(before, target, context, *, restore=False):
     for band, raw in requested.items():
         current, price = Decimal(observed[band]), Decimal(raw)
         if not restore:
-            lower = (current * Decimal('.90')).quantize(Decimal('.01'), rounding=ROUND_CEILING)
-            upper = (current * Decimal('1.10')).quantize(Decimal('.01'), rounding=ROUND_FLOOR)
+            lower = (current * Decimal('.85')).quantize(Decimal('.01'), rounding=ROUND_CEILING)
+            upper = (current * Decimal('1.15')).quantize(Decimal('.01'), rounding=ROUND_FLOOR)
             bounded = min(upper, max(lower, price))
             if bounded != price:
                 clipped[band] = dict(requested=raw, bounded=str(bounded))
             price = bounded
             if band not in day:
                 raise ValueError('pricing_curve_daily_reference_unavailable')
-            if not Decimal('.75') <= price / Decimal(day[band]) <= Decimal('1.25'):
+            if not Decimal('.60') <= price / Decimal(day[band]) <= Decimal('1.40'):
                 raise ValueError('pricing_curve_daily_move_exceeded')
         quantity = '100' if band == 'small' else '1000'
         tier = next(row for row in target['tiers'] if row['purchase_k'] == quantity)

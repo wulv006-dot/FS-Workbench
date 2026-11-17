@@ -293,7 +293,7 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         if revisions == (builder.FC_V61_100K_MARKET_REVISION,) * 2:
             entries.append(row(builder.FC_V61_PARAMETER_ID, revisions[0], path, data))
             entries.append(row(builder.FC_V61_LEARNING_ID, revisions[0], path, data))
-        if revisions == (builder.FC_V61_WEEKLY_REVISION,) * 2:
+        if revisions in ((builder.FC_V61_WEEKLY_REVISION,) * 2, (builder.FC_V61_INSURANCE_REVISION,) * 2):
             entries.append(row(builder.FC_V61_PARAMETER_ID, revisions[0], path, data))
             entries.append(row('fs.procurement.inputs', revisions[0], path, data))
         self.git[COMMIT, 'knowledge/index.json'] = builder.encoded(dict(
@@ -321,6 +321,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assert_fc_revision_migration(builder.FC_V61_MARKET_ANCHOR_REVISION,
                                           builder.FC_V61_WEEKLY_REVISION, baseline_patch=True)
 
+    def test_insurance_limits_replace_previous_active_revision_and_preserve_routes(self):
+        self.assert_fc_revision_migration(builder.FC_V61_WEEKLY_REVISION,
+                                          builder.FC_V61_INSURANCE_REVISION, baseline_patch=True)
+
     def assert_fc_revision_migration(self, old_revision, new_revision, baseline_patch=False):
         old_data = b'Original amount-weighted discount and ALL propagation.\n'
         new_data = b'Two native price bands and main catalogue readback.\n'
@@ -328,7 +332,7 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         overlay_ids = set(builder.FC_V61_OVERLAYS)
         if new_revision == builder.FC_V61_100K_MARKET_REVISION:
             overlay_ids.update((builder.FC_V61_PARAMETER_ID, builder.FC_V61_LEARNING_ID))
-        if new_revision == builder.FC_V61_WEEKLY_REVISION:
+        if new_revision in (builder.FC_V61_WEEKLY_REVISION, builder.FC_V61_INSURANCE_REVISION):
             overlay_ids.update((builder.FC_V61_PARAMETER_ID, 'fs.procurement.inputs'))
         old_path = 'overlay/' + canonical_path
         before = list(builder.routes(self.policy))

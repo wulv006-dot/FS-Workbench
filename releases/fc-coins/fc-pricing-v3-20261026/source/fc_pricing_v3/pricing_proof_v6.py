@@ -365,7 +365,7 @@ def validate_curve(curve, baskets, evidence, validation_domain):
                 if valid:
                     valid = (requested > bounded > old and band in anchors
                              and Decimal(anchors[band]) == bounded
-                             and bounded == (old * Decimal('1.10')).quantize(Decimal('.01'), rounding=ROUND_FLOOR))
+                             and bounded == (old * Decimal('1.15')).quantize(Decimal('.01'), rounding=ROUND_FLOOR))
             if not valid:
                 result['gaps'].append('pricing_curve_margin_exception_invalid')
                 result['status'] = INCOMPLETE
