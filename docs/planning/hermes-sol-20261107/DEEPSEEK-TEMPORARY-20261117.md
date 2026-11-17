@@ -17,3 +17,14 @@
 原发布器为hermes-conversation-20261018/deploy/runtime_prepare.py的software增量及runtime_release.py。两目标按当前Git基线证明、完整现场保护和原准入栅栏，在无活动模型任务时发布。Linux/CI/发布和真实入口回执待完成，不以源码存在认定已切。平台拒绝新建独立审查子代理（agent thread limit reached），不伪报独审通过。
 
 回切仅恢复本次三处原Sol选择及openai_provider.POLICY_ID；先核当前字节与任务状态，沿原publisher精确增量。保留账本、任务、配置和后来无关更新，不整包覆盖。没有新增自动重试、自动跨供应商回退或新调度器。
+## 发布与真实通道验收
+
+PR #1216 https://github.com/wulv006-dot/FS-Workbench/pull/1216，代码742c057e18f12422dff69480ee2d39aeb16adb39，合并10971905888b9159961ed76c3405cc43de029fb1。正式CI44082007164/job134034687750通过（287+60+58+20+111=536项单测）。183 Python3.9报告32项、FC复盘13项通过；更宽附件套件的本机/隔离包依赖缺失不计通过，由正式CI原会话套件覆盖，未为此放宽断言。
+
+原software增量发布nav-20261117T122500Z，manifest061c97c4f18a0b1437c019563d64ff5ac39b7c8e6d136c01a68705ede25b14c6。两目标、49保护项精确读回；conversation_native.py=d323ccded74647453a858cc984bce440d3af6e181ae183fc1c481a1673322861；native_reports.py=1389b491208f501e059edc0d8afed5af77dd8c7bf605a53910a2b5da6f7d3555。原回执applied-awaiting-actual-http-role-acceptance，业务worker/timer操作0。Hermes/range及FC三服务均active。
+
+真实DeepSeek原网关核验使用独立合成测试上下文与独立临时账本，不含业务/客户数据、不创建FS用户会话、不注册业务写工具；一次实际调用返回DS_ROUTE_OK、模型deepseek-flash、17输入/4输出/总21tokens，账本succeeded。测试请求fb8a11ee489d4b0381a51cdf11f5d6bd，原回执保存在187暂存发布目录的provider-smoke/receipt.json。序列化回执曾因SQLite Row对象失败，随后只读原成功账本补录，没有重发或重复付费；之前导入/字段校验失败均发生于网络前。费用金额未回传，不写零费用。
+
+本次证明部署接线、原报告/复盘派发合同与真实provider通道；尚未重新生成完整业务报告，也没有重跑旧failed/unknown请求。真实FS网页本次测试浏览器停在登录页，未冒用用户身份做报告入口验收；后续正常登录的下一新报告/复盘将消费当前接线。营销控制台独立Sol建议接口仍按原合同。
+
+knowledge_closeout本次KL-3600022b9e51d08cb4e9869d：affected_ids=[]、steps=[]、无冲突或新业务规则发布要求。官方余额接口说明：https://api-docs.deepseek.com/api/get-user-balance/ 。检查时75.64元仅是该时点余额，真实后续用量沿原账本和供应商余额。
