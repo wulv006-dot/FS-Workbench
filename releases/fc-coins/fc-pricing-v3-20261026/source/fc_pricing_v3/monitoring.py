@@ -78,7 +78,7 @@ def source_coverage(snapshots,plans,now,interval_minutes=60,*,waiting=()):
             issues.extend(dict(level='critical', code='coin_v3_'+failure+':'+plan['plan_id']) for failure in failures)
             issues.extend(dict(level='critical', platform=row['platform'], code='coin_v3_curve_'+row['status'].lower()+':'+row['platform'])
                           for row in result.get('rows', []) if row['status'] in
-                          ('PREFERRED_HARD_CONSTRAINT_FAILED', 'HARD_CONSTRAINT_FAILED', 'NO_FEASIBLE_CURVE'))
+                          ('PROOF_INCOMPLETE', 'PREFERRED_HARD_CONSTRAINT_FAILED', 'HARD_CONSTRAINT_FAILED', 'NO_FEASIBLE_CURVE'))
             continue
         relevant=[row for row in snapshots if row.get('origin')=='live_collector' and row.get('mode')=='production' and
                   row.get('write_protocol') != CURVE_WRITE_PROTOCOL and not row.get('authorization_purpose')

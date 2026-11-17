@@ -1086,11 +1086,11 @@ class CurveRuntime(unittest.TestCase):
                         snapshot_id='fixture-run', created_at=now.isoformat(),
                         evidence=dict(checked_at=now.isoformat(),
                                       source_coverage=dict(optional_missing=['Lootbar','U7Buy','ArabUT'])),
-                        result=dict(status='PROOF_INCOMPLETE',
-                                    rows=[dict(platform='PS', status='PROOF_INCOMPLETE')]))
+                        result=dict(status='KEEP',
+                                    rows=[dict(platform='PS', status='KEEP')]))
         coverage = source_coverage([snapshot], [plan], now)
         self.assertEqual(coverage['issues'], [])
-        self.assertEqual(coverage['plans'][0]['curve_proof_status'], 'PROOF_INCOMPLETE')
+        self.assertEqual(coverage['plans'][0]['curve_proof_status'], 'KEEP')
         snapshot['result']['rows'][0]['status'] = 'HARD_CONSTRAINT_FAILED'
         self.assertEqual(source_coverage([snapshot], [plan], now)['issues'],
                          [dict(level='critical', platform='PS', code='coin_v3_curve_hard_constraint_failed:PS')])

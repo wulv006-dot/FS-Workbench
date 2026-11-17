@@ -53,7 +53,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "86b4b4da0c12ddc5192f8712fc5919be832612775ac2428c445807aeecb0e099",
+        "sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -162,10 +162,10 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "86b4b4da0c12ddc5192f8712fc5919be832612775ac2428c445807aeecb0e099",
+        "sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -243,10 +243,10 @@
       "effective_at": "2026-10-18",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "86b4b4da0c12ddc5192f8712fc5919be832612775ac2428c445807aeecb0e099",
+        "sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -326,10 +326,10 @@
       "effective_at": "2026-10-22",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "86b4b4da0c12ddc5192f8712fc5919be832612775ac2428c445807aeecb0e099",
+        "sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -399,7 +399,7 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_market_anchor_20261117",
+      "revision": "fc_v61_market_anchor_weekly_20261117",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -411,11 +411,11 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "a2b20883431e4c9e8a08002824c48192f0845d836e4f793450a18b2079de8107",
+        "sha256": "66bcd3b12f8eace8d9ca59cc336603ba21f3145acc61ac7282501cc436efdb59",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
-          "end": "## 执行、恢复和学习验证"
+          "end": "### 每周定位溢价修复（2026-11-17）"
         }
       },
       "supersedes": [
@@ -430,7 +430,8 @@
         "fc.pricing.constraints@fc_v61_100k_market_two_band_20261113",
         "fc.pricing.constraints@fc_v61_d3_d1_es_ready_20261114",
         "fc.pricing.constraints@fc_v61_temporary_cost_protection_20261114",
-        "fc.pricing.constraints@fc_v61_cross_day_order_attribution_20261115"
+        "fc.pricing.constraints@fc_v61_cross_day_order_attribution_20261115",
+        "fc.pricing.constraints@fc_v61_market_anchor_20261117"
       ],
       "provenance": [
         {
@@ -523,6 +524,12 @@
           "date": "2026-11-17",
           "decision": "docs/planning/fc-pricing-market-anchor-20261117/CONSTRUCTION.md",
           "scope": "Confirmed rules; deployed strategy is determined by the actual plan revision, shadow is not adoption."
+        },
+        {
+          "kind": "direct_user_systematic_pricing_closeout_review",
+          "date": "2026-11-17",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "Synchronize confirmed three-day discounts, cost median, market anchor, insurance and weekly ladder; no parameter or writer changes."
         }
       ],
       "consumers": [
@@ -662,10 +669,10 @@
       "effective_at": "2026-10-23",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "86b4b4da0c12ddc5192f8712fc5919be832612775ac2428c445807aeecb0e099",
+        "sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -765,21 +772,21 @@
     },
     {
       "id": "fs.procurement.inputs",
-      "revision": "fc-v3-20261026",
+      "revision": "fc_v61_market_anchor_weekly_20261117",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-10-23",
+      "effective_at": "2026-11-17",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "86b4b4da0c12ddc5192f8712fc5919be832612775ac2428c445807aeecb0e099",
+        "sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -787,7 +794,8 @@
         }
       },
       "supersedes": [
-        "fs.procurement.inputs@existing-contract-20261023"
+        "fs.procurement.inputs@existing-contract-20261023",
+        "fs.procurement.inputs@fc-v3-20261026"
       ],
       "provenance": [
         {
@@ -826,28 +834,35 @@
           "prior_revision": "fc-v3-20261026",
           "prior_source_sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
           "scope": "source_file_hash_refreshed; selected_text_unchanged"
+        },
+        {
+          "kind": "direct_user_systematic_pricing_closeout_review",
+          "date": "2026-11-17",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "Synchronize confirmed three-day discounts, cost median, market anchor, insurance and weekly ladder; no parameter or writer changes."
         }
       ],
-      "effective_at_basis": "本知识修订截至日",
-      "original_effective_at": null
+      "effective_at_basis": "2026-11-17 confirmed FC V6 rule synchronization; other protocols retain their original meaning",
+      "original_effective_at": null,
+      "knowledge_updated_at": "2026-11-17"
     },
     {
       "id": "fs.pricing.parameter-identity",
-      "revision": "fc_v61_100k_market_two_band_20261113",
+      "revision": "fc_v61_market_anchor_weekly_20261117",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-11-13",
+      "effective_at": "2026-11-17",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "86b4b4da0c12ddc5192f8712fc5919be832612775ac2428c445807aeecb0e099",
+        "sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -856,7 +871,8 @@
       },
       "supersedes": [
         "fs.pricing.parameter-identity@existing-contract-20261023",
-        "fs.pricing.parameter-identity@20261110-three-platform-100k"
+        "fs.pricing.parameter-identity@20261110-three-platform-100k",
+        "fs.pricing.parameter-identity@fc_v61_100k_market_two_band_20261113"
       ],
       "provenance": [
         {
@@ -902,11 +918,17 @@
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
           "prior_revision": "20261110-three-platform-100k",
           "scope": "100K-only market collection; independent own-price bands; active V6 versus historical scalar protocol"
+        },
+        {
+          "kind": "direct_user_systematic_pricing_closeout_review",
+          "date": "2026-11-17",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "Synchronize confirmed three-day discounts, cost median, market anchor, insurance and weekly ladder; no parameter or writer changes."
         }
       ],
-      "effective_at_basis": "2026-11-13 用户确认 V6 两段及仅100K竞品，清理现行旧规则冲突",
+      "effective_at_basis": "2026-11-17 confirmed FC V6 rule synchronization; other protocols retain their original meaning",
       "original_effective_at": null,
-      "knowledge_updated_at": "2026-11-13"
+      "knowledge_updated_at": "2026-11-17"
     },
     {
       "id": "fs.product.identity",
@@ -921,10 +943,10 @@
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "86b4b4da0c12ddc5192f8712fc5919be832612775ac2428c445807aeecb0e099",
+        "sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -1053,10 +1075,10 @@
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "86b4b4da0c12ddc5192f8712fc5919be832612775ac2428c445807aeecb0e099",
+        "sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1234,7 +1256,7 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc_v61_market_anchor_20261117",
+      "revision": "fc_v61_market_anchor_weekly_20261117",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1247,10 +1269,10 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "a2b20883431e4c9e8a08002824c48192f0845d836e4f793450a18b2079de8107",
+        "sha256": "66bcd3b12f8eace8d9ca59cc336603ba21f3145acc61ac7282501cc436efdb59",
         "hash_basis": "utf8_lf",
         "selector": {
-          "start": "### 市场定位锚与保险（2026-11-17）"
+          "start": "### 每周定位溢价修复（2026-11-17）"
         }
       },
       "supersedes": [
@@ -1273,7 +1295,8 @@
         "fc.pricing.v3@fc_v61_100k_market_two_band_20261113",
         "fc.pricing.v3@fc_v61_d3_d1_es_ready_20261114",
         "fc.pricing.v3@fc_v61_temporary_cost_protection_20261114",
-        "fc.pricing.v3@fc_v61_cross_day_order_attribution_20261115"
+        "fc.pricing.v3@fc_v61_cross_day_order_attribution_20261115",
+        "fc.pricing.v3@fc_v61_market_anchor_20261117"
       ],
       "provenance": [
         {
@@ -1383,6 +1406,12 @@
           "date": "2026-11-17",
           "decision": "docs/planning/fc-pricing-market-anchor-20261117/CONSTRUCTION.md",
           "scope": "Confirmed rules; deployed strategy is determined by the actual plan revision, shadow is not adoption."
+        },
+        {
+          "kind": "direct_user_systematic_pricing_closeout_review",
+          "date": "2026-11-17",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "Synchronize confirmed three-day discounts, cost median, market anchor, insurance and weekly ladder; no parameter or writer changes."
         }
       ],
       "consumers": [
