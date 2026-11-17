@@ -4,7 +4,7 @@ const { join } = require('node:path');
 const { test } = require('node:test');
 const modulePromise = import('data:text/javascript;base64,' +
   readFileSync(join(__dirname, 'order-email-run.js')).toString('base64'));
-const input = () => ({ site_id: '266', game_ids: ['26'], start: '2024-02-01', end_exclusive: '2024-03-01' });
+const input = () => ({ site_id: '266', game_ids: ['26'], start: '2024-02-01', end_exclusive: '2024-02-09' });
 const shortInput = () => ({ ...input(), end_exclusive: '2024-02-02' });
 const row = (order_id, email = 'First@example.com', email_key = 'first@example.com') => ({ order_id, email, email_key });
 function page(request, data = [], total = data.length, next_cursor = null) {
@@ -99,7 +99,7 @@ test('strict dates, leap day and game-major windows cover exactly 366 days', asy
   const { buildOrderEmailRequests } = await modulePromise;
   const annual = { ...input(), game_ids: ['26', '27'], start: '2024-01-01', end_exclusive: '2025-01-01' };
   const requests = buildOrderEmailRequests(annual);
-  assert.equal(requests.length, 28);
+  assert.equal(requests.length, 106);
   for (const game of annual.game_ids) {
     const windows = requests.filter(r => r.game_id === game);
     assert.equal(windows[0].start, annual.start);
@@ -107,14 +107,15 @@ test('strict dates, leap day and game-major windows cover exactly 366 days', asy
     let days = 0;
     windows.forEach((w, i) => {
       const length = (Date.parse(w.end_exclusive) - Date.parse(w.start)) / 86400000;
-      assert.ok(length > 0 && length <= 28);
+      assert.ok(length > 0 && length <= 7);
       if (i) assert.equal(w.start, windows[i - 1].end_exclusive);
       days += length;
     });
     assert.equal(days, 366);
   }
-  assert.deepEqual(buildOrderEmailRequests(input()).map(r => [r.start, r.end_exclusive]),
-    [['2024-02-01', '2024-02-29'], ['2024-02-29', '2024-03-01']]);
+  assert.deepEqual(buildOrderEmailRequests({ ...input(), end_exclusive: '2024-03-01' }).map(r => [r.start, r.end_exclusive]),
+    [['2024-02-01', '2024-02-08'], ['2024-02-08', '2024-02-15'], ['2024-02-15', '2024-02-22'],
+      ['2024-02-22', '2024-02-29'], ['2024-02-29', '2024-03-01']]);
   assert.equal(buildOrderEmailRequests({ ...shortInput(), start: '0099-01-01', end_exclusive: '0099-01-02' }).length, 1);
 });
 
@@ -326,4 +327,14 @@ test('clear cancels active/exhausted/invalid instances, erases PII and is idempo
     restart.acceptPage(page(restart.nextRequest(), [row('private-id')]));
     assert.equal(restart.result().observed_orders, 1);
   }
+});
+
+test('weekly windows avoid the reproduced slow 28-day tail without gaps', async () => {
+  const { buildOrderEmailRequests } = await modulePromise;
+  const request = { site_id: '266', game_ids: ['1307'], start: '2026-09-26', end_exclusive: '2026-10-24', filters: { progress: '10' } };
+  const pages = buildOrderEmailRequests(request);
+  assert.deepEqual(pages.map(p => [p.start, p.end_exclusive]), [
+    ['2026-09-26', '2026-10-03'], ['2026-10-03', '2026-10-10'],
+    ['2026-10-10', '2026-10-17'], ['2026-10-17', '2026-10-24']]);
+  assert.ok(pages.every(p => p.site_id === '266' && p.game_id === '1307' && p.filters.progress === '10'));
 });

@@ -19,7 +19,7 @@ function date(value) {
   return time;
 }
 
-/** Validate an annual request and return fresh game-major, <=28-day bodies. */
+/** Validate an annual request and return fresh game-major, <=7-day bodies. */
 export function buildOrderEmailRequests(input) {
   requireValid(object(input) && ['site_id', 'game_ids', 'start', 'end_exclusive'].every(key => Object.hasOwn(input, key)) &&
     Object.keys(input).every(key => ['site_id', 'game_ids', 'start', 'end_exclusive', 'filters', 'server_ids'].includes(key)));
@@ -40,11 +40,12 @@ export function buildOrderEmailRequests(input) {
   const requests = [];
   for (const game_id of input.game_ids) {
     const filters = { ...input.filters, ...(Object.hasOwn(input.server_ids || {}, game_id) ? { aid: input.server_ids[game_id] } : {}) };
-    for (let t = start; t < end; t += 28 * DAY) requests.push({
+    // Narrow ranges avoid slow upstream tail pages within the existing 10s read budget.
+    for (let t = start; t < end; t += 7 * DAY) requests.push({
       site_id: input.site_id, game_id,
       ...(Object.keys(filters).length ? { filters: { ...filters } } : {}),
       start: new Date(t).toISOString().slice(0, 10),
-      end_exclusive: new Date(Math.min(t + 28 * DAY, end)).toISOString().slice(0, 10),
+      end_exclusive: new Date(Math.min(t + 7 * DAY, end)).toISOString().slice(0, 10),
     });
   }
   return requests;
