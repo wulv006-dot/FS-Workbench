@@ -4,12 +4,14 @@ import sys
 import unittest
 import tempfile
 import time
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 from pathlib import Path
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'source'))
-from fc_dashboard import classify, project, shipping_membership, native_membership, export_csv, reconcile_shipping, filter_echo_matches
+from fc_dashboard import classify, collect_shipping, project, shipping_membership, native_membership, export_csv, reconcile_shipping, filter_echo_matches
 from fc_detail_model import normalize, aggregate, deduplicate, selected
 from fc_detail import query, FCDetails, atomic
 from fc_detail_reader import collect
@@ -52,6 +54,33 @@ class TaxonomyTest(unittest.TestCase):
 
 class FinancialTest(unittest.TestCase):
     def view(self,value,**q):return aggregate(value,{**Q,**q},CFG)['fc_dashboard']
+
+    def test_current_order_form_reconciles_only_unrestricted_shipping(self):
+        period = {'start':'2026-11-16 00:00', 'end':'2026-11-17 00:00'}
+        fields = dict(genre='1', gid='1322', aid='0', cid='-1', status='-1', op_id='0',
+                      show_ccy='-1', keyword='', sn='', wid='', start='2026-11-16 00:00',
+                      end='2026-11-16 23:59', **{'source[]':''})
+        inputs = ''.join(f'<input name="{name}" value="{value}">' for name, value in fields.items())
+        row = ship(1, '108169.60', '70774.41', at='2026-11-16 15:00:00')
+        native = ('<table><thead><tr><th>游戏</th><th>￥销售总额</th><th>￥采购总额</th><th>利润率</th>'
+                  '<th>订单总数</th><th>交易总数</th></tr></thead><tbody><tr>'
+                  '<td>1322 | FC 27</td><td>108,169.60</td><td>70,774.41</td><td>34.57%</td>'
+                  '<td>1</td><td>1</td></tr></tbody></table>')
+        for selected, reconciled in (('', True), ('selected', False)):
+            with self.subTest(selected=bool(selected)):
+                form = (f'<form action="/stats/admin_index/delivery.html">{inputs}'
+                        f'<select name="ship_source[]" multiple><option value="0" {selected}>未标/普通</option>'
+                        '</select></form>')
+                session = SimpleNamespace(get_order=Mock(return_value=(200, form + native)))
+                with patch.dict(sys.modules, channel_cost_source=SimpleNamespace(collect=lambda *a, **k:[row])), \
+                     patch.object(sys, 'path', list(sys.path)):
+                    coverage = collect_shipping(session, period)['coverage']
+                sent = session.get_order.call_args.kwargs
+                self.assertNotIn('is_stock', sent)
+                self.assertEqual((sent['ship_source[]'], sent['wid']), ('', ''))
+                self.assertEqual(coverage['native_summary_reconciled'], reconciled)
+                if not reconciled:
+                    self.assertEqual(coverage['reconciliation_reason'], 'native_summary_filter_mismatch:ship_source[]')
 
     def test_native_minute_time_echo_does_not_relax_other_filters_or_money(self):
         self.assertTrue(filter_echo_matches('start','2026-11-05 00:00','2026-11-05 00:00:00'))
