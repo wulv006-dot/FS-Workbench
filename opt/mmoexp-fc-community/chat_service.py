@@ -180,7 +180,7 @@ class ChatClient(discord.Client):
         self.focus_config = config.get('matchday_focus') or {}
         self.focus_store = None
         self.focus_lock = asyncio.Lock()
-        self.focus_retry_task = None
+        self.focus_retry_tasks = {}
         self.matchday_intro_view = None
         self.focus_recovered = asyncio.Event()
         if self.matchday_config and self.matchday_config['enabled']:
@@ -398,12 +398,12 @@ class ChatClient(discord.Client):
                                         allowed_mentions=discord.AllowedMentions.none())
 
     async def close(self):
-        for task in (self.topic_task, self.followup_task, self.focus_retry_task):
+        for task in (self.topic_task, self.followup_task, *self.focus_retry_tasks.values()):
             if task is not None and task is not asyncio.current_task():
                 task.cancel()
         self.topic_task = None
         self.followup_task = None
-        self.focus_retry_task = None
+        self.focus_retry_tasks.clear()
         await super().close()
 
     async def add_commands(self):
@@ -467,10 +467,22 @@ class ChatClient(discord.Client):
             await self.send_match_pulse(channel, message.id, pulse,
                                         message.created_at.timestamp(), attempts=3)
 
-    async def retry_daily_card(self):
-        await asyncio.sleep(self.focus_config.get(
-            'settle_seconds', matchday_focus.DEFAULT_SETTLE_SECONDS))
-        await self.recover_daily_card(schedule_retry=False)
+    def schedule_daily_retry(self, message):
+        task = self.focus_retry_tasks.get(message.id)
+        if task is None or task.done():
+            self.focus_retry_tasks[message.id] = asyncio.create_task(
+                self.retry_daily_card(message))
+
+    async def retry_daily_card(self, message):
+        try:
+            settle = self.focus_config.get('settle_seconds',
+                                           matchday_focus.DEFAULT_SETTLE_SECONDS)
+            remaining = (message.created_at + dt.timedelta(seconds=settle) -
+                         discord.utils.utcnow()).total_seconds()
+            await asyncio.sleep(max(0, remaining))
+            await self.handle_daily_card(message, schedule_retry=False)
+        finally:
+            self.focus_retry_tasks.pop(message.id, None)
 
     async def handle_daily_card(self, message, schedule_retry=True):
         if message.guild is None or str(message.guild.id) not in self.focus_config['guild_ids']:
@@ -514,9 +526,8 @@ class ChatClient(discord.Client):
             return
         if (now - message.created_at).total_seconds() < self.focus_config.get(
                 'settle_seconds', matchday_focus.DEFAULT_SETTLE_SECONDS):
-            if schedule_retry and (self.focus_retry_task is None or
-                                   self.focus_retry_task.done()):
-                self.focus_retry_task = asyncio.create_task(self.retry_daily_card())
+            if schedule_retry:
+                self.schedule_daily_retry(message)
             return
         async with self.focus_lock:
             if (not self.focus_store.may_select(message.guild.id, day, limit)
@@ -551,9 +562,8 @@ class ChatClient(discord.Client):
             except (chat_brain.ChatBrainError, ValueError) as exc:
                 print('Matchday focus selection skipped: {} response={!r}'.format(
                     type(exc).__name__, locals().get('answer', '')[:240]), flush=True)
-                if schedule_retry and (self.focus_retry_task is None or
-                                       self.focus_retry_task.done()):
-                    self.focus_retry_task = asyncio.create_task(self.retry_daily_card())
+                if schedule_retry:
+                    self.schedule_daily_retry(message)
                 return
             if choice is None:
                 for source_id in source_ids:
