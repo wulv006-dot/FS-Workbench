@@ -13,15 +13,20 @@ if timeout 180s docker run --rm --init --memory 2g --memory-swap 2g --env PYTHON
   --mount type=bind,src=/opt/fs-order-session,dst=/opt/fs-order-session,readonly \
   --mount type=bind,src=/run/fs-order-session,dst=/run/fs-order-session,readonly \
   --cap-drop ALL --security-opt no-new-privileges --group-add 11028 \
+  -e FC_V6_COST_REFERENCES \
   -e FC27_CDP_ENDPOINT=http://127.0.0.1:9225 \
   --mount type=bind,src=/opt/fc27-cloud-browser/collect_p2pah_cost.py,dst=/usr/local/bin/collect_p2pah_cost.py,readonly \
   fc27-cloud-cost:1 > "$trace"; then
   if python3 - "$trace" <<'PY'
-import json,sys
+import json,os,sys
 x=json.load(open(sys.argv[1],encoding='utf-8'))
 assert x.get('status')=='valid'
 assert [r.get('platform') for r in x.get('costs',[])]==['PS','XBOX','PC']
-assert all(r.get('status')=='valid' and r.get('genre')=='1' and r.get('delivery_type')=='\u8ba2\u5355\u53d1\u8d27' for r in x['costs'])
+if os.environ.get('FC_V6_COST_REFERENCES') is not None:
+    assert x.get('cost_protocol')=='fc27_curve_v6'
+    assert all(r.get('status') in ('valid','missing') for r in x['costs'])
+else:
+    assert all(r.get('status')=='valid' and r.get('genre')=='1' and r.get('delivery_type')=='\u8ba2\u5355\u53d1\u8d27' for r in x['costs'])
 PY
   then
     mv "$trace" "${trace%.tmp}.json"

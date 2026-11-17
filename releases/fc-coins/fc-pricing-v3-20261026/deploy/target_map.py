@@ -42,6 +42,8 @@ CURVE_INSURANCE_SCOPE = 'fc-pricing-v6-insurance-20261117'
 CURVE_INSURANCE_TARGET_COUNT = 9
 CURVE_STABILITY_SCOPE = 'fc-pricing-v6-stability-20261117'
 CURVE_STABILITY_TARGET_COUNT = 8
+CURVE_STABILITY_REPOSITORY_SOURCES = {'source/collect_p2pah_cost.sh':
+    'releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh'}
 
 # The original V3 mapping must also be available from a partial V6 stage.
 BASE_MODULES = (

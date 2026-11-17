@@ -19,7 +19,7 @@ from target_map import (CURVE_V6_BASE, CURVE_V6_SCOPE, CURVE_V6_NEW, CURVE_V6_TA
                         curve_v6_targets, require_curve_scope_for_imports)
 from target_map import CURVE_AVERAGE_SCOPE, CURVE_AVERAGE_NEW, CURVE_AVERAGE_TARGET_COUNT, curve_average_targets
 from target_map import CURVE_INSURANCE_SCOPE, CURVE_INSURANCE_TARGET_COUNT, curve_insurance_targets
-from target_map import CURVE_STABILITY_SCOPE, CURVE_STABILITY_TARGET_COUNT, curve_stability_targets
+from target_map import CURVE_STABILITY_SCOPE, CURVE_STABILITY_TARGET_COUNT, CURVE_STABILITY_REPOSITORY_SOURCES, curve_stability_targets
 
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
@@ -82,7 +82,8 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         all_expected.update(LOOTBAR_CALLER_EXTRA)
     if curve_average and provenance.get('scope') != CURVE_AVERAGE_SCOPE:
         raise ValueError('curve_average_source_provenance_changed')
-    if curve_stability and provenance.get('scope') != CURVE_STABILITY_SCOPE:
+    if curve_stability and (provenance.get('scope') != CURVE_STABILITY_SCOPE
+                            or provenance.get('repositorySources') != CURVE_STABILITY_REPOSITORY_SOURCES):
         raise ValueError('curve_stability_source_provenance_changed')
     if curve_insurance and provenance.get('scope') != CURVE_INSURANCE_SCOPE:
         raise ValueError('curve_insurance_source_provenance_changed')

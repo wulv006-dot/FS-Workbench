@@ -31,6 +31,20 @@ class CurveV6Release(unittest.TestCase):
                          {'source/' + name: path for name, path in mapping.items()})
         self.assertNotIn('coin_all_sync_job.py', mapping)
         self.assertNotIn('fc_pricing_v3/scheduler.py', mapping)
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / 'stability.tar.gz'
+            with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']), \
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, commit: path.read_bytes()):
+                result = build_stage.build(ROOT, output, curve_stability=True)
+            with tarfile.open(output) as bundle:
+                provenance = json.load(bundle.extractfile('fc-pricing-v3-20261026/source-manifest.json'))
+                shell = bundle.extractfile('fc-pricing-v3-20261026/candidate/source/collect_p2pah_cost.sh').read()
+        self.assertEqual(result['targets'], 8)
+        self.assertEqual(provenance['repositorySources'], target_map.CURVE_STABILITY_REPOSITORY_SOURCES)
+        self.assertEqual(set(provenance['files']), set(adapter.SCOPED_TARGETS[target_map.CURVE_STABILITY_SCOPE]))
+        self.assertIn(b'--env PYTHONPATH=/opt:/opt/fs-order-session', shell)
+        self.assertIn(b'-e FC_V6_COST_REFERENCES', shell)
+        self.assertNotIn(b'/etc/fc27-cloud/fc27.env', shell)
 
     def test_insurance_release_contains_only_nine_price_guard_targets(self):
         mapping = target_map.curve_insurance_targets(SOURCE)

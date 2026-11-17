@@ -18,7 +18,7 @@ from target_map import (CURVE_V6_BASE, CURVE_V6_SCOPE, CURVE_V6_SOURCE_NAMES, CU
                         MONITOR_SQLITE_CANDIDATE, MONITOR_SQLITE_SHA, MONITOR_SQLITE_PROVENANCE)
 from target_map import CURVE_AVERAGE_SCOPE, CURVE_AVERAGE_TARGET_COUNT, curve_average_targets
 from target_map import CURVE_INSURANCE_SCOPE, CURVE_INSURANCE_TARGET_COUNT, curve_insurance_targets
-from target_map import CURVE_STABILITY_SCOPE, CURVE_STABILITY_TARGET_COUNT, curve_stability_targets
+from target_map import CURVE_STABILITY_SCOPE, CURVE_STABILITY_TARGET_COUNT, CURVE_STABILITY_REPOSITORY_SOURCES, curve_stability_targets
 
 
 def digest(path):
@@ -52,6 +52,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
     if coupon_display:paths.append(COUPON_DISPLAY_SOURCE)
     if lootbar:paths.extend(LOOTBAR_CALLER_REPOSITORY_SOURCES.values())
     if three_platform:paths.extend(THREE_PLATFORM_REPOSITORY_SOURCES.values())
+    if curve_stability:paths.extend(CURVE_STABILITY_REPOSITORY_SOURCES.values())
     if curve_v6:paths.extend(CURVE_V6_REPOSITORY_SOURCES.values())
     dirty = subprocess.check_output(['git', 'status', '--porcelain', '--', *paths],
                                     cwd=checkout, text=True).strip()
@@ -94,6 +95,8 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
                 original=checkout/THREE_PLATFORM_REPOSITORY_SOURCES['source/'+name]
             if curve_v6 and 'source/'+name in CURVE_V6_REPOSITORY_SOURCES:
                 original=checkout/CURVE_V6_REPOSITORY_SOURCES['source/'+name]
+            if curve_stability and 'source/'+name in CURVE_STABILITY_REPOSITORY_SOURCES:
+                original=checkout/CURVE_STABILITY_REPOSITORY_SOURCES['source/'+name]
             destination = candidate / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             payload = library if 'source/'+name==MONITOR_SQLITE_CANDIDATE else read_blob(original)
@@ -120,7 +123,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
         if curve_average:
             provenance['scope'] = CURVE_AVERAGE_SCOPE
         if curve_stability:
-            provenance['scope'] = CURVE_STABILITY_SCOPE
+            provenance.update(scope=CURVE_STABILITY_SCOPE, repositorySources=CURVE_STABILITY_REPOSITORY_SOURCES)
         if curve_insurance:
             provenance['scope'] = CURVE_INSURANCE_SCOPE
         (stage / 'source-manifest.json').write_text(
