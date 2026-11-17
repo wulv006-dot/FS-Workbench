@@ -1,3 +1,5 @@
+保险规则后续修订（2026-11-17）：用户已确认单轮 ±15%、24 小时累计 ±40%。当前施工同步程序、合同、完整业务基准及正式知识；本记录下文的版本、发布和验收数据是修订前历史事实，不能作为新阈值已经上线的证明。现行规则见 [V6.1 合同](../fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md)，发布验收见 [本次修订记录](INSURANCE-15-40.md)。
+
 # FC 自动定价系统复核｜2026-11-17
 
 负责人 Codex。按创建者要求拉取 main，基线 `97f178ff42a18c6fa1e4a33948afacaca12606ba`，独立分支 `codex/fc-pricing-change-review-20261117`；使用 `.agents/skills/fc-pricing-change-review/`。生产事实截至13:45Z，后续发布和检查在本记录补录。

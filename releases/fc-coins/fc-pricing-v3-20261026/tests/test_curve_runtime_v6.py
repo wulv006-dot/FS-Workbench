@@ -175,7 +175,7 @@ class CurveRuntime(unittest.TestCase):
                                        expected_cost_usd='40', safe_cost_usd='40', stress_cost_usd='40', known_fee_usd='0')
             return dict(baskets=baskets, evidence=evidence, domain=domain)
         now = datetime.now(timezone.utc)
-        for loot, u7, expected in (('7.5', '8.12', {'small': Decimal('9'), 'large': Decimal('85.5')}),
+        for loot, u7, expected in (('7.5', '8.12', {'small': Decimal('8.5'), 'large': Decimal('81.89')}),
                                     ('9.35', '11', {'small': Decimal('10'), 'large': Decimal('102.08')}),
                                     (None, None, {'small': Decimal('10'), 'large': Decimal('95')})):
             entry = dict(primary_curve=current, all_before=before, editor_contract=editor, native_route=None,
@@ -306,7 +306,7 @@ class CurveRuntime(unittest.TestCase):
             else:
                 self.assertNotIn('curve_cost_sample_outlier', frozen['domain']['coverage_gaps'])
 
-    def test_protected_target_is_recompiled_and_reproved_after_the_ten_percent_cap(self):
+    def test_protected_target_is_recompiled_and_reproved_after_the_fifteen_percent_cap(self):
         from decimal import Decimal
         from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT, curve_key, read_curve
         from test_curve_strategy_v6 import fixture
@@ -345,7 +345,7 @@ class CurveRuntime(unittest.TestCase):
         runtime._freeze_cost_protection(PLATFORM, entry, inputs, state, None, {'competitor_offers': []}, now, {})
         frozen = entry['temporary_cost_protection']
         self.assertEqual(frozen['status'], 'PROVEN', frozen)
-        self.assertEqual(Decimal(frozen['final_anchors']['large']), Decimal('104.50'))
+        self.assertEqual(Decimal(frozen['final_anchors']['large']), Decimal('109.25'))
         with patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
             decision = runtime._prove_temporary_curve(PLATFORM, entry, current, state, {})
         self.assertEqual(decision['status'], 'READY', decision)
@@ -359,7 +359,7 @@ class CurveRuntime(unittest.TestCase):
 
         curve, baskets, evidence, domain = fixture()
         evidence['paths'][0].update(safe_cost_usd='85', stress_cost_usd='90')
-        exception = dict(before_anchors={'small': '10', 'large': '90.91'},
+        exception = dict(before_anchors={'small': '10', 'large': '86.96'},
                          clipped={'large': dict(requested='105', bounded='100')}, round=1)
         for round_number, expected in ((1, 'PROVEN'), (2, 'PROVEN'), (3, 'HARD_CONSTRAINT_FAILED')):
             result = validate_curve(curve, baskets, evidence, dict(domain, price_insurance=dict(exception, round=round_number)))
@@ -394,20 +394,45 @@ class CurveRuntime(unittest.TestCase):
                          recent=dict(safe_cost_usd='5685.71', members=[dict(path_id='small', weight='1')])))
         self.assertIsNone(minimum_band_price(proof, 'small', '100', '8.16'))
 
-    def test_price_insurance_caps_a_fifteen_percent_move_and_blocks_daily_thirty_percent(self):
+    def test_price_insurance_caps_twenty_percent_at_fifteen_and_blocks_over_forty_daily(self):
         from coin_all_sync_job import curve_price_insurance
         from fc_pricing_v3.price_curve import compile_curve, TWO_BAND_PRICE_EDIT
         from test_curve_strategy_v6 import fixture
 
         current, _, _ = fixture()
         editor = dict(current['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
-        target = compile_curve(current, {'anchor_prices_usd': {100: '11.50'}}, editor)
+        target = compile_curve(current, {'anchor_prices_usd': {100: '12.00'}}, editor)
         context = dict(day_anchors={'small': '10', 'large': '95'}, market_per_100k=['10'])
         result = curve_price_insurance(current, target, context)
-        self.assertEqual(result['anchors']['small'], '11.00')
-        self.assertEqual(result['clipped']['small']['requested'], '11.5')
+        self.assertEqual(result['anchors']['small'], '11.50')
+        self.assertEqual(result['clipped']['small']['requested'], '12')
         with self.assertRaisesRegex(ValueError, 'pricing_curve_daily_move_exceeded'):
             curve_price_insurance(current, target, dict(context, day_anchors={'small': '8', 'large': '95'}))
+
+    def test_insurance_both_directions_daily_boundaries_and_next_round(self):
+        from coin_all_sync_job import curve_price_insurance
+        from fc_pricing_v3.price_curve import compile_curve, TWO_BAND_PRICE_EDIT
+        from test_curve_strategy_v6 import fixture
+
+        current, _, _ = fixture()
+        editor = dict(current['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
+        def curve(price):
+            return compile_curve(current, {'anchor_prices_usd': {100: price}}, editor)
+        context = dict(day_anchors={'small': '10', 'large': '95'}, market_per_100k=['10'])
+        for target, expected in (('12', '11.50'), ('8', '8.50')):
+            with self.subTest(target=target):
+                self.assertEqual(curve_price_insurance(current, curve(target), context)['anchors']['small'], expected)
+        # Each natural round uses the confirmed current price and a freshly computed target.
+        self.assertEqual(curve_price_insurance(curve('11.50'), curve('13'), context)['anchors']['small'], '13')
+        self.assertEqual(curve_price_insurance(curve('11.50'), curve('10.50'), context)['anchors']['small'], '10.5')
+        for price, allowed in (('14', True), ('14.01', False), ('6', True), ('5.99', False)):
+            with self.subTest(price=price):
+                before = curve('13' if price.startswith('14') else '6.50')
+                if allowed:
+                    self.assertEqual(curve_price_insurance(before, curve(price), context)['anchors']['small'], price)
+                else:
+                    with self.assertRaisesRegex(ValueError, 'pricing_curve_daily_move_exceeded'):
+                        curve_price_insurance(before, curve(price), context)
 
     def test_temporary_floor_releases_on_the_third_cost_retreat_round(self):
         from copy import deepcopy
