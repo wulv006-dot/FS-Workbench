@@ -59,16 +59,21 @@ test('a round is drawn once, stored per member and game, and repeats instead of 
 });
 
 test('a paid use of the game coupon set after the draw unlocks the next round with later-round odds',t=>{
- const {carnival,state,rolls,published}=setup(t,'2026-11-20T10:00:00-05:00');
+ const {carnival,state,rolls,published,dir}=setup(t,'2026-11-20T10:00:00-05:00');
  rolls.push(0,0,0,1);const firstRound=carnival.draw({uid:'42',game:'poe2',items:[0,1,2]});
  assert.deepEqual(firstRound.current.picks.map(p=>p.off),[8,15,8],'first round: one card raised to 15%');
+ // The member presses verify; the dashboard answers (here: the queue is simply emptied).
+ const press=()=>{carnival.verify({uid:'42',game:'poe2'});fs.rmSync(path.join(dir,'carnival-verify'),{recursive:true,force:true});};
  // A use before the draw, of another set, or of another member does not unlock.
  fs.writeFileSync(path.join(published,'carnival-unlocks.json'),JSON.stringify({uses:[
   {uid:'42',set:'poe',used_at:'2026-11-20T14:00:00Z'},{uid:'42',set:'fc27',used_at:'2026-11-21T00:00:00Z'},{uid:'7',set:'poe',used_at:'2026-11-21T00:00:00Z'}]}));
- assert.equal(carnival.state(q('42')).games.poe2.can_draw,false);
+ press();assert.equal(carnival.state(q('42')).games.poe2.can_draw,false);
+ state.now+=31000;
  fs.writeFileSync(path.join(published,'carnival-unlocks.json'),JSON.stringify({uses:[{uid:'42',set:'poe',used_at:'2026-11-20T16:00:00Z'}]}));
- const s=carnival.state(q('42'));
- assert.equal(s.games.poe2.can_draw,true);assert.equal(s.games.poe1.can_draw,true,'POE 1 and POE 2 share the coupon set');
+ press();const s=carnival.state(q('42'));
+ assert.equal(s.games.poe2.can_draw,true);
+ assert.equal(carnival.draw({uid:'42',game:'poe1',items:[0,1,2]}).current.round,1);
+ assert.equal(carnival.state(q('42')).games.poe1.can_draw,false,'the use reopened POE 2 only');
  state.now=at('2026-11-21T10:00:00-05:00');rolls.push(79,80,99);
  const second=carnival.draw({uid:'42',game:'poe2',items:[3,4,5]});
  assert.equal(second.current.round,2);assert.deepEqual(second.current.picks.map(p=>p.off),[10,15,15]);
