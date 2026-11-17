@@ -222,6 +222,18 @@
 - 未验证：线上真实“领券事件”未触发（统计事件需访客同意，不替用户点同意）；券 1395 目前没有真实使用订单，付款金额、抵扣和复购在真实订单出现后才能读到数字；逐日发放未单独读取。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261116T150739Z`。
 
+### 2026-11-17 `nav-20261117T061952Z`（PR #1198）狂欢盛典活动页 /events/Carnival.html
+
+- 来源：PR #1198（`pr-fast` success），合并 `30a8c3bc1a48c953f67969c2f60de4d9023589d9`。候选目录 `/var/tmp/fs-campaign-release81-candidate`，manifest `0e7dc3a629c1…`。新增 `Carnival.html`、`carnival.css`、`carnival-proto.js`、`carnival-live.js`、80 张 `assets/carnival-*.webp`、`runtime/carnival.mjs`、`analytics/carnival-unlocks.mjs`；修改 `runtime/{server,snapshot}.mjs`、`analytics/{backend-client,production-server}.mjs`、`seasonal/activity-analytics.js`、`backend/bridge.py`、`backend/campaign_backend/discount_revenue.py`；`google-traffic.mjs`、`backend/google_traffic.py` 因依赖校验带上，内容未变。静态清单由 110 项增加到 194 项（只增加狂欢盛典文件）。发布前核对被替换的 9 个线上文件与合并前仓库内容一致，新文件线上原本不存在。
+- 功能：首页 10% 券、神秘商店（服务端抽奖，首轮保底至少一张 15%，之后 40/40/20）、黑五十场（场次开始才放出商品和券）、扭蛋入口、专属码；领券后留在活动页提示，不自动跳转。神秘商店解锁不做定时刷新：会员付款后点「I'VE PAID · VERIFY & RESET」，运行时排一个请求（同一会员同一券组 30 秒内最多一次，队列上限 500），看板只在有请求时读一次 Admin 券记录，写入 `/var/lib/fs-campaign-public/carnival-unlocks.json`，页面弹窗告知成功、未完成购买或暂时无法核对。请求文件名只用会员 ID 哈希。
+- 验证：
+  - 测试：运行时抽奖与保底、校验队列、看板校验器、券追踪等 62 项；浏览器脚本 `carnival-mystery-browser.mjs`、`carnival-page-browser.mjs`（含校验按钮流程、领券后不跳转）已加入 `pr-fast`。
+  - 服务：apply `EXIT=0`，`fs-campaign-dashboard`、`fs-campaign-runtime`、nginx 均 active。
+  - 正式站读回：页面、样式、两个脚本和追踪脚本 200；页面和脚本引用的 80 张图全部 200；`api/carnival/schedule` 返回 upcoming 和 10 场；`api/carnival/mystery` 返回各游戏可抽、`verify:null`；`mystery/verify` 无 Origin 返回 `ORIGIN_REQUIRED`，带主站 Origin 返回 `EVENT_NOT_STARTED`。桌面版渲染正常、无坏图、控制台无报错。
+- 未验证：活动 11/19 开始前无法在线上实际抽奖、领券和校验付款；登录后的完整流程、统计事件的真实触发（需访客同意）、手机宽度线上实测（本地浏览器测试覆盖）都待开始后确认。
+- 待办：11/19 北京 13:00 前把 Admin 中 carnival 的开始/结束改为 11/19 13:00 – 12/2 13:00（Admin 写操作，需用户执行或授权）；扭蛋档位领券接口和签名 uid 待主站开发确认。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261117T061952Z`。
+
 ---
 
 ## 回退与边界

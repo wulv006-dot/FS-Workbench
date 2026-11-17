@@ -32,6 +32,7 @@ import {presentPage,projectFcCatalog,publicEnglishRelease} from '../runtime/pres
 import {makeAdminPriceProvider,readAdminPricePolicy} from './admin-price-provider.mjs';
 import {mergeNativeCatalog,readNativeLaunchPolicy} from './native-catalog.mjs';
 import {applyPublicPriceCache,readPublicPriceCache} from '../runtime/admin-price-cache.mjs';
+import {createCarnivalVerifier} from './carnival-unlocks.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),box={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),box);
 const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path.join(base,'catalog.json'),'utf8'));
@@ -263,6 +264,9 @@ export const server=http.createServer(async(req,res)=>{
 });
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  void adminPrices.start().catch(()=>{});server.on('close',()=>adminPrices.stop());
+ // Carnival Mystery "verify purchase" queue: written by the public runtime, Admin read only on demand.
+ const carnivalVerifier=createCarnivalVerifier({publicDir,requestDir:process.env.CARNIVAL_VERIFY_DIR||path.join(process.env.CAMPAIGN_RUNTIME_DATA||'/var/lib/fs-campaign-runtime','carnival-verify'),
+  read:request=>backendRead(request),log:(code,message)=>console.error(code,message||'')});carnivalVerifier.start();server.on('close',()=>carnivalVerifier.stop());
  if(process.platform!=='win32')void startWeeklyBridge({pipeline:weeklyPipeline}).then(bridge=>{server.on('close',()=>bridge.close());}).catch(()=>console.error('WEEKLY_LOCAL_BRIDGE_UNAVAILABLE'));
  server.listen(Number(process.env.PORT||8948),'127.0.0.1',()=>console.log('FS campaign service listening on loopback'));
 }

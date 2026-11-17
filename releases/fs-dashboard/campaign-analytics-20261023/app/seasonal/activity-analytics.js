@@ -4,7 +4,9 @@
   const cfg=window.FC_ANALYTICS_CONFIG||{},catalog=window.FC_ACTIVITY_CONFIG||{},root=document.getElementById('fc-activity');
   if(!root)return;
   const fcRoutes={'/events/Weekly-Scout.html':'weekly','/events/Player-Trio.html':'trio','/events/Sbc-Companions.html':'sbc','/Fc-27/Weekly-Scout.html':'weekly','/Fc-27/Player-Trio.html':'trio','/Fc-27/Sbc-Companions.html':'sbc'},fcView=fcRoutes[location.pathname],formalFc=location.origin==='https://www.mmoexp.com'&&!!fcView&&(!document.documentElement.dataset.campaignRuntime||document.documentElement.dataset.campaignRuntime==='/events/');
-  let published=null;const formal=formalFc||location.origin==='https://www.mmoexp.com'&&['/events/seasonal/','/events/seasonal/index.html'].includes(location.pathname)&&(!document.documentElement.dataset.campaignRuntime||document.documentElement.dataset.campaignRuntime==='/events/');
+  // Carnival 2026 lane: one landing page, same consent and transport, its own activity id.
+  const carnivalPage=location.origin==='https://www.mmoexp.com'&&location.pathname==='/events/Carnival.html'&&(!document.documentElement.dataset.campaignRuntime||document.documentElement.dataset.campaignRuntime==='/events/');
+  let published=null;const formal=formalFc||carnivalPage||location.origin==='https://www.mmoexp.com'&&['/events/seasonal/','/events/seasonal/index.html'].includes(location.pathname)&&(!document.documentElement.dataset.campaignRuntime||document.documentElement.dataset.campaignRuntime==='/events/');
   let preview=catalog.mode!=='live';const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const uuid=()=>crypto.randomUUID(),safe=v=>typeof v==='string'&&/^[\w. /-]{1,100}$/.test(v)?v:undefined;
   let sdk=null,consent=false,state={},entry=null,seen=new Set(),last=performance.now(),active=0,observer,wasVisible=document.visibilityState==='visible';
@@ -12,11 +14,11 @@
   let testCsrf=null;const testMode=preview&&local&&new URLSearchParams(location.search).get('analytics_test')==='1';
   const journalKey='fc-activity-events-v1';
   const params=new URLSearchParams(location.search),verification=formal&&params.get('analytics_test')==='1'?( /^[a-f0-9-]{36}$/i.test(params.get('analytics_run')||'')?params.get('analytics_run'):uuid()):null;
-  const liveSeasonal=()=>formalFc?!!(cfg.enabled===true&&published&&published.pages.some(p=>p.page_id==='fc27-'+fcView&&p.active===true&&(!p.starts_at||Date.parse(p.starts_at)<=Date.now())&&(!p.ends_at||Date.parse(p.ends_at)>=Date.now()))):formal&&cfg.seasonalEnabled===true&&published&&Date.parse(published.halloween.starts_at)<=Date.now()&&Date.now()<=Date.parse(published.halloween.ends_at);
+  const liveSeasonal=()=>carnivalPage?!!(cfg.projectToken&&published?.carnival===true&&Date.parse(published.starts_at)<=Date.now()&&Date.now()<Date.parse(published.ends_at)):formalFc?!!(cfg.enabled===true&&published&&published.pages.some(p=>p.page_id==='fc27-'+fcView&&p.active===true&&(!p.starts_at||Date.parse(p.starts_at)<=Date.now())&&(!p.ends_at||Date.parse(p.ends_at)>=Date.now()))):formal&&cfg.seasonalEnabled===true&&published&&Date.parse(published.halloween.starts_at)<=Date.now()&&Date.now()<=Date.parse(published.halloween.ends_at);
   function allowed(){return !preview&&(formal?liveSeasonal():cfg.enabled)&&consent&&cfg.allowedHosts?.includes(location.hostname)&&sdk;}
   function properties(extra={}){
     const activity=cfg.registry?.find(a=>a.view===state.view);
-    return {schema_version:1,activity_id:activity?.id||'unregistered',catalog_version:published?.release_id||catalog.capturedAt,...(published?{page_id:formalFc?'fc27-'+fcView:'seasonal-vault',release_id:published.release_id,config_hash:published.config_hash,...(formalFc?{game_id:'1327'}:state.game_id?{game_id:state.game_id}:{}),...(verification?{test_run_id:verification}:{} )}:{}),
+    return {schema_version:1,activity_id:carnivalPage?'mmoexp-carnival':activity?.id||'unregistered',catalog_version:published?.release_id||catalog.capturedAt,...(published?{page_id:carnivalPage?'carnival-2026':formalFc?'fc27-'+fcView:'seasonal-vault',release_id:published.release_id,config_hash:published.config_hash,...(formalFc?{game_id:'1327'}:state.game_id?{game_id:state.game_id}:{}),...(verification?{test_run_id:verification}:{} )}:{}),
       view:state.view,platform:state.platform||(published?'unknown':'ps'),language:state.language||(published?'en':'zh'),environment:preview?'preview':verification?'test':'production',
       device:matchMedia('(max-width: 700px)').matches?'mobile':'desktop',activity_visit_id:entry?.id,
       activity_session_id:session,source:entry?.source||'direct',campaign:entry?.campaign||'',...extra};
@@ -133,8 +135,8 @@
     const close=()=>{if(modal&&section.open)section.close();section.hidden=true;},open=()=>{section.hidden=false;if(modal&&!section.open)section.showModal();title.focus?.();};
     const choose=value=>{try{localStorage.setItem(consentKey,value?'granted':'denied');localStorage.setItem(googleConsentKey,value?'granted':'denied');}catch{}window.FCActivityAnalytics.setConsent(value);close();};
     yes.addEventListener('click',()=>choose(true));no.addEventListener('click',()=>choose(false));section.append(title,label,yes,no);
-    const header=document.querySelector('.site-header');if(header?.after)header.after(section);else if(formalFc)root.before(section);else document.querySelector('.site-footer')?.before(section);
-    const settings=document.createElement('button');settings.type='button';settings.className='analytics-settings';settings.textContent='Analytics preferences';settings.addEventListener('click',open);(document.querySelector('.site-footer')||(formalFc?root:null))?.append(settings);
+    const header=document.querySelector('.site-header');if(header?.after)header.after(section);else if(formalFc||carnivalPage)root.before(section);else document.querySelector('.site-footer')?.before(section);
+    const settings=document.createElement('button');settings.type='button';settings.className='analytics-settings';settings.textContent='Analytics preferences';settings.addEventListener('click',open);(document.querySelector('.site-footer')||(formalFc||carnivalPage?root:null))?.append(settings);
     let saved,googleSaved;try{saved=localStorage.getItem(consentKey);googleSaved=localStorage.getItem(googleConsentKey);}catch{}
     window.FCActivityAnalytics.setConsent(saved==='granted');if(saved==='denied'||saved==='granted'&&googleSaved)close();else open();
     window.addEventListener('storage',e=>{if(e.key===googleConsentKey){googleConsent();return;}if(e.key===consentKey||e.key===null){let granted=false;try{granted=localStorage.getItem(consentKey)==='granted';}catch{}window.FCActivityAnalytics.setConsent(e.key!==null&&granted);}});
@@ -146,9 +148,16 @@
     if(published?.release_id===next.release_id&&published?.config_hash===next.config_hash)return;
     const hadEntry=!!entry;flush();published=next;preview=false;entry=null;state={view:fcView,platform:state.platform||'ps',language:'en'};window.FCActivityAnalytics.connect(transport);window.FCActivityAnalytics.setConsent(consent);consentControls();if(hadEntry)start(state);
   });
+  window.addEventListener('carnival:schedule',e=>{
+    if(!carnivalPage)return;
+    const next=e.detail,startAt=Date.parse(next?.starts_at),endAt=Date.parse(next?.ends_at),now=Date.now();
+    if(!cfg.projectToken||!Number.isFinite(startAt)||!Number.isFinite(endAt)||startAt>now||endAt<=now){published=null;preview=true;entry=null;state={};active=0;seen=new Set();observer?.disconnect();transport.opt_out_capturing();googleConsent();return;}
+    if(published?.carnival)return;
+    flush();published={carnival:true,release_id:'carnival-2026',config_hash:'carnival-2026-v1',starts_at:next.starts_at,ends_at:next.ends_at,pages:[]};preview=false;entry=null;state={view:'carnival',platform:'unknown',language:'en'};window.FCActivityAnalytics.connect(transport);window.FCActivityAnalytics.setConsent(consent);start(state);consentControls();
+  });
   window.addEventListener('seasonal-published-catalog',e=>{
     const next=e.detail,page=Array.isArray(next?.pages)?next.pages.find(p=>p?.page_id==='seasonal-vault'&&p.activity_id==='mmoexp-seasonal'):null;
-    if(!formal||formalFc)return;
+    if(!formal||formalFc||carnivalPage)return;
     const startAt=Date.parse(next?.halloween?.starts_at),endAt=Date.parse(next?.halloween?.ends_at),now=Date.now();
     if(cfg.seasonalEnabled!==true||!cfg.projectToken||next?.schema_version!==1||page?.active!==true||next?.halloween?.status!=='configured'||!/^campaign-preview-\d+$/.test(next?.release_id||'')||!/^[a-f0-9]{64}$/.test(next?.config_hash||'')||!Number.isFinite(startAt)||!Number.isFinite(endAt)||startAt>now||endAt<now){
       // Revoke the old publication immediately; never flush it after a pause,

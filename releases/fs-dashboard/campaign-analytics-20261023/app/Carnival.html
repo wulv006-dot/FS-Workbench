@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMOEXP Carnival Festival 2026 — Thanksgiving · Black Friday · Cyber Monday</title>
+<meta name="description" content="MMOEXP Carnival Festival, Nov 19 – Dec 2 ET: claim a 10% OFF coupon, draw Mystery Shop discounts, Black Friday flash deals and Cyber Monday capsule rewards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://assets.mmoexp.com/dist/266/dragon-ico.css">
+<link rel="stylesheet" href="carnival.css">
+</head>
+<body>
+<div id="fc-activity" class="carnival-activity" data-view="carnival">
+<!-- ============ HEADER ============ -->
+<header>
+  <div class="wrap hd-in">
+    <a class="logo" href="#">MMO<span>EXP</span><em data-i18n="logoTag">CARNIVAL</em></a>
+    <nav>
+      <a href="#mystery" data-i18n="nav1">Mystery Shop</a>
+      <a href="#flash" data-i18n="nav2">Flash Sale</a>
+      <a href="#gacha" data-i18n="nav3">Gacha Machine</a>
+      <a href="#rules" data-i18n="nav4">Rules</a>
+    </nav>
+    <div class="lang-sw">
+      <button id="langEn" onclick="setLang('en')">EN</button>
+      <button id="langZh" onclick="setLang('zh')">中文</button>
+    </div>
+    <a class="hd-cta" href="https://www.mmoexp.com/" data-i18n="backStore">Back to Store</a>
+  </div>
+</header>
+
+<nav class="activity-rail" aria-label="Activity navigation"><span class="rail-heading" data-i18n="railTitle">EVENTS</span><a href="#mystery" class="rail-link" data-event="mystery"><span class="rail-num">01</span><span class="rail-label" data-i18n="rail1">Thanksgiving</span></a><a href="#flash" class="rail-link" data-event="flash"><span class="rail-num">02</span><span class="rail-label" data-i18n="rail2">Black Friday</span></a><a href="#gacha" class="rail-link" data-event="gacha"><span class="rail-num">03</span><span class="rail-label" data-i18n="rail3">Cyber Monday</span></a><a href="#rules" class="rail-link" data-event="rules"><span class="rail-num">04</span><span class="rail-label" data-i18n="rail4">Rules</span></a></nav>
+<button type="button" class="back-to-top" id="backToTop" aria-label="Back to top" title="Back to top"><span aria-hidden="true">↑</span></button>
+<!-- ============ HERO ============ -->
+<div class="hero"><div class="falling-confetti" aria-hidden="true"><i style="--x:5%;--scatter:-45vw;--w:7px;--h:4px;--duration:7s;--delay:0.53s;--drift:-20px"></i><i style="--x:13%;--scatter:-37vw;--w:10px;--h:6px;--duration:8s;--delay:0.90s;--drift:23px"></i><i style="--x:21%;--scatter:-29vw;--w:13px;--h:4px;--duration:9s;--delay:0.22s;--drift:-26px"></i><i style="--x:29%;--scatter:-21vw;--w:7px;--h:6px;--duration:10s;--delay:0.60s;--drift:29px"></i><i style="--x:37%;--scatter:-13vw;--w:10px;--h:4px;--duration:11s;--delay:0.00s;--drift:-32px"></i><i style="--x:45%;--scatter:-5vw;--w:13px;--h:6px;--duration:7s;--delay:0.38s;--drift:35px"></i><i style="--x:53%;--scatter:3vw;--w:7px;--h:4px;--duration:8s;--delay:0.60s;--drift:-38px"></i><i style="--x:61%;--scatter:11vw;--w:10px;--h:6px;--duration:9s;--delay:0.00s;--drift:41px"></i><i style="--x:69%;--scatter:19vw;--w:13px;--h:4px;--duration:10s;--delay:0.38s;--drift:-44px"></i><i style="--x:77%;--scatter:27vw;--w:7px;--h:6px;--duration:11s;--delay:0.75s;--drift:47px"></i><i style="--x:85%;--scatter:35vw;--w:10px;--h:4px;--duration:7s;--delay:0.15s;--drift:-50px"></i><i style="--x:93%;--scatter:43vw;--w:13px;--h:6px;--duration:8s;--delay:0.60s;--drift:53px"></i><i style="--x:98%;--scatter:48vw;--w:7px;--h:4px;--duration:9s;--delay:0.90s;--drift:-56px"></i></div><div class="wrap">
+  <div class="hero-banner"><h1 data-i18n="heroTitle">CARNIVAL FESTIVAL</h1><div class="hero-benefits"><div data-i18n="heroBenefitCoupon">Sign in and claim your 10% OFF coupon!</div><div data-i18n="heroBenefitGacha">Spend to unlock draws for no-minimum coupons.</div></div><div class="coupon-inline"><button type="button" id="heroEarlyBtn" class="coupon-inline-btn" aria-label="Claim 10% off coupon"><span id="couponSpeech">CLAIM 10% OFF</span><span class="coupon-inline-arrow" aria-hidden="true">↗</span></button></div></div>
+  <div class="hero-grid">
+    
+    <div class="agenda"><div class="agenda-list">
+      <a class="agenda-item agenda-1" href="#mystery"><span class="agenda-art"><img src="assets/carnival-34a0b5a89436.webp" alt=""></span><span class="agenda-copy"><span class="card-status" id="cardStatus1"></span><strong data-i18n="agendaName1"></strong><span class="agenda-benefit" data-i18n="agendaBenefit1"></span><span class="agenda-cta" data-i18n="agendaEnter">ENTER EVENT →</span><span class="agenda-date" data-i18n="agendaDate1"></span></span><span class="agenda-arrow">↗</span></a>
+      <a class="agenda-item agenda-2" href="#flash"><span class="agenda-art"><img src="assets/carnival-3fbb2e30b148.webp" alt=""></span><span class="agenda-copy"><span class="card-status" id="cardStatus2"></span><strong data-i18n="agendaName2"></strong><span class="agenda-benefit" data-i18n="agendaBenefit2"></span><span class="agenda-cta" data-i18n="agendaEnter">ENTER EVENT →</span><span class="agenda-date" data-i18n="agendaDate2"></span></span><span class="agenda-arrow">↗</span></a>
+      <a class="agenda-item agenda-3" href="#gacha"><span class="agenda-art"><img src="assets/carnival-f254cb76cf0e.webp" alt=""><span class="agenda-speech" data-i18n="agendaGachaSpeech"></span></span><span class="agenda-copy"><span class="card-status" id="cardStatus3"></span><strong data-i18n="agendaName3"></strong><span class="agenda-benefit" data-i18n="agendaBenefit3"></span><span class="agenda-cta" data-i18n="agendaEnter">ENTER EVENT →</span><span class="agenda-date" data-i18n="agendaDate3"></span></span><span class="agenda-arrow">↗</span></a>
+    </div><div class="agenda-footer"><div class="hero-dates"><span data-i18n="tzNote">All event times in</span> <b id="tz-label">ET (UTC-5)</b></div></div></div>
+  </div>
+</div></div>
+
+<!-- ============ 1. MYSTERY SHOP ============ -->
+<section class="event ev1" id="mystery">
+  <div class="wrap">
+    <div class="ev-head">
+      <span class="ev-num" data-i18n="act1">ACT 1</span>
+      <h2><span>🦃 </span><span data-i18n="p1t">Thanksgiving Kickoff</span></h2>
+      <span class="when" data-i18n="when1">Nov 19 00:00 — Dec 2 00:00 ET</span>
+    </div>
+
+    <div class="game-carousel">
+      <button type="button" id="gamePrev" class="game-carousel-arrow" aria-label="Previous games" aria-controls="gameTabs">&#8249;</button>
+      <div class="game-tabs" id="gameTabs"></div>
+      <button type="button" id="gameNext" class="game-carousel-arrow" aria-label="Next games" aria-controls="gameTabs">&#8250;</button>
+    </div>
+
+    <div class="flip-meta refresh-only">
+      <span class="refresh-label" data-i18n="drawRef">Next refresh in</span>
+      <b class="ref" id="msTimer">--:--:--</b>
+      <span hidden><b id="pickCount">0</b><span id="pickMax">3</span><b id="msDrawLeft">3</b></span>
+    </div>
+
+    <div id="poe1Selector" class="wow-selector" style="display:none"><b>POE 1 · Server</b><div class="wow-controls"><label>Server <select id="poe1Server" disabled><option value="PC-Covens of Umbra SC">PC · Covens of Umbra SC</option></select></label></div><div class="wow-note">Price snapshot: November 16, 2026. Final prices are confirmed at checkout.</div></div><div id="poeSelector" class="wow-selector" style="display:none"><b>POE 2 · League</b><div class="wow-controls"><label>League <select id="poeLeague" disabled><option value="Forbidden Rites">Forbidden Rites</option></select></label></div><div class="wow-note">Price snapshot: November 13, 2026. Final prices are confirmed at checkout.</div></div><div id="marketSelector" class="wow-selector" style="display:none"><b id="marketSelectorTitle"></b><div class="wow-controls"><label id="marketSelectLabel" for="marketChoiceSelect"></label><select id="marketChoiceSelect" onchange="marketSelectionChanged()"></select></div><div class="wow-note">Price snapshot: November 13, 2026. Final availability and prices are confirmed at checkout.</div></div><div id="aionSelector" class="wow-selector" style="display:none"><b>AION 2 · Server</b><div class="wow-controls"><label>Region <select id="aionRegion" onchange="aionSelectionChanged(true)"><option>EU</option><option>NA West</option><option>NA East</option><option>South America</option><option>Asia</option></select></label><label>Faction <select id="aionFaction" onchange="aionSelectionChanged(true)"><option>Asmodian</option><option>Elyos</option></select></label><label>Server <select id="aionServer" onchange="aionSelectionChanged(false)"></select></label></div><div id="aionPriceNote" class="wow-note"></div></div>
+    <div id="wowSelector" class="wow-selector" style="display:none"><b>WoW Forever · Server</b><div class="wow-controls"><label>Region <select id="wowRegion" onchange="wowSelectionChanged()"><option>US</option><option>EU</option><option>Asia</option><option>KR</option></select></label><label>Faction <select id="wowFaction" onchange="wowSelectionChanged()"><option>Horde</option><option>Alliance</option></select></label><label>Realm <select id="wowRealm" onchange="wowSelectionChanged()"><option>Normal</option><option>PVP</option><option>Roleplay</option><option>Roleplay-PVP</option></select></label></div><div class="wow-note">Price snapshot: November 13, 2026. Final prices are confirmed at checkout.</div></div><div id="d4PriceNote" class="wow-selector" style="display:none"><b>Diablo 4 · Season</b><div class="wow-controls"><label>Season <select disabled><option>Season 15 Softcore</option></select></label></div><div class="wow-note">Price snapshot: November 13, 2026. Final prices are confirmed at checkout.</div></div><div id="fc27PlatformBar" class="fc27-platform"><label for="fc27Platform">FC 27 · Platform</label><select id="fc27Platform" onchange="renderMsZone()"><option value="ps">PlayStation 4 | 5</option><option value="xbox">Xbox One | X | S</option><option value="pc">PC</option></select><span>Price snapshot: November 13, 2026. Final prices are confirmed at checkout.</span></div><div class="mystery-demo-notice" id="mysteryDemoNotice"><span id="mysteryDemoNoticeText">TEST PREVIEW · Sample products and prices. Login, coupons and checkout are simulated.</span> <button type="button" class="btn-ghost" onclick="resetMysteryDemo()" id="mysteryDemoReset">RESET CURRENT GAME (DEMO)</button></div>
+    <div class="ms-grid">
+      <!-- 平台吉祥物：CONFIG.mystery.mascotImg 填入正式图片地址后自动替换 SVG 占位形象 -->
+      <div class="ms-mascot">
+        <div class="bubble" data-i18n="mascotSay">Pick 3 items you love — all 3 get a mystery discount!</div>
+        <div id="mascotBox"></div>
+      </div>
+      <div>
+        <!-- 选择态：商品池（任选 3 件） -->
+        <div class="ms-pool" id="msPool"></div>
+        <!-- 揭晓态：三件折扣结果 -->
+        <div class="ms-result" id="msResult" style="display:none"></div>
+        <div class="center" id="msActions"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. FLASH SALE ============ -->
+<section class="event ev2" id="flash">
+  <div class="wrap"><div class="event-gate" id="flashGate" role="status" aria-live="polite"><b></b><span></span></div><div class="event-content" id="flashContent">
+    <div class="ev-head">
+      <span class="ev-num" data-i18n="act2">ACT 2</span>
+      <h2><span>⚡ </span><span data-i18n="p2t">Black Friday Surge</span></h2>
+      <span class="when" data-i18n="when2">Nov 27 00:00 — Dec 2 00:00 ET</span>
+    </div>
+
+    <div class="big-cd"><span class="lbl" id="sessCdLbl">Session ends in</span><span class="t" id="sessCd">--:--:--</span></div>
+    <p class="flash-schedule" data-i18n="flashSchedule">NOV 27–DEC 1 · 12:00–16:00 &amp; 19:00–23:00 ET (UTC-5)</p>
+    
+    <div class="flash-stage flash-stage-shelf" style="--flash-mascot:url('assets/carnival-7caba2b86ebb.webp')"><div class="flash-stage-art" role="img" aria-label="MMOEXP mascot wearing a Black Friday hat and leaning on the product display"></div><div class="flash-shelf-content"><div class="black-store"><div class="store-roof"><div class="store-sign"><strong data-i18n="storeTitle">BLACK FRIDAY STORE</strong><span data-i18n="storeSlogan">DAILY DEALS · EXCLUSIVE SAVINGS</span></div></div><div class="store-main"><div class="store-demo" data-i18n="storeDemo">Sample products and prices</div><div class="sess-tabs" id="sessTabs"></div><div class="store-categories" role="group" aria-label="Product category"><button type="button" data-category="currency" onclick="selectFlashCategory('currency')"><span>🪙</span><b data-i18n="storeCurrency">Currency</b></button><button type="button" data-category="items" onclick="selectFlashCategory('items')"><span>⚔️</span><b data-i18n="storeItems">Items</b></button><button type="button" data-category="voucher" onclick="selectFlashCategory('voucher')"><span>🎟️</span><b data-i18n="storeVoucher">Vouchers</b></button></div><div class="flash-grid" id="flashGrid" tabindex="0" aria-label="Flash sale products"></div><div class="flash-slider-wrap"><input type="range" id="flashScrollBar" class="flash-scrollbar" min="0" max="1000" value="0" step="1" aria-label="Scroll flash sale products horizontally"></div></div></div></div></div></div>
+  </div>
+</section>
+
+<!-- ============ 3. GACHA ============ -->
+<section class="event ev3" id="gacha">
+  <div class="wrap"><div class="event-gate" id="gachaGate" role="status" aria-live="polite"><b></b><span></span></div><div class="event-content" id="gachaContent">
+    <div class="ev-head">
+      <span class="ev-num" data-i18n="act3">ACT 3</span>
+      <h2><span>🎰 </span><span data-i18n="p3t">Cyber Monday Closing</span></h2>
+      <button hidden style="display:none" class="holiday-free-btn" id="freeDrawBtn" data-i18n="fdBtn">🎁 Holiday free draw · once</button>
+      <span class="when" data-i18n="when3">Nov 30 00:00 — Dec 2 00:00 ET</span>
+    </div>
+
+    <div class="gacha-login-reminder" role="note"><span class="reminder-icon" aria-hidden="true">ⓘ</span><span data-i18n="gachaSpendReminder">Spending counts from Nov 19. Please sign in, or your orders may not be counted.</span></div>
+
+    <div class="gacha-wrap">
+      <div class="machine" id="machine">
+        <div class="gacha-art-stage" role="button" tabindex="0" aria-label="Activate gacha machine" style="background-image:url('assets/carnival-c3ddc4dc7054.webp')"><div class="m-top">
+          <div class="m-lamp" id="machinelamp"></div>
+          <div class="m-title" data-i18n="mTitle2">LUCKY GACHA</div>
+        </div>
+        <div class="m-globe" id="globe"></div>
+        <div class="m-neck"></div>
+        <div class="m-panel">
+          <div class="m-screen" id="mScreen" data-i18n="mIdle">INSERT TO PLAY</div>
+          <div class="m-knob"></div>
+        </div>
+        <div class="m-chute"></div>
+        <div class="m-base"></div>
+        <div class="m-out" id="mOut"></div></div>
+        <div class="m-price" id="drawPrice">FREE TO DRAW</div>
+        <div class="m-cost" id="mCost"></div>
+        <button class="drawbtn" id="drawBtn">DRAW A CAPSULE</button>
+      </div>
+      <div>
+        <div class="spend-box">
+          <div class="spend-head"><span data-i18n="spend1">My carnival spend</span><b id="spendVal">—</b></div>
+          <div class="spendbar"><i id="spendBarFill"></i></div>
+          <div class="spend-marks" id="spendMarks"></div>
+          <div class="spend-foot"><span id="spendRule"></span><span id="nextAt"></span></div>
+
+        </div>
+
+        <h3 class="gacha-pool-heading"><span data-i18n="poolT">Prize Pool</span> <span style="font-size:13px;color:var(--txt-dim);font-weight:400" data-i18n="poolNote">· 6 no-minimum coupons · revealed up front</span></h3>
+        <p style="font-size:13px;color:var(--txt-dim);margin-bottom:16px"><span data-i18n="poolLeft">Remaining</span> <b id="poolLeft" style="color:var(--cm)">—</b> <span data-i18n="poolLeft2">capsules</span></p>
+        <div class="pool" id="pool"></div>
+      </div>
+    </div>
+
+    <!-- 游戏专属折扣码：覆盖秒杀/翻牌之外的游戏，玩家自行领取（页面最下方） -->
+    <div class="codes-block">
+      <h3 data-i18n="gcT">🎮 Game-Exclusive Codes</h3><p class="codes-validity" data-i18n="codesValidity"></p>
+      <div class="codes-grid" id="codesGrid"></div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ============ RULES ============ -->
+<div class="rules" id="rules">
+  <div class="wrap">
+    <h3 data-i18n="rulesT">📜 Carnival Rules</h3>
+    <div id="rulesList" class="rules-grid"></div>
+  </div>
+</div>
+
+<footer data-i18n="footer">MMOEXP · Max My Online Exp — Best price · Fast delivery · 24/7 support · © 2026 MMOEXP Carnival</footer>
+
+<!-- modal -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <div class="mi" id="mIcon">🎁</div>
+    <h3 id="mTitle">You won!</h3>
+    <div id="gachaCoupon" class="gacha-coupon"></div><p id="mDesc"></p>
+    <button class="buybtn" onclick="closeModal()" data-i18n="modalBtn">Awesome</button>
+  </div>
+</div>
+
+<!-- 折扣券领取弹窗 -->
+<div class="modal-mask" id="couponMask">
+  <div class="modal coupon-modal">
+    <div class="unified-coupon"><div class="uc-side"><span class="uc-gift" aria-hidden="true">🎁</span><span class="uc-min" data-i18n="couponMin">Min. spend: $0.00</span></div><div class="uc-main"><strong class="uc-amount" data-i18n="cpOff">10% OFF</strong><span class="uc-desc" data-i18n="cpNote">All games · no minimum</span></div></div>
+    <button class="buybtn" id="couponClaimBtn" data-i18n="cpBtn">CLAIM COUPON</button>
+    <button class="btn-ghost coupon-close" onclick="closeCoupon()" data-i18n="cpLater">Maybe later</button>
+  </div>
+</div>
+<div class="modal-mask" id="loginRequiredMask" role="dialog" aria-modal="true" aria-labelledby="loginRequiredTitle"><div class="modal login-required-modal"><div class="login-required-icon" aria-hidden="true">👤</div><h3 id="loginRequiredTitle" data-i18n="loginRequiredTitle">Sign in to claim</h3><p data-i18n="loginRequiredText">Please sign in or register with MMOEXP to claim your coupon.</p><button type="button" class="login-required-go" id="loginRequiredGo" data-i18n="loginGo">SIGN IN / REGISTER</button><button type="button" class="btn-ghost coupon-close" id="loginRequiredClose" data-i18n="loginLater">Not now</button></div></div>
+<div class="modal-mask" id="mysteryFlowMask" role="dialog" aria-modal="true" aria-labelledby="mysteryFlowTitle"><div class="modal mystery-flow-modal" id="mysteryFlowContent"></div></div>
+<div class="toast" id="toast"></div>
+</div>
+<script defer src="analytics-config.js"></script>
+<script defer src="native-code-handoff.js"></script>
+<script defer src="seasonal/activity-analytics.js"></script>
+<script defer src="carnival-proto.js"></script>
+<script defer src="carnival-live.js"></script>
+</body>
+</html>

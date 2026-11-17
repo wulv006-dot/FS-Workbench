@@ -359,3 +359,51 @@ def read_coupon_usage(reader, request):
                                    validate=lambda r, chunk=chunk: str(r.get('order_no')) in chunk))
     return summarize_coupon_usage(coupon, logs, orders, start, end)
 
+
+
+# Carnival 2026 Mystery Shop: which members paid an order with one of a coupon set's
+# Mystery coupons, and when. The public runtime unlocks that member's next round for the
+# games of the set. Read only; only paid (status 1) uses within the carnival window count.
+CARNIVAL_SITE_ID = '266'
+CARNIVAL_MYSTERY_SETS = {
+    'fc27': ('1401', '1403', '1405'), 'aion2': ('1407', '1409', '1411'), 'wow': ('1413', '1415', '1417'),
+    'd4': ('1419', '1421', '1423'), 'poe': ('1425', '1427', '1429'), 'mix': ('1431', '1433', '1435'),
+}
+CARNIVAL_WINDOW = ('2026-11-19 13:00:00', '2026-12-02 12:59:59')  # Beijing wall clock = Nov 19 – Dec 2 00:00 ET
+
+
+def carnival_unlocks(logs):
+    by_coupon = {cid: name for name, ids in CARNIVAL_MYSTERY_SETS.items() for cid in ids}
+    uses, seen = [], set()
+    for log in logs:
+        if str(log.get('site_id')) != CARNIVAL_SITE_ID or str(log.get('coupon_id')) not in by_coupon:
+            raise ContractError('COUPON_LOG_SCOPE_MISMATCH')
+        if log.get('status') not in (0, 1, '0', '1'):
+            raise ContractError('COUPON_LOG_STATE_UNKNOWN')
+        if log.get('status') not in (1, '1'):
+            continue
+        member = log.get('member') if isinstance(log.get('member'), dict) else {}
+        uid = str(member.get('uid') or '')
+        if not re.fullmatch(r'[1-9]\d{0,19}', uid):
+            continue
+        try:
+            used_at = datetime.strptime(log['use_time'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=SOURCE_TZ)
+        except (KeyError, TypeError, ValueError):
+            raise ContractError('COUPON_USE_TIME_INVALID') from None
+        key = (uid, by_coupon[str(log.get('coupon_id'))], used_at)
+        if key in seen:
+            continue
+        seen.add(key)
+        uses.append(dict(uid=uid, set=key[1], used_at=used_at.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')))
+    uses.sort(key=lambda u: (u['used_at'], u['uid'], u['set']))
+    return dict(status='available', basis='mystery_coupon_paid_use', uses=uses,
+                generated_at=datetime.now(timezone.utc).isoformat())
+
+
+def read_carnival_unlocks(reader, request):
+    if set(request) - {'action'}:
+        raise ContractError('REQUEST_FIELDS_NOT_ALLOWED')
+    ids = ','.join(cid for ids in CARNIVAL_MYSTERY_SETS.values() for cid in ids)
+    logs = reader.pages('coupon_logs', [('site_id', '=', CARNIVAL_SITE_ID), ('coupon_id', 'IN', ids),
+                                        ('use_time', 'RANGE', ','.join(CARNIVAL_WINDOW))])
+    return carnival_unlocks(logs)

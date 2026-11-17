@@ -22,7 +22,7 @@ from campaign_backend.core import ContractError, source_identity
 from campaign_backend.models import request_scope, project_model, resolve_model, historical_image, player_type
 from campaign_backend.provider import (scope as provider_scope, model_provider, model_provider_batch,
                                       category_pool, resolve_category_pool)
-from campaign_backend.discount_revenue import read_revenue, read_coupon_usage, query_window
+from campaign_backend.discount_revenue import read_revenue, read_coupon_usage, read_carnival_unlocks, query_window
 
 
 def model_image(model):
@@ -84,6 +84,12 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
             reader.close()
     if action == 'capabilities':
         return capabilities()
+    if action == 'carnival_unlocks':
+        reader = reader_factory()
+        try:
+            return read_carnival_unlocks(reader, request)
+        finally:
+            reader.close()
     if action == 'coupon_usage':
         query_window(request)
         reader = reader_factory()
