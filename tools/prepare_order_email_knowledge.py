@@ -40,6 +40,7 @@ FC_V61_DISCOUNT_REVISION = 'fc_v6_d8_d2_amount_weighted_discount_v1'
 FC_V61_TWO_BAND_REVISION = 'fc_v61_native_all_two_band_20261113'
 FC_V61_100K_MARKET_REVISION = 'fc_v61_100k_market_two_band_20261113'
 FC_V61_ADMIN_ONLY_REVISION = 'fc_v61_admin_only_two_band_20261113'
+FC_V61_MARKET_ANCHOR_REVISION = 'fc_v61_market_anchor_20261117'
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
 FC_V61_LEARNING_ID = 'fs.learning.methods'
 FC_V61_REPORTING_BASE_COMMIT = 'c51bb4f494523f19e6979cf5c85565dac94a4257'
@@ -169,7 +170,7 @@ def reporting_entry(identity, existing, template, previous, live_body, previous_
                 supersedes=list(dict.fromkeys(existing['supersedes'] + template['supersedes']))), data
 
 
-def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False):
+def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False, revision=None):
     info = json.loads(bound(snapshot, 'preflight.json').read_bytes())
     if release in info['immutable_directories']:
         raise ValueError('shared_admin_es_release_already_exists_reconcile')
@@ -177,7 +178,8 @@ def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=Fa
     proof = json.loads(git_bytes(root, commit, BASELINE_SOURCE.replace('.md', '.provenance.json')))
     digest = sha(baseline)
     candidate = git_bytes(root, commit, BASELINE_SOURCE)
-    retained = digest == proof['after_sha256'] and baseline == candidate
+    current_git = revision == FC_V61_MARKET_ANCHOR_REVISION and baseline == candidate
+    retained = (digest == proof['after_sha256'] or current_git) and baseline == candidate
     patch = (allow_baseline_patch and digest == proof.get('before_sha256')
              and sha(candidate) == proof['after_sha256'] and candidate != baseline)
     if (digest != info['protected'][BASELINE_TARGET] or not (retained or patch)
@@ -187,6 +189,8 @@ def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=Fa
     units = {'fs-hermes-fc.service', 'fs-business-range.service'}
     if info['runtime'] != {name: {'ActiveState': 'active'} for name in units}:
         raise ValueError('shared_admin_es_active_services_required')
+    if current_git:
+        proof = dict(proof, retained_current_git=True, retained_source_commit=commit, retained_source_sha256=digest)
     return info, proof
 
 
@@ -250,7 +254,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     if fc_v61:
         revision, full_revision = (current[identity]['revision'] for identity in FC_V61_OVERLAYS)
         revisions = (FC_V61_DISCOUNT_REVISION, FC_V61_TWO_BAND_REVISION,
-                     FC_V61_100K_MARKET_REVISION, FC_V61_ADMIN_ONLY_REVISION)
+                     FC_V61_100K_MARKET_REVISION, FC_V61_ADMIN_ONLY_REVISION, FC_V61_MARKET_ANCHOR_REVISION)
         if revision not in revisions or full_revision != revision:
             raise ValueError('exact_fc_v61_revision_required')
         if any(identity in current and current[identity]['revision'] != revision
@@ -284,10 +288,19 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         changes = shared_changes(root, commit, catalog, canonical, current)
     if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
-            allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current)
+            allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current,
+            revision=current['fc.pricing.v3']['revision'] if fc_v61 else None)
         compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
-            raise ValueError('shared_admin_es_baseline_binding_drift')
+            if not (fc_v61 and baseline_proof.get('retained_current_git') and all(
+                    r.get('baseline_compatibility', compatibility).get('mode') == 'retain_full_baseline'
+                    and re.fullmatch('[a-f0-9]{64}', r.get('baseline_compatibility', compatibility).get('sha256', ''))
+                    for r in all_routes)):
+                raise ValueError('shared_admin_es_baseline_binding_drift')
+            baseline_proof['previous_route_baselines'] = [copy.deepcopy(r.get('baseline_compatibility')) for r in all_routes]
+            for route in all_routes:
+                if 'baseline_compatibility' in route:
+                    route['baseline_compatibility'] = copy.deepcopy(compatibility)
     release_root = 'knowledge-releases/' + release
     payloads, remap, checks = {}, {}, []
     shared_rows = []
@@ -370,7 +383,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 content = catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
                 overlay_root = 'overlay/'
                 if fc_v61 and row['revision'] in (FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION,
-                                                   FC_V61_ADMIN_ONLY_REVISION):
+                                                   FC_V61_ADMIN_ONLY_REVISION, FC_V61_MARKET_ANCHOR_REVISION):
                     # Retain the preceding snapshot's source at its original path.
                     overlay_root += row['revision'] + '/'
                 if fc_v61_reporting:
@@ -411,7 +424,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     payloads['runtime/knowledge-load-policy.json'] = encoded(policy)
     payloads['artifact/originals/policy.json'] = policy_raw
     baseline_patch = None
-    if preserve_routes and baseline_proof['after_sha256'] != preflight['protected'][BASELINE_TARGET]:
+    if (preserve_routes and not baseline_proof.get('retained_current_git')
+            and baseline_proof['after_sha256'] != preflight['protected'][BASELINE_TARGET]):
         before_digest = preflight['protected'][BASELINE_TARGET]
         baseline_patch = dict(contract='fc-v61-current-baseline-patch-v1',
                               before_sha256=before_digest, after_sha256=baseline_proof['after_sha256'])

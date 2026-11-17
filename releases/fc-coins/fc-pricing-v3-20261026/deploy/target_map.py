@@ -42,6 +42,8 @@ CURVE_INSURANCE_SCOPE = 'fc-pricing-v6-insurance-20261117'
 CURVE_INSURANCE_TARGET_COUNT = 9
 CURVE_STABILITY_SCOPE = 'fc-pricing-v6-stability-20261117'
 CURVE_STABILITY_TARGET_COUNT = 8
+CURVE_MARKET_SCOPE = 'fc-pricing-v6-market-anchor-20261117'
+CURVE_MARKET_TARGET_COUNT = 10
 CURVE_STABILITY_REPOSITORY_SOURCES = {'source/collect_p2pah_cost.sh':
     'releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh'}
 
@@ -234,6 +236,10 @@ def curve_average_targets(source):
 def curve_insurance_targets(source):
     return {'coin_all_sync_job.py': targets(source)['coin_all_sync_job.py'],
             **module_targets(('average_discount_v6.py', 'cost_inputs_v6.py', 'pricing_proof_v6.py', 'runtime.py'))}
+
+
+def curve_market_targets(source):
+    return module_targets(('api.py', 'curve_strategy_v6.py', 'ledger.py', 'platforms.py', 'runtime.py'))
 
 
 def curve_stability_targets(source):

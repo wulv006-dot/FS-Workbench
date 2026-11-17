@@ -18,6 +18,34 @@ spec.loader.exec_module(scope)
 
 
 class Release(unittest.TestCase):
+    def test_market_overlay_retains_only_the_exact_current_git_baseline_without_rewriting_old_provenance(self):
+        spec = importlib.util.spec_from_file_location('market_overlay', ROOT/'tools/prepare_order_email_knowledge.py')
+        overlay = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(overlay)
+        with tempfile.TemporaryDirectory() as folder:
+            snapshot = Path(folder)
+            current = b'current baseline\n'
+            (snapshot/'business-baseline.md').write_bytes(current)
+            digest = hashlib.sha256(current).hexdigest()
+            info = dict(immutable_directories=[], protected={overlay.BASELINE_TARGET:digest},
+                        runtime={name:{'ActiveState':'active'} for name in ('fs-hermes-fc.service','fs-business-range.service')})
+            (snapshot/'preflight.json').write_text(json.dumps(info))
+            original = dict(contract='fc-current-baseline-patch-v1', runtime_source=overlay.BASELINE_SOURCE,
+                            after_sha256='a'*64, before_sha256='b'*64, canonical_sha256='c'*64)
+            def git(root, commit, name):
+                return json.dumps(original).encode() if name.endswith('.json') else current
+            with patch.object(overlay, 'git_bytes', side_effect=git):
+                with self.assertRaisesRegex(ValueError, 'provenance_invalid'):
+                    overlay.shared_preflight(ROOT, snapshot, 'd'*40, 'new')
+                _, proof = overlay.shared_preflight(ROOT, snapshot, 'd'*40, 'new', revision=overlay.FC_V61_MARKET_ANCHOR_REVISION)
+                self.assertEqual(proof['after_sha256'], original['after_sha256'])
+                self.assertEqual(proof['retained_source_sha256'], digest)
+                (snapshot/'business-baseline.md').write_bytes(b'drift')
+                info['protected'][overlay.BASELINE_TARGET] = hashlib.sha256(b'drift').hexdigest()
+                (snapshot/'preflight.json').write_text(json.dumps(info))
+                with self.assertRaisesRegex(ValueError, 'provenance_invalid'):
+                    overlay.shared_preflight(ROOT, snapshot, 'd'*40, 'new', revision=overlay.FC_V61_MARKET_ANCHOR_REVISION)
+
     def test_knowledge_only_scope_admits_policy_and_new_immutable_documents_only(self):
         release='fc-reporting-knowledge-20261105-'+('a'*8)
         prefix='/var/lib/fs-hermes-fc/fs/knowledge-releases/'+release+'/'
