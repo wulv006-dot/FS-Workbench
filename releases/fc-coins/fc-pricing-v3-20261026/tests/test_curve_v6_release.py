@@ -23,6 +23,27 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_market_scope_builds_identical_strategy_and_revision_modules_for_both_roles(self):
+        mapping = target_map.curve_market_targets(SOURCE)
+        self.assertEqual(len(mapping), 10)
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / 'market.tar.gz'
+            with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']), \
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, commit: path.read_bytes()):
+                result = build_stage.build(ROOT, output, curve_market=True)
+            with tarfile.open(output) as bundle:
+                prefix = 'fc-pricing-v3-20261026/'
+                provenance = json.load(bundle.extractfile(prefix + 'source-manifest.json'))
+                self.assertEqual(provenance['scope'], target_map.CURVE_MARKET_SCOPE)
+                self.assertEqual(set(provenance['files']), set(adapter.SCOPED_TARGETS[target_map.CURVE_MARKET_SCOPE]))
+                for name in ('api.py', 'curve_strategy_v6.py', 'ledger.py', 'platforms.py', 'runtime.py'):
+                    original = bundle.extractfile(prefix + 'candidate/source/fc_pricing_v3/' + name).read()
+                    copy = bundle.extractfile(prefix + 'candidate/source/hermes-copy/fc_pricing_v3/' + name).read()
+                    self.assertEqual(original, copy)
+        self.assertEqual(result['targets'], 10)
+        self.assertNotIn('coin_all_sync_job.py', mapping)
+        self.assertNotIn('fc_pricing_v3/scheduler.py', mapping)
+
     def test_stability_release_contains_only_cost_pipeline_and_two_paired_modules(self):
         mapping = target_map.curve_stability_targets(SOURCE)
         self.assertEqual(len(mapping), 8)

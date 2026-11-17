@@ -3,7 +3,7 @@ PLATFORMS = ('PS', 'XBOX', 'PC')
 PRICE_SCOPE_CONTRACT = 'fc27_three_platform_v1'
 SMART_VERSION = 'smart-three-platform-v3'
 LEGACY_SMART_VERSION = 'smart-bidirectional-v2'
-SMART_VERSIONS = (LEGACY_SMART_VERSION, SMART_VERSION)
+SMART_VERSIONS = (LEGACY_SMART_VERSION, SMART_VERSION, 'market-anchor-v1')
 NATIVE_GROUPS = {p: (p,) for p in PLATFORMS}
 LEGACY_GROUPS = {'console': ('PS', 'XBOX'), 'pc': ('PC',)}
 

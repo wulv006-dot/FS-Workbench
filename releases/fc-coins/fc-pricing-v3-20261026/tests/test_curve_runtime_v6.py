@@ -20,6 +20,192 @@ from test_price_curve_v6 import EDITOR_CONTRACT
 
 
 class CurveRuntime(unittest.TestCase):
+    def test_market_activation_requires_the_matching_live_shadow_and_forwards_the_authenticated_actor(self):
+        from copy import deepcopy
+        from fc_pricing_v3 import api
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        plan = self.db.get('pricing_plans', 'plan')
+        plan.update(mode='smart', write_protocol=CURVE_WRITE_PROTOCOL, resources=['base:PS'],
+                    starts_at=(now-timedelta(hours=2)).isoformat(), smart_started_at=(now-timedelta(hours=2)).isoformat(),
+                    last_cycle_at=now.isoformat(), smart_strategy_version='smart-three-platform-v3', parameters={})
+        self.db.put('pricing_plans', 'plan', plan)
+        ident = '00000000-0000-4000-8000-000000000123'
+        parameters = market_anchor_parameters()
+        prospective = dict(plan, smart_strategy_version='market-anchor-v1', parameters={'market_anchor': parameters})
+        evidence = dict(run_id=ident, competitor_policy=POLICY)
+        shadow = dict(plan_binding=runtime._curve_plan_binding(prospective), plan_id='plan', plan_revision=4,
+            snapshot_id=ident, created_at=now.isoformat(), status='READY', execution_authorized=False,
+            target_curve=self.bundle['action']['curves']['PS'], proof=self.bundle['curve_proofs']['PS'])
+        snapshot = dict(snapshot_id=ident, created_at=now.isoformat(), mode='production', origin='live_collector',
+                        write_protocol=CURVE_WRITE_PROTOCOL, evidence=evidence)
+        self.db.put('pricing_snapshots', ident, snapshot)
+        def freeze(value):
+            self.db.put('metadata', 'curve-proof-inputs:'+ident, dict(run_id=ident,
+                collection_sha256=runtime._curve_collection_fingerprint(evidence),
+                platforms={'PS': dict(plan_binding=runtime._curve_plan_binding(plan), anchor_shadow=value)}))
+        data = dict(expected_revision=4, snapshot_id=ident, strategy_version='market-anchor-v1', market_anchor=parameters)
+        with patch.object(api, 'ledger', return_value=self.db), \
+             patch('automation_policy.load_policy', return_value={'interval_minutes': 60}):
+            bad = deepcopy(shadow)
+            bad['proof']['proof_hash'] = 'tampered'
+            freeze(bad)
+            with self.assertRaisesRegex(ValueError, 'shadow_unverified'):
+                api.post('plans/plan/revise-curve-strategy', data, 'signed-operator')
+            self.assertEqual(self.db.get('pricing_plans', 'plan')['revision'], 4)
+            freeze(shadow)
+            changed = api.post('plans/plan/revise-curve-strategy', data, 'signed-operator')
+        self.assertEqual(changed['revision'], 5)
+        self.assertEqual(changed['parameters']['market_anchor']['PS']['small']['p'], '0.08')
+        self.assertEqual(self.db.get('metadata', 'curve-strategy-revision:plan:4')['actor'], 'signed-operator')
+        self.dispatch.assert_not_called()
+        self.assertEqual(self.transport.posts, [])
+
+    def test_market_plan_revision_is_idempotent_cas_and_keeps_the_queued_hour(self):
+        from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
+        from fc_pricing_v3.scheduler import next_cycle_at
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        plan = self.db.get('pricing_plans', 'plan')
+        plan.update(mode='smart', write_protocol=CURVE_WRITE_PROTOCOL, resources=['base:PS'],
+                    starts_at=(now-timedelta(hours=2)).isoformat(), smart_started_at=(now-timedelta(hours=2)).isoformat(),
+                    last_cycle_at=now.isoformat(), smart_strategy_version='smart-three-platform-v3', parameters={})
+        self.db.put('pricing_plans', 'plan', plan)
+        policy = {'interval_minutes': 60}
+        due = next_cycle_at(self.db, plan, policy)
+        cycle_id = 'cycle:plan:'+str(int(due.timestamp()))+':r0'
+        self.db.enqueue('cycle', cycle_id, due, dict(plan_id='plan', revision=4, scheduled_at=due.isoformat()))
+        revision = dict(strategy_version='market-anchor-v1', market_anchor=market_anchor_parameters())
+        check = lambda conn, current, at: {'PS': 'shadow-proof'}
+        with patch('automation_policy.load_policy', return_value=policy):
+            changed = self.db.activate_curve_plan('plan', 4, 'signed-operator', 'shadow', check, strategy_revision=revision)
+            self.assertEqual(changed['revision'], 5)
+            self.assertEqual(changed['smart_strategy_version'], 'market-anchor-v1')
+            self.assertEqual(changed['last_cycle_at'], plan['last_cycle_at'])
+            self.assertEqual(self.db.activate_curve_plan('plan', 4, 'signed-operator', 'shadow', check,
+                                                        strategy_revision=revision), changed)
+            other = dict(revision, market_anchor=market_anchor_parameters())
+            other['market_anchor']['PS']['small']['p'] = '.09'
+            with self.assertRaisesRegex(ValueError, 'request_conflict'):
+                self.db.activate_curve_plan('plan', 4, 'signed-operator', 'shadow', check, strategy_revision=other)
+        with closing(self.db.connect()) as conn:
+            job = conn.execute('SELECT due_at,body FROM durable_jobs WHERE id=?', (cycle_id,)).fetchone()
+            self.assertEqual(json.loads(job['body'])['revision'], 5)
+            self.assertEqual(job['due_at'], due.isoformat())
+            self.db.owns(changed, ['base:PS'], conn)
+
+    def test_market_strategy_preserves_the_original_hourly_schedule(self):
+        from fc_pricing_v3.scheduler import next_cycle_at
+        from fc_pricing_v3.financial import instant
+
+        for version in ('smart-three-platform-v3', 'market-anchor-v1'):
+            plan = dict(plan_id='plan', smart_strategy_version=version, starts_at='2026-11-17T00:00:00+00:00',
+                        smart_started_at='2026-11-17T00:15:00+00:00', last_cycle_at='2026-11-17T03:17:00+00:00')
+            self.assertEqual(next_cycle_at(self.db, plan, {'interval_minutes': 60}),
+                             instant('2026-11-17T04:15:00+00:00'))
+
+    def test_market_plan_cannot_reuse_an_unbound_or_previous_revision_price_proof(self):
+        now = datetime.now(timezone.utc)
+        plan = dict(plan_id='plan', revision=5, mode='smart', smart_strategy_version='market-anchor-v1')
+        for binding in (None, dict(plan_id='plan', revision=4, strategy_version='market-anchor-v1', parameters_sha256='old')):
+            inputs = dict(captured_at=now.isoformat(), valid_until=(now+timedelta(minutes=15)).isoformat(),
+                          plan_binding=binding)
+            result = runtime._prove_curve_inputs('PS', inputs, self.db, now, plan=plan)
+            self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
+            self.assertEqual(result['gaps'], ['pricing_curve_strategy_revision_changed'])
+
+    def test_market_history_keeps_seven_day_quote_evidence_and_identifies_natural_rounds(self):
+        from test_curve_strategy_v6 import position_offers
+
+        now = datetime.now(timezone.utc)
+        for ident, age, automatic in (('old', 193, True), ('a', 2, True), ('b', 1, True),
+                                       ('manual', .5, False), ('future', -1, True)):
+            at = now-timedelta(hours=age)
+            self.db.put('pricing_snapshots', ident, dict(origin='live_collector', write_protocol=CURVE_WRITE_PROTOCOL,
+                created_at=at.isoformat(), evidence=dict(competitor_offers=position_offers(at, '7', '8'))))
+            if automatic:
+                self.db.put('strategy_decisions', ident, dict(automatic_curve_round=True, curve_round_id='round-'+ident))
+        history = runtime._curve_market_history(self.db, now, exclude_snapshot='b')
+        self.assertEqual({row['snapshot_id'] for row in history}, {'a', 'manual'})
+        self.assertEqual(next(row for row in history if row['snapshot_id']=='a')['round_id'], 'round-a')
+        self.assertFalse(next(row for row in history if row['snapshot_id']=='manual')['automatic'])
+
+    def test_market_anchor_is_recompiled_after_caps_and_keeps_a_small_change_in_the_dead_zone(self):
+        from decimal import Decimal
+        from fc_pricing_v3.average_discount_v6 import MODEL
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT, curve_key, read_curve
+        from test_curve_strategy_v6 import fixture, position_offers
+        from test_pricing_proof_v6 import fixture as proof_fixture
+
+        self.prepare()
+        current, reference, episode = fixture()
+        editor = dict(current['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
+        current = read_curve(current['native_payload'], current['identity'], editor)
+        all_row = dict(current['native_payload'], id=writer.PRODUCTS[PLATFORM][0], site_id=0)
+        before = read_curve(all_row, dict(current['identity'], id=all_row['id'], site_id=0), editor)
+        def inputs(curve):
+            _, baskets, evidence, domain = proof_fixture()
+            key = curve_key(curve)
+            amount = next(row['native_price_usd'] for row in curve['tiers'] if row['purchase_k'] == '1000')
+            average = dict(contract=MODEL, platform=PLATFORM, site_id='266', status='complete', retained_ratio='1')
+            average['revision'] = fingerprint(average)
+            domain.update(curve_key=key, version=self.capability['domain_version'],
+                          source_revisions=dict(self.capability['source_revisions'], offers=average['revision']))
+            self.capability['source_revisions'] = domain['source_revisions']
+            evidence.update(curve_key=key, average_discount=average)
+            evidence['paths'][0].update(curve_key=key, regular_usd=amount, net_receipt_usd=amount,
+                                       expected_cost_usd='40', safe_cost_usd='40', stress_cost_usd='40', known_fee_usd='0')
+            return dict(baskets=baskets, evidence=evidence, domain=domain)
+        now = datetime.now(timezone.utc)
+        for loot, u7, expected in (('7.5', '8.12', {'small': Decimal('9'), 'large': Decimal('85.5')}),
+                                    ('9.35', '11', {'small': Decimal('10'), 'large': Decimal('102.08')}),
+                                    (None, None, {'small': Decimal('10'), 'large': Decimal('95')})):
+            entry = dict(primary_curve=current, all_before=before, editor_contract=editor, native_route=None,
+                primary_inputs={}, all_inputs={}, all_targets={}, price_insurance=dict(
+                    day_anchors={'small': '10', 'large': '95'}, market_per_100k=['10'], below_margin_rounds=0))
+            previous = dict(segments={'large': dict(normal='90', target='95', release_rounds=1)}) if loot is None else {}
+            runtime._freeze_cost_protection(PLATFORM, entry, inputs, dict(reference=reference, episode=episode),
+                dict(mode='smart', smart_strategy_version='market-anchor-v1'),
+                dict(competitor_offers=position_offers(now, loot, u7, arabut='7')), now, previous)
+            frozen = entry['temporary_cost_protection']
+            self.assertEqual(frozen['status'], 'PROVEN', frozen)
+            self.assertEqual({k: Decimal(v) for k, v in frozen['final_anchors'].items()}, expected)
+            self.assertEqual(frozen['preference']['source'], 'market_anchor')
+            self.assertEqual({row['band'] for row in frozen['market_anchor']['observations']}, {'small', 'large'})
+            if loot is None:
+                self.assertEqual(frozen['segments'], previous['segments'], 'quote outage must retain unfinished protection')
+            if loot == '9.35':
+                self.assertIn('small', frozen['stability'], {k: frozen.get(k) for k in
+                    ('normal_anchors', 'final_anchors', 'stability', 'market_anchor')})
+                self.assertEqual(frozen['stability']['small']['reason'], 'dead_zone')
+                self.assertEqual(frozen['segments'], {}, 'market dead zone is not a financial floor')
+            from copy import deepcopy
+            entry['temporary_cost_protection'] = dict(status='PROVEN', final_anchors={'small': '10', 'large': '95'},
+                preference={'source': 'smart_three_hour_block'})
+            actual_entry = deepcopy(entry)
+            old_plan = dict(plan_id='plan', revision=4, mode='smart', smart_strategy_version='smart-three-platform-v3')
+            with patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
+                runtime._freeze_anchor_shadow(PLATFORM, entry, inputs, dict(reference=reference, episode=episode),
+                    old_plan, dict(run_id='source', competitor_offers=position_offers(now, loot, u7)), now, {})
+            shadow = entry.pop('anchor_shadow')
+            self.assertEqual(entry, actual_entry)
+            self.assertEqual(shadow['status'], 'KEEP' if loot is None else 'READY', shadow)
+            self.assertEqual(shadow['would_write'], loot is not None)
+            self.assertEqual(shadow['plan_revision'], 4)
+
+    def test_market_anchor_plan_selects_both_bands_without_a_three_hour_trial(self):
+        from test_curve_strategy_v6 import fixture
+
+        current, reference, episode = fixture()
+        plan = dict(mode='smart', smart_strategy_version='market-anchor-v1')
+        selected = runtime._curve_preference('PS', current, {}, {}, datetime.now(timezone.utc),
+                                            plan=plan, state=dict(reference=reference, episode=episode))
+        self.assertEqual(selected, dict(source='market_anchor', label='A', segment='both'))
+
     def test_median_cost_replaces_old_cohort_maximum_in_the_actual_curve_proof(self):
         from decimal import Decimal
         from fc_pricing_v3.average_discount_v6 import average_discount
@@ -935,6 +1121,8 @@ class CurveRuntime(unittest.TestCase):
             source = dict(run_id=run, competitor_policy=POLICY)
             observed = dict(captured_at=at.isoformat(), valid_until=(at + timedelta(minutes=10)).isoformat(),
                             primary_curve=curve, primary_inputs={key: proof},
+                            anchor_shadow=dict(status='KEEP', would_write=False, execution_authorized=False,
+                                               snapshot_id=run),
                             readbacks=[dict(path='/admin/goods.Goods/edit?id=' + curve['identity']['id'],
                                             http_status=200, response_code=1, response_sha256='fixture-site266')])
             runtime.store_curve_proof_inputs(self.db, source, {PLATFORM: observed})
@@ -942,6 +1130,9 @@ class CurveRuntime(unittest.TestCase):
                 result = runtime.calculate_curve_cycle(self.db, source, plan, {'v3_operation_id': OPERATION}, at)
                 self.assertEqual(result['status'], 'NO_PRICE_CHANGE')
                 self.assertNotIn('decision_receipt', result)
+                self.assertEqual(result['anchor_shadow'][PLATFORM], observed['anchor_shadow'])
+                self.assertEqual(self.db.get('strategy_decisions', run)['anchor_shadow'][PLATFORM],
+                                 observed['anchor_shadow'])
         windows = self.db.all('actual_price_windows')
         self.assertEqual(len(windows), 1)
         window = windows[0]

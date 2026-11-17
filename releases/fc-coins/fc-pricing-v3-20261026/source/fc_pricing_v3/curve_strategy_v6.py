@@ -1,7 +1,9 @@
 """Offline V6 fixed-reference candidates and confirmation-bound adoption."""
 from copy import deepcopy
-from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, localcontext
+from datetime import timedelta
+from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, localcontext
 import json
+from statistics import median
 
 from .financial import fingerprint, instant
 from .price_curve import (COIN_BAND_ANCHORS, FORWARD_TIER_EDIT, TWO_BAND_PRICE_EDIT, coin_quantity_band,
@@ -11,9 +13,110 @@ from .admin_readback import GID_FC27, MID_FC27_COINS, PLATFORM_AID, SITE_MAIN
 
 
 ANCHORS = COIN_BAND_ANCHORS
+MARKET_ANCHOR_VERSION = 'market-anchor-v1'
 STEP = Decimal('.03')
 CENT = Decimal('.01')
 INTERMEDIATE_TRIAL_STEPS = (Decimal('.02'), Decimal('.01'))
+INITIAL_MARKET_ANCHOR = {
+    'PS': {'small': {'p': '.08', 'u': '0'}, 'large': {'p': '.06', 'u': '0'}},
+    'XBOX': {'small': {'p': '.08', 'u': '0'}, 'large': {'p': '.06', 'u': '0'}},
+    'PC': {'small': {'p': '.12', 'u': '-.03'}, 'large': {'p': '.10', 'u': '-.03'}},
+}
+
+
+def market_anchor_parameters(value=None):
+    """Keep all platform/band ratios explicit in the versioned plan."""
+    value = INITIAL_MARKET_ANCHOR if value is None else value
+    if not isinstance(value, dict) or set(value) != set(INITIAL_MARKET_ANCHOR):
+        raise ValueError('market_anchor_parameters_invalid')
+    result = {}
+    for platform, bands in value.items():
+        if not isinstance(bands, dict) or set(bands) != set(ANCHORS):
+            raise ValueError('market_anchor_parameters_invalid')
+        result[platform] = {}
+        for band, terms in bands.items():
+            if not isinstance(terms, dict) or set(terms) != {'p', 'u'}:
+                raise ValueError('market_anchor_parameters_invalid')
+            parsed = {}
+            for field, lower, upper in (('p', '0', '.15'), ('u', '-.05', '.03')):
+                try:
+                    number = Decimal(str(terms[field]))
+                    valid = number.is_finite() and Decimal(lower) <= number <= Decimal(upper)
+                except (ArithmeticError, TypeError, ValueError):
+                    valid = False
+                if not valid:
+                    raise ValueError('market_anchor_parameters_invalid')
+                parsed[field] = str(number)
+            result[platform][band] = parsed
+    return result
+
+
+def _position_quotes(platform, offers, at):
+    quotes = {}
+    for source in ('Lootbar', 'U7Buy', 'ArabUT'):
+        rows = large_market_reference(platform, [row for row in offers if row.get('source') == source], at,
+            region_id='21' if source == 'ArabUT' else '0', delivery_method='comfort_trade')
+        if not rows:
+            continue
+        latest = max(instant(row['captured_at']) for row in rows)
+        rows = [row for row in rows if instant(row['captured_at']) == latest]
+        if len({Decimal(row['usd_per_delivered_100k']) for row in rows}) == 1:
+            quotes[source] = rows[0]
+    return quotes
+
+
+def market_anchor_targets(platform, current, offers, now, *, parameters=None, history=()):
+    """Compute native anchors from comparable per-delivered-100K market positions."""
+    parameters = market_anchor_parameters(parameters)
+    quotes = _position_quotes(platform, offers, now)
+    previous = {}
+    for row in history:
+        try:
+            at = instant(row['as_of'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if now - timedelta(days=7) <= at < now and row.get('round_id'):
+            if row['round_id'] not in previous or previous[row['round_id']]['at'] < at:
+                previous[row['round_id']] = dict(row, at=at, quotes=_position_quotes(platform, row.get('offers') or [], at))
+    recent = sorted((row for row in previous.values() if row.get('automatic', True)),
+                    key=lambda row: row['at'], reverse=True)[:2]
+    prices = {source: median([Decimal(quote['usd_per_delivered_100k'])] +
+                            [Decimal(row['quotes'][source]['usd_per_delivered_100k'])
+                             for row in recent if source in row['quotes']])
+              for source, quote in quotes.items()}
+    pairs = {}
+    for observed in [quotes] + [row['quotes'] for row in previous.values()]:
+        if not {'Lootbar', 'U7Buy'} <= observed.keys():
+            continue
+        pair = [observed[source] for source in ('Lootbar', 'U7Buy')]
+        if all(instant(row['captured_at']) >= now - timedelta(days=7) for row in pair):
+            key = tuple((row['captured_at'], row['usd_per_delivered_100k']) for row in pair)
+            pairs[key] = Decimal(pair[0]['usd_per_delivered_100k']) / Decimal(pair[1]['usd_per_delivered_100k'])
+    ratio = median(list(pairs.values())) if pairs else None
+    gaps = []
+    fallback = 'direct' if {'Lootbar', 'U7Buy'} <= prices.keys() else 'lootbar_only'
+    if 'Lootbar' not in prices:
+        if 'U7Buy' in prices and ratio is not None:
+            prices['Lootbar'] = prices['U7Buy'] * ratio
+            fallback = 'u7_ratio'
+        else:
+            fallback = 'floor_only'
+            if 'U7Buy' in prices:
+                gaps.append('market_anchor_ratio_unavailable')
+    tiers = {row['purchase_k']: row for row in current['tiers']}
+    anchors = {}
+    for band, quantity in (ANCHORS.items() if fallback != 'floor_only' else ()):
+        terms = parameters[platform][band]
+        target = prices['Lootbar'] * (1 + Decimal(terms['p']))
+        if 'U7Buy' in prices:
+            target = min(target, prices['U7Buy'] * (1 + Decimal(terms['u'])))
+        delivered = Decimal(quantity) + Decimal(tiers[quantity]['promised_bonus_k'])
+        anchors[band] = str((target * delivered / 100).quantize(CENT, rounding=ROUND_HALF_UP))
+    return dict(source='market_anchor', anchors=anchors, parameters=parameters[platform],
+                reference_usd_per_100k={source: str(value) for source, value in prices.items()},
+                median_round_ids=[row['round_id'] for row in recent], current_quotes=quotes,
+                fallback=fallback, floor_only=fallback == 'floor_only', gaps=gaps,
+                ratio_r=str(ratio) if ratio is not None else None, ratio_pairs=len(pairs))
 
 
 def band_anchors(curve):

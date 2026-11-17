@@ -652,6 +652,14 @@ def post(path,data,actor):
         return value
     if path.startswith('plans/'):
         _,ident,action=path.split('/')
+        if action=='revise-curve-strategy':
+            if (not isinstance(data, dict) or set(data) != {'expected_revision', 'snapshot_id', 'strategy_version', 'market_anchor'}
+                    or not isinstance(data['snapshot_id'], str)
+                    or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', data['snapshot_id']) is None):
+                raise ValueError('pricing_curve_strategy_revision_fields_invalid')
+            from .runtime import revise_curve_strategy
+            return revise_curve_strategy(db, ident, data['expected_revision'], actor, data['snapshot_id'],
+                                         data['strategy_version'], data['market_anchor'])
         if action=='activate-curve':
             if (set(data) != {'expected_revision', 'snapshot_id'} or not isinstance(data['snapshot_id'], str)
                     or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', data['snapshot_id']) is None):

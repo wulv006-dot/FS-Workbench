@@ -662,7 +662,7 @@ class Ledger:
             self.put('pricing_plans', ident, plan, db)
             return plan
 
-    def activate_curve_plan(self, ident, expected_revision, actor, snapshot_id, check):
+    def activate_curve_plan(self, ident, expected_revision, actor, snapshot_id, check, *, strategy_revision=None):
         """Switch the original active plan under its existing ownership CAS."""
         from .competitor_offers import POLICY
         from .dispatch import CURVE_WRITE_PROTOCOL
@@ -670,18 +670,31 @@ class Ledger:
 
         if type(expected_revision) is not int:
             raise ValueError('pricing_plan_revision_changed')
-        key = 'curve-plan-activation:' + ident + ':' + str(expected_revision)
+        if strategy_revision is not None:
+            from .curve_strategy_v6 import MARKET_ANCHOR_VERSION, market_anchor_parameters
+            from .platforms import SMART_VERSION
+            if (not isinstance(strategy_revision, dict) or set(strategy_revision) != {'strategy_version', 'market_anchor'}
+                    or strategy_revision['strategy_version'] not in (MARKET_ANCHOR_VERSION, SMART_VERSION)
+                    or not isinstance(actor, str) or not actor.strip()):
+                raise ValueError('pricing_curve_strategy_revision_invalid')
+            strategy_revision = dict(strategy_version=strategy_revision['strategy_version'],
+                                     market_anchor=market_anchor_parameters(strategy_revision['market_anchor']))
+        key = ('curve-strategy-revision:' if strategy_revision else 'curve-plan-activation:') + ident + ':' + str(expected_revision)
         now = clock()
         with self.transaction() as conn:
             prior = self.get('metadata', key, conn)
             if prior:
-                if (prior['actor'], prior['snapshot_id']) != (actor, snapshot_id):
+                if ((prior['actor'], prior['snapshot_id']) != (actor, snapshot_id)
+                        or prior.get('strategy_revision') != strategy_revision):
                     raise ValueError('pricing_curve_activation_request_conflict')
                 return prior['after']
             plan = self.get('pricing_plans', ident, conn)
             if (not plan or plan['state'] != 'ACTIVE' or plan['revision'] != expected_revision
-                    or plan.get('write_protocol') or plan.get('ends_at') and now >= instant(plan['ends_at'])):
+                    or (plan.get('write_protocol') != CURVE_WRITE_PROTOCOL if strategy_revision else bool(plan.get('write_protocol')))
+                    or plan.get('ends_at') and now >= instant(plan['ends_at'])):
                 raise ValueError('pricing_plan_revision_changed')
+            if strategy_revision and plan['mode'] != 'smart':
+                raise ValueError('pricing_curve_strategy_revision_invalid')
             self.owns(plan, plan['resources'], conn)
             before = deepcopy(plan)
             resources = set(plan['resources'])
@@ -702,6 +715,9 @@ class Ledger:
                         activation_revision=fingerprint([ident, expected_revision, snapshot_id, proof]),
                         curve_activation_snapshot_id=snapshot_id)
             plan['parameters'] = dict(plan.get('parameters') or {}, competitor_policy=POLICY, region_pricing='global')
+            if strategy_revision:
+                plan['smart_strategy_version'] = strategy_revision['strategy_version']
+                plan['parameters']['market_anchor'] = strategy_revision['market_anchor']
             if plan.get('baseline_plan'):
                 baseline = plan['baseline_plan']
                 baseline['parameters'] = dict(baseline.get('parameters') or {}, competitor_policy=POLICY, region_pricing='global')
@@ -720,7 +736,8 @@ class Ledger:
                 conn.execute('UPDATE durable_jobs SET body=? WHERE id=?', (json.dumps(scheduled), cycle_id))
             else:
                 self.enqueue('cycle', cycle_id, due, scheduled, conn)
-            self.put('metadata', key, dict(actor=actor, snapshot_id=snapshot_id, before=before, after=plan), conn)
+            self.put('metadata', key, dict(actor=actor, snapshot_id=snapshot_id, before=before, after=plan,
+                                           strategy_revision=strategy_revision), conn)
             return plan
 
     def active_plan(self):
