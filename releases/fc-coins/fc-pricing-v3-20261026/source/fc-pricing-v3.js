@@ -237,9 +237,10 @@
       const percent=value=>`${(Number(value)*100).toFixed(0)}%`;
       card.append(node('h3',`${proposal.platform==='XBOX'?'Xbox':proposal.platform} · ${proposal.band==='small'?'小额':'大额'}`),
         node('p',`Lootbar 定位溢价 ${percent(proposal.before_p)} → ${percent(proposal.after_p)}`),
-        node('p',rules[proposal.rule]||'保持当前定位'));
+        node('p',Number(proposal.delta_p)===0&&proposal.rule==='raise_position'?'当前无可上调量段，保持定位':rules[proposal.rule]||'保持当前定位'));
       const before=proposal.prior?.[proposal.band],after=proposal.current?.[proposal.band];
       if(before&&after)card.append(node('p',`该段订单 ${before.orders} → ${after.orders}；采购毛利 ¥${before.procurement_gross_cny} → ¥${after.procurement_gross_cny}`));
+      if(proposal.market_ratio)card.append(node('p',`其余两平台订单系数 ${Number(proposal.market_ratio).toFixed(2)}；优先评估采购毛利率较低的平台。`));
       const labels={PROPOSED:'待确认',CONFIRMED:'已确认',REJECTED:'已拒绝',EXPIRED:'已过期'};
       card.append(node('p',`${labels[proposal.status]||'待核'} · 确认截止 ${when(proposal.expires_at)}`));
       const actions=node('div');actions.className='actions';

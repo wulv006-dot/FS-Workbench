@@ -89,6 +89,15 @@ class WeeklyLadder(unittest.TestCase):
         with self.assertRaises(PermissionError):ladder.set_automatic(self.db,'plan','other-writer',True,4,later)
         self.assertTrue(ladder.set_automatic(self.db,'plan','owner',True,4,later)['automatic'])
 
+    def test_notification_and_fs_order_keep_the_lowest_margin_platform_first(self):
+        rows=self.run_week()
+        for row in rows:
+            row['margin_ratio']={'PS':'.15','XBOX':'.2','PC':'.4'}[row['platform']]
+            self.db.put('ladder_proposals',row['proposal_id'],row)
+        expected=['PS','XBOX','PC']
+        self.assertEqual([r['platform'] for r in ladder.state(self.db)['proposals']],expected)
+        self.assertEqual([r['platform'] for r in ladder.ordered_proposals(rows)],expected)
+
     def test_missing_week_does_not_start_the_four_week_manual_period(self):
         with patch('fc_pricing_v3.average_discount_v6.yesterday_es_ready',return_value=True), \
              patch.object(ladder,'read_week',side_effect=ValueError('weekly_days_incomplete')):

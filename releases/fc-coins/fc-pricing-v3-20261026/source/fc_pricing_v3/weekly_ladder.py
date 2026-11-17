@@ -293,7 +293,7 @@ def run(db, plan_id, now):
     if not notification:
         run_id=str(uuid.uuid5(uuid.NAMESPACE_URL,notification_key))
         notification=dict(run_id=run_id,quote=dict(run_id=run_id,daily_report=dict(
-            report_kind='weekly_ladder_proposals',local_date=monday.isoformat(),weekly_ladder=[db.get('ladder_proposals',i) for i in ids]),
+            report_kind='weekly_ladder_proposals',local_date=monday.isoformat(),weekly_ladder=ordered_proposals([db.get('ladder_proposals',i) for i in ids])),
             result=dict(decision_receipt=dict(sha256=fingerprint(ids)))))
         db.put('metadata',notification_key,notification)
     if (notification.get('receipt') or {}).get('phase') not in ('completed','failed','timeout','unknown'):
@@ -303,9 +303,13 @@ def run(db, plan_id, now):
     return dict(status='assessed',proposal_ids=ids)
 
 
+def ordered_proposals(rows):
+    return sorted(rows,key=lambda r:(r['week_start'], -money(r['margin_ratio'])
+                  if r.get('margin_ratio') is not None else Decimal('-Infinity'),r['platform']),reverse=True)
+
+
 def state(db):
     plan=db.active_plan() or {}
     return dict(plan_id=plan.get('plan_id'),owner=plan.get('actor'),
                 control=db.get('metadata','weekly-ladder-control:'+plan.get('plan_id','')) or {'automatic':False},
-                proposals=sorted((r for r in db.all('ladder_proposals') if r['plan_id']==plan.get('plan_id')),
-                                 key=lambda r:(r['week_start'],r['platform']),reverse=True)[:12])
+                proposals=ordered_proposals(r for r in db.all('ladder_proposals') if r['plan_id']==plan.get('plan_id'))[:12])
