@@ -170,7 +170,7 @@ def reporting_entry(identity, existing, template, previous, live_body, previous_
                 supersedes=list(dict.fromkeys(existing['supersedes'] + template['supersedes']))), data
 
 
-def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False):
+def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False, revision=None):
     info = json.loads(bound(snapshot, 'preflight.json').read_bytes())
     if release in info['immutable_directories']:
         raise ValueError('shared_admin_es_release_already_exists_reconcile')
@@ -178,7 +178,8 @@ def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=Fa
     proof = json.loads(git_bytes(root, commit, BASELINE_SOURCE.replace('.md', '.provenance.json')))
     digest = sha(baseline)
     candidate = git_bytes(root, commit, BASELINE_SOURCE)
-    retained = digest == proof['after_sha256'] and baseline == candidate
+    current_git = revision == FC_V61_MARKET_ANCHOR_REVISION and baseline == candidate
+    retained = (digest == proof['after_sha256'] or current_git) and baseline == candidate
     patch = (allow_baseline_patch and digest == proof.get('before_sha256')
              and sha(candidate) == proof['after_sha256'] and candidate != baseline)
     if (digest != info['protected'][BASELINE_TARGET] or not (retained or patch)
@@ -188,6 +189,8 @@ def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=Fa
     units = {'fs-hermes-fc.service', 'fs-business-range.service'}
     if info['runtime'] != {name: {'ActiveState': 'active'} for name in units}:
         raise ValueError('shared_admin_es_active_services_required')
+    if current_git:
+        proof = dict(proof, retained_current_git=True, retained_source_commit=commit, retained_source_sha256=digest)
     return info, proof
 
 
@@ -285,7 +288,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         changes = shared_changes(root, commit, catalog, canonical, current)
     if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
-            allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current)
+            allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current,
+            revision=current['fc.pricing.v3']['revision'] if fc_v61 else None)
         compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
             raise ValueError('shared_admin_es_baseline_binding_drift')
