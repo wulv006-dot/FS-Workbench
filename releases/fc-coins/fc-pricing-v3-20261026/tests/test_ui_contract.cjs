@@ -28,7 +28,7 @@ assert.equal((html.match(/class="price-strip"/g)||[]).length,1);
 for (const platform of ['ps','xbox','pc']) assert(ids.includes('v3-price-large-'+platform));
 assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261113-current-curve/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261117-weekly-ladder/);
 assert.equal((html.match(/<article data-platform=/g)||[]).length,3);
 assert.match(html,/竞品 100K 报价/);
 assert.match(html,/我方大额段独立核算/);
@@ -80,6 +80,7 @@ const normalFetch = async (url, options = {}) => ({ ok: true, json: async () => 
   : url.endsWith('/pricing/collect') ? {job_id:'collect-test'} : url.endsWith('/jobs/collect-test') ? {status:'ready',result:{status:'INFEASIBLE'}}
   : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? (options.body?(intervalBody=JSON.parse(options.body),{revision:4}):{ ...automation, can_manage_v3: canWrite })
   : url.endsWith('/monitor') ? monitor : url.endsWith('/player-sync') ? { enabled: true, revision: 1 } : {} });
+const weeklyBodies=[];
 const executeBodies=[];
 const priceBodies=[];let priceFailure=false;
 const collectBodies=[],curvePreviews=[];
@@ -94,6 +95,7 @@ const readonlyMarketId='0d0d4870-f3dd-4f23-bae6-bf9892e48e03';
 let readonlyJob=null,readonlyMarket=null,readonlyReads=[];
 let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='done',idSequence=0;
 const fetch=async (url,options={})=>{
+  if(url.includes('/weekly-ladder/')){weeklyBodies.push({url,body:JSON.parse(options.body)});return {ok:true,json:async()=>({status:'CONFIRMED'})};}
   if(url.endsWith('/pricing/v3/state')){stateReads++;if(stateReadGate)await stateReadGate;}
   if(url.endsWith('/pricing/collect')){
     const body=JSON.parse(options.body);collectBodies.push(body);
@@ -638,5 +640,26 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(elements['v3-mode-purpose'].textContent,/历史智能策略.*B上调3%.*C上调6%/);
   await elements['v3-refresh'].events.click();
   assert.equal(marketTag.textContent,'Lootbar 无券 · ItemD2R · Saudi Arabia 普通发货','legacy plans keep the original market heading');
+  plan.smart_strategy_version='market-anchor-v1';plan.write_protocol='fc27_curve_v6';plan.state='ACTIVE';
+  state.weekly_ladder={control:{automatic:false,eligible_after:'2099-01-01T00:00:00+08:00'},proposals:[{
+    proposal_id:'proposal-1',platform:'PS',band:'small',week_start:'2026-11-23',status:'PROPOSED',
+    rule:'raise_position',before_p:'.08',after_p:'.09',expires_at:'2099-01-01T00:00:00+08:00',
+    prior:{small:{orders:100,procurement_gross_cny:'1200'}},current:{small:{orders:110,procurement_gross_cny:'1250'}}}]};
+  await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-weekly-panel'].hidden,false);
+  assert.match(JSON.stringify(elements['v3-weekly-proposals'].children),/8%.*9%/);
+  assert.equal(elements['v3-weekly-auto'].disabled,true,'four weeks do not enable themselves');
+  canWrite=false;await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-weekly-proposals'].children[0].children.at(-1).children[0].disabled,true);
+  canWrite=true;await elements['v3-refresh'].events.click();
+  await elements['v3-weekly-proposals'].children[0].children.at(-1).children[0].events.click();
+  assert.equal(weeklyBodies.at(-1).url,'/api/fc27/cloud/pricing/v3/weekly-ladder/proposal-1/confirm');
+  assert.deepEqual(weeklyBodies.at(-1).body,{expected_revision:plan.revision});
+  state.weekly_ladder.proposals[0].expires_at='2000-01-01T00:00:00Z';await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-weekly-proposals'].children[0].children.at(-1).children[0].disabled,true);
+  state.weekly_ladder.control.eligible_after='2000-01-01T00:00:00Z';await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-weekly-auto'].disabled,false);
+  await elements['v3-weekly-auto'].events.click();
+  assert.deepEqual(weeklyBodies.at(-1).body,{enabled:true,expected_revision:plan.revision});
   console.log('UI contract and state smoke passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

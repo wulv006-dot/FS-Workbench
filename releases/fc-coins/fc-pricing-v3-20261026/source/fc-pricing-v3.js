@@ -57,7 +57,7 @@
   function statusText(raw){return raw==null?'待核':statuses[raw]||names[raw]||`待核（${raw}）`;}
   function errorText(error){
     const code=error.message||String(error);
-    const known={pricing_snapshot_required:'缺少本轮真实快照，请先采集并核对来源',pricing_plan_scope_invalid:'计划范围不符合当前可修改资源',
+    const known={weekly_plan_owner_required:'请由计划创建者确认这次周调整',weekly_four_manual_weeks_required:'前四周须逐周确认，到期后可明确开启自动调整',weekly_proposal_expired_or_parameters_changed:'提议已过期或定位参数已变化，请刷新核对',weekly_proposal_not_pending:'这条提议已处理，请刷新核对',pricing_snapshot_required:'缺少本轮真实快照，请先采集并核对来源',pricing_plan_scope_invalid:'计划范围不符合当前可修改资源',
       pricing_plan_required:'当前没有可执行的活动计划',pricing_resource_unresolved:'原操作尚未对账，此范围暂不可写',pricing_smart_scope_requires_all_owned_resources:'智能决策须同时接管PS、Xbox、PC和现有Saudi范围，请刷新后重试',
       pricing_manual_preview_expired:'人工预览已过期，请重新核算',pricing_manual_infeasible:'当前明确价未通过新鲜财务或市场证明',
       pricing_operation_missing:'未找到该原操作编号',state_unavailable:'状态暂时无法读取',
@@ -219,6 +219,43 @@
     for(const id of ['v3-system-enabled','v3-auto-enabled'])$(id).disabled=!canWrite||acting||automationRevision==null;
     priceControlInputs();
     curveActivationControls();
+    renderWeekly(current);
+  }
+  function renderWeekly(state){
+    const weekly=state?.weekly_ladder,plan=state?.plan,control=weekly?.control||{};
+    const panel=$('v3-weekly-panel'),output=$('v3-weekly-proposals'),automatic=$('v3-weekly-auto');
+    output.replaceChildren();automatic.disabled=true;
+    panel.hidden=!weekly||plan?.smart_strategy_version!=='market-anchor-v1';
+    if(panel.hidden)return;
+    $('v3-weekly-mode').textContent=control.automatic?'自动调整已开启':'由创建者逐周确认';
+    $('v3-weekly-help').textContent='按两个完整自然周比较订单和实际采购毛利。确认后下一自然轮按新定位核价。'+
+      (control.eligible_after?`前四周逐周确认，可开启自动的日期：${when(control.eligible_after)}。`:'首次周一评估后开始计算四周确认期。');
+    const rows=weekly.proposals||[],week=rows[0]?.week_start;
+    const rules={retain_raise:'保留上次定位',rollback_raise:'上次上调未达到保留条件，退回并冻结两周',recover_orders:'先改善订单量',raise_position:'小步提高定位'};
+    for(const proposal of rows.filter(row=>row.week_start===week)){
+      const card=node('div');card.className='market-quote';
+      const percent=value=>`${(Number(value)*100).toFixed(0)}%`;
+      card.append(node('h3',`${proposal.platform==='XBOX'?'Xbox':proposal.platform} · ${proposal.band==='small'?'小额':'大额'}`),
+        node('p',`Lootbar 定位溢价 ${percent(proposal.before_p)} → ${percent(proposal.after_p)}`),
+        node('p',rules[proposal.rule]||'保持当前定位'));
+      const before=proposal.prior?.[proposal.band],after=proposal.current?.[proposal.band];
+      if(before&&after)card.append(node('p',`该段订单 ${before.orders} → ${after.orders}；采购毛利 ¥${before.procurement_gross_cny} → ¥${after.procurement_gross_cny}`));
+      const labels={PROPOSED:'待确认',CONFIRMED:'已确认',REJECTED:'已拒绝',EXPIRED:'已过期'};
+      card.append(node('p',`${labels[proposal.status]||'待核'} · 确认截止 ${when(proposal.expires_at)}`));
+      const actions=node('div');actions.className='actions';
+      for(const [operation,label] of [['confirm','确认本周调整'],['reject','本周不调整']]){
+        const button=node('button',label);button.type='button';button.className='secondary';
+        button.disabled=!canWrite||acting||proposal.status!=='PROPOSED'||Date.parse(proposal.expires_at)<=Date.now();
+        button.addEventListener('click',()=>{if(!canWrite||acting)return;return action(async()=>{
+          await request(`weekly-ladder/${proposal.proposal_id}/${operation}`,operation==='confirm'?{expected_revision:current.plan.revision}:{});
+          $('v3-result').textContent=operation==='confirm'?'本周定位已确认；下一自然轮重新核价后执行。':'本周提议已拒绝，定位参数保持。';
+        });});actions.append(button);
+      }
+      card.append(actions);output.append(card);
+    }
+    if(!rows.length)output.append(node('p','首个自然周结束后，周一等待归档齐全再评估；缺项会保留原因。'));
+    automatic.textContent=control.automatic?'改为每周确认':'开启自动周调整';
+    automatic.disabled=!canWrite||acting||!control.eligible_after||!control.automatic&&Date.parse(control.eligible_after)>Date.now();
   }
   function table(id,rows){
     const body=$(id);body.replaceChildren();
@@ -1048,6 +1085,11 @@
     $('v3-history-result').textContent=historySummary(await request('simulations/'+$('v3-history-id').value));
   }));
   $('v3-refresh').addEventListener('click',refresh);
+  $('v3-weekly-auto').addEventListener('click',()=>{if(!canWrite||acting)return;return action(async()=>{
+    const enabled=!current.weekly_ladder?.control?.automatic;
+    await request(`weekly-ladder/${current.plan.plan_id}/automatic`,{enabled,expected_revision:current.plan.revision});
+    $('v3-result').textContent=enabled?'已明确开启自动周调整，仍保留每次提议与计划修订。':'已恢复每周确认。';
+  });});
   writeControls();$('v3-history-read').disabled=true;$('v3-plan-select').disabled=true;
   document.addEventListener('visibilitychange',scheduleExecutionProgress);
   window.addEventListener('pagehide',()=>{executionPageLeft=true;clearTimeout(executionTimer);clearTimeout(collectTimer);});

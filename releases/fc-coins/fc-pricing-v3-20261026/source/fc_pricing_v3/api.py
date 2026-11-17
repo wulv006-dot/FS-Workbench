@@ -361,6 +361,8 @@ def read(path):
                     current_prices=(snapshot or {}).get('result',{}).get('rows',[]),
                     latest_market_observations=recent_market_observations(db),
                     daily_review=db.get('metadata','latest_daily_review'),retirement=db.all('retirement_inventory'),effect_status='long_term_business_effect_not_established')
+        from .weekly_ladder import state as weekly_state
+        result['weekly_ladder']=weekly_state(db)
         if curve:
             result.update(write_protocol=CURVE_WRITE_PROTOCOL, curve_decision=_curve_decision(current, plan),
                           source_checked_at=(snapshot or {}).get('source_checked_at'))
@@ -519,6 +521,18 @@ def read(path):
 
 
 def post(path,data,actor):
+    if path.startswith('weekly-ladder/'):
+        from . import weekly_ladder
+        parts=path.split('/')
+        if len(parts)!=3 or not isinstance(data,dict):raise ValueError('weekly_request_invalid')
+        _,ident,action=parts
+        if action=='confirm' and set(data)=={'expected_revision'}:
+            return weekly_ladder.confirm_adoption(ledger(),ident,actor,data['expected_revision'],datetime.now(timezone.utc))
+        if action=='reject' and not data:
+            return weekly_ladder.reject(ledger(),ident,actor,datetime.now(timezone.utc))
+        if action=='automatic' and set(data)=={'enabled','expected_revision'}:
+            return weekly_ladder.set_automatic(ledger(),ident,actor,data['enabled'],data['expected_revision'],datetime.now(timezone.utc))
+        raise ValueError('weekly_request_invalid')
     if isinstance(data, dict) and 'write_protocol' in data and (
             path == 'preview' or data['write_protocol'] == CURVE_WRITE_PROTOCOL):
         if path != 'preview':

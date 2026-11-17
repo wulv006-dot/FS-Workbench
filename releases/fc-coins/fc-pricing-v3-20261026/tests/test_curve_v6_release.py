@@ -23,6 +23,28 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_weekly_scope_pairs_modules_and_keeps_exactly_two_new_targets(self):
+        mapping = target_map.curve_weekly_targets(SOURCE)
+        self.assertEqual(len(mapping),12)
+        self.assertEqual(adapter.SCOPED_NEW[target_map.CURVE_WEEKLY_SCOPE],target_map.CURVE_WEEKLY_NEW)
+        with tempfile.TemporaryDirectory() as folder:
+            output=Path(folder)/'weekly.tar.gz'
+            with patch.object(build_stage.subprocess,'check_output',side_effect=['a'*40,'']), \
+                 patch.object(build_stage,'git_blob',side_effect=lambda _,path,commit:path.read_bytes()):
+                result=build_stage.build(ROOT,output,curve_weekly=True)
+            with tarfile.open(output) as bundle:
+                prefix='fc-pricing-v3-20261026/'
+                provenance=json.load(bundle.extractfile(prefix+'source-manifest.json'))
+                self.assertEqual(provenance['scope'],target_map.CURVE_WEEKLY_SCOPE)
+                self.assertEqual(set(provenance['files']),set(adapter.SCOPED_TARGETS[target_map.CURVE_WEEKLY_SCOPE]))
+                for name in ('api.py','ledger.py','runtime.py','scheduler.py','weekly_ladder.py'):
+                    self.assertEqual(bundle.extractfile(prefix+'candidate/source/fc_pricing_v3/'+name).read(),
+                                     bundle.extractfile(prefix+'candidate/source/hermes-copy/fc_pricing_v3/'+name).read())
+        self.assertEqual(result['targets'],12)
+        self.assertNotIn('coin_all_sync_job.py',mapping)
+        with self.assertRaisesRegex(ValueError,'curve_v6_scope_required'):
+            target_map.require_curve_scope_for_imports('fc_pricing_v3/api.py',b'from .weekly_ladder import state')
+
     def test_market_scope_builds_identical_strategy_and_revision_modules_for_both_roles(self):
         mapping = target_map.curve_market_targets(SOURCE)
         self.assertEqual(len(mapping), 10)
