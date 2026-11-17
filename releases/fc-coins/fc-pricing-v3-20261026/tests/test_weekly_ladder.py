@@ -141,23 +141,27 @@ class WeeklyLadder(unittest.TestCase):
             scheduler.run_job(job)
             weekly.assert_not_called()
 
-    def test_week_source_uses_actual_same_order_procurement_and_does_not_fill_missing_cost(self):
+    def test_week_source_uses_shared_facts_and_refuses_observed_or_partial_cost(self):
         import hashlib
-        from fc_pricing_v3 import business_source
+        from fc_pricing_v3 import business_source, runtime
         start=NOW.date()-timedelta(days=7)
         key=hashlib.sha256(b'site266:FC27:Coins:order').hexdigest()
         shared=dict(rows=[dict(order_no='order',amount_usd_format='100',amount_rmb_format='700')],coverage=dict(
             publication_id='pin',source_revision='shared-v1',day_revisions={str(start+timedelta(days=i)):'v1' for i in range(7)}))
         attachment=dict(historical_orders_coverage={'window_complete':True},historical_orders=[dict(order_key=key,
             platform='PS',base_k='100',merchandise_before_discount_usd='110',paid_at=start.isoformat()+'T12:00:00+08:00')])
-        actual=dict(status='已完成',costCny='600',deliveryRows=1,salesUsd='100')
+        actual=dict(order_no='order',status='\u5df2\u5b8c\u6210',actual_cost_cny='600',cost_coverage='complete',
+                    cost_records=[{'cost_cny':'600','order_sale_cny':'800'}],admin_paid_usd='100')
         with patch.dict(sys.modules,{'shared_es_facts':SimpleNamespace(read=Mock(return_value=shared))}), \
              patch.object(business_source,'shared_curve_attachment',return_value=attachment), \
-             patch.object(business_source,'_period_population',return_value=({'order':(actual,{})},{'status':'complete'})):
+             patch.object(business_source,'_period_population',side_effect=AssertionError('retired_day_cache_read')), \
+             patch.object(runtime,'ordinary_delivery_archives',return_value={'orders':[actual]}):
             week=ladder.read_week(start,NOW)
             self.assertEqual(week['platforms']['PS']['small'],dict(orders=1,merchandise_usd='110',revenue_cny='700',procurement_gross_cny='100'))
-            actual['costCny']=None
-            with self.assertRaisesRegex(ValueError,'procurement_missing'):ladder.read_week(start,NOW)
+            for cost,coverage in (('600','partial'),(None,'complete')):
+                actual.update(actual_cost_cny=cost,cost_coverage=coverage)
+                with self.subTest(cost=cost,coverage=coverage), self.assertRaisesRegex(ValueError,'procurement_missing'):
+                    ladder.read_week(start,NOW)
 
     def propose(self, previous=None, current=None, history=(), blocked=None):
         a,b=weeks()

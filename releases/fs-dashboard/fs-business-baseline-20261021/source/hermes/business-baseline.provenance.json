@@ -4,15 +4,33 @@
   "source_commit": null,
   "source_state": "authorized_worktree_exact_sha",
   "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-  "canonical_base_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
-  "canonical_sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
+  "canonical_base_commit": "97f178ff42a18c6fa1e4a33948afacaca12606ba",
+  "canonical_sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
   "target": "/opt/fs-hermes-fc/business-baseline.md",
-  "before_sha256": "0389965b78bc509243fa2e794dc5ce15e2ab304ff8ec5295446d6cf00296e372",
-  "after_sha256": "12a58ebfe3f687f586b253600323ffe3bb45727ec76d8d8a29e3dae22703955e",
-  "bytes": 55392,
-  "prior_provenance_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
-  "prior_provenance_sha256": "192adf34e2faf8d90f35012edd37da8a6abf68106434a7f00c24e18451d75011",
+  "before_sha256": "9cd55ead0628b1a4d4228c4fb3643da08b301308523436d928e2d5bdadcf5579",
+  "after_sha256": "08205faa2c3d7ee716bb25f109d1cb4c34be5a3a8c6b81cad1c69fb621ae4379",
+  "bytes": 57154,
+  "prior_provenance_commit": "97f178ff42a18c6fa1e4a33948afacaca12606ba",
+  "prior_provenance_sha256": "6f52ecfa3025d1c23a01efe7e2bf53f9c7b6f3a65d6ac7789b922796c12beb30",
   "changes": [
-    "Separate active V6 and legacy scalar rules in existing injected baseline; retain non-FC content and historical evidence."
-  ]
+    "Synchronize confirmed V6 discount window, market anchor, smoothed cost, insurance and weekly ladder only; preserve non-FC and historical content."
+  ],
+  "previous_provenance": {
+    "contract": "fc-current-baseline-patch-v1",
+    "runtime_source": "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md",
+    "source_commit": null,
+    "source_state": "authorized_worktree_exact_sha",
+    "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+    "canonical_base_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+    "canonical_sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
+    "target": "/opt/fs-hermes-fc/business-baseline.md",
+    "before_sha256": "0389965b78bc509243fa2e794dc5ce15e2ab304ff8ec5295446d6cf00296e372",
+    "after_sha256": "12a58ebfe3f687f586b253600323ffe3bb45727ec76d8d8a29e3dae22703955e",
+    "bytes": 55392,
+    "prior_provenance_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+    "prior_provenance_sha256": "192adf34e2faf8d90f35012edd37da8a6abf68106434a7f00c24e18451d75011",
+    "changes": [
+      "Separate active V6 and legacy scalar rules in existing injected baseline; retain non-FC content and historical evidence."
+    ]
+  }
 }

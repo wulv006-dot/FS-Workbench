@@ -105,7 +105,7 @@ def propose_adoption(previous, current, parameters, *, now, history=(), blocked=
 
 def read_week(start, now, *, publication_id=None):
     """Use the existing ES/Admin population and same-order archived procurement facts."""
-    from .business_source import shared_curve_attachment, _period_population
+    from .business_source import shared_curve_attachment
     sys.path[:0] = ['/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc']
     from shared_es_facts import read
 
@@ -117,10 +117,11 @@ def read_week(start, now, *, publication_id=None):
     if (not attachment or not attachment['historical_orders_coverage']['window_complete']
             or not set(days) <= set(coverage.get('day_revisions') or {})):
         raise ValueError('weekly_days_incomplete')
-    archived, provenance = _period_population({k:scope[k] for k in ('start','end')})
-    if archived is None or provenance.get('status') != 'complete':
-        raise ValueError('weekly_actual_cost_archive_unavailable')
-    costs = {hashlib.sha256(('site266:FC27:Coins:'+sn).encode()).hexdigest():row for sn,(row,_) in archived.items()}
+    from .runtime import ordinary_delivery_archives
+    facts = ordinary_delivery_archives(scope, shared)
+    costs = {hashlib.sha256(('site266:FC27:Coins:'+row['order_no']).encode()).hexdigest():row
+             for row in facts['orders']}
+    provenance = dict(contract='shared_paid_orders_same_order_procurement_v1', sha256=fingerprint(facts))
     admin = {hashlib.sha256(('site266:FC27:Coins:'+row['order_no']).encode()).hexdigest():row for row in shared['rows']}
     totals = {p:{b:dict(orders=0, merchandise_usd=Decimal(0), revenue_cny=Decimal(0), procurement_gross_cny=Decimal(0))
                  for b in ANCHORS} for p in PLATFORMS}
@@ -131,11 +132,12 @@ def read_week(start, now, *, publication_id=None):
             raise ValueError('weekly_order_identity_or_quantity_missing')
         seen.add(key)
         actual, original = costs.get(key) or {}, admin.get(key) or {}
-        if (actual.get('status') != '已完成' or actual.get('costCny') is None
-                or not ((actual.get('deliveryRows') or 0) > 0 or actual.get('zeroCost') is True)
-                or money(actual.get('salesUsd')) != money(original.get('amount_usd_format'))):
+        if (actual.get('status') != '已完成' or actual.get('actual_cost_cny') is None
+                or actual.get('cost_coverage') != 'complete'
+                or not actual.get('cost_records')
+                or money(actual.get('admin_paid_usd')) != money(original.get('amount_usd_format'))):
             raise ValueError('weekly_same_order_procurement_missing')
-        paid, cost = money(original.get('amount_rmb_format')), money(actual['costCny'])
+        paid, cost = money(original.get('amount_rmb_format')), money(actual['actual_cost_cny'])
         if paid < 0 or cost < 0 or money(row['base_k']) <= 0 or not start <= instant(row['paid_at']).astimezone(LOCAL).date() <= start+timedelta(days=6):
             raise ValueError('weekly_order_scope_invalid')
         band = 'small' if money(row['base_k']) < 1000 else 'large'

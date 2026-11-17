@@ -29,6 +29,24 @@ def snapshot():
 
 
 class CurrentMonitor(unittest.TestCase):
+    def test_v6_incomplete_proof_is_visible_and_clears_with_valid_next_round(self):
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        plan=dict(plan_id='p',revision=5,write_protocol=CURVE_WRITE_PROTOCOL)
+        row=dict(plan_id='p',plan_revision=5,write_protocol=CURVE_WRITE_PROTOCOL,
+                 snapshot_id='s',created_at=NOW.isoformat(),evidence={'checked_at':NOW.isoformat()},
+                 result={'rows':[{'platform':'PS','status':'PROOF_INCOMPLETE',
+                                  'gaps':['path:average:100:cost_unverified']},
+                                 {'platform':'PC','status':'KEEP','gaps':[]}]})
+        coverage=monitoring.source_coverage([row],[plan],NOW)
+        value=snapshot();value['v3'].update(source_coverage=coverage,issues=coverage['issues'])
+        self.assertIn(dict(level='critical',platform='PS',code='coin_v3_curve_proof_incomplete:PS'),
+                      self.assess(value)['issues'])
+        self.assertEqual({i['platform'] for i in coverage['issues']},{'PS'})
+        row['result']['rows'][0].update(status='KEEP',gaps=[])
+        coverage=monitoring.source_coverage([row],[plan],NOW)
+        value['v3'].update(source_coverage=coverage,issues=coverage['issues'])
+        self.assertFalse(any(i['level']=='critical' for i in self.assess(value)['issues']))
+
     def test_v6_platform_financial_failure_is_not_shared_source_failure(self):
         from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
         plan=dict(plan_id='p',revision=1,write_protocol=CURVE_WRITE_PROTOCOL)

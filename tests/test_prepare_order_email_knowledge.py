@@ -293,6 +293,9 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         if revisions == (builder.FC_V61_100K_MARKET_REVISION,) * 2:
             entries.append(row(builder.FC_V61_PARAMETER_ID, revisions[0], path, data))
             entries.append(row(builder.FC_V61_LEARNING_ID, revisions[0], path, data))
+        if revisions == (builder.FC_V61_WEEKLY_REVISION,) * 2:
+            entries.append(row(builder.FC_V61_PARAMETER_ID, revisions[0], path, data))
+            entries.append(row('fs.procurement.inputs', revisions[0], path, data))
         self.git[COMMIT, 'knowledge/index.json'] = builder.encoded(dict(
             contract='fs-knowledge-index-v1', release=builder.FC_V61, release_state='candidate',
             source_commit=None, entries=entries))
@@ -314,6 +317,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assert_fc_revision_migration('fc_v61_native_all_two_band_20261113',
                                           'fc_v61_100k_market_two_band_20261113', baseline_patch=True)
 
+    def test_weekly_closeout_updates_four_existing_ids_and_baseline_without_expanding_routes(self):
+        self.assert_fc_revision_migration(builder.FC_V61_MARKET_ANCHOR_REVISION,
+                                          builder.FC_V61_WEEKLY_REVISION, baseline_patch=True)
+
     def assert_fc_revision_migration(self, old_revision, new_revision, baseline_patch=False):
         old_data = b'Original amount-weighted discount and ALL propagation.\n'
         new_data = b'Two native price bands and main catalogue readback.\n'
@@ -321,6 +328,8 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         overlay_ids = set(builder.FC_V61_OVERLAYS)
         if new_revision == builder.FC_V61_100K_MARKET_REVISION:
             overlay_ids.update((builder.FC_V61_PARAMETER_ID, builder.FC_V61_LEARNING_ID))
+        if new_revision == builder.FC_V61_WEEKLY_REVISION:
+            overlay_ids.update((builder.FC_V61_PARAMETER_ID, 'fs.procurement.inputs'))
         old_path = 'overlay/' + canonical_path
         before = list(builder.routes(self.policy))
         for number, route in enumerate(before):
@@ -337,6 +346,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                 route['entry_ids'].append(identity)
                 if builder.FC_V61_PARAMETER_ID in overlay_ids:
                     identity = builder.FC_V61_PARAMETER_ID
+                    entries.append(row(identity, old_revision, old_path, old_data))
+                    route['entry_ids'].append(identity)
+                if 'fs.procurement.inputs' in overlay_ids:
+                    identity = 'fs.procurement.inputs'
                     entries.append(row(identity, old_revision, old_path, old_data))
                     route['entry_ids'].append(identity)
             self.put_snapshot(index['source_root'] + '/' + old_path, old_data)

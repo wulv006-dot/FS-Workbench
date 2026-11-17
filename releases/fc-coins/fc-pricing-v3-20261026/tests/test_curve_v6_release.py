@@ -23,6 +23,23 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_review_scope_only_releases_identical_monitor_and_week_source_pairs(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output=Path(folder)/'monitor.tar.gz'
+            with patch.object(build_stage.subprocess,'check_output',side_effect=['a'*40,'']), \
+                 patch.object(build_stage,'git_blob',side_effect=lambda _,path,commit:path.read_bytes()):
+                result=build_stage.build(ROOT,output,curve_review=True)
+            with tarfile.open(output) as bundle:
+                prefix='fc-pricing-v3-20261026/'
+                provenance=json.load(bundle.extractfile(prefix+'source-manifest.json'))
+                expected={prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in ('monitoring.py','weekly_ladder.py')}
+                self.assertEqual(set(provenance['files']),expected)
+                self.assertEqual(provenance['scope'],target_map.CURVE_REVIEW_SCOPE)
+                self.assertEqual(len(adapter.SCOPED_TARGETS[target_map.CURVE_REVIEW_SCOPE]),4)
+                self.assertEqual(bundle.extractfile(prefix+'candidate/source/fc_pricing_v3/monitoring.py').read(),
+                                 bundle.extractfile(prefix+'candidate/source/hermes-copy/fc_pricing_v3/monitoring.py').read())
+        self.assertEqual(result['targets'],4)
+
     def test_weekly_scope_pairs_modules_and_keeps_exactly_two_new_targets(self):
         mapping = target_map.curve_weekly_targets(SOURCE)
         self.assertEqual(len(mapping),12)

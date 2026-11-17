@@ -294,3 +294,11 @@ def require_curve_scope_for_imports(name, payload):
             continue
         if missing:
             raise ValueError('curve_v6_scope_required:' + name + ':' + ','.join(sorted(missing)))
+
+
+CURVE_REVIEW_SCOPE = 'fc-pricing-v6-closeout-review-20261117'
+CURVE_REVIEW_TARGET_COUNT = 4
+
+
+def curve_review_targets(source):
+    return module_targets(('monitoring.py', 'weekly_ladder.py'))
