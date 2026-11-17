@@ -11,7 +11,7 @@ const modulePromise = import(dataUrl(readFileSync(join(__dirname, 'order-email-p
 // Fixture directories only; the production module contains no directory defaults.
 const sites = [{ value: '266', label: 'Fixture site' }];
 const games = [{ value: '26', label: 'Fixture A' }, { value: '27', label: 'Fixture B' }];
-const input = { site_id: '266', game_ids: ['26', '27'], start: '2026-01-01', end: '2026-01-31' };
+const input = { site_id: '266', game_ids: ['26', '27'], start: '2026-01-01', end: '2026-01-08' };
 
 class Element {
   constructor(tag, doc) {
@@ -72,7 +72,7 @@ function page(request, offset = 0, size = 1, total = size, cursor = null) {
 }
 
 test('20 plus last page and all game/date windows required before CSV', async () => {
-  const h = await setup(); h.fields.end.value = '2026-01-31';
+  const h = await setup(); h.fields.end.value = '2026-01-08';
   h.fields.game_ids.children.forEach(n => { n.selected = true; });
   const pending = h.form.fire('submit');
   const first = await requested(h, 1);
@@ -204,7 +204,7 @@ test('source_timeout retains accepted windows and retries only the pending page'
   const original = Date.now; let now = 1800000000000; Date.now = () => now;
   const h = await setup();
   try {
-    h.fields.end.value = '2026-01-31';
+    h.fields.end.value = '2026-01-08';
     h.fields.game_ids.children.forEach(n => { n.selected = true; });
     const initial = h.form.fire('submit');
     const first = await requested(h, 1); h.respond(0, page(first, 1));
