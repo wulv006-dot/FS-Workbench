@@ -122,10 +122,26 @@ export function createCarnival({dir,publishedDir,now=Date.now,roll}={}){
   if(!publishedDir)return null;const f=path.join(publishedDir,'carnival-unlocks.json');
   try{const data=JSON.parse(fs.readFileSync(f,'utf8'));return Array.isArray(data.uses)?data:null;}catch{return null;}
  }
- function unlocked(uid,game,round){
-  const uses=paidUses();if(!uses)return false;const set=MYSTERY_GAMES[game];
-  return uses.uses.some(u=>u.uid===uid&&u.set===set&&time(u.used_at)>time(round.drawn_at));
+ // One paid use reopens exactly one round of one game. Games that share a coupon set
+ // (POE 1 and 2; MapleStory, ARC Raiders and COD MW4) are checked separately: the use is
+ // bound to the round of the game whose "verify" the member pressed, and a use already
+ // bound to any round of the set cannot reopen another game.
+ function bound(uid,set){
+  const keys=new Set();
+  for(const [g,s] of Object.entries(MYSTERY_GAMES))if(s===set)for(const r of read(uid,g).rounds)if(r.paid_use)keys.add(r.paid_use);
+  return keys;
  }
+ function bind(uid,game,record){
+  const last=record.rounds.at(-1);
+  if(!last||last.paid_use||!record.verify_requested_at||fs.existsSync(requestFile(uid,game)))return;
+  const uses=paidUses();if(!uses)return;
+  const set=MYSTERY_GAMES[game],taken=bound(uid,set);
+  const use=uses.uses.find(u=>u.uid===uid&&u.set===set&&time(u.used_at)>time(last.drawn_at)&&!taken.has(u.used_at));
+  if(!use)return;
+  last.paid_use=use.used_at;delete record.verify_requested_at;
+  fs.mkdirSync(base,{recursive:true,mode:0o700});atomic(file(uid,game),record);
+ }
+ const unlocked=round=>!!round.paid_use;
  // Outcome of the member's last "verify" press while the round is still locked.
  function verifyState(uid,game,record){
   const asked=record.verify_requested_at;if(!asked)return null;
@@ -135,7 +151,8 @@ export function createCarnival({dir,publishedDir,now=Date.now,roll}={}){
   return {status:'checking'};
  }
  function view(uid,game,record){
-  const last=record.rounds.at(-1),locked=!!last&&!unlocked(uid,game,last);
+  bind(uid,game,record);
+  const last=record.rounds.at(-1),locked=!!last&&!unlocked(last);
   const set=MYSTERY_SETS[MYSTERY_GAMES[game]];
   return {game,coupon_slot:set.slot,rounds_drawn:record.rounds.length,
    current:locked?{round:last.round,drawn_at:last.drawn_at,picks:last.picks.map(p=>({item:p.item,off:p.off,coupon_id:set.coupons[p.off]}))}:null,
@@ -152,7 +169,8 @@ export function createCarnival({dir,publishedDir,now=Date.now,roll}={}){
    if(!Array.isArray(items)||items.length!==PICKS||new Set(items).size!==PICKS||items.some(i=>!Number.isInteger(i)||i<0||i>=POOL_SIZE))fail('INVALID_PICKS',400);
    const clock=window(),record=read(uid,game),last=record.rounds.at(-1);
    // An open round is returned as it is: the same picks never get a second roll.
-   if(last&&!unlocked(uid,game,last))return {...view(uid,game,record),repeated:true};
+   bind(uid,game,record);
+   if(last&&!unlocked(last))return {...view(uid,game,record),repeated:true};
    const offs=drawRound(record.rounds.length===0,PICKS,roll);
    record.rounds.push({round:record.rounds.length+1,drawn_at:new Date(clock).toISOString(),picks:items.map((item,i)=>({item,off:offs[i]}))});
    delete record.verify_requested_at;

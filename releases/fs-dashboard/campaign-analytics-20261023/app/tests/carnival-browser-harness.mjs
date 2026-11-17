@@ -20,8 +20,9 @@ export function mainSite({signedIn=true}={}){
   const ids={9623:[163329311,163329277,163329345],9627:[170015253,170015245,170015249,170017913,170015181,170015205],9661:[165167189],6955:[105267633],9991:[187090053],10079:[186209371],1338:[186208657],3955:[170070065]}[form.get('category_id')]||[];
   return {goods:{index:{total:ids.length,perpage:28,list:ids.map(row)}}};
  }
- return {claims,claimed,cart,handle(url,req){
-  if(url.pathname==='/ajax/carnival/user')return {code:1,data:{enabled:true,logged_in:signedIn,uid:signedIn?'123456':'',spend_amount:150,tier_thresholds:[1,100,300,500,800,1000]}};
+ // site.spend: the member's carnival paid total as the main site reports it (tests change it).
+ const site={claims,claimed,cart,spend:150,handle(url,req){
+  if(url.pathname==='/ajax/carnival/user')return {code:1,data:{enabled:true,logged_in:signedIn,uid:signedIn?'123456':'',spend_amount:site.spend,tier_thresholds:[1,100,300,500,800,1000]}};
   if(url.pathname==='/ajax/carnival/coupon'){const slot=url.searchParams.get('slot');return {code:1,data:{enabled:true,logged_in:signedIn,slot,list:(coupons[slot]||[]).map(id=>claimed.has(id)?{coupon_id:id,can_claim:false,claim_status:'claimed',member_coupon_id:claimed.get(id)}:{coupon_id:id,can_claim:true,claim_status:'claimable'})}};}
   if(url.pathname==='/ajax/carnival/claim'){const body=new URLSearchParams(req.postData());claims.push({slot:body.get('slot'),coupon_id:Number(body.get('coupon_id'))});claimed.set(Number(body.get('coupon_id')),++memberCoupon);return {code:1,data:{claim_status:'claimed',coupon_id:Number(body.get('coupon_id')),member_coupon_id:memberCoupon}};}
   if(url.pathname==='/Cart/clear'){cart.clears++;cart.adds.length=0;return {code:1};}
@@ -31,6 +32,7 @@ export function mainSite({signedIn=true}={}){
   if(url.pathname==='/ajax/html')return '';
   return null;
  }};
+ return site;
 }
 
 export async function open(t,{clock='2026-11-28T13:00:00-05:00',signedIn=true,internalTest=null}={}){

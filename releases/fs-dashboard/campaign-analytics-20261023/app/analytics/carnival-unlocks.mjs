@@ -35,7 +35,8 @@ export function createCarnivalVerifier({publicDir,requestDir,read,now=Date.now,i
   running=true;
   try{
    let data=null;
-   try{data=await read(test?{action:'carnival_unlocks',test_coupon_id:test.coupon_id}:{action:'carnival_unlocks'});if(data?.status!=='available'||!Array.isArray(data.uses))throw Error('CARNIVAL_UNLOCKS_INVALID');}
+   // site_id: the backend bridge only serves site 266 (MMOEXP) reads.
+   try{data=await read(test?{action:'carnival_unlocks',site_id:'266',test_coupon_id:test.coupon_id}:{action:'carnival_unlocks',site_id:'266'});if(data?.status!=='available'||!Array.isArray(data.uses))throw Error('CARNIVAL_UNLOCKS_INVALID');}
    catch(error){log('CARNIVAL_UNLOCKS_UNAVAILABLE',error?.message);data=null;}
    const file=path.join(publicDir,CARNIVAL_UNLOCKS_FILE),last=previous(file),at=new Date(now()).toISOString(),checked={...last.checked};
    // ok:false = Admin could not be read; the page says "try again" instead of "not paid".

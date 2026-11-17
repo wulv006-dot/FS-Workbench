@@ -24,7 +24,7 @@ test('home coupon, Black Friday session and gacha spend',async t=>{
  await page.locator('#flashGrid [data-carnival-product]').first().click();
  await page.waitForSelector('#mysteryFlowMask.show [data-carnival-buy]');
  assert.deepEqual(site.claims.at(-1),{slot:'bf_items',coupon_id:1513});
- assert.equal(await page.locator('[data-carnival-go]').getAttribute('href'),'/Fc-27/Coins.html');
+ assert.equal(await page.locator('#mysteryFlowMask a[href]').count(),0,'no product-page link');
  assert.match(page.url(),/\/events\/Carnival\.html/);
  assert.equal(site.cart.clears,0,'nothing touches the cart before the member asks to check out');
  await page.evaluate(()=>closeMysteryFlow());
@@ -44,6 +44,19 @@ test('checkout now empties the cart, adds the claimed item and opens the cart wi
  assert.equal(site.cart.adds.length,1);
  assert.equal(site.cart.adds[0].category,'new_gold');
  assert.equal(await page.evaluate(()=>sessionStorage.getItem('pending_member_coupon_id')),String(site.claimed.get(1513)));
+});
+
+test('capsule tiers follow the paid total the main site reports, and grow as it grows',async t=>{
+ const {page,site,errors}=await open(t);
+ const read=()=>page.evaluate(()=>({spend:document.getElementById('spendVal').textContent,hit:[...document.querySelectorAll('#spendMarks span.hit')].map(s=>s.textContent)}));
+ // Each reload is a later visit after more paid orders; the tiers reached so far stay lit.
+ for(const [spend,hit] of [[0,[]],[0.99,[]],[1,['$1']],[99.99,['$1']],[100,['$1','$100']],[520,['$1','$100','$300','$500']],[1000,['$1','$100','$300','$500','$800','$1000']],[1500,['$1','$100','$300','$500','$800','$1000']]]){
+  site.spend=spend;await page.reload();
+  await page.waitForFunction(s=>document.getElementById('spendVal').textContent===s,'$'+spend.toFixed(2));
+  assert.deepEqual(await read(),{spend:'$'+spend.toFixed(2),hit},'paid total $'+spend);
+ }
+ assert.equal(await page.locator('#drawBtn').isDisabled(),true,'claims wait for the main-site tier interface');
+ assert.deepEqual(errors,[]);
 });
 
 test('the home coupon is claimed once, then the button is grey and says so',async t=>{
@@ -109,7 +122,7 @@ test('internal test before the event: everything open and every claim uses the t
  await page.locator('a[href="#flash"]').first().click();
  await page.waitForFunction(()=>document.querySelectorAll('#flashGrid [data-carnival-product]:not(:disabled)').length>0);
  await page.locator('#flashGrid [data-carnival-product]').first().click();
- await page.waitForSelector('#mysteryFlowMask.show [data-carnival-go]');
+ await page.waitForSelector('#mysteryFlowMask.show [data-carnival-buy]');
  assert.deepEqual(site.claims.at(-1),{slot:'carnival_test',coupon_id:1601});
  assert.deepEqual(errors,[]);
 });
