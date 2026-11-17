@@ -23,10 +23,10 @@ test('mystery shop: live prices, one server draw that survives reload, coupon ha
  assert.match(await page.locator('#msTimer').textContent(),/AFTER PAYMENT/);
  await page.locator('a[href="#mystery"]').first().click();
  await page.locator('#msResult .buybtn').first().click();
- await page.waitForSelector('[data-carnival-go]');
+ await page.waitForSelector('#mysteryFlowMask.show [data-carnival-buy]');
  assert.deepEqual(site.claims,[{slot:'ms_fc27',coupon_id:saved.picks[0].coupon_id}]);
  assert.equal(await page.evaluate(()=>sessionStorage.getItem('pending_member_coupon_id')),'9001');
- assert.equal(await page.locator('[data-carnival-go]').getAttribute('href'),'/Fc-27/Coins.html');
+ assert.equal(await page.locator('#mysteryFlowMask a[href]').count(),0,'no product-page link');
  assert.deepEqual(errors,[]);
  // Checkout now: the cart is emptied, the drawn item is added once and the cart page opens.
  await page.locator('#mysteryFlowMask.show [data-carnival-buy]').click();

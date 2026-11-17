@@ -39,8 +39,10 @@ class CarnivalUnlocks(unittest.TestCase):
 
     def test_reader_asks_for_the_eighteen_mystery_coupons_in_the_window(self):
         reader = Reader([log(1411, 9)])
-        out = read_carnival_unlocks(reader, {'action': 'carnival_unlocks'})
+        out = read_carnival_unlocks(reader, {'action': 'carnival_unlocks', 'site_id': '266'})
         self.assertEqual(out['uses'][0]['set'], 'aion2')
+        with self.assertRaisesRegex(ContractError, 'SITE_SCOPE_REQUIRED'):
+            read_carnival_unlocks(reader, {'action': 'carnival_unlocks', 'site_id': '1'})
         resource, filters = reader.calls[0]
         self.assertEqual(resource, 'coupon_logs')
         self.assertEqual(len(filters[1][2].split(',')), 18)
@@ -50,7 +52,7 @@ class CarnivalUnlocks(unittest.TestCase):
 
     def test_internal_test_coupon_unlocks_every_set_before_the_event_only(self):
         reader = Reader([log(1601, 9, use_time='2026-11-18 10:00:00')])
-        out = read_carnival_unlocks(reader, {'action': 'carnival_unlocks', 'test_coupon_id': 1601})
+        out = read_carnival_unlocks(reader, {'action': 'carnival_unlocks', 'site_id': '266', 'test_coupon_id': 1601})
         self.assertEqual(sorted(u['set'] for u in out['uses']), ['aion2', 'd4', 'fc27', 'mix', 'poe', 'wow'])
         self.assertEqual(out['basis'], 'mystery_test_coupon_paid_use')
         _, filters = reader.calls[0]

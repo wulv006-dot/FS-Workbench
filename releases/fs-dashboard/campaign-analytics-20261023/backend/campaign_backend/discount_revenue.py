@@ -408,8 +408,10 @@ def carnival_unlocks(logs, test_coupon=None):
 
 
 def read_carnival_unlocks(reader, request):
-    if set(request) - {'action', 'test_coupon_id'}:
+    if set(request) - {'action', 'site_id', 'test_coupon_id'}:
         raise ContractError('REQUEST_FIELDS_NOT_ALLOWED')
+    if str(request.get('site_id', CARNIVAL_SITE_ID)) != CARNIVAL_SITE_ID:
+        raise ContractError('SITE_SCOPE_REQUIRED')
     test = request.get('test_coupon_id')
     if test is not None:
         if not isinstance(test, int) or isinstance(test, bool) or not 0 < test < 10**9:

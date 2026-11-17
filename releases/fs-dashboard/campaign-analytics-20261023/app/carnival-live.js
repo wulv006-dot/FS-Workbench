@@ -134,7 +134,7 @@ async function claimSlot(slot,couponId){
 /* Buy now: the member asked for the claimed item to go straight to checkout. The cart is
  * emptied (a member coupon applies to the whole order, so other lines would block or dilute
  * it), the exact goods row is added once, and the cart page opens with the coupon selected.
- * Each request is sent once; any failure stops and leaves the product page as the way on. */
+ * Each request is sent once; any failure stops with a "try again" message. */
 const postForm=(url,form)=>fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)}).then(r=>{if(!r.ok)throw Error('HTTP_'+r.status);return r.json().catch(()=>({}));});
 function cartLine(spec,row){
   if(spec.top===1)return {category:'new_gold',id:String(row.id),group:String(spec.qty),num:'1',attr:'',aid:''};
@@ -152,10 +152,8 @@ async function buyNow(spec,memberCouponId){
   handToCart(memberCouponId);track('fcactivity:selection',{action:'buy_now',ids:[String(row.id)]});
   location.assign('/Cart.html');return {state:'navigating'};
 }
-function buyNowBlock(spec,fallback){
-  return `<button type="button" class="buybtn" data-carnival-buy>${say('CHECKOUT NOW','立即结算')}</button>
-  <p class="mystery-flow-disclaimer">${say('Your cart will be replaced with this item and the coupon applied.','购物车会被清空，只放入这件商品并自动选中这张券。')}</p>
-  <a class="carnival-store-link" href="${esc(fallback)}" data-carnival-go>${say('Or choose options on the product page','或去商品页自选规格')}</a>`;
+function buyNowBlock(){
+  return `<button type="button" class="buybtn" data-carnival-buy>${say('CHECKOUT NOW','立即结算')}</button>`;
 }
 function wireBuyNow(spec,memberCouponId){
   const b=document.querySelector('#mysteryFlowMask [data-carnival-buy]');if(!b)return;
@@ -166,7 +164,7 @@ function wireBuyNow(spec,memberCouponId){
     b.disabled=false;b.textContent=say('CHECKOUT NOW','立即结算');
     toast(r.state==='unknown'?say('We could not confirm the cart. Open your cart before trying again.','无法确认是否已加入购物车，请先打开购物车查看再重试。')
       :r.state==='rejected'&&r.message?r.message
-      :say('This item cannot be added right now. Use the product page link below.','暂时无法直接加入购物车，请用下方链接去商品页购买。'));
+      :say('This item cannot be added right now. Please try again in a moment.','暂时无法加入购物车，请稍后再试。'));
   });
 }
 function handToCart(memberCouponId){try{sessionStorage.setItem('pending_member_coupon_id',String(memberCouponId));sessionStorage.removeItem('pending_discount_code');}catch{}}
@@ -346,12 +344,6 @@ drawDeal=async function(){
   [300,1000,1700].forEach((ms,i)=>setTimeout(()=>cards[i]?.classList.add('open'),ms));
   setTimeout(()=>{msBusy=false;renderMsActions();toast(j.repeated?say('This round was already drawn.','本轮已经抽过了。'):t('revealDone'));},2400);
 };
-const STORE={fc27:'/Fc-27/Coins.html',aion2:'/Aion-2/Kinah.html',wow:'/wow-gold.html',d4:'/Diablo-4/Items.html',poe1:'/Path-of-exile/Currency.html',poe2:'/Poe-2/Currency.html',maple:'/Maplestory-classic-world/Items.html',arc:'/Arc-raiders/Items.html',codmw4:'/Cod-modern-warfare-4/Bot-lobbies.html'};
-function storeUrl(it){
-  if(it.productIds&&it.modelId!=='41217957')return '/Fc-27/Players.html';
-  if(it.storeUrl){try{const u=new URL(it.storeUrl,location.origin);if(u.origin===location.origin)return u.pathname;}catch{}}
-  return STORE[curGame]||'/';
-}
 startMysteryPurchase=async function(index){
   const r=revealed?.[index];if(!r)return;
   if(account.state!=='signed_in'){requireLogin(null);return;}
@@ -361,12 +353,12 @@ startMysteryPurchase=async function(index){
   if(result.state==='login_required'){closeMysteryFlow();requireLogin(null);return;}
   if(!couponOutcome(result,r.couponId,slot)){closeMysteryFlow();return;}
   handToCart(result.memberCouponId);
-  const price=fc27Price(r.it),url=storeUrl(r.it),spec=mysterySpec(r.it);
+  const price=fc27Price(r.it),spec=mysterySpec(r.it);
   mysteryBox(`<div class="mystery-flow-label">${say('ITEM COUPON','商品专属优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+r.off+'% OFF coupon is in your account','你的 '+r.off+'% OFF 优惠券已到账')}</h3>
   ${couponCard({amount:r.off+'% OFF',description:esc(nm(r.it))})}
   <div class="mystery-flow-box"><p>${esc(nm(gameItems()))} · ${esc(nm(r.it))}</p>${price!==null?`<p>${say('Current price','当前价格')}: $${price.toFixed(2)} → <b>$${(price*(1-r.off/100)).toFixed(2)}</b></p>`:''}
   <p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Coupons cannot be combined with other coupons or codes.','最终价格以结算页为准；不能与其他优惠券或折扣码叠加。')}</p></div>
-  ${buyNowBlock(spec,url)}
+  ${buyNowBlock()}
   <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
   wireBuyNow(spec,result.memberCouponId);
 };
@@ -473,7 +465,7 @@ document.getElementById('flashGrid').addEventListener('click',async e=>{
     mysteryBox(`<div class="mystery-flow-label">${say('BLACK FRIDAY COUPON','黑五商品优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+p.off+'% OFF coupon is in your account','你的 '+p.off+'% OFF 优惠券已到账')}</h3>
     ${couponCard({amount:p.off+'% OFF',description:esc(p.name)})}
     <div class="mystery-flow-box"><p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Use it within 1 day.','最终价格以结算页为准。领取后 1 天内有效。')}</p></div>
-    ${buyNowBlock(flashSpec(p),p.store_url)}
+    ${buyNowBlock()}
     <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
     wireBuyNow(flashSpec(p),r.memberCouponId);
   }finally{btn.disabled=false;}
