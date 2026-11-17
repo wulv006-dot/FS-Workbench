@@ -374,8 +374,10 @@ function aionSelectionChanged(resetServer){
 }
 
 function renderTabs(){
-  $('#mysteryDemoNoticeText').textContent=LANG==='zh'?'流程演示：商品和价格仅供测试，登录、发券及购买均为模拟。':'TEST PREVIEW · Sample products and prices. Login, coupons and checkout are simulated.';
-  $('#mysteryDemoReset').textContent=LANG==='zh'?'重置当前游戏演示':'RESET CURRENT GAME (DEMO)';
+  // The live page removes the demo notice (carnival-live.js), so these may be absent.
+  const demoText=$('#mysteryDemoNoticeText'),demoReset=$('#mysteryDemoReset');
+  if(demoText)demoText.textContent=LANG==='zh'?'流程演示：商品和价格仅供测试，登录、发券及购买均为模拟。':'TEST PREVIEW · Sample products and prices. Login, coupons and checkout are simulated.';
+  if(demoReset)demoReset.textContent=LANG==='zh'?'重置当前游戏演示':'RESET CURRENT GAME (DEMO)';
   $('#gameTabs').innerHTML=CONFIG.mystery.games.map(g=>{
     const v=gameVisuals[g.id], active=g.id===curGame;
     const picture=`<img class="game-art-img" src="${v.art}" alt="" loading="lazy" onerror="this.style.display='none'"><span class="game-art-shade"></span>`;

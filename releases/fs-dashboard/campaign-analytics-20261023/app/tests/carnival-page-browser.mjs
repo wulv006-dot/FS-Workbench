@@ -19,16 +19,50 @@ test('home coupon, Black Friday session and gacha spend',async t=>{
  await page.locator('#flashGrid [data-carnival-voucher]').first().click();
  await page.waitForFunction(n=>document.querySelectorAll('#flashGrid [data-carnival-voucher]:not(:disabled)').length===4,null);
  assert.deepEqual(site.claims.at(-1),{slot:'bf_vouchers_1128',coupon_id:1469});
- // A product coupon is claimed and the page stays put; going to the product is the member's click.
+ // A product coupon is claimed and the page stays put; checkout is the member's click.
  await page.locator('.store-categories [data-category="currency"]').click();
  await page.locator('#flashGrid [data-carnival-product]').first().click();
- await page.waitForSelector('#mysteryFlowMask.show [data-carnival-go]');
+ await page.waitForSelector('#mysteryFlowMask.show [data-carnival-buy]');
  assert.deepEqual(site.claims.at(-1),{slot:'bf_items',coupon_id:1513});
  assert.equal(await page.locator('[data-carnival-go]').getAttribute('href'),'/Fc-27/Coins.html');
  assert.match(page.url(),/\/events\/Carnival\.html/);
+ assert.equal(site.cart.clears,0,'nothing touches the cart before the member asks to check out');
  await page.evaluate(()=>closeMysteryFlow());
  assert.equal(await page.locator('#spendVal').textContent(),'$150.00');
  assert.equal(await page.locator('#drawBtn').isDisabled(),true,'capsule draws stay closed until the claim interface exists');
+ assert.deepEqual(errors,[]);
+});
+
+test('checkout now empties the cart, adds the claimed item and opens the cart with the coupon',async t=>{
+ const {page,site}=await open(t);
+ await page.locator('.store-categories [data-category="currency"]').click();
+ await page.waitForFunction(()=>!document.querySelector('#flashGrid [data-carnival-product]:disabled'));
+ await page.locator('#flashGrid [data-carnival-product]').first().click();
+ await page.locator('#mysteryFlowMask.show [data-carnival-buy]').click();
+ await page.waitForURL('**/Cart.html');
+ assert.equal(site.cart.clears,1);
+ assert.equal(site.cart.adds.length,1);
+ assert.equal(site.cart.adds[0].category,'new_gold');
+ assert.equal(await page.evaluate(()=>sessionStorage.getItem('pending_member_coupon_id')),String(site.claimed.get(1513)));
+});
+
+test('the home coupon is claimed once, then the button is grey and says so',async t=>{
+ const {page,site}=await open(t);
+ await page.locator('#heroEarlyBtn').click();await page.locator('#couponClaimBtn').click();
+ await page.waitForFunction(()=>document.getElementById('heroEarlyBtn').disabled);
+ await page.reload();
+ await page.waitForFunction(()=>document.getElementById('heroEarlyBtn').disabled&&document.getElementById('heroEarlyBtn').classList.contains('claimed'));
+ assert.match(await page.locator('#couponSpeech').textContent(),/CLAIMED/);
+ assert.equal(await page.locator('#heroEarlyBtn').evaluate(b=>getComputedStyle(b).backgroundImage),'none','the gold gradient is replaced by grey');
+ assert.equal(site.claims.length,1);
+});
+
+test('switching Mystery Shop games moves the selection and loads that game',async t=>{
+ const {page,errors}=await open(t);
+ for(const id of ['aion2','d4','wow','fc27']){
+  await page.locator(`.gtab.game-${id}`).first().dispatchEvent('click');
+  await page.waitForFunction(g=>curGame===g&&!!document.querySelector('.gtab.on.game-'+g),id);
+ }
  assert.deepEqual(errors,[]);
 });
 
