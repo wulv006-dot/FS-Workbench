@@ -108,7 +108,7 @@ en:{
   msHint:'?% OFF', pickMax:'You can pick 3 items only', pickFirst:'Pick 3 items first!',
   drawDealBtn:'UNLOCK MYSTERY DISCOUNTS',
   reDraw:'Re-draw (uses 1 draw)', changePicks:'Change my picks', revealDone:'Mystery discounts unlocked! 🎉',
-  mascotSay:'Pick 3 items you love — all 3 get a mystery discount! The item pool updates, too.',
+  mascotSay:'Pick 3 items you love — all 3 get a mystery discount!',
   mysteryDeal:'Mystery Deal', buyNow:'BUY NOW',
   noDraws:'Purchase any item from this round to unlock your next draw.', flipRefreshed:'Your draws have been refreshed!',
   sub2:'Explore a new selection of currency, items and vouchers every day.',
@@ -185,7 +185,7 @@ zh:{
   msHint:'?折 折扣', pickMax:'最多只能选择 3 件商品', pickFirst:'请先选满 3 件商品！',
   drawDealBtn:'开启神秘折扣',
   reDraw:'再抽一次（消耗 1 次）', changePicks:'重新挑选商品', revealDone:'神秘折扣已揭晓！🎉',
-  mascotSay:'挑 3 件你最想要的——三件都有神秘折扣！商品池会更新哦。',
+  mascotSay:'挑 3 件你最想要的——三件都有神秘折扣！',
   mysteryDeal:'神秘优惠', buyNow:'立即购买',
   noDraws:'购买本轮任意一件商品并支付成功后解锁。', flipRefreshed:'你的抽取次数已刷新！',
   sub2:'每天两场，发现金币、道具和优惠券的专属优惠。',
@@ -231,7 +231,8 @@ const store = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return this._m[k] ?? null; } },
   set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ this._m[k]=v; } }
 };
-let LANG = store.get('carnival-lang') || 'en';
+// English only, like the main site (the language switch was removed 2026-11-17).
+let LANG = 'en';
 const t = k => T[LANG][k];
 const nm = o => (LANG==='zh' && o.nameZh) ? o.nameZh : o.name;
 const tm = o => (LANG==='zh' && o.timeZh) ? o.timeZh : o.time;
@@ -952,8 +953,6 @@ function applyLang(){
   document.documentElement.lang = LANG==='zh'?'zh-CN':'en';
   document.body.classList.toggle('zh', LANG==='zh');
   $$('[data-i18n]').forEach(el=>{ const v=T[LANG][el.dataset.i18n]; if(typeof v==='string') el.innerHTML=v; });
-  $('#langEn').classList.toggle('on', LANG==='en');
-  $('#langZh').classList.toggle('on', LANG==='zh');
   renderEventRules();
   // re-render dynamic zones
   renderMascot();

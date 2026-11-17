@@ -72,7 +72,24 @@ export const FLASH_PRODUCTS=[
 
 const time=s=>Date.parse(s);
 const status=(start,end,clock)=>clock<time(start)?'upcoming':clock<time(end)?'live':'ended';
-export function publicSchedule(clock){
+// Internal test before the event: the shared public directory may hold
+// carnival-test.json = {open_until, coupon_id, slot}, written by an operator on the server.
+// While it is valid every act is open and every claim uses that one test coupon. It can
+// never reach into the real event (open_until must not be after the real start), so it
+// switches itself off at the latest when the event begins; deleting the file closes it.
+export const CARNIVAL_TEST_FILE='carnival-test.json';
+export function carnivalTest(dir,clock){
+ if(!dir)return null;let t;
+ try{const f=path.join(dir,CARNIVAL_TEST_FILE),st=fs.lstatSync(f);if(st.isSymbolicLink()||!st.isFile()||st.size>2000)return null;t=JSON.parse(fs.readFileSync(f,'utf8'));}catch{return null;}
+ if(!exact(t,['open_until','coupon_id','slot']))return null;
+ const until=time(t.open_until);
+ if(!Number.isFinite(until)||clock>=until||until>time(CARNIVAL.starts_at))return null;
+ if(!Number.isInteger(t.coupon_id)||t.coupon_id<=0||t.coupon_id>=1e9||typeof t.slot!=='string'||!/^[a-z0-9_]{1,40}$/.test(t.slot))return null;
+ return {open_until:new Date(until).toISOString(),coupon_id:t.coupon_id,slot:t.slot};
+}
+export function publicSchedule(clock,test=null){
+ if(test)return {server_time:new Date(clock).toISOString(),...CARNIVAL,status:'live',test,
+  sessions:SESSIONS.map(s=>({...publicSchedule(time(s.starts_at)).sessions[s.index],status:'live'}))};
  return {server_time:new Date(clock).toISOString(),...CARNIVAL,status:status(CARNIVAL.starts_at,CARNIVAL.ends_at,clock),
   sessions:SESSIONS.map(s=>{const st=status(s.starts_at,s.ends_at,clock);
    // Products and voucher ids are released only once a session has started.
@@ -124,9 +141,9 @@ export function createCarnival({dir,publishedDir,now=Date.now,roll}={}){
    current:locked?{round:last.round,drawn_at:last.drawn_at,picks:last.picks.map(p=>({item:p.item,off:p.off,coupon_id:set.coupons[p.off]}))}:null,
    can_draw:!locked,verify:locked?verifyState(uid,game,record):null};
  }
- function window(){const clock=now();if(clock<time(CARNIVAL.starts_at))fail('EVENT_NOT_STARTED',409);if(clock>=time(CARNIVAL.ends_at))fail('EVENT_ENDED',409);return clock;}
+ function window(){const clock=now();if(clock<time(CARNIVAL.starts_at)&&!carnivalTest(publishedDir,clock))fail('EVENT_NOT_STARTED',409);if(clock>=time(CARNIVAL.ends_at))fail('EVENT_ENDED',409);return clock;}
  return {
-  schedule:()=>publicSchedule(now()),
+  schedule:()=>{const clock=now();return publicSchedule(clock,carnivalTest(publishedDir,clock));},
   state(query){const uid=member(query.get('uid')),games=Object.keys(MYSTERY_GAMES);
    return {server_time:new Date(now()).toISOString(),games:Object.fromEntries(games.map(g=>[g,view(uid,g,read(uid,g))]))};},
   draw(body){

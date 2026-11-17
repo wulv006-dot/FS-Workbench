@@ -28,19 +28,37 @@ button{font-family:inherit;cursor:pointer;border:none}
 .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
 
 /* ---------- Header ---------- */
-header{position:sticky;top:0;z-index:100;background:rgba(11,14,23,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.hd-in{display:flex;align-items:center;gap:28px;height:64px}
-.logo{font-family:'Chakra Petch';font-weight:700;font-size:22px;letter-spacing:1px}
-.logo span{background:linear-gradient(90deg,var(--brand),var(--cm));-webkit-background-clip:text;background-clip:text;color:transparent}
-.logo em{font-style:normal;color:var(--gold);font-size:12px;vertical-align:super;margin-left:4px}
-nav{display:flex;gap:4px;margin-left:auto}
-nav a{padding:8px 14px;border-radius:10px;font-size:14px;font-weight:600;color:var(--txt-dim);transition:.2s;white-space:nowrap}
-nav a:hover{color:var(--txt);background:rgba(255,255,255,.06)}
-.hd-cta{background:linear-gradient(90deg,var(--brand),#5a3df0);color:#fff;padding:9px 18px;border-radius:10px;font-size:14px;font-weight:700;white-space:nowrap}
-.lang-sw{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.lang-sw button{background:transparent;color:var(--txt-dim);font-size:13px;font-weight:700;padding:8px 12px;transition:.2s}
-.lang-sw button.on{background:var(--brand);color:#fff}
-@media(max-width:900px){nav{display:none}}
+/* Same header as the MMOEXP store and the FC activity pages (activity.css): logo, links,
+   cart and the main-site sign-in state. */
+.fca-demo-header{position:sticky;top:0;z-index:100;background:#071124;color:#fff;font-family:Arial,"Microsoft YaHei",system-ui,sans-serif;line-height:1.5}
+.fca-demo-header *{box-sizing:border-box}
+.fca-demo-header a{color:inherit;text-decoration:none}
+.fca-demo-header button{font:inherit;cursor:pointer}
+.fca-demo-header :focus-visible{outline:3px solid #ee971d;outline-offset:4px}
+.fca-demo-header-inner{max-width:1440px;margin:auto;min-height:72px;padding:12px 28px;display:flex;align-items:center;gap:28px}
+.fca-brand{display:inline-flex;flex:none;align-items:center}
+.fca-brand img{width:164px;height:auto;display:block}
+.fca-store-nav{display:flex;gap:27px;align-items:center;margin-left:auto;font-size:13px;font-weight:700}
+.fca-store-nav a{min-height:44px;display:flex;align-items:center;padding:0;border-radius:0;color:#fff;background:none}
+.fca-store-nav a:hover{color:#7ab6ff;background:none}
+.fca-account{display:flex;align-items:center;gap:14px;flex:none}
+.fca-store-nav+.fca-account{margin-left:8px}
+.fca-account-cart{position:relative;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:1px solid #2a3a5c;color:#fff}
+.fca-account-cart:hover{border-color:#4b6aa3}
+.fca-account-count{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ff4d4f;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.fca-account-count[hidden],.fca-account-login[hidden],.fca-account-user[hidden],.fca-account-frame[hidden]{display:none}
+.fca-demo-header .fca-account-login{min-height:44px;padding:0 22px;border:0;border-radius:22px;background:#0a6ff2;color:#fff;font-size:15px;font-weight:700}
+.fca-demo-header .fca-account-login:hover{background:#2a85ff}
+.fca-account-user{position:relative;display:block;width:44px;height:44px;flex:none}
+.fca-account-face{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);border-radius:50%;object-fit:cover;display:block;background:#0d1a33}
+.fca-account-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+@media(max-width:900px){
+  .fca-demo-header-inner{gap:12px;padding:10px 16px;min-height:64px}
+  .fca-brand img{width:128px}
+  .fca-store-nav{display:none}
+  .fca-account{margin-left:auto;gap:10px}
+  .fca-demo-header .fca-account-login{padding:0 16px;font-size:14px}
+}
 
 /* ---------- Hero ---------- */
 .hero{position:relative;padding:96px 0 72px;text-align:center;overflow:hidden;
@@ -823,7 +841,7 @@ footer{border-top:1px solid var(--line);padding:28px 0;text-align:center;color:v
 @media(max-width:600px){.game-select-menu{max-height:210px}.wow-controls .game-select-wrap{min-width:115px}}
 
 /* Design reference: hide test controls and internal price-source annotations. */
-#mysteryDemoNotice,.store-demo,.wow-note,.flash-price-note,.mystery-flow-disclaimer,.fc27-platform>span{display:none!important}
+#mysteryDemoNotice,.store-demo,.wow-note,.flash-price-note,.mystery-flow-disclaimer,.fc27-platform>span:not(.game-select-wrap){display:none!important}
 
 /* Coupon cards keep their claim controls directly below the coupon. */
 .flash-stage-shelf .four-currency .fitem-coupon .buybtn{display:block;flex:none;width:100%;min-height:40px;margin:12px 0 0;padding:9px 8px;border-radius:9px;font-size:13px;font-weight:800;line-height:1.2}
@@ -931,8 +949,9 @@ body > header{display:none!important}
 .carnival-login-social{display:flex;gap:10px;justify-content:center;margin:6px 0}
 .carnival-login-social button{flex:1;padding:9px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:inherit;font:inherit;cursor:pointer}
 .carnival-login-register{display:block;font-size:13px;margin:6px 0;color:inherit;opacity:.8}
-.fitem.flash-mystery{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260px}
-.fitem.flash-mystery .ficon{font-size:56px;font-weight:800}
+#flashGrid .fitem.flash-mystery{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:260px}
+#flashGrid .fitem.flash-mystery .ficon{align-self:center;margin:0 auto;font-size:56px;font-weight:800;text-align:center}
+#flashGrid .fitem.flash-mystery h4{align-self:stretch;margin:12px 0 0;text-align:center}
 .flash-options{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0}
 .flash-fixed{font-size:12px;opacity:.8}
 .flash-note{font-size:12px;opacity:.75;margin:4px 0}

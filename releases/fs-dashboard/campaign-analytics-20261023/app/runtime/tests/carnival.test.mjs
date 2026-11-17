@@ -90,6 +90,26 @@ test('requests are validated and the event window is enforced',t=>{
  err(()=>carnival.draw({uid:'1',game:'fc27',items:[0,1,2]}),'EVENT_ENDED');
 });
 
+test('an internal test file opens everything before the event until open_until, then closes by itself',t=>{
+ const {carnival,state,published}=setup(t,'2026-11-17T10:00:00-05:00');
+ const file=path.join(published,'carnival-test.json'),write=v=>fs.writeFileSync(file,typeof v==='string'?v:JSON.stringify(v));
+ const good={open_until:'2026-11-18T23:00:00-05:00',coupon_id:1601,slot:'carnival_test'};
+ assert.throws(()=>carnival.draw({uid:'1',game:'fc27',items:[0,1,2]}),e=>e.code==='EVENT_NOT_STARTED');
+ assert.equal(carnival.schedule().test,undefined);
+ write(good);
+ const s=carnival.schedule();
+ assert.deepEqual(s.test,{open_until:'2026-11-19T04:00:00.000Z',coupon_id:1601,slot:'carnival_test'});
+ assert.equal(s.status,'live');assert.ok(s.sessions.every(x=>x.status==='live'&&x.products.length>0),'all Black Friday sessions shown');
+ assert.equal(carnival.draw({uid:'1',game:'fc27',items:[0,1,2]}).current.round,1);
+ // Rejected: past open_until, open_until beyond the real start, extra/missing fields, bad ids.
+ state.now=at('2026-11-18T23:00:00-05:00');assert.equal(carnival.schedule().test,undefined);
+ assert.throws(()=>carnival.draw({uid:'2',game:'fc27',items:[0,1,2]}),e=>e.code==='EVENT_NOT_STARTED');
+ state.now=at('2026-11-17T10:00:00-05:00');
+ for(const bad of [{...good,open_until:'2026-11-19T00:00:01-05:00'},{...good,extra:1},{open_until:good.open_until,coupon_id:1601},
+  {...good,coupon_id:'1601'},{...good,coupon_id:0},{...good,slot:'Bad Slot'},'not json'])
+ {write(bad);assert.equal(carnival.schedule().test,undefined,JSON.stringify(bad));}
+});
+
 test('stored files never contain the member id in their name',t=>{
  const {carnival,dir}=setup(t,'2026-11-20T10:00:00-05:00');
  carnival.draw({uid:'5550123',game:'wow',items:[0,1,2]});

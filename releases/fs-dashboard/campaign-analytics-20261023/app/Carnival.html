@@ -8,25 +8,25 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://assets.mmoexp.com/dist/266/dragon-ico.css">
-<link rel="stylesheet" href="carnival.css">
+<link rel="stylesheet" href="carnival.css?v=20261117b">
 </head>
 <body>
 <div id="fc-activity" class="carnival-activity" data-view="carnival">
 <!-- ============ HEADER ============ -->
-<header>
-  <div class="wrap hd-in">
-    <a class="logo" href="#">MMO<span>EXP</span><em data-i18n="logoTag">CARNIVAL</em></a>
-    <nav>
+<header class="fca-demo-header">
+  <div class="fca-demo-header-inner">
+    <a class="fca-brand" href="https://www.mmoexp.com/" aria-label="MMOEXP"><img src="assets/mmoexp-logo.png" alt="MMOEXP" width="164" height="45"></a>
+    <nav class="fca-store-nav" aria-label="Carnival">
       <a href="#mystery" data-i18n="nav1">Mystery Shop</a>
       <a href="#flash" data-i18n="nav2">Flash Sale</a>
       <a href="#gacha" data-i18n="nav3">Gacha Machine</a>
       <a href="#rules" data-i18n="nav4">Rules</a>
     </nav>
-    <div class="lang-sw">
-      <button id="langEn" onclick="setLang('en')">EN</button>
-      <button id="langZh" onclick="setLang('zh')">中文</button>
+    <div class="fca-account">
+      <a class="fca-account-cart" href="https://www.mmoexp.com/Cart.html" aria-label="Cart"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01"/></svg><span class="fca-account-count" hidden></span></a>
+      <button type="button" class="fca-account-login" data-account-login>Log In</button>
+      <a class="fca-account-user" href="https://www.mmoexp.com/Ucenter.html" aria-label="My account" hidden><img class="fca-account-face" alt="" width="44" height="44" src="https://www.mmoexp.com/mmoexp-v250528/img/user.png"><img class="fca-account-frame" alt="" width="44" height="44" hidden></a>
     </div>
-    <a class="hd-cta" href="https://www.mmoexp.com/" data-i18n="backStore">Back to Store</a>
   </div>
 </header>
 
@@ -190,7 +190,7 @@
 <script defer src="analytics-config.js"></script>
 <script defer src="native-code-handoff.js"></script>
 <script defer src="seasonal/activity-analytics.js"></script>
-<script defer src="carnival-proto.js"></script>
-<script defer src="carnival-live.js"></script>
+<script defer src="carnival-proto.js?v=20261117b"></script>
+<script defer src="carnival-live.js?v=20261117b"></script>
 </body>
 </html>
