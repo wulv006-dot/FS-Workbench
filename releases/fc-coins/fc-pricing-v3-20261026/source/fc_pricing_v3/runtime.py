@@ -943,7 +943,8 @@ def _curve_market_history(db, now, *, exclude_snapshot=None):
     from contextlib import closing
 
     fields = ('source', 'platform', 'purchase_k', 'currency', 'promotion_eligibility', 'conditional',
-              'comparable', 'region_id', 'delivery_method', 'captured_at', 'regular_price', 'bonus_k', 'observation_id')
+              'comparable', 'region_id', 'delivery_method', 'comparability_basis', 'captured_at',
+              'regular_price', 'bonus_k', 'observation_id')
     history = []
     with closing(db.connect()) as conn:
         rounds = {}

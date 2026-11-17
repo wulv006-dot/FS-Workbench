@@ -61,6 +61,21 @@ def position_offers(at, lootbar, u7buy, *, arabut=None, platform='PS'):
 
 
 class FixedCurveCandidates(unittest.TestCase):
+    def test_market_anchor_accepts_the_actual_collector_merchandise_and_arabut_contracts(self):
+        from fc_pricing_v3.curve_strategy_v6 import market_anchor_targets
+
+        now = datetime.now(timezone.utc)
+        current, _, _ = fixture()
+        offers = position_offers(now, '7.5', '8.12', arabut='7.57')
+        offers[0].update(delivery_method=None, comparability_basis='lootbar_observed_100k_merchandise_no_delivery_tier')
+        offers[2].update(delivery_method='normal')
+        result = market_anchor_targets('PS', current, offers, now)
+        self.assertEqual(result['fallback'], 'direct')
+        self.assertEqual(result['anchors'], {'small': '8.10', 'large': '81.89'})
+        self.assertIn('ArabUT', result['current_quotes'])
+        offers[0]['comparability_basis'] = 'unknown'
+        self.assertTrue(market_anchor_targets('PS', current, offers, now)['floor_only'])
+
     def test_market_anchor_outages_use_evidenced_ratio_or_floor_only_and_arabut_stays_observation(self):
         from fc_pricing_v3.curve_strategy_v6 import market_anchor_targets
 

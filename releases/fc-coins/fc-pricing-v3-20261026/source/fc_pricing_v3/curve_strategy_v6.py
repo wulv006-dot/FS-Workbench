@@ -54,8 +54,18 @@ def market_anchor_parameters(value=None):
 def _position_quotes(platform, offers, at):
     quotes = {}
     for source in ('Lootbar', 'U7Buy', 'ArabUT'):
-        rows = large_market_reference(platform, [row for row in offers if row.get('source') == source], at,
-            region_id='21' if source == 'ArabUT' else '0', delivery_method='comfort_trade')
+        rows = []
+        for row in offers:
+            if row.get('source') != source:
+                continue
+            method = row.get('delivery_method')
+            merchandise = (source == 'Lootbar' and method in (None, 'standard')
+                and row.get('comparability_basis') == 'lootbar_observed_100k_merchandise_no_delivery_tier')
+            if not (method == 'comfort_trade' or merchandise or source == 'ArabUT' and method in ('normal', 'standard')):
+                continue
+            reference = _linear_market_reference(platform, row, at, '21' if source == 'ArabUT' else '0')
+            if reference:
+                rows.append(reference)
         if not rows:
             continue
         latest = max(instant(row['captured_at']) for row in rows)
@@ -129,25 +139,33 @@ def large_market_reference(platform, offers, now, *, region_id, delivery_method)
         return []
     references = []
     for row in offers:
-        if (row.get('platform') != platform or row.get('purchase_k') != '100'
-                or row.get('currency') != 'USD' or row.get('promotion_eligibility') != 'all_customers'
-                or row.get('conditional') is True or row.get('comparable') is not True
-                or str(row.get('region_id') or 0) != str(region_id)
-                or row.get('delivery_method') != delivery_method):
+        if row.get('delivery_method') != delivery_method:
             continue
-        try:
-            if not 0 <= (now - instant(row['captured_at'])).total_seconds() <= 900:
-                continue
-            price = Decimal(row['regular_price']) * 10
-            bonus = Decimal(row['bonus_k']) * 10
-            if not price.is_finite() or not bonus.is_finite() or price <= 0 or bonus < 0:
-                continue
-        except (ArithmeticError, KeyError, TypeError, ValueError):
-            continue
-        references.append(dict(source=row['source'], captured_at=row['captured_at'], observation_id=row.get('observation_id'),
-                               basis='linear_from_100k', purchase_k='1000', price_usd=str(price),
-                               bonus_k=str(bonus), usd_per_delivered_100k=str(price * 100 / (1000 + bonus))))
+        reference = _linear_market_reference(platform, row, now, region_id)
+        if reference:
+            references.append(reference)
     return references
+
+
+def _linear_market_reference(platform, row, now, region_id):
+    if (row.get('platform') != platform or row.get('purchase_k') != '100'
+            or row.get('currency') != 'USD' or row.get('promotion_eligibility') != 'all_customers'
+            or row.get('conditional') is True or row.get('comparable') is not True
+            or str(row.get('region_id') or 0) != str(region_id)):
+        return None
+    try:
+        if not 0 <= (now - instant(row['captured_at'])).total_seconds() <= 900:
+            return None
+        price = Decimal(row['regular_price']) * 10
+        bonus = Decimal(row['bonus_k']) * 10
+        if not price.is_finite() or not bonus.is_finite() or price <= 0 or bonus < 0:
+            return None
+    except (ArithmeticError, KeyError, TypeError, ValueError):
+        return None
+    return dict(source=row['source'], captured_at=row['captured_at'], observation_id=row.get('observation_id'),
+                basis='linear_from_100k', purchase_k='1000', price_usd=str(price), bonus_k=str(bonus),
+                usd_per_delivered_100k=str(price * 100 / (1000 + bonus)),
+                delivery_method=row.get('delivery_method'), comparability_basis=row.get('comparability_basis'))
 
 
 def large_market_comparison(references, normal, final):

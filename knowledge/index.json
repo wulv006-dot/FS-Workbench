@@ -411,7 +411,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "dba2606d458e496cf37be00d02682972229adc2097910d115a3046198871763f",
+        "sha256": "a2b20883431e4c9e8a08002824c48192f0845d836e4f793450a18b2079de8107",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -1247,7 +1247,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "dba2606d458e496cf37be00d02682972229adc2097910d115a3046198871763f",
+        "sha256": "a2b20883431e4c9e8a08002824c48192f0845d836e4f793450a18b2079de8107",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "### 市场定位锚与保险（2026-11-17）"

@@ -40,6 +40,7 @@ FC_V61_DISCOUNT_REVISION = 'fc_v6_d8_d2_amount_weighted_discount_v1'
 FC_V61_TWO_BAND_REVISION = 'fc_v61_native_all_two_band_20261113'
 FC_V61_100K_MARKET_REVISION = 'fc_v61_100k_market_two_band_20261113'
 FC_V61_ADMIN_ONLY_REVISION = 'fc_v61_admin_only_two_band_20261113'
+FC_V61_MARKET_ANCHOR_REVISION = 'fc_v61_market_anchor_20261117'
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
 FC_V61_LEARNING_ID = 'fs.learning.methods'
 FC_V61_REPORTING_BASE_COMMIT = 'c51bb4f494523f19e6979cf5c85565dac94a4257'
@@ -250,7 +251,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     if fc_v61:
         revision, full_revision = (current[identity]['revision'] for identity in FC_V61_OVERLAYS)
         revisions = (FC_V61_DISCOUNT_REVISION, FC_V61_TWO_BAND_REVISION,
-                     FC_V61_100K_MARKET_REVISION, FC_V61_ADMIN_ONLY_REVISION)
+                     FC_V61_100K_MARKET_REVISION, FC_V61_ADMIN_ONLY_REVISION, FC_V61_MARKET_ANCHOR_REVISION)
         if revision not in revisions or full_revision != revision:
             raise ValueError('exact_fc_v61_revision_required')
         if any(identity in current and current[identity]['revision'] != revision
@@ -370,7 +371,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 content = catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
                 overlay_root = 'overlay/'
                 if fc_v61 and row['revision'] in (FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION,
-                                                   FC_V61_ADMIN_ONLY_REVISION):
+                                                   FC_V61_ADMIN_ONLY_REVISION, FC_V61_MARKET_ANCHOR_REVISION):
                     # Retain the preceding snapshot's source at its original path.
                     overlay_root += row['revision'] + '/'
                 if fc_v61_reporting:

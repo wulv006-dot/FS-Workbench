@@ -40,7 +40,7 @@ Lootbar 是直接竞品，U7Buy 提供品牌价格参照，Arab-UT 补充观察�
 
 ### 市场定位锚与保险（2026-11-17）
 
-`market-anchor-v1` 取代三小时 A/B/C；旧策略、影子期和历史账本保持原语义。三平台两段分别取新鲜 15 分钟、无条件、全客户、同平台 100K 报价的最近三个自然轮中位数，按实交量定位：`min(Lootbar × (1+p), U7Buy × (1+u))`，原财务底线兜底，再编译、证明。Lootbar 缺用 U7Buy × 近七天成对比值中位数 r；无 r 或两家都缺只做底线保护；U7Buy 缺只用 Lootbar。全球 region 0、Comfort Trade；ArabUT region 21 仅记高出 10% 提示。
+`market-anchor-v1` 取代三小时 A/B/C；旧策略、影子期和历史账本保持原语义。三平台两段分别取新鲜 15 分钟、无条件、全客户、同平台 100K 报价的最近三个自然轮中位数，按实交量定位：`min(Lootbar × (1+p), U7Buy × (1+u))`，原财务底线兜底，再编译、证明。Lootbar 缺用 U7Buy × 近七天成对比值中位数 r；无 r 或两家都缺只做底线保护；U7Buy 缺只用 Lootbar。全球 region 0；U7Buy 使用 Comfort Trade，Lootbar 沿现役已验证无券商品报价合同，不虚构未分层的交付方式；ArabUT region 21 的 normal／standard 仅记高出 10% 提示。
 
 PS/Xbox 小额 p/u=.08/0、大额 .06/0；PC 小额 .12/-.03、大额 .10/-.03。p 限 [0,.15]，u 限 [-.05,.03]；参数绑定原计划修订、真实 FS 身份和 CAS。首次采用须匹配新鲜真实 `anchor_shadow` 完整证明，切换后重取新修订证明；可修订回旧策略。
 
