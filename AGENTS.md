@@ -40,6 +40,7 @@ FS 由创建者吴律统一掌控，是以 Hermes 为智能中枢的 AI 驱动�
 | 开工、提交、开 PR、交付报告 | `fs-task` |
 | 报错、异常、变慢 | `diagnosing-bugs` |
 | 有明确输入输出的逻辑（如定价、计算） | `tdd` |
+| FC 定价规则变更、迁移后复盘、自动改价故障 | `fc-pricing-change-review`（`.agents/skills/` 供 Codex，`.claude/skills/` 供 Claude，两份同内容） |
 | PR 前审查 | `code-review`，需要精简时加 `simplify` |
 | 涉及登录、凭据、writer、权限 | `security-review` |
 | 合并或 rebase 冲突 | `resolving-merge-conflicts` |
