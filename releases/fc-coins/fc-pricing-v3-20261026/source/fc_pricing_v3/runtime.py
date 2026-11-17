@@ -1156,10 +1156,15 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
     if preference['source'] == 'market_anchor':
         position = market_anchor_targets(platform, current, evidence.get('competitor_offers') or [], now,
             parameters=(plan.get('parameters') or {}).get('market_anchor'), history=entry.get('market_history') or [])
+        prices = position['anchors']
+        if position['floor_only']:
+            # Missing quotes do not cancel a previously confirmed protection release.
+            observed = band_anchors(current)
+            prices = {band: prior['normal'] for band, prior in active.items() if observed[band] == prior['target']}
         normal = (compile_curve(current, dict(anchor_prices_usd={ANCHORS[band]: value
-                    for band, value in position['anchors'].items()}), editor) if position['anchors'] else current)
+                    for band, value in prices.items()}), editor) if prices else current)
         candidate = dict(curve=normal, labels=['A'], write_gaps=(normal.get('gaps') or ['market_anchor_compile_failed'])
-                         if position['anchors'] and normal.get('compilation_status') != 'EDITOR_CANDIDATE' else [])
+                         if prices and normal.get('compilation_status') != 'EDITOR_CANDIDATE' else [])
         preference = dict(preference, market_anchor=position)
         frozen.update(preference=preference, market_anchor=position)
     else:

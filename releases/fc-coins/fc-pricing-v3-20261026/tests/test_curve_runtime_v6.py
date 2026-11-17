@@ -177,7 +177,14 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(frozen['preference']['source'], 'market_anchor')
             self.assertEqual({row['band'] for row in frozen['market_anchor']['observations']}, {'small', 'large'})
             if loot is None:
-                self.assertEqual(frozen['segments'], previous['segments'], 'quote outage must retain unfinished protection')
+                self.assertEqual(frozen['segments']['large']['release_rounds'], 2)
+                later = dict(segments=frozen['segments'])
+                runtime._freeze_cost_protection(PLATFORM, entry, inputs, dict(reference=reference, episode=episode),
+                    dict(mode='smart', smart_strategy_version='market-anchor-v1'),
+                    dict(competitor_offers=[]), now, later)
+                released = entry['temporary_cost_protection']
+                self.assertEqual(Decimal(released['final_anchors']['large']), Decimal('90'))
+                self.assertEqual(released['segments'], {})
             if loot == '9.35':
                 self.assertIn('small', frozen['stability'], {k: frozen.get(k) for k in
                     ('normal_anchors', 'final_anchors', 'stability', 'market_anchor')})
