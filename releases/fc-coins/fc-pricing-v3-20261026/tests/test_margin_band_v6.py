@@ -140,6 +140,22 @@ class MarginBandDecisions(unittest.TestCase):
         self.assertFalse(confirmed['cost_drop_unconfirmed'])
 
 
+    def test_unconfirmed_cost_drop_holds_instead_of_turning_a_cut_into_a_raise(self):
+        for previous_cost in ('.40', '.50'):
+            with self.subTest(previous_cost=previous_cost):
+                result = self.selection('.33', samples=5, previous_cost=previous_cost)
+                self.assertTrue(result['cost_drop_unconfirmed'])
+                self.assertEqual(result['action'], 'hold')
+                self.assertEqual(Decimal(result['desired']), Decimal('10.00'))
+                self.assertIsNone(result['capped'])
+
+    def test_guarded_cut_cannot_exceed_the_current_price_clamped_to_the_corridor(self):
+        result = self.selection('.39', low='9.00', high='9.50', samples=5, previous_cost='.40')
+        self.assertTrue(result['cost_drop_unconfirmed'])
+        self.assertEqual(result['action'], 'hold')
+        self.assertEqual(Decimal(result['desired']), Decimal('9.50'))
+        self.assertIsNone(result['capped'])
+
     def test_eight_percent_cost_drop_is_guarded_with_five_samples(self):
         boundary = self.selection('.39', cost='.368', samples=5, previous_cost='.4')
         self.assertTrue(boundary['cost_drop_unconfirmed'])

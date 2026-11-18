@@ -1212,21 +1212,29 @@ def margin_band_selection(proof, position, current, target, decision_round, *, c
         if decision_round['is_decision_round'] and margin is not None and low is not None and high is not None:
             lo, hi = Decimal(low), Decimal(high)
             if lo <= hi:
-                if lower <= margin <= upper:
-                    desired, action = min(hi, max(lo, desired)), 'hold'
-                else:
-                    action = 'raise' if margin < lower else 'lower'
-                    unconfirmed = action == 'lower' and drop
-                    used = guarded if unconfirmed else proof
+                clamped = min(hi, max(lo, desired))
+                unconfirmed = margin > upper and drop
+                used = guarded if unconfirmed else proof
+                decision_margin = band_margin(used, band) if unconfirmed else margin
+                # A cost drop awaiting confirmation may cancel a cut, but cannot call for a raise.
+                if margin < lower:
+                    action = 'raise'
                     found = band_target_price(used, band, target, lo, hi)
+                    desired = hi if found is None else found
                     if found is None:
-                        desired, capped = hi, 'capped_by_market'
+                        capped = 'capped_by_market'
+                elif decision_margin > upper:
+                    found = band_target_price(used, band, target, lo, clamped)
+                    if found is None:
+                        desired, action = clamped, 'hold'
                     else:
-                        desired = found
-                        if action == 'lower' and found == lo and lo > CENT:
+                        desired, action = found, 'lower'
+                        if found == lo and lo > CENT:
                             below = lo - CENT
                             if band_target_price(used, band, target, below, below) is not None:
                                 capped = 'capped_by_corridor'
+                else:
+                    desired, action = clamped, 'hold'
         bands[band] = dict(margin_at_current=str(margin) if margin is not None else None,
                            action=action, desired=str(desired) if desired is not None else None, low=low, high=high, capped=capped,
                            cost_drop_unconfirmed=unconfirmed)
