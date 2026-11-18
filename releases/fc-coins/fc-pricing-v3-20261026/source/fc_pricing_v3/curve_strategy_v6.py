@@ -63,7 +63,7 @@ def margin_band_parameters(value, anchors):
             or not all('p_low' in terms for bands in anchors.values() for terms in bands.values())):
         raise ValueError(invalid)
     hours = value.get('schedule_hours', [2, 6, 9, 13, 17, 21])
-    if (not isinstance(hours, list) or not hours or any(type(hour) is not int or not 2 <= hour <= 23 for hour in hours)
+    if (not isinstance(hours, list) or not hours or any(type(hour) is not int or not 0 <= hour <= 23 for hour in hours)
             or len(set(hours)) != len(hours)):
         raise ValueError(invalid)
     parsed = dict(schedule_hours=sorted(hours))
