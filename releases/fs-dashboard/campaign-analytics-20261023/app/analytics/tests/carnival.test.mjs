@@ -73,8 +73,9 @@ test('PostHog query scopes production Carnival and requests only permitted coupo
   return {ok:true,json:async()=>({results:[]})};
  };
  const params=new URLSearchParams({activity,from:'2026-11-19',to:'2026-11-19'});
- const options={token:'fixture',project:'1',now:()=>start-1};
- assert.equal((await report(params,{now:options.now})).body.status,'not_started');
+ const registry=JSON.parse(fs.readFileSync(new URL('../activity-registry.json',import.meta.url),'utf8'));
+ const options={token:'fixture',project:'1',registry,now:()=>start-1};
+ assert.equal((await report(params,{registry,now:options.now})).body.status,'not_started');
  assert.equal(calls,0);
  assert.equal((await report(params,{...options,now:()=>start})).body.report.carnival.steps.visits,0);
  assert.equal(calls,1);
