@@ -228,28 +228,38 @@
     panel.hidden=!weekly||plan?.smart_strategy_version!=='market-anchor-v1';
     if(panel.hidden)return;
     $('v3-weekly-mode').textContent=control.automatic?'自动调整已开启':'由创建者逐周确认';
-    $('v3-weekly-help').textContent='按两个完整自然周比较订单和实际采购毛利。确认后下一自然轮按新定位核价。'+
+    const marginBand=!!plan.parameters?.margin_band;
+    $('v3-weekly-help').textContent=(marginBand?'按两个完整自然周的订单和实际采购毛利调整目标利润率。确认后按新目标在决策轮核价。':'按两个完整自然周比较订单和实际采购毛利。确认后下一自然轮按新定位核价。')+
       (control.eligible_after?`前四周逐周确认，可开启自动的日期：${when(control.eligible_after)}。`:'首次周一评估后开始计算四周确认期。');
     const rows=weekly.proposals||[],week=rows[0]?.week_start;
-    const rules={retain_raise:'保留上次定位',rollback_raise:'上次上调未达到保留条件，退回并冻结两周',recover_orders:'先改善订单量',raise_position:'小步提高定位'};
+    const rules={retain_raise:'保留上次定位',rollback_raise:'上次上调未达到保留条件，退回并冻结两周',recover_orders:'先改善订单量',raise_position:'小步提高定位',protect_orders:'订单低于底线，下调目标利润率',repair_margin:'实际毛利率低于 28%，上调目标利润率',continue_direction:'沿上周方向继续调整',revert_direction:'回退上周调整并冻结两周',probe:'试探调整目标利润率',hold:'保持目标利润率'};
     for(const proposal of rows.filter(row=>row.week_start===week)){
       const card=node('div');card.className='market-quote';
-      const percent=value=>`${(Number(value)*100).toFixed(0)}%`;
-      card.append(node('h3',`${proposal.platform==='XBOX'?'Xbox':proposal.platform} · ${proposal.band==='small'?'小额':'大额'}`),
-        node('p',`Lootbar 定位溢价 ${percent(proposal.before_p)} → ${percent(proposal.after_p)}`),
-        node('p',Number(proposal.delta_p)===0&&proposal.rule==='raise_position'?'当前无可上调量段，保持定位':rules[proposal.rule]||'保持当前定位'));
-      const before=proposal.prior?.[proposal.band],after=proposal.current?.[proposal.band];
-      if(before&&after)card.append(node('p',`该段订单 ${before.orders} → ${after.orders}；采购毛利 ¥${before.procurement_gross_cny} → ¥${after.procurement_gross_cny}`));
+      const target=proposal.before_t!=null;
+      const percent=value=>`${(Number(value)*100).toFixed(target?1:0)}%`;
+      const platform=proposal.platform==='XBOX'?'Xbox':proposal.platform;
+      card.append(node('h3',target?platform:`${platform} · ${proposal.band==='small'?'小额':'大额'}`));
+      if(target){
+        card.append(node('p',`目标利润率 ${percent(proposal.before_t)} → ${percent(proposal.after_t)}`),
+          node('p',proposal.t_bound_reached?'目标利润率已到边界，保持当前目标':rules[proposal.rule]),
+          node('p',`平台订单 ${proposal.previous_orders} → ${proposal.orders}；采购毛利 ¥${proposal.previous_procurement_gross_cny} → ¥${proposal.procurement_gross_cny}`));
+      }else{
+        card.append(node('p',`Lootbar 定位溢价 ${percent(proposal.before_p)} → ${percent(proposal.after_p)}`),
+          node('p',Number(proposal.delta_p)===0&&proposal.rule==='raise_position'?'当前无可上调量段，保持定位':rules[proposal.rule]||'保持当前定位'));
+        const before=proposal.prior?.[proposal.band],after=proposal.current?.[proposal.band];
+        if(before&&after)card.append(node('p',`该段订单 ${before.orders} → ${after.orders}；采购毛利 ¥${before.procurement_gross_cny} → ¥${after.procurement_gross_cny}`));
+      }
       if(proposal.market_ratio)card.append(node('p',`其余两平台订单系数 ${Number(proposal.market_ratio).toFixed(2)}；优先评估采购毛利率较低的平台。`));
       const labels={PROPOSED:'待确认',CONFIRMED:'已确认',REJECTED:'已拒绝',EXPIRED:'已过期'};
       card.append(node('p',`${labels[proposal.status]||'待核'} · 确认截止 ${when(proposal.expires_at)}`));
       const actions=node('div');actions.className='actions';
       for(const [operation,label] of [['confirm','确认本周调整'],['reject','本周不调整']]){
         const button=node('button',label);button.type='button';button.className='secondary';
-        button.disabled=!canWrite||acting||proposal.status!=='PROPOSED'||Date.parse(proposal.expires_at)<=Date.now();
+        button.disabled=!canWrite||acting||proposal.status!=='PROPOSED'||Date.parse(proposal.expires_at)<=Date.now()||operation==='confirm'&&target!==marginBand;
         button.addEventListener('click',()=>{if(!canWrite||acting)return;return action(async()=>{
           await request(`weekly-ladder/${proposal.proposal_id}/${operation}`,operation==='confirm'?{expected_revision:current.plan.revision}:{});
-          $('v3-result').textContent=operation==='confirm'?'本周定位已确认；下一自然轮重新核价后执行。':'本周提议已拒绝，定位参数保持。';
+          $('v3-result').textContent=target?(operation==='confirm'?'本周目标利润率已确认，下一个决策轮按新目标核价。':'本周提议已拒绝，目标利润率保持。'):
+            (operation==='confirm'?'本周定位已确认；下一自然轮重新核价后执行。':'本周提议已拒绝，定位参数保持。');
         });});actions.append(button);
       }
       card.append(actions);output.append(card);

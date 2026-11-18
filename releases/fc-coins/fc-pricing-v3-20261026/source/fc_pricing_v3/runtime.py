@@ -932,10 +932,15 @@ def _curve_plan_binding(plan):
 
     if plan is None:
         return None
-    return dict(plan_id=plan.get('plan_id'), revision=plan.get('revision'),
-                strategy_version=plan.get('smart_strategy_version'), parameters_sha256=
-                fingerprint(market_anchor_parameters((plan.get('parameters') or {}).get('market_anchor')))
-                if plan.get('smart_strategy_version') == MARKET_ANCHOR_VERSION else None)
+    version = plan.get('smart_strategy_version')
+    parameter_hash = None
+    if version == MARKET_ANCHOR_VERSION:
+        parameters = plan.get('parameters') or {}
+        anchors = market_anchor_parameters(parameters.get('market_anchor'))
+        margin_band = parameters.get('margin_band')
+        parameter_hash = fingerprint(dict(market_anchor=anchors, margin_band=margin_band) if margin_band else anchors)
+    return dict(plan_id=plan.get('plan_id'), revision=plan.get('revision'), strategy_version=version,
+                parameters_sha256=parameter_hash)
 
 
 def _curve_market_history(db, now, *, exclude_snapshot=None):
@@ -970,6 +975,44 @@ def _curve_market_history(db, now, *, exclude_snapshot=None):
                 history.append(dict(snapshot_id=ident, round_id=rounds.get(ident, ident), as_of=at.isoformat(),
                                     automatic=ident in rounds, offers=offers))
     return history
+
+
+def _margin_band_history(db, plan_id):
+    from contextlib import closing
+
+    history = {platform: [] for platform in PLATFORMS}
+    with closing(db.connect()) as conn:
+        for raw, in conn.execute("SELECT body FROM strategy_decisions WHERE body LIKE ? ORDER BY rowid",
+                                 ('%"margin_band_plan_id"%',)):
+            row = json.loads(raw)
+            if row.get('margin_band_plan_id') != plan_id or not row.get('automatic_curve_round'):
+                continue
+            for decision in row['curve']:
+                selection = (decision.get('selection') or {}).get('margin_band')
+                if selection and selection['decision_round']['is_decision_round']:
+                    history[decision['platform']].append(dict(selection, status=decision['status']))
+    return history
+
+
+def _margin_band_cycle_context(db, plan, job, now, hours):
+    from contextlib import closing
+    from .cost_inputs_v6 import BEIJING
+
+    request = job.get('request') or {}
+    at = instant(job['created_at']) if job.get('created_at') else now
+    automatic = bool(request.get('v3_operation_id') and not request.get('manual_requested'))
+    last_hour = at.astimezone(BEIJING).replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
+    failed = False
+    if automatic and last_hour.hour in hours:
+        start = last_hour.astimezone(timezone.utc)
+        stop = start + timedelta(hours=1)
+        with closing(db.connect()) as conn:
+            jobs = conn.execute("SELECT body FROM durable_jobs WHERE kind='cycle' AND state IN ('failed','done') "
+                                "AND due_at>=? AND due_at<?", (start.isoformat(), stop.isoformat()))
+            failed = any(not row.get('manual_requested')
+                         and (row.get('plan_id'), row.get('revision')) == (plan['plan_id'], plan['revision'])
+                         for row in (json.loads(raw) for raw, in jobs))
+    return dict(at=at, automatic=automatic, collection_failed=failed)
 
 
 def collect_curve_catalogues(evidence, platforms):
@@ -1067,6 +1110,10 @@ def collect_curve_catalogues(evidence, platforms):
     market_history = (_curve_market_history(db, now, exclude_snapshot=evidence['run_id'])
                       if plan and plan['mode'] == 'smart' and not restore else [])
     learning_windows = db.all('actual_price_windows') if plan and online and plan['mode'] == 'smart' and not market_plan else []
+    margin_config = (plan.get('parameters') or {}).get('margin_band') if market_plan else None
+    decision_history = _margin_band_history(db, plan['plan_id']) if margin_config else {}
+    margin_context = (_margin_band_cycle_context(db, plan, job, now, margin_config['schedule_hours'])
+                      if margin_config else {})
     for platform, entry in collected.items():
         average = average_discount(discount_source, platform, paid_cutoff)
         from .cost_inputs_v6 import smooth_delivery_cost
@@ -1102,7 +1149,13 @@ def collect_curve_catalogues(evidence, platforms):
                 and entry['primary_inputs'][curve_key(current)]['evidence'].get('average_discount')):
             previous = db.curve_cost_protection(platform)
             entry['market_history'] = market_history
+            if margin_config:
+                entry['margin_band_context'] = dict(margin_context,
+                    history=decision_history[platform],
+                    cost_sample_count=sum(instant(row['trade_at']) >= now - timedelta(hours=3)
+                                          for row in (cost or {}).get('sample_records', ())))
             _freeze_cost_protection(platform, entry, proof, state, plan, evidence, now, previous)
+            entry.pop('margin_band_context', None)
             if plan and plan['mode'] == 'smart' and not market_plan:
                 _freeze_anchor_shadow(platform, entry, proof, state, plan, evidence, now, previous)
             entry.pop('market_history', None)
@@ -1116,6 +1169,78 @@ def collect_curve_catalogues(evidence, platforms):
         elif current_proof['status'] == PROVEN and plan and state:
             _freeze_intermediate_trial(platform, entry, proof, state, plan, evidence, now)
     return collected
+
+
+def margin_band_round(now, schedule_hours, history=(), *, automatic=True, collection_failed=False):
+    """Identify the Shanghai slot and its single next-hour retry."""
+    from .cost_inputs_v6 import BEIJING
+
+    hour = now.astimezone(BEIJING).replace(minute=0, second=0, microsecond=0)
+    starts = [hour.replace(hour=value) for value in schedule_hours if value >= 2]
+    slot = max((value for value in starts if value <= hour), default=max(starts) - timedelta(days=1))
+    slot_start = slot.isoformat()
+    attempts = [row for row in history if row['decision_round']['slot_start'] == slot_start
+                and row['decision_round']['is_decision_round']]
+    retry = (hour.hour >= 2 and hour == slot + timedelta(hours=1) and (attempts or collection_failed)
+             and not any(row['decision_round']['retry'] or row['status'] in ('READY', 'KEEP') for row in attempts))
+    initial = hour == slot and hour.hour >= 2 and not attempts
+    return dict(is_decision_round=automatic and (initial or retry), slot_start=slot_start,
+                retry=automatic and retry)
+
+
+def margin_band_selection(proof, position, current, target, decision_round, *, cost_median,
+                          cost_sample_count, previous_decision_cost_median):
+    """Choose native band anchors before the original safety and insurance checks."""
+    from .average_discount_v6 import CENT, band_margin, band_target_price
+
+    lower, upper = target - CENT, target + CENT
+    drop = (cost_median is not None and previous_decision_cost_median is not None and cost_sample_count < 6
+            and Decimal(cost_median) <= Decimal(previous_decision_cost_median) * Decimal('.92'))
+    guarded = proof
+    if proof and drop:
+        ratio = Decimal(previous_decision_cost_median) / Decimal(cost_median)
+        guarded = dict(proof, paths=[
+            dict(row, safe_cost_usd=str(Decimal(row['safe_cost_usd']) * ratio))
+            if row.get('safe_cost_usd') is not None else row for row in proof['paths']
+        ])
+    bands = {}
+    for band, price in current.items():
+        low = position.get('low_anchors', {}).get(band)
+        high = position['anchors'].get(band)
+        margin = band_margin(proof, band) if proof else None
+        desired, action, capped, unconfirmed = Decimal(price) if price is not None else None, 'none', None, False
+        if decision_round['is_decision_round'] and margin is not None and low is not None and high is not None:
+            lo, hi = Decimal(low), Decimal(high)
+            if lo <= hi:
+                clamped = min(hi, max(lo, desired))
+                unconfirmed = margin > upper and drop
+                used = guarded if unconfirmed else proof
+                decision_margin = band_margin(used, band) if unconfirmed else margin
+                # A cost drop awaiting confirmation may cancel a cut, but cannot call for a raise.
+                if margin < lower:
+                    action = 'raise'
+                    found = band_target_price(used, band, target, lo, hi)
+                    desired = hi if found is None else found
+                    if found is None:
+                        capped = 'capped_by_market'
+                elif decision_margin > upper:
+                    found = band_target_price(used, band, target, lo, clamped)
+                    if found is None:
+                        desired, action = clamped, 'hold'
+                    else:
+                        desired, action = found, 'lower'
+                        if found == lo and lo > CENT:
+                            below = lo - CENT
+                            if band_target_price(used, band, target, below, below) is not None:
+                                capped = 'capped_by_corridor'
+                else:
+                    desired, action = clamped, 'hold'
+        bands[band] = dict(margin_at_current=str(margin) if margin is not None else None,
+                           action=action, desired=str(desired) if desired is not None else None, low=low, high=high, capped=capped,
+                           cost_drop_unconfirmed=unconfirmed)
+    return dict(decision_round=decision_round, target=str(target), hold_range=[str(lower), str(upper)],
+                cost_median=cost_median, cost_sample_count=cost_sample_count,
+                previous_decision_cost_median=previous_decision_cost_median, bands=bands)
 
 
 def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, now, previous):
@@ -1153,12 +1278,34 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
         label = 'A'
         preference = dict(preference, label=label)
         frozen['preference'] = preference
-    position = None
+    position, margin_band = None, None
     if preference.get('source') == 'market_anchor':
         position = market_anchor_targets(platform, current, evidence.get('competitor_offers') or [], now,
             parameters=(plan.get('parameters') or {}).get('market_anchor'), history=entry.get('market_history') or [])
         prices = position['anchors']
-        if position['floor_only']:
+        configuration = (plan.get('parameters') or {}).get('margin_band')
+        if configuration and 'low_anchors' in position:
+            context = entry.get('margin_band_context') or {}
+            history = context.get('history', ())
+            decision = margin_band_round(context.get('at', now), configuration['schedule_hours'], history,
+                                         automatic=context.get('automatic', False),
+                                         collection_failed=context.get('collection_failed', False))
+            prior = next((row for row in reversed(history)
+                          if row['decision_round']['slot_start'] < decision['slot_start'] and row['cost_median']), {})
+            current_input = entry['primary_inputs'].get(curve_key(current)) or inputs_for(current)
+            current_proof = _validated_curve(current, current_input)
+            observed = band_anchors(current)
+            margin_band = margin_band_selection(
+                current_proof if current_proof['status'] in (PROVEN, FAILED) else None,
+                position, observed, Decimal(configuration[platform]['target']), decision,
+                cost_median=entry.get('confirmed_cost_cny_per_k'), cost_sample_count=context.get('cost_sample_count', 0),
+                previous_decision_cost_median=prior.get('cost_median'),
+            )
+            preference = dict(preference, margin_band=margin_band)
+            frozen['preference'] = preference
+            prices = {band: row['desired'] for band, row in margin_band['bands'].items()
+                      if Decimal(row['desired']) != Decimal(observed[band])}
+        if position['floor_only'] and (not margin_band or margin_band['decision_round']['is_decision_round']):
             # Missing quotes do not cancel a previously confirmed protection release.
             observed = band_anchors(current)
             prices = {band: prior['normal'] for band, prior in active.items() if observed[band] == prior['target']}
@@ -1341,7 +1488,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
                 for band in segment_changes(normal, final)
                 if not position or (Decimal(final_prices[band]) > Decimal(normal_prices[band])
                                     and (band in financial_bands or band in active))}
-    if position and position['floor_only']:
+    if position and (position['floor_only'] or margin_band and not margin_band['decision_round']['is_decision_round']):
         for band, prior in active.items():
             if final_prices[band] == observed[band] == prior['target']:
                 segments.setdefault(band, dict(prior))
@@ -1909,16 +2056,20 @@ def _prove_curve_restore(platform, inputs, original, source_id, now):
                 selection=selection, native_route=route, primary_before_hash=before_hash)
 
 
-def revise_curve_strategy(db, ident, expected_revision, actor, snapshot_id, strategy_version, parameters):
+def revise_curve_strategy(db, ident, expected_revision, actor, snapshot_id, strategy_version, parameters, **changes):
     """Revise bounded plan parameters; initial adoption requires a matching live shadow."""
-    from .curve_strategy_v6 import MARKET_ANCHOR_VERSION
     from .competitor_offers import POLICY
+    from .curve_strategy_v6 import MARKET_ANCHOR_VERSION, margin_band_parameters, market_anchor_parameters
     from .price_curve import curve_key
 
-    revision = dict(strategy_version=strategy_version, market_anchor=parameters)
+    parameters = market_anchor_parameters(parameters)
+    if 'margin_band' in changes:
+        changes['margin_band'] = margin_band_parameters(changes['margin_band'], parameters)
+    revision = dict(strategy_version=strategy_version, market_anchor=parameters, **changes)
+
     def check(conn, plan, now):
-        prospective = dict(plan, smart_strategy_version=strategy_version,
-                           parameters=dict(plan.get('parameters') or {}, market_anchor=parameters))
+        prospective_parameters = dict(plan.get('parameters') or {}, market_anchor=parameters, **changes)
+        prospective = dict(plan, smart_strategy_version=strategy_version, parameters=prospective_parameters)
         binding = _curve_plan_binding(prospective)
         proofs = {}
         if strategy_version == MARKET_ANCHOR_VERSION and plan.get('smart_strategy_version') != MARKET_ANCHOR_VERSION:
@@ -2014,6 +2165,33 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
     else:
         decisions = {p: _prove_curve_inputs(p, frozen.get(p), db, now, evidence=evidence,
                                            plan=plan if active else None) for p in platforms}
+    configuration = (plan.get('parameters') or {}).get('margin_band') if active and not restore_id else None
+    if configuration:
+        from .curve_strategy_v6 import ANCHORS
+
+        missing = {}
+        for platform in platforms:
+            selected = decisions[platform].get('selection') or {}
+            audit = selected.get('margin_band')
+            if not audit:
+                data = frozen.get(platform) or {}
+                audit = (((data.get('temporary_cost_protection') or {}).get('preference') or {}).get('margin_band'))
+            if audit:
+                decisions[platform]['selection'] = dict(selected, margin_band=audit)
+            else:
+                missing[platform] = selected
+        if missing:
+            history = _margin_band_history(db, plan['plan_id'])
+            path = ROOT / 'jobs' / (evidence['run_id'] + '.json')
+            job = json.loads(path.read_text()) if path.exists() else dict(request=request)
+            cycle = _margin_band_cycle_context(db, plan, job, now, configuration['schedule_hours'])
+            at = cycle.pop('at')
+            for platform, selected in missing.items():
+                decision = margin_band_round(at, configuration['schedule_hours'], history[platform], **cycle)
+                audit = margin_band_selection(None, {'anchors': {}}, dict.fromkeys(ANCHORS),
+                    Decimal(configuration[platform]['target']), decision, cost_median=None, cost_sample_count=None,
+                    previous_decision_cost_median=None)
+                decisions[platform]['selection'] = dict(selected, margin_band=audit)
     ready = [p for p in platforms if decisions[p]['status'] == 'READY']
     if restore_id and any(decisions[p]['status'] not in ('READY', 'KEEP') for p in platforms):
         ready = []
@@ -2035,6 +2213,8 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
                   financial_contract_version=CONTRACT, execution_authorized=status == 'READY',
                   anchor_shadow={p: frozen[p]['anchor_shadow'] for p in platforms
                                  if frozen.get(p) and frozen[p].get('anchor_shadow')})
+    if configuration:
+        result['curve_selection'] = {row['platform']: row['selection'] for row in rows}
     if active and status != 'READY':
         states = {decisions[p]['status'] for p in platforms}
         if states & {'PREFERRED_HARD_CONSTRAINT_FAILED', 'HARD_CONSTRAINT_FAILED'}:
@@ -2084,10 +2264,12 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
         snapshot['curve_restore_preview_id'] = restore_id
     with db.transaction() as conn:
         db.put('pricing_snapshots', evidence['run_id'], snapshot, conn)
-        db.put('strategy_decisions', evidence['run_id'], dict(curve=rows, created_at=now.isoformat(),
-            anchor_shadow=result['anchor_shadow'],
+        decision_record = dict(curve=rows, created_at=now.isoformat(), anchor_shadow=result['anchor_shadow'],
             automatic_curve_round=bool(active and not restore_id and not request.get('manual_requested')),
-            curve_round_id=request.get('v3_operation_id')), conn)
+            curve_round_id=request.get('v3_operation_id'))
+        if configuration:
+            decision_record.update(margin_band_plan_id=plan['plan_id'], curve_selection=result['curve_selection'])
+        db.put('strategy_decisions', evidence['run_id'], decision_record, conn)
         if active and not restore_id:
             for platform, decision in decisions.items():
                 if decision['status'] != 'KEEP':

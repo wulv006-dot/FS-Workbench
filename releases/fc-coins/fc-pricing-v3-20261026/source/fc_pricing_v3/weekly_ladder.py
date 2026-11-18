@@ -7,7 +7,7 @@ import json
 import sys
 import uuid
 
-from .curve_strategy_v6 import ANCHORS, MARKET_ANCHOR_VERSION, market_anchor_parameters
+from .curve_strategy_v6 import ANCHORS, MARKET_ANCHOR_VERSION, margin_band_parameters, market_anchor_parameters
 from .financial import fingerprint, instant
 from .platforms import PLATFORMS
 
@@ -45,17 +45,51 @@ def validate_week(week, start):
             raise ValueError('weekly_bands_incomplete')
 
 
-def propose_adoption(previous, current, parameters, *, now, history=(), blocked=None):
+def _target_proposal(platform, before, orders, previous_orders, gross, previous_gross, revenue, market,
+                     last, frozen, monday):
+    margin = gross / revenue if revenue > 0 else None
+    previous_delta = money(last.get('delta_t', '0'))
+    freeze_until = None
+    step = Decimal('.01')
+    if orders < previous_orders * market * Decimal('.85'):
+        delta, rule = -step, 'protect_orders'
+    elif margin is not None and margin < Decimal('.28'):
+        delta, rule = step, 'repair_margin'
+    elif frozen:
+        delta, rule = Decimal(0), 'hold'
+    elif previous_delta and gross >= previous_gross * market:
+        delta, rule = previous_delta, 'continue_direction'
+    elif previous_delta:
+        delta, rule = -previous_delta, 'revert_direction'
+        freeze_until = (monday + timedelta(weeks=2)).isoformat()
+    elif margin is not None:
+        delta, rule = (-step if margin > Decimal('.30') else step), 'probe'
+    else:
+        delta, rule = Decimal(0), 'hold'
+    bound = not Decimal('.28') <= before + delta <= Decimal('.35')
+    if bound:
+        delta, freeze_until = Decimal(0), None
+    return dict(platform=platform, before_t=str(before), after_t=str(before + delta), delta_t=str(delta),
+                previous_delta_t=str(previous_delta), rule=rule, t_bound_reached=bound, freeze_until=freeze_until,
+                orders=int(orders), previous_orders=int(previous_orders), procurement_gross_cny=str(gross),
+                previous_procurement_gross_cny=str(previous_gross), market_ratio=str(market),
+                margin_ratio=str(margin) if margin is not None else None)
+
+
+def propose_adoption(previous, current, parameters, *, now, history=(), blocked=None, margin_band=None):
     """W is the last closed week; the proposal takes effect during this week."""
     monday = week_start(now)
     try:
         parameters = market_anchor_parameters(parameters)
+        margin_band = margin_band_parameters(margin_band, parameters)
         validate_week(previous, monday-timedelta(days=14))
         validate_week(current, monday-timedelta(days=7))
     except (ValueError, KeyError, TypeError, ArithmeticError) as error:
         return dict(proposals=[], gaps=[str(error)], week_start=monday.isoformat())
     totals = lambda week, platform, field: sum((money(row[field]) for row in week['platforms'][platform].values()), Decimal(0))
     proposals = []
+    expires = datetime.combine(monday + timedelta(days=3), datetime.min.time(), LOCAL).isoformat()
+    field = 'delta_t' if margin_band else 'delta_p'
     for platform in PLATFORMS:
         others = [p for p in PLATFORMS if p != platform]
         denominator = sum(totals(previous,p,'orders') for p in others)
@@ -63,8 +97,16 @@ def propose_adoption(previous, current, parameters, *, now, history=(), blocked=
             return dict(proposals=[], gaps=['weekly_market_comparison_unavailable'], week_start=monday.isoformat())
         market = max(Decimal('.85'), min(Decimal('1.15'), sum(totals(current,p,'orders') for p in others)/denominator))
         actions = sorted((r for r in history if r.get('platform') == platform and r.get('status') == 'CONFIRMED'
-                          and r['week_start'] < monday.isoformat()), key=lambda r:r['week_start'])
+                          and field in r and r['week_start'] < monday.isoformat()), key=lambda r:r['week_start'])
         last = next((r for r in reversed(actions) if r['week_start'] == (monday-timedelta(days=7)).isoformat()), {})
+        if margin_band:
+            frozen = any(r.get('freeze_until') and r['freeze_until'] >= monday.isoformat() for r in actions)
+            proposal = _target_proposal(platform, money(margin_band[platform]['target']),
+                totals(current, platform, 'orders'), totals(previous, platform, 'orders'),
+                totals(current, platform, 'procurement_gross_cny'), totals(previous, platform, 'procurement_gross_cny'),
+                totals(current, platform, 'revenue_cny'), market, last, frozen, monday)
+            proposals.append(dict(proposal, week_start=monday.isoformat(), expires_at=expires))
+            continue
         frozen = {r['band'] for r in actions if r.get('freeze_until') and r['freeze_until'] > monday.isoformat()}
         unavailable = (blocked or {}).get(platform) or {}
         band, delta, freeze = 'small', Decimal(0), None
@@ -95,7 +137,7 @@ def propose_adoption(previous, current, parameters, *, now, history=(), blocked=
         revenue = totals(current,platform,'revenue_cny')
         proposals.append(dict(platform=platform, band=band, delta_p=str(delta), before_p=str(before),
             after_p=str(before+delta), rule=rule, market_ratio=str(market), freeze_until=freeze,
-            week_start=monday.isoformat(), expires_at=datetime.combine(monday+timedelta(days=3),datetime.min.time(),LOCAL).isoformat(),
+            week_start=monday.isoformat(), expires_at=expires,
             prior=deepcopy(previous['platforms'][platform]), current=deepcopy(current['platforms'][platform]),
             blocked=deepcopy(unavailable), frozen_bands=sorted(frozen),
             margin_ratio=str(totals(current,platform,'procurement_gross_cny')/revenue) if revenue > 0 else None))
@@ -180,19 +222,37 @@ def confirm_adoption(db, ident, actor, expected_revision, now, *, automatic=Fals
             raise PermissionError('weekly_automatic_not_authorized')
     elif actor != plan.get('actor'):
         raise PermissionError('weekly_plan_owner_required')
-    parameters = market_anchor_parameters((plan.get('parameters') or {}).get('market_anchor'))
-    parameters[proposal['platform']][proposal['band']]['p'] = proposal['after_p']
+    plan_parameters = plan.get('parameters') or {}
+    parameters = market_anchor_parameters(plan_parameters.get('market_anchor'))
+    margin_band = plan_parameters.get('margin_band')
+    if bool(margin_band) != ('delta_t' in proposal):
+        raise ValueError('weekly_proposal_expired_or_parameters_changed')
+    platform = proposal['platform']
+    revision = dict(strategy_version=MARKET_ANCHOR_VERSION, market_anchor=parameters)
+    if margin_band:
+        revision['margin_band'] = dict(margin_band, **{platform: {'target': proposal['after_t']}})
+    else:
+        parameters[platform][proposal['band']]['p'] = proposal['after_p']
+
     def check(conn,current,at):
         value = db.get('ladder_proposals',ident,conn)
-        actual = market_anchor_parameters((current.get('parameters') or {}).get('market_anchor'))
+        actual = current.get('parameters') or {}
+        actual_margin = actual.get('margin_band')
+        if bool(actual_margin) != bool(margin_band):
+            raise ValueError('weekly_proposal_expired_or_parameters_changed')
+        if margin_band:
+            actual_value, expected = actual_margin[platform]['target'], value['before_t']
+        else:
+            anchors = market_anchor_parameters(actual.get('market_anchor'))
+            actual_value, expected = anchors[platform][value['band']]['p'], value['before_p']
         if (value['status'] != 'PROPOSED' or instant(value['expires_at']) <= at
-                or money(actual[value['platform']][value['band']]['p']) != money(value['before_p'])):
+                or money(actual_value) != money(expected)):
             raise ValueError('weekly_proposal_expired_or_parameters_changed')
         value.update(status='CONFIRMED',confirmed_by=actor,confirmed_at=at.isoformat(),
                      confirmed_revision=expected_revision+1)
         db.put('ladder_proposals',ident,value,conn)
         return dict(weekly_proposal=ident,evidence_hash=value['evidence_hash'])
-    if money(proposal['delta_p']) == 0:
+    if money(proposal['delta_t' if margin_band else 'delta_p']) == 0:
         with db.transaction() as conn:
             current = db.get('pricing_plans',plan['plan_id'],conn)
             if current['revision'] != expected_revision:raise ValueError('pricing_plan_revision_changed')
@@ -203,7 +263,7 @@ def confirm_adoption(db, ident, actor, expected_revision, now, *, automatic=Fals
             db.put('ladder_proposals',ident,value,conn)
     else:
         db.activate_curve_plan(plan['plan_id'],expected_revision,actor,ident,check,
-            strategy_revision=dict(strategy_version=MARKET_ANCHOR_VERSION,market_anchor=parameters))
+            strategy_revision=revision)
     return db.get('ladder_proposals',ident)
 
 
@@ -252,24 +312,28 @@ def run(db, plan_id, now):
     if not all(existing):
         current=read_week(monday-timedelta(days=7),now)
         previous=read_week(monday-timedelta(days=14),now,publication_id=current['publication_id'])
-        snapshot=db.get('metadata','latest_snapshot:'+plan_id) or {}
-        decision=db.get('strategy_decisions',snapshot.get('snapshot_id')) or {}
-        selections={r['platform']:r.get('selection') or {} for r in decision.get('curve') or []}
-        blocked={}
-        for p in PLATFORMS:
-            selected=selections.get(p) or {}
-            position=selected.get('market_anchor') or {}
-            if selected.get('source')!='market_anchor' or not position.get('reference_usd_per_100k'):
-                raise ValueError('weekly_current_position_unverified')
-            prices=position['reference_usd_per_100k'];terms=position['parameters']
-            blocked[p]={b:[] for b in ANCHORS}
-            for band in ANCHORS:
-                if position.get('floor_only'):blocked[p][band].append('market_quotes_missing')
-                if 'U7Buy' in prices and 'Lootbar' in prices and money(prices['Lootbar'])*(1+money(terms[band]['p'])) >= money(prices['U7Buy'])*(1+money(terms[band]['u'])):
-                    blocked[p][band].append('u7_cap')
-                if band in ((selected.get('cost_protection') or {}).get('segments') or {}):blocked[p][band].append('financial_floor')
-        assessment=propose_adoption(previous,current,(plan.get('parameters') or {}).get('market_anchor'),
-                                    now=now,history=db.all('ladder_proposals'),blocked=blocked)
+        parameters = plan.get('parameters') or {}
+        margin_band = parameters.get('margin_band')
+        blocked = {}
+        if not margin_band:
+            snapshot=db.get('metadata','latest_snapshot:'+plan_id) or {}
+            decision=db.get('strategy_decisions',snapshot.get('snapshot_id')) or {}
+            selections={r['platform']:r.get('selection') or {} for r in decision.get('curve') or []}
+            for p in PLATFORMS:
+                selected=selections.get(p) or {}
+                position=selected.get('market_anchor') or {}
+                if selected.get('source')!='market_anchor' or not position.get('reference_usd_per_100k'):
+                    raise ValueError('weekly_current_position_unverified')
+                prices=position['reference_usd_per_100k'];terms=position['parameters']
+                blocked[p]={b:[] for b in ANCHORS}
+                for band in ANCHORS:
+                    if position.get('floor_only'):blocked[p][band].append('market_quotes_missing')
+                    if 'U7Buy' in prices and 'Lootbar' in prices and money(prices['Lootbar'])*(1+money(terms[band]['p'])) >= money(prices['U7Buy'])*(1+money(terms[band]['u'])):
+                        blocked[p][band].append('u7_cap')
+                    if band in ((selected.get('cost_protection') or {}).get('segments') or {}):blocked[p][band].append('financial_floor')
+        assessment=propose_adoption(previous,current,parameters.get('market_anchor'),
+                                    now=now,history=db.all('ladder_proposals'),blocked=blocked,
+                                    margin_band=margin_band)
         if assessment['gaps']:raise ValueError('weekly_assessment_incomplete:'+','.join(assessment['gaps']))
         with db.transaction() as conn:
             latest=db.get('pricing_plans',plan_id,conn)
