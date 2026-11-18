@@ -19,7 +19,6 @@ from .contracts import SOURCES, integer, label, ARAB_WARM_PATHS, ARAB_PRICE_TABL
 
 
 ARAB_DELIVERY_ERROR_MAX_BYTES = 4096
-ARAB_NORMAL_DELIVERY_UNAVAILABLE = 'arab_normal_delivery_unavailable'
 
 
 def arab_normal_delivery_unavailable(raw):
@@ -38,6 +37,12 @@ class SourceUnavailable(ValueError):
     def __init__(self, reason, retry_after_seconds=0):
         super().__init__(reason)
         self.retry_after_seconds = retry_after_seconds
+
+
+class ArabNormalDeliveryUnavailable(SourceUnavailable):
+    def __init__(self, retry_after_seconds=0):
+        # The origin completed this HTTP request, so BudgetedTransport releases its permit.
+        super().__init__('http_422', retry_after_seconds)
 
 
 class WarmLanguageRedirect(SourceUnavailable):
@@ -218,8 +223,9 @@ class RestrictedHTTP:
             if any(marker in bytes(body).lower() for marker in (b'cf-chl-', b'challenge-platform', b'g-recaptcha')):
                 raise SourceUnavailable('challenge')
             if check_delivery:
-                reason = ARAB_NORMAL_DELIVERY_UNAVAILABLE if arab_normal_delivery_unavailable(body) else 'http_422'
-                raise SourceUnavailable(reason)
+                if arab_normal_delivery_unavailable(body):
+                    raise ArabNormalDeliveryUnavailable()
+                raise SourceUnavailable('http_422')
             return bytes(body)
         except ssl.SSLCertVerificationError:
             raise SourceUnavailable('tls_validation_failed') from None

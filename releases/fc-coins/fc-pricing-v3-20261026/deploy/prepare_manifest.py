@@ -150,6 +150,8 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     if curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote:
         protected.update(set(curve_v6_targets(source).values()) - changed)
         protected.update(('/opt/fs-hermes-fc/user_source.py', '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'))
+    if curve_arab_quote:
+        protected.update('/opt/fs-fc-control/code/fc_collection/' + name for name in ('adapters.py', 'contracts.py'))
     rows = []
     for name, target in sorted(expected.items()):
         current = Path(target)

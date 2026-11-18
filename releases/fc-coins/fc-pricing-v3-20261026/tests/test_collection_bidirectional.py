@@ -1,18 +1,20 @@
 from copy import deepcopy
 from datetime import timedelta
+from http.client import HTTPMessage
 from io import BytesIO
 import json
 from pathlib import Path
 import sys
+import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
-from collection_cases import NOW, context, observation
+from collection_cases import NOW, context, identity, observation, policy
 from fc_collection.contracts import build_job, to_arab_status
 from fc_collection.public_sources import arab_offers, arab_adapter, REGISTRY, VERSIONS
-from fc_collection.adapters import SourceUnavailable
+from fc_collection.adapters import ArabNormalDeliveryUnavailable, SourceUnavailable
 
 
 def native(platform='playstation'):
@@ -23,15 +25,62 @@ def native(platform='playstation'):
         priceVersion=3336, pricedAt=NOW.isoformat())
 
 
-def task():
+def task(*, request_budget=4):
     return dict(build_job(dict(run_id='three-platform', created_at=NOW.isoformat()), 'ArabUT',
         dict(context(), requested_platforms=['PS', 'XBOX', 'PC'], region_scope=[21],
-             adapter_version=VERSIONS['ArabUT'], total_request_budget=4),
+             adapter_version=VERSIONS['ArabUT'], total_request_budget=request_budget),
         (NOW + timedelta(seconds=180)).isoformat()), attempt_id='attempt-1', lease_epoch=1,
         node_id='183', node_boot_id='boot-1')
 
 
 class BidirectionalCollection(unittest.TestCase):
+    def test_console_delivery_rejection_releases_the_permit_for_fast_and_independent_pc(self):
+        from fc_collection.adapters import RestrictedHTTP, WarmLanguageRedirect
+        from fc_collection.coordinator import Coordinator
+        from fc_collection.worker import BudgetedTransport, collect_job
+
+        with tempfile.TemporaryDirectory() as temp:
+            coordinator = Coordinator(Path(temp) / 'collection.sqlite3')
+            coordinator.configure_source('ArabUT', dict(policy(), origin='https://www.arab-ut.com',
+                adapter_version=VERSIONS['ArabUT'], max_requests=8))
+            coordinator.register_node(identity(), ['ArabUT'], NOW - timedelta(seconds=6))
+            job = task(request_budget=8)
+            for key in ('attempt_id', 'lease_epoch', 'node_id', 'node_boot_id'):
+                del job[key]
+            coordinator.enqueue(job)
+            claimed = coordinator.claim_job(identity(), ['ArabUT'], NOW)
+            http = RestrictedHTTP(REGISTRY)
+            calls = []
+
+            def fetch(source, template, timeout):
+                calls.append(template)
+                if template == 'warm':
+                    raise WarmLanguageRedirect('warm_en')
+                if template == 'warm_en':
+                    return b''
+                if template == 'quote':
+                    with patch('socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]), \
+                            patch('fc_collection.adapters.PinnedHTTPS') as pinned:
+                        response = Mock(status=422)
+                        response.getheader.side_effect = lambda key, default=None: default
+                        response.info.return_value = HTTPMessage()
+                        response.read1.side_effect = [json.dumps({'errors': {'delivery': [
+                            'This delivery speed is not available right now. Choose fast delivery.',
+                        ]}}).encode(), b'']
+                        pinned.return_value.getresponse.return_value = response
+                        return http.fetch(source, template, timeout)
+                offer = native('pc' if template == 'quote_pc' else 'playstation')
+                if template == 'quote_fast':
+                    offer['delivery'] = 'fast'
+                return json.dumps(offer).encode()
+
+            transport = BudgetedTransport(coordinator, identity(), claimed, fetch, lambda: NOW)
+            body = collect_job(claimed, arab_adapter, transport, lambda: NOW)
+            self.assertEqual(body['status'], 'ok')
+            self.assertEqual(calls, ['warm', 'warm_en', 'quote', 'quote_fast', 'quote_pc'])
+            self.assertEqual(body['request_budget_used'], 5)
+            self.assertEqual(coordinator.submit_observation(identity(), body, NOW)['status'], 'accepted')
+
     def test_quantity_table_uses_one_lease_request_and_preserves_native_money_and_delivery(self):
         from fc_collection.adapters import RestrictedHTTP
         from fc_collection.contracts import ARAB_TABLE_SCOPE
@@ -121,7 +170,7 @@ class BidirectionalCollection(unittest.TestCase):
         def get(template):
             calls.append(template)
             if template == 'quote':
-                raise SourceUnavailable('arab_normal_delivery_unavailable')
+                raise ArabNormalDeliveryUnavailable()
             if template == 'warm':
                 return b''
             value = native('pc' if template == 'quote_pc' else 'playstation')

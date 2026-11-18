@@ -162,7 +162,7 @@ def arab_payload(payload, now, platform, *, console_delivery='normal'):
 
 
 def arab_adapter(task, transport):
-    from .adapters import ARAB_NORMAL_DELIVERY_UNAVAILABLE, SourceUnavailable, WarmLanguageRedirect
+    from .adapters import ArabNormalDeliveryUnavailable, SourceUnavailable, WarmLanguageRedirect
     requested = set(task['requested_platforms'])
     if not requested or requested - {'PS', 'XBOX', 'PC'} or task['region_scope'] != [21]:
         raise ValueError('arab_quote_scope_invalid')
@@ -189,8 +189,8 @@ def arab_adapter(task, transport):
             console_delivery = 'normal'
             try:
                 payload = transport.get(template)
-            except SourceUnavailable as exc:
-                if template != 'quote' or str(exc) != ARAB_NORMAL_DELIVERY_UNAVAILABLE:
+            except ArabNormalDeliveryUnavailable:
+                if template != 'quote':
                     raise
                 console_delivery = 'fast'
                 payload = transport.get('quote_fast')
