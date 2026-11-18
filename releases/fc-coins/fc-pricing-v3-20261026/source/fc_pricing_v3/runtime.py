@@ -1171,6 +1171,13 @@ def collect_curve_catalogues(evidence, platforms):
     return collected
 
 
+def _margin_band_discount_refresh(now):
+    from .cost_inputs_v6 import BEIJING
+
+    local = now.astimezone(BEIJING)
+    return local.hour == 0 and local.minute < 15
+
+
 def margin_band_round(now, schedule_hours, history=(), *, automatic=True, collection_failed=False,
                       evaluated_at=None):
     """Identify the Shanghai slot and its single next-hour retry."""
@@ -1181,9 +1188,8 @@ def margin_band_round(now, schedule_hours, history=(), *, automatic=True, collec
     starts = [hour.replace(hour=value) for value in schedule_hours]
     slot = max((value for value in starts if value <= hour), default=max(starts) - timedelta(days=1))
     slot_start = slot.isoformat()
-    checked = (evaluated_at or now).astimezone(BEIJING)
     if ((local.hour == 0 and (0 not in schedule_hours or local.minute < 15))
-            or (checked.hour == 0 and checked.minute < 15)):
+            or (evaluated_at is not None and _margin_band_discount_refresh(evaluated_at))):
         return dict(is_decision_round=False, slot_start=slot_start, retry=False)
     attempts = [row for row in history if row['decision_round']['slot_start'] == slot_start
                 and row['decision_round']['is_decision_round']]
@@ -1796,6 +1802,11 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
     if (plan and (inputs.get('plan_binding') or plan.get('smart_strategy_version') == MARKET_ANCHOR_VERSION)
             and inputs.get('plan_binding') != _curve_plan_binding(plan)):
         return dict(status='PROOF_INCOMPLETE', gaps=['pricing_curve_strategy_revision_changed'])
+    if temporary_protection and _margin_band_discount_refresh(now):
+        preference = (inputs.get('temporary_cost_protection') or {}).get('preference') or {}
+        audit = preference.get('margin_band') or {}
+        if (audit.get('decision_round') or {}).get('is_decision_round'):
+            return dict(status='PROOF_INCOMPLETE', gaps=['curve_margin_band_discount_refresh'])
     if not state:
         from .average_discount_v6 import MODEL
         if inputs.get('pricing_assumption') == MODEL:
@@ -2182,6 +2193,8 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
             if not audit:
                 data = frozen.get(platform) or {}
                 audit = (((data.get('temporary_cost_protection') or {}).get('preference') or {}).get('margin_band'))
+                if 'curve_margin_band_discount_refresh' in decisions[platform].get('gaps', ()):
+                    audit = None
             if audit:
                 decisions[platform]['selection'] = dict(selected, margin_band=audit)
             else:

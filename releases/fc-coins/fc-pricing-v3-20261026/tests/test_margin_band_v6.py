@@ -297,6 +297,56 @@ class MarginBandRuntime(unittest.TestCase):
         self.assertFalse(frozen['preference']['margin_band']['decision_round']['is_decision_round'])
         self.assertEqual(Decimal(frozen['final_anchors']['large']), Decimal('95'))
 
+    def test_frozen_economic_candidate_cannot_authorize_execution_during_midnight_refresh(self):
+        from datetime import datetime, timedelta, timezone
+        from unittest.mock import patch
+        from fc_pricing_v3 import runtime
+        from test_curve_runtime_v6 import CurveRuntime
+        from test_curve_strategy_v6 import fixture as curve_fixture
+
+        fixture = CurveRuntime()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        fixture.prepare()
+        plan = fixture.db.get('pricing_plans', 'plan')
+        selected = self.freeze(13, '80')['preference']
+        local = timezone(timedelta(hours=8))
+        started = datetime(2026, 11, 18, 23, 59, tzinfo=local)
+        now = started + timedelta(minutes=6)
+        hours = list(range(24))
+        selected['margin_band']['decision_round'] = runtime.margin_band_round(started, hours)
+        plan.update(mode='smart', write_protocol='fc27_curve_v6', smart_strategy_version='market-anchor-v1',
+                    activation_revision='fixture', resources=['base:PS'], parameters=self.margin_parameters(hours))
+        bundle = fixture.bundle
+        primary, _, _ = curve_fixture()
+        frozen = dict(plan_binding=runtime._curve_plan_binding(plan), primary_curve=primary,
+                      captured_at=started.isoformat(), valid_until=(started + timedelta(minutes=15)).isoformat(),
+                      temporary_cost_protection={'preference': selected})
+        candidate = dict(status='READY', before=bundle['before_action']['curves']['PS'],
+                         target=bundle['action']['curves']['PS'],
+                         proof=bundle['curve_proofs']['PS'], selection=selected,
+                         native_route=None, primary_before_hash=None)
+        with patch.object(runtime, '_curve_proof_inputs', return_value={'PS': frozen}), \
+             patch.object(fixture.db, 'curve_strategy_state', return_value={'present': True}), \
+             patch.object(runtime, '_prove_temporary_curve', return_value=candidate):
+            result = runtime.calculate_curve_cycle(fixture.db, {'run_id': 'across-midnight'}, plan,
+                                                   {'v3_operation_id': 'original'}, now)
+        self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
+        self.assertFalse(result['execution_authorized'])
+        self.assertNotIn('decision_receipt', result)
+        recorded = fixture.db.get('strategy_decisions', 'across-midnight')['curve_selection']['PS']['margin_band']
+        self.assertFalse(recorded['decision_round']['is_decision_round'])
+
+    def margin_parameters(self, hours):
+        from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
+
+        anchors = market_anchor_parameters()
+        for bands in anchors.values():
+            for terms in bands.values():
+                terms['p_low'] = '-.10'
+        return dict(market_anchor=anchors, margin_band=dict(
+            schedule_hours=hours, PS={'target': '.31'}, XBOX={'target': '.31'}, PC={'target': '.34'}))
+
     def test_missing_quotes_in_a_nondecision_round_do_not_release_a_floor_price(self):
         previous = dict(segments={'large': dict(normal='90', target='95', release_rounds=2)})
         frozen = self.freeze(15, '61.75', offers=False, previous=previous)
