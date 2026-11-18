@@ -75,6 +75,44 @@ class OverlayTest(unittest.TestCase):
     def prepare(self):
         return builder.prepare(ROOT, self.snapshot, self.output, COMMIT)
 
+    def test_email_only_refresh_keeps_route_ids_live_entries_and_baseline(self):
+        catalog_name = next(iter(self.old))
+        index, _ = self.old[catalog_name]
+        email = b'old published email policy'
+        index['entries'].append(row(builder.EMAIL, 'old-email', 'email.md', email))
+        write(self.snapshot / index['source_root'] / 'email.md', email)
+        raw = builder.encoded(index)
+        write(self.snapshot / catalog_name, raw)
+        route = self.policy['task_routes']['routes'][0]
+        route['entry_ids'].append(builder.EMAIL)
+        route['sha256'] = builder.sha(raw)
+        policy_raw = builder.encoded(self.policy)
+        write(self.snapshot / 'policy.json', policy_raw)
+        baseline = b'live production baseline'
+        write(self.snapshot / 'business-baseline.md', baseline)
+        for route in builder.routes(self.policy):
+            route['baseline_compatibility']['sha256'] = builder.sha(baseline)
+        policy_raw = builder.encoded(self.policy)
+        write(self.snapshot / 'policy.json', policy_raw)
+        protected = {builder.FS_RUNTIME_ROOT + p.relative_to(self.snapshot).as_posix(): builder.sha(p.read_bytes())
+                     for p in (self.snapshot / 'knowledge-releases').rglob('*') if p.is_file()}
+        protected[builder.BASELINE_TARGET] = builder.sha(baseline)
+        write(self.snapshot / 'preflight.json', builder.encoded(dict(captured_at='2026-11-18', protected=protected,
+              immutable_directories=[], runtime={u: {'ActiveState': 'active'} for u in
+                  ('fs-hermes-fc.service', 'fs-business-range.service')})))
+        manifest = builder.prepare(ROOT, self.snapshot, self.output, COMMIT, email_only=True)['manifest']
+        runtime = [r for r in manifest['files'] if r['candidate'].startswith('runtime/')]
+        self.assertEqual(len(runtime), 1)
+        self.assertEqual(runtime[0]['beforeSha256'], builder.sha(policy_raw))
+        final = json.loads((self.output / 'candidate' / runtime[0]['candidate']).read_bytes())
+        self.assertEqual([r.get('entry_ids') for r in builder.routes(final)],
+                         [r.get('entry_ids') for r in builder.routes(self.policy)])
+        updated = json.loads((self.output / 'candidate/artifact/index.json').read_bytes())
+        self.assertEqual([r for r in updated['entries'] if r['id'] != builder.EMAIL],
+                         [r for r in index['entries'] if r['id'] != builder.EMAIL])
+        email_row = next(r for r in updated['entries'] if r['id'] == builder.EMAIL)
+        self.assertIn(builder.EMAIL + '@old-email', email_row['supersedes'])
+
     def test_independent_catalogs_preserved_and_selected(self):
         result = self.prepare()
         self.assertEqual(result['catalog_count'], 3)

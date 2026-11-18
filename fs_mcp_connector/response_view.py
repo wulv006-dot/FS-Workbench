@@ -11,7 +11,10 @@ CONTEXT_FIELDS = ('normalisedScope', 'filters', 'system', 'currency', 'timezone'
                   'query', 'archive', 'period',
                   'snapshot_id', 'snapshotId', 'generated_at', 'generatedAt', 'observed_at',
                   'as_of', 'cursor', 'next_cursor', 'retryAfter', 'retry_after', 'stale',
-                  'live_non_snapshot', 'consistentPeriod', 'supplementStatus')
+                  'live_non_snapshot', 'consistentPeriod', 'supplementStatus',
+                  'scope', 'semantics', 'requested_scope', 'effective_scope', 'coverage_scope',
+                  'source_timezone', 'time_basis', 'order_profit_source', 'revisions', 'captured_at',
+                  'snapshot_sha256', 'next_offset', 'meta')
 
 
 def _size(value):

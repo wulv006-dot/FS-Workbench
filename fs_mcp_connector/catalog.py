@@ -56,6 +56,16 @@ def validate(arguments, schema):
         elif rule['type'] == 'boolean':
             if type(value) is not bool:
                 raise ValidationError('invalid_arguments')
+        elif rule['type'] == 'object':
+            validate(value, rule)
+        elif rule['type'] == 'array':
+            if not isinstance(value, list) or len(value) > rule['maxItems']:
+                raise ValidationError('invalid_arguments')
+            item_schema = {'properties': {'item': rule['items']}}
+            for item in value:
+                validate({'item': item}, item_schema)
+            if rule.get('uniqueItems') and any(item in value[:index] for index, item in enumerate(value)):
+                raise ValidationError('invalid_arguments')
         else:
             raise ValidationError('unsupported_schema')
         if 'enum' in rule and value not in rule['enum']:
@@ -98,18 +108,18 @@ class Catalog:
                     checked[key] = True
             return checked[key]
         for operation in self.operations.values():
+            if module is not None and operation['module'] != module:
+                continue
             if not allowed(operation['permission_path'], operation['method']):
                 continue
             visible.append({key: deepcopy(operation[key]) for key in ('name', 'module', 'description', 'input_schema', 'provenance', 'limits')})
         modules = {item['module'] for item in visible}
         coverage = [deepcopy(row) for row in self.document['coverage']
-                    if row['module'] in modules or row.get('permission_path')
-                    and allowed(row['permission_path'], 'GET')]
-        if module is not None:
-            if module not in modules | {row['module'] for row in coverage}:
-                raise ValidationError('invalid_module')
-            visible = [row for row in visible if row['module'] == module]
-            coverage = [row for row in coverage if row['module'] == module]
+                    if (module is None or row['module'] == module)
+                    and (row['module'] in modules or row.get('permission_path')
+                         and allowed(row['permission_path'], 'GET'))]
+        if module is not None and not (visible or coverage):
+            raise ValidationError('invalid_module')
         names = {item['name'] for item in visible}
         methods = deepcopy(self.document.get('data_methods', {}))
         if methods:

@@ -2,7 +2,7 @@
 
 日期：2026-11-09。当前用户范围：FS业务数据和调取方法，由当前AI自主分析；Hermes会话、代理及历史生成报告退出公开目录。部署与真实查询状态见 [LIVE-ACCEPTANCE.md](LIVE-ACCEPTANCE.md)，本轮目录变更须单独发布。
 
-当前目录实现113个业务读取操作、36个范围记录，精确路径、参数、源码来源与缺项以 `fs_mcp_connector/catalog.json` 为准。下表保留33项原导航的盘点事实；其中3项Hermes会话/报告导航按新范围明确排除，其余30项业务导航加6项非导航范围保留。逐项当前真实验收以独立证据为准，不把代码存在标为全量。[验收记录](ACCEPTANCE.md) 区分本地通过与真实入口。
+当前源码目录实现116个业务读取操作、36个范围记录，精确路径、参数、源码来源与缺项以 `fs_mcp_connector/catalog.json` 为准。下表保留33项原导航的盘点事实；其中3项Hermes会话/报告导航按新范围明确排除，其余30项业务导航加6项非导航范围保留。逐项当前真实验收以独立证据为准，不把代码存在标为全量。[验收记录](ACCEPTANCE.md) 区分本地通过与真实入口。
 
 下表从当前 main 的 `ui-system/modules/native/navigation.json` 提取全部工具入口，仅为导航事实，不证明接口或生产可用；不得将页面入口直接作为通用代理白名单。实施时逐项补充活动数据接口、参数合同、身份／权限、发布映射及真实读回。
 
@@ -12,7 +12,7 @@
 | 用户分析（user-analytics） | `/dashboard/users/` | 待接口及权限核验 |
 | FC27 SBC 上架工具（fc27-sbc） | `/dashboard/fc27-sbc/` | 待接口及权限核验 |
 | 渠道效果看板（channel-effects） | `/dashboard/channel-effects/` | 待接口及权限核验 |
-| 数据分析工具（data-analysis-tools） | `/dashboard/data-tools/` | 原`analytics.user_section`合同保持；订单用户邮箱导出专用UI/API已发布，未暴露为MCP/Hermes导出操作，见下文 |
+| 数据分析工具（data-analysis-tools） | `/dashboard/data-tools/` | 原`analytics.user_section`合同保持。连接器源码已登记订单用户邮箱的筛选目录与逐页读取，见下文 |
 | 数据看板（unified-business） | `/dashboard/analytics/?mode=business` | 待接口及权限核验 |
 | 项目工作任务台（tasks） | `/dashboard/tasks/` | 待接口及权限核验 |
 | FC27 金币控制台（coins） | `/dashboard/fc27-coins.html` | 待接口及权限核验 |
@@ -42,11 +42,11 @@
 | 营销系统（marketing） | `/dashboard/modules/marketing/` | 待接口及权限核验 |
 | SEO监控台（seo） | `/dashboard/analytics/seo/` | 待接口及权限核验 |
 
-## 订单用户邮箱导出增量边界（2026-11-11）
+## 订单用户邮箱筛选读取
 
-[现行合同](../../../knowledge/order-email-export.md)及[真实验收记录](../order-email-export-20261111.md)确认专用UI/API源码`158ddab93103695ef13917bbd5368bbbe5c7b179`、生产`nav-20261111T113950Z`。真实站点、多游戏、日期与其余可用筛选下只提`user_email`；`progress/status/cid/aid`四项固定置灰空值、不请求目录/不提交条件，沿Admin默认行为，操作人已移除。不称固定已支付/已完成或已证明的全部状态，不以旧付费投影覆盖新导出。
+[页面真实验收记录](../order-email-export-20261111.md)确认发布 `nav-20261112T092200Z` 已恢复可选的进度、状态、产品类型和逐游戏区服。空条件沿 Admin 默认行为，操作人已移除。连接器源码中的 `orders.email_options` 和 `orders.email_page` 使用原 `POST /dashboard/users/live-orders.json` 和固定的读取类型，继续由原服务核验登录身份和 private 权限。筛选目录返回按游戏区分的区服 ID，取数按单站点、单游戏及已选条件，每页最多20条，按原 `paytime`、最多28个上海自然日及滚动365日范围获取 `user_email`。
 
-每页20条、最多28日窗口、滚动近365日边界、原生`paytime`和逐游戏串行游标/完整覆盖保持；全部计划成功才交去重真XLSX，不交部分名单。此为页面链路的发布/验收证据，不是新MCP/Hermes工具注册或全量连接器验收。当前catalog数量保持，调用只用实际operation/schema；普通订单主站范围不替代专用多站点来源。默认全年全量等未验范围仍见专项记录。
+查询后沿原 `next_cursor` 和相同条件逐页读完，结果持续标记为实时非快照。多游戏查询逐个游戏执行，页面原有完整遍历、去重和 XLSX 下载继续由浏览器完成。上面的生产回执覆盖浏览器路径，连接器和真实角色验收单独记录。
 
 ## 不能遗漏的非导航数据
 

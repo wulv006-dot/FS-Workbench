@@ -359,8 +359,9 @@ class LearningCatalog(unittest.TestCase):
             self.assertEqual(rows[ident]['knowledge_updated_at'],expected_date)
             self.assertTrue(rows[ident]['supersedes'])
         mail = rows['fs.orders.email_export']
-        self.assertEqual(mail['revision'],'order-email-defaults-20261111')
-        self.assertEqual(mail['source']['sha256'],'c98f7900d4e2b0b690e29ae48ca1a0de91f599bacfdb46481b72b48581a61bd3')
+        self.assertEqual(mail['revision'],'order-email-all-games-20261118')
+        self.assertIn('fs.orders.email_export@order-email-defaults-20261111',mail['supersedes'])
+        self.assertEqual(mail['source']['sha256'],hashlib.sha256(lf(ROOT/'knowledge/order-email-export.md')).hexdigest())
         sha = hashlib.sha256(lf(ROOT/'knowledge/index.json')).hexdigest()
         selection = kc.select(ROOT,'knowledge/index.json',sha,['FS','FC27','reporting'],sorted(expected),preview=True)
         texts = {r['id']:r['content'] for r in selection['entries']}

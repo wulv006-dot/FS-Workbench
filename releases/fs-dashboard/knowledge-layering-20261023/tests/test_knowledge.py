@@ -74,7 +74,8 @@ class Knowledge(unittest.TestCase):
         result = kc.select(ROOT, 'knowledge/index.json', sha, ['FS'], ['fs.orders.email_export'], preview=True)
         self.assertEqual(result['status'], 'available_preview')
         text = result['entries'][0]['content']
-        for value in ('progress', 'status', 'cid', 'aid', '不提交四条件', '没有注册', '725'):
+        for value in ('progress', 'status', 'cid', 'options.servers_by_game', '省略 `aid`', '280', 'gid=0',
+                      'nav-20261118T075009Z', 'data-analysis-tools', 'orders.email_options', 'orders.email_page', 'orders.customer'):
             self.assertIn(value, text)
         self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FS'], ['fs.orders.email_export'])['status'], 'not_published')
 

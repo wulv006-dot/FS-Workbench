@@ -65,6 +65,32 @@ class ResponseViewTests(unittest.TestCase):
         page = present(result, data_path='/0/nested/rows')
         self.assertEqual(len(page['data']), 20)
 
+    def test_channel_facts_selection_preserves_effective_scope_and_basis(self):
+        context = {'requested_scope': {'site': 'all'}, 'effective_scope': {'site': '266'},
+                   'coverage_scope': {'site': '266'}, 'source_timezone': 'Asia/Shanghai',
+                   'time_basis': 'Admin paytime', 'order_profit_source': 'Order发货交易日',
+                   'revisions': {'attribution': 'fixture'}, 'captured_at': '2026-11-17T00:00:00Z'}
+        result = self.result({**context, 'channels': [{'sales': 123}]})
+        selected = present(result, data_path='/channels')
+        self.assertEqual(selected['data_context'][''], context)
+        self.assertEqual(selected['data'], [{'sales': 123}])
+
+    def test_sales_snapshot_continuation_is_distinct_from_display_paging(self):
+        context = {'snapshot_sha256': 'f' * 64, 'next_offset': 100, 'complete': False,
+                   'coverage': 'published_snapshot', 'meta': {'start': '2026-11-01'}}
+        snapshot = self.result({**context, 'rows': [{'amount_usd': 5}]})
+        page = present(snapshot, data_path='/rows')
+        self.assertEqual(page['data_context'][''], context)
+        self.assertTrue(page['response_view']['value_complete'])
+        self.assertIsNone(page['response_view']['next_offset'])
+
+    def test_live_order_rows_preserve_original_site_game_scope(self):
+        context = {'scope': {'site_id': '266', 'game_id': '1'}, 'semantics': 'live_non_snapshot',
+                   'period': {'start': '2026-11-01', 'end_exclusive': '2026-11-02'},
+                   'next_cursor': 'original-cursor'}
+        selected = present(self.result({**context, 'data': [{'order_id': '100'}]}), data_path='/data')
+        self.assertEqual(selected['data_context'][''], context)
+
     def test_json_pointer_escaping_and_false_null_values_remain_exact(self):
         result = self.result({'a/b': {'~key': [False, None, 0, '']}})
         for index, expected in enumerate((False, None, 0, '')):
