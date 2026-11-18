@@ -1,9 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import core from './funnel-core.cjs';
+import {CARNIVAL} from '../runtime/carnival.mjs';
+
+export const carnivalContext={
+ activityId:'mmoexp-carnival',name:'狂欢盛典 2026',url:'https://www.mmoexp.com/events/Carnival.html',
+ releaseId:'carnival-2026',configHash:'carnival-2026-v1',active:true,startsAt:CARNIVAL.starts_at,endsAt:CARNIVAL.ends_at,
+ games:[],checkout:'existing_main_cart',payment:'coupon_use_log',traffic:{status:'not_integrated'}
+};
 
 // Only public names and publication identifiers cross the report boundary.
 export function reportContext(publicDir,activity='mmoexp-seasonal'){
+ if(activity===carnivalContext.activityId)return carnivalContext;
  try{
   const p=JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8'));
   const fc=core.canonicalActivity(activity)==='fc27-season2';

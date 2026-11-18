@@ -4,6 +4,8 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  vm.runInNewContext(fs.readFileSync(path.join(app,'analytics-config.js'),'utf8'),box);
  const {makeStore}=await import('../analytics/store.mjs'),catalog=JSON.parse(fs.readFileSync(path.join(app,'catalog.json'))),store=makeStore(dir,catalog,box.window.FC_ANALYTICS_CONFIG.registry),state=store.read();
  state.registry=state.registry.map(a=>({...a,status:a.id.startsWith('fc27-')&&a.id!=='fc27-matchday'?'active':a.status}));
+ const carnivalRegistration=JSON.parse(fs.readFileSync(path.join(app,'analytics/activity-registry.json'),'utf8')).find(a=>a.id==='mmoexp-carnival');
+ state.registry.push(carnivalRegistration);
  state.registry.push({id:'mmoexp-seasonal',view:'seasonal',name:'Halloween Mystery Store',path:'/events/seasonal/',origin:'https://www.mmoexp.com',status:'active',type:'commerce',version:'20261030',windowHours:24,matches:[],startAt:'2026-10-26T16:00:00Z',endAt:'2026-11-03T04:59:59Z'});fs.writeFileSync(path.join(dir,'state.json'),JSON.stringify(state));
  const publicDir=path.join(dir,'public');fs.mkdirSync(publicDir);fs.writeFileSync(path.join(publicDir,'current.json'),JSON.stringify({release_id:'campaign-preview-16',config_hash:'a'.repeat(64),pages:[{page_id:'seasonal-vault',activity_id:'mmoexp-seasonal',active:true}],halloween:{status:'configured',starts_at:'2026-10-27T00:00:00+08:00',ends_at:'2026-11-02T23:59:59-05:00',games:[{admin_game_id:'1327',label:'FC27'},{admin_game_id:'456',label:'Diablo IV'},{admin_game_id:'891',label:'Aion2'},{admin_game_id:'1333',label:'MapleStory'}]},products:[{title:'Fixture Entropic Item',product_ref:{game_id:'456',model_id:'43038033',goods_id:'169752973'}}]}));
  fs.writeFileSync(path.join(dir,'posthog-secret.json'),JSON.stringify({key:'fixture-only'}));process.env.CAMPAIGN_DATA=dir;process.env.CAMPAIGN_PUBLIC_RELEASE_DIR=publicDir;
@@ -93,7 +95,47 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   await page.locator('#filters button[type=submit]').click();await page.waitForFunction(()=>document.querySelector('#metrics').lastElementChild.querySelector('strong').textContent==='$307.25');assert.equal(revenueRequests.at(-1).get('refresh'),'1');assert.equal(revenueRequests.at(-1).get('activity'),'fc27-season2');assert.equal(trafficRequests.at(-1).get('activity'),'fc27-season2','FC manual refresh must not read Halloween origin traffic');await page.waitForFunction(()=>document.querySelector('#basic-traffic-report .metric strong').textContent==='92');assert.equal(await page.locator('#statistics-scope').inputValue(),'custom','Explicit refresh uses current-window sources rather than old scheduled snapshot');
   await page.unroute('**/analytics/api/statistics-snapshot?**');await page.goto(base+'analytics/?scope=custom');await page.waitForFunction(()=>document.querySelector('#feedback').textContent.includes('查询结果时间'));
   let deniedReads=0;await page.route('**/analytics/api/report?**',r=>{deniedReads++;return r.fulfill({status:403,json:{status:'error',message:'fixture access denied'}});});await page.selectOption('#mode','live');await page.waitForFunction(()=>document.getElementById('feedback').textContent.includes('fixture access denied'));await page.evaluate(()=>window.__operatorCheck());await page.waitForTimeout(50);assert.equal(deniedReads,1,'Permission failures stop automatic polling');
+  await page.unroute('**/analytics/api/report?**');
+  let carnivalStarted=false,carnivalCoupons=0;
+  await page.route('**/analytics/api/statistics-snapshot?**',r=>{
+   if(new URL(r.request().url()).searchParams.get('activity')!=='mmoexp-carnival')return r.fallback();
+   const context={activityId:'mmoexp-carnival',startsAt:'2026-11-19T05:00:00Z',endsAt:'2026-12-02T05:00:00Z'};
+   return r.fulfill({json:{activityId:context.activityId,context,status:carnivalStarted?'available':'not_started',
+    window:{from:'2026-11-19',to:'2026-11-19'},nextScheduledAt:'2026-11-19T08:00:00Z',
+    sources:carnivalStarted?{behavior:{lastSuccess:{at:'2026-11-19T08:00:00Z',summary:{report:{carnival:{
+     steps:{visits:2,mysteryDraw:1},actions:{mystery:{mystery_draw:1}}}}}}}}:{}}});
+  });
+  await page.route('**/analytics/api/coupon-usage?**',r=>{
+   if(new URL(r.request().url()).searchParams.get('activity')!=='mmoexp-carnival')return r.fallback();
+   carnivalCoupons++;
+   const modules=['home','mystery','blackFriday','capsule'].map(module=>({module,issued_total:1,used_total:1,
+    used_orders:1,paid_orders:1,refunded_orders:0,paid_usd_minor:100,discount_usd_minor:20}));
+   return r.fulfill({json:{status:'available',coverage:{complete:true},modules}});
+  });
+  await page.addInitScript(()=>{Date.now=()=>Date.parse('2026-11-18T08:00:00Z');});
+  await page.goto(base+'analytics/?activity=mmoexp-carnival');
+  await page.waitForFunction(()=>document.querySelector('#statistics-schedule')?.textContent.includes('活动尚未开始'));
+  assert.equal(await page.locator('#activity').inputValue(),'mmoexp-carnival');
+  assert.equal(await page.locator('#activity option:checked').innerText(),'狂欢盛典 2026');
+  assert.equal(await page.locator('#funnel .step').count(),0);
+  assert.equal(carnivalCoupons,0);
+  assert.equal(await page.locator('#game-filter').isVisible(),false);
+  assert.equal(await page.locator('#platform').isVisible(),false);
+  assert.equal(await page.locator('#discount-revenue').isVisible(),false);
+  assert.match(await page.locator('#google-traffic-report').innerText(),/暂未接入/);
+  carnivalStarted=true;
+  await page.evaluate(()=>{Date.now=()=>Date.parse('2026-11-19T08:00:00Z');window.__operatorCheck();});
+  await page.waitForFunction(()=>document.querySelectorAll('#funnel .step').length===2);
+  await page.waitForFunction(()=>document.querySelectorAll('#coupon-usage tbody tr').length===4);
+  assert.deepEqual(await page.locator('#funnel .step strong').allTextContents(),['2','1']);
+  assert.match(await page.locator('#channels').innerText(),/神秘商店/);
+  assert.equal(carnivalCoupons,1);
+  for(const width of [1440,390])for(const theme of ['light','dark']){
+   await page.setViewportSize({width,height:950});
+   await page.evaluate(t=>document.documentElement.dataset.fsTheme=t,theme);
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Carnival view overflow '+width);
+  }
   state.registry=state.registry.map(a=>({...a,status:'draft'}));fs.writeFileSync(path.join(dir,'state.json'),JSON.stringify(state));const beforeEmpty=reportRequests.length;await page.reload();await page.waitForFunction(()=>document.getElementById('feedback').textContent.includes('暂无可查询的已上线活动'));assert.equal(reportRequests.length,beforeEmpty,'No API call is made when there is no eligible published activity');
-  assert.deepEqual(errors,[]);console.log('PASS operator dashboard: default published activity, production/test separation, readable names, game filter, empty/error states, 4 viewport/theme cases; isolated fixtures only');
+  assert.deepEqual(errors,[]);console.log('PASS operator dashboard: default published activity, production/test separation, readable names, game filter, empty/error states, Carnival blank/sparse/module states, viewport/theme cases; isolated fixtures only');
  }finally{await browser.close();await new Promise(r=>server.close(r));global.fetch=real;fs.rmSync(dir,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exit(1)});

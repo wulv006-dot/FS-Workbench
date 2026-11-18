@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from bridge import handle
 from campaign_backend.core import ContractError
-from campaign_backend.discount_revenue import FC_COUPON, read_coupon_usage, summarize_coupon_usage, coupon_record, query_window
+from campaign_backend.discount_revenue import CARNIVAL_COUPONS, FC_COUPON, read_coupon_usage, summarize_coupon_usage, coupon_record, query_window
 
 COUPON = dict(id=1395, site_id=266, game_id=1327, param_code='carnival_202611', title='FC27 Event 10% Coupon',
               fetch_qty=16, used_qty=4, limit_qty=0, days=7)
@@ -48,6 +48,54 @@ class Reader:
 
     def close(self):
         self.closed = True
+
+
+class CarnivalReader(Reader):
+    def detail(self, resource, object_id):
+        template = super().detail(resource, object_id)
+        return dict(template, id=int(object_id), game_id=0, fetch_qty=2, used_qty=1)
+
+    def pages(self, resource, filters, **kw):
+        rows = super().pages(resource, filters, **kw)
+        if resource == 'coupon_logs':
+            coupon_ids = next(value for field, _operator, value in filters if field == 'coupon_id').split(',')
+            return [row for row in rows if str(row['coupon_id']) in coupon_ids]
+        return rows
+
+
+class CarnivalCouponUsageTests(unittest.TestCase):
+    def setUp(self):
+        self.request = dict(action='coupon_usage', site_id='266', activity='mmoexp-carnival',
+                            **{'from': '2026-11-19', 'to': '2026-11-19'})
+
+    def test_groups_read_all_approved_templates_and_aggregate_refunds(self):
+        ids = (1399, 1401, 1435, 1443, 1499, 1513, 1515, 1501, 1511)
+        logs = [log('D%d' % cid, id=cid, coupon_id=cid, use_time='2026-11-19 14:00:00') for cid in ids]
+        reader = CarnivalReader(logs=logs, orders=[order('D%d' % cid, pay_status=2 if cid==1515 else 1) for cid in ids])
+        result = handle(self.request, reader_factory=lambda: reader)
+        self.assertTrue(reader.closed)
+        self.assertTrue(result['coverage']['complete'])
+        self.assertEqual(result['activity_id'], 'mmoexp-carnival')
+        counters = [(m['module'], m['issued_total'], m['paid_orders'], m['refunded_orders']) for m in result['modules']]
+        self.assertEqual(counters, [('home', 2, 1, 0), ('mystery', 36, 2, 0), ('blackFriday', 62, 4, 1), ('capsule', 12, 2, 0)])
+        expected = {str(cid) for ids in CARNIVAL_COUPONS.values() for cid in ids}
+        details = [call[2] for call in reader.calls if call[0] == 'detail']
+        self.assertEqual(set(details), expected)
+        self.assertEqual(len(details), 56)
+        self.assertNotIn('1395', details)
+        self.assertNotIn('1442', details)
+        self.assertNotIn('D1515', repr(result))
+        self.assertNotIn('member_id', repr(result))
+
+    def test_missing_group_rows_fail_the_whole_report(self):
+        class BrokenReader(CarnivalReader):
+            def pages(self, resource, filters, **kw):
+                if any('1501' in value for _, _, value in filters):
+                    raise ContractError('INCOMPLETE_PAGES')
+                return super().pages(resource, filters, **kw)
+
+        with self.assertRaisesRegex(ContractError, 'INCOMPLETE_PAGES'):
+            read_coupon_usage(BrokenReader(), self.request)
 
 
 class CouponUsageTests(unittest.TestCase):
