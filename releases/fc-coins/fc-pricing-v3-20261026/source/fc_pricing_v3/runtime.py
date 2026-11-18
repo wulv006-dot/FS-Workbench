@@ -2193,8 +2193,9 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
             if not audit:
                 data = frozen.get(platform) or {}
                 audit = (((data.get('temporary_cost_protection') or {}).get('preference') or {}).get('margin_band'))
-                if 'curve_margin_band_discount_refresh' in decisions[platform].get('gaps', ()):
-                    audit = None
+            if (audit and _margin_band_discount_refresh(now)
+                    and (audit.get('decision_round') or {}).get('is_decision_round')):
+                audit = None
             if audit:
                 decisions[platform]['selection'] = dict(selected, margin_band=audit)
             else:

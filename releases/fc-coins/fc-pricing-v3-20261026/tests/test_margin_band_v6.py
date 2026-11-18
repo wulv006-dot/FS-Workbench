@@ -312,7 +312,6 @@ class MarginBandRuntime(unittest.TestCase):
         selected = self.freeze(13, '80')['preference']
         local = timezone(timedelta(hours=8))
         started = datetime(2026, 11, 18, 23, 59, tzinfo=local)
-        now = started + timedelta(minutes=6)
         hours = list(range(24))
         selected['margin_band']['decision_round'] = runtime.margin_band_round(started, hours)
         plan.update(mode='smart', write_protocol='fc27_curve_v6', smart_strategy_version='market-anchor-v1',
@@ -329,13 +328,17 @@ class MarginBandRuntime(unittest.TestCase):
         with patch.object(runtime, '_curve_proof_inputs', return_value={'PS': frozen}), \
              patch.object(fixture.db, 'curve_strategy_state', return_value={'present': True}), \
              patch.object(runtime, '_prove_temporary_curve', return_value=candidate):
-            result = runtime.calculate_curve_cycle(fixture.db, {'run_id': 'across-midnight'}, plan,
-                                                   {'v3_operation_id': 'original'}, now)
-        self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
-        self.assertFalse(result['execution_authorized'])
-        self.assertNotIn('decision_receipt', result)
-        recorded = fixture.db.get('strategy_decisions', 'across-midnight')['curve_selection']['PS']['margin_band']
-        self.assertFalse(recorded['decision_round']['is_decision_round'])
+            for minutes in (6, 15):
+                with self.subTest(minutes_since_freeze=minutes):
+                    run_id = f'across-midnight-{minutes}'
+                    result = runtime.calculate_curve_cycle(fixture.db, {'run_id': run_id}, plan,
+                                                           {'v3_operation_id': 'original'},
+                                                           started + timedelta(minutes=minutes))
+                    self.assertEqual(result['status'], 'PROOF_INCOMPLETE')
+                    self.assertFalse(result['execution_authorized'])
+                    self.assertNotIn('decision_receipt', result)
+                    recorded = fixture.db.get('strategy_decisions', run_id)
+                    self.assertFalse(recorded['curve_selection']['PS']['margin_band']['decision_round']['is_decision_round'])
 
     def margin_parameters(self, hours):
         from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
