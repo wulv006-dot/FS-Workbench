@@ -201,15 +201,20 @@ test('internal test before the event: everything open and every claim uses the t
  await page.locator('#heroEarlyBtn').click();await page.locator('#couponClaimBtn').click();
  await page.waitForFunction(()=>document.getElementById('heroEarlyBtn').classList.contains('claimed'));
  assert.deepEqual(site.claims.at(-1),{slot:'carnival_test',coupon_id:1601});
- // Tier coupons are real money off: the capsule never opens for an internal test.
- site.spend=1000;await page.evaluate(()=>loadCapsule?.()).catch(()=>{});
- assert.equal(await page.locator('#drawBtn').isDisabled(),true);
- assert.match(await page.locator('#drawBtn').textContent(),/OPEN SOON/);
+ // The capsule opens for the internal test too (user, 11/18): tier claims use the real capsule slot.
+ site.spend=1000;await page.reload();
+ await page.locator('a[href="#gacha"]').first().click();
+ await page.waitForFunction(()=>!document.getElementById('drawBtn').disabled&&/DRAW 6/.test(document.getElementById('drawBtn').textContent));
+ await page.locator('#drawBtn').click();
+ await page.waitForFunction(()=>document.getElementById('modalMask').classList.contains('show'));
+ assert.deepEqual(capsuleClaims(site),[1501,1503,1505,1507,1509,1511]);
+ await page.evaluate(()=>document.getElementById('modalMask').classList.remove('show'));
  await page.locator('a[href="#flash"]').first().click();
  await page.waitForFunction(()=>document.querySelectorAll('#flashGrid [data-carnival-product]:not(:disabled)').length>0);
  await page.locator('#flashGrid [data-carnival-product]').first().click();
  await page.waitForSelector('#mysteryFlowMask.show [data-carnival-buy]');
- assert.deepEqual(site.claims.at(-1),{slot:'carnival_test',coupon_id:1601});
+ // Every claim outside the capsule still goes to the test coupon.
+ assert.deepEqual([...new Set(site.claims.filter(c=>c.slot!=='capsule').map(c=>c.slot+':'+c.coupon_id))],['carnival_test:1601']);
  assert.deepEqual(errors,[]);
 });
 
