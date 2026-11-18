@@ -6,30 +6,32 @@
   "entries": [
     {
       "id": "fs.orders.email_export",
-      "revision": "order-email-defaults-20261111",
+      "revision": "order-email-all-games-20261118",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "marketing"
       ],
-      "effective_at": "2026-11-11",
+      "effective_at": "2026-11-18",
       "owner": "吴律；订单邮箱功能负责人",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/order-email-export.md",
-        "sha256": "c98f7900d4e2b0b690e29ae48ca1a0de91f599bacfdb46481b72b48581a61bd3",
+        "sha256": "5762fff263882a3f80d3a886761bf18f88f0054f5a565183f9e132a57f6e2114",
         "hash_basis": "utf8_lf"
       },
-      "supersedes": [],
+      "supersedes": [
+        "fs.orders.email_export@order-email-defaults-20261111"
+      ],
       "provenance": [
         {
           "kind": "direct_user",
-          "date": "2026-11-11",
-          "decision": "四条件置灰省略及知识同步",
-          "runtime_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/999",
-          "acceptance_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/1000"
+          "date": "2026-11-18",
+          "decision": "全部游戏沿 Admin 原生 gid=0 单独查询，具体游戏沿原区服筛选",
+          "runtime_pr": "https://github.com/wulv006-dot/FS-Workbench/pull/1229",
+          "acceptance": "docs/planning/order-email-export-20261111.md"
         }
       ],
       "consumers": [

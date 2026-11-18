@@ -58,6 +58,23 @@ class ExtendedCatalogTests(unittest.TestCase):
                 self.assertEqual(limits['response_bytes'], 250000)
                 self.assertNotIn('Authorization', headers)
 
+    def test_email_filter_schemas_keep_original_bounds(self):
+        options = self.catalog.operation('orders.email_options')['input_schema']
+        validate({}, options)
+        validate({'game_ids': ['833', '1327'], 'progress': '0'}, options)
+        for games in (['833', '833'], [833], [str(game) for game in range(101)], '833'):
+            with self.subTest(games=games), self.assertRaises(ValidationError):
+                validate({'game_ids': games}, options)
+
+        page = self.catalog.operation('orders.email_page')['input_schema']
+        period = {'site_id': '266', 'game_id': '1327', 'start': '2026-11-11', 'end_exclusive': '2026-11-12'}
+        validate(period, page)
+        validate({**period, 'filters': {'progress': '0', 'status': '101', 'cid': '1', 'aid': '7645',
+                                        'discount_code': 'FC27', 'country': 'GB'}}, page)
+        for filters in ([], {'status': 101}, {'aid': '７６４５'}, {'admin_id': '1'}, {'content': '\x7f'}):
+            with self.subTest(filters=filters), self.assertRaises(ValidationError):
+                validate({**period, 'filters': filters}, page)
+
     def test_original_pagination_limits_and_schema_reject_overrides(self):
         for name, argument, maximum in [('mlb.tasks', 'limit', 300), ('rpg.history', None, None),
                                          ('madden.activity', 'limit', 500), ('deployment.log', 'limit', 500)]:

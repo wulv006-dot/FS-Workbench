@@ -705,6 +705,173 @@
       "date_contract": "live_orders"
     },
     {
+      "name": "orders.email_options",
+      "module": "data-analysis-tools",
+      "path": "/dashboard/users/live-orders.json",
+      "method": "POST",
+      "permission_path": "/dashboard/users/live-orders.json",
+      "description": "Read original private order-email filter directories. Call with no arguments for initial choices. Supply progress for its statuses and game_ids for product types and each concrete game's own server IDs. Game 0 means all games and has no server filter.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "progress": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{0,20}"
+          },
+          "game_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 20,
+              "pattern": "[0-9]{1,20}"
+            },
+            "maxItems": 100,
+            "uniqueItems": true
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "kind": "order_email_export_options"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 262144,
+        "timeout_seconds": 15
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/order-email-export-20261111/integration/prepare.py; releases/fs-dashboard/tiered-data-access-20261101/source/admin_email_export_source.py",
+        "mapping_status": "original_FS_UI_read_verified; connector_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/live-orders.json",
+        "route_observed_date": "2026-11-12"
+      }
+    },
+    {
+      "name": "orders.email_page",
+      "module": "data-analysis-tools",
+      "path": "/dashboard/users/live-orders.json",
+      "method": "POST",
+      "permission_path": "/dashboard/users/live-orders.json",
+      "description": "Read one authorized user_email results page for one site and game, by Admin paytime. Up to 28 Shanghai dates within 365 days and 20 rows per page. Game 0 selects all games for this site. Use aid only with a concrete game. Omit unused filters. Repeat the scope and filters with next_cursor. Results stay live and partial.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "game_id": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "end_exclusive": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "progress": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[0-9]{1,20}"
+              },
+              "status": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[0-9]{1,20}"
+              },
+              "cid": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[0-9]{1,20}"
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 320,
+                "pattern": "[^\\x00-\\x1f\\x7f]+"
+              },
+              "aid": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[0-9]{1,20}"
+              },
+              "recommend_uid": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[0-9]{1,20}"
+              },
+              "discount_code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 320,
+                "pattern": "[^\\x00-\\x1f\\x7f]+"
+              },
+              "promotion_id": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[0-9]{1,20}"
+              },
+              "pid": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[0-9]{1,20}"
+              },
+              "country": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 320,
+                "pattern": "[^\\x00-\\x1f\\x7f]+"
+              }
+            },
+            "additionalProperties": false
+          },
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        "required": [
+          "site_id",
+          "game_id",
+          "start",
+          "end_exclusive"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "kind": "order_email_export_page"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 262144,
+        "timeout_seconds": 10
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/order-email-export-20261111/integration/prepare.py; releases/fs-dashboard/tiered-data-access-20261101/source/admin_order_email_export.py",
+        "mapping_status": "original_FS_UI_read_verified; connector_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/live-orders.json",
+        "route_observed_date": "2026-11-12"
+      },
+      "date_contract": "live_orders"
+    },
+    {
       "name": "channels.facts",
       "module": "channel-effects",
       "path": "/dashboard/channel-effects/data.json",
@@ -4932,8 +5099,8 @@
     {
       "module": "data-analysis-tools",
       "status": "partially_mapped_not_live_verified",
-      "operations": 1,
-      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "operations": 3,
+      "reason": "Original customer aggregate plus private order-email filter and paged reads. The FS browser path was verified separately; connector and account-role acceptance remain pending.",
       "permission_path": "/dashboard/data-tools/"
     },
     {
@@ -5321,13 +5488,13 @@
       {
         "id": "monthly_data",
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "42b26f65a00e71a36f5943ccdf71690c3bee1b03a4b7046013ddb3ced37f8ec2",
+        "sha256": "1289bbb18b1230ab2195f2e67f6d6078ae49cb2ec9fbc28d1d1846293ca43f6a",
         "kind": "repository_method_reference_not_live_data"
       },
       {
         "id": "monthly_index",
         "path": "knowledge/reporting/fc27-monthly/README.md",
-        "sha256": "6e06c0fc201ea06a69ca2aacddc1658b3f038186dd0d5a4d016edc304d350fe8",
+        "sha256": "0855e1783eefd93d61a291d0cef28c536e95acd2f9f0c7a2a10ded37b2e39804",
         "kind": "repository_method_reference_not_live_data"
       },
       {

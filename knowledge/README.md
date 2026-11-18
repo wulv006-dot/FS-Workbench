@@ -1,6 +1,6 @@
 # 知识读取入口
 
-订单用户邮箱筛选/跨月多游戏/XLSX使用[现行知识源](order-email-export.md)（fs.orders.email_export）。当前四筛选置灰省略、Admin源默认，不恢复旧paid默认；UI/API已部署不代表Hermes/MCP注册了导出工具。
+订单用户邮箱筛选、跨月多游戏和 XLSX 下载见[订单邮箱导出](order-email-export.md)（`fs.orders.email_export`）。FS 页面提供订单进度、状态、产品类型和逐游戏区服。「全部游戏」使用 Admin 的 `gid=0`，区服筛选适用于具体游戏。连接器的现行操作以本人可见目录为准。
 
 当前知识版本与实际发布状态见各条目的原文及交付记录；FC报告知识的最新收口见[交付验收](reporting/fc27-monthly/DELIVERY.md)。历史首次发布或待验收状态不作为所有入口的当前状态。原生FS对话的知识读取、报告/定价任务的执行入口及自然周期分别核验，不能因一条入口通过就宣称全部已接通。
 

@@ -13,6 +13,7 @@ existing immutable D5 release names. It performs no publish or service action.
 The 100K revision also updates the existing parameter and learning rule entries.
 --fc-v61-reporting overlays the three report entries and the shared data-source
 section against their previous Git bodies, retaining the current V6 pricing entries.
+--email-only refreshes existing email entries and retains route selections and baseline.
 """
 import argparse
 import copy
@@ -172,13 +173,20 @@ def reporting_entry(identity, existing, template, previous, live_body, previous_
                 supersedes=list(dict.fromkeys(existing['supersedes'] + template['supersedes']))), data
 
 
-def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False, revision=None):
+def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False, revision=None, email_only=False):
     info = json.loads(bound(snapshot, 'preflight.json').read_bytes())
     if release in info['immutable_directories']:
         raise ValueError('shared_admin_es_release_already_exists_reconcile')
     baseline = bound(snapshot, 'business-baseline.md').read_bytes()
-    proof = json.loads(git_bytes(root, commit, BASELINE_SOURCE.replace('.md', '.provenance.json')))
     digest = sha(baseline)
+    units = {'fs-hermes-fc.service', 'fs-business-range.service'}
+    if info['runtime'] != {name: {'ActiveState': 'active'} for name in units}:
+        raise ValueError('shared_admin_es_active_services_required')
+    if email_only:
+        if digest != info['protected'][BASELINE_TARGET]:
+            raise ValueError('email_overlay_retained_baseline_hash')
+        return info, {'retained_source_sha256': digest}
+    proof = json.loads(git_bytes(root, commit, BASELINE_SOURCE.replace('.md', '.provenance.json')))
     candidate = git_bytes(root, commit, BASELINE_SOURCE)
     current_git = revision == FC_V61_MARKET_ANCHOR_REVISION and baseline == candidate
     retained = (digest == proof['after_sha256'] or current_git) and baseline == candidate
@@ -188,9 +196,6 @@ def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=Fa
             or proof['contract'] != 'fc-current-baseline-patch-v1' or proof['runtime_source'] != BASELINE_SOURCE
             or not re.fullmatch('[a-f0-9]{64}', proof['canonical_sha256'])):
         raise ValueError('shared_admin_es_retained_baseline_provenance_invalid')
-    units = {'fs-hermes-fc.service', 'fs-business-range.service'}
-    if info['runtime'] != {name: {'ActiveState': 'active'} for name in units}:
-        raise ValueError('shared_admin_es_active_services_required')
     if current_git:
         proof = dict(proof, retained_current_git=True, retained_source_commit=commit, retained_source_sha256=digest)
     return info, proof
@@ -223,11 +228,11 @@ def write_payloads(root, payloads):
         path.write_bytes(data)
 
 
-def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=False, fc_v61_reporting=False):
-    if sum((shared_admin_es, fc_v61, fc_v61_reporting)) > 1:
+def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=False, fc_v61_reporting=False, email_only=False):
+    if sum((shared_admin_es, fc_v61, fc_v61_reporting, email_only)) > 1:
         raise ValueError('one_knowledge_overlay_scope_required')
     fc_overlay = fc_v61 or fc_v61_reporting
-    preserve_routes = shared_admin_es or fc_overlay
+    preserve_routes = shared_admin_es or fc_overlay or email_only
     root, snapshot, output = Path(root).absolute(), Path(snapshot).absolute(), Path(output).absolute()
     if not re.fullmatch('[a-f0-9]{40}', commit):
         raise ValueError('full_source_commit_required')
@@ -242,6 +247,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         raise ValueError('exact_fc_v61_candidate_required')
     current = {}
     overlay_ids = FC_V61_OVERLAYS if fc_v61 else SHARED_OVERLAYS if shared_admin_es else OVERLAYS
+    if email_only:
+        overlay_ids = (EMAIL,)
     if fc_v61_reporting:
         overlay_ids = tuple(FC_V61_REPORTING_REVISIONS)
     if fc_v61 and any(r['id'] == 'fc.pricing.v3' and r['revision'] == FC_V61_100K_MARKET_REVISION
@@ -294,7 +301,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
             allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current,
-            revision=current['fc.pricing.v3']['revision'] if fc_v61 else None)
+            revision=current['fc.pricing.v3']['revision'] if fc_v61 else None, email_only=email_only)
         compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
             if not (fc_v61 and baseline_proof.get('retained_current_git') and all(
@@ -361,7 +368,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
             existing = [r for r in index['entries'] if r['id'] == identity and r['layer'] == 'current']
             if len(existing) > 1 or any(r['status'] != 'effective' for r in existing):
                 raise ValueError('snapshot_current_conflict:' + identity)
-            if fc_overlay and not existing:
+            if (fc_overlay or email_only) and not existing:
                 continue
             if shared_admin_es:
                 if not existing:
@@ -387,6 +394,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                     raise ValueError('canonical_source_changed:' + identity)
                 content = catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
                 overlay_root = 'overlay/'
+                if email_only:
+                    overlay_root += row['revision'] + '/'
                 if fc_v61 and row['revision'] in (FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION,
                                                    FC_V61_ADMIN_ONLY_REVISION, FC_V61_MARKET_ANCHOR_REVISION, FC_V61_WEEKLY_REVISION, FC_V61_INSURANCE_REVISION):
                     # Retain the preceding snapshot's source at its original path.
@@ -400,7 +409,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                                                 live_body, previous_bodies[identity], content)
                 else:
                     source.update(path=overlay_root + canonical_path, canonical_path=canonical_path)
-                if fc_overlay:
+                if fc_overlay or email_only:
                     shared_rows.append(dict(catalog=old_name, id=identity, previous_revision=existing[0]['revision'],
                                             previous_source_sha256=existing[0]['source']['sha256'],
                                             revision=row['revision'], source_sha256=row['source']['sha256']))
@@ -429,7 +438,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     payloads['runtime/knowledge-load-policy.json'] = encoded(policy)
     payloads['artifact/originals/policy.json'] = policy_raw
     baseline_patch = None
-    if (preserve_routes and not baseline_proof.get('retained_current_git')
+    if (preserve_routes and not email_only and not baseline_proof.get('retained_current_git')
             and baseline_proof['after_sha256'] != preflight['protected'][BASELINE_TARGET]):
         before_digest = preflight['protected'][BASELINE_TARGET]
         baseline_patch = dict(contract='fc-v61-current-baseline-patch-v1',
@@ -457,6 +466,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
             raise ValueError('shared_admin_es_overlay_inventory_invalid')
         if fc_overlay and {row['id'] for row in shared_rows} != set(overlay_ids):
             raise ValueError('fc_v61_existing_overlay_inventory_required')
+        if email_only and not shared_rows:
+            raise ValueError('email_overlay_existing_entry_required')
         policy_row = next(row for row in manifest['files'] if row['candidate'] == 'runtime/knowledge-load-policy.json')
         policy_row['beforeSha256'] = sha(policy_raw)
         manifest.update(imageId=PUBLISHER_IMAGE, runtimeRequired=preflight['runtime'],
@@ -501,8 +512,9 @@ if __name__ == '__main__':
     mode.add_argument('--shared-admin-es', action='store_true')
     mode.add_argument('--fc-v61', action='store_true')
     mode.add_argument('--fc-v61-reporting', action='store_true')
+    mode.add_argument('--email-only', action='store_true')
     args = parser.parse_args()
     print(json.dumps(prepare(ROOT, args.snapshot, args.output, args.commit,
                              shared_admin_es=args.shared_admin_es, fc_v61=args.fc_v61,
-                             fc_v61_reporting=args.fc_v61_reporting),
+                             fc_v61_reporting=args.fc_v61_reporting, email_only=args.email_only),
                      ensure_ascii=False, indent=2))

@@ -132,6 +132,17 @@ class BackendTests(unittest.TestCase):
             self.catalog.list(self.principal)
         self.assertEqual(self.calls, [])
 
+    def test_module_discovery_uses_only_requested_module_grants(self):
+        knowledge_gate = self.catalog.operation('knowledge.index')['permission_path']
+        self.catalog.authorize = lambda principal, path, method: 503 if path == knowledge_gate else 200
+
+        result = self.catalog.list(self.principal, module='unified-business')
+        self.assertIn('business.catalog', {row['name'] for row in result['operations']})
+        self.assertEqual({row['module'] for row in result['operations']}, {'unified-business'})
+        for module in (None, 'knowledge'):
+            with self.subTest(module=module), self.assertRaises(CatalogUnavailable):
+                self.catalog.list(self.principal, module=module)
+
     def test_sensitive_structured_fields_and_invalid_json_rejected(self):
         for raw in (b'{"csrf":"private"}', b'{"rows":[{"access_token":"private"}]}',
                     b'{"email":"fixture@example.test","password_hash":"private"}', b'<html>login</html>'):
