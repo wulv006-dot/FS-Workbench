@@ -348,14 +348,15 @@ class LearningCatalog(unittest.TestCase):
         self.assertEqual(rows['fs.data.sources']['revision'], '20261113-v61-reporting-sources')
         self.assertIn('fs.data.sources@fs-fc-admin-es-shared-20261113-r2',
                       rows['fs.data.sources']['supersedes'])
-        self.assertEqual(rows['fc.reporting.data']['revision'], 'fc_v61_d3_d1_es_ready_20261114')
+        self.assertEqual(rows['fc.reporting.data']['revision'], 'fc_v61_market_anchor_review_data_20261117')
         self.assertIn('fc.reporting.data@fs-fc-admin-es-shared-20261113-r4',
                       rows['fc.reporting.data']['supersedes'])
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r5'},
                          {'fc.marketing.attribution'})
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated-new-{'fs.learning.methods'})
         for ident in expected:
-            self.assertEqual(rows[ident]['knowledge_updated_at'],'2026-11-13')
+            expected_date = '2026-11-17' if ident == 'fc.reporting.data' else '2026-11-13'
+            self.assertEqual(rows[ident]['knowledge_updated_at'],expected_date)
             self.assertTrue(rows[ident]['supersedes'])
         mail = rows['fs.orders.email_export']
         self.assertEqual(mail['revision'],'order-email-defaults-20261111')
