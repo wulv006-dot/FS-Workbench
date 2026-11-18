@@ -69,7 +69,7 @@ class CollectionRelease(unittest.TestCase):
         text=(source/'fc_pricing_v3/sources.py').read_text(encoding='utf-8')
         self.assertIn("subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.sources']", text)
 
-    def test_collection_apply_and_rollback_restart_hook_is_noop(self):
+    def test_collection_and_arab_quote_apply_and_rollback_restart_hook_is_noop(self):
         tree=ast.parse((DEPLOY/'fc_v3_release_adapter.py').read_text(encoding='utf-8'))
         load=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
         restart=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='restart')
@@ -85,9 +85,12 @@ class CollectionRelease(unittest.TestCase):
         scope['CURVE_WEEKLY_SCOPE']=target_map.CURVE_WEEKLY_SCOPE
         scope['CURVE_REVIEW_SCOPE']=target_map.CURVE_REVIEW_SCOPE
         scope['CURVE_MARGIN_BAND_SCOPE']=target_map.CURVE_MARGIN_BAND_SCOPE
+        scope['CURVE_ARAB_QUOTE_SCOPE']=target_map.CURVE_ARAB_QUOTE_SCOPE
         exec(compile(ast.Module(body=[restart],type_ignores=[]),'collection-restart','exec'),scope)
-        for _ in range(2):
-            scope['restart'](dict(scope='collection'))
+        for kind in ('collection', target_map.CURVE_ARAB_QUOTE_SCOPE):
+            with self.subTest(scope=kind):
+                for _ in range(2):
+                    scope['restart'](dict(scope=kind))
         process.run.assert_not_called()
         ready.assert_not_called()
 
