@@ -508,15 +508,48 @@ const originalRefreshDraw=refreshDrawState;
 refreshDrawState=function(){
   originalRefreshDraw();
   const btn=document.getElementById('drawBtn');btn.disabled=true;delete btn.dataset.carnivalLogin;
-  const due=capsule.rows.filter(x=>tierDue(x.row)).length;
-  document.getElementById('mCost').innerHTML=say('My available draws','我的可抽次数')+` <strong>${due}</strong>`;
+  const due=capsule.rows.filter(x=>tierDue(x.row)).length,ready=unlockedDraws();
+  // Before draws open, the count is the milestones reached by spend and not yet claimed, so a
+  // member sees the draw their order earned; once open, it is what the main site says is claimable.
+  const open=!TEST&&capsule.state==='ready'&&phaseStatus(CONFIG.events.cm).k==='live',shown=open?due:ready;
+  document.getElementById('mCost').innerHTML=say('My available draws','我的可抽次数')+` <strong>${shown}</strong>`;
+  renderSpendProgress();
   if(account.state!=='signed_in'){btn.textContent=say('SIGN IN TO SEE YOUR SPEND','登录查看累计消费');btn.disabled=false;btn.dataset.carnivalLogin='1';return;}
-  if(TEST||capsule.state!=='ready'||phaseStatus(CONFIG.events.cm).k!=='live'){btn.textContent=say('CAPSULE DRAWS OPEN SOON','扭蛋抽奖即将开放');return;}
+  if(!open){
+    const soon=!TEST&&phaseStatus(CONFIG.events.cm).k==='soon';
+    btn.textContent=ready&&soon?say(`${ready} DRAW${ready>1?'S':''} READY · OPENS NOV 30`,`已解锁 ${ready} 次 · 11/30 开抽`):say('CAPSULE DRAWS OPEN SOON','扭蛋抽奖即将开放');
+    return;
+  }
   if(capsuleBusy){btn.textContent=t('mShaking');return;}
   if(due){btn.disabled=false;btn.textContent=due>1?say(`DRAW ${due} CAPSULES`,`抽取 ${due} 颗扭蛋`):t('draw');return;}
   const all=capsule.rows.length>0&&capsule.rows.every(x=>tierClaimed(x.row));
   btn.textContent=all?t('poolEmpty'):t('spendMore');
 };
+// Milestones reached by spend, less the tiers the main site already shows as claimed.
+function unlockedDraws(){
+  const spend=getVerifiedOrderTotal();if(!Number.isFinite(spend))return 0;
+  return CONFIG.gacha.thresholds.filter((v,i)=>spend>=v&&!capsule.rows.some(x=>x.tier===i&&tierClaimed(x.row))).length;
+}
+// One equal segment per milestone, each filling from the previous threshold to its own, so the
+// first $1 reads as a full segment instead of 0.1% of $1000.
+function renderSpendProgress(){
+  const bar=document.querySelector('.spendbar'),marks=document.getElementById('spendMarks');if(!bar||!marks)return;
+  const th=CONFIG.gacha.thresholds,spend=getVerifiedOrderTotal(),has=Number.isFinite(spend);
+  bar.classList.add('spendbar-seg');
+  bar.querySelectorAll('.seg').forEach(x=>x.remove());
+  bar.insertAdjacentHTML('beforeend',th.map((v,i)=>{
+    const lo=i?th[i-1]:0,p=has?Math.max(0,Math.min(1,(spend-lo)/(v-lo))):0;
+    return `<span class="seg${p>=1?' full':''}"><b style="width:${(p*100).toFixed(1)}%"></b></span>`;
+  }).join(''));
+  marks.innerHTML=th.map((v,i)=>{
+    const hit=has&&spend>=v,claimed=capsule.rows.some(x=>x.tier===i&&tierClaimed(x.row));
+    return `<span class="${hit?'hit':''}">$${v}${hit?`<small>${claimed?say('✓ Claimed','✓ 已领'):say('✓ Unlocked','✓ 已解锁')}</small>`:''}</span>`;
+  }).join('');
+  const next=document.getElementById('nextAt');if(!has||!next)return;
+  const nt=th.find(v=>spend<v);
+  next.innerHTML=nt===undefined?say(`All ${th.length} milestones unlocked! 🎉`,`${th.length} 个里程碑已全部解锁！🎉`)
+    :say(`Next draw at <b>$${nt}</b> · $${(nt-spend).toFixed(2)} to go`,`下一抽：累计达 <b>$${nt}</b> · 还差 $${(nt-spend).toFixed(2)}`);
+}
 function capsuleResult(won,failed){
   const amount=i=>(CONFIG.gacha.prizes[i]?.name.match(/\$[0-9]+/)||[''])[0]+' OFF';
   document.getElementById('mIcon').style.display=won.length?'none':'';

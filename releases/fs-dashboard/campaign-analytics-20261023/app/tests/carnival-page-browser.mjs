@@ -48,7 +48,7 @@ test('checkout now empties the cart, adds the claimed item and opens the cart wi
 
 test('capsule tiers follow the paid total the main site reports, and grow as it grows',async t=>{
  const {page,site,errors}=await open(t);
- const read=()=>page.evaluate(()=>({spend:document.getElementById('spendVal').textContent,hit:[...document.querySelectorAll('#spendMarks span.hit')].map(s=>s.textContent)}));
+ const read=()=>page.evaluate(()=>({spend:document.getElementById('spendVal').textContent,hit:[...document.querySelectorAll('#spendMarks span.hit')].map(s=>s.firstChild.textContent)}));
  // Each reload is a later visit after more paid orders; the tiers reached so far stay lit.
  for(const [spend,hit] of [[0,[]],[0.99,[]],[1,['$1']],[99.99,['$1']],[100,['$1','$100']],[520,['$1','$100','$300','$500']],[1000,['$1','$100','$300','$500','$800','$1000']],[1500,['$1','$100','$300','$500','$800','$1000']]]){
   site.spend=spend;await page.reload();
@@ -60,6 +60,21 @@ test('capsule tiers follow the paid total the main site reports, and grow as it 
 });
 
 const CM='2026-11-30T10:00:00-05:00';
+test('capsule: a $1.54 order before Nov 30 shows one draw ready and a full first segment',async t=>{
+ const {page,site,errors}=await open(t);
+ site.spend=1.54;await page.reload();
+ await page.waitForFunction(()=>/READY/.test(document.getElementById('drawBtn').textContent));
+ const v=await page.evaluate(()=>({
+  draws:document.querySelector('#mCost strong').textContent,
+  btn:document.getElementById('drawBtn').textContent,
+  disabled:document.getElementById('drawBtn').disabled,
+  segs:[...document.querySelectorAll('.spendbar .seg b')].map(b=>b.style.width),
+  mark:document.querySelector('#spendMarks span.hit small').textContent,
+  next:document.getElementById('nextAt').textContent}));
+ assert.deepEqual(v,{draws:'1',btn:'1 DRAW READY · OPENS NOV 30',disabled:true,segs:['100%','0.5%','0%','0%','0%','0%'],mark:'✓ Unlocked',next:'Next draw at $100 · $98.46 to go'});
+ assert.equal(capsuleClaims(site).length,0);
+ assert.deepEqual(errors,[]);
+});
 const capsuleClaims=site=>site.claims.filter(c=>c.slot==='capsule').map(c=>c.coupon_id);
 async function draw(page){
  await page.waitForFunction(()=>!document.getElementById('drawBtn').disabled);
