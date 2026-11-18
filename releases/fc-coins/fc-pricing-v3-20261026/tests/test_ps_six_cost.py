@@ -44,7 +44,7 @@ class SixCost(unittest.TestCase):
                     self.collector = load('six_cost_collector', SOURCE/'collect_p2pah_cost.py')
             self.snapshot = load('six_snapshot', SOURCE/'snapshot_layer.py')
         self.native_verifier = patch.object(self.collector, 'verified_delivery_cost',
-            side_effect=lambda _, row, __: {k: v for k, v in row.items() if k != 'order_delivery'})
+            side_effect=lambda _, row, __, **kwargs: {k: v for k, v in row.items() if k != 'order_delivery'})
         self.native_verifier.start()
         self.addCleanup(self.native_verifier.stop)
         self.now = datetime.now(timezone(timedelta(hours=8))) - timedelta(minutes=1)
@@ -101,6 +101,51 @@ class SixCost(unittest.TestCase):
             self.assertEqual(len(samples['records']), 7)
             self.assertEqual({row['platform'] for row in samples['records']}, {cost['platform']})
 
+    def test_v6_retries_slow_order_detail_in_the_same_complete_window(self):
+        self.native_verifier.stop()
+        rows, details = [], {}
+        for index, platform in enumerate(('PS', 'XBOX', 'PC')):
+            for i in range(6):
+                delivery_id, order_id = str(100+index*10+i), str(300+index*10+i)
+                rows.append(dict(self.raw(delivery_id, '.4', i, platform),
+                                 order_id=order_id, quantity='500', gift='0', cost_total='200'))
+                details[order_id] = dict(complete=True,
+                    goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty='500', used='500')],
+                    deliveries=[dict(id=delivery_id, pid='9', qty='500', gift='0', price='.4', total='200')])
+
+        slow_order = '300'
+        slow_attempts = []
+
+        def read_detail(_expression, request):
+            order_id, timeout_ms = request
+            if order_id == slow_order:
+                slow_attempts.append(timeout_ms)
+                if timeout_ms < 10000:
+                    return {'timed_out': True}
+            return details[order_id]
+
+        self.tab.evaluate = Mock(side_effect=read_detail)
+        result = self.run_collect([rows, []], curve_v6=True)
+        self.assertEqual(slow_attempts, [8000, 16000])
+        self.assertEqual(self.tab.evaluate.call_count, 19)
+        self.assertEqual(self.closed, 1)
+        for cost in result['costs']:
+            samples = cost['v6_delivery_samples']
+            self.assertTrue(samples['window_complete'])
+            self.assertEqual(len(samples['records']), 6)
+            self.assertEqual(Decimal(cost['cny_per_1k']), Decimal('.4'))
+
+        for response, reason, attempts in (
+            ({'timed_out': True}, 'cost_order_detail_timeout', [8000, 16000]),
+            (None, 'cost_order_detail_unavailable', [8000]),
+        ):
+            with self.subTest(reason=reason):
+                self.tab.evaluate = Mock(return_value=response)
+                with self.assertRaisesRegex(ValueError, reason):
+                    self.run_collect([rows, []], curve_v6=True)
+                self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list],
+                                 [[slow_order, timeout] for timeout in attempts])
+
     def test_sparse_ps_does_not_block_independent_v6_xbox_and_pc_costs(self):
         rows = [self.raw(1000+index*100+i, '.4', i, platform)
                 for index, platform in enumerate(('PS', 'XBOX', 'PC')) for i in range(4 if platform == 'PS' else 6)]
@@ -147,7 +192,7 @@ class SixCost(unittest.TestCase):
                 goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty=ordered,
                             used=ordered if i in (1, 4, 5) else quantity)],
                 deliveries=[dict(id=did, pid='9', qty=quantity, gift='0', price=cost, total=total)])
-        self.tab.evaluate = lambda expression, order: details[order]
+        self.tab.evaluate = lambda expression, request: details[request[0]]
         ps, xbox, pc = self.run_collect([rows, []])['costs']
         self.assertEqual(Decimal(ps['cny_per_1k']), Decimal('.4'))
         self.assertEqual(Decimal(xbox['observed_cost']['cny_per_1k']), Decimal('.42'))
@@ -198,7 +243,7 @@ class SixCost(unittest.TestCase):
         self.tab.evaluate = Mock(side_effect=[timeout, detail])
         verified = self.collector.verified_delivery_cost(self.tab, row, {})
         self.assertEqual(Decimal(verified['cny_per_1k']), Decimal('.4'))
-        self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list], ['300', '300'])
+        self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list], [['300', 8000], ['300', 8000]])
 
         self.tab.evaluate = Mock(return_value=timeout)
         cache = {}

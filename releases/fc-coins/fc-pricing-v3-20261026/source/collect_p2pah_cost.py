@@ -72,11 +72,11 @@ READ_ROWS = r"""() => ({
   }).filter(Boolean)
 })"""
 
-READ_ORDER = r"""async (orderId) => {
+READ_ORDER = r"""async ([orderId, timeoutMs]) => {
   let html;
   try {
     const response = await fetch(`/order/admin_order/look/id/${orderId}.html`, {
-      redirect: 'error', signal: AbortSignal.timeout(8000)
+      redirect: 'error', signal: AbortSignal.timeout(timeoutMs)
     });
     if (!response.ok) return null;
     html = await response.text();
@@ -144,14 +144,14 @@ def shipment_number(value):
     return number if number.is_finite() and number >= 0 else None
 
 
-def verified_delivery_cost(tab, record, order_cache):
+def verified_delivery_cost(tab, record, order_cache, *, retry_timeout_ms=8000):
     native = record['order_delivery']
     order_id = native['order_id']
     if not isinstance(order_id, str) or not re.fullmatch(r'\d+', order_id):
         return None
     if order_id not in order_cache:
-        for _ in range(2):
-            detail = tab.evaluate(READ_ORDER, order_id)
+        for timeout_ms in (8000, retry_timeout_ms):
+            detail = tab.evaluate(READ_ORDER, [order_id, timeout_ms])
             if detail is None:
                 raise ValueError('cost_order_detail_unavailable')
             if detail.get('timed_out') is not True:
@@ -349,7 +349,8 @@ def collect_v6_delivery_samples(tab, observations, order_cache, confirmed_costs=
             break
         verified = {p: [] for p in PLATFORMS}
         for _, record in sorted(deliveries.values(), key=lambda value: value[0], reverse=True):
-            normal = verified_delivery_cost(tab, record, order_cache)
+            # Allow a slow V6 detail read to finish in the existing retry and collector deadline.
+            normal = verified_delivery_cost(tab, record, order_cache, retry_timeout_ms=16000)
             if normal is not None:
                 verified[record['platform']].append(normal)
         result = {p: dict(records=rows, window_complete=True, history_complete=hours == 192)
