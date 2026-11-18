@@ -17,6 +17,18 @@ function page(request, data = [], total = data.length, next_cursor = null) {
     source_reported_total: total, observed_page_rows: data.length, data, next_cursor };
 }
 
+test('all games is one source call per window and accepts no server filter', async () => {
+  const {buildOrderEmailRequests} = await modulePromise;
+  const all = {...input(), game_ids: ['0'], filters: {progress: '10'}};
+  assert.deepEqual(buildOrderEmailRequests(all), [
+    {site_id: '266', game_id: '0', filters: {progress: '10'}, start: '2024-02-01', end_exclusive: '2024-02-08'},
+    {site_id: '266', game_id: '0', filters: {progress: '10'}, start: '2024-02-08', end_exclusive: '2024-02-09'},
+  ]);
+  assert.throws(() => buildOrderEmailRequests({...all, game_ids: ['0', '26']}), TypeError);
+  assert.throws(() => buildOrderEmailRequests({...all, filters: {aid: '99'}}), TypeError);
+  assert.throws(() => buildOrderEmailRequests({...all, server_ids: {'0': '99'}}), TypeError);
+});
+
 test('per-game servers expand locally without global leakage and preserve export metadata', async () => {
   const { OrderEmailRun, buildOrderEmailRequests } = await modulePromise;
   const selected = { ...input(), game_ids:['26','27','28'], filters:{country:'US'}, server_ids:{'26':'261','27':'271'} };

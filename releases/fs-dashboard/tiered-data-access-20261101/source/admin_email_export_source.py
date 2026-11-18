@@ -22,6 +22,14 @@ METADATA = {
     'countries': ('/admin/order.Order/getCountryList', ())}
 
 
+class EmailExportPage(AdminLivePage):
+    def matches_game(self, row_gid, requested_gid):
+        # Admin interprets the export directory's gid=0 as all games on the selected site.
+        if requested_gid == '0':
+            return row_gid.isascii() and row_gid.isdigit() and len(row_gid) <= 20
+        return super().matches_game(row_gid, requested_gid)
+
+
 def validate_filters(value):
     if not isinstance(value, dict) or set(value) - set(FILTERS):
         raise ValueError('unsupported_export_filters')
@@ -56,6 +64,8 @@ def build_handler(*, load_config, load_policy, rbac, authorize, fetch, run_sourc
         try:
             request = {k: v[0] for k, v in params.items() if k != 'filters'}
             request['filters'] = validate_filters(params.get('filters', [{}])[0])
+            if request['game_id'] == '0' and 'aid' in request['filters']:
+                raise ValueError('invalid_export_request')
             def grant(query):
                 config = load_config()
                 policy = rbac.validate(load_policy())
@@ -74,7 +84,7 @@ def build_handler(*, load_config, load_policy, rbac, authorize, fetch, run_sourc
                 return run_source(operation, timeout)
             page_request = {k: v for k, v in request.items() if k != 'filters'}
             page_request['fields'] = ['order_id', 'paid_at', 'status', 'customer_email']
-            result = AdminLivePage(fetch=bounded_fetch, authorize=grant, expected_grant=expected,
+            result = EmailExportPage(fetch=bounded_fetch, authorize=grant, expected_grant=expected,
                 page_size=20, max_bytes=1048576, timeout_seconds=10, observed_at=observed_at)(page_request)
             return 206, result
         except PermissionError:
@@ -222,6 +232,8 @@ def options_get(request, user, *, run_source=None, deps=None):
         servers, unavailable = None, {}
         try:
             for game in games:
+                if game == '0':
+                    continue
                 current = {o['value']: o for o in options(read('servers', {'gid': game}), prefix=False)}
                 if any(not value.isascii() or not value.isdigit() or len(value) > 20 for value in current):
                     raise RuntimeError('metadata_source_schema_changed')

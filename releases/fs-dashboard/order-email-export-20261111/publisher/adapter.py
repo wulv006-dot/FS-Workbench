@@ -17,10 +17,11 @@ TARGETS = {
     'formal.locations.conf': NGINX,
     'range_api.py': '/opt/fs-exact-range-20261001/range_api.py',
     **{name: '/opt/fs-hermes-fc/' + name for name in ('admin_order_email_export.py',
-        'admin_email_export_source.py', 'admin_email_export_worker.py')},
+        'admin_email_export_source.py', 'admin_email_export_worker.py', 'admin_live_page.py')},
     **{name: STATIC + name for name in ('page.js', 'data-workspace.js', 'order-email-panel.js',
                                        'order-email-run.js', 'order-email-csv.js', 'order-email-xlsx.js')},
 }
+LEGACY_TARGETS = TARGETS.keys() - {'admin_live_page.py'}
 PENDING = '/var/backups/fs-navigation-native-20261006/pending.json'
 PROTECTED = {
     '/opt/fs-hermes-fc/controller.py',
@@ -45,7 +46,8 @@ def contract(manifest):
     if not re.fullmatch(r'[a-f0-9]{40}', manifest.get('sourceCommit', '')):
         raise ValueError('exact source commit required')
     files = manifest.get('files', [])
-    if len(files) != len(TARGETS) or {r.get('candidate') for r in files} != set(TARGETS):
+    names = {r.get('candidate') for r in files}
+    if len(files) != len(names) or names not in (LEGACY_TARGETS, TARGETS.keys()):
         raise ValueError('exact email targets required; tools-index.html is not in this scope')
     for row in files:
         if set(row) != {'candidate', 'target', 'sha256', 'beforeSha256'}:
@@ -55,7 +57,7 @@ def contract(manifest):
         before = row['beforeSha256']
         if before is not None and not HASH.fullmatch(before):
             raise ValueError('invalid before CAS')
-        if row['candidate'] in ('formal.locations.conf', 'range_api.py', 'page.js', 'data-workspace.js') and before is None:
+        if row['candidate'] in ('formal.locations.conf', 'range_api.py', 'page.js', 'data-workspace.js', 'admin_live_page.py') and before is None:
             raise ValueError('existing source requires non-null CAS')
     protected = manifest.get('unchangedRequired', [])
     paths = [r.get('path') for r in protected]
@@ -96,9 +98,9 @@ def adapt(base):
         return files
 
     def guards(manifest, root):
-        contract(manifest)
+        files = contract(manifest)
         pending_guard(base, root)
-        for target in list(TARGETS.values()) + [r['path'] for r in manifest['unchangedRequired']]:
+        for target in [r['target'] for r in files] + [r['path'] for r in manifest['unchangedRequired']]:
             path = base.rooted(root, target)
             base.no_target_link(path)
             for item in (path, *path.parents):
@@ -168,10 +170,11 @@ def main():
     else:
         raw = args.manifest.read_bytes()
         manifest = json.loads(raw)
-        contract(manifest)
+        files = contract(manifest)
         if args.action == 'plan':
             base.validate(manifest, args.manifest.parent)
-            result = {'scope': SCOPE, 'mutations': False, 'manifestSha256': hashlib.sha256(raw).hexdigest(), 'targets': TARGETS}
+            result = {'scope': SCOPE, 'mutations': False, 'manifestSha256': hashlib.sha256(raw).hexdigest(),
+                      'targets': {row['candidate']: row['target'] for row in files}}
         elif args.action == 'inspect':
             result = base.inspect(manifest, args.manifest.parent)
         else:

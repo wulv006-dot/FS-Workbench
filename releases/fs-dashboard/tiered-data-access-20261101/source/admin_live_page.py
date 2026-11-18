@@ -43,6 +43,8 @@ class AdminLivePage:
   try:value=self.authorize(dict(request))
   except Exception:raise LivePageError('permission_denied') from None
   if value!=self.expected_grant:raise LivePageError('permission_denied')
+ def matches_game(self,row_gid,requested_gid):
+  return row_gid==requested_gid
  def __call__(self,request):
   if not isinstance(request,dict) or set(request)-{'site_id','game_id','start','end_exclusive','fields','cursor','customer_email'} or not {'site_id','game_id','start','end_exclusive','fields'}<=set(request):raise LivePageError('invalid_request')
   if any(not isinstance(request[k],str) or not request[k].isascii() or not request[k].isdigit() or len(request[k])>20 for k in ('site_id','game_id')):raise LivePageError('invalid_request')
@@ -96,7 +98,7 @@ class AdminLivePage:
    if len(rows)<self.page_size and (page-1)*self.page_size+len(rows)<total:raise LivePageError('source_changed')
    output=[];previous=None;current_digests=[]
    for row in rows:
-    if not isinstance(row,dict) or str(row['site_id'])!=request['site_id'] or str(row['gid'])!=request['game_id']:raise ValueError()
+    if not isinstance(row,dict) or str(row['site_id'])!=request['site_id'] or not self.matches_game(str(row['gid']),request['game_id']):raise ValueError()
     ident=str(row['id']);paid=row['paytime'];state=str(row['status'])
     if not ident.isascii() or not ident.isdigit() or len(ident)>20 or int(ident)<=0 or not isinstance(paid,str) or not state.isascii() or not state.isdigit() or not 1<=len(state)<=4:raise ValueError()
     digest=hmac.new(self.cursor_key,('order:'+ident).encode('ascii'),hashlib.sha256).digest()[:16]

@@ -25,7 +25,7 @@
 - 四个新 JS 通过复制现役精确静态路由获得原会话鉴权；不开放静态目录通配符，不新增公开邮箱接口。
 - `integration/package.py` 的 `build(sha, read_git, nginx_source)` 是纯组装，不验证 GitHub、不写包、不发布。调用者必须先取最新 main、核验同一完整 SHA 的必需 CI 成功，再由 `git show <sha>:<固定路径>` 提供全部输入；禁止用工作区字节伪称 main 包。
 
-## 原 writer 与精确十一目标
+## 原 writer 与精确发布目标
 
 `publisher/adapter.py` 只加载 SHA 固定的现役导航 writer：
 
@@ -33,7 +33,7 @@
 
 SHA256：`5548d9c8411eb5bb888672b0e58246bfd9043a5e519decb1f8407d2da9e71357`。
 
-十一目标为：range API、邮箱后端及专用 source/worker、既有 page/data-workspace、四个邮箱 JS、原 nginx include。精确路径由代码固定；清单需全部候选内容 SHA、现役 beforeSha256（新文件必须不存在）、五项不变保护文件与 range 服务状态。冻结的测试副本仅供离线验证，不替换现役 writer。
+现役十一目标为 range API、邮箱后端及专用 source/worker、既有 page/data-workspace、四个邮箱 JS 和原 nginx include。本次发布候选增加 `/opt/fs-hermes-fc/admin_live_page.py`，要求提交该文件现役 SHA 作为 `beforeSha256`，共十二个目标。适配器仍接受完整的旧十一目标清单及其回滚。清单须核对各候选内容 SHA、各现役 `beforeSha256`、五项保护哈希和 range 服务状态。冻结的测试副本仅供离线验证。
 
 保持原发布双锁、collector/provider 锁与 Hermes admission fence、每文件 CAS、持久 intent、备份、journal 与原失败恢复。只在原数据库锁释放流程后重启 range 服务；nginx 先语法检查再 reload。失败时由原 writer 在锁内恢复，UNKNOWN 不盲重发。没有通用 shell、HTTP 服务、新凭据或新端口。
 

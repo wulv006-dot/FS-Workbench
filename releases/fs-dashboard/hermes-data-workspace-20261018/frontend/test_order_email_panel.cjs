@@ -175,6 +175,29 @@ test('remote same-label servers stay per-game, reset on parents and expand befor
   h.widget.dispose();
 });
 
+test('all games replaces selected games and switching back restores concrete server choices', async () => {
+  const h = await setup('/test-only-export', true);
+  const options = {...metadata().options, games: [{value: '0', label: '0 | all'}, ...metadata().options.games]};
+  h.respond(0, {options}); await tick();
+  const checks = walk(h.root).filter(node => node.type === 'checkbox');
+  const selected = () => Array.from(h.fields.game_ids.selectedOptions, node => node.value);
+  checks[1].click();
+  h.respond(1, {options: {...options, servers_by_game: {'26': [{value:'261', label:'All Server'}]}}}); await tick();
+  checks[2].click();
+  h.respond(2, {options: {...options, servers_by_game: {'26': [], '27': []}}}); await tick();
+  checks[0].click();
+  assert.deepEqual(selected(), ['0']);
+  assert.deepEqual(JSON.parse(h.requests[3].options.body).game_ids, ['0']);
+  h.respond(3, {options: {...options, servers_by_game: {'0': [{value:'99', label:'Legacy'}]}}}); await tick();
+  assert.ok(text(h.root).includes('全部游戏'));
+  assert.equal(walk(h.root).some(node => node.name === 'aid_0'), false);
+  checks[1].click();
+  assert.deepEqual(selected(), ['26']); assert.equal(checks[0].checked, false);
+  h.respond(4, {options: {...options, servers_by_game: {'26': [{value:'261', label:'All Server'}]}}}); await tick();
+  assert.equal(walk(h.root).find(node => node.name === 'aid_26').value, '');
+  h.widget.dispose();
+});
+
 test('optional server mapping rejects unknown games, invalid IDs and ambiguous global aid', async () => {
   const {orderEmailRequest}=await modulePromise;
   for (const server_ids of [null,[],{'99':'1'},{'26':''},{'26':2},{'26':'bad'}])

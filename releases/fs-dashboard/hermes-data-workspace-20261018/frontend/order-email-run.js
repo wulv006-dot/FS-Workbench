@@ -35,6 +35,8 @@ export function buildOrderEmailRequests(input) {
   if (input.server_ids !== undefined) requireValid(object(input.server_ids) &&
     !Object.hasOwn(input.filters || {}, 'aid') && Object.entries(input.server_ids).every(([game, aid]) =>
       input.game_ids.includes(game) && id(aid)));
+  requireValid(!input.game_ids.includes('0') || (input.game_ids.length === 1 &&
+    !Object.hasOwn(input.filters || {}, 'aid') && !Object.hasOwn(input.server_ids || {}, '0')));
   const start = date(input.start), end = date(input.end_exclusive);
   requireValid(end > start && end - start <= 366 * DAY);
   const requests = [];

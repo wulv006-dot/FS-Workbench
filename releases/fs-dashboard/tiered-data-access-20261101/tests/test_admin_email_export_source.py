@@ -55,6 +55,30 @@ class ExportSourceTests(unittest.TestCase):
         self.assertEqual(fields, ['site_id', 'gid', 'paytime'])
         self.assertFalse(set(fields) & {'progress', 'status', 'cid', 'aid'})
 
+    def test_all_games_keeps_exact_site_and_binds_cursor_to_game_selection(self):
+        request = dict(self.request, game_id='0', filters={'progress': '10'})
+        status, result = self.call(request)
+        self.assertEqual(status, 206)
+        self.assertEqual(result['scope'], {'site_id': '267', 'game_id': '0'})
+        self.assertEqual(len(result['data']), 20)
+        fields = {value: self.calls[0][key.replace('[field]', '[val]')]
+                  for key, value in self.calls[0].items() if key.endswith('[field]')}
+        self.assertEqual((fields['site_id'], fields['gid'], fields['progress']), ('267', '0', '10'))
+        self.assertEqual(self.call(dict(request, filters={'aid': '5'}))[0], 422)
+        self.assertEqual(len(self.calls), 1)
+        cursor = result['next_cursor']
+        self.assertEqual(self.call(dict(request, game_id='2', cursor=cursor))[0], 422)
+        self.assertEqual(self.call(dict(request, cursor=cursor))[0], 206)
+        for site, game in ((266, 2), (267, None), (267, 'not-a-game')):
+            with self.subTest(site=site, game=game):
+                row = dict(id=1, site_id=site, gid=game, paytime='2026-10-01 12:00:00',
+                           status='11', email='Example@example.test')
+                fetch = lambda *args: (200, json.dumps(dict(code=1, data=dict(total=1, list=[row]))).encode())
+                handler = source.build_handler(**dict(self.deps, fetch=fetch),
+                                               run_source=lambda op, timeout: op(), observed_at=NOW)
+                status, result = handler({k: [v] for k, v in request.items()}, 'actor')
+                self.assertEqual((status, result), (503, {'error': 'source_schema_changed', 'complete': False}))
+
     def test_cursor_binds_every_filter_scope_actor_and_date(self):
         cursor = self.call()[1]['next_cursor']
         for key in source.FILTERS:
@@ -194,6 +218,13 @@ class ExportSourceTests(unittest.TestCase):
         self.assertEqual(options['country'], [{'value': 'United States', 'label': 'US | United States'}])
         self.assertEqual(options['games'][0], {'value': '2', 'label': '2 | Game'})
         self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries', 'progress', 'status', 'types', 'servers'})
+        calls.clear()
+        rows['games'].append({'id': 0, 'title': 'all'})
+        status, all_games = call({'game_ids': ['0']})
+        self.assertEqual(status, 200)
+        self.assertEqual(all_games['options']['servers_by_game'], {})
+        self.assertEqual(all_games['options']['aid'], [])
+        self.assertEqual({q['metadata'] for q in calls}, {'sites', 'games', 'countries', 'progress', 'types'})
         calls.clear()
         status, initial = call({})
         self.assertEqual(status, 200)
