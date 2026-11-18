@@ -334,8 +334,11 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         if revisions in ((builder.FC_V61_WEEKLY_REVISION,) * 2, (builder.FC_V61_INSURANCE_REVISION,) * 2):
             entries.append(row(builder.FC_V61_PARAMETER_ID, revisions[0], path, data))
             entries.append(row('fs.procurement.inputs', revisions[0], path, data))
-        if revisions == (builder.FC_V61_MARGIN_BAND_REVISION,) * 2:
-            entries = [row(identity, revisions[0], path, data) for identity in builder.FC_V61_MARGIN_BAND_IDS]
+        margin_band_scope = builder.FC_V61_MARGIN_BAND_SCOPES.get(revisions[0])
+        if margin_band_scope:
+            entries = [row(identity, revisions[0], path, data) for identity in margin_band_scope[0]]
+            if revisions[0] == builder.FC_V61_HOURLY_REVISION:
+                entries.append(row('fc.pricing.v3', builder.FC_V61_MARGIN_BAND_REVISION, path, data))
         self.git[COMMIT, 'knowledge/index.json'] = builder.encoded(dict(
             contract='fs-knowledge-index-v1', release=builder.FC_V61, release_state='candidate',
             source_commit=None, entries=entries))
@@ -369,6 +372,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assert_fc_revision_migration(builder.FC_V61_INSURANCE_REVISION,
                                           builder.FC_V61_MARGIN_BAND_REVISION, baseline_patch=True)
 
+    def test_hourly_margin_band_updates_only_constraints_and_parameter_identity(self):
+        self.assert_fc_revision_migration(builder.FC_V61_MARGIN_BAND_REVISION,
+                                          builder.FC_V61_HOURLY_REVISION, baseline_patch=True)
+
     def test_margin_band_refuses_to_overwrite_newer_live_reporting(self):
         self.assert_fc_revision_migration(builder.FC_V61_INSURANCE_REVISION,
                                           builder.FC_V61_MARGIN_BAND_REVISION, drift_reporting=True)
@@ -382,10 +389,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             overlay_ids.update((builder.FC_V61_PARAMETER_ID, builder.FC_V61_LEARNING_ID))
         if new_revision in (builder.FC_V61_WEEKLY_REVISION, builder.FC_V61_INSURANCE_REVISION):
             overlay_ids.update((builder.FC_V61_PARAMETER_ID, 'fs.procurement.inputs'))
-        margin_band = new_revision == builder.FC_V61_MARGIN_BAND_REVISION
-        if margin_band:
-            overlay_ids = set(builder.FC_V61_MARGIN_BAND_IDS)
-            base = builder.FC_V61_MARGIN_BAND_BASE
+        margin_band_scope = builder.FC_V61_MARGIN_BAND_SCOPES.get(new_revision)
+        if margin_band_scope:
+            ids, base = margin_band_scope
+            overlay_ids = set(ids)
             self.git[base, canonical_path] = old_data
             self.git[base, 'knowledge/index.json'] = builder.encoded(dict(
                 entries=[row(identity, old_revision, canonical_path, old_data) for identity in sorted(overlay_ids)]))
@@ -411,7 +418,7 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                     identity = 'fs.procurement.inputs'
                     entries.append(row(identity, old_revision, old_path, old_data))
                     route['entry_ids'].append(identity)
-                if margin_band:
+                if new_revision == builder.FC_V61_MARGIN_BAND_REVISION:
                     for identity in ('fc.reporting.business', 'fc.reporting.data'):
                         rev = 'newer-reporting' if drift_reporting else old_revision
                         updated = row(identity, rev, old_path, old_data)
@@ -463,6 +470,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             index = json.loads((artifact / slot).read_bytes())
             sources = artifact / index['source_root'].split(result['release'] + '/', 1)[1]
             self.assertEqual((sources / old_path).read_bytes(), old_data)
+            if new_revision == builder.FC_V61_HOURLY_REVISION:
+                method = next(r for r in index['entries'] if r['id'] == 'fc.pricing.v3')
+                self.assertEqual(method['revision'], old_revision)
+                self.assertEqual(method['source']['path'], old_path)
             selected = {r['id']: r for r in index['entries'] if r['id'] in overlay_ids}
             self.assertEqual(set(selected), set(old['entry_ids']) & overlay_ids)
             for identity, item in selected.items():

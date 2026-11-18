@@ -46,10 +46,11 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_margin_band_20261118')
+        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_margin_band_hourly_20261119')
         self.assertIn('合法单笔优惠仍可低毛利或亏损', v['entries'][0]['content'])
         for value in ('D-3 至 D-1','三个完整自然日','按金额加权','组合采购毛利率 18%',
                       '未启用 `margin_band` 的计划用 25%', 'PS/Xbox 31%、PC 34%',
+                      '可配 0–23 时', '默认 02、06、09、13、17、21', '00:00 至 00:15 前',
                       'cost_drop_unconfirmed'):
             self.assertIn(value,v['entries'][0]['content'])
         for value in ('PS、Xbox、PC','Lootbar','Arab-UT','U7Buy','ItemD2R 保留历史记录和独立查询能力','保留缺口，不补零'):

@@ -46,10 +46,17 @@ FC_V61_WEEKLY_REVISION = 'fc_v61_market_anchor_weekly_20261117'
 FC_V61_INSURANCE_REVISION = 'fc_v61_insurance_15_40_20261117'
 FC_V61_MARGIN_BAND_REVISION = 'fc_v61_margin_band_20261118'
 FC_V61_MARGIN_BAND_BASE = 'b12cb55f9dc346dfb27980d53028f79579891bb4'
+FC_V61_HOURLY_REVISION = 'fc_v61_margin_band_hourly_20261119'
+FC_V61_HOURLY_BASE = '27fe0962a8b51fcfb64a415603101ece8097dff8'
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
 FC_V61_LEARNING_ID = 'fs.learning.methods'
 FC_V61_MARGIN_BAND_IDS = (*FC_V61_OVERLAYS, FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID,
                           'fc.reporting.business', 'fc.reporting.data')
+FC_V61_HOURLY_IDS = (FC_V61_OVERLAYS[0], FC_V61_PARAMETER_ID)
+FC_V61_MARGIN_BAND_SCOPES = {
+    FC_V61_MARGIN_BAND_REVISION: (FC_V61_MARGIN_BAND_IDS, FC_V61_MARGIN_BAND_BASE),
+    FC_V61_HOURLY_REVISION: (FC_V61_HOURLY_IDS, FC_V61_HOURLY_BASE),
+}
 FC_V61_REPORTING_BASE_COMMIT = 'c51bb4f494523f19e6979cf5c85565dac94a4257'
 FC_V61_REPORTING_REVISIONS = {
     'fc.reporting.business': '20261113-v61-reporting-business',
@@ -261,11 +268,13 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     if fc_v61 and any(r['id'] == 'fc.pricing.v3' and r['revision'] in (FC_V61_WEEKLY_REVISION, FC_V61_INSURANCE_REVISION)
                       for r in canonical['entries']):
         overlay_ids = (*FC_V61_OVERLAYS, FC_V61_PARAMETER_ID, 'fs.procurement.inputs')
-    margin_band = fc_v61 and any(r['id'] == 'fc.pricing.v3' and r['revision'] == FC_V61_MARGIN_BAND_REVISION
-                                for r in canonical['entries'])
-    if margin_band:
-        overlay_ids = FC_V61_MARGIN_BAND_IDS
-        prior_index = json.loads(git_bytes(root, FC_V61_MARGIN_BAND_BASE, 'knowledge/index.json'))
+    constraints_revision = next((r['revision'] for r in canonical['entries']
+                                 if r['id'] == FC_V61_OVERLAYS[0] and r['layer'] == 'current'
+                                 and r['status'] == 'effective'), None)
+    margin_band_scope = FC_V61_MARGIN_BAND_SCOPES.get(constraints_revision) if fc_v61 else None
+    if margin_band_scope:
+        overlay_ids, prior_commit = margin_band_scope
+        prior_index = json.loads(git_bytes(root, prior_commit, 'knowledge/index.json'))
         margin_band_prior = {r['id']: r for r in prior_index['entries']
                              if r['id'] in overlay_ids and r['layer'] == 'current' and r['status'] == 'effective'}
         if set(margin_band_prior) != set(overlay_ids):
@@ -273,7 +282,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         prior_bodies = {}
         for identity, prior in margin_band_prior.items():
             source = prior['source']
-            data = normalized(git_bytes(root, FC_V61_MARGIN_BAND_BASE, source['path']), source)
+            data = normalized(git_bytes(root, prior_commit, source['path']), source)
             if sha(data) != source['sha256']:
                 raise ValueError('margin_band_prior_source_changed:' + identity)
             prior_bodies[identity] = catalog.extract(data.decode('utf-8-sig'), source.get('selector'))
@@ -283,18 +292,19 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         if len(found) != 1:
             raise ValueError('canonical_current_required:' + identity)
         current[identity] = found[0]
-    if fc_v61:
+    if margin_band_scope:
+        if any(row['revision'] != constraints_revision for row in current.values()):
+            raise ValueError('exact_margin_band_revisions_required')
+    elif fc_v61:
         revision, full_revision = (current[identity]['revision'] for identity in FC_V61_OVERLAYS)
         revisions = (FC_V61_DISCOUNT_REVISION, FC_V61_TWO_BAND_REVISION,
                      FC_V61_100K_MARKET_REVISION, FC_V61_ADMIN_ONLY_REVISION, FC_V61_MARKET_ANCHOR_REVISION,
-                     FC_V61_WEEKLY_REVISION, FC_V61_INSURANCE_REVISION, FC_V61_MARGIN_BAND_REVISION)
+                     FC_V61_WEEKLY_REVISION, FC_V61_INSURANCE_REVISION)
         if revision not in revisions or full_revision != revision:
             raise ValueError('exact_fc_v61_revision_required')
         if any(identity in current and current[identity]['revision'] != revision
                for identity in (FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID)):
             raise ValueError('exact_fc_v61_parameter_revision_required')
-        if margin_band and any(row['revision'] != revision for row in current.values()):
-            raise ValueError('exact_margin_band_revisions_required')
     if fc_v61_reporting:
         if {identity: row['revision'] for identity, row in current.items()} != FC_V61_REPORTING_REVISIONS:
             raise ValueError('exact_fc_v61_reporting_revisions_required')
@@ -324,7 +334,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
             allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current,
-            revision=current['fc.pricing.v3']['revision'] if fc_v61 else None, email_only=email_only)
+            revision=constraints_revision if fc_v61 else None, email_only=email_only)
         compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
             if not (fc_v61 and baseline_proof.get('retained_current_git') and all(
@@ -393,7 +403,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 raise ValueError('snapshot_current_conflict:' + identity)
             if (fc_overlay or email_only) and not existing:
                 continue
-            if margin_band:
+            if margin_band_scope:
                 live = existing[0]
                 source = live['source']
                 data = normalized(payloads['artifact/' + sources + source['path']], source)
@@ -426,10 +436,9 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 overlay_root = 'overlay/'
                 if email_only:
                     overlay_root += row['revision'] + '/'
-                if fc_v61 and row['revision'] in (FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION,
-                                                   FC_V61_ADMIN_ONLY_REVISION, FC_V61_MARKET_ANCHOR_REVISION,
-                                                   FC_V61_WEEKLY_REVISION, FC_V61_INSURANCE_REVISION,
-                                                   FC_V61_MARGIN_BAND_REVISION):
+                if fc_v61 and (margin_band_scope or row['revision'] in (
+                        FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION, FC_V61_ADMIN_ONLY_REVISION,
+                        FC_V61_MARKET_ANCHOR_REVISION, FC_V61_WEEKLY_REVISION, FC_V61_INSURANCE_REVISION)):
                     # Retain the preceding snapshot's source at its original path.
                     overlay_root += row['revision'] + '/'
                 if fc_v61_reporting:
