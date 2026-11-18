@@ -393,3 +393,13 @@
 - 代码回滚不放回 policy、公开配置、优惠码或派生价格缓存；数据与账本保留在原位置。
 - 不恢复退役 publisher，不整包覆盖线上目录，不改认证、经营看板或采集计划。
 - 每次发布的目标清单、基线哈希、备份路径与读回见原发布回执（`/var/tmp/fs-campaign-release*-candidate/apply-receipt.json`）。
+
+### 2026-11-18 nav-20261118T080236Z · 狂欢盛典 2026 活动分析
+
+- 来源为 PR #1230。基线 ded0767e5ec4a1f075f5bace5410dde3668944ca，最终提交 b32ed05aad7a1b6279638019d7b8d26335af8ff3，合并 628383bd3986818be10c8b85ebb325205a86e001。最终 pr-fast 通过，覆盖 FC、万圣节、Carnival 漏斗与空态、旧预览入口、券归因与分组。首轮预览入口回归已修复后重跑。
+- 发布到 187。候选目录 /var/tmp/fs-campaign-release90-carnival-analytics-candidate，manifest de3d5be07e03ac8343e8543f520bb4e094a75065e17e81ecb3c0f511aceb40c8。基线比对与 sourceCAS、protectedCAS 均通过。发生内容变化的 9 个文件为 app/analytics/{activity-registry.json,coupon-usage.mjs,dashboard.js,funnel-core.cjs,production-server.mjs,report-context.mjs,server.mjs,statistics-refresh.mjs} 和 backend/campaign_backend/discount_revenue.py。发布器依赖、线上活动种子配置与静态清单的内容保持一致。dashboard、runtime、nginx 和计划定时器均为 active。
+- 通过登录后的活动管理保存 mmoexp-carnival。生产 registry 从版本 11 到 12，刷新后确认名称「狂欢盛典 2026」、状态 active 和正式路径 /events/Carnival.html。既有活动登记和商品布局与版本 11 一致。北京时间 11 月 19 日 13:00 至 12 月 2 日 13:00 采用 Carnival 正式配置。开始前页面明确提示尚未开始，漏斗无数值，游戏、平台和优惠码面板隐藏，Google 流量提示暂未接入。
+- 漏斗各步按访问批次去重，模块操作按去重事件计数。神秘商店和黑五共用 buy_now，按该次访问中最近的成功商品券领取识别模块。buy_now 在确认加购并交接购物车时上报，付款按 Admin 用券订单另计。
+- 在 187 用已发布的只读 bridge 核对 11 月 19 日 UTC 窗口，Coupon、MemberCouponLog 和退款识别链路完整读取，56 张模板在首页、神秘商店、黑五、扭蛋四组返回 coverage.complete=true，耗时 10.86 秒。真实付费样本尚待验收。FC 1395 仍单独归因。本次验收未领券、加购或付款。
+- 待验收项为北京时间 11 月 19 日 13:00 开始后，测试访客自行同意统计并浏览正式活动页，随后对照 PostHog 与活动看板的首批正式事件及计划快照。发布日志仍为 applied-awaiting-actual-http-role-acceptance，本记录已核登录看板的开始前状态。万圣节活动码付款来源在发布前已报 ACTIVITY_CODE_IDENTITY_MISMATCH，本次保留原口径。
+- 回退依据为 /var/backups/fs-navigation-20261006/nav-20261118T080236Z。登记历史由原 store 保存在 history/11.json。若需撤回登记，通过活动管理调整状态。
