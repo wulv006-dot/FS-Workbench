@@ -1499,21 +1499,21 @@
     },
     {
       "id": "fc.reporting.data",
-      "revision": "fc_v61_d3_d1_es_ready_20261114",
+      "revision": "fc_v61_market_anchor_review_data_20261117",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-14",
+      "effective_at": "2026-11-17",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "f2541f11335181c051b0636233d6ca124ce162eb47784382713131f48634cbb2",
+        "sha256": "1289bbb18b1230ab2195f2e67f6d6078ae49cb2ec9fbc28d1d1846293ca43f6a",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1527,7 +1527,8 @@
         "fc.reporting.data@fs-fc-admin-es-shared-20261113-r1",
         "fc.reporting.data@fs-fc-admin-es-shared-20261113-r2",
         "fc.reporting.data@fs-fc-admin-es-shared-20261113-r3",
-        "fc.reporting.data@fs-fc-admin-es-shared-20261113-r4"
+        "fc.reporting.data@fs-fc-admin-es-shared-20261113-r4",
+        "fc.reporting.data@fc_v61_d3_d1_es_ready_20261114"
       ],
       "provenance": [
         {
@@ -1607,13 +1608,24 @@
           "kind": "direct_user_archive_priority_and_recent_discount",
           "date": "2026-11-14",
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md"
+        },
+        {
+          "kind": "direct_user_market_anchor_and_short_long_acceptance",
+          "date": "2026-11-17",
+          "decision": "docs/planning/fc-pricing-market-anchor-20261117/CONSTRUCTION.md",
+          "scope": "Stage-aware effect review; active plan revision, not legacy A/B/C labels or shadow output, determines the current pricing regime"
+        },
+        {
+          "kind": "direct_user_customer_mark_and_cost_anomaly_review",
+          "date": "2026-11-17",
+          "scope": "Unmarked customers are excluded from new/returning counts without a 90% hard gate; suspected shipment-quantity entry errors are checked before interpreting extreme negative margin"
         }
       ],
       "consumers": [
         "Codex",
         "Hermes after original review and target-profile readback"
       ],
-      "knowledge_updated_at": "2026-11-13"
+      "knowledge_updated_at": "2026-11-17"
     },
     {
       "id": "fc.reporting.report",
@@ -1653,21 +1665,21 @@
     },
     {
       "id": "fc.reporting.business",
-      "revision": "fc_v61_temporary_cost_protection_20261114",
+      "revision": "fc_v61_market_anchor_review_business_20261117",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-14",
+      "effective_at": "2026-11-17",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/BUSINESS.md",
-        "sha256": "7a698a6056bebbdd5a4b3e1b5a07efe860f355c2f8b98040e31b5ff0cbabb4ea",
+        "sha256": "2d1494d499201ea8d8809a0629c5c3c6a955c8809c4d97b562b75d84d72be8c3",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1676,7 +1688,8 @@
         "fc.reporting.business@20261106-current",
         "fc.reporting.business@20261106-clean",
         "fc.reporting.business@20261110-three-platform-100k",
-        "fc.reporting.business@fc_v61_d3_d1_es_ready_20261114"
+        "fc.reporting.business@fc_v61_d3_d1_es_ready_20261114",
+        "fc.reporting.business@fc_v61_temporary_cost_protection_20261114"
       ],
       "provenance": [
         {
@@ -1714,13 +1727,24 @@
           "kind": "direct_user_archive_priority_and_recent_discount",
           "date": "2026-11-14",
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md"
+        },
+        {
+          "kind": "direct_user_market_anchor_and_review_method_update",
+          "date": "2026-11-17",
+          "decision": "docs/planning/fc-pricing-market-anchor-20261117/CONSTRUCTION.md",
+          "scope": "Use actual plan revision to distinguish legacy trials from market-anchor operation; keep confirmed decisions separate from deployment and long-term effectiveness"
+        },
+        {
+          "kind": "direct_user_customer_mark_and_cost_anomaly_review",
+          "date": "2026-11-17",
+          "scope": "Report customer-mark coverage without a 90% hard gate and verify shipment quantity against sale and cost before calling extreme negative margin a realized loss"
         }
       ],
       "consumers": [
         "Codex",
         "Hermes after original review and target-profile readback"
       ],
-      "knowledge_updated_at": "2026-11-13"
+      "knowledge_updated_at": "2026-11-17"
     },
     {
       "id": "fc.reporting.maintenance",
