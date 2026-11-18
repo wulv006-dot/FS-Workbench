@@ -22,6 +22,7 @@ from target_map import CURVE_AVERAGE_SCOPE, CURVE_AVERAGE_NEW, curve_average_tar
 from target_map import CURVE_INSURANCE_SCOPE, curve_insurance_targets
 from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEKLY_NEW, curve_weekly_targets
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
+from target_map import CURVE_MARGIN_BAND_SCOPE, curve_margin_band_targets
 from target_map import CURVE_REVIEW_SCOPE, curve_review_targets
 from target_map import CURVE_STABILITY_SCOPE, curve_stability_targets
 
@@ -54,6 +55,7 @@ SHADOW_TARGETS = {name: TARGETS[name] for name in SHADOW_NAMES}
 OPERATING_TARGETS={name:TARGETS[name] for name in OPERATING_NAMES}
 COLLECTION_TARGETS={name:TARGETS[name] for name in COLLECTION_NAMES}
 SCOPED_TARGETS = {
+    CURVE_MARGIN_BAND_SCOPE: {'source/' + name: path for name, path in curve_margin_band_targets(SOURCE).items()},
     CURVE_REVIEW_SCOPE: {'source/' + name: path for name, path in curve_review_targets(SOURCE).items()},
     CURVE_WEEKLY_SCOPE: {'source/' + name: path for name, path in curve_weekly_targets(SOURCE).items()},
     CURVE_MARKET_SCOPE: {'source/' + name: path for name, path in curve_market_targets(SOURCE).items()},
@@ -266,7 +268,7 @@ def checked_manifest(value):
         raise ValueError('code_release_does_not_change_business_or_timer_state')
     if value.get('releaseReady') is not True:
         raise ValueError('reviewed_code_release_required')
-    if scope in (CURVE_V6_SCOPE, CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE, CURVE_MARKET_SCOPE, CURVE_WEEKLY_SCOPE, CURVE_REVIEW_SCOPE):
+    if scope in (CURVE_V6_SCOPE, CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE, CURVE_MARKET_SCOPE, CURVE_WEEKLY_SCOPE, CURVE_REVIEW_SCOPE, CURVE_MARGIN_BAND_SCOPE):
         if any(row['mode'] != '0o755' for row in rows if row['candidate'] in CURVE_V6_EXECUTABLES):
             raise ValueError('curve_v6_collectors_must_be_executable')
         by_name = {row['candidate']: row['sha256'] for row in rows}
@@ -415,7 +417,7 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
-        if manifest.get('scope') in (CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE, CURVE_MARKET_SCOPE, CURVE_WEEKLY_SCOPE, CURVE_REVIEW_SCOPE):
+        if manifest.get('scope') in (CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE, CURVE_MARKET_SCOPE, CURVE_WEEKLY_SCOPE, CURVE_REVIEW_SCOPE, CURVE_MARGIN_BAND_SCOPE):
             for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service', 'fc-pricing-v3.service'):
                 subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)
                 subprocess.run(['systemctl', 'is-active', '--quiet', name], check=True, timeout=10)

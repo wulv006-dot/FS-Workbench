@@ -83,6 +83,74 @@ class CurveV6Release(unittest.TestCase):
         self.assertNotIn('coin_all_sync_job.py', mapping)
         self.assertNotIn('fc_pricing_v3/scheduler.py', mapping)
 
+    def test_margin_band_stage_updates_the_exact_existing_targets_with_paired_hashes(self):
+        modules = ('api.py', 'average_discount_v6.py', 'curve_strategy_v6.py', 'ledger.py',
+                   'runtime.py', 'weekly_ladder.py')
+        expected = {'source/fc-pricing-v3.js': '/var/www/dashboard/fc-pricing-v3.js'}
+        for name in modules:
+            expected['source/fc_pricing_v3/' + name] = '/opt/fc27-cloud-browser/fc_pricing_v3/' + name
+            expected['source/hermes-copy/fc_pricing_v3/' + name] = '/opt/fs-hermes-fc/fc_pricing_v3/' + name
+        scope = target_map.CURVE_MARGIN_BAND_SCOPE
+        self.assertEqual(adapter.SCOPED_TARGETS[scope], expected)
+        with tempfile.TemporaryDirectory() as folder:
+            stage = Path(folder) / 'stage'
+            deploy = stage / 'deploy'
+            deploy.mkdir(parents=True)
+            output = Path(folder) / 'margin-band.tar.gz'
+            with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']), \
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, commit: path.read_bytes()):
+                result = build_stage.build(ROOT, output, curve_margin_band=True)
+            self.assertEqual(result['targets'], 13)
+
+            prefix = 'fc-pricing-v3-20261026/'
+            live_mapping = {}
+            live_sha = hashlib.sha256(b'existing stage 4 bytes').hexdigest()
+            with tarfile.open(output) as bundle:
+                raw_provenance = bundle.extractfile(prefix + 'source-manifest.json').read()
+                provenance = json.loads(raw_provenance)
+                self.assertEqual(provenance['scope'], scope)
+                self.assertEqual(set(provenance['files']), set(expected))
+                (stage / 'source-manifest.json').write_bytes(raw_provenance)
+                for index, name in enumerate(expected):
+                    payload = bundle.extractfile(prefix + 'candidate/' + name).read()
+                    candidate = stage / 'candidate' / name
+                    candidate.parent.mkdir(parents=True, exist_ok=True)
+                    candidate.write_bytes(payload)
+                    live = stage / 'live' / str(index)
+                    live.parent.mkdir(exist_ok=True)
+                    live.write_bytes(b'existing stage 4 bytes')
+                    live_mapping[name.removeprefix('source/')] = str(live)
+
+            def inspect(manifest, candidate_stage):
+                self.assertEqual(candidate_stage, stage)
+                self.assertEqual({row['beforeSha256'] for row in manifest['files']}, {live_sha})
+                rows = [dict(row, target=expected[row['candidate']]) for row in manifest['files']]
+                value = dict(manifest, files=rows)
+                self.assertIs(adapter.checked_manifest(value), value)
+                runtime_mirror = next(row for row in rows if row['candidate'].endswith('hermes-copy/fc_pricing_v3/runtime.py'))
+                runtime_mirror['sha256'] = 'c' * 64
+                with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):
+                    adapter.checked_manifest(value)
+                runtime_mirror['sha256'] = provenance['files'][runtime_mirror['candidate']]
+                runtime_mirror['beforeSha256'] = None
+                with self.assertRaisesRegex(ValueError, 'new_existing_target_boundary_changed'):
+                    adapter.checked_manifest(value)
+                return {'verified': True}
+
+            frozen = SimpleNamespace(HERMES_TARGETS={}, HERMES_CAPABILITY_TARGETS={},
+                                     CAP_PROTECTED_SESSION=set(), HERMES_DIRECT_TARGETS={})
+            regular, sha = prepare.regular, prepare.sha
+            with patch.object(prepare, 'STAGE', stage), patch.object(prepare, 'HERE', deploy), \
+                 patch.object(prepare, 'curve_margin_band_targets', return_value=live_mapping), \
+                 patch.object(prepare, 'regular', side_effect=lambda path, **kw: regular(path, **kw) if stage in path.parents else None), \
+                 patch.object(prepare, 'sha', side_effect=lambda path: sha(path) if stage in path.parents else 'e' * 64), \
+                 patch.object(prepare, 'stat', SimpleNamespace(S_IMODE=lambda _: 0o644)), \
+                 patch.object(prepare, 'load_base', return_value=frozen), \
+                 patch.object(prepare.subprocess, 'check_output', return_value='ActiveState=active'), \
+                 patch.object(adapter, 'load_base', return_value=SimpleNamespace(inspect=inspect)):
+                result = prepare.prepare(curve_margin_band=True)
+            self.assertEqual((result['files'], result['existing'], result['new']), (13, 13, 0))
+
     def test_stability_release_contains_only_cost_pipeline_and_two_paired_modules(self):
         mapping = target_map.curve_stability_targets(SOURCE)
         self.assertEqual(len(mapping), 8)

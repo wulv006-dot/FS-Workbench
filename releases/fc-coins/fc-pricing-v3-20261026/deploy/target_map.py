@@ -44,6 +44,8 @@ CURVE_STABILITY_SCOPE = 'fc-pricing-v6-stability-20261117'
 CURVE_STABILITY_TARGET_COUNT = 8
 CURVE_MARKET_SCOPE = 'fc-pricing-v6-market-anchor-20261117'
 CURVE_MARKET_TARGET_COUNT = 10
+CURVE_MARGIN_BAND_SCOPE = 'fc-pricing-v6-margin-band-20261118'
+CURVE_MARGIN_BAND_TARGET_COUNT = 13
 CURVE_WEEKLY_SCOPE = 'fc-pricing-v6-weekly-ladder-20261117'
 CURVE_WEEKLY_TARGET_COUNT = 12
 CURVE_WEEKLY_NEW = frozenset(prefix+'fc_pricing_v3/weekly_ladder.py' for prefix in ('source/', 'source/hermes-copy/'))
@@ -245,6 +247,12 @@ def curve_weekly_targets(source):
     current=targets(source)
     return {**{name:current[name] for name in ('fc27-coins.html','fc-pricing-v3.js')},
             **module_targets(('api.py','ledger.py','runtime.py','scheduler.py','weekly_ladder.py'))}
+
+
+def curve_margin_band_targets(source):
+    return {'fc-pricing-v3.js': targets(source)['fc-pricing-v3.js'],
+            **module_targets(('api.py', 'average_discount_v6.py', 'curve_strategy_v6.py',
+                              'ledger.py', 'runtime.py', 'weekly_ladder.py'))}
 
 
 def curve_market_targets(source):
