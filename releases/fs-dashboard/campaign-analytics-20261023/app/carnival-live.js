@@ -479,7 +479,8 @@ document.getElementById('flashGrid').addEventListener('click',async e=>{
 // "capsule" (Admin 入口配券), whose rows carry required_spend / unlocked / claim_status.
 // One draw claims every unlocked, unclaimed tier, one claim call each, lowest first; the main
 // site checks the spend and never issues a tier twice. Nothing is simulated on the page.
-// Internal tests (carnival-test.json) never open it: tier coupons are real money off.
+// Internal tests (carnival-test.json) open it as well (user, 11/18): claims are real tier coupons
+// through the capsule slot, so it is open to every visitor until the test file expires.
 const CAPSULE_SLOT='capsule';
 let capsule={state:'unknown',rows:[]},capsuleBusy=false;
 async function loadCapsule(){
@@ -511,7 +512,7 @@ refreshDrawState=function(){
   const due=capsule.rows.filter(x=>tierDue(x.row)).length,ready=unlockedDraws();
   // Before draws open, the count is the milestones reached by spend and not yet claimed, so a
   // member sees the draw their order earned; once open, it is what the main site says is claimable.
-  const open=!TEST&&capsule.state==='ready'&&phaseStatus(CONFIG.events.cm).k==='live',shown=open?due:ready;
+  const open=capsule.state==='ready'&&phaseStatus(CONFIG.events.cm).k==='live',shown=open?due:ready;
   document.getElementById('mCost').innerHTML=say('My available draws','我的可抽次数')+` <strong>${shown}</strong>`;
   renderSpendProgress();
   if(account.state!=='signed_in'){btn.textContent=say('SIGN IN TO SEE YOUR SPEND','登录查看累计消费');btn.disabled=false;btn.dataset.carnivalLogin='1';return;}
@@ -564,7 +565,7 @@ document.getElementById('drawBtn').addEventListener('click',async e=>{
   e.stopImmediatePropagation();e.preventDefault();
   const btn=e.currentTarget;
   if(btn.dataset.carnivalLogin){requireLogin(null);return;}
-  if(capsuleBusy||btn.disabled||TEST)return;
+  if(capsuleBusy||btn.disabled)return;
   const due=capsule.rows.filter(x=>tierDue(x.row));if(!due.length)return;
   capsuleBusy=true;refreshDrawState();
   const machine=document.getElementById('machine');machine.classList.add('shaking');document.getElementById('mScreen').textContent=t('mShaking');
