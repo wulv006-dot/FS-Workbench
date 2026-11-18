@@ -2,7 +2,7 @@
 
 2026-11-09，当前业务数据目录快照；本轮目录收窄及方法新增尚待单独发布。已有发布与真实结果见 [LIVE-ACCEPTANCE.md](LIVE-ACCEPTANCE.md)，不以操作数量视为全量接通。
 
-机器清单`fs_mcp_connector/catalog.json`保留30项业务导航范围及6项非导航范围，共113个命名读取操作，登记站点目录/Google数据的共享入口及未完成项；精确数量以该清单为准。数量只表示候选适配，不表示模块全部数据或真实用户验收通过。调用只接受对应schema，未知字段、任意URL/SQL/文件路径和身份覆盖都不是查询入口。
+机器清单 `fs_mcp_connector/catalog.json` 登记 36 个业务读取范围和 116 个命名操作。覆盖与缺项以该清单和实际返回为准。调用只接受对应 schema，未知字段、任意 URL／SQL／文件路径和身份覆盖都不属于查询入口。
 
 2026-11-09用户明确撤销模型不能读取客户身份的旧限制：在原FS管理员、private、owner/session及对象权限内，邮箱、UID、原订单号和业务明细可以返回，用于客户与订单查询；只过滤凭据，不再将这些业务标识当作secret或强制匿名。匿名聚合仍可按需使用。旧不可变reviewed快照保留哈希历史，不能恢复为本轮有效规则；生产知识索引及实际加载另按版本发布验收。
 
@@ -32,7 +32,7 @@
 | 任务 | `tasks.board/members/detail/events` | `opt/mmoexp-taskboard/taskboard_server.py`，当前 `/dashboard/tasks/api/` 到8932 `/api/`；原成员与对象权限；不导出含会话令牌的session辅助接口 |
 | 游戏情报 | `game_monitor.intelligence/intelligence_status/seo_news/seo_news_status` | `ui-system/modules/game-monitor/{README.md,web/app.js,prepare_ui.py}`；当日四条JSON路由，内容与状态独立；未恢复退役工作区或采集计划 |
 | 经营管理 | `management.targets/daily_v2/daily_status` | `management-november-20261103/SOURCE-MAP.json`、原runner和当日路由；全站目标、发布事实和状态仅读；按期配置bundle、历史期仍待适配 |
-| FC金币 | `coins.monitor/automation/player_sync/jobs/snapshots/quotes/previews/audits/restore_previews` | `fc27_cloud_browser/fc27_cloud_api.py` 与当日 `/api/fc27/cloud/` 网关；UUID白名单，仅读原状态/结果，不重放原操作；新版smart扩展读取面仍须继续核查 |
+| FC金币 | `coins.monitor/automation/player_sync/jobs/snapshots/quotes/previews/audits/restore_previews` | `fc27_cloud_browser/fc27_cloud_api.py` 与 `/api/fc27/cloud/` 网关，沿 UUID 白名单读取状态和原结果。阶段 5 专用的 `strategy_decisions` 逐轮账本未注册，已获准知识用户可按现行 V6.1 条目读取规则。 |
 | MLB | `mlb.stats/coins_rate/tasks/task` | `opt/mlb-online/mlb_server.py` 与当前 `/mlb/`；最多300条，任务ID12位hex；不注册执行器配置或写回 |
 | NBA | `nba.read/current/competitors` | `opt/nba-reprice/backend/server.js` 与当前 `/nba2k27/api/`；沿原服务鉴权，不提交apply；已接线真实角色、当前proxy认证模式仍待验 |
 | FC捆绑包 | `bundles.state/search` | `fc27_pack_bundles_20261013/src/pack_bundles_server.py` 与当前8904网关；原已保存产品绑定、价格与最多12条player搜索，不刷新或写价 |

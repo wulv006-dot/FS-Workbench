@@ -334,6 +334,8 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         if revisions in ((builder.FC_V61_WEEKLY_REVISION,) * 2, (builder.FC_V61_INSURANCE_REVISION,) * 2):
             entries.append(row(builder.FC_V61_PARAMETER_ID, revisions[0], path, data))
             entries.append(row('fs.procurement.inputs', revisions[0], path, data))
+        if revisions == (builder.FC_V61_MARGIN_BAND_REVISION,) * 2:
+            entries = [row(identity, revisions[0], path, data) for identity in builder.FC_V61_MARGIN_BAND_IDS]
         self.git[COMMIT, 'knowledge/index.json'] = builder.encoded(dict(
             contract='fs-knowledge-index-v1', release=builder.FC_V61, release_state='candidate',
             source_commit=None, entries=entries))
@@ -363,7 +365,15 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assert_fc_revision_migration(builder.FC_V61_WEEKLY_REVISION,
                                           builder.FC_V61_INSURANCE_REVISION, baseline_patch=True)
 
-    def assert_fc_revision_migration(self, old_revision, new_revision, baseline_patch=False):
+    def test_margin_band_updates_existing_pricing_learning_and_reporting_ids(self):
+        self.assert_fc_revision_migration(builder.FC_V61_INSURANCE_REVISION,
+                                          builder.FC_V61_MARGIN_BAND_REVISION, baseline_patch=True)
+
+    def test_margin_band_refuses_to_overwrite_newer_live_reporting(self):
+        self.assert_fc_revision_migration(builder.FC_V61_INSURANCE_REVISION,
+                                          builder.FC_V61_MARGIN_BAND_REVISION, drift_reporting=True)
+
+    def assert_fc_revision_migration(self, old_revision, new_revision, baseline_patch=False, drift_reporting=False):
         old_data = b'Original amount-weighted discount and ALL propagation.\n'
         new_data = b'Two native price bands and main catalogue readback.\n'
         canonical_path = self.set_fc_v61_candidate((new_revision, new_revision), new_data)
@@ -372,6 +382,13 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             overlay_ids.update((builder.FC_V61_PARAMETER_ID, builder.FC_V61_LEARNING_ID))
         if new_revision in (builder.FC_V61_WEEKLY_REVISION, builder.FC_V61_INSURANCE_REVISION):
             overlay_ids.update((builder.FC_V61_PARAMETER_ID, 'fs.procurement.inputs'))
+        margin_band = new_revision == builder.FC_V61_MARGIN_BAND_REVISION
+        if margin_band:
+            overlay_ids = set(builder.FC_V61_MARGIN_BAND_IDS)
+            base = builder.FC_V61_MARGIN_BAND_BASE
+            self.git[base, canonical_path] = old_data
+            self.git[base, 'knowledge/index.json'] = builder.encoded(dict(
+                entries=[row(identity, old_revision, canonical_path, old_data) for identity in sorted(overlay_ids)]))
         old_path = 'overlay/' + canonical_path
         before = list(builder.routes(self.policy))
         for number, route in enumerate(before):
@@ -394,6 +411,16 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                     identity = 'fs.procurement.inputs'
                     entries.append(row(identity, old_revision, old_path, old_data))
                     route['entry_ids'].append(identity)
+                if margin_band:
+                    for identity in ('fc.reporting.business', 'fc.reporting.data'):
+                        rev = 'newer-reporting' if drift_reporting else old_revision
+                        updated = row(identity, rev, old_path, old_data)
+                        if identity in route['entry_ids']:
+                            position = next(i for i, r in enumerate(entries) if r['id'] == identity)
+                            entries[position] = updated
+                        else:
+                            entries.append(updated)
+                            route['entry_ids'].append(identity)
             self.put_snapshot(index['source_root'] + '/' + old_path, old_data)
             self.put_snapshot(route['catalog'], builder.encoded(index))
             route['sha256'] = self.info['protected'][builder.FS_RUNTIME_ROOT + route['catalog']]
@@ -409,6 +436,11 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             self.write_preflight()
             before = copy.deepcopy(list(builder.routes(self.policy)))
 
+        if drift_reporting:
+            with self.assertRaisesRegex(ValueError, 'margin_band_live_entry_changed:fc.reporting'):
+                builder.prepare(ROOT, self.snapshot, self.output, COMMIT, fc_v61=True)
+            self.assertFalse(self.output.exists())
+            return
         result = builder.prepare(ROOT, self.snapshot, self.output, COMMIT, fc_v61=True)
         self.assertEqual(result['release'], builder.FC_V61 + '-' + COMMIT)
         self.assertFalse(result['manifest']['releaseReady'])

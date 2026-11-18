@@ -17,6 +17,7 @@
   const purposes={smart:'三平台独立双向试验：每小时重算各平台基准，每3小时独立选择A基准、B合法降3%、C合法涨3%，受各自双20与竞品上界约束。同价合并；按同钟点累计有效对照复盘，低量不强判赢家。',daily:'PS、Xbox、PC分别按真实八日优惠核算财务底线；Lootbar为主锚、Arab-UT为次锚，双源缺失按本平台八日平均30%求最低合法价。',revenue_sprint:'三平台独立报价，Lootbar为主锚、Arab-UT为次锚，ItemD2R仅辅助。按本平台100K实交100K双20及5–10%竞争目标选价，地区继承全球。'};
   const primaryPolicy=plan=>plan?.parameters?.competitor_policy==='lootbar_primary_arabut_secondary_v1';
   function modePurpose(mode,plan){
+    if(plan?.write_protocol===curveProtocol&&plan.parameters?.margin_band)return '分时段按各平台目标利润率判断两量段价格。其余自然轮沿用经营价并继续检查各档保本及平台 18% 底线。';
     if(plan?.write_protocol===curveProtocol)return 'PS、Xbox、PC 各自核价。按最近三个已归档完整自然日（D-3 至 D-1）的金额加权优惠估算，检查各档保本及平台组合采购毛利至少 18%，以 25% 为经营目标。';
     if(mode==='smart'&&plan?.smart_strategy_version==='smart-three-platform-v3')return purposes.smart;
     if(mode==='smart'&&plan?.smart_strategy_version==='smart-bidirectional-v2')return '历史双向试验v2：每小时重算冲额基准；Console与PC独立选择A基准、B合法降3%、C合法涨3%，同价候选合并；48小时为检查点，成熟度按有效对照判断。程序每小时执行，Hermes每日只读复盘；月目标仅为经营背景，不接入选价。';
@@ -629,7 +630,7 @@
           const rate=retained==null?'待补':`${((1-Number(retained))*100).toFixed(2)}%`;
           const marginText=margin==null?'待核':`${(Number(margin)*100).toFixed(2)}%`;
           proofDetails.append(node('p',`${quote?.purchase_k??'待核'}K · ${label} · ${discountWindow(average)} 平均优惠 ${rate} · 已核 ${average.matched_orders}/${average.eligible_orders} 单`),
-            node('p',`组合采购毛利 ${marginText}（底线 18%，目标 25%）`));
+            node('p',`预测组合采购毛利 ${marginText}（底线 18%）`));
         }
       }
       if(proofDetails.children.length>1)card.append(proofDetails);

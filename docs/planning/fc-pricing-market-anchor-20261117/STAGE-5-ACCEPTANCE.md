@@ -1,6 +1,6 @@
 # 阶段 5 回放验收记录
 
-2026-11-18，PR #1235 审查后重跑。代码和历史回放已核对，合并、上线和真实自然轮验收待决。规则入口见 [施工定稿](MARGIN-BAND-CONSTRUCTION.md)，测试用例和逐轮表见 [PR #1235](https://github.com/wulv006-dot/FS-Workbench/pull/1235)。
+2026-11-18，PR #1235 审查后重跑。规则入口见 [施工定稿](MARGIN-BAND-CONSTRUCTION.md)，测试用例和逐轮表见 [PR #1235](https://github.com/wulv006-dot/FS-Workbench/pull/1235)。
 
 ## 回放口径
 
@@ -25,4 +25,13 @@
 
 ## 发布与真实验收
 
-原发布工具增加一个阶段 5 更新范围，单独提交 `1caefe1e8d2590053c733dbf880acade8bf57f27`。候选包含主服务及 Hermes 的 12 个后端目标和 1 个控制台脚本，全部更新现有文件。两份 `runtime.py` 与 183 正式回放版本的 SHA256 一致。合并、生产发布编号、计划修订号、首个真实决策轮和知识收尾均未做。
+原发布工具增加阶段 5 范围 `--curve-margin-band`，单独提交 `1caefe1e8d2590053c733dbf880acade8bf57f27`。PR 最终候选 `345f7f8729fbbacb4af1653a0e9ae2cab6e3a3ee`，基线 `4a5da625848edf55a1088826b165aeb428f1f65e`。Claude 复查及吴律批准后，转正式 PR，[pr-fast](https://github.com/wulv006-dot/FS-Workbench/actions/runs/44313143225/job/134832197530) 通过，合并 SHA `b12cb55f9dc346dfb27980d53028f79579891bb4`。
+
+2026-11-18 21:44:45 北京时间，原发布器完成 `nav-20261118T133534Z`。13/13 个目标 SHA256 读回一致，批准清单 SHA256 为 `43fb73696465a4d55f77d6dfc8238aa0c4d342481a37b0874962d50df3ca1a92`，两份 `runtime.py` 均为 `fb22b0bd54d627a5a97ab1cdef47402b5ca98d3b3b4e3f048441255d97a6c566`。五个服务 `fs-business-range`、`fs-hermes-fc`、`fc27-cloud-api`、`fc27-cloud-worker`、`fc-pricing-v3` 均为 active。发布后读回计划仍为 revision 5，未启用 `margin_band`。
+
+| 验收项 | 结果 |
+| --- | --- |
+| 发布后第一个自然轮 | 未做 |
+| 原 CAS 真实身份修订及新参数哈希 | 未做 |
+| 首个阶段 5 决策轮、Admin 回执与主站 266 完整价表读回 | 未做 |
+| 激活后首六个决策轮与知识收尾 | 未做 |
