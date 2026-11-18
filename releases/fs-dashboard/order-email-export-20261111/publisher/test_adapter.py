@@ -20,13 +20,16 @@ def manifest():
             'runtimeRequired': copy.deepcopy(a.RUNTIME),
             'unchangedRequired': [{'path': p, 'sha256': 'b' * 64} for p in sorted(a.PROTECTED)],
             'files': [{'candidate': name, 'target': target, 'sha256': hashlib.sha256(name.encode()).hexdigest(),
-                       'beforeSha256': None if name.startswith('admin_') or name.startswith('order-email-') else hashlib.sha256(b'old').hexdigest()}
+                       'beforeSha256': None if (name.startswith('admin_') and name != 'admin_live_page.py') or name.startswith('order-email-') else hashlib.sha256(b'old').hexdigest()}
                       for name, target in a.TARGETS.items()]}
 
 
 class ContractTests(unittest.TestCase):
     def test_exact_contract(self):
-        self.assertEqual(len(a.contract(manifest())), 11)
+        self.assertEqual(len(a.contract(manifest())), 12)
+        legacy = manifest()
+        legacy['files'] = [row for row in legacy['files'] if row['candidate'] != 'admin_live_page.py']
+        self.assertEqual(len(a.contract(legacy)), 11)
 
     def test_fail_closed(self):
         for change in (lambda m: m.update(scope='old'), lambda m: m.update(businessWrites=True),
@@ -34,6 +37,7 @@ class ContractTests(unittest.TestCase):
                        lambda m: m.update(runtimeRequired={}), lambda m: m.update(unchangedRequired=[]),
                        lambda m: m['files'][0].update(target='/tmp/arbitrary'),
                        lambda m: m['files'][0].update(beforeSha256=None),
+                       lambda m: next(r for r in m['files'] if r['candidate'] == 'admin_live_page.py').update(beforeSha256=None),
                        lambda m: next(r for r in m['files'] if r['candidate'] == 'admin_order_email_export.py').update(beforeSha256='bad'),
                        lambda m: m['files'].append(dict(m['files'][0])),
                        lambda m: m['files'][0].update(sha256='bad'),
@@ -135,11 +139,33 @@ class FrozenWriterTests(unittest.TestCase):
     def test_apply_rollback_and_ledger(self):
         result = self.apply()
         backup = Path(result['backup'])
-        self.assertEqual(result['staticFiles'], 11)
+        self.assertEqual(result['staticFiles'], 12)
         self.assertEqual(json.loads((backup / 'journal.json').read_text())['approvedManifestSha256'], self.sha)
         self.base.rollback(backup, self.sha, self.root)
         self.assert_restored()
         self.assertEqual(self.restart.call_count, 2)
+
+    def test_legacy_manifest_apply_and_rollback_leave_live_page_alone(self):
+        page = next(row for row in self.m['files'] if row['candidate'] == 'admin_live_page.py')
+        self.m['files'].remove(page)
+        target = self.base.rooted(self.root, page['target'])
+        target.write_bytes(b'changed by a newer publisher')
+        self.raw_manifest = json.dumps(self.m).encode()
+        self.sha = hashlib.sha256(self.raw_manifest).hexdigest()
+        result = self.apply()
+        self.assertEqual(result['staticFiles'], 11)
+        self.base.rollback(Path(result['backup']), self.sha, self.root)
+        self.assert_restored()
+        self.assertEqual(target.read_bytes(), b'changed by a newer publisher')
+
+    def test_new_target_cas_drift_rejected_before_apply(self):
+        page = next(row for row in self.m['files'] if row['candidate'] == 'admin_live_page.py')
+        target = self.base.rooted(self.root, page['target'])
+        target.write_bytes(b'unexpected live version')
+        with self.assertRaisesRegex(ValueError, 'baseline drift'):
+            self.apply()
+        self.assertEqual(target.read_bytes(), b'unexpected live version')
+        self.restart.assert_not_called()
 
     def assert_restored(self):
         for row in self.m['files']:

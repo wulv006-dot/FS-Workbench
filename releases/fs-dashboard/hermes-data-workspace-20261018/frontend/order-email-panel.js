@@ -39,6 +39,8 @@ export function orderEmailRequest({ site_id, game_ids, start, end, filters, serv
   if (server_ids !== undefined && (!server_ids || typeof server_ids !== 'object' || Array.isArray(server_ids) ||
       Object.hasOwn(filters || {}, 'aid') || Object.entries(server_ids).some(([game, aid]) => !game_ids.includes(game) || !id(aid))))
     throw new TypeError('Invalid servers');
+  if (game_ids.includes('0') && (game_ids.length !== 1 || Object.hasOwn(filters || {}, 'aid') || Object.hasOwn(server_ids || {}, '0')))
+    throw new TypeError('All games cannot be combined with a game or server');
   const first = date(start), last = date(end);
   const days = (last - first) / 86400000 + 1;
   if (days < 1 || days > 366 || end === '9999-12-31') throw new TypeError('Invalid range');
@@ -119,7 +121,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     const term = gameSearch.value.trim().toLocaleLowerCase();
     let visible = 0;
     for (const item of gameRows) {
-      item.row.hidden = !item.text.toLocaleLowerCase().includes(term);
+      item.row.hidden = !item.text.toLocaleLowerCase().includes(term) && !item.option.textContent.toLocaleLowerCase().includes(term);
       if (!item.row.hidden) visible++;
     }
     gameMatches.textContent = visible ? `显示 ${visible} / ${gameRows.length} 款游戏（最多选择 100 款）` : '没有匹配的游戏';
@@ -127,10 +129,10 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   const syncGames = () => {
     const selected = Array.from(game.selectedOptions);
     gameSummary.textContent = selected.length ? `游戏（可多选） · 已选 ${selected.length} 款` : '游戏（可多选） · 请选择';
-    gameSelection.textContent = selected.length ? selected.map(option => option.textContent).join('、') : '尚未选择游戏';
+    gameSelection.textContent = selected.length ? selected.map(option => option.value === '0' ? '全部游戏' : option.textContent).join('、') : '尚未选择游戏';
     for (const item of gameRows) {
       item.check.checked = item.option.selected;
-      item.check.disabled = !item.option.selected && selected.length >= 100;
+      item.check.disabled = item.option.value !== '0' && !item.option.selected && selected.length >= 100;
     }
   };
   const renderGames = () => {
@@ -141,7 +143,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       const check = el('input'); check.type = 'checkbox'; check.value = option.value;
       check.setAttribute('style', 'flex:none;width:auto');
       const prefix = `${option.value} | `;
-      const text = option.textContent.startsWith(prefix) ? option.textContent : prefix + option.textContent;
+      const text = option.value === '0' ? '0 | 全部游戏' : option.textContent.startsWith(prefix) ? option.textContent : prefix + option.textContent;
       row.append(check, el('span', text)); gameList.append(row);
       return { row, check, option, text };
     });
@@ -251,6 +253,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       const previous = new Map(Array.from(serverControls, ([key, control]) => [key, control.value]));
       resetServers();
       for (const gameId of selectedGames) {
+        if (gameId === '0') continue;
         const entries = directories[gameId] === undefined && data.unavailable?.aid ? [] : directories[gameId];
         if (!Array.isArray(entries) || entries.some(entry => !id(entry.value))) throw new Error();
         const control = field(`服务区 · ${games.find(entry => entry.value === gameId).label}`, 'select', `aid_${gameId}`, serverGroup);
@@ -272,6 +275,11 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     if (item) item.option.selected = item.check.checked;
     invalidate();
     if (event.target === game || item) {
+      const all = gameRows.find(item => item.option.value === '0')?.option;
+      if (all?.selected) {
+        if (item && item.option !== all && item.option.selected) all.selected = false;
+        else for (const option of Array.from(game.selectedOptions)) if (option !== all) option.selected = false;
+      }
       syncGames();
       if (remoteOptions) {
         resetServers(); fill(filters.cid, []); fill(filters.aid, []);
@@ -310,6 +318,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     controller = new win.AbortController();
     const signal = controller.signal;
     const stale = () => disposed || current !== sequence;
+    let failure = '分页结果验证失败';
     panel.setAttribute('aria-busy', 'true');
     try {
       for (let request = activeRun.nextRequest(); request; request = activeRun.nextRequest()) {
@@ -326,17 +335,29 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
           return;
         }
         if (stale()) return;
-        if (response.redirected) throw new Error();
+        if (response.redirected) {
+          failure = '查询被重定向，请确认 FS 登录状态';
+          throw new Error();
+        }
+        let guidance;
+        if (!response.ok || response.status !== 206) {
+          try { guidance = await response.json(); } catch { /* Upstream errors may have no JSON body. */ }
+          if (stale()) return;
+          const code = guidance?.error;
+          if (response.status === 401) failure = 'FS 登录已失效，请重新登录';
+          else if (response.status === 403) failure = '当前账号无权读取所选站点的订单邮箱';
+          else if (code === 'source_changed' || code === 'source_changed_restart_required') failure = '分页期间订单数据已变化';
+          else if (response.status === 422) failure = '服务未接受查询条件或续页凭据，请核对日期范围及筛选';
+          else if (code === 'source_auth') failure = 'Admin 数据源鉴权失败';
+          else if (code === 'source_schema_changed' || code === 'export_source_schema_changed') failure = 'Admin 分页响应或字段不符合导出要求';
+          else failure = `服务未返回预期的分页结果（HTTP ${response.status}）`;
+        }
         if (response.status === 429 || response.status === 503) {
           const header = response.headers?.get('Retry-After');
           const seconds = typeof header === 'string' && /^\d+$/.test(header.trim()) ? Number(header) : NaN;
           const deadline = Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Date.parse(header);
-          // The existing API returns retryAfter in JSON, not an HTTP header.
-          let guidance;
-          try { guidance = await response.json(); } catch { /* No valid JSON guidance. */ }
-          if (stale()) return;
           // Unknown/terminal source failures are not permission to retain PII.
-          const transient = new Set(['source_busy', 'source_timeout', 'source_unavailable', 'live_source_unavailable', 'export_source_unavailable']);
+          const transient = new Set(['source_busy', 'source_rate_limited', 'source_timeout', 'source_unavailable', 'live_source_unavailable', 'export_source_unavailable']);
           if (guidance?.error && !transient.has(guidance.error)) throw new Error();
           const bodySeconds = guidance?.retryAfter;
           const bodyDeadline = Number.isSafeInteger(bodySeconds) && bodySeconds >= 0
@@ -354,7 +375,10 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
           if (stale()) return;
           // Native Response body-read transport failures reject with TypeError;
           // invalid JSON is SyntaxError and must invalidate the run instead.
-          if (error?.name !== 'TypeError') throw error;
+          if (error?.name !== 'TypeError') {
+            failure = '分页响应无法读取为有效 JSON';
+            throw error;
+          }
           onPause();
           status.textContent = `${progress()} 网络中断，已暂停；请手动重试。`;
           return;
@@ -368,7 +392,8 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       status.textContent = `${progress()} 全部计划窗口遍历结束，可下载 ${format === 'xlsx' ? 'Excel' : 'CSV'}；实时非快照。`;
     } catch {
       if (stale()) return;
-      clear(); status.textContent = '查询结果、权限或游标无效，名单已清除，无法导出。请重新查询。';
+      const position = progress();
+      clear(); status.textContent = `${position} ${failure}，名单已清除，无法导出。请重新查询。`;
     } finally {
       if (!stale()) { controller = null; query.disabled = false; panel.removeAttribute('aria-busy'); }
     }

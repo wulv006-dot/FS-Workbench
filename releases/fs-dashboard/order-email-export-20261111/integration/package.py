@@ -10,6 +10,9 @@ PREFIX = 'releases/fs-dashboard/order-email-export-20261111/'
 FRONTEND = 'releases/fs-dashboard/hermes-data-workspace-20261018/frontend/'
 BACKEND = 'releases/fs-dashboard/tiered-data-access-20261101/source/'
 STATIC = '/var/lib/fs-navigation-formal-static/workspace-native-20261006-4f4a56f7a335/'
+BACKEND_FILES = ('admin_order_email_export.py', 'admin_email_export_source.py',
+                 'admin_email_export_worker.py', 'admin_live_page.py')
+ADMIN_LIVE_PAGE_BEFORE = '488fbf94d43710ca5971a1204fa3ed2c64084f6a718a5a8ab0a4f48702a3d7f3'
 PROTECTED = {
     '/opt/fs-hermes-fc/controller.py': '104e16a785240c471fc8d9f209b9430cfc1286111e4c093f8e12b3eca4f5fa29',
     '/opt/fs-exact-range-20261001/fc_daily.py': '213cca2a7a02218f67aff6ca3bf905aac9fe3ba0165017b590949b3828bac35e',
@@ -36,21 +39,22 @@ def build(sha, read_git, nginx_source):
     candidates = prepare(baseline['range_api.py'], baseline['page.js'])
     candidates['data-workspace.js'] = prepare_workspace(baseline['data-workspace.js'])
     candidates['formal.locations.conf'] = prepare_nginx(nginx_source)
-    for name in ('admin_order_email_export.py', 'admin_email_export_source.py', 'admin_email_export_worker.py'):
+    for name in BACKEND_FILES:
         candidates[name] = read_git(BACKEND + name)
     for name in ('order-email-panel.js', 'order-email-run.js', 'order-email-csv.js', 'order-email-xlsx.js'):
         candidates[name] = read_git(FRONTEND + name)
     targets = {name: STATIC + name for name in candidates if name.endswith('.js')}
     targets.update({'range_api.py': '/opt/fs-exact-range-20261001/range_api.py',
-                    **{name: '/opt/fs-hermes-fc/' + name for name in ('admin_order_email_export.py',
-                        'admin_email_export_source.py', 'admin_email_export_worker.py')},
+                    **{name: '/opt/fs-hermes-fc/' + name for name in BACKEND_FILES},
                     'formal.locations.conf': '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'})
     baseline['formal.locations.conf'] = nginx_source
+    before = {name: digest(raw) for name, raw in baseline.items()}
+    before['admin_live_page.py'] = ADMIN_LIVE_PAGE_BEFORE
     manifest = {'schemaVersion': 1, 'scope': 'order-email-export-20261111',
                 'releaseReady': True, 'businessWrites': False, 'timersChanged': False,
                 'sourceCommit': sha, 'runtimeRequired': {'fs-business-range.service': {'ActiveState': 'active'}},
                 'unchangedRequired': [{'path': p, 'sha256': h} for p, h in sorted(PROTECTED.items())],
                 'files': [{'candidate': name, 'target': targets[name], 'sha256': digest(raw),
-                           'beforeSha256': digest(baseline[name]) if name in baseline else None}
+                           'beforeSha256': before.get(name)}
                           for name, raw in sorted(candidates.items())]}
     return candidates, manifest

@@ -24,8 +24,9 @@ class PackageTests(unittest.TestCase):
             candidates, manifest = package.build('a' * 40, read_git, original)
         nginx.assert_called_once_with(original)
         self.assertEqual(set(candidates), set(adapter.TARGETS))
-        self.assertEqual(len(reads), 10)
-        self.assertEqual(len(set(reads)), 10)
+        self.assertEqual(len(reads), 11)
+        self.assertEqual(len(set(reads)), 11)
+        self.assertIn(package.BACKEND + 'admin_live_page.py', reads)
         adapter.contract(manifest)
         for row in manifest['files']:
             self.assertEqual(row['sha256'], hashlib.sha256(candidates[row['candidate']]).hexdigest())
@@ -35,6 +36,8 @@ class PackageTests(unittest.TestCase):
             elif row['candidate'] in ('page.js', 'range_api.py', 'data-workspace.js'):
                 raw = (HERE / 'fixtures' / row['candidate']).read_bytes()
                 self.assertEqual(row['beforeSha256'], hashlib.sha256(raw).hexdigest())
+            elif row['candidate'] == 'admin_live_page.py':
+                self.assertEqual(row['beforeSha256'], package.ADMIN_LIVE_PAGE_BEFORE)
             else:
                 self.assertIsNone(row['beforeSha256'])
         self.assertEqual(manifest['sourceCommit'], 'a' * 40)
