@@ -42,5 +42,18 @@
     "version": "1",
     "windowHours": 24,
     "matches": []
+  },
+  {
+    "id": "mmoexp-carnival",
+    "view": "carnival",
+    "name": "狂欢盛典 2026",
+    "path": "/events/Carnival.html",
+    "type": "commerce",
+    "status": "active",
+    "version": "1",
+    "startAt": "2026-11-19T05:00:00Z",
+    "endAt": "2026-12-02T05:00:00Z",
+    "windowHours": 24,
+    "matches": []
   }
 ]

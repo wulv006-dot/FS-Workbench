@@ -12,5 +12,6 @@ window.FC_ANALYTICS_CONFIG = {
     {id:'fc27-sbc',view:'sbc',name:'SBC 核心搭档',path:'/events/Sbc-Companions.html',type:'commerce',status:'testing',version:'1',windowHours:24,matches:[]},
     {id:'fc27-trio',view:'trio',name:'Player Trio',path:'/events/Player-Trio.html',type:'commerce',status:'testing',version:'1',windowHours:24,matches:[]}
     ,{id:'fc27-matchday',view:'matchday',name:'Matchday 赛事竞猜（接入规划）',path:'/Fc-27/Matchday.html',type:'prediction',status:'draft',version:'1',windowHours:24,matches:[]}
+    ,{id:'mmoexp-carnival',view:'carnival',name:'狂欢盛典 2026',path:'/events/Carnival.html',type:'commerce',status:'active',version:'1',startAt:'2026-11-19T05:00:00Z',endAt:'2026-12-02T05:00:00Z',windowHours:24,matches:[]}
   ]
 };

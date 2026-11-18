@@ -6,11 +6,49 @@
   const steps=['activity_view','activity_product_view','activity_add_to_cart','activity_begin_checkout','activity_purchase'];
   const labels=['访问活动页','看到商品','加购成功','进入结账','支付成功'];
   const templates={commerce:{name:'商品购买',steps,labels},prediction:{name:'竞猜参与',steps:['prediction_match_view','prediction_started','prediction_accepted'],labels:['看到赛事','开始预测','预测保存成功']},reward:{name:'中奖奖励核销',steps:['prediction_reward_eligible','prediction_reward_issued','prediction_coupon_redeemed'],labels:['中奖可领资格','奖励真实到账','优惠券真实核销']}};
+  const carnivalSteps={visits:'进页',homeClaim:'领首页券',mysteryDraw:'神秘商店翻牌',mysteryVerified:'校验成功',
+    blackFridayCheckout:'黑五立即结算',capsuleClaim:'扭蛋领券',checkoutHandoff:'结账交接'};
+  const carnivalActions={
+    mystery:{mystery_draw:'翻牌',mystery_verify_ok:'校验成功',mystery_verify_unlocked:'校验解锁',mystery_verify_not_found:'未找到付款记录',mystery_verify_pending:'等待付款或核验',mystery_verify_failed:'校验失败',mystery_verify_error:'校验异常',buy_now:'立即结算'},
+    blackFriday:{buy_now:'立即结算'},codes:{code_copy:'复制专属码'},capsule:{capsule_draw:'扭蛋抽取',gacha_draw:'扭蛋抽取'},checkout:{buy_now:'立即结算（模块未知）'}
+  };
+  const carnivalModules={home:'首页',mystery:'神秘商店',blackFriday:'黑五',capsule:'扭蛋',codes:'专属码',checkout:'结账'};
+  function countCarnival(rows,summary){
+    const reached=new Set(['visits']);
+    let checkoutModule='checkout';
+    for(const row of rows){
+      const p=row.properties;
+      if(row.event==='activity_coupon_claim'&&p.coupon_state==='claimed'){
+        const id=Number(p.coupon_id);
+        if(id===1399)reached.add('homeClaim');
+        if(id>=1501&&id<=1511&&id%2===1)reached.add('capsuleClaim');
+        // buy_now follows the successful claim in both product purchase flows.
+        if(id>=1401&&id<=1435&&id%2===1)checkoutModule='mystery';
+        if(id>=1443&&id<=1459&&id%2===1||id===1513||id===1515)checkoutModule='blackFriday';
+      }
+      if(row.event==='activity_begin_checkout')reached.add('checkoutHandoff');
+      if(row.event!=='activity_selection')continue;
+      const action=p.action;
+      const module=action==='buy_now'?checkoutModule:Object.keys(carnivalActions).find(k=>Object.hasOwn(carnivalActions[k],action));
+      if(module){
+        const actions=summary.actions[module]??={};
+        actions[action]=(actions[action]||0)+1;
+      }
+      if(action==='mystery_draw')reached.add('mysteryDraw');
+      if(action==='mystery_verify_ok'||action==='mystery_verify_unlocked')reached.add('mysteryVerified');
+      if(action==='buy_now'){
+        reached.add('checkoutHandoff');
+        if(module==='blackFriday')reached.add('blackFridayCheckout');
+      }
+    }
+    for(const key of reached)summary.steps[key]++;
+  }
   function summarize(events,filter={}){
     const template=templates[filter.template]||templates.commerce,{steps,labels}=template,windowHours=Number(filter.windowHours)|| (filter.template==='reward'?720:24);
     if(!Number.isFinite(windowHours)||windowHours<1||windowHours>720)throw Error('转化窗口需为1–720小时');
+    const carnival=filter.activity==='mmoexp-carnival'?{steps:Object.fromEntries(Object.keys(carnivalSteps).map(key=>[key,0])),actions:{}}:null;
     const groups=new Map(),ids=new Set();
-    for(const e of events){const p=e.properties||{},t=Date.parse(e.timestamp);const journey=filter.template==='reward'?p.reward_journey_id:p.activity_visit_id;if(!Number.isFinite(t)||!journey||!p.activity_id||!steps.includes(e.event)&&!['activity_engaged','activity_click','activity_selection','activity_review','activity_cart_result','activity_coupon_claim'].includes(e.event))continue;
+    for(const e of events){const p=e.properties||{},t=Date.parse(e.timestamp);if(carnival&&p.activity_id!==filter.activity)continue;const journey=filter.template==='reward'?p.reward_journey_id:p.activity_visit_id;if(!Number.isFinite(t)||!journey||!p.activity_id||!steps.includes(e.event)&&!['activity_engaged','activity_click','activity_selection','activity_review','activity_cart_result','activity_coupon_claim'].includes(e.event))continue;
       if(p.event_id&&ids.has(p.event_id))continue;if(p.event_id)ids.add(p.event_id);
       if(filter.match&&filter.match!=='all'&&p.match_id!==filter.match)continue;
       if((filter.template==='prediction'||filter.template==='reward')&&!p.match_id)continue;
@@ -26,6 +64,7 @@
       if(filter.from&&date<filter.from||filter.to&&date>filter.to)continue;
       let windowRows=rows.filter(r=>r.t>=first.t&&r.t<=first.t+windowHours*3600000);const visitor=p.distinct_id||p.activity_session_id||p.activity_visit_id||p.reward_journey_id;
       if(filter.game&&filter.game!=='all'){if(!windowRows.some(r=>String(r.properties.game_id)===filter.game))continue;windowRows=windowRows.filter(r=>r===first||String(r.properties.game_id)===filter.game);}
+      if(carnival)countCarnival(windowRows,carnival);
       visits++;visitors.add(visitor);const day=daily.get(date)||{date,visits:0,paid:0};day.visits++;daily.set(date,day);
       const source=sources.get(p.source||'direct')||{name:p.source||'direct',visits:0,paid:0};source.visits++;sources.set(source.name,source);
       let last=first.t,matched=0;
@@ -69,7 +108,7 @@
       }
       for(const id of new Set([...exposed,...clicked])){const item=products.get(id)||{id,exposures:0,selections:0};if(exposed.has(id))item.exposures++;if(clicked.has(id))item.selections++;products.set(id,item);}
     }
-    return {template:filter.template||'commerce',windowHours,visits,visitors:visitors.size,clickers:clickers.size,activeSeconds:visits?Math.round(active/visits):null,revenueMinor:revenue,orders:orders.size,reviews,sbcSelections,couponClaims,couponReused,
+    return {...(carnival?{carnival}:{}),template:filter.template||'commerce',windowHours,visits,visitors:visitors.size,clickers:clickers.size,activeSeconds:visits?Math.round(active/visits):null,revenueMinor:revenue,orders:orders.size,reviews,sbcSelections,couponClaims,couponReused,
       steps:steps.map((event,i)=>({event,label:labels[i],count:counts[i],rate:i&&counts[i-1]?counts[i]/counts[i-1]:i===0&&counts[0]?1:null})),
       seasonalTotals:Object.fromEntries(Object.entries(seasonalTotals).map(([k,v])=>[k,v.size])),seasonalGames:[...journeys.values()].map(j=>Object.fromEntries(Object.entries(j).map(([k,v])=>[k,v instanceof Set?v.size:v]))),
       seasonalOffers:[...seasonalOffers.values()].map(x=>({releaseId:x.releaseId,gameId:x.gameId,modelId:x.modelId,offPercent:x.offPercent,slot:x.slot,discountCodes:[...x.codes].sort(),exposedVisits:x.exposed.size,revealedVisits:x.reveals.size,selectedVisits:x.selected.size,cartConfirmations:x.cartConfirmations})),
@@ -93,5 +132,5 @@
       return {id:a.id,name:a.name.trim(),path:a.path,origin,view:text(a.view)||a.id,type,status,owner:text(a.owner,60),version:text(a.version,40)||'1',startAt,endAt,windowHours,matches:normalized};
     });
   }
-  return {steps,labels,templates,summarize,validateRegistry,canonicalActivity,activityMatches};
+  return {steps,labels,templates,carnivalSteps,carnivalActions,carnivalModules,summarize,validateRegistry,canonicalActivity,activityMatches};
 });

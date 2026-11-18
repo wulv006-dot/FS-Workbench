@@ -41,8 +41,12 @@ def query_window(request):
     except (ValueError, TypeError, KeyError):
         raise ContractError('MAX_31_DAY_UTC_WINDOW_REQUIRED') from None
     activity = request.get('activity', 'mmoexp-seasonal')
-    campaign_bindings(activity)
     game = request.get('game', 'all')
+    if activity == 'mmoexp-carnival' and request.get('action') == 'coupon_usage':
+        if game != 'all':
+            raise ContractError('GAME_SCOPE_REQUIRED')
+    else:
+        campaign_bindings(activity)
     if activity == 'fc27-season2' and game not in ('all', '1327'):
         raise ContractError('GAME_SCOPE_REQUIRED')
     if game not in ('all', '1327', '891', '1333', '456'):
@@ -217,6 +221,15 @@ def product_sales(rows, read_lines=None, *, deadline=None, clock=time.monotonic)
 # Per-day issuance is not read: the conversion from issued to used is cumulative (coupon counters)
 # and the window counts uses, with their order amounts, straight from the log.
 FC_COUPON = dict(id='1395', param_code='carnival_202611', site_id='266', game_id='1327')
+CARNIVAL_SITE_ID = '266'
+CARNIVAL_COUPON_PARAM = 'carnival_202611'
+# Admin has only the odd-numbered templates in the approved ranges.
+CARNIVAL_COUPONS = {
+    'home': (1399,),
+    'mystery': tuple(range(1401, 1436, 2)),
+    'blackFriday': (*range(1443, 1500, 2), 1513, 1515),
+    'capsule': tuple(range(1501, 1512, 2)),
+}
 COUPON_ORDER_CHUNK = 40
 
 
@@ -235,17 +248,17 @@ def coupon_counter(row, key):
     return value
 
 
-def coupon_record(row):
-    """Verify the coupon is exactly the approved FC27 event coupon, then expose its counters."""
-    if (str(row.get('id')) != FC_COUPON['id'] or str(row.get('site_id')) != FC_COUPON['site_id']
-            or str(row.get('game_id')) != FC_COUPON['game_id'] or row.get('param_code') != FC_COUPON['param_code']):
+def coupon_record(row, expected=FC_COUPON):
+    if (str(row.get('id')) != expected['id'] or str(row.get('site_id')) != expected['site_id']
+            or ('game_id' in expected and str(row.get('game_id')) != expected['game_id'])
+            or row.get('param_code') != expected['param_code']):
         raise ContractError('ACTIVITY_COUPON_IDENTITY_MISMATCH')
-    return dict(coupon_id=FC_COUPON['id'], title=str(row.get('title') or '')[:120], param_code=row['param_code'],
+    return dict(coupon_id=expected['id'], title=str(row.get('title') or '')[:120], param_code=row['param_code'],
                 issued_total=coupon_counter(row, 'fetch_qty'), used_total=coupon_counter(row, 'used_qty'),
                 limit_qty=coupon_counter(row, 'limit_qty'), valid_days=coupon_counter(row, 'days'))
 
 
-def summarize_coupon_usage(coupon, logs, orders, start, end):
+def summarize_coupon_usage(coupon, logs, orders, start, end, coupon_ids=(FC_COUPON['id'],)):
     """logs: MemberCouponLog rows in the window; orders: whichever Admin orders exist for those logs."""
     by_order = {}
     fields = ('pay_status', 'paytime', 'amount_usd_format')
@@ -261,7 +274,7 @@ def summarize_coupon_usage(coupon, logs, orders, start, end):
     coverage = dict(complete=True, logs=len(logs), unique_uses=0, orders_read=len(by_order), orders_unmatched=0, amounts_from_log=0)
     buyers, daily, seen = set(), {}, {}
     for log in logs:
-        if str(log.get('site_id')) != FC_COUPON['site_id'] or str(log.get('coupon_id')) != FC_COUPON['id']:
+        if str(log.get('site_id')) != FC_COUPON['site_id'] or str(log.get('coupon_id')) not in coupon_ids:
             raise ContractError('COUPON_LOG_SCOPE_MISMATCH')
         if log.get('status') not in (0, 1, '0', '1'):
             raise ContractError('COUPON_LOG_STATE_UNKNOWN')
@@ -339,32 +352,79 @@ def summarize_coupon_usage(coupon, logs, orders, start, end):
                 note='券发放与使用累计来自券记录；窗口内按用户优惠券使用记录（user/memberCouponLog）统计，已付款以订单/记录状态为准，订单价、优惠额、实付额和复购均取自该记录。复购为 Admin 口径（用券后90天内同站点已支付订单，不含本单，截至读取时）。窗口内逐日发放未单独读取，页面领券步骤见行为统计。')
 
 
-def read_coupon_usage(reader, request):
-    start, end, _game = query_window(request)
-    if request.get('activity', 'mmoexp-seasonal') != 'fc27-season2':
-        raise ContractError('ACTIVITY_SCOPE_REQUIRED')
-    coupon = coupon_record(reader.detail('coupon', FC_COUPON['id']))
+def read_coupon_logs(reader, coupon_ids, start, end):
+    if len(coupon_ids) == 1:
+        coupon_filter = ('coupon_id', '=', coupon_ids[0])
+    else:
+        coupon_filter = ('coupon_id', 'IN', ','.join(coupon_ids))
     logs, cursor = [], start
     while cursor < end:
         stop = min(end, cursor + timedelta(days=28))
         lo, hi = cursor.strftime('%Y-%m-%d %H:%M:%S'), (stop - timedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S')
-        logs.extend(reader.pages('coupon_logs', [('site_id', '=', FC_COUPON['site_id']), ('coupon_id', '=', FC_COUPON['id']),
+        logs.extend(reader.pages('coupon_logs', [('site_id', '=', FC_COUPON['site_id']), coupon_filter,
                                                  ('use_time', 'RANGE', lo + ',' + hi)]))
         cursor = stop
-    numbers = sorted({identity(str(log.get('order_no'))) for log in logs})
+    return logs
+
+
+def read_coupon_orders(reader, numbers):
+    numbers = sorted(numbers)
     orders = []
     for index in range(0, len(numbers), COUPON_ORDER_CHUNK):
         chunk = numbers[index:index + COUPON_ORDER_CHUNK]
         orders.extend(reader.pages('orders', [('site_id', '=', FC_COUPON['site_id']), ('order_no', 'IN', ','.join(chunk))],
                                    validate=lambda r, chunk=chunk: str(r.get('order_no')) in chunk))
-    return summarize_coupon_usage(coupon, logs, orders, start, end)
+    return orders
 
+
+def read_carnival_coupon_usage(reader, start, end):
+    groups = {module: tuple(map(str, ids)) for module, ids in CARNIVAL_COUPONS.items()}
+    counters = {}
+    for coupon_ids in groups.values():
+        for cid in coupon_ids:
+            counters[cid] = coupon_record(reader.detail('coupon', cid),
+                dict(id=cid, site_id=CARNIVAL_SITE_ID, param_code=CARNIVAL_COUPON_PARAM))
+
+    logs_by_module = {}
+    order_module = {}
+    for module, coupon_ids in groups.items():
+        logs = read_coupon_logs(reader, coupon_ids, start, end)
+        for log in logs:
+            number = identity(str(log.get('order_no')))
+            if order_module.setdefault(number, module) != module:
+                raise ContractError('CONFLICTING_DUPLICATE_COUPON_USE')
+        logs_by_module[module] = logs
+    orders_by_module = defaultdict(list)
+    for row in read_coupon_orders(reader, order_module):
+        orders_by_module[order_module[str(row['order_no'])]].append(row)
+
+    modules, unmatched = [], 0
+    for module, coupon_ids in groups.items():
+        coupon = {key: sum(counters[cid][key] for cid in coupon_ids) for key in ('issued_total', 'used_total')}
+        result = summarize_coupon_usage(coupon, logs_by_module[module], orders_by_module[module], start, end, coupon_ids)
+        modules.append(dict(module=module, **coupon, **result['totals']))
+        unmatched += result['coverage']['orders_unmatched']
+    return dict(status='available', activity_id='mmoexp-carnival', modules=modules,
+                coverage=dict(complete=True, orders_unmatched=unmatched),
+                generated_at=datetime.now(timezone.utc).isoformat())
+
+
+def read_coupon_usage(reader, request):
+    start, end, _game = query_window(request)
+    activity = request.get('activity')
+    if activity == 'mmoexp-carnival':
+        return read_carnival_coupon_usage(reader, start, end)
+    if activity != 'fc27-season2':
+        raise ContractError('ACTIVITY_SCOPE_REQUIRED')
+    coupon = coupon_record(reader.detail('coupon', FC_COUPON['id']))
+    logs = read_coupon_logs(reader, (FC_COUPON['id'],), start, end)
+    orders = read_coupon_orders(reader, {identity(str(log.get('order_no'))) for log in logs})
+    return summarize_coupon_usage(coupon, logs, orders, start, end)
 
 
 # Carnival 2026 Mystery Shop: which members paid an order with one of a coupon set's
 # Mystery coupons, and when. The public runtime unlocks that member's next round for the
 # games of the set. Read only; only paid (status 1) uses within the carnival window count.
-CARNIVAL_SITE_ID = '266'
 CARNIVAL_MYSTERY_SETS = {
     'fc27': ('1401', '1403', '1405'), 'aion2': ('1407', '1409', '1411'), 'wow': ('1413', '1415', '1417'),
     'd4': ('1419', '1421', '1423'), 'poe': ('1425', '1427', '1429'), 'mix': ('1431', '1433', '1435'),

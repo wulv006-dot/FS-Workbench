@@ -5,25 +5,34 @@ import vm from 'node:vm';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {retrySource,transientFailure} from './statistics-retry.mjs';
+import {carnivalContext} from './report-context.mjs';
+import core from './funnel-core.cjs';
 
 const day=ms=>new Date(ms).toISOString().slice(0,10),DAY=86400000;
-const sources=['traffic','behavior','revenue'],games=new Set(['1327','891','456','1333']);
+const defaultSources=['traffic','behavior','revenue'];
+const activities=['mmoexp-seasonal','fc27-season2',carnivalContext.activityId];
+const games=new Set(['1327','891','456','1333']);
 const count=v=>{if(!Number.isSafeInteger(v)||v<0)throw Error('INVALID_AGGREGATE');return v;};
 const iso=v=>{if(typeof v!=='string'||!Number.isFinite(Date.parse(v)))throw Error('INVALID_AGGREGATE');return new Date(v).toISOString();};
 function windowFor(from,to,kind,at){return {kind,timezone:'UTC',from,to,start:from+'T00:00:00.000Z',endExclusive:new Date(Date.parse(to)+DAY).toISOString(),dateIntervalClosed:Date.parse(to)+DAY<=at};}
 export function refreshPlan(published,status={},at=Date.now(),activity='mmoexp-seasonal'){
- if(!['mmoexp-seasonal','fc27-season2'].includes(activity))throw Error('ACTIVITY_SCOPE_REQUIRED');
- const fc=activity==='fc27-season2',fcPages=(published?.pages||[]).filter(p=>p.activity_id===activity&&['fc27-weekly','fc27-sbc','fc27-trio'].includes(p.page_id));
+ if(!activities.includes(activity))throw Error('ACTIVITY_SCOPE_REQUIRED');
+ const carnival=activity===carnivalContext.activityId,fc=activity==='fc27-season2',fcPages=(published?.pages||[]).filter(p=>p.activity_id===activity&&['fc27-weekly','fc27-sbc','fc27-trio'].includes(p.page_id));
  const pageStarts=fcPages.map(p=>Date.parse(p.starts_at)).filter(Number.isFinite),registryStarts=(published?.registry||[]).filter(p=>['fc27-season2','fc27-weekly','fc27-sbc','fc27-trio'].includes(p.id)).map(p=>Date.parse(p.startAt)).filter(Number.isFinite);
- const start=fc?Math.min(...(pageStarts.length?pageStarts:registryStarts)):Date.parse(published?.halloween?.starts_at);
- if((!fc&&(!Number.isFinite(start)||start>at))||!(fc?fcPages.length===3:published?.pages?.some(p=>p.page_id==='seasonal-vault'&&p.activity_id==='mmoexp-seasonal')))throw Error('CAMPAIGN_CONTEXT_REQUIRED');
+ const start=carnival?Date.parse(carnivalContext.startsAt):fc?Math.min(...(pageStarts.length?pageStarts:registryStarts)):Date.parse(published?.halloween?.starts_at);
+ if(!carnival&&((!fc&&(!Number.isFinite(start)||start>at))||!(fc?fcPages.length===3:published?.pages?.some(p=>p.page_id==='seasonal-vault'&&p.activity_id==='mmoexp-seasonal'))))throw Error('CAMPAIGN_CONTEXT_REQUIRED');
  const knownStart=Number.isFinite(start)&&start<=at;
  const bjt=new Date(at+8*3600000),hour=Math.floor(bjt.getUTCHours()/8)*8,today=day(at),yesterday=day(Date.parse(today)-DAY);
  const slot=day(at+8*3600000)+'T'+String(hour).padStart(2,'0')+':00:00+08:00';
- const windows=[windowFor(today,today,'today',at),knownStart?windowFor(day(start),today,'campaign',at):{kind:'campaign',timezone:'UTC',from:null,to:today,reason:'CAMPAIGN_START_UNKNOWN'}];
+ const end=carnival?Date.parse(carnivalContext.endsAt):Infinity;
+ const windows=[windowFor(today,today,'today',at),carnival?windowFor(day(start),knownStart?day(Math.min(at,end-1)):day(start),'campaign',at):knownStart?windowFor(day(start),today,'campaign',at):{kind:'campaign',timezone:'UTC',from:null,to:today,reason:'CAMPAIGN_START_UNKNOWN'}];
  // 08:00 is the daily close. A later slot can catch up a missed/incomplete close, never a history sweep.
  if(hour===8||status.lastCompleteDailyDate!==yesterday)windows.push(windowFor(yesterday,yesterday,'yesterday',at));
- return {slot,scheduleTimezone:'Asia/Shanghai',scheduleHours:[0,8,16],metricTimezone:'UTC',campaignStartsAt:knownStart?new Date(start).toISOString():null,windows};
+ if(carnival)for(const w of windows){
+  if(!knownStart)w.reason='CAMPAIGN_NOT_STARTED';
+  else if(Date.parse(w.endExclusive)<=start||Date.parse(w.start)>=end)w.reason='OUTSIDE_CAMPAIGN_WINDOW';
+ }
+ return {slot,scheduleTimezone:'Asia/Shanghai',scheduleHours:[0,8,16],metricTimezone:'UTC',campaignStartsAt:carnival||knownStart?new Date(start).toISOString():null,windows};
 }
 function sourceFailure(error){
  const text=String(error?.message||'');
@@ -44,6 +53,14 @@ export function compactSource(name,value,activity='mmoexp-seasonal'){
   if([401,403].includes(value?.status))return {status:'unavailable',reason:'SOURCE_ACCESS_DENIED',blocked:true};
   if(value?.status===400)return {status:'unavailable',reason:v?.message==='活动未部署到服务端白名单'?'SOURCE_CONFIGURATION_INVALID':'WINDOW_FILTER_INVALID',blocked:v?.message==='活动未部署到服务端白名单'};
   return sourceFailure(Object.assign(Error(v?.status==='not_configured'?'SOURCE_NOT_CONFIGURED':v?.reason||'SOURCE_READ_FAILED'),{retryAfterMs:v?.retryAfterMs}));
+ }
+ if(name==='behavior'&&activity===carnivalContext.activityId){
+  const carnival=v.report?.carnival;
+  if(!carnival?.steps)return {status:'unavailable',reason:'CARNIVAL_AGGREGATE_MISSING'};
+  const counts=(data,labels)=>Object.fromEntries(Object.keys(labels).filter(k=>Object.hasOwn(data,k)).map(k=>[k,count(data[k])]));
+  const report={carnival:{steps:counts(carnival.steps,core.carnivalSteps),actions:Object.fromEntries(
+   Object.entries(core.carnivalActions).filter(([k])=>carnival.actions?.[k]).map(([k,labels])=>[k,counts(carnival.actions[k],labels)]))}};
+  return {status:'available',data:{source:'opt_in_production_events',generatedAt:iso(v.generatedAt),report}};
  }
  if(name==='behavior'&&activity==='fc27-season2'){
   const r=v.report;
@@ -93,7 +110,12 @@ function writeSlot(dir,name,data){
  finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(temp);}catch(e){if(e.code!=='ENOENT')throw e;}}
 }
 export async function runStatisticsRefresh({directory,published,readers,now=Date.now,runId=randomUUID(),retryBlocked=false,isCurrent=()=>true,activity='mmoexp-seasonal',deadline=Date.now()+360000}={}){
- if(activity==='fc27-season2')directory=path.join(directory,activity);
+ const carnival=activity===carnivalContext.activityId,sources=carnival?['behavior']:defaultSources;
+ if(activity==='fc27-season2'||carnival)directory=path.join(directory,activity);
+ if(carnival){
+  if(now()<Date.parse(carnivalContext.startsAt))return {status:'not_started',runId};
+  published={release_id:carnivalContext.releaseId,config_hash:carnivalContext.configHash};
+ }
  prepareDir(directory);const old=readSlot(directory,'status')||{schemaVersion:1,blockedSources:{}},startedAt=new Date(now()).toISOString(),plan=refreshPlan(published,old,now(),activity);
  if(old.lastAttempt?.slot===plan.slot&&old.lastAttempt?.status==='success'&&!retryBlocked)return {status:'already_completed',runId:old.lastAttempt.runId};
  const state={schemaVersion:1,scheduleTimezone:plan.scheduleTimezone,scheduleHours:plan.scheduleHours,metricTimezone:'UTC',lastSuccessfulRunAt:old.lastSuccessfulRunAt||null,lastCompleteDailyDate:old.lastCompleteDailyDate||null,blockedSources:retryBlocked?{}:{...old.blockedSources},lastAttempt:{runId,slot:plan.slot,startedAt,status:'running',windows:[]}};
@@ -110,24 +132,26 @@ export async function runStatisticsRefresh({directory,published,readers,now=Date
    const name=sources[i],result=results[i],at=new Date(now()).toISOString(),lastSuccess=priorCompatible?prior?.sources?.[name]?.lastSuccess||null:null;
    output.sources[name]={lastAttempt:{runId,at,status:result.status,reason:result.reason||null,...(result.retry?{retry:result.retry}:{}),...(result.data?{summary:result.data}:{})},lastSuccess:result.status==='available'?{runId,at,window,summary:result.data}:lastSuccess};
    if(result.blocked)state.blockedSources[name]={at,reason:result.reason};
-   anyGood ||= result.status==='available';allGood &&= result.status==='available';
+   anyGood ||= result.status==='available';allGood &&= result.status==='available'||(carnival&&window.reason==='OUTSIDE_CAMPAIGN_WINDOW');
   }
   writeSlot(directory,window.kind,output);
   const complete=results.every(r=>r.status==='available');if(window.kind==='yesterday'&&complete)state.lastCompleteDailyDate=window.from;
-  state.lastAttempt.windows.push({kind:window.kind,from:window.from,to:window.to,status:complete?'success':'incomplete',sources:Object.fromEntries(sources.map((name,i)=>[name,results[i].status]))});writeSlot(directory,'status',state);
+  state.lastAttempt.windows.push({kind:window.kind,from:window.from,to:window.to,status:complete?'success':carnival&&window.reason==='OUTSIDE_CAMPAIGN_WINDOW'?'skipped':'incomplete',sources:Object.fromEntries(sources.map((name,i)=>[name,results[i].status]))});writeSlot(directory,'status',state);
  }
  state.lastAttempt.status=allGood?'success':anyGood?'partial':'failed';state.lastAttempt.finishedAt=new Date(now()).toISOString();if(allGood)state.lastSuccessfulRunAt=state.lastAttempt.finishedAt;writeSlot(directory,'status',state);
  return {status:state.lastAttempt.status,runId,slot:plan.slot,finishedAt:state.lastAttempt.finishedAt,lastSuccessfulRunAt:state.lastSuccessfulRunAt,windows:state.lastAttempt.windows};
 }
 // Authenticated dashboard consumer: only exact, unfiltered slots; never invoke source readers.
 export function readStatisticsSnapshot({directory,published,kind,at=Date.now(),activity='mmoexp-seasonal'}){
- if(activity==='fc27-season2')directory=path.join(directory,activity);
+ const carnival=activity===carnivalContext.activityId,sources=carnival?['behavior']:defaultSources;
+ if(activity==='fc27-season2'||carnival)directory=path.join(directory,activity);
+ if(carnival)published={release_id:carnivalContext.releaseId,config_hash:carnivalContext.configHash};
  if(!['today','campaign','yesterday'].includes(kind))throw Error('INVALID_SNAPSHOT_SLOT');
  const plan=refreshPlan(published,{},at,activity),window=plan.windows.find(w=>w.kind===kind),state=readSlot(directory,'status'),snapshot=readSlot(directory,kind);
- const matching=snapshot?.activityId===activity&&snapshot.releaseId===published.release_id&&snapshot.configHash===published.config_hash&&snapshot.campaignStartsAt===plan.campaignStartsAt;
+ const matching=!(carnival&&window.reason)&&snapshot?.activityId===activity&&snapshot.releaseId===published.release_id&&snapshot.configHash===published.config_hash&&snapshot.campaignStartsAt===plan.campaignStartsAt;
  const sameWindow=w=>w?.from===window.from&&w?.to===window.to&&w?.timezone==='UTC';
- const selected=Object.fromEntries(sources.map(name=>{const value=matching?snapshot.sources?.[name]:null,success=value?.lastSuccess;return [name,{lastAttempt:sameWindow(snapshot?.window)?value?.lastAttempt||null:null,lastSuccess:success&&sameWindow(success.window)?success:null,previousSuccessAt:success?.at||null,previousWindow:success?.window||null}];}));
- return {status:matching&&sameWindow(snapshot?.window)?'available':'not_ready',activityId:activity,kind,window,releaseId:published.release_id,scheduleTimezone:'Asia/Shanghai',metricTimezone:'UTC',scheduleHours:[0,8,16],nextScheduledAt:new Date((Math.floor(at/(8*3600000))+1)*8*3600000).toISOString(),lastSuccessfulRunAt:state?.lastSuccessfulRunAt||null,lastAttempt:state?.lastAttempt||null,sources:selected};
+ const selected=Object.fromEntries(sources.map(name=>{const value=matching?snapshot.sources?.[name]:null,success=value?.lastSuccess;return [name,{lastAttempt:sameWindow(snapshot?.window)?value?.lastAttempt||null:null,lastSuccess:success&&sameWindow(success.window)&&(!carnival||success.summary?.report?.carnival?.steps)?success:null,previousSuccessAt:success?.at||null,previousWindow:success?.window||null}];}));
+ return {status:carnival&&window.reason==='CAMPAIGN_NOT_STARTED'?'not_started':matching&&sameWindow(snapshot?.window)&&(!carnival||selected.behavior.lastSuccess)?'available':'not_ready',activityId:activity,kind,window,releaseId:published.release_id,scheduleTimezone:'Asia/Shanghai',metricTimezone:'UTC',scheduleHours:[0,8,16],nextScheduledAt:new Date((Math.floor(at/(8*3600000))+1)*8*3600000).toISOString(),lastSuccessfulRunAt:state?.lastSuccessfulRunAt||null,lastAttempt:state?.lastAttempt||null,sources:selected};
 }
 async function production(){
  const args=process.argv.slice(2),get=name=>{const i=args.indexOf(name);return i<0?null:args[i+1];},directory=get('--directory'),runId=get('--run-id');
@@ -140,7 +164,9 @@ async function production(){
   behavior:w=>{const state=JSON.parse(fs.readFileSync(path.join(dataDir,'state.json'),'utf8'));let secret;try{secret=JSON.parse(fs.readFileSync(path.join(dataDir,'posthog-secret.json'),'utf8')).key;}catch{throw Error('SOURCE_NOT_CONFIGURED');}return report(new URLSearchParams({activity,mode:'live',from:w.from,to:w.to,template:'commerce',windowHours:'24',game:'all',device:'all',platform:'all',source:'all'}),{token:secret,project:box.window.FC_ANALYTICS_CONFIG.projectId,registry:state.registry,revision:state.revision,context:reportContext(publicDir,activity)});},
   revenue:w=>revenue(new URLSearchParams({activity,mode:'live',from:w.from,to:w.to,game:'all',refresh:'1'}))});
  const initialDay=day(Date.now()),isCurrent=()=>{try{const p=JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8'));return day(Date.now())===initialDay&&p.release_id===context.release_id&&p.config_hash===context.config_hash&&p.halloween?.starts_at===context.halloween?.starts_at;}catch{return false;}};
- const deadline=Date.now()+360000,results=[];for(const activity of ['mmoexp-seasonal','fc27-season2']){try{results.push({activity,...await runStatisticsRefresh({directory,published:context,readers:readersFor(activity),runId,isCurrent,activity,deadline,retryBlocked:args.includes('--retry-blocked')})});}catch(error){results.push({activity,status:'failed',reason:sourceFailure(error).reason});}}
- console.log(JSON.stringify({results}));process.exitCode=results.every(r=>['success','already_completed'].includes(r.status))?0:results.some(r=>['success','already_completed','partial'].includes(r.status))?2:1;
+ const deadline=Date.now()+360000,results=[];for(const activity of activities){
+  if(activity===carnivalContext.activityId&&!context.registry.some(a=>a.id===activity&&a.status==='active'))continue;
+  try{results.push({activity,...await runStatisticsRefresh({directory,published:context,readers:readersFor(activity),runId,isCurrent:activity===carnivalContext.activityId?()=>day(Date.now())===initialDay:isCurrent,activity,deadline,retryBlocked:args.includes('--retry-blocked')})});}catch(error){results.push({activity,status:'failed',reason:sourceFailure(error).reason});}}
+ console.log(JSON.stringify({results}));process.exitCode=results.every(r=>['success','already_completed','not_started'].includes(r.status))?0:results.some(r=>['success','already_completed','partial'].includes(r.status))?2:1;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))production().catch(()=>{console.error(JSON.stringify({status:'failed',reason:'STATISTICS_REFRESH_FAILED'}));process.exitCode=1;});

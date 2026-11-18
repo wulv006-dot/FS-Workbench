@@ -9,10 +9,11 @@
  if(!window.CampaignServer||new URLSearchParams(location.search).get('scope')==='custom')$('statistics-scope').value='custom';
  for(const id of ['from','to','game','device','source','windowHours'])$(id).addEventListener('change',()=>{
   $('statistics-scope').value='custom';
-  if(window.CampaignServer&&(seasonal()||fcActivity())){
+  if(window.CampaignServer&&scheduledActivity()){
    generation++;revenueGeneration++;trafficGeneration++;trafficState=null;currentDiagnostics=null;fcRevenue=null;scheduleStatus.hidden=true;show(null,$('mode').value);
    $('feedback').textContent='筛选条件已更改，尚未查询；请点击“更新分析”。';
-   if($('discount-revenue'))$('discount-revenue').innerHTML='<h2>活动码付款收入</h2><p>— · 尚未查询，请点击“更新分析”。</p>';
+   if(carnival()){couponGeneration++;couponUsage={status:'unavailable',message:'筛选条件已更改，请更新分析。'};renderCouponPanel();}
+   if(!carnival()&&$('discount-revenue'))$('discount-revenue').innerHTML='<h2>活动码付款收入</h2><p>— · 尚未查询，请点击“更新分析”。</p>';
   }
  });
  $('statistics-scope').addEventListener('change',()=>{if($('statistics-scope').value!=='custom'){for(const id of ['game','device','source','platform','match'])$(id).value='all';$('mode').value='live';$('template').value='commerce';$('windowHours').value='24';}refresh();});
@@ -22,6 +23,8 @@
  const bjt=value=>value&&Number.isFinite(Date.parse(value))?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',dateStyle:'short',timeStyle:'medium',hour12:false}).format(new Date(value)):'尚未收到';
  const seasonal=()=>$('activity').value==='mmoexp-seasonal';
  const fcActivity=()=>core.canonicalActivity($('activity').value)==='fc27-season2';
+ const carnival=()=>$('activity').value==='mmoexp-carnival';
+ const scheduledActivity=()=>seasonal()||fcActivity()||carnival();
  const modelName=r=>currentContext?.models?.[r.gameId+':'+r.modelId]||'商品名称待匹配';
  function seasonalTable(rows){
   let section=document.getElementById('seasonal-offer-report');
@@ -57,12 +60,17 @@
  const pctText=v=>v==null?'—':(v*100).toFixed(1)+'%';
  function renderCouponPanel(){
   let section=$('coupon-usage');
-  if(!fcActivity()){if(section)section.hidden=true;return;}
+  if(!fcActivity()&&!carnival()){if(section)section.hidden=true;return;}
   if(!section){section=document.createElement('section');section.id='coupon-usage';section.className='panel';($('discount-revenue')||$('metrics')).after(section);}
   section.hidden=false;const c=couponUsage;
   if(!c||c.status==='loading'){section.innerHTML='<h2>活动券使用与转化</h2><p role="status">正在读取券使用记录，行为统计可继续查看…</p>';return;}
   if(c.status==='test')return void(section.innerHTML='<h2>活动券使用与转化</h2><p>测试模式不查询或混入正式订单。请切换正式访客数据查看活动券。</p>');
   if(c.status!=='available'){section.innerHTML='<h2>活动券使用与转化</h2><p role="status">'+esc(c.message||'活动券使用记录暂不可读；未完成不记为零。')+'</p>';return;}
+  if(carnival()){
+   const fields=[['累计领取','issued_total'],['累计使用','used_total'],['用券订单','used_orders'],['已付款','paid_orders'],['含退款','refunded_orders'],['付款金额 · USD','paid_usd_minor'],['确认抵扣 · USD','discount_usd_minor']];
+   section.innerHTML='<h2>活动券使用 · 按模块</h2><div class="report-table-wrap" tabindex="0" role="region" aria-label="活动券使用"><table><thead><tr><th scope="col">模块</th>'+fields.map(([label])=>'<th scope="col">'+label+'</th>').join('')+'</tr></thead><tbody>'+c.modules.map(m=>'<tr><th scope="row">'+esc(core.carnivalModules[m.module])+'</th>'+fields.map(([,key])=>'<td>'+(key.endsWith('_minor')?usd(m[key]):num(m[key]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div><p class="muted">领取和使用累计取自券模板。窗口内按 UTC 用券日期归组，付款金额含单列的退款订单。'+(c.coverage.orders_unmatched?' '+num(c.coverage.orders_unmatched)+' 笔未匹配到订单，使用用券记录的付款状态与金额。':'')+' 更新时间 '+esc(bjt(c.generated_at))+'（北京时间）。</p>';
+   return;
+  }
   const t=c.totals,cp=c.coupon,rate=c.conversion,code=fcRevenue?.status==='available'?fcRevenue.totals:null;
   const cards=[['已领取券 · 累计',num(cp.issued_total)],['已使用券 · 累计',num(cp.used_total)],['领取→使用 · 累计',pctText(rate.claim_to_use)],['窗口内用券订单',num(t.used_orders)],['其中已付款',num(t.paid_orders)],['用券订单付款率',pctText(rate.paid_per_use)],['用券付款金额 · USD',usd(t.paid_usd_minor)],['券抵扣金额 · USD',usd(t.discount_usd_minor)],['用券付款买家',num(t.unique_buyers)],['含退款订单',num(t.refunded_orders)],['用券后90天复购订单',num(t.repurchase_orders)],['90天复购金额 · USD',usd(t.repurchase_usd_minor)]];
   const compare=code?'<p>优惠码（保留）：'+(code.paid_orders==null?'':num(code.paid_orders)+' 单 · ')+usd(code.paid_usd_minor)+'；优惠券：'+num(t.paid_orders)+' 单 · '+usd(t.paid_usd_minor)+'；两者合计：'+(code.paid_orders==null?'':num(code.paid_orders+t.paid_orders)+' 单 · ')+usd(code.paid_usd_minor+t.paid_usd_minor)+'。优惠码与优惠券互斥，不会同时用在一张订单上。</p>':'';
@@ -71,15 +79,18 @@
  }
  async function loadCouponUsage(filter,force=false){
   const generation=++couponGeneration;
-  if(!fcActivity()){couponUsage=null;renderCouponPanel();return;}
+  if(!fcActivity()&&!carnival()){couponUsage=null;renderCouponPanel();return;}
   if(filter.mode!=='live'){couponUsage={status:'test'};renderCouponPanel();return;}
+  if(carnival()&&(!filter.from||!filter.to||Date.now()<Date.parse(currentContext?.startsAt)||Date.parse(filter.to)+86400000<=Date.parse(currentContext?.startsAt))){
+   couponUsage={status:'not_started',message:'所选区间尚未开始统计。'};renderCouponPanel();return;
+  }
   couponUsage={status:'loading'};renderCouponPanel();
   const params=new URLSearchParams(Object.fromEntries(['activity','mode','from','to'].map(k=>[k,filter[k]||''])));
   if(force)params.set('refresh','1');
   try{
    const response=await fetch('api/coupon-usage?'+params,{credentials:'same-origin',signal:AbortSignal.timeout(125000)}),r=await response.json();
    if(generation!==couponGeneration)return;
-   if(!response.ok||r.status!=='available'||r.coverage?.complete!==true)throw Error(r.message||'活动券使用记录读取未完成');
+   if(!response.ok||r.status!=='available'&&r.status!=='not_started'||r.status==='available'&&r.coverage?.complete!==true)throw Error(r.message||'活动券使用记录读取未完成');
    couponUsage=r;
   }catch(error){if(generation!==couponGeneration)return;couponUsage={status:'unavailable',message:error.name==='TimeoutError'?'活动券使用记录查询超时，请更新分析重试；未完成不记为零。':error.message};}
   renderCouponPanel();
@@ -104,7 +115,13 @@
  }
  let googleSource='gsc',googleKey='',googleGeneration=0;
  function showGoogle(){
-  let panel=$('google-traffic-report');if(!seasonal()){if(panel)panel.hidden=true;return;}
+  let panel=$('google-traffic-report');
+  if(carnival()){
+   googleKey='';googleGeneration++;
+   if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';}
+   panel.hidden=false;panel.innerHTML='<h2>Google 流量</h2><p class="muted">狂欢盛典暂未接入 Google 流量数据。</p>';$('filters').after(panel);return;
+  }
+  if(!seasonal()){if(panel)panel.hidden=true;return;}
   if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';}panel.hidden=false;if($('filters').nextElementSibling!==panel)$('filters').after(panel);
   const from=$('from').value,to=$('to').value,mode=$('mode').value,key=[from,to,mode,googleSource].join(':');if(key===googleKey)return;googleKey=key;googleGeneration++;
   panel.innerHTML='<h2>Google · 万圣节页面流量</h2><p class="muted">只查询正式活动页；各来源按自己的统计日，不与UTC行为窗口拼成逐访客漏斗。此区不随游戏、设备和渠道筛选，不会在页面自动刷新时重复请求Google。</p><label>数据来源 <select id="google-source"><option value="gsc">Search Console · 自然搜索</option><option value="ga4">GA4 · 页面与访问</option><option value="ads">Google Ads · 广告落地页</option></select></label> <button id="google-load" class="fs-btn fs-btn--primary" type="button">读取 Google 明细</button><div id="google-result" role="status" aria-live="polite"><p>'+esc(from)+' 至 '+esc(to)+' · 点击读取；未查询不显示为零。</p></div>';
@@ -163,7 +180,32 @@
   const max=Math.max(1,...(data?.daily||[]).map(x=>x.visits));$('trend').innerHTML=data?.daily?.length?'<div class="trend">'+data.daily.map(x=>'<div class="day"><b>'+num(x.visits)+'</b><div class="day-bar" style="height:'+x.visits/max*100+'px"></div><span>'+esc(x.date.slice(5))+'</span><small>活动访问</small></div>').join('')+'</div>':'<p class="empty">当前筛选尚无访问趋势</p>';
   seasonalTable(data?.seasonalOffers);
  }
- function show(data,mode){if(seasonal())return showSeasonal(data,mode);showBasicTraffic(false);$('open-activity').href='products.html#page-preview';$('open-activity').textContent='预览活动页 ↗';document.body.classList.remove('operator-seasonal');$('game-filter').hidden=true;$('activity-summary').hidden=true;const gameReport=document.getElementById('game-report');if(gameReport)gameReport.hidden=true;$('report-title').textContent=fcActivity()?'FC27 周更活动（三页合计）':'活动转化分析';$('report-subtitle').textContent=fcActivity()?'Player Trio · Weekly Scout · SBC Core，共用一份活动数据':'活动行为分析';seasonalTable(data?.seasonalOffers);const sharedFc=fcActivity(),missing=mode==='local'||mode==='test'||sharedFc,unavailable=!data,report=data||core.summarize([],{template:$('template').value}),steps=report.steps,isCommerce=report.template==='commerce';$('window-label').textContent='有序 · '+(report.windowHours||24)+' 小时';$('funnel-definition').textContent=report.template==='reward'?'以中奖资格为分母，按同一赛事与奖励链路统计；未中奖不算流失。':report.template==='prediction'?'同一赛事、同一访问批次：赛事曝光 → 开始预测 → 服务端保存成功。':'同一活动访问批次按顺序完成，跨日转化按配置窗口归组。';
+ function showCarnival(data){
+  const c=currentContext?.activityId==='mmoexp-carnival'?currentContext:null;
+  const registration=registry.find(a=>a.id==='mmoexp-carnival'),start=c?.startsAt||registration?.startAt,end=c?.endsAt||registration?.endAt;
+  const started=!start||Date.now()>=Date.parse(start),outside=$('to').value&&Date.parse($('to').value)+86400000<=Date.parse(start);
+  const report=started&&!outside?data?.carnival:null,steps=report?.steps;
+  $('report-title').textContent='狂欢盛典 2026';
+  $('report-subtitle').textContent='已授权访客行为与活动券归因';
+  $('open-activity').href=c?.url||'https://www.mmoexp.com/events/Carnival.html';
+  $('open-activity').textContent='打开正式活动页 ↗';
+  $('open-activity').target='_blank';$('open-activity').rel='noopener';
+  document.body.classList.add('operator-seasonal');
+  $('activity-summary').hidden=false;
+  $('activity-summary').innerHTML='<h2>活动时间 · 北京时间</h2><p>'+esc(bjt(start))+' 至 '+esc(bjt(end))+'</p>';
+  for(const id of ['game-filter','game-report','discount-revenue'])if($(id))$(id).hidden=true;
+  seasonalTable();showBasicTraffic(false);
+  $('metrics').replaceChildren();
+  $('window-label').textContent='按访问批次去重';
+  $('funnel-definition').textContent='各步骤统计发生过该行为的访问批次，访客可从任意模块参与。';
+  $('funnel').innerHTML=Object.entries(core.carnivalSteps).filter(([key])=>steps?.[key]!=null).map(([key,label])=>'<div class="step"><div>'+label+'</div><div class="bar-track"><div class="bar" style="width:'+(steps.visits?steps[key]/steps.visits*100:0)+'%"></div></div><strong>'+num(steps[key])+'</strong></div>').join('');
+  $('insight').textContent=!started?'活动尚未开始。':outside?'所选区间早于活动开始。':!steps?'当前区间尚无可用汇总。':steps.visits===0?'当前区间尚未收到已授权访问。':'结账交接统计购物车交接事件，付款见活动券使用。';
+  $('channels').innerHTML=Object.entries(core.carnivalActions).map(([module,labels])=>{
+   const actions=Object.entries(labels).filter(([key])=>report?.actions?.[module]?.[key]!=null);
+   return actions.length?'<h3>'+core.carnivalModules[module]+'</h3>'+actions.map(([key,label])=>'<div class="channel"><span>'+label+'</span><strong>'+num(report.actions[module][key])+'</strong></div>').join(''):'';
+  }).join('')||'<p class="empty">当前区间尚无模块操作记录。</p>';
+ }
+ function show(data,mode){if(carnival())return showCarnival(data);if(seasonal())return showSeasonal(data,mode);showBasicTraffic(false);$('open-activity').href='products.html#page-preview';$('open-activity').textContent='预览活动页 ↗';document.body.classList.remove('operator-seasonal');$('game-filter').hidden=true;$('activity-summary').hidden=true;const gameReport=document.getElementById('game-report');if(gameReport)gameReport.hidden=true;$('report-title').textContent=fcActivity()?'FC27 周更活动（三页合计）':'活动转化分析';$('report-subtitle').textContent=fcActivity()?'Player Trio · Weekly Scout · SBC Core，共用一份活动数据':'活动行为分析';seasonalTable(data?.seasonalOffers);const sharedFc=fcActivity(),missing=mode==='local'||mode==='test'||sharedFc,unavailable=!data,report=data||core.summarize([],{template:$('template').value}),steps=report.steps,isCommerce=report.template==='commerce';$('window-label').textContent='有序 · '+(report.windowHours||24)+' 小时';$('funnel-definition').textContent=report.template==='reward'?'以中奖资格为分母，按同一赛事与奖励链路统计；未中奖不算流失。':report.template==='prediction'?'同一赛事、同一访问批次：赛事曝光 → 开始预测 → 服务端保存成功。':'同一活动访问批次按顺序完成，跨日转化按配置窗口归组。';
   const metric=(label,value,note)=>`<article class="metric"><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`;
   $('metrics').innerHTML=metric(isCommerce?'活动访问批次':'漏斗起点批次',unavailable?'—':num(report.visits),'同一批次内事件去重')+metric(mode==='local'?'本机可识别会话':'访客数 · UV',unavailable?'—':num(report.visitors),mode==='local'?'本机仅按会话去重':'匿名浏览器 ID 去重，非跨设备实名人数')+metric(isCommerce?'付款批次转化率':'目标完成率',missing||unavailable?'—':pct(report.visits?steps.at(-1).count/report.visits:null),sharedFc?'付款按活动码独立统计，尚未关联到访客':missing?'服务端尚未接入':'最终步骤批次 ÷ 漏斗起点批次')+metric('活动商品实付 · USD',!isCommerce||missing||unavailable?'—':'$'+(report.revenueMinor/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),'独立归因订单金额；未扣退款');
   const base=steps[0].count;$('funnel').innerHTML=steps.map((s,i)=>`<div class="step"><div>${s.label}<small>${i?'上一步 '+(missing&&i>=(sharedFc?3:2)||unavailable?'待接入':pct(s.rate)):'访问入口'}</small></div><div class="bar-track"><div class="bar" style="width:${base?s.count/base*100:0}%;opacity:${1-i*.12}"></div></div><strong>${missing&&i>=(sharedFc?3:2)||unavailable?'—':num(s.count)}</strong></div>`).join('');
@@ -175,7 +217,16 @@
   renderFcRevenueCard();
   $('intent').innerHTML=[[mode==='local'?'点击会话数':'点击访客数',report.clickers],['查看购买清单的批次',report.reviews],['选择 SBC 代做的批次',report.sbcSelections],...(report.couponClaims===undefined?[]:[['领取活动券的批次',report.couponClaims],['沿用已领券的批次',report.couponReused]]),['平均前台参与时长',report.activeSeconds==null?'—':report.activeSeconds+' 秒']].map(([label,value])=>`<div class="channel"><span>${label}</span><strong>${unavailable?'—':esc(value)}</strong></div>`).join('');
  }
- function normalizeFilters(){if(seasonal()){for(const id of ['platform','match'])$(id).value='all';$('template').value='commerce';}}
+ function normalizeFilters(){
+  const isCarnival=carnival();
+  if(seasonal()||isCarnival){for(const id of ['platform','match'])$(id).value='all';$('template').value='commerce';}
+  if(isCarnival)$('game').value='all';
+  const channels=$('channels').closest('section');
+  channels.querySelector('h2').textContent=isCarnival?'模块操作次数':'渠道带来的转化';
+  channels.querySelector('.eyebrow').hidden=isCarnival;
+  channels.querySelector('.definition').hidden=isCarnival;
+  $('trend').closest('section').hidden=isCarnival;
+ }
  function productSalesHtml(sales){
   const available=sales?.status==='available'&&sales.coverage?.complete===true,partial=sales?.status==='partial',rows=Array.isArray(sales?.rows)?sales.rows:[];
   return '<h3>活动商品销量 · 付款订单行</h3><p>'+(available?'当前区间付款订单行已完整核对。':partial?'仅部分付款订单已取得商品行，以下为已覆盖部分，不代表完整销量。':'付款订单行暂不可用；未将缺测记为零。')+(sales?.coverage?' 已覆盖 '+num(sales.coverage.covered_paid_orders)+' / '+num(sales.coverage.eligible_paid_orders)+' 个活动付款订单。':'')+'</p>'+(sales?.rows_truncated?'<p class="muted">显示前 '+rows.length+' / 共 '+num(sales.total_products)+' 个商品，完整明细请使用自选查询；未展示的商品不代表无销量。</p>':'')+((available||partial)&&rows.length?'<div class="report-table-wrap" tabindex="0" role="region" aria-label="活动付款商品销量"><table><thead><tr>'+['商品','平台','付款订单','购买数量','含退款订单','退款订单购买数量'].map(x=>'<th scope="col">'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.map(x=>'<tr><th scope="row">'+esc(x.title||x.product_id)+'</th><td>'+esc(x.platform||'未提供')+'</td><td>'+num(x.paid_orders)+'</td><td>'+esc(x.quantity)+' '+esc(x.unit)+'</td><td>'+(x.refunded_orders==null?'—':num(x.refunded_orders))+'</td><td>'+(x.refunded_quantity==null?'—':esc(x.refunded_quantity)+' '+esc(x.unit))+'</td></tr>').join('')+'</tbody></table></div>':available?'<p>完整查询：当前区间活动商品销量为 0。</p>':'')+'<p class="muted">按活动付款订单中核实的商品行统计，不使用曝光、选择或加购替代销量；整单美元金额不分摊到商品，退款单列，不冒充净销量。退款订单购买数量仅标记含退款订单的原购买数量，非实际退货或退款件数。</p>';
@@ -192,6 +243,9 @@
  }
  async function refreshScheduled(gen){
   const kind=$('statistics-scope').value;revenueGeneration++;trafficGeneration++;trafficState=null;scheduleStatus.hidden=false;scheduleStatus.textContent='正在读取服务器计划汇总…';
+  couponGeneration++;couponUsage=null;
+  if($('coupon-usage'))$('coupon-usage').hidden=true;
+  if(carnival())showCarnival(null);
   try{
    const response=await fetch('api/statistics-snapshot?'+new URLSearchParams({kind,activity:$('activity').value}),{credentials:'same-origin',signal:AbortSignal.timeout(10000)}),v=await response.json();
    if(gen!==generation)return;if([400,401,403].includes(response.status))autoRefreshAllowed=false;if(!response.ok)throw Error(v.message||'计划汇总暂不可读');
@@ -199,6 +253,13 @@
    currentContext=v.context||null;currentDiagnostics=null;
    if(currentContext?.games)$('game').innerHTML='<option value="all">全部游戏</option>'+currentContext.games.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+'</option>').join('');
    $('from').value=v.window.from;$('to').value=v.window.to;
+   if(carnival()){
+    showCarnival(behavior?.report);
+    $('mode-notice').textContent='行为仅覆盖已同意统计的访问。计划汇总于北京时间 00:00、08:00、16:00 更新。';
+    scheduleStatus.textContent=v.status==='not_started'?'活动尚未开始，统计将在开始后更新。':behavior?'行为汇总截至 '+bjt(source('behavior')?.at)+'（北京时间）':'当前区间尚无完整行为汇总 · 下次计划 '+bjt(v.nextScheduledAt)+'（北京时间）';
+    void loadCouponUsage({activity:v.activityId,mode:'live',from:v.window.from,to:v.window.to},false);
+    return;
+   }
    if(fcActivity()){renderFcSnapshot(v,behavior,revenue);void loadCouponUsage({activity:$('activity').value,mode:'live',from:v.window.from,to:v.window.to},false);return;}
    showSeasonal(behavior?{visits:behavior.visits,visitors:behavior.sessionVisitors,seasonalTotals:behavior.totals,seasonalGames:behavior.byGame}:null,'live');
    $('mode-notice').textContent='服务器计划汇总 · 北京时间00:00 / 08:00 / 16:00更新；页面刷新仅读保存结果，不重新采集。';
@@ -212,16 +273,20 @@
    let section=$('discount-revenue');if(!section){section=document.createElement('section');section.id='discount-revenue';section.className='panel';$('metrics').after(section);}section.hidden=false;
    section.innerHTML='<h2>活动码付款收入</h2>'+(revenue?'<div class="metrics"><article class="metric"><span>用码付款订单</span><strong>'+num(revenue.paidOrders)+'</strong></article><article class="metric"><span>付款订单金额 · USD</span><strong>'+usd(revenue.paidUsdMinor)+'</strong></article></div><p>后台付款显示金额：'+esc(revenue.paidCurrencies.map(c=>c.currency+' '+c.amount).join(' · ')||'当前区间无付款')+'</p><div class="report-table-wrap"><table><thead><tr><th>游戏</th><th>活动码</th><th>优惠</th><th>付款订单</th><th>金额 · USD</th></tr></thead><tbody>'+revenue.codes.map(c=>'<tr><th>'+esc(gameNames[c.gameId]||c.gameId)+'</th><td>'+esc(c.code)+'</td><td>'+num(c.offPercent)+'% OFF</td><td>'+num(c.paidOrders)+'</td><td>'+usd(c.paidUsdMinor)+'</td></tr>').join('')+'</tbody></table></div>':'<p>当前区间付款数据缺测，未填零。</p>')+'<p class="muted">12个活动专属码的已付款订单美元金额；未扣退款，不是净收入或逐访客归因。最后成功 '+esc(bjt(source('revenue')?.at))+'（北京时间）。</p>';
    $('feedback').textContent='计划汇总已读取；统计日期采用UTC，运行时间显示北京时间。';
-  }catch(error){if(gen!==generation)return;fcRevenue=null;show(null,'live');for(const id of ['basic-traffic-report','discount-revenue'])if($(id))$(id).innerHTML='<h2>计划数据暂不可读</h2><p>未显示旧筛选数字，也不把失败填为零。</p>';scheduleStatus.textContent=error.message;$('feedback').textContent=error.message;}
+  }catch(error){if(gen!==generation)return;fcRevenue=null;show(null,'live');for(const id of ['basic-traffic-report','discount-revenue'])if($(id))$(id).innerHTML='<h2>计划数据暂不可读</h2><p>未显示旧筛选数字，也不把失败填为零。</p>';if(carnival()){couponUsage={status:'unavailable',message:'统计区间读取失败，请更新分析。'};renderCouponPanel();}scheduleStatus.textContent=error.message;$('feedback').textContent=error.message;}
  }
- async function refresh(forceRevenue=false){if(fcActivity())lastFcReadAt=Date.now();if(forceRevenue===true&&fcActivity())$('statistics-scope').value='custom';normalizeFilters();const gen=++generation,mode=$('mode').value,filter=Object.fromEntries(new FormData($('filters')));if(!seasonal())delete filter.game;if(!filter.activity){show(null,mode);$('feedback').textContent='暂无可查询的已上线活动。请在活动管理区查看登记状态。';return;}$('feedback').textContent='';if(filter.from>filter.to&&(!window.CampaignServer||!seasonal()||mode!=='live'||$('statistics-scope').value==='custom')){$('feedback').textContent='开始日期不能晚于结束日期。';return;}
-  scheduleControl.hidden=!window.CampaignServer||!(seasonal()||fcActivity());
+ async function refresh(forceRevenue=false){if(fcActivity())lastFcReadAt=Date.now();if(forceRevenue===true&&(fcActivity()||carnival()))$('statistics-scope').value='custom';normalizeFilters();const gen=++generation,mode=$('mode').value,filter=Object.fromEntries(new FormData($('filters')));if(!seasonal())delete filter.game;if(carnival())delete filter.platform;if(!filter.activity){show(null,mode);$('feedback').textContent='暂无可查询的已上线活动。请在活动管理区查看登记状态。';return;}$('feedback').textContent='';if(filter.from>filter.to&&(!window.CampaignServer||(!seasonal()&&!carnival())||mode!=='live'||$('statistics-scope').value==='custom')){$('feedback').textContent='开始日期不能晚于结束日期。';return;}
+  scheduleControl.hidden=!window.CampaignServer||!scheduledActivity();
   if(mode!=='live'||['game','device','source'].some(k=>filter[k]&&filter[k]!=='all')||filter.windowHours!=='24')$('statistics-scope').value='custom';
-  if(window.CampaignServer&&(seasonal()||fcActivity())&&mode==='live'&&$('statistics-scope').value!=='custom')return refreshScheduled(gen);
+  if(window.CampaignServer&&scheduledActivity()&&mode==='live'&&$('statistics-scope').value!=='custom')return refreshScheduled(gen);
   scheduleStatus.hidden=true;
+  if(carnival()&&currentContext?.activityId!=='mmoexp-carnival'){
+   const a=registry.find(a=>a.id==='mmoexp-carnival');
+   currentContext={activityId:'mmoexp-carnival',startsAt:a?.startAt,endsAt:a?.endAt};
+  }
   void loadRevenue(filter,forceRevenue===true);void loadCouponUsage(filter,forceRevenue===true);void loadTraffic(filter,forceRevenue===true);
   $('mode-notice').textContent=mode==='demo'?'演示模式 · 所有人数与金额均为虚构样本，不代表真实经营结果。':mode==='local'?'本机埋点体验 · 仅显示同源浏览器的最近 1,500 条预览事件；无外传、无真实成交。':mode==='test'?'PostHog 联调数据 · 从实际项目查询 test 事件，仅用于接入验收，不代表正式经营结果。':'真实数据模式 · 仅显示 FS 服务端查询结果；未接入不会用演示数据代替。';
-  if(mode==='live'||mode==='test'){show(null,mode);$('feedback').textContent='正在查询接入状态…';try{const response=await fetch('api/report?'+new URLSearchParams(filter),{signal:AbortSignal.timeout(20000),credentials:'same-origin'});const result=await response.json();if([400,401,403].includes(response.status)||result.status==='not_configured')autoRefreshAllowed=false;if(!response.ok)throw Error(result.status==='not_configured'?'PostHog 尚未配置；请先在连接页录入只读密钥。':result.message||'真实数据接口不可用，请确认服务仍运行。');if(gen!==generation)return;if(result.status!=='available'||!result.report)throw Error(result.message||'数据暂不可用');currentContext=result.context||null;currentDiagnostics=result.diagnostics||null;if(currentContext?.games){const selected=$('game').value;$('game').innerHTML='<option value="all">全部游戏</option>'+currentContext.games.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+'</option>').join('');if(currentContext.games.some(g=>g.id===selected))$('game').value=selected;}show(result.report,mode);$('feedback').textContent='查询结果时间：'+bjt(result.generatedAt)+'（北京时间） · 正式查询最多缓存5分钟 · '+result.coverage;}catch(error){if(gen===generation){show(null,mode);$('feedback').textContent=error.message;}}return;}
+  if(mode==='live'||mode==='test'){show(null,mode);$('feedback').textContent='正在查询接入状态…';try{const response=await fetch('api/report?'+new URLSearchParams(filter),{signal:AbortSignal.timeout(20000),credentials:'same-origin'});const result=await response.json();if([400,401,403].includes(response.status)||result.status==='not_configured')autoRefreshAllowed=false;if(!response.ok)throw Error(result.status==='not_configured'?'PostHog 尚未配置；请先在连接页录入只读密钥。':result.message||'真实数据接口不可用，请确认服务仍运行。');if(gen!==generation)return;if(carnival()&&result.status==='not_started'){currentContext=result.context;showCarnival(null);$('feedback').textContent='';return;}if(result.status!=='available'||!result.report)throw Error(result.message||'数据暂不可用');currentContext=result.context||null;currentDiagnostics=result.diagnostics||null;if(currentContext?.games){const selected=$('game').value;$('game').innerHTML='<option value="all">全部游戏</option>'+currentContext.games.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+'</option>').join('');if(currentContext.games.some(g=>g.id===selected))$('game').value=selected;}show(result.report,mode);$('feedback').textContent='查询结果时间：'+bjt(result.generatedAt)+'（北京时间） · 正式查询最多缓存5分钟 · '+result.coverage;}catch(error){if(gen===generation){show(null,mode);$('feedback').textContent=error.message;}}return;}
   let events=[];try{events=mode==='demo'?window.activityDemoEvents(defaults):JSON.parse(localStorage.getItem('fc-activity-events-v1')||'[]');}catch{$('feedback').textContent='本地事件存储不可用。';}show(core.summarize(events,filter),mode);
  }
  async function save(next){next=core.validateRegistry(next);if(window.CampaignServer){const v=await CampaignServer.save({registry:next});registry=v.registry;$('registry-note').textContent='已保存到服务器 · 版本 '+v.revision+' · '+v.updatedAt;}else{localStorage.setItem(key,JSON.stringify(next));registry=next;}renderRegistry();refresh();}
@@ -238,5 +303,5 @@
  $('editor-form').addEventListener('submit',async e=>{e.preventDefault();const submit=e.submitter;submit.disabled=true;try{const item={id:$('activity-id').value,name:$('activity-name').value,path:$('activity-path').value,view:registry.find(x=>x.id===editing)?.view||$('activity-id').value,type:$('activity-type').value,status:$('activity-status').value,owner:$('activity-owner').value,version:$('activity-version').value,origin:$('activity-origin').value,windowHours:Number($('activity-window').value),startAt:$('activity-start').value?$('activity-start').value+'Z':'',endAt:$('activity-end').value?$('activity-end').value+'Z':'',matches:[...$('match-rows').children].map(row=>Object.fromEntries([...row.querySelectorAll('input')].map(el=>[el.dataset.field,el.value&&el.type==='datetime-local'?el.value+'Z':el.value])))};await save(editing?registry.map(a=>a.id===editing?item:a):[...registry,item]);$('editor').close();}catch(error){$('editor-error').textContent=error.message;}finally{submit.disabled=false;}});
  $('export').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(registry,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='activity-registry.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
  $('import').addEventListener('change',async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>100000)throw Error('文件超过 100 KB');const next=core.validateRegistry(JSON.parse(await file.text()));await save(next);$('feedback').textContent=window.CampaignServer?'活动配置已保存服务器；网站追踪接入需开发完成。':'活动配置已导入本浏览器；尚未发布或启用追踪。';}catch(error){$('feedback').textContent='导入失败：'+error.message;}finally{e.target.value='';}});
- $('management').open=!window.CampaignServer;$('show-planned').addEventListener('change',()=>{renderRegistry();refresh();});renderRegistry();const initial=new URLSearchParams(location.search);if(window.CampaignServer){$('mode').value='live';if(registry.some(a=>a.id==='mmoexp-seasonal'&&a.status==='active'))$('activity').value='mmoexp-seasonal';}if(initial.get('mode')==='test')$('mode').value='test';const initialActivity=core.canonicalActivity(initial.get('activity'));if([...$('activity').options].some(o=>o.value===initialActivity))$('activity').value=initialActivity;refresh();if(window.CampaignServer)setInterval(()=>{if(autoRefreshAllowed&&(!fcActivity()||Date.now()-lastFcReadAt>=600000)&&document.visibilityState==='visible'&&$('mode').value==='live'&&!$('editor').open&&(!(seasonal()||fcActivity())||$('statistics-scope').value!=='custom'))refresh();},60000);
+ $('management').open=!window.CampaignServer;$('show-planned').addEventListener('change',()=>{renderRegistry();refresh();});renderRegistry();const initial=new URLSearchParams(location.search);if(window.CampaignServer){$('mode').value='live';if(registry.some(a=>a.id==='mmoexp-seasonal'&&a.status==='active'))$('activity').value='mmoexp-seasonal';}if(initial.get('mode')==='test')$('mode').value='test';const initialActivity=core.canonicalActivity(initial.get('activity'));if([...$('activity').options].some(o=>o.value===initialActivity))$('activity').value=initialActivity;refresh();if(window.CampaignServer)setInterval(()=>{if(autoRefreshAllowed&&(!fcActivity()||Date.now()-lastFcReadAt>=600000)&&document.visibilityState==='visible'&&$('mode').value==='live'&&!$('editor').open&&(!scheduledActivity()||$('statistics-scope').value!=='custom'))refresh();},60000);
 })();

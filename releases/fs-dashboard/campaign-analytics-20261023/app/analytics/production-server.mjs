@@ -231,9 +231,11 @@ export const server=http.createServer(async(req,res)=>{
   if(relative.startsWith('analytics/api/center/assets/')){const {info,bytes}=center.readAsset(relative.slice('analytics/api/center/assets/'.length));res.writeHead(200,{'Content-Type':info.mime,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(req.method==='HEAD'?undefined:bytes);}
   if(relative==='analytics/api/config')return json(res,200,{...publicState(store.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
   if(relative==='analytics/api/statistics-snapshot'){
-   if([...url.searchParams.keys()].some(k=>!['kind','activity'].includes(k))||!['today','campaign','yesterday'].includes(url.searchParams.get('kind'))||!['mmoexp-seasonal','fc27-season2'].includes(url.searchParams.get('activity')||'mmoexp-seasonal'))return json(res,400,{status:'invalid',message:'计划汇总只支持今日、整期或UTC昨日；细分筛选请使用自选查询。'});
-   const published={...JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8')),registry:store.read().registry};
-   return json(res,200,{...readStatisticsSnapshot({directory:path.join(dir,'statistics-refresh'),published,kind:url.searchParams.get('kind'),activity:url.searchParams.get('activity')||'mmoexp-seasonal'}),context:reportContext(publicDir,url.searchParams.get('activity')||'mmoexp-seasonal')});
+   if([...url.searchParams.keys()].some(k=>!['kind','activity'].includes(k))||!['today','campaign','yesterday'].includes(url.searchParams.get('kind'))||!['mmoexp-seasonal','fc27-season2','mmoexp-carnival'].includes(url.searchParams.get('activity')||'mmoexp-seasonal'))return json(res,400,{status:'invalid',message:'计划汇总只支持今日、整期或UTC昨日；细分筛选请使用自选查询。'});
+   const activity=url.searchParams.get('activity')||'mmoexp-seasonal',registry=store.read().registry;
+   if(activity==='mmoexp-carnival'&&!registry.some(a=>a.id===activity&&a.status==='active'))return json(res,400,{status:'invalid',message:'活动未部署到服务端白名单'});
+   const published=activity==='mmoexp-carnival'?null:{...JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8')),registry};
+   return json(res,200,{...readStatisticsSnapshot({directory:path.join(dir,'statistics-refresh'),published,kind:url.searchParams.get('kind'),activity}),context:reportContext(publicDir,activity)});
   }
   if(relative==='analytics/api/discount-revenue'){const result=await discountRevenue(url.searchParams);return json(res,result.status,result.body);}
   if(relative==='analytics/api/coupon-usage'){const result=await couponUsage(url.searchParams);return json(res,result.status,result.body);}
