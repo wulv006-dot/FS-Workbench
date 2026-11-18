@@ -99,7 +99,7 @@ class MarginBandDecisions(unittest.TestCase):
         self.assertEqual(band['action'], 'none')
         self.assertEqual(Decimal(band['desired']), Decimal('10'))
 
-    def test_failed_decision_retries_once_and_never_at_midnight_or_one(self):
+    def test_failed_decision_retries_once_and_never_at_midnight(self):
         from datetime import datetime, timedelta, timezone
         from fc_pricing_v3 import runtime
 
@@ -120,8 +120,66 @@ class MarginBandDecisions(unittest.TestCase):
         self.assertFalse(runtime.margin_band_round(now + timedelta(hours=2), hours, prior)['is_decision_round'])
         self.assertFalse(runtime.margin_band_round(now + timedelta(hours=1), hours,
                          [dict(decision_round=initial, status='KEEP')])['is_decision_round'])
-        for hour in (0, 1):
-            self.assertFalse(runtime.margin_band_round(now.replace(hour=hour), [0, 1, *hours])['is_decision_round'])
+        self.assertFalse(runtime.margin_band_round(now.replace(hour=0), [1, *hours])['is_decision_round'])
+
+    def test_one_is_a_new_decision_and_failed_eleven_pm_does_not_retry_at_midnight(self):
+        from datetime import datetime, timedelta, timezone
+        from fc_pricing_v3 import runtime
+
+        local = timezone(timedelta(hours=8))
+        previous = datetime(2026, 11, 18, 23, 38, tzinfo=local)
+        hours = [1, 23]
+        history = [dict(decision_round=runtime.margin_band_round(previous, hours), status='PROOF_INCOMPLETE')]
+        midnight = runtime.margin_band_round(previous + timedelta(hours=1), hours, history, collection_failed=True)
+        self.assertFalse(midnight['is_decision_round'])
+        self.assertFalse(midnight['retry'])
+        one = runtime.margin_band_round(previous + timedelta(hours=2), hours, history)
+        self.assertTrue(one['is_decision_round'])
+        self.assertFalse(one['retry'])
+        self.assertEqual(one['slot_start'], '2026-11-19T01:00:00+08:00')
+
+    def test_midnight_decision_starts_after_discount_refresh_window(self):
+        from datetime import datetime, timedelta, timezone
+        from fc_pricing_v3 import runtime
+
+        local = timezone(timedelta(hours=8))
+        day_start = datetime(2026, 11, 19, tzinfo=local)
+        hours = [0, 1, 23]
+        prior = runtime.margin_band_round(day_start - timedelta(minutes=22), hours)
+        history = [dict(decision_round=prior, status='PROOF_INCOMPLETE')]
+        for minutes in (0, 14):
+            with self.subTest(minutes=minutes):
+                held = runtime.margin_band_round(day_start + timedelta(minutes=minutes), hours, history)
+                self.assertFalse(held['is_decision_round'])
+                self.assertFalse(held['retry'])
+        for minutes in (15, 38):
+            with self.subTest(minutes=minutes):
+                first = runtime.margin_band_round(day_start + timedelta(minutes=minutes), hours, history)
+                self.assertTrue(first['is_decision_round'])
+                self.assertFalse(first['retry'])
+                self.assertEqual(first['slot_start'], '2026-11-19T00:00:00+08:00')
+
+    def test_late_previous_day_round_does_not_decide_during_discount_refresh(self):
+        from datetime import datetime, timedelta, timezone
+        from fc_pricing_v3 import runtime
+
+        started = datetime(2026, 11, 18, 23, 59, tzinfo=timezone(timedelta(hours=8)))
+        decision = runtime.margin_band_round(started, [0, 23], evaluated_at=started + timedelta(minutes=6))
+        self.assertFalse(decision['is_decision_round'])
+
+    def test_schedule_parameters_accept_midnight_and_reject_invalid_hours(self):
+        from fc_pricing_v3.curve_strategy_v6 import margin_band_parameters, market_anchor_parameters
+
+        anchors = market_anchor_parameters()
+        for bands in anchors.values():
+            for terms in bands.values():
+                terms['p_low'] = '-.10'
+        config = dict(schedule_hours=[0, 1, 23], PS={'target': '.31'},
+                      XBOX={'target': '.31'}, PC={'target': '.34'})
+        self.assertEqual(margin_band_parameters(config, anchors)['schedule_hours'], [0, 1, 23])
+        for hour in (-1, 24):
+            with self.subTest(hour=hour), self.assertRaisesRegex(ValueError, 'margin_band_parameters_invalid'):
+                margin_band_parameters(dict(config, schedule_hours=[0, hour]), anchors)
 
     def test_caps_at_each_corridor_edge_and_clamps_a_hold(self):
         raise_cap = self.selection('.20', high='10.50')
@@ -297,7 +355,7 @@ class MarginBandRevision(unittest.TestCase):
         path = 'plans/plan/revise-curve-strategy'
         with patch.object(api, 'ledger', return_value=db), \
              patch('automation_policy.load_policy', return_value={'interval_minutes': 60}):
-            for bad in (dict(band, PC={'target': '.341'}), dict(band, schedule_hours=[0, 2, 13])):
+            for bad in (dict(band, PC={'target': '.341'}), dict(band, schedule_hours=[-1, 2, 13])):
                 with self.assertRaisesRegex(ValueError, 'margin_band_parameters_invalid'):
                     api.post(path, dict(request, margin_band=bad), 'signed-operator')
             with self.assertRaisesRegex(ValueError, 'margin_band_parameters_invalid'):

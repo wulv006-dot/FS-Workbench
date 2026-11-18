@@ -1171,19 +1171,25 @@ def collect_curve_catalogues(evidence, platforms):
     return collected
 
 
-def margin_band_round(now, schedule_hours, history=(), *, automatic=True, collection_failed=False):
+def margin_band_round(now, schedule_hours, history=(), *, automatic=True, collection_failed=False,
+                      evaluated_at=None):
     """Identify the Shanghai slot and its single next-hour retry."""
     from .cost_inputs_v6 import BEIJING
 
-    hour = now.astimezone(BEIJING).replace(minute=0, second=0, microsecond=0)
-    starts = [hour.replace(hour=value) for value in schedule_hours if value >= 2]
+    local = now.astimezone(BEIJING)
+    hour = local.replace(minute=0, second=0, microsecond=0)
+    starts = [hour.replace(hour=value) for value in schedule_hours]
     slot = max((value for value in starts if value <= hour), default=max(starts) - timedelta(days=1))
     slot_start = slot.isoformat()
+    checked = (evaluated_at or now).astimezone(BEIJING)
+    if ((local.hour == 0 and (0 not in schedule_hours or local.minute < 15))
+            or (checked.hour == 0 and checked.minute < 15)):
+        return dict(is_decision_round=False, slot_start=slot_start, retry=False)
     attempts = [row for row in history if row['decision_round']['slot_start'] == slot_start
                 and row['decision_round']['is_decision_round']]
-    retry = (hour.hour >= 2 and hour == slot + timedelta(hours=1) and (attempts or collection_failed)
+    retry = (hour == slot + timedelta(hours=1) and (attempts or collection_failed)
              and not any(row['decision_round']['retry'] or row['status'] in ('READY', 'KEEP') for row in attempts))
-    initial = hour == slot and hour.hour >= 2 and not attempts
+    initial = hour == slot and not attempts
     return dict(is_decision_round=automatic and (initial or retry), slot_start=slot_start,
                 retry=automatic and retry)
 
@@ -1289,7 +1295,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
             history = context.get('history', ())
             decision = margin_band_round(context.get('at', now), configuration['schedule_hours'], history,
                                          automatic=context.get('automatic', False),
-                                         collection_failed=context.get('collection_failed', False))
+                                         collection_failed=context.get('collection_failed', False), evaluated_at=now)
             prior = next((row for row in reversed(history)
                           if row['decision_round']['slot_start'] < decision['slot_start'] and row['cost_median']), {})
             current_input = entry['primary_inputs'].get(curve_key(current)) or inputs_for(current)
@@ -2187,7 +2193,8 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
             cycle = _margin_band_cycle_context(db, plan, job, now, configuration['schedule_hours'])
             at = cycle.pop('at')
             for platform, selected in missing.items():
-                decision = margin_band_round(at, configuration['schedule_hours'], history[platform], **cycle)
+                decision = margin_band_round(at, configuration['schedule_hours'], history[platform],
+                                             evaluated_at=now, **cycle)
                 audit = margin_band_selection(None, {'anchors': {}}, dict.fromkeys(ANCHORS),
                     Decimal(configuration[platform]['target']), decision, cost_median=None, cost_sample_count=None,
                     previous_decision_cost_median=None)
