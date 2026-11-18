@@ -9,7 +9,8 @@ from urllib.request import build_opener, HTTPCookieProcessor, Request
 
 def arab_normal():
     sys.path.insert(0, '/opt/fs-fc-control/code')
-    from fc_collection.adapters import SourceUnavailable
+    from fc_collection.adapters import (ARAB_DELIVERY_ERROR_MAX_BYTES, ARAB_NORMAL_DELIVERY_UNAVAILABLE,
+                                        SourceUnavailable, arab_normal_delivery_unavailable)
     from fc_collection.contracts import arab_quote_details, arab_status
     from fc_collection.public_sources import REGISTRY, arab_adapter
     opener = build_opener(HTTPCookieProcessor(http.cookiejar.CookieJar()))
@@ -25,8 +26,14 @@ def arab_normal():
         except HTTPError as exc:
             retry = exc.headers.get('Retry-After', '')
             code = exc.code
-            exc.close()
-            raise SourceUnavailable('http_' + str(code), int(retry) if retry.isdigit() else 0) from None
+            reason = 'http_' + str(code)
+            try:
+                if code == 422 and template == 'quote' and arab_normal_delivery_unavailable(
+                        exc.read(ARAB_DELIVERY_ERROR_MAX_BYTES + 1)):
+                    reason = ARAB_NORMAL_DELIVERY_UNAVAILABLE
+            finally:
+                exc.close()
+            raise SourceUnavailable(reason, int(retry) if retry.isdigit() else 0) from None
         if len(payload) > item['max_bytes']:
             raise ValueError('arab_quote_response_too_large')
         return payload

@@ -116,6 +116,74 @@ class BidirectionalCollection(unittest.TestCase):
         self.assertIn('platform=pc',rows['PC']['url'])
         self.assertNotIn('delivery=normal',rows['PC']['url'])
 
+    def test_official_fast_quote_survives_signed_projection_when_normal_is_unavailable(self):
+        calls = []
+        def get(template):
+            calls.append(template)
+            if template == 'quote':
+                raise SourceUnavailable('arab_normal_delivery_unavailable')
+            if template == 'warm':
+                return b''
+            value = native('pc' if template == 'quote_pc' else 'playstation')
+            if template == 'quote_fast':
+                value.update(delivery='fast', total=dict(currency='SAR', amountHalalah=2880),
+                             displayTotal=dict(currency='USD', amountMinor=768))
+            return json.dumps(dict(data=value)).encode()
+        request = task()
+        result = arab_adapter(request, SimpleNamespace(get=get, clock=lambda: NOW))
+        body = observation(request)
+        body.update(result, request_budget_used=len(calls))
+        projected = to_arab_status([body], request, NOW)
+        self.assertEqual(calls, ['warm', 'quote', 'quote_fast', 'quote_pc'])
+        self.assertEqual(projected['status'], 'available')
+        rows = {row['platform']: row for row in projected['offers']}
+        for platform in ('PS', 'XBOX'):
+            self.assertEqual(rows[platform]['total_usd'], '7.68')
+            self.assertEqual(rows[platform]['delivery'], 'fast')
+            self.assertEqual(rows[platform]['original_delivery'], 'fast')
+            self.assertIn('delivery=fast', rows[platform]['url'])
+        self.assertEqual(rows['PC']['total_usd'], '9.47')
+        self.assertEqual(rows['PC']['delivery'], 'standard')
+        self.assertIsNone(rows['PC']['original_delivery'])
+
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.selective_sources import planned_source_coverage, source_plan
+        plan = source_plan('smart', dict(competitor_policy=POLICY))
+        coverage = planned_source_coverage(dict(run_id='three-platform', competitor_offers=[],
+            arab_ut_status=projected), plan, NOW)
+        self.assertEqual({(row['platform'], row['delivery_method'], row['regular_price'])
+                          for row in coverage['normalized_offers']},
+                         {('PS', 'fast', '7.68'), ('XBOX', 'fast', '7.68'), ('PC', 'standard', '9.47')})
+
+        body['offers'][0]['source_metadata']['original_delivery'] = 'normal'
+        with self.assertRaisesRegex(ValueError, 'source_metadata_invalid'):
+            to_arab_status([body], request, NOW)
+
+    def test_local_market_retries_only_verified_normal_delivery_rejection(self):
+        from contextlib import nullcontext
+        from urllib.error import HTTPError
+        from fc_pricing_v3 import market_registry
+        unavailable = b'{"errors":{"delivery":["This delivery speed is not available right now. Choose fast delivery."]}}'
+        for error_body, fast_quote in ((unavailable, True), (b'{"errors":{"quantity":["Invalid"]}}', False)):
+            calls = []
+            def open_quote(request, **kwargs):
+                url = request.full_url
+                calls.append(url)
+                if '/coins/quote' not in url:
+                    return nullcontext(BytesIO(b''))
+                if 'delivery=normal' in url:
+                    raise HTTPError(url, 422, 'fixture', {}, BytesIO(error_body))
+                data = native('pc' if 'platform=pc' in url else 'playstation')
+                if 'delivery=fast' in url:
+                    data['delivery'] = 'fast'
+                return nullcontext(BytesIO(json.dumps(dict(data=data)).encode()))
+            with self.subTest(fast_quote=fast_quote), \
+                    patch.object(market_registry,'build_opener',return_value=SimpleNamespace(open=open_quote)), \
+                    patch.object(market_registry,'datetime',SimpleNamespace(now=lambda _:NOW)):
+                rows = {row['platform']: row['delivery'] for row in market_registry.arab_normal()['offers']}
+            self.assertEqual(rows, dict(PS='fast', XBOX='fast', PC='standard') if fast_quote else dict(PC='standard'))
+            self.assertEqual(sum('delivery=fast' in url for url in calls), int(fast_quote))
+
     def test_one_platform_failure_keeps_other_quotes_and_reports_missing_reason(self):
         for failed, surviving, missing in [('quote_pc',{'PS','XBOX'},{'PC'}),('quote',{'PC'},{'PS','XBOX'})]:
             with self.subTest(failed=failed):
