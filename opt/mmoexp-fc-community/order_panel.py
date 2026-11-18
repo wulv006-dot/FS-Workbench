@@ -16,7 +16,7 @@ REWARDS_PAUSED = False
 GUILDS = (1565922092518613064, 1041923524601851914)
 SUPPORT_CHANNEL_ID = 1326761935487635466
 REACTIONS = ('❤️', '👍')
-COUPON = ('Thank you! Your code: **FCVIP6** · **6% off** eligible FC27 purchases at MMOEXP. '
+COUPON = ('Thank you! Your code: **FCVIP6** · **8% off** eligible FC27 purchases at MMOEXP. '
           'Valid 2026-10-27 to 2027-11-01; no usage-count limit. '
           'Final eligibility and price are confirmed at checkout.')
 
@@ -51,7 +51,7 @@ def panel_embed(count, presentation=None):
         'Check your order privately using its complete order number. '
         'Never post your order number, email or account details in this channel.\n\n'
         'React with ❤️ or 👍 below — counts are public in Discord.\n'
-        'Your first reaction unlocks a private MMOEXP FC27 6% discount code sent by DM.\n'
+        'Your first reaction unlocks a private MMOEXP FC27 8% discount code sent by DM.\n'
         'DMs closed? Use Get my code after reacting.'))
     return brand_embed(embed, presentation)
 
