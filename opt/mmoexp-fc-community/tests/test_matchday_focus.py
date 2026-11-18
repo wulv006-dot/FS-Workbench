@@ -936,10 +936,12 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     state_path=str(Path(directory) / 'pulse.sqlite3')),
                 'matchday_focus': {'enabled': True, 'guild_ids': [str(GUILD)],
                     'state_path': str(Path(directory) / 'focus.sqlite3'),
+                    'model_provider': {'model': 'gemini-3.1-flash-lite'},
                     'weekly_limit': 2, 'settle_seconds': 0},
             }
             client = ChatClient(config)
-            client.brain.select_matchday = AsyncMock(return_value='4')
+            client.brain.select_matchday = AsyncMock()
+            client.focus_brain.select_matchday = AsyncMock(return_value='4')
             async def history(limit):
                 yield card()
             channel = SimpleNamespace(id=CHANNEL, guild=SimpleNamespace(id=GUILD),
@@ -950,7 +952,8 @@ class FocusIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 await client.on_message(card())
                 await client.on_message(card())
             self.assertEqual(channel.send.await_count, 1)
-            self.assertEqual(client.brain.select_matchday.await_count, 1)
+            client.brain.select_matchday.assert_not_awaited()
+            client.focus_brain.select_matchday.assert_awaited_once()
             self.assertIn('Spain vs England', channel.send.await_args.kwargs['embed'].description)
             self.assertIn('Who are you backing: Spain or England?',
                           channel.send.await_args.kwargs['embed'].description)

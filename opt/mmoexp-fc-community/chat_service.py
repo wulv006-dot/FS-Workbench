@@ -110,6 +110,8 @@ def validate_config(config):
     if config.get('matchday_focus') is not None:
         matchday_focus.validate_config(config['matchday_focus'],
                                        config.get('matchday_engagement'))
+        if 'model_provider' in config['matchday_focus']:
+            chat_brain.validate_chat_config(config['matchday_focus']['model_provider'])
         for guild_id, channel_id in config['matchday_focus'].get(
                 'game_chat_channels', {}).items():
             route = chat_config['routes'].get(guild_id, {})
@@ -178,6 +180,9 @@ class ChatClient(discord.Client):
         self.pulse_lock = asyncio.Lock()
         self.followup_task = None
         self.focus_config = config.get('matchday_focus') or {}
+        self.focus_brain = None
+        if 'model_provider' in self.focus_config:
+            self.focus_brain = chat_brain.ChatBrain(self.focus_config['model_provider'])
         self.focus_store = None
         self.focus_lock = asyncio.Lock()
         self.focus_retry_tasks = {}
@@ -557,7 +562,8 @@ class ChatClient(discord.Client):
             if not candidates:
                 return
             try:
-                answer = await self.brain.select_matchday([fixture for _, fixture in candidates])
+                selector = self.focus_brain or self.brain
+                answer = await selector.select_matchday([fixture for _, fixture in candidates])
                 choice = matchday_focus.parse_choice(answer, len(candidates))
             except (chat_brain.ChatBrainError, ValueError) as exc:
                 print('Matchday focus selection skipped: {} response={!r}'.format(
