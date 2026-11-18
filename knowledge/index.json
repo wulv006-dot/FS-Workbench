@@ -55,7 +55,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+        "sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -167,7 +167,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+        "sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -248,7 +248,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+        "sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -331,7 +331,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+        "sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -401,19 +401,19 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_margin_band_20261118",
+      "revision": "fc_v61_margin_band_hourly_20261119",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-18",
+      "effective_at": "2026-11-19",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "058c77034eb68d23c2fb0afc09c0c49a3e3094783b366cc28a8557330c94a667",
+        "sha256": "f2f1335b3a15013649c9d7f56adab03c3d04eb294b0f58986512f4d30f9dc58d",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -435,7 +435,8 @@
         "fc.pricing.constraints@fc_v61_cross_day_order_attribution_20261115",
         "fc.pricing.constraints@fc_v61_market_anchor_20261117",
         "fc.pricing.constraints@fc_v61_market_anchor_weekly_20261117",
-        "fc.pricing.constraints@fc_v61_insurance_15_40_20261117"
+        "fc.pricing.constraints@fc_v61_insurance_15_40_20261117",
+        "fc.pricing.constraints@fc_v61_margin_band_20261118"
       ],
       "provenance": [
         {
@@ -545,6 +546,12 @@
           "date": "2026-11-18",
           "decision": "docs/planning/fc-pricing-market-anchor-20261117/MARGIN-BAND-CONSTRUCTION.md",
           "scope": "Stage 5 applies only to eligible plan revisions; separate decision evidence from realized gross profit and preserve existing reader scopes."
+        },
+        {
+          "kind": "direct_user_margin_band_hourly_schedule",
+          "date": "2026-11-19",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "Honor the actual FC27 margin-band decision hours with a 00:00–00:15 Beijing economic-decision hold. Keep the original default, ES gate and safety controls."
         }
       ],
       "consumers": [
@@ -553,7 +560,7 @@
       ],
       "time_precision": "date_only",
       "pricing_scope": "native_curve_average_discount",
-      "knowledge_updated_at": "2026-11-18"
+      "knowledge_updated_at": "2026-11-19"
     },
     {
       "id": "fs.experience.archive-cycle",
@@ -687,7 +694,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+        "sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -801,7 +808,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+        "sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -869,21 +876,21 @@
     },
     {
       "id": "fs.pricing.parameter-identity",
-      "revision": "fc_v61_margin_band_20261118",
+      "revision": "fc_v61_margin_band_hourly_20261119",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-11-18",
+      "effective_at": "2026-11-19",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+        "sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -895,7 +902,8 @@
         "fs.pricing.parameter-identity@20261110-three-platform-100k",
         "fs.pricing.parameter-identity@fc_v61_100k_market_two_band_20261113",
         "fs.pricing.parameter-identity@fc_v61_market_anchor_weekly_20261117",
-        "fs.pricing.parameter-identity@fc_v61_insurance_15_40_20261117"
+        "fs.pricing.parameter-identity@fc_v61_insurance_15_40_20261117",
+        "fs.pricing.parameter-identity@fc_v61_margin_band_20261118"
       ],
       "provenance": [
         {
@@ -958,11 +966,17 @@
           "date": "2026-11-18",
           "decision": "docs/planning/fc-pricing-market-anchor-20261117/MARGIN-BAND-CONSTRUCTION.md",
           "scope": "Stage 5 applies only to eligible plan revisions; separate decision evidence from realized gross profit and preserve existing reader scopes."
+        },
+        {
+          "kind": "direct_user_margin_band_hourly_schedule",
+          "date": "2026-11-19",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "Honor the actual FC27 margin-band decision hours with a 00:00–00:15 Beijing economic-decision hold. Keep the original default, ES gate and safety controls."
         }
       ],
-      "effective_at_basis": "2026-11-18 吴律确认阶段 5 规则，适用性以实际计划修订为准",
+      "effective_at_basis": "2026-11-19 吴律确认开放分时段决策配置，是否启用以实际计划修订为准",
       "original_effective_at": null,
-      "knowledge_updated_at": "2026-11-18"
+      "knowledge_updated_at": "2026-11-19"
     },
     {
       "id": "fs.product.identity",
@@ -980,7 +994,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+        "sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -1112,7 +1126,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+        "sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1310,7 +1324,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "058c77034eb68d23c2fb0afc09c0c49a3e3094783b366cc28a8557330c94a667",
+        "sha256": "f2f1335b3a15013649c9d7f56adab03c3d04eb294b0f58986512f4d30f9dc58d",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "### 每周定位溢价修复（2026-11-17）"

@@ -2,7 +2,7 @@
 
 状态：**定稿**（吴律 2026-11-18 确认）。负责人：Codex 施工，Claude 按第 9 节审查与监控。
 基线：`origin/main` `ab4728015023ab3b946284308411ff8f072837c5`（阶段 1 到 4 与 15%/40% 保险均已上线，计划 revision 5 / `market-anchor-v1`）。
-上位文档：[CONSTRUCTION.md](CONSTRUCTION.md)（阶段 1 到 4）、[INSURANCE-15-40.md](INSURANCE-15-40.md)、[V6.1 合同](../fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md)。本文只改"选价"这一步、竞品走廊宽度和周阶梯的调节对象，其余规则不变。
+上位文档：[CONSTRUCTION.md](CONSTRUCTION.md)（阶段 1 到 4）、[INSURANCE-15-40.md](INSURANCE-15-40.md)、[V6.1 合同](../fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md)。本文只改"选价"这一步、竞品走廊宽度和周阶梯的调节对象，其余规则不变。下文保留阶段 5 初始六时段设计与回放。后续计划的可配置小时、午夜优惠刷新和实际修订，见[现行 V6.1 合同](../fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md#分时段目标利润率阶段-5)。
 
 ## 1. 为什么要改
 
