@@ -5337,6 +5337,19 @@
     ],
     "guides": [
       {
+        "id": "fc_coins_pricing_review",
+        "operations": [
+          "coins.monitor",
+          "coins.automation",
+          "knowledge.index",
+          "knowledge.read"
+        ],
+        "guidance": "按已确认计划修订与原回执区分 FC27 Coins 定价阶段。启用 margin_band 时，时段目标利润率和报价预测用于解释决策，实际采购毛利沿原同单收入和成本。现有 Coins 读取面提供已保存状态，逐轮 strategy_decisions 账本未注册。按原权限读取现行 V6.1 和经营复盘知识。",
+        "sources": [
+          "monthly_data"
+        ]
+      },
+      {
         "id": "scope_and_coverage",
         "operations": [
           "business.catalog",
@@ -5488,7 +5501,7 @@
       {
         "id": "monthly_data",
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "1289bbb18b1230ab2195f2e67f6d6078ae49cb2ec9fbc28d1d1846293ca43f6a",
+        "sha256": "dbfc87dc0a22b956ab9aa2efc80f43ec0687acf6ec17f8b90d299868f132e33b",
         "kind": "repository_method_reference_not_live_data"
       },
       {

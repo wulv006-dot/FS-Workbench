@@ -46,9 +46,11 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_insurance_15_40_20261117')
+        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_margin_band_20261118')
         self.assertIn('合法单笔优惠仍可低毛利或亏损', v['entries'][0]['content'])
-        for value in ('D-3 至 D-1','三个完整自然日','按金额加权','组合利润率 18%','25%'):
+        for value in ('D-3 至 D-1','三个完整自然日','按金额加权','组合采购毛利率 18%',
+                      '未启用 `margin_band` 的计划用 25%', 'PS/Xbox 31%、PC 34%',
+                      'cost_drop_unconfirmed'):
             self.assertIn(value,v['entries'][0]['content'])
         for value in ('PS、Xbox、PC','Lootbar','Arab-UT','U7Buy','ItemD2R 保留历史记录和独立查询能力','保留缺口，不补零'):
             self.assertIn(value,v['entries'][0]['content'])
@@ -62,6 +64,8 @@ class Knowledge(unittest.TestCase):
         self.assertNotIn('18:21最新自然验收', v['entries'][0]['content'])
         method = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.v3'], preview=True)
         self.assertIn('订单归属和跨日试验复盘', method['entries'][0]['content'])
+        self.assertIn('启用 `margin_band` 后按平台合计两段的实际采购毛利额和订单量',
+                      method['entries'][0]['content'])
         self.assertIn('每周定位溢价修复', method['entries'][0]['content'])
         self.assertIn('满28天后仍由吴律明确开启自动', method['entries'][0]['content'])
         for phrase in ('按北京时间付款日', '按订单创建时间', '同单发货记录', '同钟点重叠时段'):

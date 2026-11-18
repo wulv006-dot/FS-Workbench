@@ -32,7 +32,7 @@
 | 任务 | `tasks.board/members/detail/events` | `opt/mmoexp-taskboard/taskboard_server.py`，当前 `/dashboard/tasks/api/` 到8932 `/api/`；原成员与对象权限；不导出含会话令牌的session辅助接口 |
 | 游戏情报 | `game_monitor.intelligence/intelligence_status/seo_news/seo_news_status` | `ui-system/modules/game-monitor/{README.md,web/app.js,prepare_ui.py}`；当日四条JSON路由，内容与状态独立；未恢复退役工作区或采集计划 |
 | 经营管理 | `management.targets/daily_v2/daily_status` | `management-november-20261103/SOURCE-MAP.json`、原runner和当日路由；全站目标、发布事实和状态仅读；按期配置bundle、历史期仍待适配 |
-| FC金币 | `coins.monitor/automation/player_sync/jobs/snapshots/quotes/previews/audits/restore_previews` | `fc27_cloud_browser/fc27_cloud_api.py` 与当日 `/api/fc27/cloud/` 网关；UUID白名单，仅读原状态/结果，不重放原操作；新版smart扩展读取面仍须继续核查 |
+| FC金币 | `coins.monitor/automation/player_sync/jobs/snapshots/quotes/previews/audits/restore_previews` | `fc27_cloud_browser/fc27_cloud_api.py` 与 `/api/fc27/cloud/` 网关，沿 UUID 白名单读取状态和原结果。阶段 5 专用的 `strategy_decisions` 逐轮账本未注册，已获准知识用户可按现行 V6.1 条目读取规则。 |
 | MLB | `mlb.stats/coins_rate/tasks/task` | `opt/mlb-online/mlb_server.py` 与当前 `/mlb/`；最多300条，任务ID12位hex；不注册执行器配置或写回 |
 | NBA | `nba.read/current/competitors` | `opt/nba-reprice/backend/server.js` 与当前 `/nba2k27/api/`；沿原服务鉴权，不提交apply；已接线真实角色、当前proxy认证模式仍待验 |
 | FC捆绑包 | `bundles.state/search` | `fc27_pack_bundles_20261013/src/pack_bundles_server.py` 与当前8904网关；原已保存产品绑定、价格与最多12条player搜索，不刷新或写价 |

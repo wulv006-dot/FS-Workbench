@@ -271,7 +271,8 @@ class LearningCatalog(unittest.TestCase):
         self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'fc_v61_insurance_15_40_20261117')
+        self.assertEqual(margin['revision'], 'fc_v61_margin_band_20261118')
+        self.assertIn('fc.pricing.constraints@fc_v61_insurance_15_40_20261117', margin['supersedes'])
         self.assertEqual(margin['source']['path'],'docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md')
         self.assertIn('fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4',margin['supersedes'])
         self.assertIn('fc.pricing.constraints@fc_v6_d8_d2_amount_weighted_discount_v1', margin['supersedes'])
@@ -311,14 +312,14 @@ class LearningCatalog(unittest.TestCase):
             if row['id']=='fs.customer.lifecycle':
                 self.assertEqual(row['effective_at'], '2026-11-10')
                 self.assertEqual(row['effective_at_basis'], '2026-11-10 用户确认 ES 候选金额口径')
-            elif row['id'] in {'fs.procurement.inputs','fs.pricing.parameter-identity'}:
+            elif row['id'] == 'fs.procurement.inputs':
                 self.assertEqual(row['effective_at'],'2026-11-17')
                 self.assertEqual(row['revision'],'fc_v61_insurance_15_40_20261117')
                 self.assertEqual(row['knowledge_updated_at'],'2026-11-17')
-            elif row['id']=='fs.learning.methods':
-                self.assertEqual(row['effective_at'],'2026-11-13')
-                self.assertEqual(row['revision'],'fc_v61_100k_market_two_band_20261113')
-                self.assertEqual(row['effective_at_basis'],'2026-11-13 用户确认 V6 两段及仅100K竞品，清理现行旧规则冲突')
+            elif row['id'] in {'fs.learning.methods','fs.pricing.parameter-identity'}:
+                self.assertEqual(row['effective_at'],'2026-11-18')
+                self.assertEqual(row['revision'],'fc_v61_margin_band_20261118')
+                self.assertIn('实际计划修订', row['effective_at_basis'])
             else:
                 self.assertEqual(row['effective_at'], '2026-10-23')
                 self.assertEqual(row['effective_at_basis'], '本知识修订截至日')
@@ -348,14 +349,14 @@ class LearningCatalog(unittest.TestCase):
         self.assertEqual(rows['fs.data.sources']['revision'], '20261113-v61-reporting-sources')
         self.assertIn('fs.data.sources@fs-fc-admin-es-shared-20261113-r2',
                       rows['fs.data.sources']['supersedes'])
-        self.assertEqual(rows['fc.reporting.data']['revision'], 'fc_v61_market_anchor_review_data_20261117')
+        self.assertEqual(rows['fc.reporting.data']['revision'], 'fc_v61_margin_band_20261118')
         self.assertIn('fc.reporting.data@fs-fc-admin-es-shared-20261113-r4',
                       rows['fc.reporting.data']['supersedes'])
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r5'},
                          {'fc.marketing.attribution'})
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated-new-{'fs.learning.methods'})
         for ident in expected:
-            expected_date = '2026-11-17' if ident == 'fc.reporting.data' else '2026-11-13'
+            expected_date = '2026-11-18' if ident in {'fc.reporting.data','fs.learning.methods'} else '2026-11-13'
             self.assertEqual(rows[ident]['knowledge_updated_at'],expected_date)
             self.assertTrue(rows[ident]['supersedes'])
         mail = rows['fs.orders.email_export']
@@ -374,6 +375,7 @@ class LearningCatalog(unittest.TestCase):
             self.assertIn(token,texts['fc.marketing.attribution'])
         self.assertIn('actual_cost需整单覆盖证据',texts['fs.finance.procurement'])
         self.assertIn('候选知识／V6.1报价证明',texts['fc.reporting.data'])
+        self.assertIn('strategy_decisions.curve_selection',texts['fc.reporting.data'])
         self.assertEqual(kc.select(ROOT,'knowledge/index.json',sha,['FS','FC27'])['status'],'not_published')
 
     def test_real_baseline_methods_catalog_freeze_effective_input_budget_and_paginated_bodies(self):

@@ -18,6 +18,7 @@
 | `business.*`、`users.*`、`orders.*` | Admin销售、订单、客户遵循原网站/项目/付款状态和日期范围；USD销售/订单数是客单价，客户平均消费ARPU另算。先核真实coverage，不将范围内最早订单当终生首购。 |
 | `business.summary/profit_history/native_range` | 主看板Order发货人民币毛利=同一发货统计响应销售减采购；全局率按同口径总毛利/总销售，分游戏读原行。交易/交货日期轴不同于Admin付款日人群，可能含退款、申诉、欺诈，非净利润。actual与shipping按原来源分别解释。 |
 | `management.*` | 已发布全站目标与日报事实，非任意月范围明细。已有USD利润若为Admin销售乘Order同期参考率，应标预估，非逐单实结，不能与发货人民币毛利混写。 |
+| `coins.*`、`knowledge.index/read` | 现有 Coins 操作读取已保存状态和证据。阶段 5 按计划修订及原回执解释 `margin_band`，以实际返回字段为准。当前目录未提供逐轮 `strategy_decisions` 的账本专用读取。报表按原交易及成本合同计算实际毛利。 |
 | `orders.live/customer` | 每页最多20条，按游标继续；单窗口28个上海自然日、365天边界及原字节/时限。**28天只适用于对应详情，不机械切割全部汇总。**精确邮箱仅受限POST请求体；原权限内邮箱、UID、原订单号可返回。 |
 | `marketing.range`、`campaigns.ads/ga4/gsc` | 营销返回的账户、calculation_campaigns、时区和period.sources决定实际范围。活动Google接口固定mmoexp-seasonal，不能代表全部FC27。GA4浏览、落地sessions、purchase事件及GSC点击与Admin付费订单不同。 |
 | `channels.*`及流量来源 | 券/码归因并非增量因果；CAC需要同来源花费和可关联新付费客户分母。跨源人群无法关联、归因覆盖不全或群体未成熟时，保留方向判断的证据与限制，不制造精确CAC、漏斗、LTV或因果结论。 |
