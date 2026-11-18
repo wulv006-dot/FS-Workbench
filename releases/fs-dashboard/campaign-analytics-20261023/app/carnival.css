@@ -986,3 +986,9 @@ a.buybtn{display:inline-block;text-decoration:none;text-align:center}
 .flash-coupon .flash-ticket-min{margin:2px 0 0;font-size:12px;color:rgba(255,255,255,.62)}
 .flash-coupon .flash-note{font-size:11px;opacity:.55;margin:2px 0 8px;line-height:1.35}
 .mystery-flow-modal .carnival-store-link,.carnival-store-link{display:block;margin:6px 0 2px;font-size:12px;color:rgba(255,255,255,.62);text-decoration:underline}
+/* Capsule milestones: equal segments per tier, reached tiers labelled. */
+.spendbar.spendbar-seg #spendBarFill{display:none}
+.spendbar.spendbar-seg .seg{flex:1;height:100%;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden}
+.spendbar.spendbar-seg .seg b{display:block;height:100%;background:linear-gradient(90deg,var(--cm),#4d9fff);border-radius:99px;transition:width .4s}
+.spendbar.spendbar-seg .seg.full b{box-shadow:0 0 14px rgba(53,224,255,.7)}
+.spend-marks span small{display:block;margin-top:4px;font-size:11px;font-weight:700;letter-spacing:.3px;font-family:inherit}
