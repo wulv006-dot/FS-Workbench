@@ -84,6 +84,7 @@ class CollectionRelease(unittest.TestCase):
         scope['CURVE_MARKET_SCOPE']=target_map.CURVE_MARKET_SCOPE
         scope['CURVE_WEEKLY_SCOPE']=target_map.CURVE_WEEKLY_SCOPE
         scope['CURVE_REVIEW_SCOPE']=target_map.CURVE_REVIEW_SCOPE
+        scope['CURVE_MARGIN_BAND_SCOPE']=target_map.CURVE_MARGIN_BAND_SCOPE
         exec(compile(ast.Module(body=[restart],type_ignores=[]),'collection-restart','exec'),scope)
         for _ in range(2):
             scope['restart'](dict(scope='collection'))
