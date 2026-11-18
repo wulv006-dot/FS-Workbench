@@ -672,14 +672,17 @@ class Ledger:
         if type(expected_revision) is not int:
             raise ValueError('pricing_plan_revision_changed')
         if strategy_revision is not None:
-            from .curve_strategy_v6 import MARKET_ANCHOR_VERSION, market_anchor_parameters
+            from .curve_strategy_v6 import MARKET_ANCHOR_VERSION, margin_band_parameters, market_anchor_parameters
             from .platforms import SMART_VERSION
-            if (not isinstance(strategy_revision, dict) or set(strategy_revision) != {'strategy_version', 'market_anchor'}
+            if (not isinstance(strategy_revision, dict) or set(strategy_revision) - {'margin_band'} != {'strategy_version', 'market_anchor'}
                     or strategy_revision['strategy_version'] not in (MARKET_ANCHOR_VERSION, SMART_VERSION)
                     or not isinstance(actor, str) or not actor.strip()):
                 raise ValueError('pricing_curve_strategy_revision_invalid')
-            strategy_revision = dict(strategy_version=strategy_revision['strategy_version'],
+            strategy_revision = dict(strategy_revision,
                                      market_anchor=market_anchor_parameters(strategy_revision['market_anchor']))
+            if 'margin_band' in strategy_revision:
+                strategy_revision['margin_band'] = margin_band_parameters(
+                    strategy_revision['margin_band'], strategy_revision['market_anchor'])
         key = ('curve-strategy-revision:' if strategy_revision else 'curve-plan-activation:') + ident + ':' + str(expected_revision)
         now = clock()
         with self.transaction() as conn:
@@ -696,6 +699,12 @@ class Ledger:
                 raise ValueError('pricing_plan_revision_changed')
             if strategy_revision and plan['mode'] != 'smart':
                 raise ValueError('pricing_curve_strategy_revision_invalid')
+            if strategy_revision:
+                margin_band = strategy_revision.get('margin_band', (plan.get('parameters') or {}).get('margin_band'))
+                if margin_band:
+                    if strategy_revision['strategy_version'] != MARKET_ANCHOR_VERSION:
+                        raise ValueError('margin_band_parameters_invalid')
+                    margin_band_parameters(margin_band, strategy_revision['market_anchor'])
             self.owns(plan, plan['resources'], conn)
             before = deepcopy(plan)
             resources = set(plan['resources'])
@@ -719,6 +728,11 @@ class Ledger:
             if strategy_revision:
                 plan['smart_strategy_version'] = strategy_revision['strategy_version']
                 plan['parameters']['market_anchor'] = strategy_revision['market_anchor']
+                if 'margin_band' in strategy_revision:
+                    if margin_band is None:
+                        plan['parameters'].pop('margin_band', None)
+                    else:
+                        plan['parameters']['margin_band'] = margin_band
             if plan.get('baseline_plan'):
                 baseline = plan['baseline_plan']
                 baseline['parameters'] = dict(baseline.get('parameters') or {}, competitor_policy=POLICY, region_pricing='global')

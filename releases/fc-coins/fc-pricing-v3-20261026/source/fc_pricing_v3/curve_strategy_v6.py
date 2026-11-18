@@ -35,10 +35,12 @@ def market_anchor_parameters(value=None):
             raise ValueError('market_anchor_parameters_invalid')
         result[platform] = {}
         for band, terms in bands.items():
-            if not isinstance(terms, dict) or set(terms) != {'p', 'u'}:
+            if not isinstance(terms, dict) or set(terms) not in ({'p', 'u'}, {'p', 'u', 'p_low'}):
                 raise ValueError('market_anchor_parameters_invalid')
             parsed = {}
-            for field, lower, upper in (('p', '0', '.15'), ('u', '-.05', '.03')):
+            for field, lower, upper in (('p', '0', '.15'), ('u', '-.05', '.03'), ('p_low', '-.15', '0')):
+                if field not in terms:
+                    continue
                 try:
                     number = Decimal(str(terms[field]))
                     valid = number.is_finite() and Decimal(lower) <= number <= Decimal(upper)
@@ -49,6 +51,34 @@ def market_anchor_parameters(value=None):
                 parsed[field] = str(number)
             result[platform][band] = parsed
     return result
+
+
+def margin_band_parameters(value, anchors):
+    """Validate the optional Stage 5 plan parameters at the revision boundary."""
+    if value is None:
+        return None
+    invalid = 'margin_band_parameters_invalid'
+    platforms = set(INITIAL_MARKET_ANCHOR)
+    if (not isinstance(value, dict) or set(value) - {'schedule_hours'} != platforms
+            or not all('p_low' in terms for bands in anchors.values() for terms in bands.values())):
+        raise ValueError(invalid)
+    hours = value.get('schedule_hours', [2, 6, 9, 13, 17, 21])
+    if (not isinstance(hours, list) or not hours or any(type(hour) is not int or not 2 <= hour <= 23 for hour in hours)
+            or len(set(hours)) != len(hours)):
+        raise ValueError(invalid)
+    parsed = dict(schedule_hours=sorted(hours))
+    for platform in INITIAL_MARKET_ANCHOR:
+        terms = value[platform]
+        if not isinstance(terms, dict) or set(terms) != {'target'}:
+            raise ValueError(invalid)
+        try:
+            target = Decimal(str(terms['target']))
+        except (ArithmeticError, TypeError, ValueError):
+            raise ValueError(invalid) from None
+        if not target.is_finite() or not Decimal('.28') <= target <= Decimal('.35') or target % Decimal('.005'):
+            raise ValueError(invalid)
+        parsed[platform] = dict(target=str(target.normalize()))
+    return parsed
 
 
 def _position_quotes(platform, offers, at):
@@ -114,7 +144,7 @@ def market_anchor_targets(platform, current, offers, now, *, parameters=None, hi
             if 'U7Buy' in prices:
                 gaps.append('market_anchor_ratio_unavailable')
     tiers = {row['purchase_k']: row for row in current['tiers']}
-    anchors = {}
+    anchors, low_anchors = {}, {}
     for band, quantity in (ANCHORS.items() if fallback != 'floor_only' else ()):
         terms = parameters[platform][band]
         target = prices['Lootbar'] * (1 + Decimal(terms['p']))
@@ -122,11 +152,17 @@ def market_anchor_targets(platform, current, offers, now, *, parameters=None, hi
             target = min(target, prices['U7Buy'] * (1 + Decimal(terms['u'])))
         delivered = Decimal(quantity) + Decimal(tiers[quantity]['promised_bonus_k'])
         anchors[band] = str((target * delivered / 100).quantize(CENT, rounding=ROUND_HALF_UP))
-    return dict(source='market_anchor', anchors=anchors, parameters=parameters[platform],
+        if 'p_low' in terms:
+            low = prices['Lootbar'] * (1 + Decimal(terms['p_low']))
+            low_anchors[band] = str((low * delivered / 100).quantize(CENT, rounding=ROUND_HALF_UP))
+    result = dict(source='market_anchor', anchors=anchors, parameters=parameters[platform],
                 reference_usd_per_100k={source: str(value) for source, value in prices.items()},
                 median_round_ids=[row['round_id'] for row in recent], current_quotes=quotes,
                 fallback=fallback, floor_only=fallback == 'floor_only', gaps=gaps,
                 ratio_r=str(ratio) if ratio is not None else None, ratio_pairs=len(pairs))
+    if any('p_low' in terms for terms in parameters[platform].values()):
+        result['low_anchors'] = low_anchors
+    return result
 
 
 def band_anchors(curve):

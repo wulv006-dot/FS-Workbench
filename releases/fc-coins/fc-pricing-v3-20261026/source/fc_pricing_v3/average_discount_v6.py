@@ -213,6 +213,54 @@ def repair_controls(current, proof, *, affected=None):
     return controls, failed
 
 
+def _main_band_members(proof, band):
+    paths = {row['path_id']: row for row in proof['paths']}
+    basket = proof['baskets'].get('main') or {}
+    weighted = []
+    for member in basket.get('members', ()):
+        path = paths[member['path_id']]
+        if quantity_group(Decimal(path['purchase_k'])) == band:
+            weighted.append((path, Decimal(member['weight'])))
+    return weighted
+
+
+def band_margin(proof, band):
+    """Current weighted procurement margin of the main basket within one band."""
+    members = _main_band_members(proof, band)
+    revenue = sum(Decimal(row['net_receipt_usd']) * weight for row, weight in members)
+    costs = sum(Decimal(row['safe_cost_usd']) * weight for row, weight in members)
+    return (revenue - costs) / revenue if revenue > 0 else None
+
+
+def band_target_price(proof, band, target, low, high):
+    """Find the first native cent in the corridor that meets the target."""
+    from .price_curve import COIN_BAND_ANCHORS
+
+    members = _main_band_members(proof, band)
+    retained = Decimal(proof['average_discount']['retained_ratio'])
+    if not members or not retained or low > high:
+        return None
+    anchor = COIN_BAND_ANCHORS[band]
+    costs = sum(Decimal(row['safe_cost_usd']) * weight for row, weight in members)
+
+    def meets_target(cents):
+        price = Decimal(cents) * CENT
+        revenue = sum(forecast_receipt(band_price_usd(price, anchor, row['purchase_k']), retained) * weight
+                      for row, weight in members)
+        return revenue > 0 and revenue * (1 - target) >= costs
+
+    first, last = int(low / CENT), int(high / CENT)
+    if not meets_target(last):
+        return None
+    while first < last:
+        midpoint = (first + last) // 2
+        if meets_target(midpoint):
+            last = midpoint
+        else:
+            first = midpoint + 1
+    return Decimal(first) * CENT
+
+
 def minimum_band_price(proof, segment, anchor, minimum, *, zero_line_only=False, current_anchor=None):
     """Solve the native cent grid for one band with the other band fixed."""
     from .pricing_proof_v6 import FAILED, HARD_MARGIN
