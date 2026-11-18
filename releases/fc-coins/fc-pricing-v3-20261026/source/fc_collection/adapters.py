@@ -5,6 +5,7 @@ from email.utils import parsedate_to_datetime
 import http.client
 import http.cookiejar
 import ipaddress
+import json
 import queue
 import re
 import socket
@@ -17,10 +18,31 @@ from urllib.request import Request
 from .contracts import SOURCES, integer, label, ARAB_WARM_PATHS, ARAB_PRICE_TABLE
 
 
+ARAB_DELIVERY_ERROR_MAX_BYTES = 4096
+
+
+def arab_normal_delivery_unavailable(raw):
+    if len(raw) > ARAB_DELIVERY_ERROR_MAX_BYTES:
+        return False
+    try:
+        value = json.loads(raw)
+    except (ValueError, RecursionError):
+        return False
+    return isinstance(value, dict) and value.get('errors') == {
+        'delivery': ['This delivery speed is not available right now. Choose fast delivery.'],
+    }
+
+
 class SourceUnavailable(ValueError):
     def __init__(self, reason, retry_after_seconds=0):
         super().__init__(reason)
         self.retry_after_seconds = retry_after_seconds
+
+
+class ArabNormalDeliveryUnavailable(SourceUnavailable):
+    def __init__(self, retry_after_seconds=0):
+        # The origin completed this HTTP request, so BudgetedTransport releases its permit.
+        super().__init__('http_422', retry_after_seconds)
 
 
 class WarmLanguageRedirect(SourceUnavailable):
@@ -87,6 +109,8 @@ class RestrictedHTTP:
                     if (source != 'ArabUT' or item['host'] != 'www.arab-ut.com'
                             or not ((template in ARAB_WARM_PATHS and item['path'] == ARAB_WARM_PATHS[template] and item['query'] == dict(query, currency='USD'))
                                     or (template == 'quote' and item['path'] == '/en/coins/quote' and item['query'] == query)
+                                    or (template == 'quote_fast' and item['path'] == '/en/coins/quote'
+                                        and item['query'] == dict(query, delivery='fast'))
                                     or (template == 'quote_pc' and item['path'] == '/en/coins/quote'
                                         and item['query'] == dict(platform='pc', quantity='100000')))):
                         raise ValueError('template_query_invalid')
@@ -129,7 +153,7 @@ class RestrictedHTTP:
                               headers={'Accept': accept, 'User-Agent': 'Mozilla/5.0'})
             if source_id == 'ArabUT':
                 self.cookies.add_cookie_header(request)
-                if template_id in ('quote', 'quote_pc'):
+                if template_id in ('quote', 'quote_fast', 'quote_pc'):
                     request.add_header('Referer', 'https://www.arab-ut.com/?' + urlencode(self.registry['ArabUT']['warm']['query']))
             if len(request.get_header('Cookie', '')) > 4096:
                 raise SourceUnavailable('visitor_cookie_limit')
@@ -174,7 +198,8 @@ class RestrictedHTTP:
                     raise WarmLanguageRedirect(language_template)
                 # Warm body is unused; retain selection cookies, never fetch the redirect target.
                 return b''
-            if response.status != 200:
+            check_delivery = source_id == 'ArabUT' and template_id == 'quote' and response.status == 422
+            if response.status != 200 and not check_delivery:
                 raise SourceUnavailable('http_' + str(response.status))
             if response.getheader('Content-Encoding', 'identity') != 'identity':
                 raise SourceUnavailable('content_encoding_denied')
@@ -183,19 +208,24 @@ class RestrictedHTTP:
                 if len(self.cookies) > 32:
                     raise SourceUnavailable('visitor_cookie_limit')
             body = bytearray()
+            max_bytes = min(item['max_bytes'], ARAB_DELIVERY_ERROR_MAX_BYTES) if check_delivery else item['max_bytes']
             while True:
                 remaining = end - time.monotonic()
                 if remaining <= 0:
                     raise SourceUnavailable('request_timeout')
                 connection.wire_socket.settimeout(remaining)
-                chunk = response.read1(min(16384, item['max_bytes'] + 1 - len(body)))
+                chunk = response.read1(min(16384, max_bytes + 1 - len(body)))
                 if not chunk:
                     break
                 body.extend(chunk)
-                if len(body) > item['max_bytes']:
-                    raise SourceUnavailable('response_too_large')
+                if len(body) > max_bytes:
+                    raise SourceUnavailable('http_422' if check_delivery else 'response_too_large')
             if any(marker in bytes(body).lower() for marker in (b'cf-chl-', b'challenge-platform', b'g-recaptcha')):
                 raise SourceUnavailable('challenge')
+            if check_delivery:
+                if arab_normal_delivery_unavailable(body):
+                    raise ArabNormalDeliveryUnavailable()
+                raise SourceUnavailable('http_422')
             return bytes(body)
         except ssl.SSLCertVerificationError:
             raise SourceUnavailable('tls_validation_failed') from None

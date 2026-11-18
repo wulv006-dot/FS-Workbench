@@ -44,6 +44,8 @@ CURVE_STABILITY_SCOPE = 'fc-pricing-v6-stability-20261117'
 CURVE_STABILITY_TARGET_COUNT = 8
 CURVE_MARKET_SCOPE = 'fc-pricing-v6-market-anchor-20261117'
 CURVE_MARKET_TARGET_COUNT = 10
+CURVE_ARAB_QUOTE_SCOPE = 'fc-pricing-v6-arab-quote-20261119'
+CURVE_ARAB_QUOTE_TARGET_COUNT = 2
 CURVE_MARGIN_BAND_SCOPE = 'fc-pricing-v6-margin-band-20261118'
 CURVE_MARGIN_BAND_TARGET_COUNT = 13
 CURVE_WEEKLY_SCOPE = 'fc-pricing-v6-weekly-ladder-20261117'
@@ -247,6 +249,10 @@ def curve_weekly_targets(source):
     current=targets(source)
     return {**{name:current[name] for name in ('fc27-coins.html','fc-pricing-v3.js')},
             **module_targets(('api.py','ledger.py','runtime.py','scheduler.py','weekly_ladder.py'))}
+
+
+def curve_arab_quote_targets(source):
+    return module_targets(('market_registry.py',))
 
 
 def curve_margin_band_targets(source):

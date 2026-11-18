@@ -1,18 +1,20 @@
 from copy import deepcopy
 from datetime import timedelta
+from http.client import HTTPMessage
 from io import BytesIO
 import json
 from pathlib import Path
 import sys
+import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
-from collection_cases import NOW, context, observation
+from collection_cases import NOW, context, identity, observation, policy
 from fc_collection.contracts import build_job, to_arab_status
 from fc_collection.public_sources import arab_offers, arab_adapter, REGISTRY, VERSIONS
-from fc_collection.adapters import SourceUnavailable
+from fc_collection.adapters import ArabNormalDeliveryUnavailable, SourceUnavailable
 
 
 def native(platform='playstation'):
@@ -23,15 +25,62 @@ def native(platform='playstation'):
         priceVersion=3336, pricedAt=NOW.isoformat())
 
 
-def task():
+def task(*, request_budget=4):
     return dict(build_job(dict(run_id='three-platform', created_at=NOW.isoformat()), 'ArabUT',
         dict(context(), requested_platforms=['PS', 'XBOX', 'PC'], region_scope=[21],
-             adapter_version=VERSIONS['ArabUT'], total_request_budget=4),
+             adapter_version=VERSIONS['ArabUT'], total_request_budget=request_budget),
         (NOW + timedelta(seconds=180)).isoformat()), attempt_id='attempt-1', lease_epoch=1,
         node_id='183', node_boot_id='boot-1')
 
 
 class BidirectionalCollection(unittest.TestCase):
+    def test_console_delivery_rejection_releases_the_permit_for_fast_and_independent_pc(self):
+        from fc_collection.adapters import RestrictedHTTP, WarmLanguageRedirect
+        from fc_collection.coordinator import Coordinator
+        from fc_collection.worker import BudgetedTransport, collect_job
+
+        with tempfile.TemporaryDirectory() as temp:
+            coordinator = Coordinator(Path(temp) / 'collection.sqlite3')
+            coordinator.configure_source('ArabUT', dict(policy(), origin='https://www.arab-ut.com',
+                adapter_version=VERSIONS['ArabUT'], max_requests=8))
+            coordinator.register_node(identity(), ['ArabUT'], NOW - timedelta(seconds=6))
+            job = task(request_budget=8)
+            for key in ('attempt_id', 'lease_epoch', 'node_id', 'node_boot_id'):
+                del job[key]
+            coordinator.enqueue(job)
+            claimed = coordinator.claim_job(identity(), ['ArabUT'], NOW)
+            http = RestrictedHTTP(REGISTRY)
+            calls = []
+
+            def fetch(source, template, timeout):
+                calls.append(template)
+                if template == 'warm':
+                    raise WarmLanguageRedirect('warm_en')
+                if template == 'warm_en':
+                    return b''
+                if template == 'quote':
+                    with patch('socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]), \
+                            patch('fc_collection.adapters.PinnedHTTPS') as pinned:
+                        response = Mock(status=422)
+                        response.getheader.side_effect = lambda key, default=None: default
+                        response.info.return_value = HTTPMessage()
+                        response.read1.side_effect = [json.dumps({'errors': {'delivery': [
+                            'This delivery speed is not available right now. Choose fast delivery.',
+                        ]}}).encode(), b'']
+                        pinned.return_value.getresponse.return_value = response
+                        return http.fetch(source, template, timeout)
+                offer = native('pc' if template == 'quote_pc' else 'playstation')
+                if template == 'quote_fast':
+                    offer['delivery'] = 'fast'
+                return json.dumps(offer).encode()
+
+            transport = BudgetedTransport(coordinator, identity(), claimed, fetch, lambda: NOW)
+            body = collect_job(claimed, arab_adapter, transport, lambda: NOW)
+            self.assertEqual(body['status'], 'ok')
+            self.assertEqual(calls, ['warm', 'warm_en', 'quote', 'quote_fast', 'quote_pc'])
+            self.assertEqual(body['request_budget_used'], 5)
+            self.assertEqual(coordinator.submit_observation(identity(), body, NOW)['status'], 'accepted')
+
     def test_quantity_table_uses_one_lease_request_and_preserves_native_money_and_delivery(self):
         from fc_collection.adapters import RestrictedHTTP
         from fc_collection.contracts import ARAB_TABLE_SCOPE
@@ -115,6 +164,74 @@ class BidirectionalCollection(unittest.TestCase):
         self.assertEqual(rows['PC']['delivery'],'standard')
         self.assertIn('platform=pc',rows['PC']['url'])
         self.assertNotIn('delivery=normal',rows['PC']['url'])
+
+    def test_official_fast_quote_survives_signed_projection_when_normal_is_unavailable(self):
+        calls = []
+        def get(template):
+            calls.append(template)
+            if template == 'quote':
+                raise ArabNormalDeliveryUnavailable()
+            if template == 'warm':
+                return b''
+            value = native('pc' if template == 'quote_pc' else 'playstation')
+            if template == 'quote_fast':
+                value.update(delivery='fast', total=dict(currency='SAR', amountHalalah=2880),
+                             displayTotal=dict(currency='USD', amountMinor=768))
+            return json.dumps(dict(data=value)).encode()
+        request = task()
+        result = arab_adapter(request, SimpleNamespace(get=get, clock=lambda: NOW))
+        body = observation(request)
+        body.update(result, request_budget_used=len(calls))
+        projected = to_arab_status([body], request, NOW)
+        self.assertEqual(calls, ['warm', 'quote', 'quote_fast', 'quote_pc'])
+        self.assertEqual(projected['status'], 'available')
+        rows = {row['platform']: row for row in projected['offers']}
+        for platform in ('PS', 'XBOX'):
+            self.assertEqual(rows[platform]['total_usd'], '7.68')
+            self.assertEqual(rows[platform]['delivery'], 'fast')
+            self.assertEqual(rows[platform]['original_delivery'], 'fast')
+            self.assertIn('delivery=fast', rows[platform]['url'])
+        self.assertEqual(rows['PC']['total_usd'], '9.47')
+        self.assertEqual(rows['PC']['delivery'], 'standard')
+        self.assertIsNone(rows['PC']['original_delivery'])
+
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.selective_sources import planned_source_coverage, source_plan
+        plan = source_plan('smart', dict(competitor_policy=POLICY))
+        coverage = planned_source_coverage(dict(run_id='three-platform', competitor_offers=[],
+            arab_ut_status=projected), plan, NOW)
+        self.assertEqual({(row['platform'], row['delivery_method'], row['regular_price'])
+                          for row in coverage['normalized_offers']},
+                         {('PS', 'fast', '7.68'), ('XBOX', 'fast', '7.68'), ('PC', 'standard', '9.47')})
+
+        body['offers'][0]['source_metadata']['original_delivery'] = 'normal'
+        with self.assertRaisesRegex(ValueError, 'source_metadata_invalid'):
+            to_arab_status([body], request, NOW)
+
+    def test_local_market_retries_only_verified_normal_delivery_rejection(self):
+        from contextlib import nullcontext
+        from urllib.error import HTTPError
+        from fc_pricing_v3 import market_registry
+        unavailable = b'{"errors":{"delivery":["This delivery speed is not available right now. Choose fast delivery."]}}'
+        for error_body, fast_quote in ((unavailable, True), (b'{"errors":{"quantity":["Invalid"]}}', False)):
+            calls = []
+            def open_quote(request, **kwargs):
+                url = request.full_url
+                calls.append(url)
+                if '/coins/quote' not in url:
+                    return nullcontext(BytesIO(b''))
+                if 'delivery=normal' in url:
+                    raise HTTPError(url, 422, 'fixture', {}, BytesIO(error_body))
+                data = native('pc' if 'platform=pc' in url else 'playstation')
+                if 'delivery=fast' in url:
+                    data['delivery'] = 'fast'
+                return nullcontext(BytesIO(json.dumps(dict(data=data)).encode()))
+            with self.subTest(fast_quote=fast_quote), \
+                    patch.object(market_registry,'build_opener',return_value=SimpleNamespace(open=open_quote)), \
+                    patch.object(market_registry,'datetime',SimpleNamespace(now=lambda _:NOW)):
+                rows = {row['platform']: row['delivery'] for row in market_registry.arab_normal()['offers']}
+            self.assertEqual(rows, dict(PS='fast', XBOX='fast', PC='standard') if fast_quote else dict(PC='standard'))
+            self.assertEqual(sum('delivery=fast' in url for url in calls), int(fast_quote))
 
     def test_one_platform_failure_keeps_other_quotes_and_reports_missing_reason(self):
         for failed, surviving, missing in [('quote_pc',{'PS','XBOX'},{'PC'}),('quote',{'PC'},{'PS','XBOX'})]:

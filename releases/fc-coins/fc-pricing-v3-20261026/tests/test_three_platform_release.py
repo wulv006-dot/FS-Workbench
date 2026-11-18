@@ -37,6 +37,7 @@ class ThreePlatformRelease(unittest.TestCase):
             bundle_bootstrap_guard=adapter.bundle_bootstrap_guard)
         for name in ('HISTORY_READ_SCOPE','SCOPE','DELTA_SCOPE','SHADOW_SCOPE','OPERATING_SCOPE','COLLECTION_SCOPE','BIDIRECTIONAL_SCOPE','REPAIR_SCOPE','QUOTE_FRAGMENT_SCOPE','QUOTE_PREVIEW_SCOPE','DAILY_REPAIR_SCOPE','DAILY_SUMMARY_SCOPE','COUPON_DISPLAY_SCOPE','LOOTBAR_CALLER_SCOPE','CURVE_V6_SCOPE','CURVE_AVERAGE_SCOPE','CURVE_INSURANCE_SCOPE','CURVE_STABILITY_SCOPE','CURVE_MARKET_SCOPE','CURVE_WEEKLY_SCOPE','CURVE_REVIEW_SCOPE','CURVE_MARGIN_BAND_SCOPE'):
             namespace[name]=getattr(adapter,name)
+        namespace['CURVE_ARAB_QUOTE_SCOPE']=adapter.CURVE_ARAB_QUOTE_SCOPE
         with tempfile.TemporaryDirectory() as folder:
             file=Path(folder)/'server.py';file.write_bytes(b'old')
             before=dict(revision=1,settings=dict(write_enabled=True,write_auto=True),bundles=[])

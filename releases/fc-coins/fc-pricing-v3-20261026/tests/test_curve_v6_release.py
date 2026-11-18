@@ -23,6 +23,26 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_arab_quote_scope_uses_only_identical_existing_market_registry_copies(self):
+        scope = 'fc-pricing-v6-arab-quote-20261119'
+        expected = {
+            'source/fc_pricing_v3/market_registry.py': '/opt/fc27-cloud-browser/fc_pricing_v3/market_registry.py',
+            'source/hermes-copy/fc_pricing_v3/market_registry.py': '/opt/fs-hermes-fc/fc_pricing_v3/market_registry.py',
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / 'arab-quote.tar.gz'
+            with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']), \
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, commit: path.read_bytes()):
+                result = build_stage.build(ROOT, output, curve_arab_quote=True)
+            with tarfile.open(output) as bundle:
+                prefix = 'fc-pricing-v3-20261026/'
+                provenance = json.load(bundle.extractfile(prefix + 'source-manifest.json'))
+                self.assertEqual(provenance['scope'], scope)
+                self.assertEqual(set(provenance['files']), set(expected))
+                self.assertEqual(len(set(provenance['files'].values())), 1)
+        self.assertEqual(result['targets'], 2)
+        self.assertEqual(adapter.SCOPED_TARGETS[scope], expected)
+
     def test_review_scope_only_releases_identical_monitor_and_week_source_pairs(self):
         with tempfile.TemporaryDirectory() as folder:
             output=Path(folder)/'monitor.tar.gz'

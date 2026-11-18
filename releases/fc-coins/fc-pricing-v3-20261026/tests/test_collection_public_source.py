@@ -68,6 +68,34 @@ class PublicSource(unittest.TestCase):
         self.assertEqual({k.lower(): v for k, v in calls[1][2].items()}['cookie'], 'visitor=fixture')
         self.assertNotIn('authorization', {k.lower() for k in calls[1][2]})
 
+    def test_only_confirmed_console_delivery_rejection_admits_the_fast_template(self):
+        from http.client import HTTPMessage
+        from unittest.mock import Mock
+        from fc_collection.adapters import ArabNormalDeliveryUnavailable, RestrictedHTTP, SourceUnavailable
+        from fc_collection.public_sources import REGISTRY
+        unavailable = b'{"errors":{"delivery":["This delivery speed is not available right now. Choose fast delivery."]}}'
+        unrelated = b'{"errors":{"quantity":["Invalid quantity"]}}'
+        cases = [(unavailable, 'quote', ArabNormalDeliveryUnavailable),
+                 (unrelated, 'quote', SourceUnavailable),
+                 (unavailable, 'quote_pc', SourceUnavailable),
+                 (unavailable, 'quote_fast', SourceUnavailable),
+                 (unavailable + b' ' * 4096, 'quote', SourceUnavailable)]
+        with patch('socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]), \
+                patch('fc_collection.adapters.PinnedHTTPS') as pinned:
+            http = RestrictedHTTP(REGISTRY)
+            for body, template, expected in cases:
+                response = Mock(status=422)
+                response.getheader.side_effect = lambda key, default=None: default
+                response.info.return_value = HTTPMessage()
+                response.read1.side_effect = [body, b'']
+                pinned.return_value.getresponse.return_value = response
+                with self.subTest(template=template, expected=expected):
+                    with self.assertRaisesRegex(SourceUnavailable, 'http_422') as raised:
+                        http.fetch('ArabUT', template, 2)
+                    self.assertIs(type(raised.exception), expected)
+            self.assertEqual(REGISTRY['ArabUT']['quote_fast']['query'],
+                             dict(platform='playstation', delivery='fast', quantity='100000'))
+
     def test_public_contract_failures_expose_only_static_diagnostics(self):
         from fc_collection.public_sources import arab_adapter
         from fc_collection.adapters import SourceUnavailable

@@ -7,6 +7,7 @@ import json
 import re
 
 SOURCES = {'ItemD2R', 'Lootbar', 'ArabUT'}
+ARAB_CONSOLE_DELIVERIES = ('normal', 'fast')
 ARAB_WARM_PATHS = {'warm':'/', 'warm_en':'/en', 'warm_en_slash':'/en/', 'warm_ar':'/ar', 'warm_ar_slash':'/ar/'}
 ARAB_PRICE_TABLE = dict(host='arab-ut.com', path='/en/coins/prices', max_bytes=2097153)
 ARAB_TABLE_QUANTITIES = ('100', '1000', '2000', '5000')
@@ -221,12 +222,16 @@ def validate_observation(body, task, now):
                 pc = row['platform'] == 'PC'
                 if (meta['original_platform'] != ('pc' if pc else 'playstation')
                         or meta['original_market'] != ('pc' if pc else 'console')
-                        or meta['original_delivery'] != (None if pc else 'normal')
-                        or row['delivery_method'] != ('standard' if pc else 'normal')):
+                        or (meta['original_delivery'] is not None if pc else
+                            meta['original_delivery'] not in ARAB_CONSOLE_DELIVERIES)
+                        or row['delivery_method'] != ('standard' if pc else meta['original_delivery'])):
                     raise ValueError('source_metadata_invalid')
                 fresh(meta['priced_at'], now)
         elif task['source_id'] == 'Lootbar' and task['adapter_version'] == 'lootbar-public-browser-v1':
             raise ValueError('lootbar_source_metadata_required')
+        if (task['source_id'] == 'ArabUT' and not table and row['delivery_method'] == 'fast'
+                and row.get('source_metadata', {}).get('original_delivery') != 'fast'):
+            raise ValueError('source_metadata_invalid')
         key = row['platform'], row['region_id']
         if table:
             key += (row['purchase_quantity'], row['delivery_method'])
@@ -297,8 +302,8 @@ def to_fc_quote_rows(accepted, expected_context, now):
                 selection_verified=True, observation_id=body['observation_id'])
             row.update(settlement_currency=offer['settlement_currency'], conversion_source=offer['conversion_source'])
             if body['source_id'] == 'ArabUT':
-                expected_delivery = 'standard' if offer['platform'] == 'PC' else 'normal'
-                if offer['delivery_method'] != expected_delivery:
+                expected_deliveries = ('standard',) if offer['platform'] == 'PC' else ARAB_CONSOLE_DELIVERIES
+                if offer['delivery_method'] not in expected_deliveries:
                     continue
                 row.update(arab_quote_details(offer))
             elif body['source_id'] == 'Lootbar':
@@ -321,7 +326,8 @@ def arab_quote_details(offer):
     result = dict(total_usd=offer['amount'], delivery=offer['delivery_method'])
     if 'source_metadata' in offer:
         modern = 'original_platform' in offer['source_metadata']
-        query = 'platform=pc&quantity=100000' if pc else 'platform=playstation&delivery=normal&quantity=100000'
+        query = ('platform=pc&quantity=100000' if pc else
+                 'platform=playstation&delivery=' + offer['delivery_method'] + '&quantity=100000')
         result.update(deepcopy(offer['source_metadata']),
             delivered_k=str(quantity(offer['delivered_quantity'], offer['quantity_unit'])),
             comparison_currency='USD', quantity_basis='official_quote_quantity_bonus_not_advertised',
@@ -342,7 +348,7 @@ def arab_status(rows, requested_platforms, errors=None):
                 or row['settlement_currency'] != 'SAR' or row['conversion_source'] != 'official_display_quote'
                 or row['price_basis'] != 'public_merchandise' or row['auth_state'] != 'public'
                 or row['discount_source'] != 'official_no_coupon'
-                or row['delivery'] != ('standard' if pc else 'normal')
+                or row['delivery'] not in (('standard',) if pc else ARAB_CONSOLE_DELIVERIES)
                 or pc and (row.get('original_platform') != 'pc' or row.get('original_market') != 'pc'
                            or row.get('original_delivery', 'missing') is not None)):
             raise ValueError('arab_source_metadata_required')
@@ -352,7 +358,9 @@ def arab_status(rows, requested_platforms, errors=None):
     present = {row['platform'] for row in rows}
     missing = [dict(platform=p, region_id=21, reason=errors.get(p, 'same_run_valid_quote_missing'))
                for p in requested_platforms if p not in present]
-    labels = dict(PS='normal_verified', XBOX='official_shared_console', PC='independent_standard_verified')
+    shared_delivery = console[0]['delivery'] if console else None
+    labels = dict(PS=shared_delivery + '_verified' if shared_delivery else None,
+                  XBOX='official_shared_console', PC='independent_standard_verified')
     coverage = {p: labels[p] if p in present else errors.get(p, 'same_run_valid_quote_missing') if p in requested_platforms else 'not_requested'
                 for p in ('PS', 'XBOX', 'PC')}
     return dict(status='partial' if rows and missing else 'available' if rows else 'unavailable',

@@ -22,6 +22,7 @@ from target_map import CURVE_AVERAGE_SCOPE, CURVE_AVERAGE_NEW, curve_average_tar
 from target_map import CURVE_INSURANCE_SCOPE, curve_insurance_targets
 from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEKLY_NEW, curve_weekly_targets
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
+from target_map import CURVE_ARAB_QUOTE_SCOPE, curve_arab_quote_targets
 from target_map import CURVE_MARGIN_BAND_SCOPE, curve_margin_band_targets
 from target_map import CURVE_REVIEW_SCOPE, curve_review_targets
 from target_map import CURVE_STABILITY_SCOPE, curve_stability_targets
@@ -55,6 +56,7 @@ SHADOW_TARGETS = {name: TARGETS[name] for name in SHADOW_NAMES}
 OPERATING_TARGETS={name:TARGETS[name] for name in OPERATING_NAMES}
 COLLECTION_TARGETS={name:TARGETS[name] for name in COLLECTION_NAMES}
 SCOPED_TARGETS = {
+    CURVE_ARAB_QUOTE_SCOPE: {'source/' + name: path for name, path in curve_arab_quote_targets(SOURCE).items()},
     CURVE_MARGIN_BAND_SCOPE: {'source/' + name: path for name, path in curve_margin_band_targets(SOURCE).items()},
     CURVE_REVIEW_SCOPE: {'source/' + name: path for name, path in curve_review_targets(SOURCE).items()},
     CURVE_WEEKLY_SCOPE: {'source/' + name: path for name, path in curve_weekly_targets(SOURCE).items()},
@@ -268,7 +270,7 @@ def checked_manifest(value):
         raise ValueError('code_release_does_not_change_business_or_timer_state')
     if value.get('releaseReady') is not True:
         raise ValueError('reviewed_code_release_required')
-    if scope in (CURVE_V6_SCOPE, CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE, CURVE_MARKET_SCOPE, CURVE_WEEKLY_SCOPE, CURVE_REVIEW_SCOPE, CURVE_MARGIN_BAND_SCOPE):
+    if scope in (CURVE_V6_SCOPE, CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE, CURVE_MARKET_SCOPE, CURVE_WEEKLY_SCOPE, CURVE_REVIEW_SCOPE, CURVE_MARGIN_BAND_SCOPE, CURVE_ARAB_QUOTE_SCOPE):
         if any(row['mode'] != '0o755' for row in rows if row['candidate'] in CURVE_V6_EXECUTABLES):
             raise ValueError('curve_v6_collectors_must_be_executable')
         by_name = {row['candidate']: row['sha256'] for row in rows}
@@ -433,7 +435,7 @@ def load_base():
                 subprocess.run(['systemctl','is-active','--quiet',name],check=True,timeout=10)
             return
         # These three entries load in fresh quote/source subprocesses.
-        if manifest.get('scope') == COLLECTION_SCOPE:
+        if manifest.get('scope') in (COLLECTION_SCOPE, CURVE_ARAB_QUOTE_SCOPE):
             return
         restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
         if manifest.get('scope') in (SCOPE,DELTA_SCOPE,SHADOW_SCOPE,OPERATING_SCOPE,COLLECTION_SCOPE,BIDIRECTIONAL_SCOPE,REPAIR_SCOPE,QUOTE_FRAGMENT_SCOPE,QUOTE_PREVIEW_SCOPE,DAILY_REPAIR_SCOPE,DAILY_SUMMARY_SCOPE,COUPON_DISPLAY_SCOPE,THREE_PLATFORM_SCOPE,CURVE_V6_SCOPE):
