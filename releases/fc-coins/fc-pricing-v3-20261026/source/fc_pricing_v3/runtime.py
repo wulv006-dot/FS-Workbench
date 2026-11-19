@@ -2,7 +2,7 @@
 from .platforms import PRICE_SCOPE_CONTRACT, action_key, native_action
 from copy import deepcopy
 from contextlib import contextmanager
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 import hashlib
 import itertools
@@ -1208,12 +1208,36 @@ def margin_band_round(now, schedule_hours, history=(), *, automatic=True, collec
                 retry=automatic and retry)
 
 
+def _promotion_discount_selection(guard, average):
+    from .cost_inputs_v6 import BEIJING
+
+    start = instant(average['start']).astimezone(BEIJING).date()
+    end = instant(average['end_exclusive']).astimezone(BEIJING).date()
+    overlaps = start <= date.fromisoformat(guard['last_redeem_day']) and date.fromisoformat(guard['start_day']) < end
+    actual = Decimal(average['actual_discount_usd']) / Decimal(average['merchandise_before_discount_usd'])
+    baseline = Decimal(guard['baseline'][average['platform']])
+    business = min(actual, baseline) if overlaps else actual
+    reason = 'window_outside_campaign'
+    if overlaps:
+        reason = 'campaign_baseline' if business < actual else 'actual_at_or_below_baseline'
+    return dict(campaign=guard['campaign'], start_day=guard['start_day'],
+                last_redeem_day=guard['last_redeem_day'], baseline_revision=guard['baseline_revision'],
+                baseline_discount=str(baseline), actual_discount=str(actual), business_discount=str(business),
+                average_discount_revision=average['revision'], window_start=average['start'],
+                window_end_exclusive=average['end_exclusive'], active=overlaps, reason=reason)
+
+
 def margin_band_selection(proof, position, current, target, decision_round, *, cost_median,
-                          cost_sample_count, previous_decision_cost_median):
+                          cost_sample_count, previous_decision_cost_median, promotion_guard=None):
     """Choose native band anchors before the original safety and insurance checks."""
     from .average_discount_v6 import CENT, band_margin, band_target_price
 
     lower, upper = target - CENT, target + CENT
+    promotion = (_promotion_discount_selection(promotion_guard, proof['average_discount'])
+                 if promotion_guard and proof else None)
+    # The override is confined to margin-band judgment and target search.
+    retained = (1 - Decimal(promotion['business_discount'])
+                if promotion and promotion['reason'] == 'campaign_baseline' else None)
     drop = (cost_median is not None and previous_decision_cost_median is not None and cost_sample_count < 6
             and Decimal(cost_median) <= Decimal(previous_decision_cost_median) * Decimal('.92'))
     guarded = proof
@@ -1227,7 +1251,8 @@ def margin_band_selection(proof, position, current, target, decision_round, *, c
     for band, price in current.items():
         low = position.get('low_anchors', {}).get(band)
         high = position['anchors'].get(band)
-        margin = band_margin(proof, band) if proof else None
+        actual_margin = band_margin(proof, band) if proof else None
+        margin = band_margin(proof, band, retained=retained) if retained is not None else actual_margin
         desired, action, capped, unconfirmed = Decimal(price) if price is not None else None, 'none', None, False
         if decision_round['is_decision_round'] and margin is not None and low is not None and high is not None:
             lo, hi = Decimal(low), Decimal(high)
@@ -1235,32 +1260,37 @@ def margin_band_selection(proof, position, current, target, decision_round, *, c
                 clamped = min(hi, max(lo, desired))
                 unconfirmed = margin > upper and drop
                 used = guarded if unconfirmed else proof
-                decision_margin = band_margin(used, band) if unconfirmed else margin
+                decision_margin = band_margin(used, band, retained=retained) if unconfirmed else margin
                 # A cost drop awaiting confirmation may cancel a cut, but cannot call for a raise.
                 if margin < lower:
                     action = 'raise'
-                    found = band_target_price(used, band, target, lo, hi)
+                    found = band_target_price(used, band, target, lo, hi, retained=retained)
                     desired = hi if found is None else found
                     if found is None:
                         capped = 'capped_by_market'
                 elif decision_margin > upper:
-                    found = band_target_price(used, band, target, lo, clamped)
+                    found = band_target_price(used, band, target, lo, clamped, retained=retained)
                     if found is None:
                         desired, action = clamped, 'hold'
                     else:
                         desired, action = found, 'lower'
                         if found == lo and lo > CENT:
                             below = lo - CENT
-                            if band_target_price(used, band, target, below, below) is not None:
+                            if band_target_price(used, band, target, below, below, retained=retained) is not None:
                                 capped = 'capped_by_corridor'
                 else:
                     desired, action = clamped, 'hold'
-        bands[band] = dict(margin_at_current=str(margin) if margin is not None else None,
+        bands[band] = dict(margin_at_current=str(actual_margin) if actual_margin is not None else None,
                            action=action, desired=str(desired) if desired is not None else None, low=low, high=high, capped=capped,
                            cost_drop_unconfirmed=unconfirmed)
-    return dict(decision_round=decision_round, target=str(target), hold_range=[str(lower), str(upper)],
-                cost_median=cost_median, cost_sample_count=cost_sample_count,
-                previous_decision_cost_median=previous_decision_cost_median, bands=bands)
+        if promotion:
+            bands[band]['business_margin_at_current'] = str(margin) if margin is not None else None
+    result = dict(decision_round=decision_round, target=str(target), hold_range=[str(lower), str(upper)],
+                  cost_median=cost_median, cost_sample_count=cost_sample_count,
+                  previous_decision_cost_median=previous_decision_cost_median, bands=bands)
+    if promotion:
+        result['promotion_guard'] = promotion
+    return result
 
 
 def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, now, previous):
@@ -1320,6 +1350,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
                 position, observed, Decimal(configuration[platform]['target']), decision,
                 cost_median=entry.get('confirmed_cost_cny_per_k'), cost_sample_count=context.get('cost_sample_count', 0),
                 previous_decision_cost_median=prior.get('cost_median'),
+                promotion_guard=configuration.get('promotion_guard'),
             )
             preference = dict(preference, margin_band=margin_band)
             frozen['preference'] = preference
