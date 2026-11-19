@@ -1702,7 +1702,7 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/REPORT.md",
-        "sha256": "2449f94d7c2024093b58c45fab158d645974485a6452d4ed2f3ad17933876afd",
+        "sha256": "d2b7c3a09d0999b57425d6b9e3a275d5e0510fab1853bbad791d9b051b981f8e",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
