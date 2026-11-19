@@ -1796,8 +1796,9 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
         end=min(now.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S'),day+' 23:59:59')
         if begin<=end:ranges.append((begin,end))
     disjoint = []
+    # Native paytime ranges include both endpoints and use whole seconds.
     for begin, end in sorted(ranges):
-        if disjoint and begin <= disjoint[-1][1]:
+        if disjoint and datetime.fromisoformat(begin) - datetime.fromisoformat(disjoint[-1][1]) <= timedelta(seconds=1):
             disjoint[-1] = (disjoint[-1][0], max(end, disjoint[-1][1]))
         else:
             disjoint.append((begin, end))
