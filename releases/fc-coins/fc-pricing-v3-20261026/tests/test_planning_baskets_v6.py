@@ -5,6 +5,7 @@ from http.client import BadStatusLine
 from io import BytesIO
 import json
 from pathlib import Path
+import socket
 import sys
 from threading import Event, current_thread
 from types import SimpleNamespace
@@ -168,9 +169,9 @@ class PlanningBaskets(unittest.TestCase):
                 earlier_attempt = dict(native, id=102, order_no='partial-only')
                 return 200, json.dumps(dict(code=1, data=dict(total=2, list=[earlier_attempt])))
             if len(calls) == 2:
-                raise TimeoutError('private transport details')
+                raise URLError(socket.timeout('private transport details'))
             if len(calls) == 3:
-                return 502, b'<html>temporary upstream failure</html>'
+                raise URLError(ConnectionRefusedError('private transport details'))
             return 200, json.dumps(dict(code=1, data=dict(total=2, list=[native, native])))
 
         channel = SimpleNamespace(search=lambda filters: {key: value for key, _, value in filters}, apply_cost_overrides=lambda data: {
@@ -206,9 +207,15 @@ class PlanningBaskets(unittest.TestCase):
         self.addCleanup(error_body_timeout.__context__.close)
         cases = (
             (URLError(TimeoutError('private details')), 'source_timeout', 3),
+            (socket.timeout('private details'), 'source_timeout', 3),
+            (URLError(socket.timeout('private details')), 'source_timeout', 3),
+            (URLError(ConnectionRefusedError('private details')), 'source_connection_interrupted', 3),
+            (BrokenPipeError('private details'), 'source_connection_interrupted', 3),
+            (PermissionError('private details'), 'source_transport_failed', 1),
             (error_body_timeout, 'source_http_403', 1),
             (BadStatusLine('private upstream bytes'), 'source_response_invalid', 1),
             ((503, b'<html>private response</html>'), 'source_http_503', 3),
+            ((401, b'<html>private response</html>'), 'source_http_401', 1),
             ((403, b'<html>private response</html>'), 'source_http_403', 1),
             ((200, b'private malformed payload'), 'source_response_invalid', 1),
             ((200, b'{"code":1,"data":{"total":1,"list":[]}}'), 'source_pagination_invalid', 1),

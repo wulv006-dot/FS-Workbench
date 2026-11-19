@@ -306,8 +306,8 @@ document.addEventListener('DOMContentLoaded', () => {
           data.period?.start !== query.start || data.period?.end !== query.end) throw Error('返回区间未核对通过。');
       const values = data.totals;
       for (const [value, label, format] of [
-        [values.salesUsd ?? values.observedSalesUsd, present(values.salesUsd) ? '归档已付销售额' : '归档已核销售额', usd],
-        [values.orders ?? values.observedOrders, present(values.orders) ? '归档已付订单' : '归档已核订单', count],
+        [values.salesUsd ?? values.observedSalesUsd, present(values.salesUsd) ? '经营已付销售额' : '经营已核销售额', usd],
+        [values.orders ?? values.observedOrders, present(values.orders) ? '经营已付订单' : '经营已核订单', count],
         [values.actualCostCny, '已核订单发货成本', cny],
         [values.grossMarginPct, '已核订单毛利率', pct],
       ]) {

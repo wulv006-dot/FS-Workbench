@@ -9,6 +9,7 @@ import html
 import json
 from pathlib import Path
 import re
+from socket import timeout as SocketTimeout
 import sqlite3
 from threading import Thread
 from time import monotonic, sleep
@@ -247,9 +248,9 @@ def _retry_recent_curve_batch(manager, filters, deadline):
                 raise
         except (OSError, IncompleteRead) as exc:
             reason = exc.reason if isinstance(exc, URLError) else exc
-            if isinstance(reason, TimeoutError):
+            if isinstance(reason, (TimeoutError, SocketTimeout)):
                 code = 'source_timeout'
-            elif isinstance(reason, (ConnectionResetError, ConnectionAbortedError, IncompleteRead)):
+            elif isinstance(reason, (ConnectionError, IncompleteRead)):
                 code = 'source_connection_interrupted'
             else:
                 raise RecentCurveReadFailure('source_transport_failed') from exc
@@ -1563,12 +1564,34 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
     import channel_source as channel
     from channel_cache import delivery_bounds
     from channel_effects import accounting_row
-    deliveries,cost_info=channel.load_costs()
     coupons = [log for values in logs.values() for log in values]
     first = (start if reuse_closed_days else cost_since).astimezone(TZ).date().isoformat()
     local_now = now.astimezone(TZ)
     today = local_now.date().isoformat()
     cutoff = (local_now.replace(second=0, microsecond=0)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:59')
+    cohort_start = first
+    def indexed_costs(checked_at):
+        if not reuse_closed_days or cohort_start + ' 00:00:00' > cutoff:
+            return None
+        try:
+            from order_delivery_index import covers_window, read_orders
+        except ModuleNotFoundError as exc:
+            if exc.name == 'order_delivery_index':
+                return None
+            raise
+        keys = [('www.mmoexp.com', row['order_no']) for row in rows]
+        since = cohort_start + ' 00:00:00'
+        publication = read_orders(keys, root=channel.ROOT, since=since, until=cutoff)
+        if (publication['status'] == 'available' and
+                covers_window(publication['windows'], 'www.mmoexp.com', since, cutoff, as_of=checked_at)):
+            captured = max((_window_instant(w['capturedAt']) for w in publication['windows']
+                            if w['since'] <= cutoff and since <= w['until']),default=None)
+            if captured is not None and captured <= checked_at:
+                return publication['rows'], dict(status='partial', source='Order 逐条订单发货记录',
+                    revision=publication['revision'], generatedAt=captured.isoformat(),
+                    period=dict(start=cohort_start, end=cutoff[:10], until=cutoff))
+        return None
+    deliveries, cost_info = indexed_costs(now) or channel.load_costs()
     def native_bounds(cost):
         period = cost.get('period')
         if not isinstance(period, dict):
@@ -1608,6 +1631,13 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
         if archive is not None:
             data['include_cost_delivery_rows'] = True
         channel.enrich(data)
+        # The rolling file certifies only the freshly read tail. The index also pins its prefix.
+        updated = indexed_costs(datetime.now(timezone.utc))
+        if updated:
+            deliveries, data['sources']['cost'] = updated
+            data.pop('cost_delivery_rows', None)
+            archive, first, missing_days = None, cohort_start, []
+            data['orders'] = channel.normalize(rows,[],coupons,[],deliveries,{},dict(entries=[]))
     if archive is not None:
         if 'cost_delivery_rows' in data:
             # Use the rows loaded with the successful refresh's source revision under its lock.
@@ -1731,7 +1761,8 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
         while day<=stop:
             last=min(stop,day+timedelta(days=27))
             lo,hi=max(begin,day.isoformat()+' 00:00:00'),min(end,last.isoformat()+' 23:59:59')
-            batch=pages(session,'/admin/order.Order/index',[('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],100)
+            # Match the verified native page size already used by the shared ES producer.
+            batch=pages(session,'/admin/order.Order/index',[('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],1000)
             order_reads += 1
             fresh={}
             for row in batch:
@@ -1752,6 +1783,7 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
     for day in pending:checks[day]=now.isoformat()
     if not previous.get('cursor_at'):
         checks.update({day:now.isoformat() for day in days})
+    coupon_started = monotonic()
     names=sorted(sn for sn,row in changed.items() if _quantity(row))
     for offset in range(0,len(names),100):
         batch_names=names[offset:offset+100]
@@ -1761,7 +1793,10 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
             if sn not in batch_names or str(log.get('site_id'))!='266':raise ValueError('window_coupon_log_scope_invalid')
             logs[sn].append({key:log.get(key) for key in ('id','order_no','site_id','use_time','coupon_id','status')})
         coupon_reads += 1
-    progress('admin_paging', 'done', elapsed_seconds=round(monotonic()-admin_started, 3),
+    admin_finished = monotonic()
+    progress('admin_paging', 'done', elapsed_seconds=round(admin_finished-admin_started, 3),
+             order_seconds=round(coupon_started-admin_started, 3),
+             coupon_seconds=round(admin_finished-coupon_started, 3),
              order_reads=order_reads, coupon_reads=coupon_reads)
     live=list(rows.values())
     cost_cursor=_window_instant(state['cost_cursor_at']) if state.get('cost_cursor_at') else start

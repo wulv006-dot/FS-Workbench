@@ -52,6 +52,19 @@ def publication(cutoff, suffix='a'):
 
 
 class SharedFacts(unittest.TestCase):
+    def test_after_maintenance_window_retries_only_the_latest_missing_pricing_day(self):
+        previous = dict(phase='complete', cutoff=stamp(D3).isoformat())
+        with patch.object(weekly, 'small_state', return_value=previous), \
+                patch.dict(sys.modules, {'fcntl': SimpleNamespace(LOCK_EX=2, LOCK_NB=4, flock=Mock())}), \
+                patch.object(facts, 'fc_pricing_missing_days', side_effect=[[D1], []]), \
+                patch.object(weekly, 'publish_yesterday_es', return_value={'status':'complete'}) as publish:
+            now = stamp('2026-11-13T05:18:00+08:00')
+            result = weekly.wake(self.store.root, lambda: self.store, now, cadence='daily', shared_es=True)
+            self.assertEqual(result['status'], 'complete')
+            publish.assert_called_once_with(self.store, stamp(D2), now)
+            idle = weekly.wake(self.store.root, Mock(side_effect=AssertionError), now, cadence='daily', shared_es=True)
+            self.assertEqual(idle['source_calls'], 0)
+
     def test_midnight_tick_publishes_yesterday_ahead_of_blocked_customer_flags(self):
         now = stamp('2026-11-14T00:03:00+08:00')
         previous = dict(phase='flags', cutoff=stamp('2026-11-13').isoformat())
@@ -407,6 +420,7 @@ class SharedFacts(unittest.TestCase):
             applied = facts.seed(self.store, D1, D2, apply=True, **opts)
             reused = facts.seed(self.store, D1, D2, apply=True, **opts)
         self.assertEqual(applied['status'], 'partial')
+        self.assertEqual(facts.fc_pricing_missing_days(D1, D2, db=self.store.path), [D2])
         self.assertTrue(applied['publication_id'].startswith('se_'))
         self.assertEqual(reused['already_indexed'], [D1])
         reader.assert_called_once_with(D1)

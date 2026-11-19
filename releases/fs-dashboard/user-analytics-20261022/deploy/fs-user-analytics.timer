@@ -2,6 +2,7 @@
 Description=FS user analytics bounded quarter-hour update
 
 [Timer]
+OnCalendar=*-*-* 00:00,08,13:00
 OnCalendar=*-*-* *:03,18,33,48:00
 RandomizedDelaySec=20
 AccuracySec=1s

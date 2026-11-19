@@ -441,6 +441,7 @@ def run_job(job):
 def tick(executors, running):
     db=ledger()
     now=clock()
+    natural_wakes=[]
     for key,future in list(running.items()):
         if future.done():
             future.result()
@@ -472,6 +473,8 @@ def tick(executors, running):
                         conn.execute("SELECT id,body FROM durable_jobs WHERE kind='cycle' AND state IN ('queued','running') "
                                      "AND (id NOT LIKE 'manual:%' OR ? != ?)",
                                      (plan.get('write_protocol') or '', CURVE_WRITE_PROTOCOL)))
+        if not pending and now<due_at:
+            natural_wakes.append(due_at)
         if not pending and now>=due_at:
             from .smart import STRATEGY_VERSION, strategy_start
             scheduled={}
@@ -504,6 +507,10 @@ def tick(executors, running):
                 conn.execute("INSERT INTO consumer_cursors VALUES ('external_market_observer',?)",(event['id'],))
     with db.connect() as conn:
         due=[dict(row) for row in conn.execute('SELECT * FROM durable_jobs WHERE state=\'queued\' AND due_at<=?',(now.isoformat(),))]
+        future_cycle=conn.execute("SELECT MIN(due_at) FROM durable_jobs WHERE state='queued' "
+                                  "AND kind='cycle' AND due_at>?", (now.isoformat(),)).fetchone()[0]
+    if future_cycle:
+        natural_wakes.append(instant(future_cycle))
 
     for job in sorted(due,key=lambda j:(PRIORITY[j['kind']],j['due_at'])):
         lane='outcomes' if job['kind']=='outcomes' else 'observation' if job['kind'] in ('observe','daily','history') else 'collection' if job['kind'] in ('cycle','postwrite_refresh','uk_retirement') else 'control'
@@ -517,6 +524,38 @@ def tick(executors, running):
     from .runtime import write_json
     write_json(STORE/'heartbeat.json',dict(checked_at=now.isoformat(),generation=db.generation(),
                active_plans=plans,running=list(running),due_jobs=len(due),scheduler='single_fc_v3'))
+    return min(natural_wakes) if natural_wakes else None
+
+
+def _wait_for_due(conn, running, stop, natural_due, *, clock_fn=clock, sleep_fn=time.sleep):
+    # The primary-key range avoids scanning the historical durable job ledger.
+    probe_failed = False
+    for _ in range(60):
+        if stop:
+            return 'stop'
+        sleep_fn(1)
+        if stop:
+            return 'stop'
+        collection = running.get('collection')
+        if collection is not None:
+            if collection.done():
+                return 'collection_finished'
+            continue
+        now = clock_fn()
+        if natural_due is not None and now >= natural_due:
+            return 'natural'
+        if not probe_failed:
+            try:
+                queued = conn.execute("SELECT 1 FROM durable_jobs WHERE id>=? AND id<? AND kind='cycle' "
+                    "AND state='queued' AND due_at<=? LIMIT 1",
+                    ('manual:', 'manual;', now.isoformat())).fetchone()
+            except sqlite3.Error:
+                # A failed hint is not evidence the queue is empty. The normal tick remains the fallback.
+                probe_failed = True
+            else:
+                if queued:
+                    return 'manual'
+    return 'interval'
 
 
 def main():
@@ -532,12 +571,11 @@ def main():
     try:
         # SQLite opens WAL lazily; keep its sidecars alive for read-only writer mounts.
         keeper.execute('SELECT count(*) FROM metadata').fetchone()
+        # An optional wake-up probe must never hold up the coordinator on a locked database.
+        keeper.execute('PRAGMA busy_timeout=0')
         while not stop:
-            tick(executors,running)
-            for _ in range(60):
-                if stop:
-                    break
-                time.sleep(1)
+            natural_due = tick(executors,running)
+            _wait_for_due(keeper, running, stop, natural_due)
     finally:
         keeper.close()
         for executor in executors.values():

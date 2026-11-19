@@ -202,42 +202,69 @@ def enrich(data, force=False):
         return data
     ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
     path = ROOT / 'order-deliveries.json'
-    previous = json.loads(path.read_text('utf-8')) if path.is_file() else None
-    if previous and (previous.get('contract') != 'channel-order-deliveries-v1' or previous.get('complete') is not True):
-        raise ValueError('invalid_order_cost_cache')
-    if previous and not force:
-        period = previous['period']
-        age = (datetime.now(TZ) - datetime.fromisoformat(previous['generatedAt'])).total_seconds()
-        if period['start'] <= data['period']['start'] and period['end'] == datetime.now(TZ).date().isoformat() and 0 <= age < 600:
-            data['sources']['cost']['limitation'] = '复用固定发货截止 ' + period.get('until',period['end']) + ' 的完整读取；未匹配不补零，匹配不等于最终结算。手动刷新可重新取数。'
-            return data
+    from channel_cache import delivery_bounds
+    from order_delivery_index import MAIN_SITE, capture_time, covered_through, read_orders, sync_after_publish, trade_second
     import fcntl
     with (ROOT / 'order-deliveries.lock').open('a+b') as lock:
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             data['sources']['cost']['limitation'] = '另一项全局成本读取进行中；保留现有覆盖，完成后可刷新。'
             return data
-        from channel_cost_source import collect as cost_collect
-        sys.path.insert(0, COLLECTOR); import p2pah_auth as auth
-        session = auth.Session()
-        # Exclude the open minute so newly created rows do not shift offset pages.
-        cutoff = datetime.now(TZ).replace(second=0, microsecond=0) - timedelta(minutes=1)
-        if data['period']['start'] > cutoff.date().isoformat(): return data
-        try:
-            fresh = cost_collect(session, data['period']['start'], cutoff.date().isoformat(), until=cutoff.strftime('%Y-%m-%d %H:%M'))
-        finally: session.close()
         previous = json.loads(path.read_text('utf-8')) if path.is_file() else None
         if previous and (previous.get('contract') != 'channel-order-deliveries-v1' or previous.get('complete') is not True):
             raise ValueError('invalid_order_cost_cache')
+        now = datetime.now(TZ)
+        # Exclude the open minute so newly created rows do not shift offset pages.
+        cutoff = now.replace(second=0, microsecond=0) - timedelta(minutes=1)
+        requested = data['period']['start']+' 00:00:00'
+        stop = cutoff.strftime('%Y-%m-%d %H:%M:59')
+        if requested > stop:
+            return data
+        proof = read_orders((),root=ROOT)
+        if proof['status'] != 'available' and previous and sync_after_publish(ROOT):
+            proof = read_orders((),root=ROOT)
+        covered = covered_through(proof['windows'],MAIN_SITE,requested,as_of=now) if not force else None
+        # The JSON fallback must keep the entire prefix it used to return.
+        retained_through = None
+        reusable = None
+        age = None
+        if previous and not force:
+            observed = capture_time(previous['generatedAt'])
+            age = (now-observed).total_seconds()
+            legacy_start, legacy_stop = delivery_bounds(previous['period'])
+            retained_from = previous.get('retainedFrom',legacy_start)
+            trade_second(retained_from)
+            if retained_from <= legacy_start and retained_from <= requested <= legacy_stop and covered:
+                retained_through = min(covered,legacy_stop)
+            if (legacy_start <= requested <= legacy_stop
+                    and datetime.fromisoformat(legacy_stop).replace(tzinfo=TZ) <= observed <= now):
+                reusable = legacy_stop
+            reusable = max(reusable or '',retained_through or '')
+        if reusable and (reusable>=stop or reusable[:10]==now.date().isoformat() and age is not None and 0<=age<600):
+            data['sources']['cost']['limitation'] = '复用固定发货截止 ' + reusable + '；未匹配不补零，匹配不等于最终结算。'
+            if data.get('include_cost_delivery_rows') is True:
+                data['cost_delivery_rows'], _ = load_costs()
+            return data
+        begin = requested
+        if retained_through:
+            overlap = datetime.fromisoformat(retained_through)-timedelta(minutes=5)+timedelta(seconds=1)
+            begin = max(requested,overlap.strftime('%Y-%m-%d %H:%M:%S'))
+        window = dict(start=begin[:10],end=cutoff.date().isoformat(),until=cutoff.strftime('%Y-%m-%d %H:%M'))
+        if begin != requested:
+            window['since'] = begin
+        from channel_cost_source import collect as cost_collect
+        sys.path.insert(0, COLLECTOR); import p2pah_auth as auth
+        session = auth.Session()
+        try:
+            fresh = cost_collect(session,window['start'],window['end'],until=window['until'],
+                                 **({'since':begin} if 'since' in window else {}))
+        finally: session.close()
         # A complete window replaces its membership, including records no longer returned.
-        from channel_cache import delivery_bounds
-        window = dict(start=data['period']['start'], end=cutoff.date().isoformat(), until=cutoff.strftime('%Y-%m-%d %H:%M'))
-        begin, stop = delivery_bounds(window)
         by_id = {str(r['delivery_id']): r for r in (previous or {}).get('rows', [])
                  if not begin <= r['trade_at'] <= stop}
         by_id.update({str(r['delivery_id']): r for r in fresh})
         cache = dict(contract='channel-order-deliveries-v1', complete=True, generatedAt=datetime.now(TZ).isoformat(),
-                     period=window, rows=list(by_id.values()))
+                     period=window, rows=list(by_id.values()), retainedFrom=requested)
         fd, temp = tempfile.mkstemp(dir=ROOT)
         try:
             with os.fdopen(fd, 'w') as output:
@@ -252,6 +279,7 @@ def enrich(data, force=False):
         data['sources']['cost'] = cost_info
         if data.get('include_cost_delivery_rows') is True:
             data['cost_delivery_rows'] = deliveries
+    sync_after_publish(ROOT)
     return data
 
 

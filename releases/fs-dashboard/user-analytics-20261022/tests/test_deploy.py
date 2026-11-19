@@ -1,5 +1,6 @@
 """Release boundary checks do not touch production or relax the frozen publisher."""
 from pathlib import Path
+from hashlib import sha256
 import importlib.util
 import sys
 from types import SimpleNamespace
@@ -13,6 +14,22 @@ from patch_navigation import patch
 
 
 class Deployment(unittest.TestCase):
+    def test_midnight_release_pins_both_shipped_timer_units_and_only_restarts_timers(self):
+        repo = ROOT.parents[2]
+        adapter = repo/'docs/planning/fs-query-perf-20261119/release_archive_timers.py'
+        spec = importlib.util.spec_from_file_location('release_archive_timers',adapter)
+        module = importlib.util.module_from_spec(spec)
+        with mock_patch.dict(sys.modules, {'release_navigation_base': Mock()}):
+            spec.loader.exec_module(module)
+        files = [ROOT/'deploy/fs-user-analytics.timer',
+                 ROOT.parent/'nightly-pipeline-20261023/deploy/fs-channel-cache.timer']
+        self.assertEqual(set(module.UNITS), {file.name for file in files})
+        for file in files:
+            self.assertEqual(sha256(file.read_bytes().replace(b'\r\n', b'\n')).hexdigest(), module.UNITS[file.name][1])
+        with mock_patch.object(module.subprocess, 'run') as run:
+            module.reload_timers()
+        self.assertEqual(run.call_args_list[1].args[0], ['systemctl', 'restart', *module.UNITS])
+
     def test_weekly_release_binds_exact_ten_targets_to_existing_host_publisher(self):
         spec=importlib.util.spec_from_file_location('users_weekly_release_test',ROOT/'deploy/release_weekly.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)

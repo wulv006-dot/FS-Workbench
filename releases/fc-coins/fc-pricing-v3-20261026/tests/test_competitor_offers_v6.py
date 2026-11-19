@@ -192,19 +192,32 @@ class CompetitorOffersV6(unittest.TestCase):
 
     def test_snapshot_v6_collects_u7_without_item_or_missing_market_hard_failure(self):
         module=snapshot_module()
-        processes=[SimpleNamespace(returncode=1,stdout=b''),SimpleNamespace(returncode=1,stdout=b''),
-                   SimpleNamespace(returncode=0,stdout=b''),SimpleNamespace(returncode=0,stdout=b'')]
+        from threading import Event
+
+        cost_started, fx_started = Event(), Event()
+
+        def run_source(command, **kwargs):
+            if command[0] == str(module.COST_COLLECTOR):
+                cost_started.set()
+                self.assertTrue(fx_started.wait(2), 'the FX read must start before the outstanding Order read finishes')
+            elif command[0] == str(module.COLLECTOR):
+                self.assertTrue(cost_started.wait(1), 'Order cost should start before the market source finishes')
+            elif command[0] == str(module.FX_COLLECTOR):
+                fx_started.set()
+            return SimpleNamespace(returncode=int(command[0] in (str(module.COLLECTOR), str(module.PUBLIC_COLLECTOR))),
+                                   stdout=b'')
         with tempfile.TemporaryDirectory() as folder,patch.object(module,'ROOT',Path(folder)),\
-             patch.object(module.subprocess,'run',side_effect=processes) as run,\
+             patch.object(module.subprocess,'run',side_effect=run_source) as run,\
              patch.object(module,'collector_failure',return_value='fixture_missing'),\
              patch('fc_pricing_v3.runtime.ledger'),\
-             patch('fc_pricing_v3.runtime._curve_insurance_context',return_value={'confirmed_cost_cny_per_k': '.4'}),\
+             patch('fc_pricing_v3.runtime._confirmed_cost_references',return_value=dict.fromkeys(module.PLATFORMS,'.4')),\
              patch.object(module,'cost_snapshots',return_value=[dict(status='valid',platform=p) for p in module.PLATFORMS]),\
              patch.object(module,'newest_evidence',return_value=dict(status='valid',checked_at=NOW.isoformat(),cny_per_usd='7')),\
              patch.object(module,'atomic_json') as save,patch.object(module.os,'chown',create=True),patch.object(module.os,'chmod'):
             summary,ready=module.collect_once('00000000-0000-4000-8000-000000000099',POLICY)
         self.assertTrue(ready)
-        self.assertEqual(run.call_args_list[1].args[0][-2:],['U7Buy','100'])
+        public_call = next(call for call in run.call_args_list if call.args[0][0] == str(module.PUBLIC_COLLECTOR))
+        self.assertEqual(public_call.args[0][-2:],['U7Buy','100'])
         self.assertNotIn('ItemD2R',str(run.call_args_list))
         cost_call = next(call for call in run.call_args_list if call.args[0][0] == str(module.COST_COLLECTOR))
         self.assertEqual(json.loads(cost_call.kwargs['env']['FC_V6_COST_REFERENCES']),
@@ -214,6 +227,81 @@ class CompetitorOffersV6(unittest.TestCase):
         self.assertEqual(stored['legacy_competitor_scope'],'100k_observed_only')
         self.assertEqual(summary['status'],'ready_for_quote')
 
+    def test_snapshot_retries_only_timed_out_fx_after_current_order_completes(self):
+        from threading import Event
+        module = snapshot_module()
+        release_order = Event()
+        order_finished = Event()
+        run_id = '00000000-0000-4000-8000-000000000099'
+        costs = [dict(status='valid', platform=p, run_id=run_id) for p in module.PLATFORMS]
+        market_rows = [raw('100')]
+        missing = dict(status='missing', reason='fx_collector_failed')
+        rate = dict(status='valid', checked_at=NOW.isoformat(), cny_per_usd='7')
+        timeout = 'BOC:browser_connection_timeout'
+
+        def collect_cost(*args, **kwargs):
+            self.assertTrue(release_order.wait(2))
+            order_finished.set()
+            return costs, None, None
+
+        for recovered in (True, False):
+            with self.subTest(recovered=recovered), tempfile.TemporaryDirectory() as folder:
+                release_order.clear()
+                order_finished.clear()
+                attempts = []
+                second_failure = None if recovered else 'BOC:page_read_timeout'
+                warnings = ['Lootbar:collector_failed'] if recovered else []
+
+                def collect_fx():
+                    attempts.append(order_finished.is_set())
+                    if len(attempts) == 1:
+                        release_order.set()
+                        return missing, timeout
+                    return (rate if recovered else missing), second_failure
+
+                with patch.object(module, 'ROOT', Path(folder)), \
+                        patch.object(module, 'collect_market_sources', return_value=([], market_rows, list(warnings))) as market, \
+                        patch.object(module, 'collect_order_cost', side_effect=collect_cost) as cost, \
+                        patch.object(module, 'collect_fx', side_effect=collect_fx), \
+                        patch.object(module, 'atomic_json') as save, \
+                        patch.object(module.os, 'chown', create=True), patch.object(module.os, 'chmod'):
+                    summary, ready = module.collect_once(run_id, POLICY)
+                self.assertEqual(attempts, [False, True])
+                market.assert_called_once_with(run_id, curve_v6=True)
+                cost.assert_called_once_with(run_id, curve_v6=True)
+                stored = save.call_args.args[1]
+                self.assertEqual(stored['costs'], costs)
+                self.assertEqual(stored['competitor_offers'], market_rows)
+                self.assertEqual(stored['fx'], rate if recovered else missing)
+                self.assertEqual(stored['fx_retry'], dict(first_failure=timeout, retry_failure=second_failure))
+                self.assertEqual(stored['fx_retry'], summary['fx_retry'])
+                self.assertEqual(stored['source_warnings'], warnings)
+                self.assertEqual(ready, recovered)
+                self.assertEqual(summary['reason'], second_failure)
+
+    def test_snapshot_does_not_retry_fx_for_other_failures_or_legacy(self):
+        module = snapshot_module()
+        run_id = '00000000-0000-4000-8000-000000000099'
+        costs = [dict(status='valid', platform=p, run_id=run_id) for p in module.PLATFORMS]
+        timeout = 'BOC:browser_connection_timeout'
+        cases = [(POLICY, costs, True, 'BOC:page_read_timeout'),
+                 (POLICY, costs, False, timeout),
+                 (POLICY, costs[:-1], True, timeout),
+                 (None, costs, True, timeout)]
+        for mode, platform_costs, market_ready, fx_failure in cases:
+            with self.subTest(mode=mode, count=len(platform_costs), market_ready=market_ready, fx=fx_failure), \
+                    tempfile.TemporaryDirectory() as folder, patch.object(module, 'ROOT', Path(folder)), \
+                    patch.object(module, 'collect_market_sources', return_value=([], [], [])), \
+                    patch('fc_pricing_v3.competitor_offers.quantity_coverage', return_value={'ready': market_ready}), \
+                    patch.object(module, 'collect_order_cost', return_value=(platform_costs, None, None)), \
+                    patch.object(module, 'collect_fx', return_value=(dict(status='missing'), fx_failure)) as fx, \
+                    patch.object(module, 'atomic_json') as save, \
+                    patch.object(module.os, 'chown', create=True), patch.object(module.os, 'chmod'):
+                _, ready = module.collect_once(run_id, mode)
+                self.assertFalse(ready)
+                fx.assert_called_once()
+                self.assertNotIn('fx_retry', save.call_args.args[1])
+
     def test_snapshot_only_requests_and_records_100k_lootbar_rows(self):
         module=snapshot_module()
         offers={p:dict(platform=p,base_k='100',bonus_k='5',usd_price='9',coupon_excluded=False) for p in module.PLATFORMS}
@@ -222,12 +310,18 @@ class CompetitorOffersV6(unittest.TestCase):
                 dict(offers['PS'],base_k='1000',bonus_k='50',usd_price='79.38',coupon_excluded=True,
                      observed_coupon_price='69.86',excluded_coupon_discount='9.52'),
                 dict(offers['PC'],base_k='2000',usd_price='160',coupon_excluded=True)])]
-        processes=[SimpleNamespace(returncode=code,stdout=b'') for code in (0,1,0,0)]
+        fixture_evidence = iter(([], ['lootbar.jsonl']))
+
+        def run_source(command, **kwargs):
+            return SimpleNamespace(returncode=int(command[0] == str(module.PUBLIC_COLLECTOR)), stdout=b'')
+
+        def fixture_glob(pattern):
+            return next(fixture_evidence) if pattern.endswith('lootbar-*.jsonl') else []
         with tempfile.TemporaryDirectory() as folder,patch.object(module,'ROOT',Path(folder)),\
              patch('fc_pricing_v3.runtime.ledger'),\
-             patch('fc_pricing_v3.runtime._curve_insurance_context',return_value={'confirmed_cost_cny_per_k': None}),\
-             patch.object(module.subprocess,'run',side_effect=processes) as run,\
-             patch.object(module.glob,'glob',side_effect=[[],[str(Path(folder)/'lootbar.jsonl')],[],[],[]]),\
+             patch('fc_pricing_v3.runtime._confirmed_cost_references',return_value=dict.fromkeys(module.PLATFORMS)),\
+             patch.object(module.subprocess,'run',side_effect=run_source) as run,\
+             patch.object(module.glob,'glob',side_effect=fixture_glob),\
              patch.object(module.Path,'read_text',return_value='\n'.join(json.dumps(event) for event in events)),\
              patch.object(module,'collector_failure',return_value='fixture_missing'),\
              patch.object(module,'cost_snapshots',return_value=[dict(status='valid',platform=p) for p in module.PLATFORMS]),\
@@ -235,7 +329,8 @@ class CompetitorOffersV6(unittest.TestCase):
              patch.object(module,'atomic_json') as save,patch.object(module.os,'chown',create=True),patch.object(module.os,'chmod'):
             _,ready=module.collect_once('00000000-0000-4000-8000-000000000099',POLICY)
         self.assertTrue(ready)
-        self.assertNotIn('--native-quantities',run.call_args_list[0].args[0])
+        lootbar_call = next(call for call in run.call_args_list if call.args[0][0] == str(module.COLLECTOR))
+        self.assertNotIn('--native-quantities',lootbar_call.args[0])
         stored=save.call_args.args[1]
         self.assertEqual([row['purchase_k'] for row in stored['competitors']],['100']*3)
         self.assertEqual([row['purchase_k'] for row in stored['competitor_offers']],['100']*3)

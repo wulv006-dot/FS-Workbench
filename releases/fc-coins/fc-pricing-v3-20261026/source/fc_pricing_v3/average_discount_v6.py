@@ -26,7 +26,7 @@ def average_discount_window(paid_cutoff):
 
 
 def yesterday_es_ready(now):
-    """Check the published site/game slice through the shared read-only source."""
+    """Wait on missing closed days of the active three-day discount window."""
     import sqlite3
     import sys
 
@@ -34,17 +34,11 @@ def yesterday_es_ready(now):
         if path not in sys.path:
             sys.path.append(path)
     try:
-        from shared_es_facts import latest_publication, read
+        from shared_es_facts import fc_pricing_missing_days
 
-        _, midnight = average_discount_window(now)
+        start, midnight = average_discount_window(now)
         yesterday = (midnight.date() - timedelta(days=1)).isoformat()
-        pin = latest_publication()
-        if not pin or not pin['cutoff'] or pin['cutoff'][:10] < midnight.date().isoformat():
-            return False
-        coverage = read(dict(start=yesterday, end=yesterday, site_id='266', gid='1327'),
-                        publication_id=pin['publication_id'])['coverage']
-        return (coverage.get('admin_complete') is True
-                and yesterday in (coverage.get('day_revisions') or {}))
+        return not fc_pricing_missing_days(start.date().isoformat(), yesterday)
     except (ImportError, OSError, sqlite3.Error, KeyError, TypeError, ValueError):
         return False
 

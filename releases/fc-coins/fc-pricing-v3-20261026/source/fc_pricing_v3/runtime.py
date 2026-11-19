@@ -432,6 +432,28 @@ def ordinary_delivery_archives(scope, shared, *, root=None):
 
     root = Path(root or '/var/lib/fs-channel-effects')
     names = {row['order_no'] for row in shared['rows']}
+    if scope.get('site_id') == '266':
+        try:
+            from order_delivery_index import read_orders
+        except ImportError:
+            read_orders = None
+        if read_orders is not None:
+            indexed = read_orders({('www.mmoexp.com',str(name)) for name in names}, root=root)
+            if indexed.get('status') == 'available':
+                revision = indexed['revision']
+                if not isinstance(revision,str) or not revision:
+                    raise ValueError('curve_delivery_index_revision')
+                windows = [dict(start=w['since'],end=w['until'],revision=w['revision'],
+                                generated_at=w['capturedAt']) for w in indexed['windows']
+                           if w['source']=='www.mmoexp.com']
+                coverage = dict(shared['coverage'])
+                coverage['admin_captured_at'] = coverage.get('captured_at')
+                coverage['captured_at'] = clock().isoformat()
+                coverage['cost'] = dict(status='observed_only',source_revision=fingerprint(windows) if windows else None,
+                    index_revision=revision,generated_at=indexed['generatedAt'],shipment_windows=windows,
+                    shipment_window_complete=bool(windows),order_cost_complete=False)
+                return project_order_facts(shared['rows'],shared['dataset'],indexed['rows'],scope=scope,
+                    source_coverage=coverage,identity_catalog=shared['identity_catalog'])
     lo = datetime.fromisoformat(scope['start']).date()
     hi = datetime.fromisoformat(scope['end']).date()
     days = [(lo + timedelta(days=i)).isoformat() for i in range((hi - lo).days + 1)]
@@ -925,6 +947,36 @@ def _same_hour_curve_performance(platform, online, now):
     return result
 
 
+def _confirmed_cost_references(db, platforms=PLATFORMS, *, conn=None):
+    """Read each platform's latest original confirmed cost from one ledger snapshot."""
+    if conn is None:
+        from contextlib import closing
+        with closing(db.connect()) as conn:
+            conn.execute('BEGIN')
+            return _confirmed_cost_references(db, platforms, conn=conn)
+    pending = set(platforms)
+    references = dict.fromkeys(platforms)
+    for raw, in conn.execute('SELECT body FROM operations ORDER BY rowid DESC'):
+        op = json.loads(raw)
+        matches = (pending.intersection((op.get('bundle', {}).get('action', {}).get('curves') or {}))
+                   if op.get('status') in ('COMPLETED', 'NO_CHANGE') else set())
+        if not matches:
+            continue
+        try:
+            confirmed_curve_window(op)
+        except ValueError:
+            continue
+        snapshot = db.get('pricing_snapshots', op['bundle']['snapshot_id'], conn) or {}
+        for platform in matches:
+            cost = (snapshot.get('evidence', {}).get('costs') or {}).get(platform) or {}
+            selected = (op['bundle'].get('curve_selection') or {}).get(platform) or {}
+            references[platform] = selected.get('confirmed_cost_cny_per_k') or cost.get('cny_per_1k')
+            pending.remove(platform)
+        if not pending:
+            break
+    return references
+
+
 def _curve_insurance_context(db, platform, evidence, now):
     from .curve_strategy_v6 import band_anchors, large_market_reference
 
@@ -936,22 +988,8 @@ def _curve_insurance_context(db, platform, evidence, now):
                and (row.get('resource_closed_at', {}).get('base:' + platform) is None
                     or instant(row['resource_closed_at']['base:' + platform]) > cutoff)]
     day = max(windows, key=lambda row: instant(row['opened_at']), default=None)
-    reference = None
     with db.connect() as conn:
-        for raw, in conn.execute('SELECT body FROM operations ORDER BY rowid DESC'):
-            op = json.loads(raw)
-            if (op.get('status') not in ('COMPLETED', 'NO_CHANGE')
-                    or platform not in (op.get('bundle', {}).get('action', {}).get('curves') or {})):
-                continue
-            try:
-                confirmed_curve_window(op)
-            except ValueError:
-                continue
-            snapshot = db.get('pricing_snapshots', op['bundle']['snapshot_id'], conn) or {}
-            cost = (snapshot.get('evidence', {}).get('costs') or {}).get(platform) or {}
-            selected = (op['bundle'].get('curve_selection') or {}).get(platform) or {}
-            reference = selected.get('confirmed_cost_cny_per_k') or cost.get('cny_per_1k')
-            break
+        reference = _confirmed_cost_references(db, (platform,), conn=conn)[platform]
         # Old strategy rows contain large forecasts; project only this release's natural rounds.
         decisions = [json.loads(raw) for raw, in conn.execute(
             'SELECT body FROM strategy_decisions WHERE body LIKE ?', ('%"automatic_curve_round": true%',))]
@@ -1075,6 +1113,9 @@ def _margin_band_cycle_context(db, plan, job, now, hours):
 def collect_curve_catalogues(evidence, platforms):
     """Collect current saved Goods rows for the same run's private proof inputs."""
     from contextlib import closing
+    from http.client import HTTPException
+    from socket import timeout as SocketTimeout
+    from urllib.error import HTTPError, URLError
     from coin_all_sync_job import PRODUCTS, read_curve_routes, read_row
     from fc_shared_admin import SessionManager, read_private_config
     from .api import _curve_preview_history
@@ -1111,6 +1152,36 @@ def collect_curve_catalogues(evidence, platforms):
         closed = _curve_preview_history(conn, dict(snapshot_id=evidence['run_id'], created_at=paid_cutoff), clock(),
                                         require_snapshot_binding=False)
     collected = {}
+    retry_available = True
+
+    def failure_category(error):
+        code = str(error) if isinstance(error, ValueError) else None
+        if (isinstance(error, HTTPError) or isinstance(error.__context__, HTTPError)
+                or code == 'coin_backend_request_rejected'):
+            return 'source_rejected'
+        reason = error.reason if isinstance(error, URLError) else error
+        if isinstance(reason, (TimeoutError, SocketTimeout)):
+            return 'source_timeout'
+        if isinstance(error, (OSError, HTTPException)):
+            return 'source_transport_failed'
+        if code in ('coin_product_scope_changed', 'curve_identity_invalid', 'curve_identity_mismatch'):
+            return 'source_identity_invalid'
+        return 'source_evidence_invalid'
+
+    def read_catalogue_row(platform, site, observed):
+        nonlocal retry_available
+        attempt = []
+        try:
+            row = read_row(manager, platform, site, observer=attempt.append)
+        except OSError as error:
+            if not retry_available or failure_category(error) != 'source_timeout':
+                raise
+            retry_available = False
+            attempt.clear()
+            row = read_row(manager, platform, site, observer=attempt.append)
+        observed.extend(attempt)
+        return row
+
     for platform in platforms:
         if restore and platform not in restore:
             continue
@@ -1118,15 +1189,19 @@ def collect_curve_catalogues(evidence, platforms):
         if public.get('sku_id') is not None and str(public['sku_id']) != str(PRODUCTS[platform][1]):
             continue
         observed = []
+        contract = dict(source='Admin Goods edit read only', verified_domain='native stored tiers only',
+                        editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256,
+                        price_edit_policy=TWO_BAND_PRICE_EDIT)
+        stage = 'primary'
         try:
-            primary = read_row(manager, platform, 266, observer=observed.append)
-            all_row = read_row(manager, platform, 0, observer=observed.append)
-            contract = dict(source='Admin Goods edit read only', verified_domain='native stored tiers only',
-                            editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256,
-                            price_edit_policy=TWO_BAND_PRICE_EDIT)
-            current, all_before = (read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, contract)
-                                   for row in (primary, all_row))
-        except (OSError, TypeError, ValueError):
+            primary = read_catalogue_row(platform, 266, observed)
+            current = read_curve(primary, {key: primary[key] for key in IDENTITY_FIELDS}, contract)
+            stage = 'all'
+            all_row = read_catalogue_row(platform, 0, observed)
+            all_before = read_curve(all_row, {key: all_row[key] for key in IDENTITY_FIELDS}, contract)
+        except (OSError, HTTPException, TypeError, ValueError, KeyError, AttributeError) as error:
+            evidence.setdefault('curve_catalogue_gaps', {})[platform] = (
+                'native_catalogue:' + stage + ':' + failure_category(error))
             continue
         editor = contract
         candidates = {curve_key(current): current}
@@ -2338,10 +2413,12 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
         ready = []
     rows = [dict(platform=p, status=decisions[p]['status'], gaps=decisions[p].get('gaps', []),
                  selection=decisions[p].get('selection')) for p in platforms]
+    catalogue_gaps = evidence.get('curve_catalogue_gaps') or {}
     for row in rows:
-        gap = (frozen.get(row['platform']) or {}).get('recent_source_gap')
-        if gap and gap not in row['gaps']:
-            row['gaps'] = [*row['gaps'], gap]
+        platform = row['platform']
+        for gap in ((frozen.get(platform) or {}).get('recent_source_gap'), catalogue_gaps.get(platform)):
+            if gap and gap not in row['gaps']:
+                row['gaps'] = [*row['gaps'], gap]
     if active:
         for row in rows:
             primary_inputs = (frozen.get(row['platform']) or {}).get('primary_inputs') or {}

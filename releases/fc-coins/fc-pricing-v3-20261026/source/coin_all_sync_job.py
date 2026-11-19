@@ -495,6 +495,27 @@ def curve_primary_readback(manager, item):
                            reason='pricing_curve_recipient_readback_mismatch:266')
         return False
     propagation['site_outcomes'] = {'266': 'target_observed'}
+    required = item.get('required_recipient_sites')
+    if item.get('catalogue_status') == 'native_route_ready' and isinstance(required, list):
+        for site in required:
+            if site == '266':
+                continue
+            before = item['recipients_before'].get(site)
+            try:
+                row = read_row(manager, platform, int(site), recipient_id=item['recipient_goods'][site])
+            except (OSError, ValueError):
+                propagation['site_outcomes'][site] = 'readback_unavailable'
+                propagation['reason'] = 'pricing_curve_recipient_readback_mismatch:' + site
+                return False
+            item['observed_rows'][site] = row
+            propagation['actual_hashes'][site] = fingerprint(editable(row))
+            if (before is None or not curve_specs_match(row, item['target'])
+                    or not curve_prices_match(row, item['target'])
+                    or not unchanged(before, row, platform, True)):
+                propagation['site_outcomes'][site] = 'target_mismatch'
+                propagation['reason'] = 'pricing_curve_recipient_readback_mismatch:' + site
+                return False
+            propagation['site_outcomes'][site] = 'target_observed'
     return confirm_curve_primary(item)
 
 
@@ -688,11 +709,15 @@ def curve_result(audit, save_audit):
 
 def drive_curve_catalog(manager, audit, save_audit, before_send, capabilities):
     """Use the original writer lock to dispatch each exact ALL target once."""
+    from socket import timeout as socket_timeout
+    from urllib.error import HTTPError, URLError
     from fc_pricing_v3.financial import fingerprint
+    from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
 
     def persist():
         save_audit(audit)
 
+    retry_used = False
     for item in audit['curve_results'].values():
         platform = item['platform']
         capability = capabilities[platform]
@@ -710,22 +735,59 @@ def drive_curve_catalog(manager, audit, save_audit, before_send, capabilities):
                     raise ValueError('pricing_curve_order_projection_unverified')
                 if money(projection['read'](platform)) != money(item['before_rate']):
                     raise ValueError('pricing_curve_order_before_rate_changed')
-            required = set(item.get('required_recipient_sites', item['recipient_goods']))
+            explicit = item.get('required_recipient_sites')
+            direct = (item['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
+                      and item.get('catalogue_status') == 'native_route_ready' and explicit is not None)
+            if direct and (not isinstance(explicit, list) or not explicit
+                           or any(not isinstance(site, str) for site in explicit)
+                           or len(set(explicit)) != len(explicit) or '266' not in explicit
+                           or not set(explicit).issubset(item['recipient_goods'])):
+                raise ValueError('pricing_curve_required_recipient_scope_invalid')
+            required = set(explicit if explicit is not None else item['recipient_goods'])
             item['recipients_before'] = {}
-            for site, goods in item['recipient_goods'].items():
-                try:
-                    recipient = read_row(manager, platform, int(site), recipient_id=goods)
-                except (OSError, ValueError):
-                    if site in required:
-                        raise
-                    continue
-                item['recipients_before'][site] = recipient
+
+            def check_recipient(site, recipient):
                 if site == '266' and item.get('primary_before_hash') and (
                         fingerprint(editable(recipient)) != item['primary_before_hash']):
                     raise ValueError('pricing_curve_primary_before_hash_changed')
                 if site in required and not curve_specs_match(recipient, item['before']):
                     raise ValueError('pricing_curve_recipient_specs_changed:' + site)
-            live = read_row(manager, platform, 0)
+
+            def read_preflight(site, goods=None):
+                nonlocal retry_used
+                def get():
+                    return (read_row(manager, platform, 0) if site == 0 else
+                            read_row(manager, platform, int(site), recipient_id=goods))
+                try:
+                    return get()
+                except (TimeoutError, socket_timeout, URLError) as error:
+                    if (isinstance(error, URLError) and (isinstance(error, HTTPError)
+                            or not isinstance(error.reason, (TimeoutError, socket_timeout)))):
+                        raise
+                    if retry_used or (site != 0 and site not in required):
+                        raise
+                    retry_used = True
+                    before_send(platform)
+                    # A long timeout must not leave an earlier required CAS stale.
+                    for prior, prior_goods in item['recipient_goods'].items():
+                        if prior in required and prior in item['recipients_before']:
+                            current = read_row(manager, platform, int(prior), recipient_id=prior_goods)
+                            check_recipient(prior, current)
+                            item['recipients_before'][prior] = current
+                    return get()
+
+            for site, goods in item['recipient_goods'].items():
+                if direct and site not in required:
+                    continue
+                try:
+                    recipient = read_preflight(site, goods)
+                except (OSError, ValueError):
+                    if site in required:
+                        raise
+                    continue
+                item['recipients_before'][site] = recipient
+                check_recipient(site, recipient)
+            live = read_preflight(0)
             if fingerprint(editable(live)) != item['before_hash']:
                 raise ValueError('pricing_curve_before_hash_changed')
             path = '/admin/goods.Goods/edit?id=' + str(item['all_goods_id'])

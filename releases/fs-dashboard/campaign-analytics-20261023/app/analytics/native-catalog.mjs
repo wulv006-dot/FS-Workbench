@@ -49,9 +49,17 @@ export function mergeNativeCatalog(seed,catalog){
  }
  out.pageProductKeys['seasonal-vault']=[...new Set([...(out.pageProductKeys['seasonal-vault']||[]),...catalog.products.map(p=>p.key)])];
  out.nativeModelKeys={};
- for(const preview of products.filter(p=>p.preview_only===true&&p.model_card_key)){
-  const matches=catalog.products.filter(p=>canonical(p.product_ref)===canonical(preview.product_ref)&&canonical(p.platform)===canonical(preview.platform));
-  if(matches.length===1)out.nativeModelKeys[preview.key]=matches[0].key;
+ const previews=products.filter(p=>p.preview_only===true&&p.model_card_key);
+ if(previews.length){
+  const matches=new Map();
+  for(const product of catalog.products){
+   const identity=JSON.stringify([canonical(product.product_ref),canonical(product.platform)]);
+   matches.set(identity,matches.has(identity)?null:product);
+  }
+  for(const preview of previews){
+   const identity=JSON.stringify([canonical(preview.product_ref),canonical(preview.platform)]),match=matches.get(identity);
+   if(match)out.nativeModelKeys[preview.key]=match.key;
+  }
  }
  for(const pageId of ['fc27-trio','fc27-weekly','fc27-sbc']){
   const keys=out.pageProductKeys[pageId]||[];

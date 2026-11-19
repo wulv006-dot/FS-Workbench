@@ -1,6 +1,6 @@
 """Build private V6 planning baskets from payment-window order attachments."""
 from collections import Counter
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from .business_source import historical_period
 from .financial import fingerprint, instant, number
@@ -14,6 +14,13 @@ STRUCTURE_ORDERS = 30
 
 
 def _instant(value):
+    text = str(value).strip()
+    try:
+        parsed = datetime.fromisoformat(text.replace('Z', '+00:00'))
+        if parsed.tzinfo is not None:
+            return parsed
+    except ValueError:
+        pass
     try:
         return instant(value)
     except ValueError:

@@ -37,7 +37,10 @@ def forward_hourly_timings(stderr):
         if stage not in ('admin_paging', 'order_cost', 'order_cost_native', 'es', 'binding') or event not in ('start', 'done'):
             continue
         fields = {}
-        for key in ('order_ranges', 'order_reads', 'coupon_reads', 'elapsed_seconds', 'orders', 'outcomes', 'closed_trade_days'):
+        numeric = ('order_ranges', 'order_reads', 'coupon_reads', 'elapsed_seconds', 'orders', 'outcomes', 'closed_trade_days')
+        if (stage, event) == ('admin_paging', 'done'):
+            numeric += ('order_seconds', 'coupon_seconds')
+        for key in numeric:
             value = record.get(key)
             if type(value) in (int, float) and 0 <= value <= 1_000_000_000:
                 fields[key] = value

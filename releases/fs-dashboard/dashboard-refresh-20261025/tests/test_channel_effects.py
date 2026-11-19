@@ -336,8 +336,12 @@ class Effects(unittest.TestCase):
         import channel_source
         with tempfile.TemporaryDirectory() as root:
             path = Path(root)/'order-deliveries.json'
-            path.write_text(json.dumps(dict(contract='channel-order-deliveries-v1',complete=True,generatedAt=datetime.now(TZ).isoformat(),period=dict(start='2026-10-01',end=datetime.now(TZ).date().isoformat(),until='2026-10-21 19:00'),rows=[])))
-            with patch.object(channel_source,'ROOT',Path(root)), patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ready":true}')):
+            now = datetime.now(TZ)
+            cutoff = now-timedelta(minutes=1)
+            path.write_text(json.dumps(dict(contract='channel-order-deliveries-v1',complete=True,generatedAt=now.isoformat(),
+                period=dict(start='2026-10-01',end=cutoff.date().isoformat(),until=cutoff.strftime('%Y-%m-%d %H:%M')),rows=[])))
+            with patch.object(channel_source,'ROOT',Path(root)), patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ready":true}')), \
+                    patch.dict(sys.modules,{'fcntl':SimpleNamespace(flock=lambda *args:None,LOCK_EX=1,LOCK_NB=2)}):
                 data = self.data();data['sources']={'cost':{}}
                 result = channel_source.enrich(data)
             self.assertIn('复用固定发货截止', result['sources']['cost']['limitation'])
@@ -349,8 +353,8 @@ class Effects(unittest.TestCase):
         import channel_source
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            cutoff = datetime.now(TZ) - timedelta(minutes=1)
-            day = cutoff.date().isoformat()
+            now = datetime(2026,11,18,11,0,tzinfo=TZ)
+            day = now.date().isoformat()
             delivery = dict(delivery_id='1', source='www.mmoexp.com', sn='fixture', genre=1,
                             trade_at=day+' 00:00:00', cost_total='42', sale_total='60')
             session = SimpleNamespace(close=lambda: None)
@@ -358,8 +362,10 @@ class Effects(unittest.TestCase):
                        'p2pah_auth': SimpleNamespace(Session=lambda: session)}
             with patch.dict(sys.modules, modules), patch.object(channel_source, 'ROOT', root), \
                     patch.object(channel_source, 'SALES', root/'sales'), \
+                    patch.object(channel_source, 'datetime', wraps=datetime) as clock, \
                     patch('urllib.request.urlopen', return_value=io.BytesIO(b'{"ready":true}')), \
                     patch('channel_cost_source.collect', return_value=[delivery]) as native:
+                clock.now.return_value = now
                 result = channel_source.enrich(dict(period=dict(start=day, end=day), orders=[],
                     sources=dict(cost={}), include_cost_delivery_rows=True))
             native.assert_called_once()
@@ -367,6 +373,8 @@ class Effects(unittest.TestCase):
             self.assertEqual(result['cost_delivery_rows'], published['rows'])
             self.assertEqual(result['sources']['cost']['generatedAt'], published['generatedAt'])
             self.assertEqual(result['sources']['cost']['period'], published['period'])
+            from order_delivery_index import read_orders
+            self.assertEqual(read_orders([('www.mmoexp.com','fixture')],root=root)['rows'],[delivery])
 
     def test_order_unavailable_preserves_orders_and_marks_the_source(self):
         import channel_source
@@ -480,9 +488,14 @@ class SharedTracking(unittest.TestCase):
                 patch('shared_es_facts.read',return_value=dict(rows=[],coverage=coverage)) as shared, \
                 patch('channel_source.collect') as collect:
             root=Path(root); (root/'delivery-days').mkdir(); path=root/'delivery-days'/f'{day}.json'
-            path.write_text(json.dumps(dict(contract='channel-order-deliveries-v1',complete=True,period=dict(start=day,end=day))))
+            before = json.dumps(dict(contract='channel-order-deliveries-v1',complete=True,period=dict(start=day,end=day),
+                                     generatedAt='2026-11-11T00:15:00+08:00',rows=[]))
+            path.write_text(before)
             result=cache_day(day,root,shared=True)
-            self.assertEqual(result,dict(day=day,orders=None,status='partial',missingDays=[day],deliveryDayComplete=True))
+            self.assertEqual({k:result[k] for k in ('day','orders','status','missingDays','deliveryDayComplete')},
+                             dict(day=day,orders=None,status='partial',missingDays=[day],deliveryDayComplete=True))
+            self.assertEqual(result['deliveryIndexStatus'],'complete')
+            self.assertEqual(path.read_text(),before)
             shared.assert_called_once_with(dict(start=day,end=day,site_id='266',gid='all'))
             collect.assert_not_called()
             self.assertFalse((root/'days').exists())

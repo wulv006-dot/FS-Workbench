@@ -286,7 +286,31 @@ CURVE_RECOVERY_TARGETS = {
         'channel_source.py': ORDER_COST_CHANNEL_OVERLAY['target'],
         **module_targets(('business_source.py',)),
     },
+    'live-order-cost': {
+        'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
+        'snapshot_layer.py': '/opt/fc27-cloud-browser/snapshot_layer.py',
+    },
+    'shared-order': {
+        'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
+        'snapshot_layer.py': '/opt/fc27-cloud-browser/snapshot_layer.py',
+        **module_targets(('business_source.py', 'runtime.py', 'average_discount_v6.py')),
+    },
+    'round-latency': {
+        'fc27_cloud_worker.py': '/opt/fc27-cloud-browser/fc27_cloud_worker.py',
+        'snapshot_layer.py': '/opt/fc27-cloud-browser/snapshot_layer.py',
+        'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
+        **module_targets(('business_source.py', 'runtime.py', 'planning_baskets_v6.py')),
+    },
     'recent-orders': module_targets(('business_source.py', 'planning_baskets_v6.py', 'runtime.py')),
+    'catalogue-inputs': module_targets(('runtime.py',)),
+    'cycle-recovery': {
+        'snapshot_layer.py': '/opt/fc27-cloud-browser/snapshot_layer.py',
+        **module_targets(('scheduler.py',)),
+    },
+    'targeted-price-reads': {
+        'coin_all_sync_job.py': '/opt/fc27-cloud-browser/coin_all_sync_job.py',
+        **module_targets(('business_source.py', 'daily.py')),
+    },
     'outcomes': module_targets(('business_source.py', 'daily.py')),
     'cost-incidents': module_targets(('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py')),
 }

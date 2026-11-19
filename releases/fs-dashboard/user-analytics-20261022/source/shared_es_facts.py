@@ -664,7 +664,29 @@ def _seed_archives(root, days, now):
     return available
 
 
-def seed(store, start, end, *, apply=False, now=None, archive_root=None, reader=None, archive=None):
+def fc_pricing_missing_days(start, end, *, db=DB):
+    """Read the current closed-day pins without loading any orders or workbook rows."""
+    days = list(_days(start, end))
+    if not Path(db).is_file():
+        return days
+    with closing(_read_db(db)) as connection:
+        if not _exists(connection):
+            return days
+        rows = connection.execute('''SELECT d.day,s.body FROM meta m
+            JOIN shared_es_publications p ON p.publication_id=m.value
+            JOIN shared_es_publication_days d ON d.publication_id=p.publication_id
+            JOIN shared_es_slices s ON s.day=d.day AND s.revision=d.revision
+            WHERE m.key=? AND d.day BETWEEN ? AND ? AND d.day < substr(p.cutoff,1,10)''',
+            (META, start, end))
+        covered = set()
+        for day, body in rows:
+            info = json.loads(body)
+            if 'archive_site' not in info or (info['archive_site'] == FC27_SITE and info.get('fc27_paid_archive_proof')):
+                covered.add(day)
+    return [day for day in days if day not in covered]
+
+
+def seed(store, start, end, *, apply=False, now=None, archive_root=None, reader=None, archive=None, full_archive=False):
     """Explicit finite import from existing complete archives, using the producer's native map."""
     from user_customer_types import ARCHIVE
     from user_weekly import stored_publication
@@ -677,15 +699,17 @@ def seed(store, start, end, *, apply=False, now=None, archive_root=None, reader=
     published = stored_publication(store)
     if published is None:
         raise ValueError('shared_es_seed_publication_unavailable')
-    available = _seed_archives(root, days, now)
     active = latest_publication(db=store.path)
     covered = {}
     if active:
         with closing(_read_db(store.path)) as connection:
-            covered = dict(connection.execute(
-                '''SELECT day,revision FROM shared_es_publication_days
-                   WHERE publication_id=? AND day BETWEEN ? AND ? ORDER BY day''',
-                (active['publication_id'], start, end)))
+            stored = connection.execute('''SELECT d.day,d.revision,s.body FROM shared_es_publication_days d
+                JOIN shared_es_slices s ON s.day=d.day AND s.revision=d.revision
+                WHERE d.publication_id=? AND d.day BETWEEN ? AND ?''', (active['publication_id'], start, end))
+            covered = {day: rev for day, rev, body in stored if day < active['cutoff'][:10]
+                       and (not full_archive or 'archive_site' not in json.loads(body))}
+    absent = [day for day in days if day not in covered]
+    available = _seed_archives(root, absent, now) if absent else {}
     missing = [day for day in days if day not in covered and day not in available]
     needed = [day for day in days if day in available and day not in covered]
     ready = {}

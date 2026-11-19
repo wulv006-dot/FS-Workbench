@@ -116,6 +116,26 @@ class ApiTests(unittest.TestCase):
     def get(self, permitted=True, **updates):
         return api.get({**self.params,**updates},"reviewer",None,None,lambda _:permitted,self.root)
 
+    def test_completed_report_exposes_authorized_same_order_aggregate(self):
+        source=core();admin=source["admin"]
+        admin.update(status="available",normalisedScope="all-websites",effective_scope=admin.pop("scope"))
+        def read(_get,game,start,end,mode,actor):
+            return {"profile":{"supplement":admin}} if mode=="summary" else {"history":{"daily":[]}}
+        def program(_python,script,*args):
+            return {"orders.py":{"discount":{},"products":[{}]},"prices.py":{"tiers":[]},
+                    "traffic.py":{"periods":{}},"fulfillment_completion_bridge.py":{
+                        "start":source["start"],"end":source["end"]}}[script]
+        fact=dict(status="partial",totals=dict(orders=2,salesUsd=12),coverage=dict(adminComplete=True))
+        with patch.object(api,"datetime",wraps=api.datetime) as clock,patch.object(api,"read_range",read), \
+             patch.object(api,"read_program",side_effect=program),patch.object(api,"same_order_review",return_value=fact) as same:
+            clock.now.return_value=api.datetime(2026,11,19,tzinfo=api.TZ)
+            result=api.capture("FC27",source["start"],source["end"],"operator",None,None,lambda _:True)
+            self.assertEqual(result["sameOrder"],fact)
+            same.assert_called_once_with("FC27",source["start"],source["end"])
+            with self.assertRaises(PermissionError):
+                api.capture("FC27",source["start"],source["end"],"operator",None,None,lambda _:False)
+            self.assertEqual(same.call_count,1)
+
     def test_access_and_explicit_scope(self):
         self.assertEqual(self.get(False)[0],403)
         self.assertEqual(self.get(profile=["../all"])[0],422)
@@ -214,11 +234,89 @@ class ApiTests(unittest.TestCase):
         self.assertEqual((values["grossCny"],values["actualCostCny"],values["coveredSalesCny"]),
                          (previous["profitCny"],previous["costCny"],previous["saleCny"]))
         self.assertAlmostEqual(values["grossMarginPct"],previous["margin"]*100,places=4)
+        from order_delivery_index import sync
+        index_revision=sync(self.root)
+        indexed=lookup()
+        self.assertEqual(indexed["totals"],result["totals"])
+        self.assertEqual(indexed["daily"],result["daily"])
+        self.assertEqual(indexed["breakdown"],result["breakdown"])
+        self.assertTrue(all(item["indexRevision"]==index_revision for item in indexed["revisions"]["order"]))
         rolling.unlink()
         missing = lookup()
         self.assertIsNone(missing["totals"]["actualCostCny"])
         self.assertEqual(missing["totals"]["missingCostOrders"],3)
         self.assertNotEqual(result["revision"],missing["revision"])
+
+    def test_same_order_excludes_test_and_failed_validation_from_every_business_denominator(self):
+        source = HERE.parent / "dashboard-refresh-20261025/source"
+        sys.path.insert(0,str(source)); self.addCleanup(sys.path.remove,str(source))
+        day = "2026-11-16"
+        specifications = [("VALID",266,"100","700","已完成","PS"),
+            ("TEST",266,"10","70","已完成","XBOX"),
+            ("TEST",5,"10","70","已完成","PC"),
+            ("FRAUD",266,"20","140","验证 · 未通过","PS"),
+            ("ZERO",266,"5","35","已完成","PS"),
+            ("PENDING",266,"8","56","发货中","PC")]
+        rows=[dict(id=i,order_no=sn,site_id=site,gid=1327,paytime=day+" 01:00:00",pay_status="1",
+                   status_format=status,amount_usd_format=usd,amount_rmb_format=cny,
+                   site=dict(full_title=same_order.MAIN if site==266 else "www.other.example"),
+                   fc27_coins=dict(platform=platform,single_line_unit_purchase=True))
+              for i,(sn,site,usd,cny,status,platform) in enumerate(specifications,1)]
+        read=lambda scope,**kwargs:dict(coverage=dict(admin_complete=True,missing_days=[],source_revision="v1"),rows=rows)
+        overrides=lambda data:dict(data,costOverrides={"ZERO":dict(gid="1327",salesUsd="5",saleCny="35",productTitle="confirmed")},
+                                  testOrders={"TEST":dict(gid="1327",salesUsd="10")})
+        result=same_order.same_order_review("FC27",day,day,read=read,status_reader=lambda scope:({},{}),
+                                           cost_root=self.root,overrides=overrides)
+        totals=result["totals"]
+        self.assertEqual(result["revisions"]["accountingRule"],same_order.ACCOUNTING_RULE)
+        with patch.object(same_order,"ACCOUNTING_RULE","prior-accounting-rule"):
+            prior=same_order.same_order_review("FC27",day,day,read=read,status_reader=lambda scope:({},{}),
+                                              cost_root=self.root,overrides=overrides)
+        self.assertNotEqual(result["revision"],prior["revision"])
+        self.assertEqual((totals["orders"],totals["salesUsd"],totals["excludedOrders"]),(4,123,2))
+        self.assertEqual((totals["completedOrders"],totals["coveredOrders"],totals["missingCostOrders"],totals["pendingOrders"]),(3,1,2,1))
+        self.assertEqual((totals["actualCostCny"],totals["coveredSalesCny"],totals["grossCny"]),(0,35,35))
+        from channel_effects import accounting_row, metrics
+        existing = []
+        rules = overrides(dict(sources={}))
+        for raw in rows:
+            main = raw["site_id"] == 266
+            existing.append(accounting_row(dict(orderNo=raw["order_no"],gid="1327",game="FC27",status=raw["status_format"],
+                refunded=False,salesUsd=float(raw["amount_usd_format"]),adminSaleCny=float(raw["amount_rmb_format"]),
+                costCny=None,deliveryRows=0,codeKey="",attribution="",coupons=[],conflict=False),rules["costOverrides"] if main else {},rules["testOrders"] if main else {}))
+        baseline = metrics(existing)
+        self.assertEqual((totals["orders"],totals["salesUsd"],totals["completedOrders"],totals["coveredOrders"]),
+                         (baseline["orders"],baseline["salesUsd"],baseline["completedOrders"],baseline["coveredOrders"]))
+        self.assertEqual(result["daily"][0],dict(date=day,**totals))
+        self.assertEqual(sum(r["orders"] for r in result["breakdown"]),4)
+        self.assertEqual(sum(r["salesUsd"] for r in result["breakdown"]),123)
+        satellite=next(r for r in result["breakdown"] if r["siteId"]=="5")
+        self.assertEqual((satellite["orders"],satellite["salesUsd"]),(1,10))
+        self.assertNotIn('"order_no"',json.dumps(result))
+
+    def test_same_order_index_uses_only_verified_windows_and_main_site(self):
+        now=api.datetime(2026,11,19,tzinfo=api.TZ)
+        rows=[dict(delivery_id="1",source=same_order.MAIN,sn="A",genre=1,
+                   trade_at="2026-11-16 03:00:00",cost_total="12")]
+        windows=[dict(source=same_order.MAIN,since="2026-11-16 00:00:00",until="2026-11-16 23:59:59",
+                      capturedAt="2026-11-17T01:00:00+08:00",revision="capture")]
+        calls=[]
+        def read(keys,**kwargs):
+            calls.append((keys,kwargs))
+            return dict(status="available",rows=rows,revision="index-v1",generatedAt=windows[0]["capturedAt"],windows=windows)
+        with patch.dict(sys.modules,{"order_delivery_index":SimpleNamespace(read_orders=read)}):
+            costs, intervals, revisions, invalid = same_order.delivery_evidence(["2026-11-16"],now,self.root,
+                                                                                  {(same_order.MAIN,"A")})
+        self.assertEqual(costs["A"],[("2026-11-16 03:00:00","12")])
+        self.assertEqual(intervals,[("2026-11-16 00:00:00","2026-11-16 23:59:59")])
+        self.assertEqual(revisions[0]["indexRevision"],"index-v1")
+        self.assertEqual(invalid,[])
+        self.assertEqual(calls[0][0],{(same_order.MAIN,"A")})
+        self.assertEqual(calls[0][1]["root"],self.root)
+        with patch.dict(sys.modules,{"order_delivery_index":SimpleNamespace(read_orders=lambda *a,**k:{"status":"stale"})}):
+            costs, intervals, revisions, invalid = same_order.delivery_evidence(["2026-11-16"],now,self.root,
+                                                                                  {(same_order.MAIN,"A")})
+        self.assertEqual((costs,intervals,revisions,invalid),({},[],[],[]))
 
     def test_retained_revision_and_readback(self):
         p=api.packet(core())

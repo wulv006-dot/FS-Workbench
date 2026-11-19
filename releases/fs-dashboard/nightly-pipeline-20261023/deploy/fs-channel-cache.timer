@@ -1,8 +1,8 @@
 [Unit]
-Description=FS channel effects daily cache at 00:20 Shanghai
+Description=FS channel effects prior-day delivery archive at 00:05 Shanghai
 
 [Timer]
-OnCalendar=*-*-* 00:20:00
+OnCalendar=*-*-* 00:05:00
 Persistent=true
 AccuracySec=30s
 Unit=fs-channel-cache.service
