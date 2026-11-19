@@ -1,5 +1,6 @@
 """Real Coins evidence; private historical rows stay behind aggregate API projections."""
 from collections import Counter, defaultdict
+from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.client import HTTPException, IncompleteRead
@@ -9,7 +10,8 @@ import json
 from pathlib import Path
 import re
 import sqlite3
-from time import monotonic
+from threading import Thread
+from time import monotonic, sleep
 from urllib.error import HTTPError, URLError
 
 from .financial import fingerprint
@@ -18,6 +20,7 @@ TZ = timezone(timedelta(hours=8))
 OBSERVED_PRICE_WINDOWS = {'confirmed_public_price_window', 'observed_native_curve_window'}
 POINTS_PER_USD = Decimal('100')
 POINTS_CAP = Decimal('.10')
+RECENT_READ_BUDGET_SECONDS = 45
 PLATFORMS = {'PS': 'PlayStation 4|5', 'XBOX': 'Xbox One|X|S', 'PC': 'PC Platform'}
 PLATFORM_AIDS = {'21587': 'PS', '21585': 'XBOX', '21589': 'PC'}
 CURVE_COUPON_ELIGIBILITY = {
@@ -186,21 +189,24 @@ def read_used_templates(session,pages,identities):
 
 
 class _CurveAdminRead:
-    def __init__(self, manager, *, recent=False):
+    def __init__(self, manager, *, recent_deadline=None):
         self.manager = manager
-        self.recent = recent
+        self.recent_deadline = recent_deadline
 
     def get_admin(self, path, **params):
         from urllib.parse import urlencode
+        recent = self.recent_deadline is not None
+        if recent and monotonic() >= self.recent_deadline:
+            raise RecentCurveReadFailure('source_deadline_exceeded')
         try:
             status, raw = self.manager.request(path + '?' + urlencode(params))
         except (OSError, HTTPException) as exc:
             # The transport may fail while reading the body of an HTTP error.
             http_error = exc if isinstance(exc, HTTPError) else exc.__context__
-            if not self.recent or not isinstance(http_error, HTTPError):
+            if not recent or not isinstance(http_error, HTTPError):
                 raise
             status, raw = http_error.code, b''
-        if self.recent and status != 200:
+        if recent and status != 200:
             raise RecentCurveReadFailure('source_http_' + str(status) if type(status) is int and 100 <= status <= 599
                                          else 'source_response_invalid')
         return status, json.loads(raw)
@@ -211,7 +217,28 @@ class RecentCurveReadFailure(ValueError):
 
 
 def _read_recent_curve_batch(manager, filters):
-    session = _CurveAdminRead(manager, recent=True)
+    deadline = monotonic() + RECENT_READ_BUDGET_SECONDS
+    result = Future()
+
+    def collect():
+        try:
+            result.set_result(_retry_recent_curve_batch(manager, filters, deadline))
+        except Exception as exc:
+            result.set_exception(exc)
+
+    # The Admin socket timeout measures inactivity. Stop waiting even if a response keeps streaming.
+    Thread(target=collect, name='fc-recent-orders', daemon=True).start()
+    try:
+        rows = result.result(timeout=max(0, deadline - monotonic()))
+    except FutureTimeoutError:
+        raise RecentCurveReadFailure('source_deadline_exceeded') from None
+    if monotonic() >= deadline:
+        raise RecentCurveReadFailure('source_deadline_exceeded')
+    return rows
+
+
+def _retry_recent_curve_batch(manager, filters, deadline):
+    session = _CurveAdminRead(manager, recent_deadline=deadline)
     for attempt in range(3):
         try:
             return _recent_curve_native_rows(session, filters)
@@ -235,6 +262,10 @@ def _read_recent_curve_batch(manager, filters):
             if reason in ('recent_curve_native_identity_missing', 'recent_curve_native_identity_conflict'):
                 raise RecentCurveReadFailure('source_order_identity_invalid') from None
             raise RecentCurveReadFailure('source_response_invalid') from None
+        delay = 2 ** attempt
+        if monotonic() + delay >= deadline:
+            raise RecentCurveReadFailure('source_deadline_exceeded')
+        sleep(delay)
 
 
 def _offer_time(value):

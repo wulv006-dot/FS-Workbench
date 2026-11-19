@@ -5,6 +5,7 @@ from http.client import BadStatusLine
 import json
 from pathlib import Path
 import sys
+from threading import Event, current_thread
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -175,7 +176,8 @@ class PlanningBaskets(unittest.TestCase):
             'sources': {'accounting': {'status':'available'}}, 'testOrders': {}})
         effects = SimpleNamespace(fraud=lambda row: False)
         with patch.dict(sys.modules, channel_source=channel, channel_effects=effects), \
-                patch.object(business_source, '_historical_provider_now', return_value=AS_OF):
+                patch.object(business_source, '_historical_provider_now', return_value=AS_OF), \
+                patch.object(business_source, 'sleep') as pause:
             manager = SimpleNamespace(request=request)
             recent = business_source.collect_recent_curve_population(manager, closed_source([historical]), CUTOFF)
             partial = business_source.collect_recent_curve_population(manager, None, CUTOFF)
@@ -184,6 +186,7 @@ class PlanningBaskets(unittest.TestCase):
         first_page = '/admin/order.Order/index', query
         second_page = '/admin/order.Order/index', dict(query, page=['2'])
         self.assertEqual(calls, [first_page, second_page, first_page, first_page, first_page])
+        self.assertEqual([call.args[0] for call in pause.call_args_list], [1, 2])
         self.assertEqual(recent['historical_orders_coverage']['population_status'], 'complete')
         self.assertEqual(recent['historical_orders_coverage']['closed_archive_revision'], 'original')
         self.assertEqual(partial['historical_orders_coverage']['population_status'], 'partial')
@@ -199,6 +202,7 @@ class PlanningBaskets(unittest.TestCase):
         invalid_scope = 200, json.dumps(dict(code=1, data=dict(total=1, list=[invalid_order])))
         error_body_timeout = TimeoutError('private body read')
         error_body_timeout.__context__ = HTTPError('https://example.invalid', 403, 'private', {}, None)
+        self.addCleanup(error_body_timeout.__context__.close)
         cases = (
             (URLError(TimeoutError('private details')), 'source_timeout', 3),
             (error_body_timeout, 'source_http_403', 1),
@@ -214,15 +218,55 @@ class PlanningBaskets(unittest.TestCase):
             apply_cost_overrides=lambda data: {'sources': {'accounting': {'status': 'available'}}, 'testOrders': {}})
         effects = SimpleNamespace(fraud=lambda row: False)
         with patch.dict(sys.modules, channel_source=channel, channel_effects=effects), \
-                patch.object(business_source, '_historical_provider_now', return_value=AS_OF):
+                patch.object(business_source, '_historical_provider_now', return_value=AS_OF), \
+                patch.object(business_source, 'sleep') as pause:
             for response, expected, attempts in cases:
                 with self.subTest(expected=expected):
+                    pause.reset_mock()
                     request = Mock(side_effect=[response] * attempts)
                     with self.assertRaisesRegex(business_source.RecentCurveReadFailure, '^' + expected + '$'):
                         business_source.collect_recent_curve_population(SimpleNamespace(request=request),
                                                                         closed_source([]), CUTOFF)
                     self.assertEqual(request.call_count, attempts)
+                    self.assertEqual(pause.call_count, attempts - 1)
                     self.assertTrue(all(call == request.call_args for call in request.call_args_list))
+
+    def test_recent_budget_returns_while_one_request_is_still_blocked(self):
+        release = Event()
+        started = Event()
+        callers = []
+
+        def blocked_request(path):
+            callers.append(current_thread())
+            started.set()
+            if release.wait(2):
+                return 503, b''
+            raise AssertionError('caller waited for the blocked request')
+
+        channel = SimpleNamespace(search=lambda _: {}, apply_cost_overrides=lambda data: {'testOrders': {}})
+        with patch.dict(sys.modules, channel_source=channel, channel_effects=SimpleNamespace(fraud=lambda _: False)), \
+                patch.object(business_source, 'RECENT_READ_BUDGET_SECONDS', 0.2):
+            try:
+                with self.assertRaisesRegex(business_source.RecentCurveReadFailure, '^source_deadline_exceeded$'):
+                    business_source.collect_recent_curve_population(SimpleNamespace(request=blocked_request), None, CUTOFF)
+                self.assertTrue(started.is_set())
+            finally:
+                release.set()
+                if callers:
+                    callers[0].join(1)
+            self.assertEqual(len(callers), 1)
+            self.assertFalse(callers[0].is_alive())
+
+    def test_recent_budget_skips_retry_when_backoff_cannot_fit(self):
+        request = Mock(return_value=(503, b''))
+        channel = SimpleNamespace(search=lambda _: {}, apply_cost_overrides=lambda data: {'testOrders': {}})
+        with patch.dict(sys.modules, channel_source=channel, channel_effects=SimpleNamespace(fraud=lambda _: False)), \
+                patch.object(business_source, 'RECENT_READ_BUDGET_SECONDS', 0.2), \
+                patch.object(business_source, 'sleep') as pause:
+            with self.assertRaisesRegex(business_source.RecentCurveReadFailure, '^source_deadline_exceeded$'):
+                business_source.collect_recent_curve_population(SimpleNamespace(request=request), None, CUTOFF)
+            request.assert_called_once()
+            pause.assert_not_called()
 
     def test_recent_native_pages_count_raw_duplicates_and_reject_conflicting_orders(self):
         a = dict(id=1, order_no='a', content='100K Coins')
