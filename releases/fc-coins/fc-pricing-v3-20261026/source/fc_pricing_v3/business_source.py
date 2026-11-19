@@ -9,6 +9,7 @@ import html
 import json
 from pathlib import Path
 import re
+from socket import timeout as SocketTimeout
 import sqlite3
 from threading import Thread
 from time import monotonic, sleep
@@ -247,9 +248,9 @@ def _retry_recent_curve_batch(manager, filters, deadline):
                 raise
         except (OSError, IncompleteRead) as exc:
             reason = exc.reason if isinstance(exc, URLError) else exc
-            if isinstance(reason, TimeoutError):
+            if isinstance(reason, (TimeoutError, SocketTimeout)):
                 code = 'source_timeout'
-            elif isinstance(reason, (ConnectionResetError, ConnectionAbortedError, IncompleteRead)):
+            elif isinstance(reason, (ConnectionError, IncompleteRead)):
                 code = 'source_connection_interrupted'
             else:
                 raise RecentCurveReadFailure('source_transport_failed') from exc

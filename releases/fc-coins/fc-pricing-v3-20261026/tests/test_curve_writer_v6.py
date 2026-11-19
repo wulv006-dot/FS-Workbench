@@ -314,6 +314,223 @@ class CurveWriter(unittest.TestCase):
                     self.assertEqual(row['more']['give'], ['0', '30'])
                     self.assertEqual(row['unit_price'], '0.10')
 
+    def _modern_preflight(self, *, extra=16):
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
+        satellites = {1000 + i: goods(900000 + i, 1000 + i) for i in range(extra)}
+        self.prepare(extra_recipients=satellites)
+        self.item['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        self.item['catalogue_status'] = 'native_route_ready'
+        self.item['primary_before_hash'] = fingerprint(writer.editable(self.transport.rows[PRIMARY_ID]))
+
+    def test_modern_preflight_reads_only_required_sites_and_all(self):
+        self._modern_preflight()
+        original = writer.read_row
+        observed = []
+        def read(manager, platform, site, *args, **kwargs):
+            observed.append((site, bool(self.transport.posts)))
+            return original(manager, platform, site, *args, **kwargs)
+        with patch.object(writer, 'read_row', side_effect=read):
+            self.assertEqual(self.dispatch()['status'], 'CONFIRMED')
+        self.assertEqual([site for site, after in observed if not after], [266, 0])
+        self.assertEqual([site for site, after in observed if after], [266])
+        self.assertEqual(set(self.item['recipients_before']), {'266'})
+        self.assertEqual(self.item['propagation']['site_outcomes'], {'266': 'target_observed'})
+        self.assertEqual(len(self.transport.posts), 1)
+
+    def test_modern_preflight_keeps_an_explicit_additional_required_site(self):
+        self._modern_preflight(extra=1)
+        self.item['required_recipient_sites'].append('1000')
+        apply_recipient = self.transport.apply_recipient
+        def propagate():
+            apply_recipient()
+            apply_recipient(900000)
+        self.transport.apply_recipient = propagate
+        original = writer.read_row
+        seen = []
+        def read(manager, platform, site, *args, **kwargs):
+            if not self.transport.posts: seen.append(site)
+            return original(manager, platform, site, *args, **kwargs)
+        with patch.object(writer, 'read_row', side_effect=read):
+            self.assertEqual(self.dispatch()['status'], 'CONFIRMED')
+        self.assertEqual(seen, [266, 1000, 0])
+        self.assertEqual(set(self.item['recipients_before']), {'266', '1000'})
+        self.assertEqual(self.item['propagation']['site_outcomes'], {'266': 'target_observed', '1000': 'target_observed'})
+
+    def test_additional_required_site_must_be_read_back_before_confirmation(self):
+        self._modern_preflight(extra=1)
+        self.item['required_recipient_sites'].append('1000')
+        self.assertEqual(self.dispatch()['status'], 'PARTIAL')
+        self.assertEqual(self.item['propagation']['site_outcomes'], {'266': 'target_observed', '1000': 'target_mismatch'})
+        self.assertEqual(len(self.transport.posts), 1)
+
+    def test_legacy_or_missing_required_scope_preserves_full_preflight(self):
+        for scenario in ('legacy', 'missing'):
+            with self.subTest(scenario=scenario):
+                self._modern_preflight(extra=2)
+                if scenario == 'legacy': self.item['catalogue_status'] = 'verified'
+                else: self.item.pop('required_recipient_sites')
+                original = writer.read_row
+                seen = []
+                def read(manager, platform, site, *args, **kwargs):
+                    if not self.transport.posts: seen.append(site)
+                    return original(manager, platform, site, *args, **kwargs)
+                with patch.object(writer, 'read_row', side_effect=read): self.dispatch()
+                self.assertEqual(seen, [266, 1000, 1001, 0])
+
+    def test_invalid_explicit_required_scope_refuses_before_any_post(self):
+        for scope in ([], ['1000'], ['266', 'not-present'], ['266', '266']):
+            with self.subTest(scope=scope):
+                self._modern_preflight(extra=1); self.item['required_recipient_sites'] = scope
+                self.assertEqual(self.dispatch()['status'], 'NOT_SENT')
+                self.assertEqual(self.item['last_error'], 'pricing_curve_required_recipient_scope_invalid')
+                self.assertEqual(self.transport.posts, [])
+
+    def test_required_main_timeout_rechecks_before_send_once(self):
+        self._modern_preflight(extra=0)
+        original = writer.read_row
+        attempts = []; fences = []
+        def read(manager, platform, site, *args, **kwargs):
+            attempts.append((site, bool(self.transport.posts)))
+            if site == 266 and sum(x == (266, False) for x in attempts) == 1:
+                raise TimeoutError()
+            return original(manager, platform, site, *args, **kwargs)
+        def fence(_): fences.append('send_intent' in self.item['catalog'])
+        with patch.object(writer, 'read_row', side_effect=read):
+            result = self.dispatch(before_send=fence)
+        self.assertEqual(result['status'], 'CONFIRMED')
+        self.assertEqual(attempts, [(266, False), (266, False), (0, False), (266, True)])
+        self.assertEqual(fences, [False, True])
+        self.assertEqual(len(self.transport.posts), 1)
+
+    def test_all_timeout_revalidates_required_main_before_retry(self):
+        self._modern_preflight(extra=0)
+        original = writer.read_row; seen = []
+        def read(manager, platform, site, *args, **kwargs):
+            if not self.transport.posts:
+                seen.append(site)
+                if site == 0 and seen.count(0) == 1: raise TimeoutError()
+            return original(manager, platform, site, *args, **kwargs)
+        with patch.object(writer, 'read_row', side_effect=read):
+            self.assertEqual(self.dispatch()['status'], 'CONFIRMED')
+        self.assertEqual(seen, [266, 0, 266, 0])
+        self.assertEqual(len(self.transport.posts), 1)
+
+    def test_timeout_reread_refuses_changed_main_or_expired_authorization(self):
+        for failure in ('changed_main', 'authorization'):
+            with self.subTest(failure=failure):
+                self._modern_preflight(extra=0);original=writer.read_row;seen=[]
+                def read(manager, platform, site, *args, **kwargs):
+                    seen.append(site)
+                    if site == 0 and seen.count(0) == 1:
+                        if failure == 'changed_main': self.transport.rows[PRIMARY_ID]['more']['price'][0] = '11'
+                        raise TimeoutError()
+                    return original(manager, platform, site, *args, **kwargs)
+                def fence(_):
+                    if failure == 'authorization': raise ValueError('authorization_changed')
+                with patch.object(writer, 'read_row', side_effect=read):
+                    self.assertEqual(self.dispatch(before_send=fence)['status'], 'NOT_SENT')
+                self.assertEqual(self.transport.posts, [])
+                self.assertNotIn('send_intent', self.item['catalog'])
+
+    def test_second_timeout_or_non_timeout_never_retries_again(self):
+        for error in (TimeoutError(), PermissionError(), ValueError('identity_invalid')):
+            with self.subTest(error=type(error).__name__):
+                self._modern_preflight(extra=0);seen=[]
+                def read(manager, platform, site, *args, **kwargs):
+                    seen.append(site)
+                    raise error
+                with patch.object(writer, 'read_row', side_effect=read):
+                    self.assertEqual(self.dispatch()['status'], 'NOT_SENT')
+                self.assertEqual(len(seen), 2 if isinstance(error, TimeoutError) else 1)
+                self.assertEqual(self.transport.posts, [])
+                self.assertNotIn('send_intent', self.item['catalog'])
+
+    def test_optional_timeout_keeps_original_no_retry_behavior(self):
+        self._modern_preflight(extra=1)
+        self.item['catalogue_status'] = 'verified'
+        original = writer.read_row; preflight = []
+        def read(manager, platform, site, *args, **kwargs):
+            if not self.transport.posts:
+                preflight.append(site)
+                if site == 1000: raise TimeoutError()
+            return original(manager, platform, site, *args, **kwargs)
+        with patch.object(writer, 'read_row', side_effect=read):
+            self.assertEqual(self.dispatch()['status'], 'CONFIRMED')
+        self.assertEqual(preflight, [266, 1000, 0])
+        self.assertEqual(len(self.transport.posts), 1)
+
+    def test_one_retry_budget_is_shared_across_original_operation(self):
+        self._modern_preflight(extra=0)
+        second = deepcopy(self.item)
+        self.audit['curve_results'] = {'first': self.item, 'second': second}
+        original = writer.read_row; attempts = []
+        def read(manager, platform, site, *args, **kwargs):
+            attempts.append(site)
+            if site == 266 and attempts.count(266) in (1, 3): raise TimeoutError()
+            return original(manager, platform, site, *args, **kwargs)
+        def fence(_):
+            if 'send_intent' in self.item['catalog']: raise ValueError('policy_changed')
+        with patch.object(writer, 'read_row', side_effect=read):
+            self.assertEqual(self.dispatch(before_send=fence)['status'], 'NOT_SENT')
+        self.assertEqual(attempts, [266, 266, 0, 266])
+        self.assertEqual(self.transport.posts, [])
+        self.assertEqual(second['last_error'], 'TimeoutError')
+
+    def test_existing_send_intent_never_starts_preflight_or_resends(self):
+        self._modern_preflight(extra=0)
+        self.item['catalog']['send_intent'] = {'original': True}
+        with patch.object(writer, 'read_row') as read:
+            with self.assertRaisesRegex(ValueError, 'pricing_curve_catalog_already_dispatched'):
+                self.dispatch()
+        read.assert_not_called()
+        self.assertEqual(self.transport.posts, [])
+
+    def test_python39_and_wrapped_timeouts_retry_only_required_get_once(self):
+        from socket import timeout as socket_timeout
+        from urllib.error import URLError
+        factories = (lambda: TimeoutError(), lambda: socket_timeout(),
+                     lambda: URLError(TimeoutError()), lambda: URLError(socket_timeout()))
+        for factory in factories:
+            with self.subTest(error=type(factory()).__name__):
+                self._modern_preflight(extra=0); original=writer.read_row; seen=[]
+                def read(manager, platform, site, *args, **kwargs):
+                    if not self.transport.posts:
+                        seen.append(site)
+                        if len(seen)==1: raise factory()
+                    return original(manager, platform, site, *args, **kwargs)
+                with patch.object(writer, 'read_row', side_effect=read):
+                    self.assertEqual(self.dispatch()['status'], 'CONFIRMED')
+                self.assertEqual(seen, [266, 266, 0])
+                self.assertEqual(len(self.transport.posts), 1)
+
+    def test_http_or_non_timeout_url_error_is_not_retried(self):
+        from socket import timeout as socket_timeout
+        from urllib.error import HTTPError, URLError
+        errors = (URLError(ConnectionRefusedError()), HTTPError('http://fixture/', 503, socket_timeout(), {}, None))
+        for error in errors:
+            with self.subTest(error=type(error).__name__):
+                self._modern_preflight(extra=0); seen=[]
+                def read(manager, platform, site, *args, **kwargs):
+                    seen.append(site); raise error
+                with patch.object(writer, 'read_row', side_effect=read):
+                    self.assertEqual(self.dispatch()['status'], 'NOT_SENT')
+                self.assertEqual(seen, [266])
+                self.assertEqual(self.transport.posts, [])
+
+    def test_wrapped_post_timeout_stays_unknown_without_resend(self):
+        from socket import timeout as socket_timeout
+        from urllib.error import URLError
+        self._modern_preflight(extra=0); original=self.transport.request
+        def request(path, *, data, token):
+            if data is not None:
+                self.transport.posts.append((path, data))
+                raise URLError(socket_timeout())
+            return original(path, data=data, token=token)
+        self.transport.request = request
+        self.assertEqual(self.dispatch()['status'], 'UNKNOWN')
+        self.assertEqual(len(self.transport.posts), 1)
+        self.assertEqual(self.item['catalog']['status'], 'unknown')
+
     def test_original_writer_receipt_freezes_actual_site266_in_window(self):
         from fc_pricing_v3.ledger import confirmed_curve_window
 
