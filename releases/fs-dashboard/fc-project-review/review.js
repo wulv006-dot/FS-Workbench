@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const readJson = id => JSON.parse(byId(id).textContent);
   const initial = readJson('review-data');
   const geometry = readJson('review-geometry');
-  const seriesColors = ['--fs-brand', '--fs-info', '--fs-warn', '--fs-violet', '--fs-danger', '--fs-ok', '--fs-muted'];
+  const seriesColors = ['--fc-blue', '--fc-purple', '--fc-orange', '--fc-cyan', '--fc-rose', '--fs-ok', '--fs-muted'];
   const statuses = {complete:'已覆盖', partial:'部分覆盖', unavailable:'未取得', stale:'使用已保存数据'};
   const lifecycleNames = {new:'新客', new_customer:'新客', returning:'复购客户', repeat:'复购客户', returning_customer:'复购客户', unknown:'未标记'};
   const categoryNames = {coins:'金币', players:'Players', player:'Players', sbc:'SBC', packs:'Packs', other:'其他', unknown:'未归属'};
@@ -627,6 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
       track.setAttribute('aria-hidden', 'true');
       const fill = element('span', null, 'rank-fill');
       fill.style.width = (Math.max(0, row[valueKey]) / maximum * 100) + '%';
+      fill.style.setProperty('--series-color', 'var(' + (row.color || options.color || '--fc-blue') + ')');
       track.append(fill);
       meta.append(name, value);
       item.append(meta, track);
@@ -672,12 +673,12 @@ document.addEventListener('DOMContentLoaded', () => {
     cards('kpis', kpiSpecs.slice(0,4), packet?.kpi, prior?.kpi);
     cards('overview-customers', kpiSpecs.slice(4), packet?.kpi, prior?.kpi, {mini:true});
     metricChart('sales-trend', daily, [
-      spec('salesUsd', '销售 USD', usd, '--fs-brand', {unit:'$', bar:true}),
-      spec('profitCny', '毛利 CNY', cny, '--fs-info', {unit:'¥', axis:1}),
+      spec('salesUsd', '销售 USD', usd, '--fc-blue', {unit:'$', bar:true}),
+      spec('profitCny', '毛利 CNY', cny, '--fc-orange', {unit:'¥', axis:1}),
     ]);
     metricChart('rate-trend', daily, [
-      spec('marginPct', '毛利率', pct, '--fs-brand', {unit:'%'}),
-      spec('costPct', '采购成本占比', pct, '--fs-violet', {unit:'%'}),
+      spec('marginPct', '毛利率', pct, '--fc-orange', {unit:'%'}),
+      spec('costPct', '采购成本占比', pct, '--fc-purple', {unit:'%'}),
     ]);
     const missing = daily.filter(row => !present(row.salesUsd) || !present(row.profitCny)).length;
     coverage('overview-coverage', [
@@ -695,7 +696,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const categoryOrder = ['coins','players','sbc','packs','other','unknown'];
-  const categoryColor = value => seriesColors[categoryOrder.indexOf(value)] || '--fs-muted';
+  const categoryColor = value => value === 'boosting' ? '--fs-ok' :
+    (value === 'unknown' ? '--fs-muted' : seriesColors[categoryOrder.indexOf(value)] || '--fs-muted');
   const categoryLabel = value => categoryNames[categoryKey(value)] || value || '未归属';
 
   function renderCategory(orderData, dates) {
@@ -732,8 +734,8 @@ document.addEventListener('DOMContentLoaded', () => {
       spec(type, categoryLabel(type), format, categoryColor(type), {unit:useSales ? '$' : '¥'})),
     {empty:useSales ? '所选区间未取得每日品类销售。' : '所选区间未取得按天、按整单分类的发货毛利。'});
     const products = rowsFor(orderData, 'products').map(row => ({...row, label:row.name || row.product || row.label || '未命名'}));
-    ranking('players-rank', products.filter(row => categoryKey(row.category) === 'players'), {empty:'所选区间未取得可核对的 Players 单品排名。'});
-    ranking('sbc-rank', products.filter(row => categoryKey(row.category) === 'sbc'), {empty:'所选区间未取得可核对的 SBC 单品排名。'});
+    ranking('players-rank', products.filter(row => categoryKey(row.category) === 'players'), {color:categoryColor('players'), empty:'所选区间未取得可核对的 Players 单品排名。'});
+    ranking('sbc-rank', products.filter(row => categoryKey(row.category) === 'sbc'), {color:categoryColor('sbc'), empty:'所选区间未取得可核对的 SBC 单品排名。'});
     coverage('category-coverage', [
       ...fieldCoverage(orderData, [['categories','品类销售'],['fulfillment','品类毛利'],['products','商品排行']]),
       '整单归属依次为 Players、SBC、Packs、其他、金币。品类毛利使用同一订单组的 Order 发货金额与成本。',
@@ -763,6 +765,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const payments = nativePayments.length ?
       nativePayments.map(row => ({label:row.name || '未知', orders:row.orders, salesUsd:row.revenueUsd})) :
       rowsFor(orderData, 'payments').map(row => ({...row, label:row.payment || row.method || row.label || '未知'}));
+    const methodColors = new Map([
+      ['applepay','--fc-purple'], ['klarna','--fc-rose'], ['cardpay','--fc-blue'],
+      ['paypal','--fc-cyan'], ['airwallex','--fc-orange'], ['googlepay','--fs-ok'],
+      ['ideal','--fs-warn'], ['bancontact','--fs-warn'], ['awgooglepay','--fs-ok'],
+    ]);
+    for (const row of payments) row.color = methodColors.get(String(row.label).toLowerCase().replace(/[\s_-]/g,'')) || '--fs-muted';
     const container = byId('world');
     container.replaceChildren();
     const regions = new Map(countries.filter(item => typeof item.country === 'string' && Object.hasOwn(geometry.paths || {}, item.country.toUpperCase()))
@@ -776,7 +784,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const maximum = Math.max(1, ...[...regions.values()].map(row => present(row[metric]) ? row[metric] : 0));
       const orderMax = Math.max(1, ...[...regions.values()].map(row => present(row.orders) ? row.orders : 0));
       const levels = [1,.5,.18,.06,.015,.004,0], intensities = [88,74,60,45,31,20,10];
-      const mapColor = intensity => 'color-mix(in srgb,var(--fs-brand) ' + intensity + '%,var(--fs-surface-3))';
+      const mapColor = intensity => 'color-mix(in srgb,var(--fc-blue) ' + intensity + '%,var(--fs-surface-3))';
       const land = [];
       for (const [code, path] of Object.entries(geometry.paths)) {
         const row = regions.get(code);
@@ -801,7 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
         scale.append(swatch);
       }
       const legend = element('div', null, 'map-legend');
-      legend.append(element('span',label + ' 低'), scale, element('span','高'), element('span','圆点大小表示订单量'));
+      legend.append(element('span',label + ' 低'), scale, element('span','高'), element('span','圆点大小表示订单量','map-order-key'));
       if (!hasSales) legend.append(element('span','地区销售额未取得'));
       container.append(map, legend);
     } else if (!countries.length) {
@@ -847,8 +855,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const label = spendMode === 'customers' ? '人数' : '消费额';
     const dimension = spendMode === 'customers' ? {} : {unit:'$'};
     metricChart('customer-bands', [...groups.values()], [
-      spec('new','新客' + label,format,'--fs-brand',{bar:true,...dimension}),
-      spec('returning','复购客户' + label,format,'--fs-info',{bar:true,...dimension}),
+      spec('new','新客' + label,format,'--fc-cyan',{bar:true,...dimension}),
+      spec('returning','复购客户' + label,format,'--fc-purple',{bar:true,...dimension}),
     ], {stacked:true, showShares:true, bucket:'消费区间', empty:'所选区间未取得可按买家累计消费分层的数据。'});
     select.replaceChildren(new Option('全部消费区间',''), ...names.map(band => new Option(band + ' USD',band)));
     select.value = chosen;
@@ -857,7 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const breakdown = ['new','returning'].map(type => {
       const matching = slice.filter(row => lifecycleKey(row) === type && present(row[spendMode]));
       return {label:lifecycleNames[type], amount:matching.length ? matching.reduce((sum,row) => sum + row[spendMode],0) : null,
-        color:type === 'new' ? '--fs-brand' : '--fs-info'};
+        color:type === 'new' ? '--fc-cyan' : '--fc-purple'};
     });
     donut('customer-share', breakdown, 'amount', format, label);
     if (breakdown.some(row => present(row.amount))) {
@@ -875,8 +883,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (group !== 'unknown' && bucket.has(row.date) && present(row.salesUsd)) bucket.get(row.date)[group] = row.salesUsd;
     }
     metricChart('customer-trend', [...bucket.values()], [
-      spec('new','新客消费',usd,'--fs-brand',{bar:true,unit:'$'}),
-      spec('returning','复购客户消费',usd,'--fs-info',{bar:true,unit:'$'}),
+      spec('new','新客消费',usd,'--fc-cyan',{bar:true,unit:'$'}),
+      spec('returning','复购客户消费',usd,'--fc-purple',{bar:true,unit:'$'}),
     ], {stacked:true, empty:'所选区间未取得逐日的新客及复购客户消费。'});
     const amounts = new Map();
     for (const row of rowsFor(orderData, 'orderAmountBands')) {
