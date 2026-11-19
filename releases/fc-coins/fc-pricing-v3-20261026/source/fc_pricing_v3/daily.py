@@ -4,6 +4,7 @@ from datetime import date as calendar_date,datetime,timedelta,timezone
 from decimal import Decimal
 import json
 from pathlib import Path
+import re
 import sqlite3
 import subprocess
 import sys
@@ -14,6 +15,40 @@ from .financial import fingerprint,instant
 
 LOCAL=timezone(timedelta(hours=8))
 STATE=Path('/var/lib/fc-pricing-v3-shadow')
+HOURLY_TIMING_PREFIX = 'FC27 hourly timing '
+
+
+def hourly_timing(stage, event, **details):
+    print(HOURLY_TIMING_PREFIX + json.dumps(dict(stage=stage, event=event, **details)), file=sys.stderr, flush=True)
+
+
+def forward_hourly_timings(stderr):
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode('utf-8', errors='replace')
+    lines = [line for line in (stderr or '').splitlines() if line.startswith(HOURLY_TIMING_PREFIX)]
+    for line in lines[-24:]:
+        try:
+            record = json.loads(line[len(HOURLY_TIMING_PREFIX):])
+        except ValueError:
+            continue
+        if not isinstance(record, dict):
+            continue
+        stage, event = record.get('stage'), record.get('event')
+        if stage not in ('admin_paging', 'order_cost', 'es', 'binding') or event not in ('start', 'done'):
+            continue
+        fields = {}
+        for key in ('order_ranges', 'order_reads', 'coupon_reads', 'elapsed_seconds', 'orders', 'outcomes'):
+            value = record.get(key)
+            if type(value) in (int, float) and 0 <= value <= 1_000_000_000:
+                fields[key] = value
+        for key in ('requested_start', 'requested_end', 'covered_start', 'covered_end', 'covered_until'):
+            value = record.get(key)
+            if isinstance(value, str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}(?: [0-9]{2}:[0-9]{2}(?::[0-9]{2})?)?', value):
+                fields[key] = value
+        for key in ('enabled', 'request_covered', 'cache_reused'):
+            if type(record.get(key)) is bool:
+                fields[key] = record[key]
+        hourly_timing(stage, event, **fields)
 
 
 def due_date(now):
@@ -437,7 +472,7 @@ def collect_hourly_outcomes(windows,previous,*,use_shared_customer_flags=False):
         if not token:raise ValueError('pricing_hourly_shared_admin_unavailable')
         session.bind_admin_token(token);del token
         return incremental_window_context(session,pages,windows,datetime.now(timezone.utc),previous,
-                                          use_shared_customer_flags=use_shared_customer_flags)
+                                          use_shared_customer_flags=use_shared_customer_flags, progress=hourly_timing)
     finally:session.close()
 
 
@@ -458,10 +493,15 @@ def run_hourly(body):
         window['opened_at']=max(start,instant(window['opened_at'])).isoformat()
     if not windows:return dict(status='await_first_confirmed_exposure')
     key=('curve-outcome-source:' if curve else 'smart-outcome-source:')+policy_suffix(plan)
-    process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
-        input=json.dumps(dict(action='hourly_outcomes',windows=windows,previous=db.get('metadata',key) or {},
-            use_shared_customer_flags=curve)),
-        text=True,capture_output=True,timeout=600,cwd='/opt/fc27-cloud-browser')
+    try:
+        process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
+            input=json.dumps(dict(action='hourly_outcomes',windows=windows,previous=db.get('metadata',key) or {},
+                use_shared_customer_flags=curve)),
+            text=True,capture_output=True,timeout=600,cwd='/opt/fc27-cloud-browser')
+    except subprocess.TimeoutExpired as error:
+        forward_hourly_timings(error.stderr)
+        raise
+    forward_hourly_timings(process.stderr if isinstance(process.stderr, (str, bytes)) else None)
     if process.returncode:raise ValueError('pricing_hourly_outcome_collection_failed')
     result=json.loads(process.stdout)
     online=result['online']
