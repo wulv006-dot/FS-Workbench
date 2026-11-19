@@ -337,49 +337,108 @@ def search_packet(reader, days):
     }
 
 
-def channel_packet(periods, site_id, responses):
-    """Normalize complete /channels pages returned by the authenticated FS connector."""
-    cover = {}
-    grouped = {}
-    labels = {}
-    totals = {}
-    complete = True
+def channel_windows(period, available_start=None):
+    """The native order-facts endpoint accepts at most 28 inclusive payment dates."""
+    start, end = map(date.fromisoformat, (period["start"], period["end"]))
+    while start <= end:
+        last = min(end, start + timedelta(days=27))
+        if available_start and start < available_start <= last:
+            last = available_start - timedelta(days=1)
+        yield {"start": start.isoformat(), "end": last.isoformat()}
+        start = last + timedelta(days=1)
+
+
+def channel_page(period, site_id, raw):
+    context = raw.get("data_context", {}).get("", {})
+    scope = context.get("effective_scope") or {}
+    view = raw.get("response_view", {})
+    expected = dict(period, site_id=site_id, gid="1327", status="all", channel="all")
+    missing = dates(*map(date.fromisoformat, (period["start"], period["end"])))
+    if (raw.get("status_code") != 200 or not view.get("value_complete") or view.get("next_offset") is not None
+            or scope != expected or not isinstance(raw.get("data"), list)):
+        return None, {**period, "status": "unavailable", "error": raw.get("error") or "invalid_scope_or_page",
+                      "status_code": raw.get("status_code"), "missing_days": missing}
+    coverage = context["coverage"]
+    rows = {}
+    for row in raw["data"]:
+        channel = row["channel"]
+        if channel in rows:
+            raise ValueError("duplicate_effective_channel")
+        sales = Decimal(row["admin_paid_usd"])
+        if not sales.is_finite():
+            raise ValueError("invalid_channel_amount")
+        rows[channel] = {"label": row["label"], "orders": row["orders"], "sales_usd": sales,
+                         "conflict_orders": row["conflict_orders"], "missing_sales_orders": row["missing_admin_usd_orders"]}
+    source_status = context.get("status", "available")
+    complete = (source_status == "available" and context.get("admin_complete") is not False
+                and not any(coverage.get(k) for k in ("missing_days", "unlinked_attribution_rows",
+                                                       "unlinked_admin_rows", "unverified_filter_orders"))
+                and not any(row["missing_sales_orders"] for row in rows.values()))
+    revisions = context.get("revisions", {})
+    proof = {**coverage, **period, "status": "complete" if complete else "partial",
+             "source_status": source_status, "effective_scope": scope, "snapshot_id": context.get("snapshot_id"),
+             "captured_at": context.get("captured_at"), "publication_id": revisions.get("publication_id"),
+             "revisions": revisions, "attribution_revision": revisions.get("attribution"),
+             "effective_attribution": revisions.get("effective_attribution")}
+    if source_status == "unavailable":
+        proof.update(status="unavailable", missing_days=missing)
+    return rows if source_status != "unavailable" and (rows or complete) else None, proof
+
+
+def channel_packet(periods, site_id, responses, available_start=None):
+    """Combine nonoverlapping authenticated /channels pages without imputing missing periods."""
+    count_fields = ("orders", "sales_usd", "conflict_orders", "missing_sales_orders")
+    cover, grouped, labels, totals = {}, {}, {}, {}
     for window in WINDOWS:
-        raw = responses.get(window) or {}
-        context = raw.get("data_context", {}).get("", {})
-        scope = context.get("effective_scope") or {}
-        view = raw.get("response_view", {})
-        expected = dict(periods[window], site_id=site_id, gid="1327", status="all", channel="all")
-        if (raw.get("status_code") != 200 or not view.get("value_complete") or view.get("next_offset") is not None
-                or scope != expected or not isinstance(raw.get("data"), list)):
-            cover[window] = {"status": "unavailable", "error": raw.get("error") or "invalid_scope_or_page"}
-            complete = False
-            continue
-        coverage = context["coverage"]
-        grouped[window] = {}
-        for row in raw["data"]:
-            channel = row["channel"]
-            if channel in grouped[window]:
-                raise ValueError("duplicate_effective_channel")
-            labels[channel] = row["label"]
-            grouped[window][channel] = {
-                "orders": row["orders"], "sales_usd": float(Decimal(row["admin_paid_usd"])),
-                "order_share": row["order_share"], "conflict_orders": row["conflict_orders"],
-                "missing_sales_orders": row["missing_admin_usd_orders"],
+        raw = responses.get(window)
+        # Existing connector consumers can still pass a single complete short-window page.
+        replies = raw if isinstance(raw, list) else [raw]
+        segments = []
+        sums = {}
+        any_rows = False
+        for i, period in enumerate(channel_windows(periods[window], available_start)):
+            reply = replies[i] if i < len(replies) else None
+            try:
+                rows, proof = channel_page(period, site_id, reply or {})
+            except (ArithmeticError, KeyError, TypeError, ValueError):
+                rows, proof = channel_page(period, site_id, {"error": "invalid_channel_payload"})
+            segments.append(proof)
+            if rows is None:
+                continue
+            any_rows = True
+            for channel, row in rows.items():
+                labels[channel] = row["label"]
+                target = sums.setdefault(channel, dict.fromkeys(count_fields, 0))
+                for key in count_fields:
+                    target[key] += row[key]
+
+        complete = all(segment["status"] == "complete" for segment in segments)
+        if len(segments) == 1:
+            cover[window] = segments[0]
+        else:
+            cover[window] = {
+                "status": "complete" if complete else "partial" if any_rows else "unavailable",
+                "segments": segments,
+                "requested_scope": dict(periods[window], site_id=site_id, gid="1327", status="all", channel="all"),
+                "missing_days": sorted({day for segment in segments for day in segment.get("missing_days", [])}),
+                **{key: sum(segment.get(key, 0) for segment in segments)
+                   for key in ("linked_orders", "unlinked_admin_rows", "unlinked_attribution_rows")
+                   if any(key in segment for segment in segments)},
             }
-        rows = list(grouped[window].values())
-        totals[window] = {"orders": sum(r["orders"] for r in rows),
-                          "sales_usd": round(sum(r["sales_usd"] for r in rows), 2),
-                          "missing_sales_orders": sum(r["missing_sales_orders"] for r in rows)}
-        cover[window] = {**coverage, "effective_scope": scope, "snapshot_id": context.get("snapshot_id"),
-                         "captured_at": context.get("captured_at"),
-                         "attribution_revision": context.get("revisions", {}).get("attribution"),
-                         "effective_attribution": context.get("revisions", {}).get("effective_attribution")}
-        if (coverage.get("missing_days") or coverage.get("unlinked_attribution_rows")
-                or coverage.get("unlinked_admin_rows") or totals[window]["missing_sales_orders"]):
-            complete = False
+        if not any_rows:
+            continue
+        order_count = sum(row["orders"] for row in sums.values())
+        sales_total = sum(row["sales_usd"] for row in sums.values())
+        totals[window] = {"orders": order_count, "sales_usd": float(round(sales_total, 2)),
+                          "missing_sales_orders": sum(row["missing_sales_orders"] for row in sums.values())}
+        grouped[window] = {
+            channel: {**row, "sales_usd": float(row["sales_usd"]),
+                      "order_share": row["orders"] / order_count if order_count else None,
+                      "sales_share": float(row["sales_usd"] / sales_total) if sales_total else None}
+            for channel, row in sums.items()
+        }
     return {
-        "status": "complete" if complete else "partial" if grouped else "unavailable",
+        "status": "complete" if all(v["status"] == "complete" for v in cover.values()) else "partial" if grouped else "unavailable",
         "source": "FS channels.facts · 有效归因",
         "scope": "FC27 全站" if site_id == "all" else "FC27 MMOEXP 主站",
         "site_id": site_id, "time_zone": "Asia/Shanghai", "currency": "USD", "time_basis": "Admin paytime",

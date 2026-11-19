@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 
 
 GAMES = {"833": "FC26", "1327": "FC27"}
+MAIN_SITE = "266"
 TZ = "Asia/Shanghai"
 PLATFORMS = ("PS", "XBOX", "PC")
 CATEGORIES = ("Coins", "Players", "SBC", "Packs", "Boosting", "Other")
@@ -78,7 +79,9 @@ def group_orders(rows, *keys, customers=True):
     for group, sample in sorted(groups.items()):
         result = dict(zip(keys, group), orders=len(sample), salesUsd=amounts(sample, "sales"))
         if customers and "lifecycle" in keys:
-            result["customers"] = customer_counts[group] if result["lifecycle"] != "unknown" else None
+            result["customers"] = (customer_counts[group]
+                                   if result["lifecycle"] != "unknown" and all(row["buyer"] for row in sample)
+                                   else None)
         output.append(result)
     return output
 
@@ -149,8 +152,11 @@ def normalized_paid(game, native, lines, projections, details):
     for row in native:
         key = identity(row, "order_no")
         day = row["paytime"][:10]
+        sales = number(row.get("amount_usd_format"))
         proof = details.get(key, {})
         if proof and comparable_stamp(proof.get("paid_at")) != comparable_stamp(row["paytime"]):
+            proof = {}
+        if proof.get("_legacy_main_cache") and (sales is None or number(proof.get("amount_cents")) != sales * 100):
             proof = {}
         projection = projections.get(key, {})
         joined_hash = hashlib.sha256(key[1].encode()).hexdigest()
@@ -161,6 +167,9 @@ def normalized_paid(game, native, lines, projections, details):
         flags = {item.get("是否新客户") for item in linked}
         buyers = {str(item.get("buyer_id") or "") for item in linked}
         flag = {"是": "new", "否": "returning"}.get(next(iter(flags))) if len(flags) == 1 else None
+        if not linked:
+            # The historical channel archive preserves the ES order flag but not customer identity.
+            flag = {"新客": "new", "老客": "returning"}.get((row.get("tracking") or {}).get("customerType"))
         category = proof.get("category") if proof.get("category_status") == "verified" else None
         if category == "Other":
             source_types = {item.get("产品类型") for item in linked}
@@ -187,7 +196,7 @@ def normalized_paid(game, native, lines, projections, details):
                          platform=platform if platform in PLATFORMS else "unknown",
                          category=category if category in CATEGORIES else "unknown",
                          country=checked_text(row.get("country_code"), COUNTRY), payment=checked_text(payment, PAYMENT),
-                         sales=number(row.get("amount_usd_format")), lifecycle=flag or "unknown",
+                         sales=sales, lifecycle=flag or "unknown",
                          buyer=(key[0], next(iter(buyers))) if len(buyers) == 1 and all(buyers) else None,
                          regular=regular, discount=discount, purchase_k=number(projection.get("purchase_k")),
                          paid_at=row.get("paytime"), state=str(row.get("status_format") or ""),
@@ -288,20 +297,67 @@ def fulfillment(days, daily, paid):
             "daily": [result(category, sample, date=day) for (category, day), sample in sorted(groups.items())]}, diagnostic
 
 
+def cache_details(daily):
+    details = {}
+    for snap in daily.values():
+        for row in snap.get("orders", []):
+            if not row.get("id"):
+                continue
+            if row.get("site_id"):
+                details[identity(row, "id")] = row
+            elif row.get("site_group") == "main":
+                # The legacy reader wrote "main" only for Admin site 266.
+                # Keep historical platform evidence, without using its title-based product bucket.
+                details[MAIN_SITE, str(row["id"])] = dict(id=row["id"], paid_at=row.get("paid_at"),
+                    amount_cents=row.get("amount_cents"), platform=row.get("platform"), _legacy_main_cache=True)
+    return details
+
+
+def with_main_site_history(data, main):
+    cover, main_cover = data["coverage"], main["coverage"]
+    publication = cover.get("publication_id")
+    if not publication or publication != main_cover.get("publication_id"):
+        return data
+    missing = set(cover.get("missing_days") or [])
+    revisions = {day: revision for day, revision in (main_cover.get("day_revisions") or {}).items()
+                 if day in missing}
+    if not revisions:
+        return data
+    # Preserve all-site facts on their original days; use the historically archived site only where all-site facts are absent.
+    rows = [row for row in main["rows"] if row["paytime"][:10] in revisions and str(row["site_id"]) == MAIN_SITE]
+    lines = [row for row in (main.get("dataset") or {}).get("rows", [])
+             if str(row.get("付款时间", "")).replace("/", "-")[:10] in revisions]
+    dataset = dict(data.get("dataset") or {})
+    dataset["rows"] = [*dataset.get("rows", []), *lines]
+    evidence = {key: cover.get(key) or main_cover.get(key) for key in ("publication_id","data_revision","captured_at")}
+    return dict(data, rows=[*data["rows"], *rows], dataset=dataset,
+                coverage={**cover, **evidence, "main_site_day_revisions": revisions})
+
+
+def coverage_period(days):
+    return f"{len(days)} 天（{days[0]} 至 {days[-1]}）" if days else "0 天"
+
+
 def aggregate(start, end, datasets, projections, daily, live):
     days = [(date.fromisoformat(start) + timedelta(days=i)).isoformat()
             for i in range((date.fromisoformat(end) - date.fromisoformat(start)).days + 1)]
-    details = {identity(row, "id"): row for snap in daily.values() for row in snap.get("orders", [])}
+    details = cache_details(daily)
     details.update(live)
-    rows, sources, summaries = [], [], []
+    rows, sources, summaries, site_coverage = [], [], [], []
     for gid, dataset in datasets.items():
         game = GAMES[gid]
         cover = dataset["coverage"]
-        members = normalized_paid(game, dataset["rows"], (dataset.get("dataset") or {}).get("rows", []), projections, details)
+        members = normalized_paid(game, dataset["rows"], (dataset.get("dataset") or {}).get("rows", []),
+                                  projections if gid == "1327" else {}, details if gid == "1327" else {})
         if not all(row["date"] in days for row in members) or len({row["key"] for row in members}) != len(members):
             raise ValueError("review_paid_scope")
-        sources.append(dict(game=game, source="Admin 付款订单共享归档 + ES 销售订单",
-                            **{key: cover.get(key) for key in ("publication_id","data_revision","captured_at","complete","missing_days","day_revisions","admin_payment_membership")}))
+        full_days = days if cover["complete"] else sorted(cover.get("day_revisions") or {})
+        main_days = sorted(cover.get("main_site_day_revisions") or {})
+        source_scope = dict(game=game, allSiteDays=full_days, mainSiteOnlyDays=main_days,
+                            uncoveredDays=sorted(set(days)-set(full_days)-set(main_days)))
+        site_coverage.append(source_scope)
+        sources.append(dict(game=game, source="Admin 付款订单共享归档 + ES 销售订单", siteCoverage=source_scope,
+                            **{key: cover.get(key) for key in ("publication_id","data_revision","captured_at","complete","missing_days","day_revisions","main_site_day_revisions","admin_payment_membership")}))
         summaries.append(dict(game=game, orders=len(members) if cover["complete"] or members else None,
                               salesUsd=amounts(members, "sales") if cover["complete"] or members else None))
         rows.extend(members)
@@ -310,11 +366,12 @@ def aggregate(start, end, datasets, projections, daily, live):
     coverage = {"totals": status(len(rows), len(rows), any_source, "付款日共享归档已知小计，经营页 Admin 实时汇总另列。")}
     if not complete and any_source:
         coverage["totals"]["status"] = "partial"
+        coverage["totals"]["totalOrders"] = None
     for key, field in DIMENSIONS.items():
         covered = sum(row[field] != "unknown" for row in rows)
-        coverage[key] = status(covered, len(rows), any_source,
+        coverage[key] = status(covered, len(rows), any_source and (not rows or bool(covered)),
                                "原字段或完整原生归属；未知订单保留在总额内。")
-        if not complete and any_source:
+        if not complete and coverage[key]["status"] == "complete":
             coverage[key]["status"] = "partial"
     known_discount = [row for row in rows if row["regular"] is not None]
     regular, discount = amounts(known_discount, "regular"), amounts(known_discount, "discount")
@@ -323,8 +380,10 @@ def aggregate(start, end, datasets, projections, daily, live):
                          coveredOrders=len(known_discount), totalOrders=len(rows), regularUsd=regular if known_discount else None,
                          discountUsd=discount if known_discount else None,
                          discountPct=round(100 * discount / regular, 4) if regular else None)
+    if not complete and discount_data["status"] == "complete":
+        discount_data["status"] = "partial"
     coverage["discount"] = {key: discount_data[key] for key in ("status","coveredOrders","totalOrders")}
-    coverage["customerLifecycle"]["reason"] = "订单按 ES 新老客标记；人数按网站及 buyer_id 去重，以窗内首次付款单标记分组。"
+    coverage["customerLifecycle"]["reason"] = "订单按 ES 新老客标记，历史归档可保留原标记。人数按网站及 buyer_id 去重，以窗内首次付款单标记分组；身份缺失时人数留空。"
     coverage["customerLifecycle"]["buyerKnownOrders"] = sum(row["buyer"] is not None for row in rows)
     sales_known = sum(row["sales"] is not None for row in rows)
     if any_source and sales_known < len(rows):
@@ -337,13 +396,28 @@ def aggregate(start, end, datasets, projections, daily, live):
     products = payment_products(rows)
     spend_bands, order_bands = consumption(rows)
     buyer_order_count = sum(row["buyer"] is not None for row in rows)
-    coverage["spendBands"] = status(buyer_order_count, len(rows), any_source,
+    coverage["spendBands"] = status(buyer_order_count, len(rows), any_source and (not rows or bool(buyer_order_count)),
                                      "按窗口内站点及 buyer_id 聚合实付美元，无可核客户身份的订单单列覆盖。")
-    if not complete and any_source:
+    if not complete and coverage["spendBands"]["status"] == "complete":
         coverage["spendBands"]["status"] = "partial"
     product_orders = sum(product["orders"] for product in products)
     coverage["products"] = status(product_orders, sum(row["category"] in ("Players","SBC") for row in rows),
                                   bool(products), "可核原生目录、且完整订单仅含单个 PID 的球员卡／SBC实收。")
+    if not complete and coverage["products"]["status"] == "complete":
+        coverage["products"]["status"] = "partial"
+    has_all_sites = any(item["allSiteDays"] for item in site_coverage)
+    has_main_only = any(item["mainSiteOnlyDays"] for item in site_coverage)
+    effective_site = "mixed" if has_all_sites and has_main_only else "all" if has_all_sites else MAIN_SITE if has_main_only else None
+    if not complete:
+        scope_note = " ".join(
+            f'{item["game"]} 全站{coverage_period(item["allSiteDays"])}，'
+            f'MMOEXP 主站（266）{coverage_period(item["mainSiteOnlyDays"])}，'
+            f'两种口径均缺{coverage_period(item["uncoveredDays"])}。'
+            for item in site_coverage)
+        for key in ("totals", *DIMENSIONS, "spendBands", "products", "discount"):
+            coverage[key]["reason"] = (coverage[key].get("reason", "") + " " + scope_note).strip()
+        if has_main_only:
+            coverage["totals"]["reason"] += "主站历史归档与 Admin 实时全站统计的支付状态及快照时间不同，两者不能按包含关系相减。"
     delivery = {"status":"unavailable","reason":"完成发货时点和完整问题事件资料不在已读订单快照。","rows":[]}
     coverage["delivery"] = {key:delivery[key] for key in ("status","reason")}
     if daily:
@@ -351,7 +425,8 @@ def aggregate(start, end, datasets, projections, daily, live):
     if live:
         sources.append(dict(source="Admin Direct 原生 PID 目录和逐 PID 付款单关联", purpose="补足已有快照的分类缺口"))
     return dict(status=("unavailable" if not any_source else "complete" if complete and all(item["status"] == "complete" for item in coverage.values()) else "partial"),
-                scope=dict(start=start,end=end,timezone=TZ,site="all",games=[GAMES[gid] for gid in datasets]),
+                scope=dict(start=start,end=end,timezone=TZ,site="all",effectiveSite=effective_site,
+                           games=[GAMES[gid] for gid in datasets],siteCoverageByGame=site_coverage),
                 totals=dict(orders=len(rows) if any_source else None,salesUsd=amounts(rows,"sales") if any_source else None),
                 games=summaries, daily=group_orders(rows,"date","game"),
                 **{key:group_orders(rows,"game",field) for key,field in DIMENSIONS.items()},
@@ -470,9 +545,13 @@ def read_orders(start, end, native_days=(), *, game=None, publication_id=None):
     datasets = {gid:read(dict(scope,gid=gid),publication_id=publication) for gid in games}
     projections, daily = {}, {}
     days = [(lo+timedelta(days=i)).isoformat() for i in range((hi-lo).days+1)]
+    for gid, dataset in datasets.items():
+        if gid == "1327" or dataset["coverage"].get("missing_days"):
+            main = read(dict(scope,site_id=MAIN_SITE,gid=gid),publication_id=publication)
+            datasets[gid] = with_main_site_history(dataset, main)
+            if gid == "1327":
+                projections = {identity(row,"order_no"):row["fc27_coins"] for row in main["rows"] if "fc27_coins" in row}
     if "1327" in datasets:
-        details = read(dict(scope,site_id="266",gid="1327"),publication_id=publication)
-        projections = {identity(row,"order_no"):row["fc27_coins"] for row in details["rows"] if "fc27_coins" in row}
         daily = load_cache(days)
     return aggregate(start,end,datasets,projections,daily,native_details(sorted(set(native_days))))
 

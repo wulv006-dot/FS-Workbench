@@ -1,7 +1,10 @@
 import hashlib
+import sys
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
-from orders import aggregate, amount_band, review_category
+from orders import aggregate, amount_band, read_orders, review_category
 
 
 def admin(order, usd, when):
@@ -20,6 +23,39 @@ def fact(rows=(), lines=(), complete=True):
 
 
 class OrdersTest(unittest.TestCase):
+    def test_monthly_archive_keeps_all_site_days_and_explicit_main_site_subset(self):
+        first, second, third = "2026-10-01", "2026-10-02", "2026-10-03"
+        first_at, second_at = first+" 03:00:00", second+" 04:00:00"
+        all_sites = fact([dict(admin("A", "15", first_at), site_id=510)], complete=False)
+        all_sites["coverage"].update(publication_id="publication-pin", missing_days=[second,third], day_revisions={first:"full-day"})
+        main = fact([admin("A", "99", first_at), dict(admin("B", "25", second_at), tracking={"customerType":"新客"})],
+                    complete=False)
+        main["coverage"].update(publication_id="publication-pin", missing_days=[third], day_revisions={first:"full-day",second:"main-day"})
+        def fake_read(scope, *, publication_id):
+            self.assertEqual(publication_id,"publication-pin")
+            return {"all":all_sites,"266":main}[scope["site_id"]]
+        # The legacy cache has an order number and site group, without site ID or category proof.
+        cache = {second:{"orders":[dict(id="B",site_group="main",paid_at=second_at,
+                                       amount_cents=2500,platform="PC",product="Coins"),
+                                    dict(id="A",site_group="satellite",paid_at=first_at,
+                                         amount_cents=1500,platform="PS",product="Coins")]}}
+        with patch.dict(sys.modules, shared_es_facts=SimpleNamespace(read=fake_read,latest_publication=lambda:None)), \
+             patch("orders.load_cache",return_value=cache), patch("orders.native_details",return_value={}):
+            result = read_orders(first,third,game="FC27",publication_id="publication-pin")
+        self.assertEqual(result["totals"],{"orders":2,"salesUsd":40.0})
+        self.assertEqual(result["scope"]["site"],"all")
+        self.assertEqual(result["scope"]["effectiveSite"],"mixed")
+        site_coverage = result["scope"]["siteCoverageByGame"][0]
+        self.assertEqual((site_coverage["allSiteDays"],site_coverage["mainSiteOnlyDays"],site_coverage["uncoveredDays"]),
+                         ([first],[second],[third]))
+        self.assertEqual(result["coverage"]["totals"]["status"],"partial")
+        self.assertIn("266",result["coverage"]["platforms"]["reason"])
+        self.assertEqual(result["platforms"][0],{"game":"FC27","platform":"PC","orders":1,"salesUsd":25.0})
+        self.assertEqual(result["categories"],[{"game":"FC27","category":"unknown","orders":2,"salesUsd":40.0}])
+        self.assertEqual(result["customerLifecycle"][0],{"game":"FC27","lifecycle":"new","orders":1,"salesUsd":25.0,"customers":None})
+        self.assertEqual(result["coverage"]["spendBands"]["status"],"unavailable")
+        self.assertIsNone(result["discount"]["discountPct"])
+
     def test_pinned_orders_reconcile_and_first_flag_counts_each_buyer_once(self):
         start, end = "2026-11-16", "2026-11-17"
         first, second = start+" 00:01:00", end+" 20:00:00"

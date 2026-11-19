@@ -39,6 +39,37 @@ def read_program(python, script, *args):
     return json.loads(result.stdout.decode("utf-8"))
 
 
+def read_order_attribution(order_facts, actor, periods):
+    from .traffic import channel_packet, channel_windows
+
+    replies = {}
+    available_start = datetime.now(TZ).date() - timedelta(days=365)
+    for side, period in periods.items():
+        pages = replies[side] = []
+        for segment in channel_windows(period, available_start):
+            if segment["end"] < available_start.isoformat():
+                pages.append({"error": "outside_order_facts_retention"})
+                continue
+            params = {k: [v] for k, v in dict(segment, mode="order-facts", site_id="all", gid="1327", status="all").items()}
+            try:
+                for attempt in range(20):
+                    code, body = order_facts.get(params, actor)
+                    if code != 202:
+                        break
+                    if attempt < 19:
+                        time.sleep(2)
+                if code == 200 and isinstance(body, dict) and isinstance(body.get("channels"), list):
+                    pages.append({"status_code": 200, "data": body["channels"], "data_context": {"": body},
+                                  "response_view": {"value_complete": True}})
+                else:
+                    pages.append({"status_code": code, "error": "invalid_channel_payload" if code == 200
+                                  else f"order_facts_http_{code}"})
+            except (OSError, RuntimeError, ValueError, KeyError, subprocess.TimeoutExpired) as exc:
+                LOG.warning("FC order attribution %s–%s: %s", segment["start"], segment["end"], type(exc).__name__)
+                pages.append({"error": type(exc).__name__})
+    return channel_packet(periods, "all", replies, available_start)
+
+
 def capture(game, start, end, actor, get_range, order_facts, authorizer):
     if not authorizer(actor):
         raise PermissionError("authorization_changed")
@@ -83,19 +114,8 @@ def capture(game, start, end, actor, get_range, order_facts, authorizer):
             traffic=read_program("/opt/mmoexp-marketing/venv-ssl/bin/python","traffic.py",
                                  "--start",start,"--end",end,"--previous-start",previous["start"],"--previous-end",previous["end"])
             result["traffic"]=traffic
-            if order_facts and length<=28:
-                from .traffic import channel_packet
-                replies={}
-                for side,period in traffic["periods"].items():
-                    params={k:[v] for k,v in dict(period,mode="order-facts",site_id="all",gid="1327",status="all").items()}
-                    for _ in range(20):
-                        code,body=order_facts.get(params,actor)
-                        if code!=202:break
-                        time.sleep(2)
-                    if code==200 and isinstance(body.get("channels"),list):
-                        replies[side]={"status_code":200,"data":body["channels"],"data_context":{"":body},
-                                       "response_view":{"value_complete":True}}
-                traffic["orders"]=channel_packet(traffic["periods"],"all",replies)
+            if order_facts:
+                traffic["orders"]=read_order_attribution(order_facts,actor,traffic["periods"])
         except (OSError,RuntimeError,ValueError,KeyError,subprocess.TimeoutExpired) as exc:
             LOG.warning("FC traffic: %s",type(exc).__name__)
             result["coverage"].append("流量或归因源本次未完整返回")
