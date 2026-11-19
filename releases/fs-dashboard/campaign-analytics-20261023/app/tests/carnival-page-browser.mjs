@@ -234,3 +234,21 @@ test('first visit asks the analytics question on the carnival page',async t=>{
  assert.equal(await page.evaluate(()=>localStorage.getItem('mmoexp-event-analytics-consent-v1')),'denied');
  assert.equal(await page.evaluate(()=>window.FCActivityAnalytics.status().consent),false);
 });
+
+test('a failed catalog read retries by itself, so coin prices do not stay pending',async t=>{
+ const {page,errors}=await open(t,{failGoods:3});
+ await page.waitForFunction(()=>curGame==='fc27');
+ // Coins are the first cards; their catalog read is among the failed ones and must recover.
+ await page.waitForFunction(()=>{const p=[...document.querySelectorAll('#msPool .pprice')].slice(0,4).map(e=>e.textContent);return p.length===4&&p.every(x=>/^\$\d/.test(x));},null,{timeout:15000});
+ assert.deepEqual(errors,[]);
+});
+
+test('on a phone the Black Friday store takes the full width; the mascot stands above it',async t=>{
+ const {page}=await open(t,{viewport:{width:375,height:812}});
+ await page.locator('#flash').scrollIntoViewIfNeeded();
+ const box=await page.evaluate(()=>{const r=e=>e.getBoundingClientRect(),s=document.querySelector('#flash .flash-stage-shelf'),a=s.querySelector('.flash-stage-art'),c=s.querySelector('.flash-shelf-content');
+  return {stage:r(s).width,content:r(c).width,artBottom:r(a).bottom,contentTop:r(c).top,artWidth:r(a).width};});
+ assert.ok(box.content>=box.stage-1,'store uses the whole stage width: '+JSON.stringify(box));
+ assert.ok(box.artWidth<=100,'mascot is a small corner figure');
+ assert.ok(box.artBottom<=box.contentTop+40,'mascot sits on the roof, not beside the products');
+});
