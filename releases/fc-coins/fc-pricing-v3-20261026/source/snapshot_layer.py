@@ -302,9 +302,21 @@ def collect_once(run_id=None, competitor_policy=None):
                     cost_failure = {k:report[k] for k in ('reason','diagnostic','evidence_file') if k in report}
             except (ValueError,IndexError,AttributeError,TypeError):
                 pass
-            raise ValueError(cost_failure['reason'] if cost_failure else "collector_failed")
+            if cost_failure is None:
+                cost_failure = {
+                    'reason': 'collector_busy' if process.returncode == 75 else 'collector_report_missing',
+                    'diagnostic': {'exit_code': process.returncode},
+                }
+            raise ValueError(cost_failure['reason'])
         costs = cost_snapshots(run_id, newest_evidence("p2pah-cost-*.json", before), curve_v6=competitor_policy == POLICY)
     except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        if cost_failure is None:
+            if isinstance(exc, subprocess.TimeoutExpired):
+                cost_failure = {'reason': 'collector_wrapper_timeout', 'diagnostic': {'timeout_seconds': exc.timeout}}
+            else:
+                cost_failure = {'reason': 'collector_evidence_unavailable', 'diagnostic': {'exception_type': type(exc).__name__}}
+        for cost in costs:
+            cost['cost_failure'] = cost_failure
         failures.append("P2PAH:" + (str(exc) if isinstance(exc, ValueError) else type(exc).__name__))
     fx = {"status": "missing", "reason": "fx_collector_failed"}
     before = set(glob.glob(str(ROOT / "evidence/fx-*.json")))

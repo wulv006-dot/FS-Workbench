@@ -132,6 +132,12 @@ class OptionalCollection(unittest.TestCase):
             self.assertEqual(ready,hard_failure is None)
             self.assertIn('Lootbar:TimeoutExpired',summary['source_warnings'])
             if ready:self.assertEqual(summary['status'],'ready_for_quote')
+            if hard_failure == 'cost':
+                self.assertEqual(summary['cost_failure']['reason'], 'collector_report_missing')
+                payload = save.call_args.args[1]
+                for cost in payload['costs']:
+                    self.assertEqual(cost['reason'], 'cost_collector_failed')
+                    self.assertEqual(cost['cost_failure'], summary['cost_failure'])
 
     def test_source_coverage_invalid_time_run_and_platform_never_fill_gap(self):
         plan=selective_sources.source_plan('daily',dict(platforms=['PC']))
