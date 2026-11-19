@@ -21,13 +21,17 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  await page.route('**/dashboard/workspace-assets/**',route=>{const name=path.basename(new URL(route.request().url()).pathname);return route.fulfill({contentType:'text/css',body:fs.readFileSync(path.join(app,'analytics',name),'utf8')});});
  let trafficRequests=[],trafficMode='available';
  const googleRequests=[];await page.route('**/analytics/api/google-traffic?**',r=>{const params=new URL(r.request().url()).searchParams;googleRequests.push(params);
+  if(params.get('activity')==='mmoexp-carnival'&&params.get('source')==='ga4')return r.fulfill({json:{
+   status:'available',source:'ga4',from:params.get('from'),to:params.get('to'),timezone:'Asia/Shanghai',
+   reports:{landing_total:{rows:[{metrics:{sessions:10}}]},organic_landing_total:{rows:[{metrics:{sessions:4}}]}}
+  }});
   if(params.get('source')==='ga4')return r.fulfill({json:{status:'available',source:'ga4',from:'2026-10-30',to:'2026-10-30',timezone:'Asia/Shanghai',reports:{page_total:{status:'available',rows:[{dimensions:{},metrics:{screenPageViews:10,activeUsers:4}}],quality:{subjectToThresholding:true}}},failures:{}}});
   return r.fulfill({json:params.get('source')==='ads'?{status:'available',source:'ads',from:'2026-10-30',to:'2026-10-30',timezone:'Asia/Hong_Kong',currency:'USD',reports:{landing:{status:'available',truncated:false,rows:[{dimensions:{date:'2026-10-30',campaign:'Fixture',device:'MOBILE'},metrics:{impressions:3,clicks:1,costMicros:2500000}}]}},failures:{}}:{status:'no_rows',source:'gsc',from:'2026-10-30',to:'2026-10-30',timezone:'America/Los_Angeles',reports:{total:{status:'no_rows',rows:[]}},failures:{}}});});
  await page.route('**/analytics/api/origin-traffic?**',r=>{const query=new URL(r.request().url()).searchParams;trafficRequests.push(query);const pageRequests=query.get('activity')==='fc27-season2'?92:1076;return r.fulfill(trafficMode==='error'?{status:502,json:{status:'unavailable'}}:{status:200,json:{status:trafficMode,pageRequests:trafficMode==='available'?pageRequests:null,observedPageRequests:1076,estimatedVisitors:null,successfulRequests:1169,excludedRequests:93,generatedAt:'2026-10-30T08:21:07Z',coverage:{complete:trafficMode==='available',from:'2026-10-29T19:12:01Z',through:'2026-10-30T08:21:07Z'},daily:[{date:'2026-10-30',requests:1076}]}});});
  let revenueRequests=[],revenueFailed=false;
  await page.route('**/analytics/api/discount-revenue?**',r=>{const p=new URL(r.request().url()).searchParams;revenueRequests.push(p);const selected=['all','891'].includes(p.get('game'));return r.fulfill(revenueFailed?{status:502,json:{status:'unavailable',message:'fixture revenue unavailable'}}:{status:200,json:{status:'available',coverage:{complete:true},totals:{paid_orders:selected?2:0,paid_usd_minor:selected?30725:0,refunded_orders:0},paid_currencies:selected?[{currency:'USD',amount:'307.25'}]:[],codes:[{game_id:p.get('activity')?.startsWith('fc27-')?'1327':'891',code:p.get('activity')?.startsWith('fc27-')?'FCSCOUT10':'HWAION15',off_percent:15,paid_orders:selected?2:0,paid_usd_minor:selected?30725:0,refunded_orders:0}],generated_at:'2026-10-30T03:52:29Z'}});});
  try{
-  await page.goto(base+'analytics/');await page.waitForFunction(()=>document.getElementById('feedback').textContent.includes('计划汇总已读取'));
+  await page.goto(base+'analytics/?activity=mmoexp-seasonal');await page.waitForFunction(()=>document.getElementById('feedback').textContent.includes('计划汇总已读取'));
   assert.equal(await page.locator('#statistics-scope').inputValue(),'today');assert.match(await page.locator('#statistics-schedule').innerText(),/尚未运行/);assert.match(await page.locator('#metrics').innerText(),/—/);
   assert.equal(reportRequests.length,0);assert.equal(trafficRequests.length,0);assert.equal(revenueRequests.length,0,'Default scheduled view must not invoke source collectors');
   assert.equal(googleRequests.length,0);assert.deepEqual(await page.locator('#google-result .metric strong').allTextContents(),['—','—','—']);assert.match(await page.locator('#google-result').innerText(),/尚未查询/);await page.locator('#google-load').click();await page.waitForFunction(()=>document.getElementById('google-result').textContent.includes('未返回该活动页记录'));assert.equal(googleRequests.length,1);assert.equal(googleRequests[0].get('source'),'gsc');assert.match(await page.locator('#google-result').innerText(),/不能据此认定真实流量为零/);await page.locator('#from').focus();await page.evaluate(()=>window.__operatorCheck());await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>document.activeElement.id),'from','Polling must retain keyboard focus in the moved query form');assert.equal(googleRequests.length,1,'Scheduled display refresh does not recollect Google');
@@ -93,7 +97,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   assert.match(await page.locator('#discount-revenue').innerText(),/活动商品销量为 0/);
   snapshotRevenue=null;await page.evaluate(()=>window.__operatorAdvance());await page.waitForFunction(()=>document.querySelector('#metrics').lastElementChild.querySelector('strong').textContent==='—');assert.match(await page.locator('#discount-revenue').innerText(),/未记为零/);
   await page.locator('#filters button[type=submit]').click();await page.waitForFunction(()=>document.querySelector('#metrics').lastElementChild.querySelector('strong').textContent==='$307.25');assert.equal(revenueRequests.at(-1).get('refresh'),'1');assert.equal(revenueRequests.at(-1).get('activity'),'fc27-season2');assert.equal(trafficRequests.at(-1).get('activity'),'fc27-season2','FC manual refresh must not read Halloween origin traffic');await page.waitForFunction(()=>document.querySelector('#basic-traffic-report .metric strong').textContent==='92');assert.equal(await page.locator('#statistics-scope').inputValue(),'custom','Explicit refresh uses current-window sources rather than old scheduled snapshot');
-  await page.unroute('**/analytics/api/statistics-snapshot?**');await page.goto(base+'analytics/?scope=custom');await page.waitForFunction(()=>document.querySelector('#feedback').textContent.includes('查询结果时间'));
+  await page.unroute('**/analytics/api/statistics-snapshot?**');await page.goto(base+'analytics/?activity=mmoexp-seasonal&scope=custom');await page.waitForFunction(()=>document.querySelector('#feedback').textContent.includes('查询结果时间'));
   let deniedReads=0;await page.route('**/analytics/api/report?**',r=>{deniedReads++;return r.fulfill({status:403,json:{status:'error',message:'fixture access denied'}});});await page.selectOption('#mode','live');await page.waitForFunction(()=>document.getElementById('feedback').textContent.includes('fixture access denied'));await page.evaluate(()=>window.__operatorCheck());await page.waitForTimeout(50);assert.equal(deniedReads,1,'Permission failures stop automatic polling');
   await page.unroute('**/analytics/api/report?**');
   let carnivalStarted=false,carnivalCoupons=0;
@@ -110,10 +114,13 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
    carnivalCoupons++;
    const modules=['home','mystery','blackFriday','capsule'].map(module=>({module,issued_total:1,used_total:1,
     used_orders:1,paid_orders:1,refunded_orders:0,paid_usd_minor:100,discount_usd_minor:20}));
-   return r.fulfill({json:{status:'available',coverage:{complete:true},modules}});
+   const games=[{game_id:'1327',game_name:'FC 27',used_orders:3,paid_orders:3,refunded_orders:0,paid_usd_minor:300,discount_usd_minor:60},
+    {game_id:null,game_name:null,used_orders:1,paid_orders:1,refunded_orders:0,paid_usd_minor:100,discount_usd_minor:20}];
+   return r.fulfill({json:{status:'available',coverage:{complete:true,orders_unmatched:1},modules,games}});
   });
   await page.addInitScript(()=>{Date.now=()=>Date.parse('2026-11-18T08:00:00Z');});
-  await page.goto(base+'analytics/?activity=mmoexp-carnival');
+  const beforeCarnivalGoogle=googleRequests.length;
+  await page.goto(base+'analytics/');
   await page.waitForFunction(()=>document.querySelector('#statistics-schedule')?.textContent.includes('活动尚未开始'));
   assert.equal(await page.locator('#activity').inputValue(),'mmoexp-carnival');
   assert.equal(await page.locator('#activity option:checked').innerText(),'狂欢盛典 2026');
@@ -122,11 +129,20 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   assert.equal(await page.locator('#game-filter').isVisible(),false);
   assert.equal(await page.locator('#platform').isVisible(),false);
   assert.equal(await page.locator('#discount-revenue').isVisible(),false);
-  assert.match(await page.locator('#google-traffic-report').innerText(),/暂未接入/);
+  assert.match(await page.locator('#google-traffic-report').innerText(),/狂欢盛典页面流量/);
+  assert.equal(googleRequests.length,beforeCarnivalGoogle,'Opening the default activity does not collect Google automatically');
   carnivalStarted=true;
   await page.evaluate(()=>{Date.now=()=>Date.parse('2026-11-19T08:00:00Z');window.__operatorCheck();});
   await page.waitForFunction(()=>document.querySelectorAll('#funnel .step').length===2);
-  await page.waitForFunction(()=>document.querySelectorAll('#coupon-usage tbody tr').length===4);
+  await page.waitForFunction(()=>document.querySelectorAll('#coupon-usage tbody tr').length===6);
+  const gameTable=page.getByRole('region',{name:'活动券使用 · 游戏'});
+  assert.match(await gameTable.innerText(),/FC 27\s+3\s+3\s+0\s+\$3\.00/);
+  assert.match(await gameTable.innerText(),/游戏待归类/);
+  await page.locator('#google-source').selectOption('ga4');
+  await page.locator('#google-load').click();
+  await page.waitForFunction(()=>document.querySelector('#google-result')?.textContent.includes('自然搜索入口会话4'));
+  assert.equal(googleRequests.at(-1).get('activity'),'mmoexp-carnival');
+  assert.equal(googleRequests.at(-1).get('from'),'2026-11-19');
   assert.deepEqual(await page.locator('#funnel .step strong').allTextContents(),['2','1']);
   assert.match(await page.locator('#channels').innerText(),/神秘商店/);
   assert.equal(carnivalCoupons,1);

@@ -17,7 +17,10 @@ export function makeGoogleTraffic(reader=read,now=Date.now){
  const cache=new Map();let pending=null;
  return async params=>{
   if([...params.keys()].some(k=>!['activity','source','from','to','refresh'].includes(k))||[...params.keys()].some(k=>params.getAll(k).length!==1)||!['ga4','gsc','ads'].includes(params.get('source'))||params.has('refresh')&&params.get('refresh')!=='1')throw Object.assign(Error('INVALID_GOOGLE_FILTER'),{status:400});
-  originRange(params,now());const request={source:params.get('source'),from:params.get('from'),to:params.get('to')},key=JSON.stringify(request),old=cache.get(key);
+  const {activity,fromDay,toDay}=originRange(params,now(),['mmoexp-seasonal','fc27-season2','mmoexp-carnival']);
+  const request={source:params.get('source'),from:fromDay,to:toDay};
+  if(activity==='mmoexp-carnival')request.activity=activity;
+  const key=JSON.stringify(request),old=cache.get(key);
   if(params.get('refresh')!=='1'&&old&&old.expires>now())return structuredClone(old.value);
   if(pending){if(pending.key===key)return structuredClone(await pending.work);return {status:'unavailable',reason:'GOOGLE_READER_BUSY'};}
   const work=(async()=>{let value;try{value=await reader(request);}catch{value={status:'unavailable',reason:'GOOGLE_READ_FAILED'};}
