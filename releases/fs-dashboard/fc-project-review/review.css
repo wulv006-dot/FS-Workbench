@@ -224,6 +224,7 @@ footer{margin-top:1.5rem;border-top:1px solid var(--fs-line);padding-top:.55rem;
   .traffic-kpis{gap:.45rem}
   .traffic-kpis .kpi{padding:.5rem .54rem}
   .traffic-table th,.traffic-table td{padding:.38rem .33rem}
+  #ads-cross-game .traffic-table :is(th,td){padding-inline:.22rem}
   .traffic-table tbody th{position:sticky;inset-inline-start:0;background:var(--fs-surface);min-width:6ch}
   .traffic-table thead th:first-child{position:sticky;inset-inline-start:0;z-index:2}
 }
