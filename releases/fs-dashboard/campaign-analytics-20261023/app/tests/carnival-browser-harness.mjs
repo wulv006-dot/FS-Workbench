@@ -49,7 +49,7 @@ export function mainSite({signedIn=true}={}){
  return site;
 }
 
-export async function open(t,{clock='2026-11-28T13:00:00-05:00',signedIn=true,internalTest=null}={}){
+export async function open(t,{clock='2026-11-28T13:00:00-05:00',signedIn=true,internalTest=null,viewport={width:1280,height:900},failGoods=0}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carnival-page-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  if(internalTest)fs.writeFileSync(path.join(dir,'carnival-test.json'),JSON.stringify(internalTest));
  const tick={ms:Date.parse(clock)},paidUses=[];
@@ -57,7 +57,7 @@ export async function open(t,{clock='2026-11-28T13:00:00-05:00',signedIn=true,in
  // The dashboard side of "verify": answers queued requests from a simulated Admin coupon log.
  const verifier=createCarnivalVerifier({publicDir:dir,requestDir:path.join(dir,'carnival-verify'),now:()=>tick.ms,read:async()=>({status:'available',generated_at:'t',uses:paidUses})});
  const browser=await chromium.launch({headless:true});t.after(()=>browser.close());
- const page=await browser.newPage({viewport:{width:1280,height:900}});page.setDefaultTimeout(8000);
+ const page=await browser.newPage({viewport});page.setDefaultTimeout(8000);
  await page.clock.setFixedTime(new Date(clock));
  // A returning visitor who already answered the analytics question (the dialog is covered separately).
  await page.addInitScript(()=>{try{localStorage.setItem('mmoexp-event-analytics-consent-v1','denied');localStorage.setItem('mmoexp-event-google-consent-v1','denied');}catch{}});
@@ -71,6 +71,8 @@ export async function open(t,{clock='2026-11-28T13:00:00-05:00',signedIn=true,in
    if(url.pathname==='/events/api/carnival/mystery/draw')return route.fulfill({json:carnival.draw(JSON.parse(req.postData()))});
    if(url.pathname==='/events/api/carnival/mystery/verify'){const answer=carnival.verify(JSON.parse(req.postData()));verifies++;await verifier.refresh();return route.fulfill({json:answer});}
   }catch(e){return route.fulfill({status:e.status||500,json:{code:e.code}});}
+  // failGoods: the first n catalog reads fail, as a busy CDN answers some of a page's burst.
+  if(url.pathname==='/ajax/goods'&&failGoods>0){failGoods--;return route.fulfill({status:503,body:'busy'});}
   const answer=site.handle(url,req);if(answer!==null)return typeof answer==='string'?route.fulfill({body:answer}):route.fulfill({json:answer});
   const file=path.join(app,url.pathname.replace(/^\/events\//,''));
   if(!url.pathname.startsWith('/events/')||!fs.existsSync(file))return route.fulfill({status:404,body:''});
