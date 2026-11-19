@@ -1136,6 +1136,7 @@ class Ledger:
                     price_scope_contract=PRICE_SCOPE_CONTRACT, readback_ref=evidence_ref,
                     observation_id=ident, write_performed=False)
         self._store_price_window(observation, conn, {'curves': {platform: curve}}, meta, observed_at, True)
+        return True
 
     def _store_price_window(self, op, db, actual_action, curve_metadata, opened, no_change):
         operation_id = op['operation_id']
@@ -1255,15 +1256,108 @@ class Ledger:
             return plan
 
     def incident(self, code, dependency, scopes, *, phase='collection', error=None):
+        from .cost_inputs_v6 import CURVE_COST_GAPS
+
         key = fingerprint([code, dependency, 'FC27'])
         with self.transaction() as db:
-            old = self.get('incidents', key, db)
+            old = self.get('incidents', key, db) or {}
+            now = clock().isoformat()
+            prior = old.get('affected_scopes', [])
             value = dict(incident_key=key, root_cause_key=code, code=code, dependency=dependency,
-                         affected_scopes=sorted(set(scopes)), phase=phase, first_seen=(old or {}).get('first_seen',clock().isoformat()),
-                         last_seen=clock().isoformat(), attempt=(old or {}).get('attempt',0)+1,
+                         affected_scopes=sorted(set(scopes)), phase=phase, first_seen=old.get('first_seen', now),
+                         last_seen=now, attempt=old.get('attempt',0)+1,
                          error=error, state='OPEN', observability_degraded=code=='MONITOR_READ_FAILED')
+            if code in CURVE_COST_GAPS and dependency in ('cost', 'curve_price_insurance'):
+                if old.get('state') != 'OPEN':
+                    prior = []
+                last_seen = old.get('scope_last_seen') or dict.fromkeys(prior, old.get('last_seen'))
+                value.update(affected_scopes=sorted(set(prior) | set(scopes)),
+                             scope_last_seen=dict(last_seen, **dict.fromkeys(scopes, now)),
+                             recovery_history=old.get('recovery_history', []))
             self.put('incidents', key, value, db)
-            if not old or set(scopes)-set(old['affected_scopes']):
+            if not old or set(scopes)-set(prior):
+                event_key = key + ':' + fingerprint(scopes)
+                if value.get('recovery_history'):
+                    event_key += ':' + str(value['attempt'])
                 db.execute('INSERT OR IGNORE INTO event_outbox(event_key,kind,body) VALUES (?,?,?)',
-                    (key+':'+fingerprint(scopes), 'incident', json.dumps(value)))
+                    (event_key, 'incident', json.dumps(value)))
             return value
+
+    def recover_curve_cost_incidents(self, snapshot_id, operation_id, conn, *, check_completed=False):
+        """Resolve only the scope with proven natural evidence newer than its latest failure."""
+        from .cost_inputs_v6 import COST_SAMPLE_OUTLIER, CURVE_COST_GAPS
+
+        decision = self.get('strategy_decisions', snapshot_id, conn) or {}
+        candidates = decision.get('cost_recovery') or {}
+        if (not candidates or decision.get('automatic_curve_round') is not True
+                or decision.get('curve_round_id') != operation_id):
+            return
+        completed = None
+        if check_completed:
+            completed = self.get('operations', operation_id, conn) or {}
+            if (completed.get('status') != 'COMPLETED' or not completed.get('readback')
+                    or completed['readback'] != self.get('readback_receipts', operation_id, conn)):
+                return
+        snapshot = self.get('pricing_snapshots', snapshot_id, conn)
+        now = clock()
+        if (not snapshot or snapshot.get('snapshot_id') != snapshot_id or snapshot.get('origin') != 'live_collector'
+                or snapshot.get('mode') != 'production' or snapshot.get('write_protocol') != CURVE_WRITE_PROTOCOL
+                or (snapshot.get('evidence') or {}).get('run_id') != snapshot_id
+                or snapshot.get('authorization_purpose') or snapshot.get('curve_restore_preview_id')):
+            return
+        snapshot_hash = fingerprint(snapshot['evidence'])
+        for platform, evidence in candidates.items():
+            if platform not in PLATFORMS or evidence['snapshot_sha256'] != snapshot_hash:
+                continue
+            captured = instant(evidence['source_captured_at'])
+            seen = (instant(completed['created_at'])
+                    if completed is not None and evidence['status'] == 'READY' else now)
+            if not captured <= seen < instant(evidence['valid_until']) or seen - captured > timedelta(hours=1):
+                continue
+            if evidence['status'] == 'KEEP':
+                if not evidence.get('readback_sha256'):
+                    continue
+                plan = self.get('pricing_plans', snapshot['plan_id'], conn) or {}
+                resource = 'base:' + platform
+                if (plan.get('state') != 'ACTIVE' or plan.get('revision') != snapshot['plan_revision']
+                        or not conn.execute('SELECT 1 FROM plan_ownership WHERE resource=? AND plan_id=? AND revision=? AND generation=?',
+                                            (resource, plan['plan_id'], plan['revision'], plan['generation'])).fetchone()
+                        or conn.execute('SELECT 1 FROM resource_leases WHERE resource=?', (resource,)).fetchone()):
+                    continue
+                observed_at = instant(evidence['readback_at'])
+                if not captured <= observed_at <= now:
+                    continue
+                observation_id = 'observed-curve:' + snapshot_id + ':' + platform
+                windows = (json.loads(raw) for raw, in conn.execute('SELECT body FROM actual_price_windows'))
+                if any(window.get('operation_id') != observation_id and instant(window['opened_at']) >= observed_at
+                       for window in windows if resource in native_resources(window.get('resources', []))):
+                    continue
+                readback_sha = evidence['readback_sha256']
+            else:
+                if completed is None:
+                    continue
+                bundle = completed['bundle']
+                proof = (bundle.get('curve_proofs') or {}).get(platform) or {}
+                if (evidence['status'] != 'READY' or not completed.get('dispatch_context', {}).get('automatic')
+                        or bundle.get('snapshot_id') != snapshot_id or bundle.get('snapshot_sha256') != snapshot_hash
+                        or platform not in bundle.get('affected_platforms', ())
+                        or proof.get('proof_hash') != evidence['proof_hash']):
+                    continue
+                readback_sha = fingerprint(completed['readback'])
+            for code, dependency in [(code, 'cost') for code in CURVE_COST_GAPS] + [(COST_SAMPLE_OUTLIER, 'curve_price_insurance')]:
+                key = fingerprint([code, dependency, 'FC27'])
+                incident = self.get('incidents', key, conn) or {}
+                scopes = incident.get('affected_scopes', [])
+                last_seen = (incident.get('scope_last_seen') or {}).get(platform, incident.get('last_seen'))
+                if incident.get('state') != 'OPEN' or platform not in scopes or captured <= instant(last_seen):
+                    continue
+                remaining = [scope for scope in scopes if scope != platform]
+                incident.setdefault('recovery_history', []).append(dict(
+                    evidence, platform=platform, code=code, dependency=dependency, incident_last_seen=last_seen,
+                    snapshot_id=snapshot_id, snapshot_created_at=snapshot.get('created_at'),
+                    operation_id=operation_id, readback_sha256=readback_sha,
+                    recovered_at=now.isoformat()))
+                incident.update(affected_scopes=remaining)
+                if not remaining:
+                    incident.update(state='RESOLVED', resolved_at=now.isoformat())
+                self.put('incidents', key, incident, conn)

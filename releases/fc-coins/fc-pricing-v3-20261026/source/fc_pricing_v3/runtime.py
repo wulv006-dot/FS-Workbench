@@ -8,6 +8,7 @@ import hashlib
 import itertools
 from math import prod
 import json
+import logging
 import os
 from pathlib import Path
 import uuid
@@ -20,6 +21,7 @@ from .ledger import Ledger, clock, confirmed_curve_window
 from .engine import controlled_candidate, current_action
 
 ROOT = Path(os.environ.get('FC27_V3_ROOT','/var/lib/fc27-cloud'))
+LOG = logging.getLogger(__name__)
 STORE = ROOT/'v3'
 CURVE_DECISION_POLICY = 'v6_paired_bands'
 CURVE_PROTECTION_POLICY = 'v6_temporary_cost_protection'
@@ -470,7 +472,8 @@ def _shared_curve_inputs(paid_cutoff, as_of, *, code_names):
 def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now, *,
                                   average, route, facts, fx, current_cost, recent_source_gap=None):
     from .average_discount_v6 import MODEL, forecast_quotes, quantity_group
-    from .cost_inputs_v6 import SMOOTH_COST_CONTRACT, _fx, estimate_historical_cost
+    from .cost_inputs_v6 import (COST_SAMPLE_OUTLIER, COST_SOURCE_MISSING, COST_SAMPLES_INSUFFICIENT, CURVE_COST_GAPS,
+                                  SMOOTH_COST_CONTRACT, _fx, estimate_historical_cost)
     from .planning_baskets_v6 import build_planning_baskets
     from .price_curve import curve_key
 
@@ -529,6 +532,9 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
     for estimate in estimates.values():
         valid_records.update((estimate.get('sample_insurance') or {}).get('valid_record_ids') or [])
     insufficient_samples = len(valid_records) < 3
+    cost_gap = (current_cost or {}).get('reason')
+    if insufficient_samples and cost_gap not in CURVE_COST_GAPS:
+        cost_gap = COST_SAMPLES_INSUFFICIENT if valid_records else COST_SOURCE_MISSING
     for quantity in sorted(tiers | {format(value.normalize(), 'f') for value in quantities.values()}, key=Decimal):
         path = quotes[quantity]
         estimate = estimates.get(quantity_group(number(quantity)))
@@ -548,16 +554,14 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
                         **{kind + '_cost_usd': str(total * units[kind + '_unit_usd'])
                            for kind in ('expected', 'safe', 'stress')})
         else:
-            path['ordinary_cost_gaps'] = (['curve_cost_sample_outlier'] if insufficient_samples else estimate['gaps'] if estimate else
-                                          ['ordinary_delivery_cost_sample_missing'])
+            path['ordinary_cost_gaps'] = ([cost_gap] if insufficient_samples else estimate['gaps'] if estimate else
+                                          [COST_SOURCE_MISSING])
         paths.append(path)
 
     propagation = (route or {}).get('propagation_revision')
     domain_gaps = list(average['gap_counts'])
-    if insufficient_samples:
-        domain_gaps.append('curve_cost_sample_outlier')
-    if current_cost and current_cost.get('reason') == 'curve_cost_sample_outlier':
-        domain_gaps.append('curve_cost_sample_outlier')
+    if insufficient_samples or cost_gap == COST_SAMPLE_OUTLIER:
+        domain_gaps.append(cost_gap)
     if smoothed and rate is None:
         domain_gaps.append('forecast_fx_unavailable_as_of')
     if not propagation:
@@ -1131,9 +1135,6 @@ def collect_curve_catalogues(evidence, platforms):
         entry['price_insurance'] = context
         entry['cost_sample_insurance'] = (cost or {}).get('sample_insurance')
         entry['confirmed_cost_cny_per_k'] = (cost or {}).get('cny_per_1k') if (cost or {}).get('status') == 'valid' else None
-        if cost and cost.get('reason') == 'curve_cost_sample_outlier':
-            db.incident('curve_cost_sample_outlier', 'cost', [platform])
-
         def proof(curve):
             return _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now,
                 average=average, route=entry['native_route'], facts=facts, fx=evidence.get('fx'),
@@ -1146,9 +1147,6 @@ def collect_curve_catalogues(evidence, platforms):
                      primary_inputs={key: proof(curve) for key, curve in entry.pop('candidates').items()},
                      all_inputs={curve_key(curve): proof(curve) for curve in entry['all_targets'].values()},
                      performance=_same_hour_curve_performance(platform, online, now))
-        if any('curve_cost_sample_outlier' in item['domain']['coverage_gaps']
-               for item in entry['primary_inputs'].values()):
-            db.incident('curve_cost_sample_outlier', 'cost', [platform])
         current = entry['primary_curve']
         state = db.curve_strategy_state(platform)
         if learning_windows and state:
@@ -2173,7 +2171,36 @@ def activate_curve_plan(db, ident, expected_revision, actor, snapshot_id):
     return db.activate_curve_plan(ident, expected_revision, actor, snapshot_id, check)
 
 
+def _curve_cost_recovery_evidence(platform, decision, data, evidence):
+    from .cost_inputs_v6 import CURVE_COST_GAPS, SMOOTH_COST_CONTRACT
+    from .curve_strategy_v6 import curve_proof_bound
+    from .price_curve import curve_key
+    from .pricing_proof_v6 import PROVEN
+
+    state = decision['status']
+    proof = decision.get('proof') or {}
+    if state not in ('KEEP', 'READY') or proof.get('status') != PROVEN:
+        return None
+    current_key = curve_key(data['primary_curve'])
+    key = current_key if state == 'KEEP' else curve_key(decision['target'])
+    cost_input = data['primary_inputs'][current_key]
+    cost = cost_input['evidence'].get('smoothed_delivery_cost') or {}
+    source = (evidence.get('costs') or {}).get(platform) or {}
+    if (not curve_proof_bound(proof, key) or proof['scope'].get('platform') != platform
+            or cost.get('sample_contract') != SMOOTH_COST_CONTRACT or cost.get('status') != 'valid'
+            or cost.get('source_platform') != platform or source.get('platform') != platform
+            or source.get('status') != 'valid' or not source.get('checked_at')
+            or instant(cost['checked_at']) != instant(source['checked_at'])
+            or cost.get('selected_count', 0) < 3
+            or set(CURVE_COST_GAPS) & set(cost_input['domain']['coverage_gaps'])):
+        return None
+    return dict(status=state, source_captured_at=cost['checked_at'], cost_sha256=fingerprint(cost),
+                proof_hash=proof['proof_hash'], curve_key=key, valid_until=data['valid_until'],
+                snapshot_sha256=fingerprint(evidence))
+
+
 def calculate_curve_cycle(db, evidence, plan, request, now):
+    from .cost_inputs_v6 import CURVE_COST_GAPS
     from .pricing_proof_v6 import CONTRACT, FAILED
 
     active = bool(request.get('v3_operation_id') and plan and plan.get('write_protocol') == CURVE_WRITE_PROTOCOL
@@ -2234,9 +2261,13 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
             row['gaps'] = [*row['gaps'], gap]
     if active:
         for row in rows:
+            primary_inputs = (frozen.get(row['platform']) or {}).get('primary_inputs') or {}
+            for code in CURVE_COST_GAPS:
+                if any(code in item['domain']['coverage_gaps'] for item in primary_inputs.values()):
+                    db.incident(code, 'cost', [row['platform']])
             for code in row['gaps']:
                 if code in ('pricing_curve_daily_move_exceeded', 'pricing_curve_out_of_market_range',
-                            'pricing_curve_margin_exception_exhausted', 'curve_cost_sample_outlier'):
+                            'pricing_curve_margin_exception_exhausted'):
                     db.incident(code, 'curve_price_insurance', [row['platform']])
     status = ('READY' if active and ready else 'NO_PRICE_CHANGE'
               if all(decisions[p]['status'] == 'KEEP' for p in platforms) else 'PROOF_INCOMPLETE')
@@ -2302,9 +2333,21 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
         decision_record = dict(curve=rows, created_at=now.isoformat(), anchor_shadow=result['anchor_shadow'],
             automatic_curve_round=bool(active and not restore_id and not request.get('manual_requested')),
             curve_round_id=request.get('v3_operation_id'))
+        recovery = {}
+        if active and not restore_id and not request.get('manual_requested') and request.get('natural_curve_cycle'):
+            for platform, decision in decisions.items():
+                try:
+                    candidate = _curve_cost_recovery_evidence(platform, decision, frozen.get(platform), evidence)
+                except Exception:
+                    LOG.exception('curve_cost_incident_evidence_failed snapshot_id=%s operation_id=%s platform=%s',
+                                  evidence['run_id'], request['v3_operation_id'], platform)
+                else:
+                    if candidate is not None:
+                        recovery[platform] = candidate
+        if recovery:
+            decision_record['cost_recovery'] = recovery
         if configuration:
             decision_record.update(margin_band_plan_id=plan['plan_id'], curve_selection=result['curve_selection'])
-        db.put('strategy_decisions', evidence['run_id'], decision_record, conn)
         if active and not restore_id:
             for platform, decision in decisions.items():
                 if decision['status'] != 'KEEP':
@@ -2317,12 +2360,16 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
                                          and row.get('http_status') == 200 and row.get('response_code') == 1
                                          and row.get('response_sha256')), None)
                 if primary_readback:
-                    db.observe_curve_keep(plan, evidence['run_id'], platform, curve,
-                                          primary_readback.get('received_at') or data['captured_at'],
-                                          'curve-proof-inputs:' + evidence['run_id'] + ':' + fingerprint(observed), conn,
-                                          selection=decision.get('selection'))
+                    accepted = db.observe_curve_keep(plan, evidence['run_id'], platform, curve,
+                        primary_readback.get('received_at') or data['captured_at'],
+                        'curve-proof-inputs:' + evidence['run_id'] + ':' + fingerprint(observed), conn,
+                        selection=decision.get('selection'))
+                    if platform in recovery and accepted and primary_readback.get('received_at'):
+                        recovery[platform].update(readback_sha256=primary_readback['response_sha256'],
+                                                  readback_at=primary_readback['received_at'])
             db.put('metadata', 'latest_snapshot:' + plan['plan_id'],
                    dict(snapshot_id=evidence['run_id'], plan_id=plan['plan_id']), conn)
+        db.put('strategy_decisions', evidence['run_id'], decision_record, conn)
     if active and not restore_id and not request.get('manual_requested'):
         for platform in platforms:
             decision = decisions[platform]
@@ -3277,7 +3324,21 @@ def exit_or_close(op,audit,reason):
 
 def reconcile(operation_id):
     with operation_execution(operation_id):
-        return _reconcile(operation_id)
+        outcome = _reconcile(operation_id)
+    bundle = outcome.get('bundle') or {}
+    if outcome.get('status') == 'COMPLETED' and bundle.get('write_protocol') == CURVE_WRITE_PROTOCOL:
+        recover_curve_cost_alerts(bundle.get('snapshot_id'), operation_id, check_completed=True)
+    return outcome
+
+
+def recover_curve_cost_alerts(snapshot_id, operation_id, *, check_completed=False):
+    try:
+        db = ledger()
+        with db.transaction() as conn:
+            db.recover_curve_cost_incidents(snapshot_id, operation_id, conn, check_completed=check_completed)
+    except Exception:
+        LOG.exception('curve_cost_incident_recovery_failed snapshot_id=%s operation_id=%s',
+                      snapshot_id, operation_id)
 
 
 def _reconcile_curve(op, *, retry_readback=True):
