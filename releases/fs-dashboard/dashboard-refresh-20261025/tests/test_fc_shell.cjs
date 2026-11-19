@@ -15,11 +15,14 @@ for(const [name,,baseline]of cases){
  const code=fs.readFileSync(path.join(source,name),'utf8').replace(/\r\n/g,'\n');
  assert.equal(code.split(added).length-1,1,name+' only adds the five state keys once');
  const beforeSummaryFix=code.replace(added,'')
+  .replace(" document.querySelector('.account').textContent=next.name;if(home)homeData();else nativeLoad();const loadEpoch=epoch;\n","")
+  .replace("if(loadEpoch!==epoch||!identity||identity.name!==next.name)return","if(id!==epoch||!identity||identity.name!==next.name)return")
+  .replace(" if(home)homeEntries(registry);"," document.querySelector('.account').textContent=next.name;if(home){homeEntries(registry);homeData();}else nativeLoad();")
   .replace("!['admin-paid-order-labelled-supplement-v2','admin-paid-order-labelled-supplement-v3-scope-repeat'].includes(data.scopeContractId)",name==='shell.js'?"data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'":"data.scopeContractId!=='admin-main-order-labelled-supplement-v1'")
   .replace("const day=fsPeriodPolicy().shift(FSHomeMetrics.beijingDate(),-1);","const day=FSHomeMetrics.beijingDate();")
   .replace("'昨日MMOEXP '","'今日MMOEXP '")
   .replace(" const heading=document.querySelector('.section-heading h2');if(heading)heading.textContent='昨日经营';\n document.querySelector('.home-kpis')?.setAttribute('aria-label','MMOEXP 昨日经营');\n",'');
- assert.equal(crypto.createHash('sha256').update(beforeSummaryFix).digest('hex'),baseline,name+' preserves baseline outside explicit summary/date changes');
+ assert.equal(crypto.createHash('sha256').update(beforeSummaryFix).digest('hex'),baseline,name+' preserves baseline outside the tested summary, date and load-order changes');
 }
 function detail(q){
  const row={orders:1,revenue_usd:20,issues:0,new:1,returning:0,unknown:0,unpriced_orders:0,unfinished:0,funding:0};
