@@ -109,32 +109,38 @@ def native_membership(read, pages, paid, period, config):
         return value.get('data') or {}
     data = product_query(1000)
     total = data.get('total')
-    if type(total) is not int or not 0 <= total <= config.get('native_product_budget',300): raise ValueError('fc_native_product_budget')
-    if len(data.get('list') or []) < total:
-        data = product_query(max(total,1000))
-        if data.get('total') != total: raise ValueError('fc_native_products_changed')
+    if type(total) is not int or total < 0: raise ValueError('fc_native_product_total')
+    budget = config.get('native_product_budget',300)
     products = data.get('list')
-    if not isinstance(products,list) or len(products) != total: raise ValueError('fc_native_products_incomplete')
-    identities, seen = defaultdict(list), set()
-    for product in products:
-        pid, goods = str(product.get('pid') or ''), product.get('goods') or {}
-        if not pid.isdigit() or pid in seen or pid != str(goods.get('id')) or str(product.get('gid')) != '1327': raise ValueError('fc_native_product_relation')
+    if not isinstance(products,list) or not min(budget,total) <= len(products) <= total:
+        raise ValueError('fc_native_products_incomplete')
+    identities, seen, completed, invalid = defaultdict(list), set(), 0, 0
+    for product in products[:budget]:
+        pid, goods = str(product.get('pid') or ''), product.get('goods')
+        if not isinstance(goods, dict): goods = {}
+        if not pid.isdigit() or int(pid) <= 0 or pid in seen or str(product.get('gid')) != '1327':
+            raise ValueError('fc_native_product_relation')
         seen.add(pid)
-        native = dict(pid=pid, goods={'id':pid,'cid':str(goods.get('cid'))}, native_type=str(product.get('cid')))
-        batch = pages([('gid',1327,'='),('pay_status',1,'='),('pid',pid,'='),filters[1]], 'native-pid-'+pid)
+        native = dict(pid=pid, goods={'id':str(goods.get('id')),'cid':str(goods.get('cid'))}, native_type=str(product.get('cid')))
+        try:
+            batch = pages([('gid',1327,'='),('pay_status',1,'='),('pid',pid,'='),filters[1]], 'native-pid-'+pid)
+        except TimeoutError:
+            break
+        completed += 1
+        invalid += classify('', [native], paths, True)['category_status'] != 'verified'
         for row in batch:
             key = (str(row.get('site_id')), str(row.get('order_no')))
             if native not in identities[key]: identities[key].append(native)
-    # Publish only once the entire native product relation has been enumerated.
     for row in paid:
         items = identities.get((str(row.get('site_id')),str(row.get('order_no'))), [])
-        # Native markup provides a count, never a name-based classification.
-        # Require every displayed product line to have one native product relation.
+        # Even after a bounded partial read, validate every line of each individual order.
         line_count = len(Items(str(row.get('content') or '')).lines)
         row['_fc_native_items'], row['_fc_items_complete'] = items, bool(items) and line_count == len(items)
-    return paths, dict(status='available', native_products=total,
+    return paths, dict(status='available' if completed == total and not invalid else 'partial',
+                       native_products=total, scanned_native_products=completed, invalid_native_products=invalid,
                        source='productSalesByEs complete PID groups + order.Order/index native pid filter',
-                       unmatched_orders=sum(not r.get('_fc_items_complete') for r in paid))
+                       unmatched_orders=sum(classify(r.get('content'), r['_fc_native_items'], paths,
+                                                     r['_fc_items_complete'])['category_status'] != 'verified' for r in paid))
 
 def identity(row):
     return (str(row.get('site') or ''), str(row.get('id') or ''))

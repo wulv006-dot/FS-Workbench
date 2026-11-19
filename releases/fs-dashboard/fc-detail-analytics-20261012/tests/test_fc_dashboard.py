@@ -256,10 +256,28 @@ class NativeMembershipTest(unittest.TestCase):
         self.assertEqual(proof['unmatched_orders'],1)
         self.assertEqual(normalize(rows[0],{**CFG,'_category_paths':paths},{266})['category'],'unknown')
 
-    def test_pid_catalogue_relation_conflict_cannot_publish(self):
+    def test_pid_catalogue_relation_conflict_is_local_to_matched_orders(self):
         rows,products,read=self.fixtures();products[0]['goods']['id']=99
-        with self.assertRaisesRegex(ValueError,'product_relation'):
-            native_membership(read,lambda *a:rows,rows,{'start':'2026-10-11 00:00','end':'2026-10-12 00:00'},CFG)
+        rows.append(raw(2,content=markup('Players')))
+        paths,proof=native_membership(read,lambda _,name:rows[:1] if name.endswith('-1') else rows,
+                                     rows,{'start':'2026-10-11 00:00','end':'2026-10-12 00:00'},CFG)
+        categories=[normalize(row,{**CFG,'_category_paths':paths},{266})['category'] for row in rows]
+        self.assertEqual(categories,['unknown','Players'])
+        self.assertEqual((proof['status'],proof['invalid_native_products'],proof['unmatched_orders']),('partial',1,1))
+
+    def test_incomplete_pid_scan_preserves_only_whole_order_matches(self):
+        rows,_,read=self.fixtures()
+        rows.append(raw(2,content=markup('Coins')))
+        for timeout in (False,True):
+            def pages(_,name):
+                if name.endswith('-2'): raise TimeoutError()
+                return rows
+            budget=2 if timeout else 1
+            paths,proof=native_membership(read,pages,rows,{'start':'2026-10-11 00:00','end':'2026-10-12 00:00'},
+                                         {**CFG,'native_product_budget':budget})
+            self.assertEqual([normalize(row,{**CFG,'_category_paths':paths},{266})['category']
+                              for row in rows],['unknown','Coins'])
+            self.assertEqual((proof['status'],proof['scanned_native_products']),('partial',1))
 
 class ReaderWiringTest(unittest.TestCase):
     def test_native_source_denial_stops_the_collection(self):

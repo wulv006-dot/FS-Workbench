@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN" data-fs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>FC 项目经营看板</title>
+  <link rel="stylesheet" href="../../../ui-system/tokens/fs-tokens.css">
+  <link rel="stylesheet" href="../../../ui-system/components/fs-ui.css">
+  <link rel="stylesheet" href="review.css">
+  <script src="../../../ui-system/adapters/fs-theme.js"></script>
+  <script id="review-geometry" type="application/json">{}</script>
+  <script id="review-data" type="application/json">{}</script>
+  <script src="review.js" defer></script>
+</head>
+<body class="fs-ui-page">
+  <a class="skip-link fs-btn" href="#overview">跳至经营概览</a>
+  <header class="masthead">
+    <div class="shell masthead-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">FC</span>
+        <div><p class="context">FS 工作台 / FC 项目</p><h1>FC 项目经营看板</h1></div>
+      </div>
+      <div class="utility">
+        <label class="utility-label" for="theme">主题</label>
+        <select id="theme" data-fs-theme-control aria-label="界面主题">
+          <option value="light">浅色</option><option value="dark">深色</option><option value="system">系统</option>
+        </select>
+        <button class="fs-btn" type="button" id="import-data">载入数据包</button>
+        <input type="file" id="data-file" accept=".json,application/json" hidden>
+      </div>
+    </div>
+  </header>
+  <main class="shell">
+    <search class="panel filters" aria-label="看板筛选">
+      <form id="filters" action="?" method="get">
+        <div class="field">
+          <label for="game">游戏版本</label>
+          <select id="game" name="game"><option>FC27</option><option>FC26</option></select>
+        </div>
+        <div class="field">
+          <label for="scope">网站范围</label>
+          <select id="scope" name="scope"><option value="all">全部网站</option><option value="main">MMOEXP</option></select>
+        </div>
+        <fieldset class="period-field">
+          <legend>日期粒度</legend>
+          <div class="segments">
+            <input id="grain-day" name="grain" type="radio" value="day"><label for="grain-day">日</label>
+            <input id="grain-week" name="grain" type="radio" value="week" checked><label for="grain-week">周</label>
+            <input id="grain-month" name="grain" type="radio" value="month"><label for="grain-month">月</label>
+            <input id="grain-custom" name="grain" type="radio" value="custom"><label for="grain-custom">自定义</label>
+          </div>
+        </fieldset>
+        <div class="field">
+          <label for="start" id="start-label">周内日期</label>
+          <input id="start" name="start" type="date" aria-describedby="range-help" required>
+        </div>
+        <div class="field" id="end-field" hidden>
+          <label for="end">结束日</label>
+          <input id="end" name="end" type="date" aria-describedby="range-help" disabled required>
+        </div>
+        <button type="submit" class="fs-btn fs-btn--primary">查看数据</button>
+      </form>
+      <p id="range-help" class="filter-note">北京时间 · 包含所选结束日</p>
+      <div class="field available" id="loaded-field" hidden>
+        <label for="loaded-period">已载入区间</label>
+        <select id="loaded-period"><option value="">选择区间</option></select>
+      </div>
+    </search>
+    <div class="range-context">
+      <p id="current-range" role="status" aria-live="polite"></p>
+      <p id="compare-range"></p>
+    </div>
+    <p id="import-status" class="notice" role="status" hidden></p>
+    <div id="request-pane" class="fs-note" hidden>
+      <p id="request-text"></p>
+      <details id="request-instructions" hidden>
+        <summary>查看取数条件</summary>
+        <pre id="request-command" tabindex="0"></pre>
+      </details>
+    </div>
+    <nav class="panel section-nav" aria-label="经营面板">
+      <a href="#overview">经营概览</a>
+      <a href="#category">商品结构</a>
+      <a href="#market">国家与支付</a>
+      <a href="#customers">新客与复购</a>
+      <a href="#ads">Google Ads</a>
+      <a href="#organic">自然流量</a>
+      <a href="#delivery">发货质量</a>
+    </nav>
+
+    <section id="overview" aria-labelledby="overview-title">
+      <div class="section-head"><h2 id="overview-title">经营概览</h2><span class="section-meta">销售按付款日 · 毛利按发货交易日</span></div>
+      <div class="kpi-grid" id="kpis"></div>
+      <div class="grid grid-major">
+        <article class="panel card"><h3>每日销售额与毛利</h3><div id="sales-trend"></div></article>
+        <article class="panel card"><h3>毛利率与采购成本占比</h3><div id="rate-trend"></div></article>
+      </div>
+      <div id="overview-coverage"></div>
+    </section>
+
+    <section id="category" aria-labelledby="category-title">
+      <div class="section-head"><h2 id="category-title">商品结构</h2><span class="section-meta">按整单唯一归属统计</span></div>
+      <div class="grid grid-major">
+        <article class="panel card"><div class="card-head"><h3>品类占比</h3><div id="category-mode" class="button-group" role="group" aria-label="品类占比指标"><button type="button" data-mode="salesUsd" aria-pressed="true">销售额</button><button type="button" data-mode="grossProfitCny" aria-pressed="false">毛利</button></div></div><div id="category-share"></div></article>
+        <article class="panel card"><h3>每日品类走势</h3><div id="category-trend"></div></article>
+      </div>
+      <div class="grid">
+        <article class="panel card"><h3>Players 销售排行</h3><div id="players-rank"></div></article>
+        <article class="panel card"><h3>SBC 销售排行</h3><div id="sbc-rank"></div></article>
+      </div>
+      <div id="category-coverage"></div>
+      <div id="observed-prices"></div>
+    </section>
+
+    <section id="market" aria-labelledby="market-title">
+      <div class="section-head"><h2 id="market-title">国家与支付</h2></div>
+      <div class="grid grid-major">
+        <article class="panel card"><h3>订单国家 / 地区</h3><div id="world"></div></article>
+        <article class="panel card"><h3>支付方式</h3><div id="payments"></div></article>
+      </div>
+      <div id="market-coverage"></div>
+    </section>
+
+    <section id="customers" aria-labelledby="customers-title">
+      <div class="section-head"><h2 id="customers-title">新客与复购</h2><span class="section-meta">按订单下单时的客户标记</span></div>
+      <div class="grid grid-major">
+        <article class="panel card">
+          <div class="card-head"><h3>客户累计消费分层</h3><div id="spend-mode" class="button-group" role="group" aria-label="累计消费分层指标"><button type="button" data-mode="customers" aria-pressed="true">客户数</button><button type="button" data-mode="salesUsd" aria-pressed="false">消费额</button></div></div>
+          <p class="card-sub">付款客户在所选区间的累计美元消费</p>
+          <div id="customer-bands"></div>
+        </article>
+        <article class="panel card">
+          <div class="card-head"><h3>新客与复购客户占比</h3><select id="spend-band" aria-label="占比对应的累计消费区间"><option value="">全部消费区间</option></select></div>
+          <div id="customer-share"></div>
+        </article>
+      </div>
+      <div class="grid">
+        <article class="panel card"><h3>每日新客与复购消费</h3><div id="customer-trend"></div></article>
+        <article class="panel card"><h3>单笔订单金额分布</h3><div id="order-bands"></div></article>
+      </div>
+      <div id="customer-coverage"></div>
+    </section>
+
+    <section id="ads" aria-labelledby="ads-title">
+      <div class="section-head"><h2 id="ads-title">Google Ads</h2><span class="section-meta" id="ads-scope"></span></div>
+      <div class="kpi-grid" id="ads-kpis"></div>
+      <div class="grid">
+        <article class="panel card"><h3>广告系列</h3><div id="campaigns"></div></article>
+        <article class="panel card"><h3>投放国家 / 地区</h3><div id="ads-countries"></div></article>
+      </div>
+      <div id="ads-coverage"></div>
+    </section>
+
+    <section id="organic" aria-labelledby="organic-title">
+      <div class="section-head"><h2 id="organic-title">自然流量</h2><span class="section-meta" id="organic-scope"></span></div>
+      <div class="grid">
+        <article class="panel card"><h3>GA4 自然搜索</h3><div id="organic-kpis"></div><div id="organic-countries"></div><div id="organic-pages"></div></article>
+        <article class="panel card"><h3>Google Search Console</h3><div id="search-kpis"></div><div id="search-pages"></div></article>
+      </div>
+      <div id="organic-coverage"></div>
+    </section>
+
+    <section id="delivery" aria-labelledby="delivery-title">
+      <div class="section-head"><h2 id="delivery-title">发货质量</h2><span class="section-meta">Coins · 按订单购买数量（K）</span></div>
+      <p id="delivery-scope" class="filter-note" hidden></p>
+      <div class="grid">
+        <article class="panel card"><h3>Coins 少于 1000K</h3><div id="delivery-small"></div></article>
+        <article class="panel card"><h3>Coins 1000K 及以上</h3><div id="delivery-large"></div></article>
+      </div>
+      <div id="delivery-coverage"></div>
+    </section>
+    <footer><details id="sources"><summary>数据来源与口径</summary><div id="source-list"></div></details></footer>
+    <noscript><p>请在浏览器中启用 JavaScript 后打开看板。</p></noscript>
+  </main>
+</body>
+</html>

@@ -434,6 +434,13 @@ class Handler(BaseHTTPRequestHandler):
    return
   if uri.path!='/range':self.reply(404,{'error':'not_found'});return
   params=parse_qs(uri.query,keep_blank_values=True)
+  if params.get('mode')==['fc-project-review']:
+   try:
+    from fc_project_review.api import get as project_review
+    status,data=project_review(params,self.headers.get('X-Auth-User'),get_range,ORDER_FACTS,hermes_authorizer)
+    self.reply(status,data)
+   except Exception:self.reply(503,{'error':'project_review_unavailable'})
+   return
   if params.get('mode')==['fc-daily']:
    try:status,data=FC_DAILY.get(params,self.headers.get('X-Auth-User'),self.headers);self.reply(status,data)
    except Exception:self.reply(503,{'error':'daily_report_unavailable'})
