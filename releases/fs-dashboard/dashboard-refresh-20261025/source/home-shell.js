@@ -220,6 +220,6 @@ document.addEventListener('visibilitychange',async()=>{
 const permissionTimer=setInterval(async()=>{if(document.hidden||!identity)return;const id=epoch,user=identity.name;try{const next=await verify();if(id!==epoch||!identity)return;if(next.name!==user||JSON.stringify(next.groups)!==JSON.stringify(identity.groups)){halt(403);return;}identity=next;accountNavigation(next);}catch(e){if(id===epoch&&e.status)halt(e.status);}},60000);
 addEventListener('pagehide',()=>{clearInterval(permissionTimer);epoch++;active?.scope.destroy();active=null;homeController?.abort();watcher?.stop();});addEventListener('pageshow',e=>{if(e.persisted){if(home&&identity)homeData();else nativeLoad();}});boot();
 
-{const href=new URL('/__hub/hubnav.js?v=nav-unified-20261120-9f163a8188bf',document.baseURI).href;if(!document.getElementById('hubNav')&&![...document.scripts].some(s=>s.src===href)){const sharedNav=document.createElement('script');sharedNav.src=href;sharedNav.defer=true;document.head.append(sharedNav);}}
+{const href=new URL('/__hub/hubnav.js?v=nav-unified-20261120-aaec928afc3e',document.baseURI).href;if(!document.getElementById('hubNav')&&![...document.scripts].some(s=>s.src===href)){const sharedNav=document.createElement('script');sharedNav.src=href;sharedNav.defer=true;document.head.append(sharedNav);}}
 
 document.addEventListener('fs-theme-change',e=>{theme=e.detail.preference;document.querySelectorAll('.native-content').forEach(h=>{h.dataset.theme=e.detail.resolved;h.dataset.fsTheme=e.detail.resolved;});if($('theme'))$('theme').value=theme;});

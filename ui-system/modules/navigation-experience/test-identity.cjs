@@ -1,3 +1,64 @@
-const {chromium}=require('playwright');const fs=require('fs'),assert=require('assert/strict');
+const { chromium } = require('playwright');
+const fs=require('fs'),assert=require('assert/strict');
 const hub=fs.readFileSync(__dirname+'/candidate/hubnav.js','utf8');
-(async()=>{const b=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});try{for(const test of ['switch','denied','offline','rpg']){const c=await b.newContext();await c.addInitScript(()=>sessionStorage.setItem('fs-nav-identity',JSON.stringify({ts:Date.now(),user:{name:'OLD_ACCOUNT',role:'admin',groups:['dashboard','deploy']}})));await c.route('**/*',async r=>{const u=new URL(r.request().url());if(u.pathname==='/__auth/verify'){if(test==='offline')return r.abort();if(test==='denied')return r.fulfill({status:403});await new Promise(x=>setTimeout(x,300));return r.fulfill({status:200,headers:{'X-Auth-User':'NEW_ACCOUNT','X-Auth-Role':'user','X-Auth-Groups':test==='rpg'?'rpg':'dashboard'}});}if(r.request().resourceType()==='document')return r.fulfill({status:200,contentType:'text/html',body:'<!doctype html><body><main>fixture</main></body>'});return r.fulfill({status:404});});const p=await c.newPage();await p.goto('http://fs.test/'+(test==='rpg'?'d4/':'dashboard/'));await p.addScriptTag({content:hub});assert(!((await p.locator('body').innerText()).includes('OLD_ACCOUNT')));await p.waitForTimeout(500);const body=await p.locator('body').innerText();assert(!body.includes('OLD_ACCOUNT'));if(test==='denied'){assert.equal(await p.locator('#hubNavGate').count(),1);assert.equal(await p.locator('#hubNav').isVisible(),false);}if(test==='switch'||test==='rpg'){assert(body.includes('NEW_ACCOUNT'));assert.equal(await p.locator('#hubNavGate').count(),0);}if(test==='offline')assert(!body.includes('NEW_ACCOUNT'));await c.close();console.log(test+' PASS');}}finally{await b.close();}})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{
+  const b=await chromium.launch({
+    headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+  });
+  try{
+    for(const test of ['switch','denied','offline','rpg']){
+      const c=await b.newContext();
+      await c.addInitScript(()=>sessionStorage.setItem('fs-nav-identity',JSON.stringify({
+        ts:Date.now(),user:{
+          name:'OLD_ACCOUNT',role:'admin',groups:['dashboard','deploy']
+        }
+      })));
+      await c.route('**/*',async r=>{
+        const u=new URL(r.request().url());
+        if(u.pathname==='/__auth/verify'){
+          if(test==='offline')return r.abort();
+          if(test==='denied')return r.fulfill({
+            status:403
+          });
+          await new Promise(x=>setTimeout(x,300));
+          return r.fulfill({
+            status:200,headers:{
+              'X-Auth-User':'NEW_ACCOUNT','X-Auth-Role':'user','X-Auth-Groups':test==='rpg'?'rpg':'dashboard'
+            }
+          });
+        }
+        if(r.request().resourceType()==='document')return r.fulfill({
+          status:200,contentType:'text/html',body:'<!doctype html><body><main>fixture</main></body>'
+        });
+        return r.fulfill({
+          status:404
+        });
+      });
+      const p=await c.newPage();
+      await p.goto('http://fs.test/'+(test==='rpg'?'d4/':'dashboard/'));
+      await p.addScriptTag({
+        content:hub
+      });
+      assert(!((await p.locator('body').innerText()).includes('OLD_ACCOUNT')));
+      await p.waitForTimeout(500);
+      const body=await p.locator('body').innerText();
+      assert(!body.includes('OLD_ACCOUNT'));
+      if(test==='denied'){
+        assert.equal(await p.locator('#hubNavGate').count(),1);
+        assert.equal(await p.locator('#hubNav').isVisible(),false);
+      }
+      if(test==='switch'||test==='rpg'){
+        assert(body.includes('NEW_ACCOUNT'));
+        assert.equal(await p.locator('#hubNavGate').count(),0);
+      }
+      if(test==='offline')assert(!body.includes('NEW_ACCOUNT'));
+      await c.close();
+      console.log(test+' PASS');
+    }
+  }finally{
+    await b.close();
+  }
+})().catch(e=>{
+  console.error(e);
+  process.exitCode=1
+});
