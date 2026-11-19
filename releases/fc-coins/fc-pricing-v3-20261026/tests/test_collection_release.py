@@ -86,6 +86,7 @@ class CollectionRelease(unittest.TestCase):
         scope['CURVE_REVIEW_SCOPE']=target_map.CURVE_REVIEW_SCOPE
         scope['CURVE_MARGIN_BAND_SCOPE']=target_map.CURVE_MARGIN_BAND_SCOPE
         scope['CURVE_ARAB_QUOTE_SCOPE']=target_map.CURVE_ARAB_QUOTE_SCOPE
+        scope['CURVE_RECOVERY_SCOPES']=target_map.CURVE_RECOVERY_SCOPES
         exec(compile(ast.Module(body=[restart],type_ignores=[]),'collection-restart','exec'),scope)
         for kind in ('collection', target_map.CURVE_ARAB_QUOTE_SCOPE):
             with self.subTest(scope=kind):

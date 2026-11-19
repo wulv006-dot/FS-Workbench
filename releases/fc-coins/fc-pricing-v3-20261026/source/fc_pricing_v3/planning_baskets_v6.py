@@ -31,9 +31,9 @@ def _quantity(value):
         return None
 
 
-def _attachment(attachment, start, end, as_of):
+def _attachment(attachment, start, end, as_of, source_gap):
     if attachment is None:
-        return [], None, None, Counter({'paid_source_unavailable': 1})
+        return [], None, None, Counter({source_gap or 'paid_source_unavailable': 1})
     rows = attachment.get('historical_orders')
     proof = attachment.get('historical_orders_coverage') or {}
     revision = attachment.get('source_sha256')
@@ -74,8 +74,8 @@ def _path_for(row, match, purchase, curve_key, as_of):
     return {key: match[key] for key in ('path_id', 'quote_ref', 'eligibility_ref', 'fulfilment_ref')}
 
 
-def _window(attachment, start, end, as_of, platform, curve_key, repriced_orders, selection):
-    rows, revision, source_available, gaps = _attachment(attachment, start, end, as_of)
+def _window(attachment, start, end, as_of, platform, curve_key, repriced_orders, selection, *, source_gap=None):
+    rows, revision, source_available, gaps = _attachment(attachment, start, end, as_of, source_gap)
     seen, scoped, conflict, counts, weights, mappings = {}, set(), set(), Counter(), Counter(), []
     for row in rows:
         if not isinstance(row, dict):
@@ -149,7 +149,7 @@ def _window(attachment, start, end, as_of, platform, curve_key, repriced_orders,
 
 
 def build_planning_baskets(platform, curve_key, closed_attachment, recent_attachment, repriced_orders, *,
-                           paid_cutoff, as_of):
+                           paid_cutoff, as_of, recent_source_gap=None):
     """Select site266 payments and map each known order to a verified current path.
 
     The closed input accepts business_source.collect_historical_attachment's
@@ -162,12 +162,13 @@ def build_planning_baskets(platform, curve_key, closed_attachment, recent_attach
         raise ValueError('planning_basket_scope_or_time_invalid')
     closed = historical_period('7d', now=cutoff)
 
-    def window(source, start, end, selection):
-        return _window(source, start, end, available, platform, curve_key, repriced_orders, selection)
+    def window(source, start, end, selection, *, source_gap=None):
+        return _window(source, start, end, available, platform, curve_key, repriced_orders, selection,
+                       source_gap=source_gap)
 
     main = window(closed_attachment, instant(closed['paid_window_start']),
                   instant(closed['paid_window_end_exclusive']), 'closed_bjt_7d')
-    daily = window(recent_attachment, cutoff - timedelta(hours=24), cutoff, 'latest_24h')
+    daily = window(recent_attachment, cutoff - timedelta(hours=24), cutoff, 'latest_24h', source_gap=recent_source_gap)
     recent = daily
     if daily['population_status'] == 'complete' and daily['paid_orders'] < STRUCTURE_ORDERS:
         recent = window(recent_attachment, cutoff - timedelta(days=3), cutoff, 'latest_3d')
