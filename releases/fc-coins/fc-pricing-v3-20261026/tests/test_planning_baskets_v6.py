@@ -1,12 +1,14 @@
 """Payment-window and quote-revision tests using the existing attachment schema."""
 from datetime import datetime, timedelta
 import hashlib
+from http.client import BadStatusLine
 import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from fc_pricing_v3 import business_source
@@ -160,6 +162,13 @@ class PlanningBaskets(unittest.TestCase):
 
             target = urlsplit(path)
             calls.append((target.path, parse_qs(target.query)))
+            if len(calls) == 1:
+                earlier_attempt = dict(native, id=102, order_no='partial-only')
+                return 200, json.dumps(dict(code=1, data=dict(total=2, list=[earlier_attempt])))
+            if len(calls) == 2:
+                raise TimeoutError('private transport details')
+            if len(calls) == 3:
+                return 502, b'<html>temporary upstream failure</html>'
             return 200, json.dumps(dict(code=1, data=dict(total=2, list=[native, native])))
 
         channel = SimpleNamespace(search=lambda filters: {key: value for key, _, value in filters}, apply_cost_overrides=lambda data: {
@@ -172,7 +181,9 @@ class PlanningBaskets(unittest.TestCase):
             partial = business_source.collect_recent_curve_population(manager, None, CUTOFF)
         query = dict(site_id=['266'], gid=['1327'], pay_status=['1'],
             paytime=['2026-11-13 00:00:00,2026-11-13 10:00:00'], cid=['1'], page=['1'], limit=['1000'], order=['id,desc'])
-        self.assertEqual(calls, [('/admin/order.Order/index', query)] * 2)
+        first_page = '/admin/order.Order/index', query
+        second_page = '/admin/order.Order/index', dict(query, page=['2'])
+        self.assertEqual(calls, [first_page, second_page, first_page, first_page, first_page])
         self.assertEqual(recent['historical_orders_coverage']['population_status'], 'complete')
         self.assertEqual(recent['historical_orders_coverage']['closed_archive_revision'], 'original')
         self.assertEqual(partial['historical_orders_coverage']['population_status'], 'partial')
@@ -182,6 +193,36 @@ class PlanningBaskets(unittest.TestCase):
         self.assertTrue(today['single_line_unit_purchase'])
         self.assertEqual(today['promotion_path'], {'kind':'none'})
         self.assertNotIn('today-order', str(recent))
+
+    def test_recent_native_read_fails_closed_after_bounded_retry_or_permanent_rejection(self):
+        invalid_order = dict(id=1, order_no='private-order', site_id='999')
+        invalid_scope = 200, json.dumps(dict(code=1, data=dict(total=1, list=[invalid_order])))
+        error_body_timeout = TimeoutError('private body read')
+        error_body_timeout.__context__ = HTTPError('https://example.invalid', 403, 'private', {}, None)
+        cases = (
+            (URLError(TimeoutError('private details')), 'source_timeout', 3),
+            (error_body_timeout, 'source_http_403', 1),
+            (BadStatusLine('private upstream bytes'), 'source_response_invalid', 1),
+            ((503, b'<html>private response</html>'), 'source_http_503', 3),
+            ((403, b'<html>private response</html>'), 'source_http_403', 1),
+            ((200, b'private malformed payload'), 'source_response_invalid', 1),
+            ((200, b'{"code":1,"data":{"total":1,"list":[]}}'), 'source_pagination_invalid', 1),
+            ((200, b'{"code":1,"data":{"total":1,"list":[{}]}}'), 'source_order_identity_invalid', 1),
+            (invalid_scope, 'source_order_scope_invalid', 1),
+        )
+        channel = SimpleNamespace(search=lambda filters: {key: value for key, _, value in filters},
+            apply_cost_overrides=lambda data: {'sources': {'accounting': {'status': 'available'}}, 'testOrders': {}})
+        effects = SimpleNamespace(fraud=lambda row: False)
+        with patch.dict(sys.modules, channel_source=channel, channel_effects=effects), \
+                patch.object(business_source, '_historical_provider_now', return_value=AS_OF):
+            for response, expected, attempts in cases:
+                with self.subTest(expected=expected):
+                    request = Mock(side_effect=[response] * attempts)
+                    with self.assertRaisesRegex(business_source.RecentCurveReadFailure, '^' + expected + '$'):
+                        business_source.collect_recent_curve_population(SimpleNamespace(request=request),
+                                                                        closed_source([]), CUTOFF)
+                    self.assertEqual(request.call_count, attempts)
+                    self.assertTrue(all(call == request.call_args for call in request.call_args_list))
 
     def test_recent_native_pages_count_raw_duplicates_and_reject_conflicting_orders(self):
         a = dict(id=1, order_no='a', content='100K Coins')

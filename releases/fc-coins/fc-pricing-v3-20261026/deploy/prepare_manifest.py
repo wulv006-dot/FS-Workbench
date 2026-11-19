@@ -22,6 +22,7 @@ from target_map import CURVE_INSURANCE_SCOPE, CURVE_INSURANCE_TARGET_COUNT, curv
 from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEKLY_NEW, curve_weekly_targets
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, curve_arab_quote_targets
+from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
 from target_map import CURVE_MARGIN_BAND_SCOPE, CURVE_MARGIN_BAND_TARGET_COUNT, curve_margin_band_targets
 from target_map import CURVE_REVIEW_SCOPE, CURVE_REVIEW_TARGET_COUNT, curve_review_targets
 from target_map import CURVE_STABILITY_SCOPE, CURVE_STABILITY_TARGET_COUNT, CURVE_STABILITY_REPOSITORY_SOURCES, curve_stability_targets
@@ -56,8 +57,10 @@ def load_base():
     return base
 
 
-def prepare(delta=False, shadow=False, operating=False, collection=False, bidirectional=False, repair=False, quote_fragment=False, quote_preview=False, daily_repair=False, daily_summary=False, coupon_display=False, three_platform=False, bundle_bootstrap=None,lootbar=False,curve_v6=False,curve_average=False,curve_insurance=False, curve_stability=False, curve_market=False, curve_weekly=False, curve_review=False, curve_margin_band=False, curve_arab_quote=False):
-    if sum(map(bool,(delta,shadow,operating,collection,bidirectional,repair,quote_fragment,quote_preview,daily_repair,daily_summary,coupon_display,three_platform,lootbar,curve_v6,curve_average,curve_insurance,curve_stability,curve_market,curve_weekly,curve_review,curve_margin_band,curve_arab_quote)))>1:
+def prepare(delta=False, shadow=False, operating=False, collection=False, bidirectional=False, repair=False, quote_fragment=False, quote_preview=False, daily_repair=False, daily_summary=False, coupon_display=False, three_platform=False, bundle_bootstrap=None,lootbar=False,curve_v6=False,curve_average=False,curve_insurance=False, curve_stability=False, curve_market=False, curve_weekly=False, curve_review=False, curve_margin_band=False, curve_arab_quote=False, curve_recovery=None):
+    curve_modes = (curve_v6, curve_average, curve_insurance, curve_stability, curve_market,
+                   curve_weekly, curve_review, curve_margin_band, curve_arab_quote, curve_recovery)
+    if sum(map(bool,(delta,shadow,operating,collection,bidirectional,repair,quote_fragment,quote_preview,daily_repair,daily_summary,coupon_display,three_platform,lootbar,*curve_modes)))>1:
         raise ValueError('exclusive_release_scope_required')
     if bundle_bootstrap is not None and not three_platform:raise ValueError('bundle_bootstrap_requires_three_platform_scope')
     provenance = json.loads((STAGE / 'source-manifest.json').read_text(encoding='utf-8'))
@@ -65,10 +68,11 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     if not re.fullmatch('[a-f0-9]{40}', source_commit or ''):
         raise ValueError('source_commit_required')
     source = STAGE / 'candidate/source'
-    mapping = (curve_arab_quote_targets(source) if curve_arab_quote else curve_margin_band_targets(source) if curve_margin_band else curve_review_targets(source) if curve_review else curve_weekly_targets(source) if curve_weekly else curve_market_targets(source) if curve_market else curve_stability_targets(source) if curve_stability else curve_insurance_targets(source) if curve_insurance else curve_average_targets(source) if curve_average else curve_v6_targets(source) if curve_v6
+    curve_stage = any(curve_modes)
+    mapping = (CURVE_RECOVERY_TARGETS[curve_recovery] if curve_recovery else curve_arab_quote_targets(source) if curve_arab_quote else curve_margin_band_targets(source) if curve_margin_band else curve_review_targets(source) if curve_review else curve_weekly_targets(source) if curve_weekly else curve_market_targets(source) if curve_market else curve_stability_targets(source) if curve_stability else curve_insurance_targets(source) if curve_insurance else curve_average_targets(source) if curve_average else curve_v6_targets(source) if curve_v6
                else three_platform_targets(source) if three_platform else targets(source))
     all_expected = {'source/' + name: target for name, target in mapping.items()}
-    expected_count = (CURVE_ARAB_QUOTE_TARGET_COUNT if curve_arab_quote else CURVE_MARGIN_BAND_TARGET_COUNT if curve_margin_band else CURVE_REVIEW_TARGET_COUNT if curve_review else CURVE_WEEKLY_TARGET_COUNT if curve_weekly else CURVE_MARKET_TARGET_COUNT if curve_market else CURVE_STABILITY_TARGET_COUNT if curve_stability else CURVE_INSURANCE_TARGET_COUNT if curve_insurance else CURVE_AVERAGE_TARGET_COUNT if curve_average else CURVE_V6_TARGET_COUNT if curve_v6
+    expected_count = (len(CURVE_RECOVERY_TARGETS[curve_recovery]) if curve_recovery else CURVE_ARAB_QUOTE_TARGET_COUNT if curve_arab_quote else CURVE_MARGIN_BAND_TARGET_COUNT if curve_margin_band else CURVE_REVIEW_TARGET_COUNT if curve_review else CURVE_WEEKLY_TARGET_COUNT if curve_weekly else CURVE_MARKET_TARGET_COUNT if curve_market else CURVE_STABILITY_TARGET_COUNT if curve_stability else CURVE_INSURANCE_TARGET_COUNT if curve_insurance else CURVE_AVERAGE_TARGET_COUNT if curve_average else CURVE_V6_TARGET_COUNT if curve_v6
                       else THREE_PLATFORM_TARGET_COUNT if three_platform else TARGET_COUNT)
     if len(all_expected) != expected_count:raise ValueError('staged_payload_differs_from_git_source_manifest')
     if curve_v6 and (provenance.get('scope') != CURVE_V6_SCOPE or provenance.get('sourceBaseCommit') != CURVE_V6_BASE
@@ -92,6 +96,8 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         raise ValueError('curve_stability_source_provenance_changed')
     if curve_arab_quote and provenance.get('scope') != CURVE_ARAB_QUOTE_SCOPE:
         raise ValueError('curve_arab_quote_source_provenance_changed')
+    if curve_recovery and provenance.get('scope') != CURVE_RECOVERY_SCOPES[curve_recovery]:
+        raise ValueError('curve_recovery_source_provenance_changed')
     if curve_margin_band and provenance.get('scope') != CURVE_MARGIN_BAND_SCOPE:
         raise ValueError('curve_margin_band_source_provenance_changed')
     if curve_review and provenance.get('scope') != CURVE_REVIEW_SCOPE:
@@ -102,7 +108,7 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         raise ValueError('curve_market_source_provenance_changed')
     if curve_insurance and provenance.get('scope') != CURVE_INSURANCE_SCOPE:
         raise ValueError('curve_insurance_source_provenance_changed')
-    if curve_v6 or curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote:
+    if curve_stage:
         candidate_root = STAGE / 'candidate'
         actual = {path.relative_to(candidate_root).as_posix() for path in candidate_root.rglob('*')
                   if path.is_symlink() or not path.is_dir()}
@@ -117,9 +123,9 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     new_targets = (CURVE_WEEKLY_NEW if curve_weekly else CURVE_AVERAGE_NEW if curve_average else CURVE_V6_NEW if curve_v6 else THREE_PLATFORM_NEW
                    if three_platform else OPERATING_NEW if operating else DELTA_NEW if delta else frozenset())
     if lootbar:selected=LOOTBAR_CALLER_NAMES
-    if curve_v6 or curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote:selected=tuple(all_expected)
+    if curve_stage:selected=tuple(all_expected)
     expected = {name: all_expected[name] for name in selected} if selected else all_expected
-    if not (curve_v6 or curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote):
+    if not curve_stage:
         for name in expected:
             if name.endswith('.py'):
                 require_curve_scope_for_imports(name, (STAGE / 'candidate' / name).read_bytes())
@@ -142,12 +148,12 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         protected.update(COUPON_DISPLAY_PROTECTED)
         protected.add('/opt/fc27-cloud-browser/storefront_monitor.py')
         protected.add(MONITOR_SQLITE_SOURCE)
-    if curve_v6 or curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote:
+    if curve_stage:
         protected.update(set(three_platform_targets(source).values()) - changed)
         protected.update(COUPON_DISPLAY_PROTECTED)
         protected.update(CURVE_V6_PROTECTED)
         protected.update(THREE_PLATFORM_EXTRA[name] for name in ('source/monitor-hooks.py', 'source/monitor-collector.py'))
-    if curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote:
+    if curve_stage and not curve_v6:
         protected.update(set(curve_v6_targets(source).values()) - changed)
         protected.update(('/opt/fs-hermes-fc/user_source.py', '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'))
     if curve_arab_quote:
@@ -156,7 +162,7 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     for name, target in sorted(expected.items()):
         current = Path(target)
         regular(current, existing=bool(selected) and name not in new_targets)
-        if (curve_v6 or curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote) and name in new_targets and current.exists():
+        if curve_stage and name in new_targets and current.exists():
             raise ValueError('curve_v6_new_target_already_exists:' + target)
         if current.exists():
             info = current.stat()
@@ -180,7 +186,7 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     units=('fs-business-range.service', 'fs-hermes-fc.service',
            'fc27-cloud-api.service', 'fc27-cloud-worker.service')
     if three_platform:units+=('fc27-pack-bundles.service',)
-    if curve_v6 or curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote:units+=('fc-pricing-v3.service',)
+    if curve_stage:units+=('fc-pricing-v3.service',)
     for unit in units:
         state = subprocess.check_output(['systemctl', 'show', unit, '--no-pager',
             '-p', 'ActiveState'], universal_newlines=True).strip()
@@ -196,6 +202,7 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     if curve_stability:manifest['scope']=CURVE_STABILITY_SCOPE
     if curve_weekly:manifest['scope']=CURVE_WEEKLY_SCOPE
     if curve_arab_quote:manifest['scope']=CURVE_ARAB_QUOTE_SCOPE
+    if curve_recovery:manifest['scope']=CURVE_RECOVERY_SCOPES[curve_recovery]
     if curve_margin_band:manifest['scope']=CURVE_MARGIN_BAND_SCOPE
     if curve_review:manifest['scope']=CURVE_REVIEW_SCOPE
     if curve_market:manifest['scope']=CURVE_MARKET_SCOPE
@@ -248,6 +255,7 @@ if __name__ == '__main__':
     kind.add_argument('--curve-review', action='store_true')
     kind.add_argument('--curve-margin-band', action='store_true')
     kind.add_argument('--curve-arab-quote', action='store_true')
+    kind.add_argument('--curve-recovery', choices=CURVE_RECOVERY_SCOPES)
     parser.add_argument('--bundle-bootstrap',help='Read-only proof metadata from capture-bundle-bootstrap; no private config')
     args = parser.parse_args()
-    print(json.dumps(prepare(args.delta,args.shadow,args.operating,args.collection,args.bidirectional,args.repair,args.quote_fragment,args.quote_preview,args.daily_repair,args.daily_summary,args.coupon_display,args.three_platform,args.bundle_bootstrap,args.lootbar,curve_v6=args.curve_v6,curve_average=args.curve_average,curve_insurance=args.curve_insurance, curve_stability=args.curve_stability, curve_market=args.curve_market, curve_weekly=args.curve_weekly, curve_review=args.curve_review, curve_margin_band=args.curve_margin_band, curve_arab_quote=args.curve_arab_quote), sort_keys=True))
+    print(json.dumps(prepare(args.delta,args.shadow,args.operating,args.collection,args.bidirectional,args.repair,args.quote_fragment,args.quote_preview,args.daily_repair,args.daily_summary,args.coupon_display,args.three_platform,args.bundle_bootstrap,args.lootbar,curve_v6=args.curve_v6,curve_average=args.curve_average,curve_insurance=args.curve_insurance, curve_stability=args.curve_stability, curve_market=args.curve_market, curve_weekly=args.curve_weekly, curve_review=args.curve_review, curve_margin_band=args.curve_margin_band, curve_arab_quote=args.curve_arab_quote, curve_recovery=args.curve_recovery), sort_keys=True))

@@ -21,6 +21,7 @@ from target_map import CURVE_INSURANCE_SCOPE, CURVE_INSURANCE_TARGET_COUNT, curv
 from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEKLY_NEW, curve_weekly_targets
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, curve_arab_quote_targets
+from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
 from target_map import CURVE_MARGIN_BAND_SCOPE, CURVE_MARGIN_BAND_TARGET_COUNT, curve_margin_band_targets
 from target_map import CURVE_REVIEW_SCOPE, CURVE_REVIEW_TARGET_COUNT, curve_review_targets
 from target_map import CURVE_STABILITY_SCOPE, CURVE_STABILITY_TARGET_COUNT, CURVE_STABILITY_REPOSITORY_SOURCES, curve_stability_targets
@@ -46,8 +47,10 @@ def monitor_library(path):
 
 
 def build(checkout, output, coupon_display=False, three_platform=False, monitor_sqlite_library=None, lootbar=False,
-          curve_v6=False, curve_average=False, curve_insurance=False, curve_stability=False, curve_market=False, curve_weekly=False, curve_review=False, curve_margin_band=False, curve_arab_quote=False):
-    if sum(map(bool,(coupon_display,three_platform,lootbar,curve_v6,curve_average,curve_insurance,curve_stability,curve_market,curve_weekly,curve_review,curve_margin_band,curve_arab_quote)))>1:raise ValueError('exclusive_stage_mode_required')
+          curve_v6=False, curve_average=False, curve_insurance=False, curve_stability=False, curve_market=False, curve_weekly=False, curve_review=False, curve_margin_band=False, curve_arab_quote=False, curve_recovery=None):
+    curve_modes = (curve_v6, curve_average, curve_insurance, curve_stability, curve_market,
+                   curve_weekly, curve_review, curve_margin_band, curve_arab_quote, curve_recovery)
+    if sum(map(bool,(coupon_display,three_platform,lootbar,*curve_modes)))>1:raise ValueError('exclusive_stage_mode_required')
     if monitor_sqlite_library is not None and not three_platform:raise ValueError('monitor_library_requires_three_platform_scope')
     checkout = Path(checkout).resolve()
     release = checkout / 'releases/fc-coins/fc-pricing-v3-20261026'
@@ -75,9 +78,9 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
                              + ','.join(sorted(CURVE_V6_SOURCE_NAMES - actual))
                              + ':extra=' + ','.join(sorted(actual - CURVE_V6_SOURCE_NAMES)))
     library=monitor_library(monitor_sqlite_library) if three_platform else None
-    mapping = (curve_arab_quote_targets(source) if curve_arab_quote else curve_margin_band_targets(source) if curve_margin_band else curve_review_targets(source) if curve_review else curve_weekly_targets(source) if curve_weekly else curve_market_targets(source) if curve_market else curve_stability_targets(source) if curve_stability else curve_insurance_targets(source) if curve_insurance else curve_average_targets(source) if curve_average else curve_v6_targets(source) if curve_v6
+    mapping = (CURVE_RECOVERY_TARGETS[curve_recovery].copy() if curve_recovery else curve_arab_quote_targets(source) if curve_arab_quote else curve_margin_band_targets(source) if curve_margin_band else curve_review_targets(source) if curve_review else curve_weekly_targets(source) if curve_weekly else curve_market_targets(source) if curve_market else curve_stability_targets(source) if curve_stability else curve_insurance_targets(source) if curve_insurance else curve_average_targets(source) if curve_average else curve_v6_targets(source) if curve_v6
                else three_platform_targets(source) if three_platform else targets(source))
-    expected_count = (CURVE_ARAB_QUOTE_TARGET_COUNT if curve_arab_quote else CURVE_MARGIN_BAND_TARGET_COUNT if curve_margin_band else CURVE_REVIEW_TARGET_COUNT if curve_review else CURVE_WEEKLY_TARGET_COUNT if curve_weekly else CURVE_MARKET_TARGET_COUNT if curve_market else CURVE_STABILITY_TARGET_COUNT if curve_stability else CURVE_INSURANCE_TARGET_COUNT if curve_insurance else CURVE_AVERAGE_TARGET_COUNT if curve_average else CURVE_V6_TARGET_COUNT if curve_v6
+    expected_count = (len(CURVE_RECOVERY_TARGETS[curve_recovery]) if curve_recovery else CURVE_ARAB_QUOTE_TARGET_COUNT if curve_arab_quote else CURVE_MARGIN_BAND_TARGET_COUNT if curve_margin_band else CURVE_REVIEW_TARGET_COUNT if curve_review else CURVE_WEEKLY_TARGET_COUNT if curve_weekly else CURVE_MARKET_TARGET_COUNT if curve_market else CURVE_STABILITY_TARGET_COUNT if curve_stability else CURVE_INSURANCE_TARGET_COUNT if curve_insurance else CURVE_AVERAGE_TARGET_COUNT if curve_average else CURVE_V6_TARGET_COUNT if curve_v6
                       else THREE_PLATFORM_TARGET_COUNT if three_platform else TARGET_COUNT)
     if len(mapping) != expected_count:
         raise ValueError('exact_target_count_required')
@@ -86,8 +89,9 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
     if three_platform:mapping.update({name.removeprefix('source/'):target for name,target in THREE_PLATFORM_EXTRA.items()})
     selected = (THREE_PLATFORM_NAMES if three_platform else COUPON_DISPLAY_NAMES if coupon_display
                 else LOOTBAR_CALLER_NAMES if lootbar else None)
+    curve_stage = any(curve_modes)
     def read_blob(path):
-        return git_blob(checkout, path, commit) if curve_v6 or curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote else git_blob(checkout, path)
+        return git_blob(checkout, path, commit) if curve_stage else git_blob(checkout, path)
 
     with tempfile.TemporaryDirectory(prefix='fc-v3-stage-') as temporary:
         stage = Path(temporary) / 'fc-pricing-v3-20261026'
@@ -105,7 +109,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             destination = candidate / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             payload = library if 'source/'+name==MONITOR_SQLITE_CANDIDATE else read_blob(original)
-            if not (curve_v6 or curve_average or curve_insurance or curve_stability or curve_market or curve_weekly or curve_review or curve_margin_band or curve_arab_quote) and (selected is None or 'source/' + name in selected):
+            if not curve_stage and (selected is None or 'source/' + name in selected):
                 require_curve_scope_for_imports(name, payload)
             if original.suffix == '.sh' and (not payload.startswith(b'#!/bin/sh\n') or b'\r' in payload):
                 raise ValueError('committed_shell_line_endings_invalid:' + name)
@@ -133,6 +137,8 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             provenance['scope'] = CURVE_WEEKLY_SCOPE
         if curve_arab_quote:
             provenance['scope'] = CURVE_ARAB_QUOTE_SCOPE
+        if curve_recovery:
+            provenance['scope'] = CURVE_RECOVERY_SCOPES[curve_recovery]
         if curve_margin_band:
             provenance['scope'] = CURVE_MARGIN_BAND_SCOPE
         if curve_review:
@@ -168,7 +174,8 @@ if __name__ == '__main__':
     kind.add_argument('--curve-review', action='store_true')
     kind.add_argument('--curve-margin-band', action='store_true')
     kind.add_argument('--curve-arab-quote', action='store_true')
+    kind.add_argument('--curve-recovery', choices=CURVE_RECOVERY_SCOPES)
     parser.add_argument('--monitor-sqlite-library',type=Path)
     args = parser.parse_args()
     print(json.dumps(build(args.checkout, args.output,args.coupon_display,args.three_platform,args.monitor_sqlite_library,args.lootbar,
-                           curve_v6=args.curve_v6, curve_average=args.curve_average, curve_insurance=args.curve_insurance, curve_stability=args.curve_stability, curve_market=args.curve_market, curve_weekly=args.curve_weekly, curve_review=args.curve_review, curve_margin_band=args.curve_margin_band, curve_arab_quote=args.curve_arab_quote), sort_keys=True))
+                           curve_v6=args.curve_v6, curve_average=args.curve_average, curve_insurance=args.curve_insurance, curve_stability=args.curve_stability, curve_market=args.curve_market, curve_weekly=args.curve_weekly, curve_review=args.curve_review, curve_margin_band=args.curve_margin_band, curve_arab_quote=args.curve_arab_quote, curve_recovery=args.curve_recovery), sort_keys=True))
