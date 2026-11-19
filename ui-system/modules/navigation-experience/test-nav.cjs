@@ -6,6 +6,9 @@ const dir=__dirname,nav=fs.readFileSync(path.join(dir,'candidate','nav.js'),'utf
 const browserPath=process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
 const ui='/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/';
 const registry=JSON.parse(hub.split('const registry=')[1].split(';\n')[0]);
+const firstPaintRegistry = JSON.parse(hub.split('const BUILTIN=')[1].split(';\n')[0]);
+assert.deepEqual(firstPaintRegistry, registry);
+assert(registry.tools.some(tool => tool.id === 'fc-project-review'));
 (async()=>{
   const browser=await chromium.launch({
     headless:true,executablePath:browserPath

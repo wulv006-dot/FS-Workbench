@@ -7,7 +7,7 @@ const css=fs.readFileSync(path.join(dir,'navigation-experience.css'),'utf8').rep
 const enhancement=fs.readFileSync(path.join(dir,'navigation-experience.js'),'utf8').replace(/\r\n/g,'\n').replace('__FS_NAV_REGISTRY__',JSON.stringify(reg));
 const style=`\n(function(){if(document.getElementById('fsNavExperienceStyle'))return;const s=document.createElement('style');s.id='fsNavExperienceStyle';s.textContent=${JSON.stringify(css)};document.head.append(s);})();\n`;
 fs.mkdirSync(path.join(dir,'candidate'),{recursive:true});
-const hub=live.replace('tree.replaceChildren(frag);',"tree.replaceChildren(frag);document.dispatchEvent(new CustomEvent('fs-nav-account-ready',{detail:{account:tree.querySelector('.hn-account')}}));");
+const hub=live.replace(/^const BUILTIN=.*;$/m,()=>'const BUILTIN='+JSON.stringify(reg)+';').replace('tree.replaceChildren(frag);',"tree.replaceChildren(frag);document.dispatchEvent(new CustomEvent('fs-nav-account-ready',{detail:{account:tree.querySelector('.hn-account')}}));");
 fs.writeFileSync(path.join(dir,'candidate','hubnav.js'),hub+style+enhancement);
 let nav=fs.readFileSync(path.join(dir,'nav.live.js'),'utf8');
 // The shared renderer owns group structure and active state once mounted.
