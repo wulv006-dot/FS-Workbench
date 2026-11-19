@@ -51,7 +51,7 @@ export function shanghaiIsoWeek(value){
 
 export function makeWeeklyStore({dir,centerProvider,now=Date.now}) {
  const file=path.join(dir,'weekly-operations.json');
- const rawRead=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{schema_version:1,revision:0,weeks:[],operations:[],hermes:{enabled:false,model:'gpt-6.1-sol',status:'not_connected',schedule_enabled:false}};
+ const rawRead=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{schema_version:1,revision:0,weeks:[],operations:[],hermes:{enabled:false,model:'gpt-6.2-sol',status:'not_connected',schedule_enabled:false}};
  function view(state,center=centerProvider()) {
   const pages=weeklyPages(center,{now:now()});
   return {revision:state.revision,operations:state.operations.map(({id,hash})=>({operationId:id,request_hash:hash})),hermes:state.hermes,pages,weeks:state.weeks.map(w=>{

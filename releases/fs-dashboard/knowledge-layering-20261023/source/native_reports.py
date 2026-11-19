@@ -116,7 +116,7 @@ def context(native,binding,*,preparing=False,terminal=False):
     book=getattr(host,'report_books',{}).get(task['id'])
     if book is not None and task['spec']['snapshot_id']!=book.capture_id:raise PermissionError('native_report_snapshot')
     return dict(job=job,body=body,task=task,deadline=deadline,book=book,
-                effort='max' if body['mode'] in {'investigation','pricing'} else 'high')
+                effort='high')
 
 
 def admitted(native,binding):
@@ -163,7 +163,7 @@ def execute(host,key,owner,body,scheduled_context=None):
         elif continuation:book=load_continuation(host.tasks,continuation,owner,body['start'],body['end'],host.source_root,skills=metadata)
         else:book=build_book(host.detail,host.daily,host.read_range,host.diagnostics,body['start'],body['end'],host.source_root,owner,deadline=deadline,lazy_report=key,skills=metadata)
         book.skills=metadata
-        from direct_provider import POLICY_ID
+        from openai_provider import POLICY_ID
         spec=dict(period=dict(start=body['start'],end_exclusive=(date.fromisoformat(body['end'])+timedelta(days=1)).isoformat(),timezone='Asia/Shanghai'),
             snapshot_id=book.capture_id,template_version='native-report-'+digest(body)[:32],knowledge_version=metadata['version'],budget_policy_id=POLICY_ID)
         with host.lock:

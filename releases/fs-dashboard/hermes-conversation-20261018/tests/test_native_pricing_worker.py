@@ -20,7 +20,7 @@ class NativePricingWorkerTests(unittest.TestCase):
         capabilities=dict(allowed_actions=allowed,tool_schema=schema)
         bound=dict(owner='alice',conversation_id='b'*32,turn_id='c'*32,request_id='pricing_native_01',
                    session_id='hc_'+'a'*64,lease='d'*32,run_id='run_'+'e'*32)
-        item=dict(session_id=bound['session_id'],model='gpt-6.1-sol',token='f'*43,conversation=True,
+        item=dict(session_id=bound['session_id'],model='gpt-6.2-sol',token='f'*43,conversation=True,
                   ready=True,run_id=bound['run_id'],prompt='',reasoning_effort='high',native_chat=dict(
                   binding=bound,environment={'files':[]},pricing=dict(conversation=bound['conversation_id'],
                   mode='daily_review',runs=['00000000-0000-4000-8000-000000000001'],
@@ -69,7 +69,7 @@ class NativePricingWorkerTests(unittest.TestCase):
                 config=calls['native_kwargs']
                 self.assertEqual(set(config['enabled_toolsets']),{'file','terminal','memory','skills','fs_native_pricing_readonly'})
                 self.assertEqual(config['disabled_toolsets'],['fs_materials','fs_native_pricing_unavailable','fs_native_reports'])
-                self.assertEqual(config['model'],'gpt-6.1-sol')
+                self.assertEqual(config['model'],'gpt-6.2-sol')
                 self.assertEqual(config['max_tokens'],128000)
                 self.assertEqual(config['reasoning_config'],{'enabled':True,'effort':'high'})
                 self.assertIs(config['session_db'],session_db)
@@ -119,7 +119,7 @@ class NativeReportWorkerTests(unittest.TestCase):
         schemas=tool_schemas()
         bound=dict(owner='alice',conversation_id='b'*32,turn_id='c'*32,request_id='report_native_01',
                    session_id='hc_'+'a'*64,lease='d'*32,run_id='run_'+'e'*32)
-        item=dict(session_id=bound['session_id'],model='gpt-6.1-sol',token='f'*43,conversation=True,
+        item=dict(session_id=bound['session_id'],model='gpt-6.2-sol',token='f'*43,conversation=True,
             ready=True,run_id=bound['run_id'],prompt='',reasoning_effort='max',native_chat=dict(
             binding=bound,environment={'files':[]},report='1'*32))
         with fixture.WorkerEnvironmentTests().runtime() as (worker,adapter,calls,modules):
@@ -161,7 +161,7 @@ class NativeReportWorkerTests(unittest.TestCase):
                 agent=adapter._create_native_agent(item);config=calls['native_kwargs']
                 self.assertEqual(set(config['enabled_toolsets']),{'file','terminal','memory','skills','fs_native_reports'})
                 self.assertEqual(config['disabled_toolsets'],['fs_materials','fs_native_report_unavailable'])
-                self.assertEqual(config['model'],'gpt-6.1-sol')
+                self.assertEqual(config['model'],'gpt-6.2-sol')
                 self.assertEqual(config['max_tokens'],128000)
                 self.assertEqual(config['reasoning_config'],{'enabled':True,'effort':'max'})
                 self.assertIs(config['session_db'],session_db)

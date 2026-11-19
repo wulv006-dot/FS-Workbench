@@ -200,12 +200,12 @@ class NativePricingService(unittest.TestCase):
                 self.assertEqual(row['pricing_context']['runs'],[daily])
                 self.assertEqual(len(posts),1);self.assertEqual(posts[0][:2],('POST','/v1/runs'))
                 admission=self.fixtures.admissions[-1]
-                self.assertEqual(admission['model'],'deepseek-flash')
+                self.assertEqual(admission['model'],'gpt-6.2-sol')
                 self.assertEqual(admission['native_chat']['pricing'],row['pricing_context'])
                 self.assertEqual(admission['reasoning_effort'],'high')
                 self.assertEqual(service.hermes.grants.resolve(admission['token']).reasoning_effort,'high')
                 gateway=service.hermes.gateways[bound['turn_id']]
-                self.assertEqual(gateway.budget.policy['model'],'deepseek-flash')
+                self.assertEqual(gateway.budget.policy['model'],'gpt-6.2-sol')
                 with gateway.slot() as acquired:self.assertTrue(acquired)
                 self.assertTrue((service.hermes.daily.root/'pricing-review/provider.lock').exists())
                 self.assertFalse((service.hermes.daily.root/'provider.lock').exists())
