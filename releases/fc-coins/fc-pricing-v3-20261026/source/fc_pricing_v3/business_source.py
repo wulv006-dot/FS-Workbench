@@ -6,6 +6,7 @@ from http.client import HTTPException, IncompleteRead
 import hashlib
 import html
 import json
+from pathlib import Path
 import re
 import sqlite3
 from time import monotonic
@@ -1492,39 +1493,111 @@ def attach_shared_marketing(context, facts):
     return result
 
 
-def hourly_accounting(rows, logs, start, now, cost_since):
+def closed_delivery_days(root, first, recent, now):
+    """Read only complete, same-scope closed trade-day publications."""
+    archived, captures, missing = {}, {}, []
+    start, stop = datetime.fromisoformat(first).date(), datetime.fromisoformat(recent).date()
+    for offset in range((stop-start).days):
+        day = start+timedelta(days=offset)
+        name = day.isoformat()
+        try:
+            value = json.loads((root / 'delivery-days' / (name+'.json')).read_text(encoding='utf-8'))
+            captured = _window_instant(value['generatedAt'])
+            close = datetime.combine(day+timedelta(days=1), datetime.min.time(), tzinfo=TZ)
+            if (value.get('contract') != 'channel-order-deliveries-v1' or value.get('complete') is not True
+                    or value.get('scope') is not None or value.get('period') != dict(start=name, end=name)
+                    or not close <= captured <= now or not isinstance(value['rows'], list)):
+                raise ValueError('incomplete_delivery_day')
+            day_rows = {}
+            for row in value['rows']:
+                identity = str(row['delivery_id'])
+                trade_at = datetime.fromisoformat(row['trade_at'])
+                if (not identity.isdecimal() or identity in day_rows or trade_at.date() != day
+                        or trade_at.tzinfo is not None or row['source'] != 'www.mmoexp.com' or str(row['genre']) != '1'
+                        or not {'sn', 'cost_total', 'sale_total'} <= row.keys()):
+                    raise ValueError('invalid_delivery_day_row')
+                day_rows[identity] = row
+        except (OSError, ValueError, KeyError, TypeError):
+            missing.append(name)
+            continue
+        for identity, row in day_rows.items():
+            archived.setdefault(identity, row)
+        captures[name] = value['generatedAt']
+    return archived, captures, missing
+
+
+def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=False,
+                      progress=lambda *args, **kwargs: None):
     """Recompute existing same-order accounting using the shared delivery cache and ES flags."""
     import channel_source as channel
     from channel_cache import delivery_bounds
     from channel_effects import accounting_row
     deliveries,cost_info=channel.load_costs()
-    normalized=channel.normalize(rows,[],[log for values in logs.values() for log in values],[],deliveries,{},dict(entries=[]))
-    first = cost_since.astimezone(TZ).date().isoformat()
+    coupons = [log for values in logs.values() for log in values]
+    first = (start if reuse_closed_days else cost_since).astimezone(TZ).date().isoformat()
     local_now = now.astimezone(TZ)
     today = local_now.date().isoformat()
     cutoff = (local_now.replace(second=0, microsecond=0)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:59')
-    data=dict(orders=normalized,period=dict(start=first,end=today),
-              sources=dict(cost=cost_info))
-
-    def covers_requested_window(cost):
+    def native_bounds(cost):
         period = cost.get('period')
-        if not isinstance(period, dict) or cutoff < first+' 00:00:00':
-            return False
+        if not isinstance(period, dict):
+            return None
         period_end = period.get('end')
         if not isinstance(period_end, str) or period_end > today or (period_end == today and not period.get('until')):
-            return False
+            return None
         try:
             begin, end = delivery_bounds(period)
-            captured = datetime.fromisoformat(cost['generatedAt'].replace('Z', '+00:00'))
+            captured = _window_instant(cost['generatedAt'])
             last_trade = datetime.fromisoformat(end).replace(tzinfo=TZ)
         except (AttributeError, KeyError, TypeError, ValueError):
-            return False
-        return (begin <= first+' 00:00:00' and end >= cutoff
-                and captured.tzinfo is not None and last_trade <= captured <= datetime.now(timezone.utc))
+            return None
+        if last_trade <= captured <= datetime.now(timezone.utc):
+            return begin, end
+        return None
+
+    def covers_requested_window(cost):
+        bounds = native_bounds(cost)
+        return bool(bounds and bounds[0] <= first+' 00:00:00' <= cutoff <= bounds[1])
 
     cache_reused = covers_requested_window(cost_info)
+    archive = None
+    recent = (local_now.date()-timedelta(days=1)).isoformat()
+    if reuse_closed_days and not cache_reused and first < recent:
+        archive = closed_delivery_days(Path(channel.ROOT), first, recent, now)
+    historical_days, missing_days = {}, []
+    if archive is not None:
+        archived_deliveries, historical_days, missing_days = archive
+        first = recent
+        cache_reused = covers_requested_window(cost_info)
+    normalized=[] if archive is not None else channel.normalize(rows,[],coupons,[],deliveries,{},dict(entries=[]))
+    data=dict(orders=normalized,period=dict(start=first,end=today),sources=dict(cost=cost_info))
     if not cache_reused:
+        progress('order_cost_native', 'start', native_refresh_start=first, requested_end=today,
+                 closed_trade_days=len(historical_days))
         channel.enrich(data)
+    if archive is not None:
+        if not cache_reused:
+            deliveries, latest_cost = channel.load_costs()
+            data['sources']['cost'] = dict(latest_cost, **{key: data['sources']['cost'][key]
+                for key in ('status', 'limitation') if key in data['sources']['cost']})
+        bounds = native_bounds(data['sources']['cost'])
+        for row in deliveries:
+            trade = str(row.get('trade_at') or '')
+            day = trade[:10]
+            identity = str(row['delivery_id'])
+            if day in historical_days:
+                continue
+            if day >= recent and bounds and bounds[0] <= trade <= bounds[1]:
+                archived_deliveries[identity] = row
+            elif day < recent or trade <= (bounds[1] if bounds else cutoff):
+                # Retained evidence outside the verified recent period cannot replace an archived delivery.
+                archived_deliveries.setdefault(identity, row)
+        data['orders'] = channel.normalize(rows,[],coupons,[],list(archived_deliveries.values()),{},dict(entries=[]))
+        data['sources']['cost']['closed_trade_day_captures'] = historical_days
+        data['sources']['cost']['missing_closed_trade_days'] = missing_days
+        data['sources']['cost']['native_refresh_start'] = first
+        if archived_deliveries and (missing_days or not covers_requested_window(data['sources']['cost'])):
+            data['sources']['cost']['status'] = 'partial'
     data['period']['start']=start.astimezone(TZ).date().isoformat()
     channel.apply_customer_types(data,request=False)
     channel.apply_cost_overrides(data)
@@ -1532,7 +1605,7 @@ def hourly_accounting(rows, logs, start, now, cost_since):
     cost=data['sources']['cost']
     return dict(archived={row['orderNo']:[accounting_row(row,data['costOverrides'],data['testOrders'],admin_revenue=False)] for row in data['orders']},
                 cost_source=cost, cost_cache_reused=cache_reused,
-                cost_cursor_at=cost.get('generatedAt') if covers_requested_window(cost) else None)
+                cost_cursor_at=cost.get('generatedAt') if not missing_days and covers_requested_window(cost) else None)
 
 
 def shared_customer_flags(rows, *, publication_id=None):
@@ -1661,7 +1734,8 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
     cost_started = monotonic()
     progress('order_cost', 'start', requested_start=max(start,cost_since).astimezone(TZ).date().isoformat(),
              requested_end=last_day.isoformat())
-    accounting=hourly_accounting(live,logs,start,now,max(start,cost_since))
+    accounting=hourly_accounting(live,logs,start,now,max(start,cost_since), **(
+        {'reuse_closed_days':True, 'progress':progress} if use_shared_customer_flags else {}))
     cost_period=accounting['cost_source'].get('period') or {}
     progress('order_cost', 'done', elapsed_seconds=round(monotonic()-cost_started, 3),
              covered_start=cost_period.get('start'), covered_end=cost_period.get('end'),
@@ -1687,7 +1761,8 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
     online['learning_coverage'].update(refresh_mode='incremental_paid_membership_and_all_saved_outcome_rebinding',
         cost_source=accounting['cost_source'],
         cost_recheck_from=max(start,cost_since).isoformat(),
-        cost_recheck_basis='recent_transactions_plus_pending_cost_days_and_fixed_historical_day_rotation; capture_time_is_not_a_change_watermark',
+        cost_recheck_basis=('recent_trade_days_and_verified_closed_delivery_archives' if use_shared_customer_flags
+            else 'recent_transactions_plus_pending_cost_days_and_fixed_historical_day_rotation; capture_time_is_not_a_change_watermark'),
         paid_cursor_at=now.isoformat(),historical_recheck_days=sorted(pending),
         oldest_status_rechecked_at=min(checks.values()) if checks else None,
         status_recheck_basis='one_oldest_paid_day_each_hour_plus_unfinished_days; not_final_refund_clearance')
