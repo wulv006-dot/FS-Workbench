@@ -941,6 +941,7 @@ def main():
     for group in groups:
         if group == 'fc-project-review':
             units('releases/fs-dashboard/fc-project-review',['test_api','test_review','tests_orders','traffic_test','fulfillment_test','test_dashboard_release'])
+            node('releases/fs-dashboard/fc-project-review/test_daily_rows.cjs')
             continue
         if group == 'order-email-deployment':
             integration='releases/fs-dashboard/order-email-export-20261111/integration'

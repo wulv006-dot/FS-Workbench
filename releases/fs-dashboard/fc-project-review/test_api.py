@@ -1,6 +1,8 @@
 from datetime import date, timedelta
+from concurrent.futures import Future
 from importlib import import_module
 import json
+import os
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -20,6 +22,95 @@ class ApiTests(unittest.TestCase):
         folder=TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.root=Path(folder.name)
+        jobs=patch.object(api,"JOBS",{})
+        jobs.start()
+        self.addCleanup(jobs.stop)
+
+    def test_intraday_archive_expires_at_midnight_even_when_recent(self):
+        p=api.packet(core())
+        with patch.object(api,"datetime",wraps=api.datetime) as clock:
+            clock.now.return_value=api.datetime(2026,11,16,23,59,tzinfo=api.TZ)
+            first=api.publish(p,self.root)
+            self.assertEqual(self.get()[0],200)
+            clock.now.return_value=api.datetime(2026,11,17,0,0,tzinfo=api.TZ)
+            completed=Future()
+            completed.set_result(first)
+            api.JOBS[("FC27","2026-11-16","2026-11-16","reviewer")]=(completed,api.time.monotonic())
+            with patch.object(api.POOL,"submit",return_value=Future()) as submit:
+                self.assertEqual(self.get()[0],202)
+                submit.assert_called_once()
+            self.assertEqual(len(list((self.root/"FC27"/"versions").glob("*.json"))),1)
+
+    def test_archive_compatibility_and_expiry(self):
+        cases=[
+            ({"archivedAt":"2026-11-16T23:59:00+08:00"}, {}, 202),
+            ({"archivedAt":"2026-11-17T00:00:00+08:00"}, {}, 200),
+            ({"archivedAt":"2026-11-16T16:00:00Z"}, {}, 200),
+            ({"archivedAt":"2026-11-17T00:01:00+08:00"}, {"capturedAt":"2026-11-16T23:59:00+08:00"}, 202),
+            ({"archivedAt":None}, {}, 202),
+            ({"archivedAt":"invalid"}, {}, 202),
+            ({}, {"captureStartedAt":"2026-11-16T23:59:00+08:00"}, 202),
+            ({}, {"captureStartedAt":"2026-11-17T00:00:00+08:00"}, 200),
+        ]
+        with patch.object(api,"datetime",wraps=api.datetime) as clock:
+            clock.now.return_value=api.datetime(2026,11,19,tzinfo=api.TZ)
+            for metadata, fields, expected in cases:
+                with self.subTest(metadata=metadata,fields=fields):
+                    doc=api.publish({**api.packet(core()),**fields},self.root)
+                    doc.update(metadata)
+                    target=self.root/"FC27"/"2026-11-16_2026-11-16.json"
+                    target.write_text(json.dumps(doc),encoding="utf-8")
+                    os.utime(target,(0,0))
+                    api.JOBS.clear()
+                    with patch.object(api.POOL,"submit",return_value=Future()) as submit:
+                        self.assertEqual(self.get()[0],expected)
+                        self.assertEqual(submit.call_count,int(expected==202))
+                        self.assertEqual(self.get(False)[0],403)
+
+    def test_today_ttl_and_explicit_refresh(self):
+        with patch.object(api,"datetime",wraps=api.datetime) as clock:
+            clock.now.return_value=api.datetime(2026,11,16,12,tzinfo=api.TZ)
+            api.publish(api.packet(core()),self.root)
+            target=self.root/"FC27"/"2026-11-16_2026-11-16.json"
+            with patch.object(api.POOL,"submit",return_value=Future()) as submit:
+                self.assertEqual(self.get()[0],200)
+                self.assertEqual(self.get(refresh=["true"])[0],202)
+                api.JOBS.clear()
+                os.utime(target,(0,0))
+                self.assertEqual(self.get()[0],202)
+                self.assertEqual(submit.call_count,2)
+
+    def test_capture_started_before_midnight_remains_provisional(self):
+        source=core()
+        admin=source["admin"]
+        admin.update(status="available",normalisedScope="all-websites",effective_scope=admin.pop("scope"))
+        before=api.datetime(2026,11,16,23,59,tzinfo=api.TZ)
+        after=api.datetime(2026,11,17,0,1,tzinfo=api.TZ)
+        with patch.object(api,"datetime",wraps=api.datetime) as clock:
+            clock.now.return_value=before
+            def read(_get,game,start,end,mode,actor):
+                clock.now.return_value=after
+                return {"profile":{"supplement":admin}} if mode=="summary" else {"history":{"daily":[]}}
+            with patch.object(api,"read_range",read),patch.object(api,"read_program",return_value={"discount":{}}) as program:
+                p=api.capture("FC27",source["start"],source["end"],"operator",None,None,lambda _:True)
+            self.assertEqual(p["captureStartedAt"],before.isoformat())
+            self.assertEqual([call.args[1] for call in program.call_args_list],["orders.py"])
+            first=api.publish(p,self.root)
+            with patch.object(api.POOL,"submit",return_value=Future()):
+                self.assertEqual(self.get()[0],202)
+            api.JOBS.clear()
+            def program(_python,script,*args):
+                return {"orders.py":{"discount":{},"products":[{}]},"prices.py":{"tiers":[]},
+                        "traffic.py":{"periods":{}},"fulfillment_completion_bridge.py":{
+                            "start":source["start"],"end":source["end"]}}[script]
+            with patch.object(api,"read_range",read),patch.object(api,"read_program",side_effect=program) as programs:
+                closed=api.capture("FC27",source["start"],source["end"],"operator",None,None,lambda _:True)
+            self.assertEqual([call.args[1] for call in programs.call_args_list],
+                             ["orders.py","prices.py","traffic.py","fulfillment_completion_bridge.py"])
+            second=api.publish(closed,self.root)
+            self.assertEqual(self.get()[1]["revision"],second["revision"])
+            retained=self.root/"FC27"/"versions"/(source["start"]+"_"+source["end"]+"_"+first["revision"]+".json")
+            self.assertEqual(json.loads(retained.read_text(encoding="utf-8")),first)
 
     def get(self, permitted=True, **updates):
         return api.get({**self.params,**updates},"reviewer",None,None,lambda _:permitted,self.root)
