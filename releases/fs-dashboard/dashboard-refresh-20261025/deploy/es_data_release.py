@@ -13,7 +13,11 @@ STATIC = '/var/lib/fs-navigation-formal-static/'
 FORMAL = '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'
 RUNTIME = {'fs-business-range.service': {'ActiveState': 'active'}}
 ADAPTER = 'email-export-adapter.py'
-ADAPTER_SHA = '683d5b4a6c52954383c998a98ad0963a361ca59a9983378f4d73b0fd4159c40a'
+# Existing stages embed the original adapter; new stages use the reviewed 9da0dc7 revision.
+ADAPTER_SHAS = frozenset({
+    '683d5b4a6c52954383c998a98ad0963a361ca59a9983378f4d73b0fd4159c40a',
+    '9b09235edb3a68a41dacceacffd752d78ccf4a5617d8ebf2790f49f2763f0bd6',
+})
 PROTECTED = frozenset({HERMES + n for n in ('controller.py','admin_live_admission.py','cache_retention.py',
     'user_weekly.py','user_contract.py','user_lifecycle.py','channel_effects.py','channel_source.py',
     'coupon_channels.py','coupon_channels.json','admin_discount_analysis.py')} |
@@ -85,7 +89,7 @@ def publisher(stage, manifest, *, frozen_base=None):
     stage = Path(stage)
     path = stage / ADAPTER
     raw = path.read_bytes()
-    if path.is_symlink() or hashlib.sha256(raw).hexdigest() != ADAPTER_SHA:
+    if path.is_symlink() or hashlib.sha256(raw).hexdigest() not in ADAPTER_SHAS:
         raise ValueError('range publisher adapter SHA differs')
     delegate = types.ModuleType('_es_range_publisher_adapter')
     delegate.__file__ = str(path)
