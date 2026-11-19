@@ -15,6 +15,9 @@ for(const [name,,baseline]of cases){
  const code=fs.readFileSync(path.join(source,name),'utf8').replace(/\r\n/g,'\n');
  assert.equal(code.split(added).length-1,1,name+' only adds the five state keys once');
  const beforeSummaryFix=code.replace(added,'')
+  .replace(/\/dashboard\/workspace-assets\/fs-shared-sha256-[a-f0-9]{64}\/runtime\.js/g,
+   name==='legacy-shell.js'?'./runtime.js':'/dashboard/workspace-assets/workspace-native-20261006-ba0a83afd594/runtime.js')
+  .replace(/\(name==='fs-ui\.css'\?'\/dashboard\/workspace-assets\/fs-shared-sha256-[a-f0-9]{64}\/fs-ui\.css':(new URL\('ui\/'\+name,new URL\('[^']+',location\.origin\)\))\)/g,'$1')
   .replace(/const homeShortcuts=[\s\S]*?(?=function homeData\(\))/,'')
   .replace(/^\{const href=new URL\('\/__hub\/hubnav\.js\?v=[\w-]+'.*document\.head\.append\(sharedNav\);\}\}$/m,
    "const sharedNav=document.createElement('script');sharedNav.src='<versioned shared navigation>';sharedNav.defer=true;document.head.append(sharedNav);")

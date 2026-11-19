@@ -318,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
       status.textContent = statuses[data.status] + ' · 完成单 ' + count(values.coveredOrders) + ' / ' +
         count(values.completedOrders) + ' 笔核到普通订单发货成本' + (data.coverage.adminComplete ? '' : ' · 付款归档有缺日');
       if (values.missingCostOrders > 0) {
-        status.textContent += ' · ' + count(values.missingCostOrders) + ' 单待核成本，已核实付 ' +
+        status.textContent += ' · ' + count(values.missingCostOrders) + ' 单待核成本，这些订单已记录的实付合计 ' +
           usd(values.missingCostObservedSalesUsd);
       }
       const platform = {PS:'PS', XBOX:'Xbox', PC:'PC', unknown:'平台未核'};
