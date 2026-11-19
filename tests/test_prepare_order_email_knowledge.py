@@ -387,6 +387,11 @@ class SharedAdminESOverlayTest(unittest.TestCase):
     def assert_fc_revision_migration(self, old_revision, new_revision, baseline_patch=False, drift_reporting=False):
         old_data = b'Original amount-weighted discount and ALL propagation.\n'
         new_data = b'Two native price bands and main catalogue readback.\n'
+        carnival = new_revision == builder.FC_V61_CARNIVAL_REVISION
+        if carnival:
+            old_data = b'Live-only paragraph.\n\nMargin-band rules.\n\nExisting after paragraph.\n'
+            new_data = old_data.replace(b'Margin-band rules.\n\n',
+                                        b'Margin-band rules.\n\nUse margin_band.promotion_guard.\n\n')
         canonical_path = self.set_fc_v61_candidate((new_revision, new_revision), new_data)
         overlay_ids = set(builder.FC_V61_OVERLAYS)
         if new_revision == builder.FC_V61_100K_MARKET_REVISION:
@@ -397,9 +402,13 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         if margin_band_scope:
             ids, base = margin_band_scope
             overlay_ids = set(ids)
-            self.git[base, canonical_path] = old_data
+            prior = old_data.replace(b'Live-only paragraph.', b'Unrelated Git-only paragraph.') if carnival else old_data
+            if carnival:
+                new_data = new_data.replace(b'Live-only paragraph.', b'Unrelated Git-only paragraph.')
+                self.set_fc_v61_candidate((new_revision, new_revision), new_data)
+            self.git[base, canonical_path] = prior
             self.git[base, 'knowledge/index.json'] = builder.encoded(dict(
-                entries=[row(identity, old_revision, canonical_path, old_data) for identity in sorted(overlay_ids)]))
+                entries=[row(identity, old_revision, canonical_path, prior) for identity in sorted(overlay_ids)]))
         old_path = 'overlay/' + canonical_path
         before = list(builder.routes(self.policy))
         for number, route in enumerate(before):
@@ -484,9 +493,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                 self.assertEqual(item['revision'], new_revision)
                 self.assertIn(identity + '@' + old_revision, item['supersedes'])
                 self.assertEqual(item['source']['canonical_path'], canonical_path)
-                self.assertEqual(item['source']['sha256'], builder.sha(new_data))
+                expected_data = new_data.replace(b'Unrelated Git-only paragraph.', b'Live-only paragraph.') if carnival else new_data
+                self.assertEqual(item['source']['sha256'], builder.sha(expected_data))
                 self.assertNotEqual(item['source']['path'], old_path)
-                self.assertEqual((sources / item['source']['path']).read_bytes(), new_data)
+                self.assertEqual((sources / item['source']['path']).read_bytes(), expected_data)
 
     def test_fc_v61_rejects_mixed_or_unregistered_revisions(self):
         old_revision = 'fc_v6_d8_d2_amount_weighted_discount_v1'

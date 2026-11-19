@@ -120,6 +120,14 @@ def normalized(data, source):
     return data.replace(b'\r\n', b'\n') if source.get('hash_basis') == 'utf8_lf' else data
 
 
+def contextual_changes(previous, current):
+    old, new = (text.splitlines(keepends=True) for text in (previous, current))
+    return [
+        (''.join(old[group[0][1]:group[-1][2]]), ''.join(new[group[0][3]:group[-1][4]]))
+        for group in difflib.SequenceMatcher(None, old, new, autojunk=False).get_grouped_opcodes(1)
+    ]
+
+
 def shared_changes(root, commit, catalog, canonical, current):
     if (canonical.get('release') != SHARED_ADMIN_ES or canonical.get('release_state') != 'candidate'
             or canonical.get('source_commit') is not None or canonical.get('base_commit') != SHARED_BASE_COMMIT):
@@ -141,13 +149,7 @@ def shared_changes(root, commit, catalog, canonical, current):
             if sha(data) != source['sha256']:
                 raise ValueError('canonical_source_changed:' + identity)
             selected.append(catalog.extract(data.decode('utf-8-sig'), source.get('selector')))
-        old, new = (text.splitlines(keepends=True) for text in selected)
-        # One line of unchanged context uniquely anchors the small D5 edits while
-        # retaining the distinct finance and attribution wording in live catalogs.
-        changes[identity] = [
-            (''.join(old[group[0][1]:group[-1][2]]), ''.join(new[group[0][3]:group[-1][4]]))
-            for group in difflib.SequenceMatcher(None, old, new, autojunk=False).get_grouped_opcodes(1)
-        ]
+        changes[identity] = contextual_changes(*selected)
         if not changes[identity]:
             raise ValueError('shared_admin_es_delta_missing:' + identity)
     return changes
@@ -160,7 +162,7 @@ def merge_shared_entry(identity, template, row, content, changes):
         content = content.replace(old, new, 1)
     data = (content.rstrip('\n') + '\n').encode('utf-8')
     source = template['source']
-    row.update(revision=template['revision'], knowledge_updated_at=template['knowledge_updated_at'],
+    row.update(revision=template['revision'], knowledge_updated_at=template.get('knowledge_updated_at', template['effective_at']),
                source=dict(path='overlay/' + template['revision'] + '/' + identity + '.md',
                            sha256=sha(data), hash_basis='utf8_lf',
                            canonical_path=source['path'], canonical_sha256=source['sha256']),
@@ -334,7 +336,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                if shared_admin_es else 'fc-reporting-knowledge-20261105-' + commit[:8])
     if shared_admin_es:
         changes = shared_changes(root, commit, catalog, canonical, current)
-    retain_baseline = email_only or fc_v61 and constraints_revision == FC_V61_CARNIVAL_REVISION
+    carnival = fc_v61 and constraints_revision == FC_V61_CARNIVAL_REVISION
+    retain_baseline = email_only or carnival
     if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
             allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current,
@@ -411,8 +414,9 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 live = existing[0]
                 source = live['source']
                 data = normalized(payloads['artifact/' + sources + source['path']], source)
+                live_body = catalog.extract(data.decode('utf-8-sig'), source.get('selector'))
                 if (live['revision'] != margin_band_prior[identity]['revision']
-                        or catalog.extract(data.decode('utf-8-sig'), source.get('selector')) != prior_bodies[identity]):
+                        or not carnival and live_body != prior_bodies[identity]):
                     raise ValueError('margin_band_live_entry_changed:' + identity)
             if shared_admin_es:
                 if not existing:
@@ -445,7 +449,14 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                         FC_V61_MARKET_ANCHOR_REVISION, FC_V61_WEEKLY_REVISION, FC_V61_INSURANCE_REVISION)):
                     # Retain the preceding snapshot's source at its original path.
                     overlay_root += row['revision'] + '/'
-                if fc_v61_reporting:
+                if carnival:
+                    delta = contextual_changes(prior_bodies[identity], content)
+                    if len(delta) != 1 or not delta[0][0] or 'margin_band.promotion_guard' not in delta[0][1]:
+                        raise ValueError('carnival_constraints_delta_invalid')
+                    row = copy.deepcopy(existing[0])
+                    row['effective_at'] = template['effective_at']
+                    data = merge_shared_entry(identity, template, row, live_body, {identity: delta})
+                elif fc_v61_reporting:
                     previous_source = existing[0]['source']
                     previous_data = payloads['artifact/' + sources + previous_source['path']]
                     live_body = catalog.extract(normalized(previous_data, previous_source).decode('utf-8-sig'),
