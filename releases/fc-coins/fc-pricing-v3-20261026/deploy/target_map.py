@@ -335,7 +335,7 @@ CURVE_RECOVERY_TARGETS = {
     'recent-orders': module_targets(('business_source.py', 'planning_baskets_v6.py', 'runtime.py')),
     'catalogue-inputs': module_targets(('runtime.py',)),
     'hourly-order-cost': {'channel_source.py': HOURLY_COST_CHANNEL_OVERLAY['target'],
-                          **module_targets(('scheduler.py', 'business_source.py'))},
+                          **module_targets(('scheduler.py', 'business_source.py', 'ledger.py'))},
     'cycle-recovery': {
         'snapshot_layer.py': '/opt/fc27-cloud-browser/snapshot_layer.py',
         **module_targets(('scheduler.py',)),

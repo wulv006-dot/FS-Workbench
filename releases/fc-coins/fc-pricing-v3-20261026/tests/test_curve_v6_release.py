@@ -120,7 +120,7 @@ class CurveV6Release(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'order_cost_channel_baseline_drift'):
                     build_stage.build(ROOT, output, curve_recovery='order-cost', order_cost_channel_baseline=live)
 
-    def test_hourly_cost_stage_and_original_adapter_require_the_exact_five_targets(self):
+    def test_hourly_cost_stage_and_original_adapter_require_the_exact_seven_targets(self):
         key = 'hourly-order-cost'
         updated_refresh = b"\ndef enrich(data):\n    return 'new refresh'\n"
         previous_refresh = b"\ndef enrich(data):\n    return 'old refresh'\n"
@@ -133,6 +133,8 @@ class CurveV6Release(unittest.TestCase):
             'source/channel_source.py': '/opt/fs-hermes-fc/channel_source.py',
             'source/fc_pricing_v3/business_source.py': '/opt/fc27-cloud-browser/fc_pricing_v3/business_source.py',
             'source/hermes-copy/fc_pricing_v3/business_source.py': '/opt/fs-hermes-fc/fc_pricing_v3/business_source.py',
+            'source/fc_pricing_v3/ledger.py': '/opt/fc27-cloud-browser/fc_pricing_v3/ledger.py',
+            'source/hermes-copy/fc_pricing_v3/ledger.py': '/opt/fs-hermes-fc/fc_pricing_v3/ledger.py',
             'source/fc_pricing_v3/scheduler.py': '/opt/fc27-cloud-browser/fc_pricing_v3/scheduler.py',
             'source/hermes-copy/fc_pricing_v3/scheduler.py': '/opt/fs-hermes-fc/fc_pricing_v3/scheduler.py',
         }
@@ -155,7 +157,7 @@ class CurveV6Release(unittest.TestCase):
                               commit if cmd[1:2] == ['rev-parse'] else ''), \
                  patch.object(build_stage, 'git_blob', side_effect=git_blob):
                 built = build_stage.build(ROOT, output, curve_recovery=key, order_cost_channel_baseline=baseline)
-                self.assertEqual(built['targets'], 5)
+                self.assertEqual(built['targets'], 7)
                 with tarfile.open(output) as bundle:
                     prefix = 'fc-pricing-v3-20261026/'
                     provenance = json.load(bundle.extractfile(prefix + 'source-manifest.json'))
@@ -167,7 +169,7 @@ class CurveV6Release(unittest.TestCase):
                 self.assertEqual(provenance['files'], {name: hashlib.sha256(raw).hexdigest() for name, raw in files.items()})
                 self.assertEqual(files['source/channel_source.py'], expected_content)
                 self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)
-                for name in ('scheduler.py', 'business_source.py'):
+                for name in ('scheduler.py', 'business_source.py', 'ledger.py'):
                     self.assertEqual(files['source/fc_pricing_v3/' + name],
                                      files['source/hermes-copy/fc_pricing_v3/' + name])
 
@@ -209,10 +211,11 @@ class CurveV6Release(unittest.TestCase):
                     self.assertIs(adapter.checked_manifest(value), value)
                     with self.assertRaisesRegex(ValueError, 'exact_fc_v3_targets_required'):
                         adapter.checked_manifest(dict(value, files=rows[:-1]))
-                    mirror = next(row for row in rows if row['candidate'].endswith('hermes-copy/fc_pricing_v3/scheduler.py'))
-                    mirror['sha256'] = 'c' * 64
-                    with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):
-                        adapter.checked_manifest(value)
+                    for row in rows:
+                        if row['candidate'].startswith('source/hermes-copy/'):
+                            changed = [dict(item, sha256='c' * 64) if item is row else item for item in rows]
+                            with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):
+                                adapter.checked_manifest(dict(value, files=changed))
                     return {'verified': True}
 
                 frozen = SimpleNamespace(HERMES_TARGETS={}, HERMES_CAPABILITY_TARGETS={},
@@ -239,7 +242,7 @@ class CurveV6Release(unittest.TestCase):
                     provenance['files']['source/channel_source.py'] = hashlib.sha256(expected_content).hexdigest()
                     manifest_source.write_text(json.dumps(provenance))
                     result = prepare.prepare(curve_recovery=key)
-                self.assertEqual((result['files'], result['existing'], result['new']), (5, 5, 0))
+                self.assertEqual((result['files'], result['existing'], result['new']), (7, 7, 0))
 
     def test_arab_quote_scope_uses_only_identical_existing_market_registry_copies(self):
         scope = 'fc-pricing-v6-arab-quote-20261119'

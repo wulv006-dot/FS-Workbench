@@ -177,5 +177,59 @@ class HourlyClockTest(unittest.TestCase):
                     self.assertEqual(conn.execute(query,((deadline-timedelta(seconds=1)).isoformat(),)).fetchone()[0],0)
                     self.assertEqual(conn.execute(query,(deadline.isoformat(),)).fetchone()[0],1)
 
+
+    def test_revision_keeps_original_retry_id_deadline_attempt_and_es_state(self):
+        from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
+        now = datetime(2026,11,20,1,30,tzinfo=TZ).astimezone(timezone.utc)
+        scheduled = datetime(2026,11,20,0,36,56,tzinfo=TZ).astimezone(timezone.utc)
+        retry_due = datetime(2026,11,20,1,43,39,tzinfo=TZ).astimezone(timezone.utc)
+        for deferred, rebound in ((False, False), (True, False), (True, True)):
+            with self.subTest(deferred=deferred, rebound=rebound), tempfile.TemporaryDirectory() as folder:
+                db = Ledger(Path(folder) / 'control.sqlite3')
+                plan = dict(self.plan, revision=4, generation='g', resources=['base:PS'],
+                            resume_count=5, parameters={})
+                db.put('metadata','generation',dict(id='g'))
+                db.put('pricing_plans','plan',plan)
+                with db.transaction() as conn:
+                    conn.execute("INSERT INTO plan_ownership VALUES ('base:PS','plan',4,'g')")
+                identity = 'cycle:plan:' + str(int(scheduled.timestamp())) + ':r3'
+                body = dict(plan_id='plan',revision=4,scheduled_at=scheduled.isoformat(),error='original')
+                if deferred:
+                    body['deferred_reason'] = scheduler.WAITING_FOR_ES
+                effective = datetime(2026,11,20,1,3,tzinfo=TZ).astimezone(timezone.utc) if rebound else scheduled
+                if rebound:
+                    body.update(scheduled_at=effective.isoformat(), _durable_job_id=identity)
+                db.enqueue('cycle',identity,retry_due,body)
+                with db.transaction() as conn:
+                    conn.execute('UPDATE durable_jobs SET attempt=2 WHERE id=?',(identity,))
+                revision = dict(strategy_version='market-anchor-v1',market_anchor=market_anchor_parameters())
+                with patch.object(scheduler,'clock',return_value=now), \
+                        patch('automation_policy.load_policy',return_value=self.policy):
+                    self.assertEqual(scheduler.next_cycle_at(db,plan,self.policy),effective)
+                    changed = db.activate_curve_plan('plan',4,'operator','shadow',
+                                                    lambda conn,current,at:{'PS':'proof'},
+                                                    strategy_revision=revision)
+                self.assertEqual(changed['revision'],5)
+                with db.connect() as conn:
+                    rows = conn.execute("SELECT id,due_at,state,attempt,body FROM durable_jobs WHERE kind='cycle'").fetchall()
+                self.assertEqual(len(rows),1)
+                row = rows[0]
+                self.assertEqual((row['id'],row['due_at'],row['state'],row['attempt']),
+                                 (identity,retry_due.isoformat(),'queued',2))
+                updated = json.loads(row['body'])
+                self.assertEqual(updated['revision'],5)
+                self.assertEqual(updated['scheduled_at'],effective.isoformat())
+                self.assertEqual(updated['error'],'original')
+                self.assertEqual(updated.get('deferred_reason'), scheduler.WAITING_FOR_ES if deferred else None)
+
+    def test_queued_manual_and_old_revision_do_not_replace_natural_slot(self):
+        now = datetime(2026,11,20,1,25,tzinfo=TZ)
+        old = datetime(2026,11,20,0,36,tzinfo=TZ)
+        self.insert_job('manual:x',now,state='queued',manual_requested=True)
+        body = dict(plan_id='plan',revision=0,scheduled_at=old.isoformat())
+        self.db.execute('INSERT INTO durable_jobs VALUES (?,?,?,?,?)',
+                        ('cycle:plan:' + str(int(old.timestamp())) + ':r0','cycle','queued',now.isoformat(),json.dumps(body)))
+        self.assertEqual(self.next_at(now),datetime(2026,11,20,1,15,tzinfo=TZ))
+
 if __name__ == '__main__':
     unittest.main()

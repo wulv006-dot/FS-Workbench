@@ -40,6 +40,32 @@ def _hourly_slot(now):
     return local.replace(minute=15, second=0, microsecond=0).astimezone(timezone.utc)
 
 
+def _queued_natural_slot(db, plan):
+    """Return the original ID and scheduled time of this revision's queued natural cycle."""
+    from contextlib import closing
+
+    prefix = 'cycle:' + plan['plan_id'] + ':'
+    def find(conn):
+        matches = []
+        for ident, raw in conn.execute(
+                "SELECT id,body FROM durable_jobs WHERE kind='cycle' AND state='queued' AND id>=? AND id<?",
+                (prefix, prefix[:-1] + ';')):
+            body = json.loads(raw)
+            if (body.get('plan_id') != plan['plan_id'] or body.get('revision') != plan['revision']
+                    or body.get('manual_requested') or not body.get('scheduled_at')):
+                continue
+            scheduled = instant(body['scheduled_at'])
+            expected = prefix + str(int(scheduled.timestamp())) + ':r'
+            if ((ident.startswith(expected) and ident[len(expected):].isdigit())
+                    or body.get('_durable_job_id') == ident):
+                matches.append((ident, scheduled))
+        return min(matches, key=lambda value: (value[1], value[0])) if matches else None
+    if isinstance(db, sqlite3.Connection):
+        return find(db)
+    with closing(db.connect()) as conn:
+        return find(conn)
+
+
 def _natural_hour_used(db, plan, now):
     from contextlib import closing
 
@@ -53,6 +79,8 @@ def _natural_hour_used(db, plan, now):
                 (prefix, prefix[:-1] + ';', 'initial:' + plan['plan_id'], 'exit-cycle:' + plan['plan_id'])):
             body = json.loads(raw)
             if body.get('plan_id') != plan['plan_id'] or body.get('manual_requested'):
+                continue
+            if state in ('queued', 'running') and body.get('revision') != plan['revision']:
                 continue
             result = (body.get('result') or {}).get('status')
             if state == 'done' and result in ('superseded', 'operator_paused'):
@@ -75,6 +103,9 @@ def next_cycle_at(db,plan,policy=None):
         from automation_policy import load_policy
         policy = load_policy()
     if _v6_hourly(plan, policy):
+        queued = _queued_natural_slot(db, plan)
+        if queued:
+            return queued[1]
         now = clock()
         slot = _hourly_slot(now)
         if _natural_hour_used(db, plan, now):
