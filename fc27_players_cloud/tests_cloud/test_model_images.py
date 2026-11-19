@@ -215,6 +215,72 @@ class ModelImageTests(unittest.TestCase):
             edit.assert_not_called()
         self.assertEqual(self.repo.get_execution(job, 'operator')['status'], 'completed_readback')
 
+    def test_resume_recognizes_attachment_already_bound_without_edit_intent(self):
+        plan = self.plan()
+        job = self.execution(plan)
+        get_model = self.backend.get_model
+
+        def read_model(model_id):
+            if upload.called:
+                raise AdminHttpError('timed out')
+            return get_model(model_id)
+
+        with patch('player_web.model_image_service.upload_png', return_value={'attachment_id': 777, 'url': ''}) as upload, \
+             patch('player_web.model_image_service.edit_model_icon') as edit, \
+             patch.object(self.backend, 'get_model', side_effect=read_model):
+            with self.assertRaises(AdminHttpError):
+                execute_image_plan(self.settings, self.repo, self.backend, job, plan)
+            edit.assert_not_called()
+
+        self.backend.rows[300000]['icon'] = 321
+        self.repo.set_execution(job, 'queued', 'image_resume_queued')
+        frozen = self.repo.get_plan(plan['plan_id'], 'operator')
+        with patch('player_web.model_image_service.upload_png') as upload, \
+             patch('player_web.model_image_service.edit_model_icon') as edit:
+            with self.assertRaisesRegex(StateError, 'IMAGE_MODEL_CHANGED'):
+                execute_image_plan(self.settings, self.repo, self.backend, job, frozen, resume=True)
+            upload.assert_not_called()
+            edit.assert_not_called()
+        stopped = self.repo.get_execution(job, 'operator')
+        self.assertEqual(stopped['events'][-1]['detail']['error_code'], 'IMAGE_MODEL_CHANGED')
+
+        self.backend.rows[300000]['icon'] = '777'
+        self.repo.set_execution(job, 'queued', 'image_resume_queued')
+        frozen = self.repo.get_plan(plan['plan_id'], 'operator')
+        with patch('player_web.model_image_service.upload_png') as upload, \
+             patch('player_web.model_image_service.edit_model_icon') as edit:
+            execute_image_plan(self.settings, self.repo, self.backend, job, frozen, resume=True)
+            upload.assert_not_called()
+            edit.assert_not_called()
+        result = self.repo.get_execution(job, 'operator')
+        self.assertEqual(result['status'], 'completed_readback')
+        self.assertEqual(result['items'][0]['after']['icon'], '777')
+
+    def test_resume_reconciles_unstarted_model_only_when_existing_png_bytes_match(self):
+        plan = self.plan()
+        job = self.execution(plan)
+        frozen = self.repo.get_plan(plan['plan_id'], 'operator')
+        url = 'https://b2c-static.p2pah.cn/images/202611/example.png'
+        self.backend.rows[300000].update(icon=777, full_url=url)
+        for content in (b'different image', self.content):
+            self.repo.set_execution(job, 'queued', 'image_resume_queued')
+            with patch('player_web.model_image_service.urllib.request.build_opener') as opener, \
+                 patch('player_web.model_image_service.upload_png') as upload, \
+                 patch('player_web.model_image_service.edit_model_icon') as edit:
+                opener.return_value.open.return_value = io.BytesIO(content)
+                if content == self.content:
+                    execute_image_plan(self.settings, self.repo, self.backend, job, frozen, resume=True)
+                else:
+                    with self.assertRaisesRegex(StateError, 'IMAGE_MODEL_CHANGED'):
+                        execute_image_plan(self.settings, self.repo, self.backend, job, frozen, resume=True)
+                opener.return_value.open.assert_called_once_with(url, timeout=12)
+                upload.assert_not_called()
+                edit.assert_not_called()
+        result = self.repo.get_execution(job, 'operator')
+        self.assertEqual(result['status'], 'completed_readback')
+        self.assertTrue(result['items'][0]['after']['matched_existing'])
+        self.assertEqual(result['items'][0]['after']['icon'], 777)
+
     def test_resume_after_last_item_was_verified_needs_no_upstream_call(self):
         plan = self.plan()
         job = self.execution(plan)

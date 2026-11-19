@@ -3,7 +3,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const source=fs.readFileSync(path.join(__dirname,'../../mixed-plan-20261031/source/app.js'),'utf8');
 const helper=source.slice(source.indexOf('  function node('),source.indexOf('  function clearPlan('));
 const api=source.slice(source.indexOf('  async function api('),source.indexOf('  async function status()'));
-const jobs=source.slice(source.indexOf('  async function loadJobs()'),source.indexOf('  async function loadTagCatalog('));
+const jobs=source.slice(source.indexOf('  const jobTimeFormatter'),source.indexOf('  async function loadTagCatalog('));
 assert.ok(helper&&api&&jobs,'actual candidate handlers must be present');
 class Element{
   constructor(tag){Object.assign(this,{tag,textContent:'',className:'',children:[],hidden:false,disabled:false,attrs:{},open:false});}
@@ -20,7 +20,11 @@ function fixture({role='admin',auth=true,can_resume=true,image_resume=false}={})
   let resolvePost,rejectPost,recoveries=0;
   const deferred=new Promise((resolve,reject)=>{resolvePost=resolve;rejectPost=reject;});
   const response=(status,data)=>({ok:status>=200&&status<300,status,json:async()=>data});
-  const context={state:{role,auth,csrf:'csrf-fixture'},prefix:'/tools/fc27-players',
+  const scheduled=new Map();
+  let timerId=0;
+  const context={clearTimeout:id=>scheduled.delete(id),setTimeout:callback=>{
+      const id=++timerId;scheduled.set(id,callback);return id;
+    },state:{role,auth,csrf:'csrf-fixture'},prefix:'/tools/fc27-players',
     $:id=>{assert.ok(roots[id],id);return roots[id];},document:{createElement:tag=>new Element(tag)},
     fetch:async(url,options)=>{
       requests.push({url,options});
@@ -33,6 +37,7 @@ function fixture({role='admin',auth=true,can_resume=true,image_resume=false}={})
     msg:()=>assert.fail('unexpected list error'),Math,encodeURIComponent};
   vm.createContext(context);vm.runInContext(helper+api+jobs,context);
   return {context,roots,requests,id,response,resolvePost,rejectPost,setJob:value=>{job={...job,...value};},recoveries:()=>recoveries,
+    scheduled,
     show:()=>vm.runInContext('showJob('+JSON.stringify(id)+')',context),
     buttons:()=>all(roots.jobResult).filter(node=>node.tag==='button'&&node.textContent===(image_resume?'继续上传':'继续原任务'))};
 }
@@ -72,6 +77,33 @@ function fixture({role='admin',auth=true,can_resume=true,image_resume=false}={})
     f.resolvePost(f.response(202,{execution_id:f.id,status:'queued'}));await pending;
     assert.equal(f.requests.filter(request=>request.options.method==='POST').length,1);
     assert.equal(f.buttons().length,0);scenarios++;
+  }
+  {
+    const f=fixture({image_resume:true});
+    f.setJob({
+      created_at:'2026-11-18T23:55:00+00:00',updated_at:'2026-11-19T02:44:54+00:00',
+      step:'image_unknown',events:[{created_at:'2026-11-19T02:44:54+00:00',step:'image_unknown',status:'needs_reconcile',detail:{error_type:'StateError',error_code:'IMAGE_MODEL_CHANGED'}}]
+    });
+    await f.show();const pending=f.buttons()[0].click();
+    f.resolvePost(f.response(202,{execution_id:f.id,status:'queued'}));await pending;
+    const elements=all(f.roots.jobResult);
+    assert.ok(elements.some(node=>/2026-11-19 10:44:54 北京时间/.test(node.textContent)));
+    assert.ok(elements.some(node=>/Admin 当前图片与原计划不一致/.test(node.textContent)));
+    assert.ok(!elements.some(node=>/正在接续原任务/.test(node.textContent)));
+    assert.equal(f.roots.jobsList.children[0].children[0].textContent,'2026-11-19 07:55:00 北京时间');
+    assert.equal(elements.find(node=>node.tag==='table').rows[0][0],'2026-11-19 10:44:54 北京时间');
+    assert.equal(f.scheduled.size,0);scenarios++;
+  }
+  {
+    const f=fixture({image_resume:true});await f.show();const pending=f.buttons()[0].click();
+    f.setJob({status:'running',can_resume:false});
+    f.resolvePost(f.response(202,{execution_id:f.id,status:'queued'}));await pending;
+    assert.equal(f.scheduled.size,1);
+    f.setJob({status:'completed_readback',step:'done'});
+    await [...f.scheduled.values()][0]();
+    assert.ok(all(f.roots.jobResult).some(node=>/completed_readback/.test(node.textContent)));
+    assert.equal(f.scheduled.size,0);
+    assert.equal(f.requests.filter(request=>request.options.method==='POST').length,1);scenarios++;
   }
   for(const failure of ['http403','network']){
     const f=fixture();await f.show();const resume=f.buttons()[0],pending=resume.click();
