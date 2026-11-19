@@ -51,7 +51,10 @@
     for(const id of ["challenge","login","logout","prepare"]){$(id).disabled=data.role!=="admin";}
     $("scopeChecked").onchange=updateConfirm;
     $("confirm").onclick=confirmPlan;
-    $("jobsRefresh").onclick=()=>loadJobs().catch(e=>msg("jobsList",e.message,"error"));
+    $("jobsRefresh").onclick=async()=>{
+      try{await loadJobs();if(state.activeJobId)await showJob(state.activeJobId);}
+      catch(error){msg("jobsList",error.message,"error");}
+    };
     $("challenge").onclick=challenge;
     $("login").onclick=login;
     $("logout").onclick=logout;
@@ -115,8 +118,30 @@
   async function startModels(current){state.snapshot=current.latest_model_snapshot?.snapshot_id||"";$("refreshModels").disabled=state.role!=="admin";$("refreshModels").onclick=async()=>{try{$("refreshModels").disabled=true;await refreshModelSnapshot();}catch(e){msg("modelSummary",e.message,"error");}finally{$("refreshModels").disabled=false;}};$("applyFilters").onclick=async()=>{state.filter=modelCriteria();state.modelPage=1;try{await loadModels();}catch(e){msg("modelSummary",e.message,"error");}};$("resetFilters").onclick=async()=>{for(const id of ["keyword","filterTagId","filterTagName"])$(id).value="";$("recommendFilter").value="";state.filter={};state.modelPage=1;try{await loadModels();}catch(e){msg("modelSummary",e.message,"error");}};$("prev").onclick=()=>{state.modelPage--;loadModels().catch(e=>msg("modelSummary",e.message,"error"));};$("next").onclick=()=>{state.modelPage++;loadModels().catch(e=>msg("modelSummary",e.message,"error"));};$("selectPage").onclick=()=>{for(const row of state.modelResult?.items||[])state.modelSelected.add(row.model_id);clearPlan();renderModels();};$("selectFiltered").onclick=()=>{for(const id of state.modelResult?.filtered_model_ids||[])state.modelSelected.add(id);clearPlan();renderModels();};$("clearSelection").onclick=()=>{state.modelSelected.clear();clearPlan();renderModels();};$("showSelected").onclick=()=>{$("selectedList").hidden=!$("selectedList").hidden;renderModelSelection();};$("modelAction").onchange=()=>{clearPlan();$("actionTagIds").disabled=!$("modelAction").value.includes("tags");};$("actionTagIds").oninput=()=>clearPlan();$("prepare").onclick=prepareModels;$("exportTxt").onclick=exportTxt;$("actionTagIds").disabled=false;if(state.snapshot&&state.auth)try{await loadModels();}catch(e){msg("modelSummary",e.message,"error");}else msg("modelSummary","后台未登录或没有完整模型快照；请登录后读取。","warn");}
   async function prepareModels(){try{if(!state.snapshot||!state.modelSelected.size)throw new Error("先完整读取并选择至少一个模型");const action=$("modelAction").value,tags=action.includes("tags")?parseTags("actionTagIds"):[],data=await api("/api/plans/existing-actions","POST",{snapshot_id:state.snapshot,selected_model_ids:[...state.modelSelected].sort((a,b)=>a-b),action,tag_ids:tags});state.plan=data;$("scopeChecked").checked=false;const root=previewBase(data,"模型");root.append(node("p","动作："+action+" · 标签："+(data.tag_ids||[]).map(id=>id+" "+(data.tag_names?.[id]||"")).join("、")+" · 实际变更 "+data.actual_change_count+" · 无变更 "+data.no_change_count));table(root,["模型 ID","FUTBIN ID","标题","写入前标签","写入后标签","写入前推荐","写入后推荐","结果"],(data.items||[]).map(item=>[item.model_id,item.futbin_id,item.title,(item.before.tag_ids||[]).join(","),(item.after.tag_ids||[]).join(","),item.before.is_rec,item.after.is_rec,item.requires_write?"待执行":"无变化"]));msg("planMessage",data.blockers?.length?"计划有阻断项；不能确认。":"已生成完整只读计划，请逐模型核对。",data.blockers?.length?"warn":"ok");updateConfirm();}catch(e){clearPlan(e.message);msg("planMessage",e.message,"error");}}
   async function exportTxt(){try{if(!state.snapshot||!state.modelSelected.size)throw new Error("请先选择模型");const response=await api("/api/models/export","POST",{snapshot_id:state.snapshot,selected_model_ids:[...state.modelSelected].sort((a,b)=>a-b)},true),blob=await response.blob(),url=URL.createObjectURL(blob),a=node("a");a.href=url;a.download="fc27_selected_futbin_ids.txt";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);msg("planMessage","已导出 "+state.modelSelected.size+" 个模型对应的 FUTBIN ID。","ok");}catch(e){msg("planMessage",e.message,"error");}}
-  async function loadJobs(){const data=await api("/api/jobs"),root=$("jobsList");root.replaceChildren();if(!data.items?.length){root.textContent="暂无任务";return;}const history=node("details");history.append(node("summary","较早任务（"+Math.max(0,data.items.length-5)+" 条）"));for(const [index,job] of data.items.entries()){const row=node("div",undefined,"job-row");row.append(node("span",job.created_at),node("span",job.status),node("span","步骤 "+job.step),button("查看结果",()=>showJob(job.id).catch(e=>msg("jobsList",e.message,"error"))));(index<5?root:history).append(row);}if(data.items.length>5)root.append(history);}
-  async function showJob(id){const job=await api("/api/jobs/"+encodeURIComponent(id)),root=$("jobResult");root.hidden=false;root.replaceChildren(node("h3","任务 "+job.id),node("p","状态："+job.status+" · 当前步骤："+job.step+" · 更新："+job.updated_at));
+  const jobTimeFormatter = new Intl.DateTimeFormat("sv-SE", {
+    timeZone:"Asia/Shanghai", year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23"
+  });
+  function jobTime(value){
+    const date=new Date(value);
+    return value&&!Number.isNaN(date.getTime())?jobTimeFormatter.format(date)+" 北京时间":value||"—";
+  }
+  async function loadJobs(){const data=await api("/api/jobs"),root=$("jobsList");root.replaceChildren();if(!data.items?.length){root.textContent="暂无任务";return;}const history=node("details");history.append(node("summary","较早任务（"+Math.max(0,data.items.length-5)+" 条）"));for(const [index,job] of data.items.entries()){const row=node("div",undefined,"job-row");row.append(node("span",jobTime(job.created_at)),node("span",job.status),node("span","步骤 "+job.step),button("查看结果",()=>showJob(job.id).catch(e=>msg("jobsList",e.message,"error"))));(index<5?root:history).append(row);}if(data.items.length>5)root.append(history);}
+  async function showJob(id, following=false){
+    clearTimeout(state.jobPoll);
+    state.activeJobId=id;
+    const serial=state.jobSerial=(state.jobSerial||0)+1;
+    const job=await api("/api/jobs/"+encodeURIComponent(id));
+    if(state.jobSerial!==serial)return;
+    const root=$("jobResult");
+    root.hidden=false;
+    root.replaceChildren(node("h3","任务 "+job.id),node("p","状态："+job.status+" · 当前步骤："+job.step+" · 更新："+jobTime(job.updated_at)));
+    const latest=job.events?.at(-1)?.detail;
+    if(job.step==="image_unknown"&&latest?.error_type){
+      const reason={IMAGE_MODEL_CHANGED:"Admin 当前图片与原计划不一致",IMAGE_READBACK_INCOMPLETE:"Admin 回读的图片与本次附件不一致",IMAGE_READBACK_UNAVAILABLE:"暂时无法读取 Admin 上的图片",AdminHttpError:"Admin 请求未成功返回",StateError:"需要核对 Admin 模型与原附件"};
+      const code=latest.error_code||latest.error_type;
+      root.append(node("p","图片任务已暂停："+(reason[code]||code)+"。","warn"));
+    }
     const phases=new Map();for(const event of job.events||[]){const fid=event.detail?.futbin_id;if(fid&&event.step.startsWith("direct_"))phases.set(fid+":"+event.step,{fid,step:event.step,status:event.status});}
     const unknown=[...new Set([...phases.values()].filter(row=>row.status==="unknown").map(row=>row.fid))],waiting=[...new Set([...phases.values()].filter(row=>row.step==="direct_shelves"&&row.status==="accepted").map(row=>row.fid))];
     if(unknown.length)root.append(node("p","新增请求结果未知（"+unknown.length+" 人）："+unknown.join("、")+"。请先核对原请求；系统不会重复发送已派发的请求。","warn"));
@@ -129,14 +154,31 @@
         if(pending.has(id))return;
         const progress={button:resume,message};pending.set(id,progress);
         resume.disabled=true;message.textContent="正在接续原任务…";
-        try{await api("/api/jobs/"+encodeURIComponent(id)+"/resume","POST",{confirmed:true},false,false);await showJob(id);await loadJobs();}
-        catch(error){progress.message.textContent="未能接续："+error.message+"。请刷新结果后查看原任务状态。";}
-        finally{pending.delete(id);progress.button.disabled=false;}
+        let submitted=false;
+        try{
+          await api("/api/jobs/"+encodeURIComponent(id)+"/resume","POST",{confirmed:true},false,false);
+          submitted=true;
+          pending.delete(id);
+          if(state.activeJobId===id)await showJob(id);
+          await loadJobs();
+        }catch(error){
+          progress.message.textContent=(submitted?"已提交，暂未读到结果：":"未能接续：")+error.message+"。请刷新任务查看原任务状态。";
+        }finally{
+          pending.delete(id);
+          progress.button.disabled=false;
+        }
       });
       if(pending.has(id)){const progress=pending.get(id);progress.button=resume;progress.message=message;resume.disabled=true;message.textContent="正在接续原任务…";}
       root.append(hint,resume,message);
     }
-    if(job.items?.length)table(root,["模型 ID","状态","写前","回读"],job.items.map(item=>[item.model_id,item.status,JSON.stringify(item.before||item.planned?.before||{}),JSON.stringify(item.after||{})]));if(job.events?.length)table(root,["时间","步骤","状态","详情"],job.events.map(event=>[event.created_at,event.step,event.status,JSON.stringify(event.detail)]));}
+    if(job.items?.length)table(root,["模型 ID","状态","写前","回读"],job.items.map(item=>[item.model_id,item.status,JSON.stringify(item.before||item.planned?.before||{}),JSON.stringify(item.after||{})]));if(job.events?.length)table(root,["时间","步骤","状态","详情"],job.events.map(event=>[jobTime(event.created_at),event.step,event.status,JSON.stringify(event.detail)]));
+    if(job.status==="queued"||job.status==="running"){
+      state.jobPoll=setTimeout(()=>showJob(id,true).catch(error=>{
+        if(state.jobSerial===serial+1&&state.activeJobId===id)
+          root.append(node("p","暂时无法刷新任务："+error.message+"。请点击刷新任务查看。","warn"));
+      }),2500);
+    }else if(following)await loadJobs();
+  }
   async function loadTagCatalog(){try{const data=await api("/api/tags"),select=$("tagCatalog");select.replaceChildren();for(const item of data.items||[]){const option=node("option",String(item.name||"")+" ("+item.id+")");option.value=String(item.id);select.append(option);}msg("tagCatalogSummary","FC27 Players 标签 "+select.options.length+" 个；筛选标签与操作标签独立。","ok");}catch(e){msg("tagCatalogSummary",e.message,"error");}}
   function syncSelectedTags(){const selected=[...$("tagCatalog").selectedOptions].map(item=>item.value);$("actionTagIds").value=selected.join(",");clearPlan();}
   async function advancedSearch(){const fields={q:"advQ",rating_min:"advRatingMin",rating_max:"advRatingMax",position:"advPosition",league:"advLeague",club:"advClub",nation:"advNation",price_platform:"advPricePlatform",price_min:"advPriceMin",price_max:"advPriceMax",playstyle:"advPlaystyle",ps_type:"advPsType"},criteria={};for(const [key,id]of Object.entries(fields)){const value=$(id).value.trim();if(value)criteria[key]=value;}const result=$("advancedResult");result.hidden=false;$("selectAdvanced").disabled=true;try{if(!state.snapshot)throw new Error("先读取完整后台模型快照");if(!Object.keys(criteria).length)throw new Error("请至少填写一个球员库属性条件");result.textContent="正在完整读取球员库筛选结果…";const data=await api("/api/models/intersect","POST",{snapshot_id:state.snapshot,criteria});state.advanced=data;result.textContent="球员库命中 "+data.source_total+" / 完整读取 "+data.read_count+"；已建模型 "+data.matched_model_count+"；未建模型 "+data.unlisted_count+"；身份歧义卡 "+data.ambiguous_count+"。\n命中模型 ID："+data.matched_model_ids.join(", ")+(data.ambiguous_futbin_ids.length?"\n歧义 FUTBIN ID："+data.ambiguous_futbin_ids.join(", "):"");$("selectAdvanced").disabled=!data.matched_model_count;}catch(e){state.advanced=null;result.textContent="高级球员库筛选失败："+e.message+"。后台模型基础筛选仍可使用。";}}
