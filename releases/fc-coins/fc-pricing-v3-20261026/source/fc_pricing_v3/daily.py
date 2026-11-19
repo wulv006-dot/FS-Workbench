@@ -36,6 +36,11 @@ def forward_hourly_timings(stderr):
         if not isinstance(record, dict):
             continue
         stage, event = record.get('stage'), record.get('event')
+        if (stage, event) == ('admin_paging', 'retry'):
+            status = record.get('http_status')
+            if record.get('source') == 'orders' and type(status) is int and status == 502:
+                hourly_timing(stage, event, source='orders', http_status=502)
+            continue
         if (stage, event) == ('admin_paging', 'failed'):
             source, reason, status = (record.get(key) for key in ('source', 'reason', 'http_status'))
             if source in ('orders', 'coupons') and isinstance(reason, str) and reason in HOURLY_ADMIN_FAILURES:

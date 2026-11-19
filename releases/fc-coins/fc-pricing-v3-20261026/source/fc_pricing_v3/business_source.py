@@ -1740,7 +1740,7 @@ def shared_customer_flags(rows, *, publication_id=None):
         return {}, dict(status='unavailable', reason=type(error).__name__, publication_id=publication_id)
 
 
-def _hourly_admin_read(session, pages, path, filters, limit, progress, source):
+def _hourly_admin_read(session, pages, path, filters, limit, progress, source, *, claim_retry=None):
     from types import SimpleNamespace
 
     status = None
@@ -1749,6 +1749,10 @@ def _hourly_admin_read(session, pages, path, filters, limit, progress, source):
         nonlocal status
         status = None
         status, payload = session.get_admin(*args, **kwargs)
+        if status == 502 and claim_retry is not None and claim_retry():
+            progress('admin_paging', 'retry', source=source, http_status=502)
+            status = None
+            status, payload = session.get_admin(*args, **kwargs)
         return status, payload
 
     try:
@@ -1807,6 +1811,15 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
             'region_price_factor','region_price_lang_region_id')
     changed={}
     admin_started = monotonic()
+    order_retry_available = True
+
+    def claim_order_retry():
+        nonlocal order_retry_available
+        if not order_retry_available:
+            return False
+        order_retry_available = False
+        return True
+
     progress('admin_paging', 'start', order_ranges=len(disjoint))
     order_reads = coupon_reads = 0
     for begin,end in disjoint:
@@ -1817,7 +1830,8 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
             lo,hi=max(begin,day.isoformat()+' 00:00:00'),min(end,last.isoformat()+' 23:59:59')
             # Match the verified native page size already used by the shared ES producer.
             batch=_hourly_admin_read(session,pages,'/admin/order.Order/index',
-                [('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],1000,progress,'orders')
+                [('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],1000,progress,'orders',
+                claim_retry=claim_order_retry)
             order_reads += 1
             fresh={}
             for row in batch:
