@@ -60,10 +60,22 @@ else:
                 result['reason'] = reason
             detail = payload.get('diagnostic')
             if isinstance(detail, dict):
-                diagnostic.update({k: detail[k] for k in ('requested_page', 'http_status', 'checked_at') if k in detail})
+                for key in ('requested_page', 'http_status'):
+                    if type(detail.get(key)) is int:
+                        diagnostic[key] = detail[key]
+                checked = detail.get('checked_at')
+                if isinstance(checked, str) and re.fullmatch(r'[0-9T:.+Z-]{19,40}', checked):
+                    diagnostic['checked_at'] = checked
                 observed = detail.get('observed')
                 if isinstance(observed, dict):
-                    diagnostic['observed'] = {k: observed.get(k) for k in ('login','page','game','product','genre','typeHeader','table','hasDataRows','empty')}
+                    checks = {k: observed[k] for k in ('login', 'table', 'hasDataRows', 'empty')
+                              if type(observed.get(k)) is bool}
+                    for key in ('page', 'game', 'product', 'genre'):
+                        value = observed.get(key)
+                        if isinstance(value, str) and re.fullmatch(r'[0-9]{1,8}', value):
+                            checks[key] = value
+                    checks['delivery_type_header_matches'] = observed.get('typeHeader') == '\u4ea4\u8d27\u7c7b\u578b'
+                    diagnostic['observed'] = checks
     except (OSError, ValueError, TypeError, AttributeError):
         pass
 receipt = json.dumps(result)

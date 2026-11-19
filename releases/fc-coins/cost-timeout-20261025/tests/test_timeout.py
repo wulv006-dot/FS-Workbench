@@ -62,7 +62,10 @@ class CostTimeout(unittest.TestCase):
             (137, '', 'collector_output_empty'),
             (0, '{}', 'collector_payload_invalid'),
             (1, json.dumps({'status': 'missing', 'reason': 'login_expired',
-                            'diagnostic': {'url': 'private-url'}}), 'login_expired'),
+                            'diagnostic': {'url': 'private-url', 'checked_at': 'private-url',
+                                           'observed': {'typeHeader': 'private-url', 'table': True,
+                                                        'page': '2', 'game': {'secret': 'private-url'}}}}),
+             'login_expired'),
         ):
             with self.subTest(code=code, reason=reason):
                 status, value, filename, saved = self.wrapper(code, payload, read_failure=True)
@@ -72,6 +75,9 @@ class CostTimeout(unittest.TestCase):
                 self.assertEqual(saved['reason'], reason)
                 self.assertEqual(saved['diagnostic']['exit_code'], code)
                 self.assertNotIn('private-url', json.dumps(saved))
+                if reason == 'login_expired':
+                    self.assertEqual(saved['diagnostic']['observed'],
+                                     {'table': True, 'page': '2', 'delivery_type_header_matches': False})
 
     def test_retry_requires_same_run_and_no_write_artifacts(self):
         tree = ast.parse((HERE / 'source/automation_tick.py').read_text())
