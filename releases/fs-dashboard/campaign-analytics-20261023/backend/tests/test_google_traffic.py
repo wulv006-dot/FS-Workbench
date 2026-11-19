@@ -41,6 +41,19 @@ class GoogleTrafficTests(unittest.TestCase):
                     if 'FROM landing_page_view' in body['query']:
                         self.assertIn('LIMIT 1001', body['query'])
 
+    def test_carnival_reports_filter_its_exact_page_on_all_three_sources(self):
+        for source in ('ga4', 'gsc', 'ads'):
+            with self.subTest(source=source):
+                reader = Reader()
+                value = google.collect({'activity': 'mmoexp-carnival', 'source': source,
+                                        'from': '2026-11-19', 'to': '2026-11-19'}, reader)
+                self.assertEqual(value['page'], 'https://www.mmoexp.com/events/Carnival.html')
+                filters = [str(body) for _, _, body in reader.calls
+                           if source == 'ga4' or 'dimensionFilterGroups' in body
+                           or 'FROM landing_page_view' in body.get('query', '')]
+                self.assertTrue(filters)
+                self.assertTrue(all('/events/Carnival[.]html' in f and 'seasonal' not in f for f in filters))
+
     def test_permission_failure_stops_source_and_validation_precedes_io(self):
         reader = Reader(True)
         value = google.collect({'source': 'gsc', 'from': '2026-10-26', 'to': '2026-10-30'}, reader)

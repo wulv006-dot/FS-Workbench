@@ -19,11 +19,11 @@ function timestamp(value){
  if(new Date(utc).getUTCDate()!==+m[1])return NaN;
  return utc-(m[7]==='+'?1:-1)*(+m[8]*60 + +m[9])*60000;
 }
-export function originRange(params,now=Date.now()){
+export function originRange(params,now=Date.now(),activities=['mmoexp-seasonal','fc27-season2']){
  const day=k=>{const s=params.get(k);if(!/^\d{4}-\d{2}-\d{2}$/.test(s||''))throw Object.assign(Error('INVALID_TRAFFIC_RANGE'),{status:400});const t=Date.parse(s+'T00:00:00Z');if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==s)throw Object.assign(Error('INVALID_TRAFFIC_RANGE'),{status:400});return t;};
  const from=day('from'),end=day('to')+86400000;
  const activity=core.canonicalActivity(params.get('activity'));
- if(!['mmoexp-seasonal','fc27-season2'].includes(activity)||from>=end||end-from>31*86400000||from>now)throw Object.assign(Error('INVALID_TRAFFIC_RANGE'),{status:400});
+ if(!activities.includes(activity)||from>=end||end-from>31*86400000||from>now)throw Object.assign(Error('INVALID_TRAFFIC_RANGE'),{status:400});
  return {activity,from,to:Math.min(end,now),fromDay:new Date(from).toISOString().slice(0,10),toDay:new Date(end-1).toISOString().slice(0,10)};
 }
 const missing=reason=>({status:'unavailable',reason,pageRequests:null,observedPageRequests:null,estimatedVisitors:null,visitorReason:'UNVERIFIED_PROXY_CHAIN',source:'existing_origin_access_log'});

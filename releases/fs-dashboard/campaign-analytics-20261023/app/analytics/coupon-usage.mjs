@@ -6,12 +6,15 @@ import {transientFailure} from './statistics-retry.mjs';
 // its use log. It sits next to the dedicated-code revenue and never replaces or adds into it.
 const PAGES=['fc27-weekly','fc27-trio','fc27-sbc','fc27-season2'];
 const CARNIVAL=carnivalContext.activityId,MODULES=['home','mystery','blackFriday','capsule'];
-const COUNTS=['used_orders','paid_orders','refunded_orders','unpaid_orders','paid_usd_minor','discount_usd_minor','repurchase_orders','repurchase_usd_minor','unique_buyers'];
+const ORDER_COUNTS=['used_orders','paid_orders','refunded_orders','unpaid_orders','paid_usd_minor','discount_usd_minor'];
+const COUNTS=[...ORDER_COUNTS,'repurchase_orders','repurchase_usd_minor','unique_buyers'];
 const safe=v=>Number.isSafeInteger(v)&&v>=0;
 function valid(body,activity){
  if(activity===CARNIVAL)return body?.status==='available'&&body.activity_id===activity&&body.coverage?.complete===true
   &&safe(body.coverage.orders_unmatched)&&Array.isArray(body.modules)&&body.modules.length===MODULES.length
-  &&MODULES.every(id=>body.modules.some(m=>m?.module===id&&['issued_total','used_total',...COUNTS].every(k=>safe(m[k]))));
+  &&MODULES.every(id=>body.modules.some(m=>m?.module===id&&['issued_total','used_total',...COUNTS].every(k=>safe(m[k]))))
+  &&(body.games===undefined||Array.isArray(body.games)&&body.games.every(g=>g&&(g.game_id===null||typeof g.game_id==='string'&&/^[1-9][0-9]{0,19}$/.test(g.game_id))
+   &&(g.game_name===null||typeof g.game_name==='string'&&g.game_name.length<=120)&&ORDER_COUNTS.every(k=>safe(g[k]))));
 
  return body?.status==='available'&&body.activity_id==='fc27-season2'&&body.coverage?.complete===true&&body.coupon?.coupon_id==='1395'
   &&safe(body.coupon.issued_total)&&safe(body.coupon.used_total)&&COUNTS.every(k=>safe(body.totals?.[k]))&&Array.isArray(body.daily);
