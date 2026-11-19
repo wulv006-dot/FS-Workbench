@@ -51,10 +51,13 @@ class Backend:
         self.fail_model: int | None = None
 
     def list_models(self, *, page, limit, search):
-        assert search == [{"field": "gid", "operator": "=", "val": "1327"},
-                          {"field": "cid", "operator": "=", "val": "9627"}]
+        if len(search) == 1 and search[0]["field"] == "id" and search[0]["operator"] == "IN":
+            values = [self.rows[int(model)] for model in search[0]["val"].split(",") if int(model) in self.rows]
+        else:
+            assert search == [{"field": "gid", "operator": "=", "val": "1327"},
+                              {"field": "cid", "operator": "=", "val": "9627"}]
+            values = list(self.rows.values())
         self.pages.append(page)
-        values = list(self.rows.values())
         return SimpleNamespace(total=len(values), rows=tuple(dict(item) for item in values[(page - 1) * limit:page * limit]))
 
     def list_tags(self, *, gid, cid):
