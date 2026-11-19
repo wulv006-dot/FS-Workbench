@@ -58,6 +58,17 @@ class ExtendedCatalogTests(unittest.TestCase):
                 self.assertEqual(limits['response_bytes'], 250000)
                 self.assertNotIn('Authorization', headers)
 
+    def test_buyer_email_schema_only_accepts_bounded_exact_ids(self):
+        row = self.catalog.operation('orders.buyer_email_lookup')
+        validate({'buyer_ids': ['a' * 32, 'B' * 32]}, row['input_schema'])
+        for arguments in ({}, {'buyer_ids': []}, {'buyer_ids': ['a' * 32] * 51},
+                          {'buyer_ids': ['unknown']}, {'buyer_ids': ['a' * 32], 'actor': 'admin'}):
+            with self.assertRaises(ValidationError):
+                validate(arguments, row['input_schema'])
+        self.assertEqual(row['method'], 'POST')
+        self.assertEqual(row['fixed'], {'kind': 'order_buyer_email_lookup'})
+        self.assertEqual(row['path'], self.catalog.operation('orders.customer')['path'])
+
     def test_email_filter_schemas_keep_original_bounds(self):
         options = self.catalog.operation('orders.email_options')['input_schema']
         validate({}, options)

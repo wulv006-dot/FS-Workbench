@@ -59,7 +59,7 @@ def validate(arguments, schema):
         elif rule['type'] == 'object':
             validate(value, rule)
         elif rule['type'] == 'array':
-            if not isinstance(value, list) or len(value) > rule['maxItems']:
+            if not isinstance(value, list) or not rule.get('minItems', 0) <= len(value) <= rule['maxItems']:
                 raise ValidationError('invalid_arguments')
             item_schema = {'properties': {'item': rule['items']}}
             for item in value:

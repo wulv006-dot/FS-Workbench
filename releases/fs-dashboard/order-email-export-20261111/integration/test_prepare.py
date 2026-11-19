@@ -59,7 +59,11 @@ class Backend(unittest.TestCase):
         replies = []
         obj.reply = lambda *args: replies.append(args)
         # Real parser, stub only the source call; no customers or credentials.
-        with patch.object(exporter, 'page_get', page), patch.object(export_source, 'options_get', page, create=True):
+        def lookup(body, actor):
+            calls.append(('lookup_buyer', body, actor))
+            return 200, {'status': 'fixture'}
+        with patch.object(exporter, 'page_get', page), patch.object(export_source, 'options_get', page, create=True), \
+                patch.object(exporter, 'lookup_buyer_emails', lookup):
             obj.do_POST()
         return replies[-1], calls
 
@@ -73,6 +77,15 @@ class Backend(unittest.TestCase):
         self.assertEqual(reply, (206, {'actor':'real-actor'}))
         self.assertIn(('normal', raw), calls)
         self.assertNotIn('export', [c[0] for c in calls])
+
+    def test_buyer_lookup_uses_verified_session_actor(self):
+        ids = ['a' * 32, 'b' * 32]
+        reply, calls = self.request({'kind': 'order_buyer_email_lookup', 'buyer_ids': ids})
+        self.assertEqual(reply[0], 200)
+        self.assertIn(('lookup_buyer', {'buyer_ids': ids}, 'real-actor'), calls)
+        reply, calls = self.request({'kind': 'order_buyer_email_lookup', 'buyer_ids': ids}, [(401, None)])
+        self.assertEqual(reply[0], 401)
+        self.assertFalse(calls)
 
     def test_export_real_parser_and_scoped_actor(self):
         reply, calls = self.request(self.export_body())
