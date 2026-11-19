@@ -201,7 +201,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     if (!disposed) { clear(); status.textContent = '条件已变更，请重新查询。'; }
   };
   const onCancel = () => { if (!disposed) { clear(); status.textContent = '已取消并清除名单。'; } };
-  let metadataSequence = 0, metadataReady = !remoteOptions;
+  let metadataSequence = 0, metadataReady = !remoteOptions, metadataPending = null;
   const fill = (select, entries) => {
     if (!Array.isArray(entries)) throw new TypeError('Invalid options');
     const seen = new Set();
@@ -221,13 +221,28 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
 
     status.textContent = '正在读取 Admin 筛选选项。';
 
+    // The server has one live Admin slot, including requests whose results the UI no longer needs.
+    if (metadataPending) {
+      await metadataPending.catch(() => {});
+      if (disposed || current !== metadataSequence) return;
+    }
+
+    let pending, failure = 'Admin 筛选选项读取失败';
     try {
-      const response = await fetcher(url.href, { method: 'POST', credentials: 'same-origin', redirect: 'error',
+      pending = metadataPending = fetcher(url.href, { method: 'POST', credentials: 'same-origin', redirect: 'error',
         cache: 'no-store', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ kind: 'order_email_export_options', ...(initial ? {} : {
           progress: filters.progress.value, game_ids: Array.from(game.selectedOptions, option => option.value) }) }) });
+      const response = await pending;
+      if (metadataPending === pending) metadataPending = null;
       if (disposed || current !== metadataSequence) return;
-      if (!response.ok || response.redirected) throw new Error();
+      if (!response.ok || response.redirected) {
+        if (response.status === 401) failure = 'FS 登录已失效，请重新登录后再打开面板';
+        else if (response.status === 403) failure = '当前账号无权读取订单邮箱筛选项';
+        else if (response.status === 429) failure = 'Admin 读取繁忙，请稍后重试';
+        else if (Number.isInteger(response.status)) failure += `（HTTP ${response.status}）`;
+        throw new Error();
+      }
       const data = await response.json();
       if (disposed || current !== metadataSequence) return;
       if (!data.options || data.error) throw new Error();
@@ -266,7 +281,9 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
       if (disposed || current !== metadataSequence) return;
       clear(); resetServers(); metadataReady = false; query.disabled = true;
       filters.status.disabled = filters.cid.disabled = filters.aid.disabled = true;
-      status.textContent = 'Admin 筛选选项读取失败，请重新打开面板重试。';
+      status.textContent = `${failure}。可重新打开面板重试。`;
+    } finally {
+      if (metadataPending === pending) metadataPending = null;
     }
   };
   const dependentChange = event => {

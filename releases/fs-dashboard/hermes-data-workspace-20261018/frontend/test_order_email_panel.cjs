@@ -136,8 +136,10 @@ test('progress/status and game dependencies refresh without restoring stale sele
   assert.equal(JSON.parse(h.requests[4].options.body).progress, '');
   assert.equal(h.fields.status.value, ''); assert.equal(h.fields.status.disabled, true);
   h.fields.game_ids.children[0].selected = false; h.form.fire('change', h.fields.game_ids);
-  h.respond(5, {...data,options:{...data.options,status:[],cid:[],aid:[],servers_by_game:{}}}); await tick();
+  assert.equal(h.requests.length, 5, 'dependent changes must not compete for the shared Admin slot');
   h.respond(4, data); await tick();
+  assert.deepEqual(JSON.parse(h.requests[5].options.body).game_ids, []);
+  h.respond(5, {...data,options:{...data.options,status:[],cid:[],aid:[],servers_by_game:{}}}); await tick();
   assert.equal(h.fields.status.value, ''); assert.equal(h.fields.cid.value, ''); assert.equal(h.fields.aid.value, '');
   assert.equal(h.fields.status.disabled, true); assert.equal(h.fields.cid.disabled, true);
   assert.equal(h.fields.country.value, 'US');
@@ -170,7 +172,7 @@ test('remote same-label servers stay per-game, reset on parents and expand befor
   h.buttons[2].click(); assert.equal(h.blobs.size,1);
   h.form.fire('change',h.fields.game_ids); assert.equal(control('26'),undefined); assert.equal(h.blobs.size,0);
   h.fields.game_ids.children.forEach(o => { o.selected=false; }); h.form.fire('change',h.fields.game_ids);
-  h.respond(5,metadata()); await tick(); h.respond(4,{options}); await tick();
+  h.respond(4,{options}); await tick(); h.respond(5,metadata()); await tick();
   assert.equal(control('26'),undefined); assert.equal(control('27'),undefined);
   h.widget.dispose();
 });
