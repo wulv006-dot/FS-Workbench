@@ -224,20 +224,23 @@ def _main_band_members(proof, band):
     return weighted
 
 
-def band_margin(proof, band):
+def band_margin(proof, band, *, retained=None):
     """Current weighted procurement margin of the main basket within one band."""
     members = _main_band_members(proof, band)
-    revenue = sum(Decimal(row['net_receipt_usd']) * weight for row, weight in members)
+    revenue = sum((Decimal(row['net_receipt_usd']) if retained is None else
+                   forecast_receipt(Decimal(row['regular_usd']), retained)) * weight
+                  for row, weight in members)
     costs = sum(Decimal(row['safe_cost_usd']) * weight for row, weight in members)
     return (revenue - costs) / revenue if revenue > 0 else None
 
 
-def band_target_price(proof, band, target, low, high):
+def band_target_price(proof, band, target, low, high, *, retained=None):
     """Find the first native cent in the corridor that meets the target."""
     from .price_curve import COIN_BAND_ANCHORS
 
     members = _main_band_members(proof, band)
-    retained = Decimal(proof['average_discount']['retained_ratio'])
+    if retained is None:
+        retained = Decimal(proof['average_discount']['retained_ratio'])
     if not members or not retained or low > high:
         return None
     anchor = COIN_BAND_ANCHORS[band]
