@@ -1,11 +1,43 @@
 import json
 import pathlib
+import sqlite3
+import tempfile
 import sys
 import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'source'))
 import admin_order_email_export as export
+
+
+class BuyerLookupTests(unittest.TestCase):
+    def test_batch_matches_exact_ids_and_reports_missing(self):
+        known, unknown = 'ab' * 16, 'cd' * 16
+        with tempfile.TemporaryDirectory() as folder:
+            path = pathlib.Path(folder) / 'buyers.sqlite3'
+            db = sqlite3.connect(path)
+            db.execute('CREATE TABLE mapping(buyer TEXT PRIMARY KEY,email TEXT NOT NULL)')
+            db.execute('INSERT INTO mapping VALUES(?,?)', (known, 'example@example.invalid'))
+            db.commit()
+            db.close()
+            path.chmod(0o600)
+            request = {'buyer_ids': [known.upper(), unknown, known]}
+            with patch.object(export, 'BUYER_ARCHIVE', path):
+                def allowed(actor, scope, private):
+                    return actor == 'operator' and scope == {'scope': 'all'} and private is True
+                status, result = export.lookup_buyer_emails(request, 'operator', authorize=allowed)
+                self.assertEqual(status, 200)
+                self.assertEqual(result['matched'], 1)
+                self.assertEqual(result['items'], [
+                    dict(buyer_id=known, status='found', email='example@example.invalid'),
+                    dict(buyer_id=unknown, status='not_found_in_archive')])
+                self.assertEqual(export.lookup_buyer_emails(request, 'reader', authorize=allowed)[0], 403)
+                self.assertEqual(export.lookup_buyer_emails(request, None, authorize=allowed)[0], 401)
+                grants = iter((True, False))
+                status, result = export.lookup_buyer_emails(request, 'operator', authorize=lambda *_: next(grants))
+                self.assertEqual((status, result), (403, {'error': 'scope_denied'}))
+                for ids in ([], [known] * 51, ['not-an-id']):
+                    self.assertEqual(export.lookup_buyer_emails({'buyer_ids': ids}, 'operator', authorize=allowed)[0], 422)
 
 
 class ExportTests(unittest.TestCase):

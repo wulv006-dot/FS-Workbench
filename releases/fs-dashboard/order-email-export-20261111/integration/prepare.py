@@ -21,8 +21,8 @@ RANGE_REPLACEMENT = """    def run_scoped(operation,timeout):
       return operation()
      return LIVE_ADMIN.run(checked,timeout)
     body=json.loads(raw.decode('utf8'))
-    if isinstance(body,dict) and body.get('kind') in ('order_email_export_page','order_email_export_options'):
-     from admin_order_email_export import parse_page_body,page_get
+    if isinstance(body,dict) and body.get('kind') in ('order_email_export_page','order_email_export_options','order_buyer_email_lookup'):
+     from admin_order_email_export import lookup_buyer_emails,parse_page_body,page_get
      from admin_email_export_source import options_get
      def unique(pairs):
       value={}
@@ -34,6 +34,8 @@ RANGE_REPLACEMENT = """    def run_scoped(operation,timeout):
      kind=body.pop('kind')
      if kind=='order_email_export_options':
       status,data=options_get(body,actor,run_source=run_scoped);self.reply(status,data)
+     elif kind=='order_buyer_email_lookup':
+      status,data=lookup_buyer_emails(body,actor);self.reply(status,data)
      else:
       export_request=parse_page_body(json.dumps(body,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf8'))
       status,data=page_get(export_request,actor,run_source=run_scoped);self.reply(status,data)

@@ -5,7 +5,13 @@ Unsupported filters fail closed rather than silently broadening an export.
 """
 import datetime
 import json
+import os
+from pathlib import Path
+import re
+import sqlite3
+import stat
 import time
+from contextlib import closing
 
 from admin_live_page import valid_customer_email, validate_period, utc_now, LivePageError
 from admin_email_export_source import validate_filters
@@ -13,6 +19,50 @@ from admin_email_export_source import validate_filters
 MAX_PAGES = 1000
 MAX_SECONDS = 45
 MAX_EXPORT_BYTES = 1048576
+
+
+BUYER_ARCHIVE = Path('/var/lib/fs-user-analytics/email-export-20261119/candidates.sqlite3')
+BUYER_ID = re.compile(r'[0-9a-fA-F]{32}')
+
+
+def lookup_buyer_emails(request, user, *, authorize=None):
+    """Read the private all-site export index using the order-email ACL."""
+    if not user:
+        return 401, {'error': 'login_required'}
+    if authorize is None:
+        from user_runtime import authorize
+    scope = {'scope': 'all'}
+    if authorize(user, scope, True) is not True:
+        return 403, {'error': 'scope_denied'}
+    values = request.get('buyer_ids') if isinstance(request, dict) and set(request) == {'buyer_ids'} else None
+    if not isinstance(values, list) or not 1 <= len(values) <= 50 or any(
+            not isinstance(value, str) or not BUYER_ID.fullmatch(value) for value in values):
+        return 422, {'error': 'invalid_buyer_ids'}
+    ids = list(dict.fromkeys(value.lower() for value in values))
+    try:
+        info = BUYER_ARCHIVE.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or (
+                os.name == 'posix' and (info.st_uid != os.geteuid() or info.st_mode & 0o077)):
+            raise ValueError('unsafe_buyer_archive')
+        placeholders = ','.join('?' for _ in ids)
+        with closing(sqlite3.connect(BUYER_ARCHIVE.as_uri() + '?mode=ro', uri=True, timeout=1)) as db:
+            rows = dict(db.execute('SELECT buyer,email FROM mapping WHERE buyer IN (' + placeholders + ')', ids))
+        if any(not valid_customer_email(email) for email in rows.values()):
+            raise ValueError('invalid_archived_email')
+    except (OSError, sqlite3.Error, ValueError):
+        return 503, {'error': 'buyer_email_archive_unavailable'}
+    if authorize(user, scope, True) is not True:
+        return 403, {'error': 'scope_denied'}
+    items = []
+    for buyer in ids:
+        item = {'buyer_id': buyer, 'status': 'not_found_in_archive'}
+        if buyer in rows:
+            item.update(status='found', email=rows[buyer])
+        items.append(item)
+    return 200, {'items': items, 'matched': len(rows),
+                 'period': {'start': '2026-01-01', 'end_exclusive': '2026-11-19', 'timezone': 'Asia/Shanghai'},
+                 'scope': {'archive': 'order_email_export_20261119', 'progress': '10',
+                           'excluded_games': ['RS', 'Diablo 4', 'Diablo II: Resurrected']}}
 
 
 def parse_page_body(raw, *, observed_at=utc_now):

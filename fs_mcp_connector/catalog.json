@@ -751,6 +751,49 @@
       "date_contract": "live_orders"
     },
     {
+      "name": "orders.buyer_email_lookup",
+      "module": "data-analysis-tools",
+      "path": "/dashboard/users/live-orders.json",
+      "method": "POST",
+      "permission_path": "/dashboard/users/live-orders.json",
+      "description": "Look up up to 50 exact Buyer IDs in the verified order email archive (2026-01-01 to 2026-11-18 Shanghai dates; completed orders excluding RS, Diablo 4, and Diablo II: Resurrected). Existing private all-site order-email permission is required. An archive miss is not proof the buyer has no email.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "buyer_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "[0-9a-fA-F]{32}"
+            },
+            "minItems": 1,
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "buyer_ids"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "kind": "order_buyer_email_lookup"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 65536,
+        "timeout_seconds": 10
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/order-email-export-20261111/integration/prepare.py; releases/fs-dashboard/tiered-data-access-20261101/source/admin_order_email_export.py",
+        "mapping_status": "original_route_verified_lookup_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/live-orders.json",
+        "route_observed_date": "2026-11-12"
+      }
+    },
+    {
       "name": "orders.email_options",
       "module": "data-analysis-tools",
       "path": "/dashboard/users/live-orders.json",
@@ -5145,8 +5188,8 @@
     {
       "module": "data-analysis-tools",
       "status": "partially_mapped_not_live_verified",
-      "operations": 3,
-      "reason": "Original customer aggregate plus private order-email filter and paged reads. The FS browser path was verified separately; connector and account-role acceptance remain pending.",
+      "operations": 4,
+      "reason": "Original customer aggregate plus private order-email filters, paged reads and exact Buyer ID archive lookup. The FS browser path was verified separately; connector and account-role acceptance remain pending.",
       "permission_path": "/dashboard/data-tools/"
     },
     {
