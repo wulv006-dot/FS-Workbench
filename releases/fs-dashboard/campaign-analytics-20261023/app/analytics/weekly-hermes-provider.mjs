@@ -37,11 +37,11 @@ export function createWeeklyHermesProvider({cookie,actor,fetchImpl=fetch}) {
    throw Object.assign(new Error('WEEKLY_HERMES_PROVIDER_PENDING'),{code:'WEEKLY_HERMES_PROVIDER_PENDING',provider_outcome:'pending'});
   }
   if(response.status===200&&payload.status==='unavailable'&&payload.error==='WEEKLY_HERMES_PROVIDER_UNAVAILABLE'&&payload.provider_outcome==='not_dispatched'&&payload.operation_id===operation_id)throw Object.assign(unavailable(),{original_outcome_confirmed:true});
-  if(response.status===200&&payload.status==='failed'&&payload.error==='WEEKLY_HERMES_RECOMMENDATION_FAILED'&&payload.provider_outcome==='completed'&&payload.operation_id===operation_id&&payload.receipt?.operation_id===operation_id&&payload.receipt.model==='gpt-6.1-sol'){
+  if(response.status===200&&payload.status==='failed'&&payload.error==='WEEKLY_HERMES_RECOMMENDATION_FAILED'&&payload.provider_outcome==='completed'&&payload.operation_id===operation_id&&payload.receipt?.operation_id===operation_id&&['gpt-6.1-sol','gpt-6.2-sol'].includes(payload.receipt.model)){
    provider.receipt=projectWeeklyProviderReceipt(payload.receipt,operation_id);
    throw Object.assign(new Error('WEEKLY_HERMES_RECOMMENDATION_FAILED'),{code:'WEEKLY_HERMES_RECOMMENDATION_FAILED',provider_outcome:'completed',original_outcome_confirmed:true});
   }
-  if(response.status!==200||payload.status!=='completed'||!payload.result||payload.receipt?.operation_id!==operation_id||payload.result.model!=='gpt-6.1-sol')throw unknown();
+  if(response.status!==200||payload.status!=='completed'||!payload.result||payload.receipt?.operation_id!==operation_id||!['gpt-6.1-sol','gpt-6.2-sol'].includes(payload.result.model)||payload.receipt.model!==payload.result.model)throw unknown();
   provider.receipt=projectWeeklyProviderReceipt(payload.receipt,operation_id);
   return payload.result;
  }

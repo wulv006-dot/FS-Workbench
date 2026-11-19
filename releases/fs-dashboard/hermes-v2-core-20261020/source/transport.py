@@ -56,7 +56,7 @@ class Grants:
     def mint(self, owner, task_id, lease, ttl=600, reasoning_effort='none'):
         if type(ttl) is not int or not 1 <= ttl <= 600:
             raise ValueError('grant_ttl')
-        if reasoning_effort not in ('none','low','high','max'):
+        if reasoning_effort not in ('none','low','medium','high','max'):
             raise ValueError('grant_reasoning')
         token = secrets.token_urlsafe(32)
         with self._lock:
