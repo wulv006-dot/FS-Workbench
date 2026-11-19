@@ -254,3 +254,15 @@ test('on a phone the Black Friday store takes the full width; the mascot stands 
  assert.ok(box.artWidth<=100,'mascot is a small corner figure');
  assert.ok(box.artBottom<=box.contentTop+40,'mascot sits on the roof, not beside the products');
 });
+
+test('ARC Raiders offers PC, PS and Xbox, and prices the chosen platform listing',async t=>{
+ const {page,errors}=await open(t);
+ await page.locator('.gtab.game-arc').first().dispatchEvent('click');
+ await page.waitForFunction(()=>curGame==='arc');
+ assert.deepEqual(await page.locator('#marketChoiceSelect option').allTextContents(),['PC','PS','XBOX']);
+ // The native select sits behind the custom menu; choose as its change handler does.
+ await page.evaluate(()=>{const s=document.getElementById('marketChoiceSelect');s.value='PS';marketSelectionChanged();});
+ // Stencil Parts on PS is its own goods row (185981139); the mock lists it, so it gets a price.
+ await page.waitForFunction(()=>/^\$\d/.test(document.querySelector('#msPool .pprice')?.textContent||''),null,{timeout:10000});
+ assert.deepEqual(errors,[]);
+});

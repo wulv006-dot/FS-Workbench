@@ -294,10 +294,24 @@ function mysterySpec(it){
   if(it.wowAmount){const c=it.wowChoice||wowChoice(),entry=WOW_PRICE_SNAPSHOT?.[c.region]?.[c.faction]?.[c.realm];return entry?{game:1367,top:1,cid:9991,goods:Number(entry[0]),qty:it.wowAmount}:null;}
   const id=Number(it.goodsId||it.productId||it.poeGoodsId),g=GOODS[id];
   if(!g)return null;
-  // Market games: only the configured listing (PC / Windia) has a verified goods id.
-  if(it.marketGame&&(it.marketChoice||marketSelections[it.marketGame])!==(it.marketGame==='maple'?'Windia':'PC'))return null;
+  const choice=it.marketGame&&(it.marketChoice||marketSelections[it.marketGame]);
+  if(it.marketGame==='maple'&&choice!=='Windia')return null;
+  // ARC and COD list each item once per platform; the configured id is the PC (or COD lobby) row.
+  if(it.marketGame==='arc'||it.marketGame==='codmw4'){
+    const row=MARKET_PLATFORM_GOODS[id]?.[choice],aid=MARKET_PLATFORM_AID[it.marketGame][choice];
+    return row&&aid?{game:g[0],top:g[1],cid:g[2],aid,...(g[4]?{keyword:g[4]}:{}),goods:row,qty:g[1]===1?amountOf(it.name):1}:null;
+  }
   return {game:g[0],top:g[1],cid:g[2],aid:g[3],...(g[4]?{keyword:g[4]}:{}),goods:id,qty:g[1]===1?amountOf(it.name):1};
 }
+const MARKET_PLATFORM_AID={arc:{PC:19835,PS:19839,XBOX:19837},codmw4:{PC:21629,PS:21631,XBOX:21633}};
+const MARKET_PLATFORM_GOODS=Object.fromEntries([
+ [185981107,185981139,185981171],[185382277,185382309,185382341],[112802085,112802117,112802149],[112802373,112802405,112802437],
+ [185383333,185383365,185383397],[112807773,112807805,112807837],[112811421,112811453,112811485],[105267633,105267697,105267665],
+ [186374427,186374459,186374491],[186374619,186374651,186374683],[186372891,186372923,186372955],[186372603,186372635,186372667],
+ [186372507,186372539,186372571],[186372699,186372731,186372763],[186373083,186373115,186373147],
+ // Bot lobbies: both lobby items are SKUs of the one "Multiplayer Bot Lobbies" row per platform.
+ [165175543,165175575,165175607],[165175575,165175575,165175607,165175543]
+].map(([id,ps,xbox,pc])=>[id,{PC:pc||id,PS:ps,XBOX:xbox}]));
 const AION_SID={EU:7741,'NA West':7743,'NA East':7745,'South America':7747,Asia:7749};
 let msRender=0;const rerenderMs=()=>{cancelAnimationFrame(msRender);msRender=requestAnimationFrame(()=>{if(!msBusy)renderMsZone();});};
 fc27Price=function(it){
@@ -305,8 +319,9 @@ fc27Price=function(it){
   if(it.aionAmount)it.price=price;
   it.fromPrice=false;return price;
 };
-// Market games: only PC (ARC, COD) and Windia (MapleStory) listings are configured.
-marketOptions.arc=['PC'];marketOptions.codmw4=['PC'];
+// ARC and COD: same title, same price on each platform, one goods row per platform
+// (read from the main-site catalog 2026-11-19). MapleStory is Windia only.
+marketOptions.arc=['PC','PS','XBOX'];marketOptions.codmw4=['PC','PS','XBOX'];
 aionSelectionChanged=function(resetServer){
   if(curGame!=='aion2')return;const r=document.getElementById('aionRegion').value,f=document.getElementById('aionFaction').value,select=document.getElementById('aionServer');
   const choices=AION_SERVERS[r]?.[f]||[],old=select.value;select.innerHTML=choices.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');select.value=(!resetServer&&choices.includes(old))?old:choices[0];
