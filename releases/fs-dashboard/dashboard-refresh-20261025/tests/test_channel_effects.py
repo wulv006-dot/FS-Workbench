@@ -345,6 +345,29 @@ class Effects(unittest.TestCase):
             with patch.object(channel_source,'ROOT',Path(root)), patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ready":true}')), patch.dict(sys.modules,{'fcntl':SimpleNamespace(flock=lambda *args:None,LOCK_EX=1,LOCK_NB=2),'p2pah_auth':SimpleNamespace(Session=lambda:fake_session)}), patch('channel_cost_source.collect',side_effect=ValueError('forced_order_read')):
                 with self.assertRaisesRegex(ValueError,'forced_order_read'):channel_source.enrich(data,force=True)
 
+    def test_native_cost_refresh_can_return_the_rows_of_its_own_publication(self):
+        import channel_source
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            cutoff = datetime.now(TZ) - timedelta(minutes=1)
+            day = cutoff.date().isoformat()
+            delivery = dict(delivery_id='1', source='www.mmoexp.com', sn='fixture', genre=1,
+                            trade_at=day+' 00:00:00', cost_total='42', sale_total='60')
+            session = SimpleNamespace(close=lambda: None)
+            modules = {'fcntl': SimpleNamespace(flock=lambda *args: None, LOCK_EX=1, LOCK_NB=2),
+                       'p2pah_auth': SimpleNamespace(Session=lambda: session)}
+            with patch.dict(sys.modules, modules), patch.object(channel_source, 'ROOT', root), \
+                    patch.object(channel_source, 'SALES', root/'sales'), \
+                    patch('urllib.request.urlopen', return_value=io.BytesIO(b'{"ready":true}')), \
+                    patch('channel_cost_source.collect', return_value=[delivery]) as native:
+                result = channel_source.enrich(dict(period=dict(start=day, end=day), orders=[],
+                    sources=dict(cost={}), include_cost_delivery_rows=True))
+            native.assert_called_once()
+            published = json.loads((root/'order-deliveries.json').read_text('utf-8'))
+            self.assertEqual(result['cost_delivery_rows'], published['rows'])
+            self.assertEqual(result['sources']['cost']['generatedAt'], published['generatedAt'])
+            self.assertEqual(result['sources']['cost']['period'], published['period'])
+
     def test_order_unavailable_preserves_orders_and_marks_the_source(self):
         import channel_source
         data = self.data();data['sources'] = {'cost':{}}

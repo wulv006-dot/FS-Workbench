@@ -184,6 +184,35 @@ class HourlyOutcomesTest(unittest.TestCase):
                 channel.enrich.assert_not_called()
                 self.assertEqual(at_midnight['cost_cursor_at'], midnight.isoformat())
 
+    def test_hourly_outcomes_use_the_rows_from_the_successful_native_cost_refresh(self):
+        dashboard = Path(__file__).resolve().parents[3] / 'fs-dashboard/dashboard-refresh-20261025/source'
+        now, order, window = self.fixture()
+        start = source._window_instant(window['opened_at'])
+        now += timedelta(days=3)
+        local = now.astimezone(source.TZ)
+        recent = (local-timedelta(days=1)).date().isoformat()
+        today = local.date().isoformat()
+        cutoff = (local-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M')
+        row = dict(delivery_id='1', sn=order['order_no'], source='www.mmoexp.com', genre=1,
+                   trade_at=today+' 10:00:00', cost_total='42', sale_total='60')
+        refreshed = dict(status='partial', generatedAt=now.isoformat(), period=dict(start=recent, end=today, until=cutoff))
+        later = dict(refreshed, generatedAt=(now+timedelta(seconds=1)).isoformat())
+        with tempfile.TemporaryDirectory() as folder:
+            channel = MagicMock(ROOT=Path(folder))
+            channel.normalize.return_value = []
+            channel.load_costs.side_effect = [([], dict(status='unavailable')), ([dict(row, cost_total='99')], later)]
+            def enrich(data):
+                data['sources']['cost'] = refreshed
+                if data.get('include_cost_delivery_rows') is True:
+                    data['cost_delivery_rows'] = [row]
+                return data
+            channel.enrich.side_effect = enrich
+            with patch.object(sys, 'path', [str(dashboard), *sys.path]), patch.dict('sys.modules', {'channel_source':channel}):
+                result = source.hourly_accounting([order], {}, start, now, now-timedelta(days=1), reuse_closed_days=True)
+        self.assertEqual(channel.load_costs.call_count, 1)
+        self.assertEqual(channel.normalize.call_args.args[4], [row])
+        self.assertEqual(result['cost_source']['generatedAt'], refreshed['generatedAt'])
+
     def test_saved_orders_get_same_order_pinned_es_flags_without_recollecting_membership(self):
         now, order, window = self.fixture()
         closed = order['paytime'][:10]

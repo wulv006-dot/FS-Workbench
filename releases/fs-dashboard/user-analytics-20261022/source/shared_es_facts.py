@@ -977,7 +977,7 @@ def _unavailable(days, publication_id=None):
                               admin_source_rows=0, admin_payment_membership='pay_status_1_or_2'))
 
 
-def _scoped_rows(db, days, site, gid, publication_id):
+def _scoped_rows(db, days, site, gid, publication_id, native_only=False):
     rows, lines, identities, order_hashes = [], [], {}, set()
     args = [value for value in (site, gid) if value != 'all']
     conditions = ''.join(' AND n.' + field + '=?' for field, value in (('site', site), ('gid', gid)) if value != 'all')
@@ -985,6 +985,8 @@ def _scoped_rows(db, days, site, gid, publication_id):
         key = (day, revision)
         rows.extend(json.loads(r[0]) for r in db.execute(
             'SELECT n.body FROM shared_es_native n WHERE n.day=? AND n.revision=?' + conditions, (*key, *args)))
+        if native_only:
+            continue
         line_sql = 'SELECT l.order_hash,l.body FROM shared_es_lines l WHERE l.day=? AND l.revision=?'
         if conditions:
             line_sql += (''' AND EXISTS(SELECT 1 FROM shared_es_native n WHERE n.day=l.day
@@ -1033,7 +1035,73 @@ def latest_publication(*, db=DB):
     return dict(zip(('publication_id', 'data_revision', 'captured_at', 'cutoff'), row)) if row else None
 
 
-def read(scope, *, db=DB, publication_id=None):
+def read_main_paid_status(scope, *, db=DB):
+    """Existing native sync receipts with same-order state at each receipt revision."""
+    if not Path(db).is_file():
+        return {}, {}
+    orders, receipts = {}, {}
+    with closing(_read_db(db)) as connection:
+        connection.row_factory = sqlite3.Row
+        connection.execute('PRAGMA query_only=ON')
+        connection.execute('BEGIN')
+        current = int(connection.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0])
+        for day in _days(scope['start'], scope['end']):
+            start = stamp(day).isoformat()
+            end = (stamp(day) + DAY).isoformat()
+            receipt_id = 'j_' + digest([HISTORICAL_CHANNEL_SITE, start, end])[:24]
+            job = connection.execute("""SELECT job_id,revision,body FROM jobs
+                WHERE job_id=? AND site=? AND start=? AND end=? AND state='complete'""",
+                (receipt_id, HISTORICAL_CHANNEL_SITE, start, end)).fetchone()
+            if not job:
+                continue
+            job_id, revision, body = job
+            evidence = json.loads(body)
+            if evidence.get('correction_coverage') != 'complete_reenumeration_of_payment_window_only':
+                continue
+            observed = stamp(evidence['captured_at'])
+            if observed < stamp(end):
+                continue
+            receipts[day] = dict(jobId=job_id, revision=revision, observedAt=observed.isoformat())
+            args = (HISTORICAL_CHANNEL_SITE, scope['gid'], start, end)
+            latest = {row['order_key']: dict(row) for row in connection.execute(
+                '''SELECT order_key,paid_at,revision,body FROM orders
+                   WHERE site=? AND gid=? AND paid_at>=? AND paid_at<? AND valid=1''', args)}
+            versions = {key:row for key,row in latest.items() if row['revision'] <= revision}
+            missing = latest.keys() - versions.keys()
+            if missing and 0 < current-revision <= 16:
+                count, size = connection.execute('''SELECT count(*),sum(length(CAST(body AS BLOB)))
+                    FROM revisions WHERE id>? AND id<=?''', (revision,current)).fetchone()
+                # Match the normal customer read's bounded undo history with no optional index.
+                if count == current-revision and size <= 8*1024*1024:
+                    for raw, in connection.execute(
+                            'SELECT body FROM revisions WHERE id>? AND id<=? ORDER BY id', (revision,current)):
+                        for previous in json.loads(raw):
+                            key = previous['order_key']
+                            if (key in missing and key not in versions and previous['revision'] <= revision
+                                    and previous['valid'] and previous['site']==args[0] and previous['gid']==args[1]
+                                    and start<=previous['paid_at']<end):
+                                versions[key] = previous
+            for key, version in versions.items():
+                row = json.loads(version['body'])
+                if version['paid_at'] != latest[key]['paid_at']:
+                    continue
+                current_row = row if version['revision']==latest[key]['revision'] else json.loads(latest[key]['body'])
+                if any(row.get(k) != current_row.get(k) for k in
+                       ('id','order_no','pay_status','status_format','amount_usd','test_order')):
+                    continue
+                if (row.get('status_format') != '已完成' or str(row.get('pay_status')) != '1'
+                        or row.get('test_order') is not False):
+                    continue
+                identity = (day, row['order_no'])
+                if identity in orders:
+                    raise ValueError('native_paid_status_identity')
+                orders[identity] = dict(id=str(row['id']), paidAt=stamp(version['paid_at']).strftime('%Y-%m-%d %H:%M:%S'),
+                    amountUsd=row.get('amount_usd'), revision=version['revision'])
+    return orders, receipts
+
+
+def read(scope, *, db=DB, publication_id=None, native_only=False):
+    """Read the pinned scope; native-only consumers need no marketing lines or identity join."""
     """Read one private shared snapshot. The caller owns existing scope permissions."""
     start, end, site, gid = (scope[k] for k in ('start', 'end', 'site_id', 'gid'))
     if any(not isinstance(v, str) or v != 'all' and not v.isdecimal() for v in (site, gid)):
@@ -1072,16 +1140,17 @@ def read(scope, *, db=DB, publication_id=None):
         missing = [day for day in days if day not in day_revisions]
         if not day_revisions:
             return _unavailable(missing, publication_id)
-        rows, lines, identities = _scoped_rows(connection, day_revisions, site, gid, publication_id)
-        if site in (HISTORICAL_CHANNEL_SITE,'all'):
+        rows, lines, identities = _scoped_rows(connection, day_revisions, site, gid, publication_id, native_only)
+        if not native_only and site in (HISTORICAL_CHANNEL_SITE,'all'):
             _supplement_device(connection,rows,day_revisions,publication_id)
-        if (site,gid)==(FC27_SITE,FC27_GID):
-            _supplement_fc27(connection,rows,day_revisions,publication_id)
+        if gid == FC27_GID and (site == FC27_SITE or native_only and site == 'all'):
+            _supplement_fc27(connection,[raw for raw in rows if str(raw['site_id'])==FC27_SITE],day_revisions,publication_id)
         else:
             for raw in rows:
                 raw.pop('fc27_coins',None)
-        discount_revision = _discount_revision(connection,publication_id)
-        _scoped_discount_projects(connection,rows,discount_revision)
+        discount_revision = None if native_only else _discount_revision(connection,publication_id)
+        if not native_only:
+            _scoped_discount_projects(connection,rows,discount_revision)
     metadata = [info for _, _, info in visible]
     for row in lines:
         row['marketing_attribution']['available_at'] = captured_at

@@ -64,6 +64,18 @@ const assertCenterWritable=()=>{if(weeklyWorkflow.isPublishing())throw Object.as
 const weeklyPipeline=makeWeeklyPipeline({dir:path.join(dir,'center','weekly-plans'),center,contextProvider:centerState,onDraftSaved:record=>weekly.syncRun(record),beforeDraftSave:assertCenterWritable,enabledProvider:()=>weekly.read().hermes.enabled,sourceProvider:({bundle_refs})=>backendRead({action:'weekly_selection',site_id:'266',game_id:'1327',bundle_refs}),nativeCandidateProvider:source=>{const stateDir=process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend');return weeklyNativeCandidates({source,pricePolicy:readAdminPricePolicy(stateDir),nativeCatalog:readNativeLaunchPolicy(stateDir).catalog});}});
 const secret=()=>fs.existsSync(secretFile)?JSON.parse(fs.readFileSync(secretFile,'utf8')).key:null;
 const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
+const searchCache=new Map();
+async function readSearch(body,auth){
+ if(!['model_search','catalog_search'].includes(body?.action))return {data:await backendRead(body)};
+ const key=digest(canonical([auth.user,auth.admin,body])),now=Date.now(),old=searchCache.get(key);
+ if(old&&(old.pending||now>=old.at&&now-old.at<15000)){const data=await old.value;return {data,cached:true};}
+ if(old)searchCache.delete(key);
+ if(searchCache.size>=64)searchCache.delete(searchCache.keys().next().value);
+ const entry={pending:true,value:backendRead(body)};searchCache.set(key,entry);
+ try{const data=await entry.value;entry.pending=false;entry.at=Date.now();return {data};}
+ catch(error){if(searchCache.get(key)===entry)searchCache.delete(key);throw error;}
+}
+
 const publicState=s=>({revision:s.revision,registry:s.registry,layout:s.layout,updatedAt:s.updatedAt,updatedBy:s.updatedBy});
 const publicNames=new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','native-code-handoff.js','activity-analytics.js','seasonal/activity-analytics.js','ANALYTICS-INTEGRATION.md','MATCHDAY-ANALYTICS-PLAN.md','analytics/index.html','analytics/connect.html','analytics/connect.js','analytics/dashboard.js','analytics/dashboard.css','analytics/fs-tokens.css','analytics/fs-ui.css','analytics/funnel-core.cjs','analytics/demo-data.js','analytics/server-client.js','analytics/products.html','analytics/products.js']);
 for(const name of ['weekly.html','weekly.js','weekly.css'])publicNames.add('analytics/'+name);
@@ -168,7 +180,10 @@ export const server=http.createServer(async(req,res)=>{
    if(relative==='analytics/api/weekly')return json(res,200,{...weekly.mutate(body,auth.user),csrf,canEdit:true});
    if(relative==='analytics/api/center'||relative==='analytics/api/center/publish'){
     const publish=relative.endsWith('/publish'),prior=publish?center.recoverPublish(body):center.recoverSave(body);if(prior)return json(res,200,{...centerState(prior),csrf,canEdit:true});
-    await adminPrices.refresh();const details=await pendingModelDetails(body),products=await pendingProductDetails(body);assertCenterWritable();
+    let priceSchema;try{priceSchema=readAdminPricePolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))?.schema_version;}catch{}
+    // V2 draft validation never consumes price observations; publication still does.
+    if(!publish&&priceSchema===2)void adminPrices.refresh().catch(()=>{});else await adminPrices.refresh();
+    const details=await pendingModelDetails(body),products=await pendingProductDetails(body);assertCenterWritable();
     return json(res,200,{...centerState(publish?center.publish(body,auth.user,details,products):center.save(body,auth.user,details,products)),csrf,canEdit:true});
    }
    if(relative==='analytics/api/center/preview'){
@@ -191,7 +206,7 @@ export const server=http.createServer(async(req,res)=>{
     assertCenterWritable();
     return json(res,200,{...centerState(center.importProduct(body,auth.user,data.product)),csrf,canEdit:true});
    }
-   if(relative==='analytics/api/center/backend-read')return json(res,200,{status:'ok',data:await backendRead(body)});
+   if(relative==='analytics/api/center/backend-read')return json(res,200,{status:'ok',...await readSearch(body,auth)});
    if(relative==='analytics/api/center/backend-mutate')return json(res,200,{status:'ok',data:await backendMutate(body)});
    if(relative==='analytics/api/config'){let saved;try{saved=store.save(body,auth.user);}catch(error){if(!error.code&&!error.status)error.status=400;throw error;}return json(res,200,{status:'saved',...publicState(saved)});}
    if(relative==='analytics/api/connection'){
@@ -246,7 +261,7 @@ export const server=http.createServer(async(req,res)=>{
   if(relative==='analytics/api/export')return json(res,200,{...publicState(store.read()),catalog:previewCatalog(catalog,store.read().layout),notice:'仅配置导出，原站仍需构建 SEO 和网站开发发布'});
   // The historical URL is an authenticated alias, never a second editor source.
   if(relative==='analytics/center.html'){res.writeHead(302,{Location:prefix+'analytics/products.html','Cache-Control':'no-store'});return res.end();}
-  let body,type;
+  let body,type,cacheControl='no-store';
   if(relative==='catalog.js'){const draft=center.read().draft,seed=pageSeed(draft.fc_layout,draft.fc_models||{}),proposal=weeklyPipeline.draftTrade(),trade={products:[...(proposal?.products||[]).filter(p=>!seed.seedProducts.some(x=>x.key===p.key)),...seed.seedProducts],seasonal_model_contracts:{...(proposal?.model_contracts||{}),...(seed.seasonal_model_contracts||{})},native_checkout:readNativeCheckoutPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))};body='window.FC_ACTIVITY_CONFIG='+JSON.stringify(previewCatalog(effectiveFcCatalog(catalog,draft.fc_models||{},trade),draft.fc_layout??store.read().layout)).replace(/</g,'\\u003c')+';';type='text/javascript';}
   else if(relative==='analytics-config.js'){body='window.FC_ANALYTICS_CONFIG='+JSON.stringify({...cfg,enabled:false,localPreviewJournal:false,serverManaged:true,registry:store.read().registry}).replace(/</g,'\\u003c')+';';type='text/javascript';}
   else {
@@ -258,10 +273,12 @@ export const server=http.createServer(async(req,res)=>{
     const site=new URL(publicOrigin);
     if(site.origin!==publicOrigin||site.protocol!=='https:'&&!(site.protocol==='http:'&&['127.0.0.1','localhost'].includes(site.hostname))||!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(publicPrefix))throw Error('公开活动地址配置无效。');
     body=body.replace(/<html\b/i,'<html data-campaign-public-origin="'+publicOrigin+'" data-campaign-public-prefix="'+publicPrefix+'"');
+    for(const [src,file] of [['products.js','analytics/products.js'],['../activity-content.js','activity-content.js']])body=body.replace('src="'+src+'"','src="'+src+'?v='+digest(fs.readFileSync(path.join(base,file)))+'"');
    }
+   if(['analytics/products.js','activity-content.js'].includes(name)&&[...url.searchParams].length===1&&url.searchParams.get('v')===digest(body))cacheControl='private, max-age=31536000, immutable';
    if(name==='analytics/index.html')body=body.replace(/<option value="(?:demo|local)">[^<]*<\/option>/g,'').replace('<script src="demo-data.js"></script>','');
   }
-  res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'});res.end(req.method==='HEAD'?undefined:body);
+  res.writeHead(200,{'Content-Type':type,'Cache-Control':cacheControl,'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'});res.end(req.method==='HEAD'?undefined:body);
  }catch(error){json(res,error.status||502,{status:'error',message:error.name==='SyntaxError'?'配置格式无效':error.message});}
 });
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){

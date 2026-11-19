@@ -54,6 +54,51 @@ class CurveV6Release(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):
                     adapter.checked_manifest(manifest)
 
+    def test_order_cost_scope_pairs_fc_modules_and_only_overlays_the_pinned_live_channel_source(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            live = root/'active-channel-source.py'
+            active = (b"def enrich(data):\n    if data:\n        cost_info = {}\n"
+                      b"        data['sources']['cost'] = cost_info\n    return data\n")
+            live.write_bytes(active)
+            before = hashlib.sha256(active).hexdigest()
+            output = root/'order-cost.tar.gz'
+            with patch.dict(target_map.ORDER_COST_CHANNEL_OVERLAY, beforeSha256=before), \
+                 patch.object(build_stage.subprocess, 'check_output', side_effect=['a'*40, '']), \
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, commit:
+                              path.read_bytes().replace(b'\r\n', b'\n')):
+                built = build_stage.build(ROOT, output, curve_recovery='order-cost', order_cost_channel_baseline=live)
+                with tarfile.open(output) as bundle:
+                    prefix = 'fc-pricing-v3-20261026/'
+                    provenance = json.load(bundle.extractfile(prefix+'source-manifest.json'))
+                    candidate = bundle.extractfile(prefix+'candidate/source/channel_source.py').read()
+                self.assertEqual(candidate.replace(target_map.ORDER_COST_CHANNEL_INSERT, b'', 1), active)
+                self.assertEqual(provenance['liveSourceOverlays'], [target_map.ORDER_COST_CHANNEL_OVERLAY])
+                expected = {
+                    'source/collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
+                    'source/channel_source.py': '/opt/fs-hermes-fc/channel_source.py',
+                    'source/fc_pricing_v3/business_source.py': '/opt/fc27-cloud-browser/fc_pricing_v3/business_source.py',
+                    'source/hermes-copy/fc_pricing_v3/business_source.py': '/opt/fs-hermes-fc/fc_pricing_v3/business_source.py',
+                }
+                self.assertEqual(built['targets'], 4)
+                self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)
+                files = [dict(candidate=name, target=path, sha256=provenance['files'][name],
+                              beforeSha256=target_map.ORDER_COST_FC_BASELINES.get(name, before),
+                              owner='0:0', mode='0o644') for name, path in expected.items()]
+                manifest = dict(scope=provenance['scope'], releaseReady=True, businessWrites=False,
+                                timersChanged=False, files=files)
+                self.assertIs(adapter.checked_manifest(manifest), manifest)
+                for index, component in ((0, 'fc'), (1, 'channel')):
+                    with self.subTest(component=component):
+                        original = files[index]['beforeSha256']
+                        files[index]['beforeSha256'] = 'b'*64
+                        with self.assertRaisesRegex(ValueError, 'order_cost_'+component+'_baseline_drift'):
+                            adapter.checked_manifest(manifest)
+                        files[index]['beforeSha256'] = original
+                live.write_bytes(active+b'# drift\n')
+                with self.assertRaisesRegex(ValueError, 'order_cost_channel_baseline_drift'):
+                    build_stage.build(ROOT, output, curve_recovery='order-cost', order_cost_channel_baseline=live)
+
     def test_arab_quote_scope_uses_only_identical_existing_market_registry_copies(self):
         scope = 'fc-pricing-v6-arab-quote-20261119'
         expected = {

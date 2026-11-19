@@ -47,9 +47,17 @@ class BackendTests(unittest.TestCase):
             self.backend.query(self.principal, operation, args)
         self.assertEqual(rejected.exception.status_code, 403)
         for invalid in (dict(args, mode='summary'), dict(args, profile='MMOEXP'),
-                        dict(args, start='2026-11-16 08:00')):
+                        dict(args, start='2026-11-16 08:00'), dict(args, view='other')):
             with self.assertRaises(ValidationError):
                 self.backend.query(self.principal, operation, invalid)
+
+    def test_fc_project_review_same_order_read_keeps_aggregate_and_drops_unknown_fields(self):
+        args = {'profile':'FC27','start':'2026-11-16','end':'2026-11-18','view':'same-order'}
+        self.response = (200, b'{"status":"partial","totals":{"orders":723},"coverage":{"adminComplete":true},"internal":[]}')
+        result = self.backend.query(self.principal,'business.fc_project_review',args)
+        self.assertIn('view=same-order',self.calls[-1][1])
+        self.assertEqual(result['data'], {'status':'partial','totals':{'orders':723},
+                                          'coverage':{'adminComplete':True}})
 
     def test_customer_email_is_post_body_only(self):
         self.backend.query(self.principal, 'orders.customer', dict(self.query, customer_email='fixture@example.test'))

@@ -23,6 +23,7 @@ from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEK
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, curve_arab_quote_targets
 from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
+from target_map import ORDER_COST_CHANNEL_OVERLAY, order_cost_channel_overlay
 from target_map import CURVE_MARGIN_BAND_SCOPE, CURVE_MARGIN_BAND_TARGET_COUNT, curve_margin_band_targets
 from target_map import CURVE_REVIEW_SCOPE, CURVE_REVIEW_TARGET_COUNT, curve_review_targets
 from target_map import CURVE_STABILITY_SCOPE, CURVE_STABILITY_TARGET_COUNT, CURVE_STABILITY_REPOSITORY_SOURCES, curve_stability_targets
@@ -98,6 +99,15 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         raise ValueError('curve_arab_quote_source_provenance_changed')
     if curve_recovery and provenance.get('scope') != CURVE_RECOVERY_SCOPES[curve_recovery]:
         raise ValueError('curve_recovery_source_provenance_changed')
+    if curve_recovery == 'order-cost':
+        if provenance.get('liveSourceOverlays') != [ORDER_COST_CHANNEL_OVERLAY]:
+            raise ValueError('order_cost_channel_overlay_provenance_changed')
+        live = Path(ORDER_COST_CHANNEL_OVERLAY['target'])
+        candidate = STAGE / 'candidate' / ORDER_COST_CHANNEL_OVERLAY['candidate']
+        regular(live)
+        regular(candidate)
+        if order_cost_channel_overlay(live.read_bytes()) != candidate.read_bytes():
+            raise ValueError('order_cost_channel_overlay_changed')
     if curve_margin_band and provenance.get('scope') != CURVE_MARGIN_BAND_SCOPE:
         raise ValueError('curve_margin_band_source_provenance_changed')
     if curve_review and provenance.get('scope') != CURVE_REVIEW_SCOPE:

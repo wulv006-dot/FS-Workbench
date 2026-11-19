@@ -1605,9 +1605,14 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
     if not cache_reused:
         progress('order_cost_native', 'start', native_refresh_start=first, requested_end=today,
                  closed_trade_days=len(historical_days))
+        if archive is not None:
+            data['include_cost_delivery_rows'] = True
         channel.enrich(data)
     if archive is not None:
-        if not cache_reused:
+        if 'cost_delivery_rows' in data:
+            # Use the rows loaded with the successful refresh's source revision under its lock.
+            deliveries = data.pop('cost_delivery_rows')
+        elif not cache_reused:
             deliveries, latest_cost = channel.load_costs()
             data['sources']['cost'] = dict(latest_cost, **{key: data['sources']['cost'][key]
                 for key in ('status', 'limitation') if key in data['sources']['cost']})

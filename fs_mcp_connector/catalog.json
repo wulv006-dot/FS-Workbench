@@ -241,7 +241,7 @@
       "path": "/dashboard/fs-home/range.json",
       "method": "GET",
       "permission_path": "/dashboard/fs-home/range.json",
-      "description": "FC26／FC27 全站经营复盘聚合，调用者沿用原管理员权限。start/end 为包含当天的北京时间日期。HTTP 202 沿原参数续查；来源、覆盖和费用币种各自保留。长结果沿 data_path 展开，例如 /packets/0/ordersData。",
+      "description": "FC26／FC27 全站经营复盘聚合，调用者沿用原管理员权限。start/end 为包含结束日的北京时间日期。view=same-order 时直接读取最多三个完整日的已付销售、订单和已核同单实际采购成本、毛利率及来源覆盖，优先用于近三天查询。完整复盘 HTTP 202 沿原参数续查；长结果沿 data_path 展开，例如 /packets/0/ordersData。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -259,6 +259,11 @@
             "type": "string",
             "maxLength": 10,
             "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+          },
+          "view": {
+            "type": "string",
+            "enum": ["same-order"],
+            "maxLength": 10
           }
         },
         "required": ["profile", "start", "end"],
@@ -273,7 +278,7 @@
         "response_bytes": 4194304,
         "timeout_seconds": 25
       },
-      "response_fields": ["schema", "archivedAt", "revision", "packets", "status", "retryAfter"],
+      "response_fields": ["schema", "archivedAt", "revision", "packets", "status", "retryAfter", "contract", "profile", "scope", "period", "timezone", "totals", "daily", "breakdown", "coverage", "revisions", "definition"],
       "provenance": {
         "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py; releases/fs-dashboard/fc-project-review/api.py",
         "mapping_status": "candidate_fc_project_review_admin_route_not_verified",

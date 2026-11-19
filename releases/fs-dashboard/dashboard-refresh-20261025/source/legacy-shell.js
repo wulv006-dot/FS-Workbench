@@ -134,10 +134,11 @@ async function nativeLoad(retried=false){
 function scopeSignal(){return active?AbortSignal.any([active.scope.signal,AbortSignal.timeout(20000)]):AbortSignal.timeout(20000);}
 async function verify(){return sessionIdentity();}
 async function boot(){const id=++epoch;try{const next=await verify();if(id!==epoch)return;identity=next;accountNavigation(next);const registry=await(await readonly(new URL('navigation.json',base))).json();if(id!==epoch)return;if(registry.schemaVersion!==1)throw Error('入口合同错误');const permitted=registry.tools.filter(t=>/^\/(?!\/)[\w./-]+(?:\?(?:mode=(?:business|google)|report_kind=(?:daily|weekly|monthly)(?:#reports)?))?$/.test(t.path)&&!t.path.split('/').includes('..'));
+ document.querySelector('.account').textContent=next.name;if(home)homeData();else nativeLoad();const loadEpoch=epoch;
  const checked=await Promise.all(permitted.map(async t=>{const path=t.id.startsWith('unified-')?analyticsURL:t.path;const permitted=t.requiredGroup!=='deploy'||next.groups.includes('deploy');const available=permitted&&await moduleAvailable(path)&&(!t.probeJson||await moduleAvailable(t.probeJson,'application/json'));return {...t,available};}));
- if(id!==epoch||!identity||identity.name!==next.name)return;verified=checked.filter(Boolean);
+ if(loadEpoch!==epoch||!identity||identity.name!==next.name)return;verified=checked.filter(Boolean);
  for(const a of document.querySelectorAll('.global-nav a[data-section]'))if(verified.some(t=>t.section===a.dataset.section))a.hidden=false;
- document.querySelector('.account').textContent=next.name;if(home){homeEntries(registry);homeData();}else nativeLoad();
+ if(home)homeEntries(registry);
  }catch(e){if(id!==epoch)return;if(e.status)halt(e.status);else $('status').textContent=e.message;}}
 function homeEntries(registry){const user=identity?.name;if(!user)return;const grid=$('workspaces');grid.replaceChildren();$('tools').replaceChildren();
  for(const s of registry.sections){const tools=verified.filter(t=>s.ids.includes(t.id));if(!tools.length)continue;const card=node('article',null,'workspace-card '+s.id),a=link('',s.path,'workspace-main');a.append(node('span',s.icon,'workspace-icon'),node('h3',s.title),node('p',s.intro),node('span','进入工作区 →','entry'));card.append(a);

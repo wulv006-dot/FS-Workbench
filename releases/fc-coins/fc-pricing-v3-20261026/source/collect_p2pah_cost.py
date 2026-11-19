@@ -12,6 +12,7 @@ import fs_order_client as _global_order
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
+from itertools import islice
 import json
 import os
 import re
@@ -96,6 +97,19 @@ READ_ORDER = r"""async ([orderId, timeoutMs]) => {
 }"""
 
 
+READ_ORDER_PAIR = """async orderIds => {
+  const read = %s;
+  const settled = await Promise.allSettled(orderIds.map(async orderId => {
+    const detail = await read([orderId, 8000]);
+    return detail?.timed_out ? await read([orderId, 16000]) : detail;
+  }));
+  const firstFailure = settled.find(item => item.status === 'rejected' ||
+                                           item.value === null || item.value?.timed_out);
+  if (firstFailure?.status === 'rejected') throw firstFailure.reason;
+  return settled.map(item => item.status === 'fulfilled' ? item.value : null);
+}""" % READ_ORDER
+
+
 ORDER_DELIVERY = "\u8ba2\u5355\u53d1\u8d27"
 NON_COST_TYPES = {"\u91c7\u8d2d\u6253\u6b3e", "\u9500\u552e\u8865\u53d1", "\u9500\u552e\u8d60\u9001"}
 
@@ -144,10 +158,15 @@ def shipment_number(value):
     return number if number.is_finite() and number >= 0 else None
 
 
+def delivery_order_id(record):
+    order_id = record['order_delivery']['order_id']
+    return order_id if isinstance(order_id, str) and re.fullmatch(r'\d+', order_id) else None
+
+
 def verified_delivery_cost(tab, record, order_cache, *, retry_timeout_ms=8000):
     native = record['order_delivery']
-    order_id = native['order_id']
-    if not isinstance(order_id, str) or not re.fullmatch(r'\d+', order_id):
+    order_id = delivery_order_id(record)
+    if order_id is None:
         return None
     if order_id not in order_cache:
         for timeout_ms in (8000, retry_timeout_ms):
@@ -328,6 +347,32 @@ def collect_ps_cost(tab, observations, order_cache):
     raise ValueError('ps_valid_delivery_sample_incomplete')
 
 
+def verified_v6_deliveries(tab, deliveries, order_cache):
+    pending = iter(dict.fromkeys(order_id for _, record in deliveries
+        if (order_id := delivery_order_id(record)) is not None and order_id not in order_cache))
+    prefetched = {}
+    for _, record in deliveries:
+        order_id = delivery_order_id(record)
+        if order_id is not None and order_id not in order_cache:
+            if order_id not in prefetched:
+                pair = list(islice(pending, 2))
+                details = tab.evaluate(READ_ORDER_PAIR, pair)
+                if not isinstance(details, list) or len(details) != len(pair):
+                    raise ValueError('cost_order_detail_response_unverified')
+                prefetched = dict(zip(pair, details))
+            detail = prefetched.pop(order_id)
+            if detail is None:
+                raise ValueError('cost_order_detail_unavailable')
+            if isinstance(detail, dict) and detail.get('timed_out') is True:
+                raise ValueError('cost_order_detail_timeout')
+            if (not isinstance(detail, dict) or type(detail.get('complete')) is not bool
+                    or not isinstance(detail.get('goods'), list) or not isinstance(detail.get('deliveries'), list)):
+                raise ValueError('cost_order_detail_response_unverified')
+            order_cache[order_id] = detail
+        # Validate in source order before staging a subsequent pair.
+        yield record, verified_delivery_cost(tab, record, order_cache, retry_timeout_ms=16000)
+
+
 def collect_v6_delivery_samples(tab, observations, order_cache, confirmed_costs=None):
     """Read complete native time windows; ID order cannot prove a time boundary."""
     end = datetime.now(SHANGHAI).replace(microsecond=0)
@@ -348,9 +393,8 @@ def collect_v6_delivery_samples(tab, observations, order_cache, confirmed_costs=
         if not complete:
             break
         verified = {p: [] for p in PLATFORMS}
-        for _, record in sorted(deliveries.values(), key=lambda value: value[0], reverse=True):
-            # Allow a slow V6 detail read to finish in the existing retry and collector deadline.
-            normal = verified_delivery_cost(tab, record, order_cache, retry_timeout_ms=16000)
+        ordered = sorted(deliveries.values(), key=lambda value: value[0], reverse=True)
+        for record, normal in verified_v6_deliveries(tab, ordered, order_cache):
             if normal is not None:
                 verified[record['platform']].append(normal)
         result = {p: dict(records=rows, window_complete=True, history_complete=hours == 192)

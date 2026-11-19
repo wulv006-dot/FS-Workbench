@@ -281,12 +281,68 @@ document.addEventListener('DOMContentLoaded', () => {
         marginPct:shipValid ? metric(shipping.metrics,'profitMarginPct') : null}};
   }
 
+  async function loadSameOrder(query, signal) {
+    const host = byId('same-order');
+    if (!host) return;
+    const status = byId('same-order-status');
+    const metrics = byId('same-order-kpis');
+    const url = initial.packetUrl && new URL(initial.packetUrl, location.href);
+    host.hidden = location.protocol === 'file:' || url?.origin !== location.origin ||
+      url.searchParams.get('mode') !== 'fc-project-review' || query.scope !== 'all' ||
+      query.end >= today || daysBetween(query.start, query.end) > 2;
+    metrics.replaceChildren();
+    coverage('same-order-coverage', []);
+    if (host.hidden) return;
+    status.textContent = '正在读取付款订单…';
+    for (const [name, value] of Object.entries({view:'same-order', profile:query.game, start:query.start, end:query.end})) {
+      url.searchParams.set(name, value);
+    }
+    try {
+      const response = await fetch(url, {signal, credentials:'same-origin', cache:'no-store', redirect:'error'});
+      if (!response.ok) throw Error([401,403].includes(response.status) ? '当前登录无权读取此数据。' : '暂未取得付款及成本归档。');
+      const data = await response.json();
+      if (signal.aborted) return;
+      if (data.contract !== 'fc-same-order-procurement-v1' || data.profile !== query.game || data.scope !== query.scope ||
+          data.period?.start !== query.start || data.period?.end !== query.end) throw Error('返回区间未核对通过。');
+      const values = data.totals;
+      for (const [value, label, format] of [
+        [values.salesUsd ?? values.observedSalesUsd, present(values.salesUsd) ? '归档已付销售额' : '归档已核销售额', usd],
+        [values.orders ?? values.observedOrders, present(values.orders) ? '归档已付订单' : '归档已核订单', count],
+        [values.actualCostCny, '已核订单发货成本', cny],
+        [values.grossMarginPct, '已核订单毛利率', pct],
+      ]) {
+        const card = element('div', null, 'panel kpi');
+        card.append(element('span', label), element('strong', format(value)));
+        metrics.append(card);
+      }
+      status.textContent = statuses[data.status] + ' · 完成单 ' + count(values.coveredOrders) + ' / ' +
+        count(values.completedOrders) + ' 笔核到普通订单发货成本' + (data.coverage.adminComplete ? '' : ' · 付款归档有缺日');
+      if (values.missingCostOrders > 0) {
+        status.textContent += ' · ' + count(values.missingCostOrders) + ' 单待核成本，已核实付 ' +
+          usd(values.missingCostObservedSalesUsd);
+      }
+      const platform = {PS:'PS', XBOX:'Xbox', PC:'PC', unknown:'平台未核'};
+      coverage('same-order-coverage', [
+        data.definition,
+        '覆盖订单的 Admin 人民币收入 ' + cny(values.coveredSalesCny) + ' · 采购毛利 ' + cny(values.grossCny),
+        ...list(data.breakdown).map(row => (row.website || '网站未核') + ' · ' + platform[row.platform] +
+          ' · ' + count(row.observedOrders) + ' 单 / ' + usd(row.observedSalesUsd) +
+          ' · 实际采购 ' + cny(row.actualCostCny) + ' / 毛利率 ' + pct(row.grossMarginPct) +
+          ' · 成本覆盖 ' + count(row.coveredOrders) + ' / ' + count(row.completedOrders) + ' 笔完成单'),
+        ...(data.revisions.admin.captured_at ? ['Admin 取数时点 ' + data.revisions.admin.captured_at + ' · 修订 ' + data.revision.slice(0, 12)] : []),
+      ]);
+    } catch (error) {
+      if (!signal.aborted) status.textContent = error.message;
+    }
+  }
+
   async function selectRange(query, request = true) {
     activeRequest?.abort();
     const owner = new AbortController();
     activeRequest = owner;
     selected = query;
     render();
+    void loadSameOrder(query, owner.signal);
     const canRead = initial.packetUrl || (initial.nativeFs === true && query.scope === 'all');
     if (!request || periods.has(key(query)) || location.protocol === 'file:' || !canRead) return;
     setMissing(query, null, '正在读取所选区间…');
@@ -1267,6 +1323,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   byId('theme').value = window.FSTheme?.get() || 'light';
   byId('import-data').hidden = !!initial.packetUrl;
+  const recentThree = byId('recent-three');
+  if (recentThree) {
+    recentThree.hidden = !initial.packetUrl;
+    recentThree.addEventListener('click', () => {
+      const game = byId('game').value;
+      const end = season(game).end;
+      const query = rangeFor(game, 'all', 'custom', shift(end, -2), end);
+      setForm(query);
+      selectRange(query, false);
+    });
+  }
   byId('theme').addEventListener('change', event => window.FSTheme?.set(event.target.value));
   document.addEventListener('fs-theme-change', () => resizeObservers.forEach(([, draw]) => draw()));
   byId('category-mode').addEventListener('click', event => {

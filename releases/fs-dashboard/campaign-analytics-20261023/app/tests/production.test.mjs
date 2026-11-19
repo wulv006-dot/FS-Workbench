@@ -11,6 +11,12 @@ test('FS authenticated persistence and secret boundary',async()=>{
   assert.equal((await get('api/statistics-snapshot?activity=fc27-season2&kind=invalid','fixture-viewer')).status,400);
   const page=await(await get('','fixture-admin')).text();assert.doesNotMatch(page,/<option value="(?:demo|local)">|src="demo-data.js"/);assert.match(page,/<option value="live">/);assert.match(page,/<option value="test">/);
   const editor=await(await get('products.html','fixture-admin')).text();assert.match(editor,/id="page-select"/);assert.match(editor,/id="discover-search"/);assert.doesNotMatch(editor,/id="weekly-options"/);
+  for(const script of ['products.js','../activity-content.js']){
+   const escaped=script.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const match=editor.match(new RegExp('src="('+escaped+'\\?v=[0-9a-f]{64})"'));assert(match,'editor uses fingerprinted '+script);
+   const response=await get(match[1],'fixture-admin');assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'private, max-age=31536000, immutable');
+   assert.equal((await get(script+'?v=wrong','fixture-admin')).headers.get('cache-control'),'no-store');assert.equal((await get(match[1])).status,401);
+  }
+  assert.equal((await get('api/center','fixture-admin')).headers.get('cache-control'),'no-store');
   const originalEditor=await(await get('products.html?view=original','fixture-admin')).text();assert.match(originalEditor,/id="page-select"/);assert.doesNotMatch(originalEditor,/id="weekly-options"/);
   const alias=await original(url+'center.html',{headers:{Cookie:'fixture-admin'},redirect:'manual'});assert.equal(alias.status,302);assert.equal(alias.headers.get('location'),'/dashboard/analytics/campaigns/analytics/products.html');
   assert.equal(await(await get('','fixture-admin')).text(),page); // data/report page rendering is unchanged by editor navigation

@@ -24,7 +24,7 @@ def prepare(baseline, output):
     block=source[source.index(start):source.index(anchor)]
     output.mkdir(parents=True,exist_ok=True)
     (output/"range_api.py").write_bytes(original.replace(anchor,block+anchor).encode())
-    for path in [DASH,*(HERE/k for k in ("api.py","review.py","orders.py","traffic.py","prices.py","fulfillment.py","fulfillment_completion_bridge.py"))]:
+    for path in [DASH,*(HERE/k for k in ("api.py","same_order.py","review.py","orders.py","traffic.py","prices.py","fulfillment.py","fulfillment_completion_bridge.py"))]:
         shutil.copyfile(path,output/path.name)
 
 

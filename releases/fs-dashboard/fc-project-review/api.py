@@ -11,6 +11,7 @@ import threading
 import time
 
 from .review import TZ, interval, packet, save
+from .same_order import same_order_review
 
 ROOT = Path("/var/lib/fs-fc-project-review")
 HERE = Path(__file__).resolve().parent
@@ -176,17 +177,24 @@ def reusable(doc, end, modified, ttl):
 def get(params, actor, get_range, order_facts, authorizer, root=ROOT):
     if not actor or not authorizer(actor):
         return 403,{"error":"admin_required"}
-    if set(params)-{"mode","profile","start","end","refresh"} or not {"mode","profile","start","end"}<=set(params) or any(not isinstance(v,list) or len(v)!=1 for v in params.values()):
+    if set(params)-{"mode","profile","start","end","refresh","view"} or not {"mode","profile","start","end"}<=set(params) or any(not isinstance(v,list) or len(v)!=1 for v in params.values()):
         return 422,{"error":"invalid_review_query"}
+    if "view" in params and (params["view"]!=["same-order"] or "refresh" in params):
+        return 422,{"error":"invalid_review_view"}
     if "refresh" in params and params["refresh"]!=["true"]:
         return 422,{"error":"invalid_refresh"}
     game,start,end=(params[k][0] for k in ("profile","start","end"))
     try:
         if game not in ("FC26","FC27"):raise ValueError()
-        interval(game,start,end)
+        dates=interval(game,start,end)
         if str(date.fromisoformat(start))!=start or str(date.fromisoformat(end))!=end:raise ValueError()
     except (TypeError,ValueError):
         return 422,{"error":"invalid_review_interval"}
+    if "view" in params:
+        if len(dates)>3 or date.fromisoformat(end)>=datetime.now(TZ).date():
+            return 422,{"error":"same_order_requires_up_to_three_closed_days"}
+        data=same_order_review(game,start,end)
+        return (200,data) if authorizer(actor) else (403,{"error":"admin_required"})
     target=root/game/(start+"_"+end+".json")
     if target.is_file() and "refresh" not in params:
         doc=json.loads(target.read_text(encoding="utf-8"))
