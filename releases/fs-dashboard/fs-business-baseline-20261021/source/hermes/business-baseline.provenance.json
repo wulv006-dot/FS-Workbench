@@ -4,17 +4,16 @@
   "source_commit": null,
   "source_state": "authorized_worktree_exact_sha",
   "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-  "canonical_base_commit": "95708ed6dbdfdccaba50b8c4fe133ad26e676f64",
+  "canonical_base_commit": "49fd88d90423956e6dff5587b6635df517223086",
   "canonical_sha256": "840e7b68bc81ffc46f98cf90ae3b94a6b5767a0341169abd20f0b271fa18646f",
   "target": "/opt/fs-hermes-fc/business-baseline.md",
-  "before_sha256": "ab9564e3d5cf626713603ef17a1fe1397f3916b0a2879902b326aa7c0f6e8ece",
-  "after_sha256": "cc615693cf27ac94e946ec8595320f8a6de6ac044b5468021c4471f9cc5106cd",
-  "bytes": 53655,
+  "before_sha256": "00e5dfe01b7c2e341c64b61629f5113bd3ef4830bd7cce6f3ea86c3be705e962",
+  "after_sha256": "d3116a7fcb1fd4ac2b5ad52b87a40bd94abe8f7ebb2158c2f2c1bce19beb273c",
+  "bytes": 55159,
   "prior_provenance_commit": "30766ed7d9152dc037ca636a2d0b3798983abe4e",
   "prior_provenance_sha256": "7143ae42f6efc11b617ff151e948c3da4ca1ca72f5b5db3835566a34874fca02",
   "changes": [
-    "Remove superseded dashboard actual-profit primary rule; align active baseline with Order shipping and retain independent same-order analysis.",
-    "Update the canonical source for existing query and scheduling entry points while retaining the runtime baseline bytes."
+    "Preserve the verified direct production baseline; add the current V6 cadence, same-order/today query and activity entry points."
   ],
   "previous_provenance": {
     "contract": "fc-current-baseline-patch-v1",

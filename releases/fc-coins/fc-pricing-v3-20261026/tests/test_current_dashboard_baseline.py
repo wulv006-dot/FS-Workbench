@@ -17,7 +17,19 @@ class CurrentDashboardBaselineTest(unittest.TestCase):
             self.assertNotIn(stale, text)
         self.assertIn("毛利（¥）=同一响应的人民币销售总额−采购总额", text)
         self.assertIn("标为预估非实结", text)
-        self.assertIn("同单实际成本毛利按需独立核算", text)
+        self.assertIn("逐单实际采购成本独立核算", text)
+        self.assertIn("原逐单核算接口、归档与Hermes按需查询能力保留", text)
+        for entry in (
+            "北京时间每小时 15 分到期，零点亦为 00:15",
+            "昨日 ES 未就绪时沿原任务续跑",
+            "D-3 至 D-1",
+            "`business.fc_project_review`",
+            "`profile,start,end,view=same-order`",
+            "今天的付款汇总用原 `business.summary`",
+            "/dashboard/analytics/campaigns/analytics/products.html",
+            "周更只选品和保存草稿",
+        ):
+            self.assertIn(entry, text)
         provenance = json.loads(RUNTIME.with_suffix(".provenance.json").read_text(encoding="utf-8"))
         self.assertEqual(provenance["canonical_sha256"], hashlib.sha256(canonical).hexdigest())
         self.assertEqual(provenance["after_sha256"], hashlib.sha256(runtime).hexdigest())
