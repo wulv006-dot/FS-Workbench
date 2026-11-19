@@ -679,6 +679,10 @@ class AdminClient:
             json_body={"gid": gid, "cid": cid, "id": ids},
         )
 
+    def set_product_slug(self, product_id: int, slug: str) -> Mapping[str, Any]:
+        return self._edit_fields("/admin/goods.Goods/edit", {"id": product_id, "slug": slug},
+                                 allowed_fields={"slug"}, label="商品")
+
     def set_product_status(self, model_id: int, product_id: int, status: int) -> Mapping[str, Any]:
         """Set only a product's sale status after binding it to the explicit FC model."""
         mid = _positive_id(model_id, "模型 ID")

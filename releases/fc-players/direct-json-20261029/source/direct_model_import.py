@@ -64,7 +64,8 @@ def prepare_direct_items(artifact_path, candidates, add_form, *, business_defaul
                                           business_defaults={**business_defaults, "players_type": types[futbin]})
         except ValueError as exc:
             error = str(exc).split(":", 1)[0]
-        result.append({"futbin_id": futbin, "payload": payload, "payload_sha256": digest(payload),
+        slug = "-".join(str(source["name"]).lower().split()) + "-" + futbin
+        result.append({"futbin_id": futbin, "product_slug": slug, "payload": payload, "payload_sha256": digest(payload),
                        "players_type": types.get(futbin), "blocked_error": error, "missing_platforms": missing_platforms(source),
                        "missing_price_policy": business_defaults.get("missing_price_policy", "reject"),
                        "shelves_payload": {"site_ids": [266], "aids": [21587, 21585, 21589],
@@ -214,11 +215,12 @@ def _model(adapter, client, item, repo, execution_id):
     return int(mid)
 
 
-def _products(client, mid):
+def _products(client, mid, *, expected_slug=None, rows=None):
     model = client.get_model(mid)
     if str(model.get("status")) != "1" or str(model.get("is_put")) != "1":
         raise StateError("DIRECT_SHELVES_MODEL_STATE_INCOMPLETE")
-    rows = list(client.get_products(mid))
+    if rows is None:
+        rows = client.get_products(mid)
     ids, scopes = [], []
     for row in rows:
         if str(row.get("gid")) != "1327" or str(row.get("cid")) != "9627" or str(row.get("mid")) != str(mid):
@@ -226,6 +228,8 @@ def _products(client, mid):
         value = row.get("id")
         if isinstance(value, bool) or not str(value).isdigit() or int(value) < 1:
             raise StateError("DIRECT_PRODUCT_ID_INVALID")
+        if expected_slug is not None and str(row.get("site_id")) == "266" and row.get("slug") != expected_slug:
+            raise StateError("DIRECT_PRODUCT_SLUG_MISMATCH")
         ids.append(int(value))
         scopes.append((str(row.get("site_id")), str(row.get("aid", row.get("game_area_id")))))
     if not ids or len(ids) != len(set(ids)):
@@ -247,6 +251,19 @@ def _shelves_readback(client, mid):
             if str(exc) not in pending or attempt == 5:
                 raise
             time.sleep(2)
+
+
+def _product_slug(client, mid, pid, aid):
+    rows = [row for row in client.get_products(mid) if str(row.get("id")) == str(pid)]
+    if len(rows) != 1:
+        raise StateError("DIRECT_PRODUCT_SCOPE_CHANGED")
+    row = rows[0]
+    if tuple(str(row.get(k)) for k in ("mid", "gid", "cid", "site_id", "aid")) != (
+            str(mid), "1327", "9627", "266", str(aid)):
+        raise StateError("DIRECT_PRODUCT_SCOPE_CHANGED")
+    if "slug" not in row:
+        raise StateError("DIRECT_PRODUCT_SLUG_MISMATCH")
+    return row["slug"]
 
 
 def _product_state(client, mid, product_id, desired):
@@ -411,6 +428,44 @@ def execute_direct_plan(settings, repo, client, execution_id, plan, should_stop=
                     unresolved.append(fid)
                     continue
                 phases = ["add", "shelves"]
+                slug = item.get("product_slug")
+                if slug:
+                    products = client.get_products(mid)
+                    _products(client, mid, rows=products)
+                    slug_complete = True
+                    for product in products:
+                        if str(product["site_id"]) != "266":
+                            continue
+                        pid, aid = int(product["id"]), int(product["aid"])
+                        current_slug = _product_slug(client, mid, pid, aid)
+                        if current_slug not in (None, "", slug):
+                            raise StateError("DIRECT_PRODUCT_SLUG_MISMATCH")
+                        phase = "product_slug_" + str(pid)
+                        if current_slug == slug:
+                            with repo.connection() as db:
+                                receipt = _latest(db, execution_id, fid, phase)
+                            if not receipt or receipt["state"] == "not_started":
+                                continue
+
+                        def verify_slug():
+                            if _product_slug(client, mid, pid, aid) != slug:
+                                raise StateError("DIRECT_PRODUCT_SLUG_MISMATCH")
+                            return {"product_id": pid, "slug": slug}
+
+                        def set_slug():
+                            if current_slug == slug:
+                                return {"code": 1, "no_change": True}
+                            return client.set_product_slug(pid, slug)
+
+                        if not _action(repo, execution_id, item, phase,
+                                       {"model_id": mid, "product_id": pid, "aid": aid, "slug": slug},
+                                       set_slug, verify_slug, should_stop=should_stop):
+                            slug_complete = False
+                            break
+                        phases.append(phase)
+                    if not slug_complete:
+                        unresolved.append(fid)
+                        continue
                 if fid in plan["tag_futbin_ids"]:
                     tags = list(plan["selected_tag_ids"])
 
@@ -489,7 +544,7 @@ def execute_direct_plan(settings, repo, client, execution_id, plan, should_stop=
                         unresolved.append(fid)
                         continue
                 product_rows = list(client.get_products(mid))
-                _products(client, mid)
+                _products(client, mid, expected_slug=slug, rows=product_rows)
                 platforms = {"21587": "PlayStation", "21585": "Xbox", "21589": "PC"}
                 enabled = True
                 for product in product_rows:
@@ -524,7 +579,7 @@ def execute_direct_plan(settings, repo, client, execution_id, plan, should_stop=
                     unresolved.append(fid)
                     continue
                 _model(adapter, client, item, repo, execution_id)
-                _products(client, mid)
+                _products(client, mid, expected_slug=slug)
                 _finish_person(repo, execution_id, item, mid, phases)
                 done.append(fid)
             except Exception as exc:

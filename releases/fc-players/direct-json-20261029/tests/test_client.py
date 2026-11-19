@@ -76,6 +76,13 @@ class ClientContract(unittest.TestCase):
             client.set_product_status(21,31,1)
         with self.assertRaises(ValueError): client.set_product_status(21,31,True)
 
+    def test_product_slug_posts_only_the_product_id_and_slug(self):
+        client = self.client()
+        with patch.object(client, "_request_json", return_value={"code": 1}) as post:
+            client.set_product_slug(187503479, "alexandre-pato-24224")
+        post.assert_called_once_with("POST", "/admin/goods.Goods/edit",
+                                     json_body={"id": 187503479, "slug": "alexandre-pato-24224"})
+
     def test_old_product_edit_remains_inventory_only(self):
         with self.assertRaises(ValueError): self.client().edit_product({'id':31,'status':1})
 
