@@ -25,6 +25,8 @@ BASE = target_map.CURVE_V6_BASE
 class CurveV6Release(unittest.TestCase):
     def test_recovery_scope_only_packages_each_fix_and_rejects_mirror_drift(self):
         modules_by_fix = {
+            'live-order-cost': (),
+            'shared-order': ('business_source.py', 'runtime.py', 'average_discount_v6.py'),
             'recent-orders': ('business_source.py', 'planning_baskets_v6.py', 'runtime.py'),
             'outcomes': ('business_source.py', 'daily.py'),
             'cost-incidents': ('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py'),
@@ -41,6 +43,9 @@ class CurveV6Release(unittest.TestCase):
                 for name in modules:
                     expected['source/fc_pricing_v3/' + name] = '/opt/fc27-cloud-browser/fc_pricing_v3/' + name
                     expected['source/hermes-copy/fc_pricing_v3/' + name] = '/opt/fs-hermes-fc/fc_pricing_v3/' + name
+                if fix in ('shared-order', 'live-order-cost'):
+                    expected['source/collect_p2pah_cost.py'] = '/opt/fc27-cloud-browser/collect_p2pah_cost.py'
+                    expected['source/snapshot_layer.py'] = '/opt/fc27-cloud-browser/snapshot_layer.py'
                 self.assertEqual(built['targets'], len(expected))
                 self.assertEqual(set(provenance['files']), set(expected))
                 self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)
@@ -50,9 +55,15 @@ class CurveV6Release(unittest.TestCase):
                 manifest = dict(scope=provenance['scope'], releaseReady=True, businessWrites=False,
                                 timersChanged=False, files=files)
                 self.assertIs(adapter.checked_manifest(manifest), manifest)
-                files[1]['sha256'] = 'c' * 64
-                with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):
-                    adapter.checked_manifest(manifest)
+                if modules:
+                    files[1]['sha256'] = 'c' * 64
+                    with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):
+                        adapter.checked_manifest(manifest)
+                else:
+                    files.pop()
+                    with self.assertRaises(ValueError):
+                        adapter.checked_manifest(manifest)
+
 
     def test_order_cost_scope_pairs_fc_modules_and_only_overlays_the_pinned_live_channel_source(self):
         with tempfile.TemporaryDirectory() as folder:

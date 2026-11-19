@@ -374,37 +374,76 @@ def verified_v6_deliveries(tab, deliveries, order_cache):
 
 
 def collect_v6_delivery_samples(tab, observations, order_cache, confirmed_costs=None):
-    """Read complete native time windows; ID order cannot prove a time boundary."""
+    """Verify the latest three hours and, where needed, the latest six qualified rows."""
     end = datetime.now(SHANGHAI).replace(microsecond=0)
+    recent_start = end - timedelta(hours=3)
     result = {p: dict(records=[], window_complete=False, history_complete=False) for p in PLATFORMS}
+    references = {p: (confirmed_costs or {}).get(p) for p in PLATFORMS}
+    bounds = {p: (Decimal(str(ref)) / 2, Decimal(str(ref)) * 2) if ref is not None
+              else (Decimal('.05'), Decimal('5')) for p, ref in references.items()}
+    previous = None
     for hours in (3, 6, 12, 24, 48, 96, 192):
-        window = dict(start=end-timedelta(hours=hours), end=end, area='0')
-        deliveries, complete = {}, False
+        start = end - timedelta(hours=hours)
+        window = dict(start=start, end=end, area='0')
+        deliveries = {}
         for page in range(1, 16):
             data = read_page(tab, page, observations, window=window)
             for raw in data['rows']:
                 valid = valid_record(raw)
-                if valid and not window['start'] <= valid[0] <= end:
+                if valid and not start <= valid[0] <= end:
                     raise ValueError('cost_time_window_filter_unverified')
                 remember(deliveries, valid)
             if data['deliveryRowCount'] == 0:
-                complete = True
                 break
-        if not complete:
+        else:
             break
+
+        # Full windows still catch late inserts, removals and changes. Refresh any
+        # same-round detail whose listing changed or whose order gained a row.
+        if previous is not None:
+            for key in previous.keys() | deliveries.keys():
+                before, after = previous.get(key), deliveries.get(key)
+                if before != after:
+                    for value in (before, after):
+                        if value is not None:
+                            order_cache.pop(delivery_order_id(value[1]), None)
+        previous = deliveries
+
+        ordered = sorted(deliveries.values(), key=lambda item: item[0], reverse=True)
+        recent = [item for item in ordered if item[0] >= recent_start]
+        older = {p: [] for p in PLATFORMS}
+        for item in ordered[len(recent):]:
+            older[item[1]['platform']].append(item)
         verified = {p: [] for p in PLATFORMS}
-        ordered = sorted(deliveries.values(), key=lambda value: value[0], reverse=True)
-        for record, normal in verified_v6_deliveries(tab, ordered, order_cache):
+        for record, normal in verified_v6_deliveries(tab, recent, order_cache):
             if normal is not None:
                 verified[record['platform']].append(normal)
-        result = {p: dict(records=rows, window_complete=True, history_complete=hours == 192)
-                  for p, rows in verified.items()}
+
         enough = []
-        for platform, rows in verified.items():
-            reference = (confirmed_costs or {}).get(platform)
-            lower, upper = ((Decimal(str(reference)) / 2, Decimal(str(reference)) * 2)
-                            if reference is not None else (Decimal('.05'), Decimal('5')))
-            enough.append(sum(lower <= Decimal(row['cny_per_1k']) <= upper for row in rows) >= 6)
+        for platform, records in verified.items():
+            lower, upper = bounds[platform]
+            within_bounds = sum(lower <= Decimal(row['cny_per_1k']) <= upper for row in records)
+            candidates = iter(sorted(older[platform], key=lambda item: (item[0], item[1]['record_id']),
+                                     reverse=True))
+            inspected = 0
+            while within_bounds < 6:
+                batch = list(islice(candidates, min(2, 6 - within_bounds)))
+                if not batch:
+                    break
+                inspected += len(batch)
+                for _, normal in verified_v6_deliveries(tab, batch, order_cache):
+                    if normal is not None:
+                        records.append(normal)
+                        within_bounds += lower <= Decimal(normal['cny_per_1k']) <= upper
+            unchecked = len(older[platform]) - inspected
+            scope = dict(list_start=start.isoformat(), list_end=end.isoformat(),
+                         full_detail_start=recent_start.isoformat(), older_detail_rows_checked=inspected,
+                         older_detail_rows_not_checked=unchecked)
+            if unchecked:
+                scope['qualification_reference_cny_per_k'] = references[platform]
+            result[platform] = dict(records=records, window_complete=True,
+                                    history_complete=hours == 192 and not unchecked, detail_scope=scope)
+            enough.append(within_bounds >= 6)
         if all(enough):
             break
     return result

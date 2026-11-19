@@ -1,6 +1,7 @@
 """Normalize one server-only FC27 collection run; never reuse older evidence."""
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import glob
@@ -238,15 +239,10 @@ def collector_failure(pattern, before, source):
     return "collector_failed"
 
 
-def collect_once(run_id=None, competitor_policy=None):
-    from fc_pricing_v3.competitor_offers import CURRENT_QUANTITIES, POLICY, normalize_offers, quantity_coverage
-    if competitor_policy not in (None,POLICY):raise ValueError('competitor_policy_unknown')
-    run_id = run_id or str(uuid.uuid4())
-    if str(uuid.UUID(run_id)) != run_id:
-        raise ValueError("invalid_run_id")
-    started = datetime.now(timezone.utc).isoformat()
+def collect_market_sources(run_id, *, curve_v6):
+    from fc_pricing_v3.competitor_offers import CURRENT_QUANTITIES, normalize_offers
+
     snapshots = missing_competitors(run_id, "collector_not_connected")
-    status, reason = "incomplete", None
     failures = []
     before = {p for p in glob.glob(str(ROOT / "evidence/lootbar-*.jsonl"))}
     try:
@@ -262,11 +258,10 @@ def collect_once(run_id=None, competitor_policy=None):
             events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
             valid = lootbar_snapshots(run_id, events)
             snapshots = [row for row in snapshots if row["source"] != "Lootbar"] + valid
-            reason = "cost_not_connected"
     except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
         failures.append("Lootbar:" + (str(exc) if isinstance(exc, ValueError) else type(exc).__name__))
     quantity_offers=[]
-    if competitor_policy==POLICY:
+    if curve_v6:
         for row in snapshots:
             if row.get('status')!='valid':continue
             try:quantity_offers.extend(normalize_offers([row],run_id,datetime.now(timezone.utc)))
@@ -279,14 +274,18 @@ def collect_once(run_id=None, competitor_policy=None):
             quantity_offers.extend(public_snapshots(run_id,'U7Buy',payload,requested=CURRENT_QUANTITIES))
         except (OSError,ValueError,subprocess.TimeoutExpired,json.JSONDecodeError) as exc:
             failures.append('U7Buy:'+(str(exc) if isinstance(exc,ValueError) else type(exc).__name__))
-    reason = "cost_not_connected" if not failures else ";".join(failures)
+    return snapshots, quantity_offers, failures
+
+
+def collect_order_cost(run_id, *, curve_v6):
     costs = [{"run_id": run_id, "platform": platform, "status": "missing",
               "reason": "cost_collector_failed"} for platform in PLATFORMS]
     before = set(glob.glob(str(ROOT / "evidence/p2pah-cost-*.json")))
     cost_failure = None
+    failure_text = None
     try:
         cost_kwargs = {}
-        if competitor_policy == POLICY:
+        if curve_v6:
             from fc_pricing_v3.runtime import _curve_insurance_context, ledger
             db = ledger()
             captured = datetime.now(timezone.utc)
@@ -308,8 +307,9 @@ def collect_once(run_id=None, competitor_policy=None):
                     'diagnostic': {'exit_code': process.returncode},
                 }
             raise ValueError(cost_failure['reason'])
-        costs = cost_snapshots(run_id, newest_evidence("p2pah-cost-*.json", before), curve_v6=competitor_policy == POLICY)
+        costs = cost_snapshots(run_id, newest_evidence("p2pah-cost-*.json", before), curve_v6=curve_v6)
     except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        failure_text = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
         if cost_failure is None:
             if isinstance(exc, subprocess.TimeoutExpired):
                 cost_failure = {'reason': 'collector_wrapper_timeout', 'diagnostic': {'timeout_seconds': exc.timeout}}
@@ -317,7 +317,27 @@ def collect_once(run_id=None, competitor_policy=None):
                 cost_failure = {'reason': 'collector_evidence_unavailable', 'diagnostic': {'exception_type': type(exc).__name__}}
         for cost in costs:
             cost['cost_failure'] = cost_failure
-        failures.append("P2PAH:" + (str(exc) if isinstance(exc, ValueError) else type(exc).__name__))
+    return costs, cost_failure, failure_text
+
+
+def collect_once(run_id=None, competitor_policy=None):
+    from fc_pricing_v3.competitor_offers import CURRENT_QUANTITIES, POLICY, quantity_coverage
+    if competitor_policy not in (None,POLICY):raise ValueError('competitor_policy_unknown')
+    run_id = run_id or str(uuid.uuid4())
+    if str(uuid.UUID(run_id)) != run_id:
+        raise ValueError("invalid_run_id")
+    started = datetime.now(timezone.utc).isoformat()
+    if competitor_policy == POLICY:
+        # Preserve source locks and deadlines while the current Order and market reads overlap.
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            order = executor.submit(collect_order_cost, run_id, curve_v6=True)
+            snapshots, quantity_offers, failures = collect_market_sources(run_id, curve_v6=True)
+            costs, cost_failure, cost_failure_text = order.result()
+    else:
+        snapshots, quantity_offers, failures = collect_market_sources(run_id, curve_v6=False)
+        costs, cost_failure, cost_failure_text = collect_order_cost(run_id, curve_v6=False)
+    if cost_failure_text:
+        failures.append("P2PAH:" + cost_failure_text)
     fx = {"status": "missing", "reason": "fx_collector_failed"}
     before = set(glob.glob(str(ROOT / "evidence/fx-*.json")))
     try:

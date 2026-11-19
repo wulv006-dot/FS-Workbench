@@ -197,6 +197,93 @@ class SixCost(unittest.TestCase):
         self.assertEqual(smoothed['cny_per_1k'], '0.4')
         self.assertIn(6, windows)
 
+    def test_v6_reads_only_older_details_needed_by_each_platform(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+        rows = [self.raw(1100 + platform_index * 100 + i, '.4', i, platform)
+                for platform_index, platform in enumerate(('PS', 'XBOX', 'PC'))
+                for i in range(5 if platform == 'PC' else 7)]
+        extras = [self.raw(10000, '.5', 240, 'PC'), self.raw(9999, '.6', 240, 'PC'),
+                  self.raw(8001, '.9', 250, 'PC'), self.raw(8002, '.8', 240, 'PS'),
+                  self.raw(8003, '.8', 240, 'XBOX')]
+        rows.extend(extras)
+        details = {}
+        for row in rows:
+            record_id = row['record_id']
+            total = str(Decimal(row['cny_per_1k']) * 100)
+            row.update(order_id=record_id, quantity='100', gift='0', cost_total=total)
+            details[record_id] = dict(complete=True,
+                goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty='100', used='100')],
+                deliveries=[dict(id=record_id, pid='9', qty='100', gift='0',
+                                 price=row['cny_per_1k'], total=total)])
+        self.native_verifier.stop()
+        requests, windows = [], []
+
+        def evaluate(_, ids):
+            requests.extend(ids)
+            return [details[order_id] for order_id in ids]
+
+        def read(tab, page, observations=None, window=None):
+            if page == 1:
+                windows.append(window)
+            return self.data([row for row in rows if window['start'] <=
+                             datetime.fromisoformat(row['trade_at']).replace(tzinfo=self.collector.SHANGHAI)
+                             <= window['end']] if page == 1 else [])
+
+        self.tab.evaluate = evaluate
+        with patch.object(self.collector, 'read_page', side_effect=read):
+            result = self.collector.collect(curve_v6=True, confirmed_costs={p: '.4' for p in self.collector.PLATFORMS})
+        self.assertEqual([w['end'] - w['start'] for w in windows],
+                         [timedelta(hours=3), timedelta(hours=6)])
+        self.assertEqual(windows[0]['end'], windows[1]['end'])
+        self.assertEqual(len(requests), 20)
+        self.assertEqual(set(requests) & {r['order_id'] for r in extras}, {'9999'})
+        costs = [smooth_delivery_cost(row, row['platform'], datetime.now(timezone.utc), '.4')
+                 for row in result['costs']]
+        self.assertEqual([row['selected_count'] for row in costs], [7, 7, 6])
+        self.assertEqual([row['cny_per_1k'] for row in costs], ['0.4'] * 3)
+        self.assertEqual(costs[-1]['sample_records'][-1]['record_id'], '9999')
+        self.assertEqual([row['v6_delivery_samples']['detail_scope']['older_detail_rows_not_checked']
+                          for row in result['costs']], [1, 1, 2])
+
+    def test_v6_full_expand_refreshes_amended_detail_and_checks_late_insert(self):
+        rows = [self.raw(1000+index*100+i, '.4', i, platform)
+                for index, platform in enumerate(('PS', 'XBOX', 'PC'))
+                for i in range(5 if platform == 'PC' else 6)]
+        late = self.raw(9999, '.5', 60)
+        older = self.raw(9998, '.4', 240, 'PC')
+        amended = dict(rows[0], cny_per_1k='.5')
+        requests = []
+        for row in rows + [late, older, amended]:
+            row.update(order_id=row['record_id'], quantity='100', gift='0',
+                       cost_total=str(Decimal(row['cny_per_1k']) * 100))
+        windows = []
+
+        def evaluate(_, ids):
+            requests.extend(ids)
+            current = rows if len(windows) == 1 else [amended, *rows[1:], late, older]
+            lookup = {row['order_id']: row for row in current}
+            return [dict(complete=True,
+                goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty='100', used='100')],
+                deliveries=[dict(id=ident, pid='9', qty='100', gift='0',
+                    price=lookup[ident]['cny_per_1k'], total=lookup[ident]['cost_total'])]) for ident in ids]
+
+        def read(tab, page, observations=None, window=None):
+            if page != 1:
+                return self.data([])
+            windows.append(window)
+            return self.data(rows if len(windows) == 1 else [amended, *rows[1:], late, older])
+
+        self.native_verifier.stop()
+        self.tab.evaluate = evaluate
+        with patch.object(self.collector, 'read_page', side_effect=read):
+            result = self.collector.collect(curve_v6=True)
+        self.assertEqual(requests.count('1000'), 2)
+        self.assertEqual(requests.count('9999'), 1)
+        self.assertEqual(requests.count('1100'), 1)
+        samples = result['costs'][0]['v6_delivery_samples']['records']
+        self.assertEqual({r['record_id']: r['cny_per_1k'] for r in samples}['1000'], '0.5')
+        self.assertEqual(len(samples), 7)
+
     def test_mixed_k_and_million_deliveries_are_normalized_before_taking_max(self):
         self.native_verifier.stop()
         samples = [
