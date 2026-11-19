@@ -14,6 +14,7 @@ from .orders import PLATFORMS
 MAIN = "www.mmoexp.com"
 COST_ROOT = Path("/var/lib/fs-channel-effects")
 CONTRACT = "fc-same-order-procurement-v1"
+ACCOUNTING_RULE = "exclude-confirmed-test-failed-validation-v1"
 
 
 @lru_cache(maxsize=12)
@@ -49,7 +50,45 @@ def delivery_capture(path, signature):
     return start, stop, captured, sha256(raw).hexdigest(), rows
 
 
-def delivery_evidence(dates, now, root):
+def delivery_evidence(dates, now, root, order_keys=None):
+    if order_keys:
+        try:
+            from order_delivery_index import read_orders
+        except ImportError:
+            read_orders = None
+        if read_orders is not None:
+            indexed = read_orders(order_keys, root=root)
+            if indexed.get("status") == "available":
+                revision = indexed["revision"]
+                if not isinstance(revision, str) or not revision:
+                    raise ValueError("invalid_delivery_index_revision")
+                windows, revisions, costs, seen = [], [], defaultdict(list), set()
+                for window in indexed["windows"]:
+                    lo, hi = window["since"], window["until"]
+                    start, stop = datetime.strptime(lo,"%Y-%m-%d %H:%M:%S"), datetime.strptime(hi,"%Y-%m-%d %H:%M:%S")
+                    captured = datetime.fromisoformat(window["capturedAt"].replace("Z", "+00:00"))
+                    if (window["source"] != MAIN or start > stop or captured.tzinfo is None
+                            or captured.astimezone(TZ).replace(tzinfo=None) < stop or captured > now):
+                        raise ValueError("invalid_delivery_index_window")
+                    windows.append((lo,hi))
+                    revisions.append(dict(start=lo,end=hi,capturedAt=captured.isoformat(),
+                                          revision=window["revision"],indexRevision=revision))
+                for row in indexed["rows"]:
+                    identity = str(row["delivery_id"])
+                    if (not identity.isdecimal() or identity in seen or row["source"] != MAIN
+                            or str(row["genre"]) != "1" or (MAIN,row["sn"]) not in order_keys
+                            or not any(lo <= row["trade_at"] <= hi for lo,hi in windows)):
+                        raise ValueError("invalid_delivery_index_row")
+                    seen.add(identity)
+                    costs[row["sn"]].append((row["trade_at"],row["cost_total"]))
+                merged = []
+                for lo, hi in sorted(windows):
+                    adjacent = (datetime.fromisoformat(lo)-timedelta(seconds=1)).isoformat(sep=" ")
+                    if merged and adjacent <= merged[-1][1]:
+                        merged[-1] = (merged[-1][0],max(merged[-1][1],hi))
+                    else:
+                        merged.append((lo,hi))
+                return costs, merged, revisions, []
     captures, missing = [], []
     paths = [root / "order-deliveries.json"]
     # shortcut: consult the selected days and the next closed trade day; wider late-cost history needs an indexed order source.
@@ -112,8 +151,11 @@ def same_order_review(game, start, end, *, read=None, status_reader=None, cost_r
         if instant.tzinfo is None or not datetime.fromisoformat(day).replace(tzinfo=TZ) <= instant <= now:
             raise ValueError("invalid_paid_status_observation")
         observations[day] = instant.astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")
+    keys = {(MAIN,str(row["order_no"])) for row in shared["rows"]
+            if str(row.get("site_id")) == "266" and (row.get("site") or {}).get("full_title") == MAIN
+            and row.get("order_no")}
     costs, windows, cost_revisions, invalid_files = (
-        delivery_evidence(dates, now, cost_root) if observations else ({}, [], [], []))
+        delivery_evidence(dates, now, cost_root, keys) if observations else ({}, [], [], []))
     config = (overrides or apply_cost_overrides)(dict(sources={}))
     rows, identities, sites = [], set(), defaultdict(set)
     for raw in shared["rows"]:
@@ -160,8 +202,8 @@ def same_order_review(game, start, end, *, read=None, status_reader=None, cost_r
         groups[site,title,platform if platform in PLATFORMS else "unknown"].append(row)
 
     def summary(selected, complete):
-        paid = [row["salesUsd"] for row in selected if row["salesUsd"] is not None]
         cohort = [row for row in selected if not row["refunded"] and not row["testOrder"] and not fraud(row)]
+        paid = [row["salesUsd"] for row in cohort if row["salesUsd"] is not None]
         finished = [row for row in cohort if completed(row)]
         covered = [row for row in finished if row["costCny"] is not None and row["saleCny"] is not None]
         uncovered = [row for row in finished if row["costCny"] is None or row["saleCny"] is None]
@@ -170,11 +212,11 @@ def same_order_review(game, start, end, *, read=None, status_reader=None, cost_r
         cost = sum((Decimal(str(row["costCny"])) for row in covered), Decimal(0))
         revenue = sum((Decimal(str(row["saleCny"])) for row in covered), Decimal(0))
         known_total = bool(covered) or complete and not cohort
-        return dict(orders=len(selected) if complete else None,
-            observedOrders=len(selected) if selected or complete else None,
-            salesUsd=number(sum(paid, Decimal(0))) if complete and len(paid) == len(selected) else None,
-            observedSalesUsd=number(sum(paid, Decimal(0))) if paid or complete and not selected else None,
-            missingSalesOrders=len(selected)-len(paid), completedOrders=len(finished), coveredOrders=len(covered),
+        return dict(orders=len(cohort) if complete else None,
+            observedOrders=len(cohort) if cohort or complete else None,
+            salesUsd=number(sum(paid, Decimal(0))) if complete and len(paid) == len(cohort) else None,
+            observedSalesUsd=number(sum(paid, Decimal(0))) if paid or complete and not cohort else None,
+            missingSalesOrders=len(cohort)-len(paid), completedOrders=len(finished), coveredOrders=len(covered),
             excludedOrders=len(selected)-len(cohort), pendingOrders=len(cohort)-len(finished),
             missingCostOrders=len(uncovered),
             missingCostObservedSalesUsd=number(sum(missing_cost_sales_usd,Decimal(0))) if missing_cost_sales_usd else None,
@@ -188,7 +230,7 @@ def same_order_review(game, start, end, *, read=None, status_reader=None, cost_r
     selected = [row for day in dates for row in by_day[day]]
     complete = source.get("admin_complete") is True and not missing
     totals = summary(selected, complete)
-    revisions = dict(admin={key:source.get(key) for key in
+    revisions = dict(accountingRule=ACCOUNTING_RULE, admin={key:source.get(key) for key in
         ("publication_id","data_revision","source_revision","captured_at","day_revisions","fc27_projection_revision")},
         completedStatus=receipts,
         completedStatusRevision=sha256(json.dumps(sorted(completed_status.items()),sort_keys=True).encode()).hexdigest(),
@@ -204,5 +246,5 @@ def same_order_review(game, start, end, *, read=None, status_reader=None, cost_r
         coverage=dict(adminComplete=complete, missingDays=missing,
             missingCompletedStatusDays=sorted(set(dates)-set(observations)), costWindows=windows,
             invalidCostFiles=invalid_files, costScope=MAIN),
-        definition=("Admin 已付订单按付款日统计美元销售。采购毛利为已核完成同单的 Admin 人民币收入减可关联的 Order 普通订单发货采购成本。"
+        definition=("Admin 已付订单按付款日统计美元销售，排除已确认测试单、验证未通过及已退款订单。采购毛利为已核完成同单的 Admin 人民币收入减可关联的 Order 普通订单发货采购成本。"
                     "按同网站和原订单号关联，不能关联的销售补发及最终结算不纳入。缺成本或未完成订单不参与毛利，覆盖仅针对已公布的订单版本。"))

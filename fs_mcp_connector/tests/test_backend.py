@@ -59,6 +59,13 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(result['data'], {'status':'partial','totals':{'orders':723},
                                           'coverage':{'adminComplete':True}})
 
+    def test_full_fc_review_preserves_same_order_aggregate(self):
+        args = {'profile':'FC27','start':'2026-11-16','end':'2026-11-18'}
+        self.response = (200, b'{"packets":[{"sameOrder":{"status":"partial","totals":{"orders":2},"coverage":{"adminComplete":true}}}]}')
+        result=self.backend.query(self.principal,'business.fc_project_review',args)
+        self.assertEqual(result['data']['packets'][0]['sameOrder']['totals']['orders'],2)
+        self.assertTrue(result['data']['packets'][0]['sameOrder']['coverage']['adminComplete'])
+
     def test_customer_email_is_post_body_only(self):
         self.backend.query(self.principal, 'orders.customer', dict(self.query, customer_email='fixture@example.test'))
         method, target, headers, body, limits = self.calls[0]

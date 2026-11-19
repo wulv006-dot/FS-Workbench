@@ -46,7 +46,7 @@ def publish_yesterday_es(store, cutoff, now):
     from user_customer_types import closed_period_bundle
 
     day = (cutoff - timedelta(days=1)).date().isoformat()
-    preview = seed(store, day, day, now=now.isoformat())
+    preview = seed(store, day, day, now=now.isoformat(), full_archive=True)
     if preview['already_indexed']:
         return dict(status='reused', reason='shared_es_yesterday_published', day=day)
     if preview['missing_es_days']:
@@ -54,7 +54,7 @@ def publish_yesterday_es(store, cutoff, now):
                                   group_by='new_customer', status='all'), cutoff)
         # The exporter can finish asynchronously. Seed publishes only if the
         # completed closed-day workbook is available on this attempt.
-    result = seed(store, day, day, apply=True, now=datetime.now(TZ).isoformat())
+    result = seed(store, day, day, apply=True, now=datetime.now(TZ).isoformat(), full_archive=True)
     if result['already_indexed'] or result.get('indexed_days'):
         return dict(status='complete', day=day, shared_es=result)
     return dict(status='deferred', reason='shared_es_yesterday_archive_pending', day=day)
@@ -217,7 +217,15 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly',
     state = small_state(root)
     if cadence not in ('daily', 'weekly'): raise ValueError('publication_cadence')
     latest = now.replace(hour=0, minute=0, second=0, microsecond=0) if cadence == 'daily' else monday(now)
-    midnight_archive = shared_es and cadence == 'daily' and now < latest + timedelta(hours=4, minutes=18)
+    priority_cutoff = None
+    if shared_es and cadence == 'daily':
+        from shared_es_facts import fc_pricing_missing_days
+        missing = fc_pricing_missing_days((latest - timedelta(days=3)).date().isoformat(),
+                                          (latest - timedelta(days=1)).date().isoformat(),
+                                          db=Path(root) / 'customers.sqlite3')
+        if missing:
+            priority_cutoff = stamp(missing[-1]) + timedelta(days=1)
+    midnight_archive = priority_cutoff is not None
     retiring_backup = state is not None and state['phase'] == 'backup'
     calendar_review = bool(state and state.get('review_policy') in CALENDAR_POLICIES and state.get('review_start'))
     if state and not midnight_archive and not calendar_review and not retiring_backup and state.get('retryable') is False and not force:
@@ -233,7 +241,10 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly',
         except BlockingIOError:
             return dict(status='deferred', reason='user_job_active')
         if midnight_archive:
-            return publish_yesterday_es(store, latest, now)
+            result = publish_yesterday_es(store, priority_cutoff, now)
+            # The regular maintenance window must still run while an external export is pending.
+            if not window(now):
+                return result
         state = small_state(root)
         try:
             published = publication(store, now)

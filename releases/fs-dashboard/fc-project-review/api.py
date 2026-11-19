@@ -89,6 +89,13 @@ def capture(game, start, end, actor, get_range, order_facts, authorizer):
     length=(hi-lo).days+1
     shift=timedelta(days=7 if length<=7 else length)
     previous={"start":str(lo-shift),"end":str(hi-shift)}
+    if length<=3 and hi<started.date():
+        try:
+            result["sameOrder"]=same_order_review(game,start,end)
+        except (ImportError,OSError,RuntimeError,ValueError,KeyError,TypeError) as exc:
+            LOG.warning("FC same-order facts: %s",type(exc).__name__)
+            result["sameOrder"]={"status":"unavailable"}
+            result["coverage"].append("同单采购成本本次未取得")
     try:
         orders=read_program(sys.executable,"orders.py",start,end,"--game",game)
         result["ordersData"]=orders
