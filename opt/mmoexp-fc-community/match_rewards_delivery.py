@@ -17,6 +17,12 @@ from match_rewards import RewardError, coupon_snapshot_fingerprint
 EMAIL = re.compile(r"[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+\Z")
 
 
+def normalized_email(value):
+    if not isinstance(value, str) or len(value) > 254 or not EMAIL.fullmatch(value.strip()):
+        raise RewardError("Valid MMOEXP account email is required")
+    return value.strip().lower()
+
+
 def verified_email(site_member, expected_member_id):
     """Accept only an identity assertion supplied by the MMOEXP site backend."""
     if (not isinstance(site_member, dict) or
@@ -26,10 +32,10 @@ def verified_email(site_member, expected_member_id):
             site_member.get("email_verified") is not True or
             site_member.get("account_active") is not True):
         raise RewardError("Verified MMOEXP member is required")
-    email = site_member.get("email")
-    if not isinstance(email, str) or len(email) > 254 or not EMAIL.fullmatch(email.strip()):
-        raise RewardError("Verified MMOEXP member is required")
-    return email.strip().lower()
+    try:
+        return normalized_email(site_member.get("email"))
+    except RewardError:
+        raise RewardError("Verified MMOEXP member is required") from None
 
 
 def email_fingerprint(email):
@@ -102,6 +108,9 @@ class RewardDelivery:
         if not target["enabled"]:
             raise RewardError("Offer is unavailable")
         email = self._member_email(target["site_member_id"])
+        return self._deliver_email(claim_id, target, email)
+
+    def _deliver_email(self, claim_id, target, email):
         row = self.coupon_adapter.detail(target["coupon_id"])
         fingerprint = self._coupon_detail(row, target["coupon_id"])
         dispatch = self.store.begin_grant(claim_id, fingerprint,
@@ -133,6 +142,9 @@ class RewardDelivery:
         if email_fingerprint(email) != target["recipient_email_hash"]:
             self.store.record_grant_result(claim_id, "unknown", job_id=target["job_id"])
             return self.store.grant_target(claim_id)
+        return self._reconcile_email(claim_id, target, email)
+
+    def _reconcile_email(self, claim_id, target, email):
         try:
             result = self.coupon_adapter.reconcile(target["job_id"], email,
                                                    target["batch_no"])
@@ -145,3 +157,30 @@ class RewardDelivery:
                                            job_id=target["job_id"],
                                            member_coupon_id=str(result["member_coupon_id"]))
         return self.store.grant_target(claim_id)
+
+
+class WeeklyEmailDelivery(RewardDelivery):
+    """Send a verified weekly prize to the email privately entered by its winner."""
+
+    def __init__(self, store, coupon_adapter):
+        super().__init__(store, None, coupon_adapter)
+
+    def deliver(self, claim_id, email):
+        target = self.store.grant_target(claim_id)
+        if not target:
+            raise RewardError("Claim not found")
+        address = normalized_email(email)
+        if email_fingerprint(address) != target["recipient_email_hash"]:
+            raise RewardError("Reward email changed after reservation")
+        if target["status"] != "reserved":
+            return target
+        return self._deliver_email(claim_id, target, address)
+
+    def reconcile(self, claim_id, email):
+        target = self.store.grant_target(claim_id)
+        if not target or target["status"] != "pending" or not target["job_id"]:
+            raise RewardError("No pending grant job")
+        address = normalized_email(email)
+        if email_fingerprint(address) != target["recipient_email_hash"]:
+            raise RewardError("Reward email changed after reservation")
+        return self._reconcile_email(claim_id, target, address)
