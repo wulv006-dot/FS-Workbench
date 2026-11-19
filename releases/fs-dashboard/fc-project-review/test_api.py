@@ -14,6 +14,7 @@ HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE.parent))
 api=import_module(HERE.name+".api")
 from test_review import core
+same_order=import_module(HERE.name+".same_order")
 
 
 class ApiTests(unittest.TestCase):
@@ -120,6 +121,104 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.get(profile=["../all"])[0],422)
         self.assertEqual(self.get(site=["266"])[0],422)
         self.assertEqual(self.get(start=["2026-11-17"])[0],422)
+
+    def test_same_order_view_uses_read_path_without_starting_review(self):
+        with patch.object(api,"datetime",wraps=api.datetime) as clock, \
+                patch.object(api.POOL,"submit") as submit, \
+                patch.object(api,"same_order_review",return_value={"status":"partial"}) as fast:
+            clock.now.return_value=api.datetime(2026,11,19,tzinfo=api.TZ)
+            self.assertEqual(self.get(False,view=["same-order"])[0],403)
+            self.assertEqual(self.get(view=["same-order"],refresh=["true"])[0],422)
+            self.assertEqual(self.get(view=["same-order"],end=["2026-11-19"])[0],422)
+            self.assertEqual(self.get(view=["same-order"]), (200,{"status":"partial"}))
+            fast.assert_called_once_with("FC27","2026-11-16","2026-11-16")
+            submit.assert_not_called()
+
+    def test_same_order_uses_same_website_and_deduplicated_complete_delivery_window(self):
+        source = HERE.parent / "dashboard-refresh-20261025/source"
+        sys.path.insert(0, str(source))
+        self.addCleanup(sys.path.remove, str(source))
+        day, next_day = "2026-11-16", "2026-11-17"
+        rows = []
+        for order_no, site, usd, cny, status in (
+                ("A", 266, "100", "700", "已完成"),
+                ("A", 5, "50", "350", "已完成"),
+                ("B", 266, "10", "70", "已完成"),
+                ("C", 266, "22", "154", "待发货"),
+                ("D", 266, "5", "35", "已退款·全部退款")):
+            rows.append(dict(id=len(rows)+1, order_no=order_no, site_id=site, gid=1327, paytime=day+" 01:00:00",
+                             pay_status=2 if order_no=="D" else 1, status_format=status,
+                             amount_usd_format=usd, amount_rmb_format=cny,
+                             site=dict(full_title=same_order.MAIN if site==266 else "www.other.example")))
+        scope = dict(start=day,end=day,site_id="all",gid="1327")
+        rows[0]["fc27_coins"] = {"platform":"PS","single_line_unit_purchase":True}
+        rows[0].update(amount_usd_format="$100.00", amount_rmb_format="￥700.00", before_discount="130.00", currency_code="EUR")
+        rows[1]["fc27_coins"] = {"platform":"XBOX","single_line_unit_purchase":True}
+        rows[2]["fc27_coins"] = {"platform":"PC","single_line_unit_purchase":False}
+        def read(query, *, native_only):
+            self.assertEqual(query, scope)
+            self.assertTrue(native_only)
+            return dict(coverage=dict(admin_complete=True, missing_days=[], captured_at=next_day+"T09:00:00+08:00",
+                                      publication_id="publication",source_revision="orders-v1"),
+                        rows=rows)
+        def delivery(identity, sn, trade, amount):
+            return dict(delivery_id=str(identity),sn=sn,trade_at=trade,cost_total=amount,
+                        source=same_order.MAIN,genre=1)
+        def archive(path, period, generated, deliveries):
+            path.parent.mkdir(exist_ok=True)
+            path.write_text(json.dumps(dict(contract="channel-order-deliveries-v1", complete=True,
+                period=period, generatedAt=generated, rows=deliveries)), encoding="utf-8")
+        archive(self.root/"delivery-days"/(day+".json"),dict(start=day,end=day),
+                next_day+"T01:00:00+08:00",[
+                    delivery(1,"A",day+" 03:00:00","420"),delivery(2,"B",day+" 03:00:00","0"),
+                    delivery(3,"C",day+" 04:00:00","3"),delivery(4,"A",day+" 05:00:00","90")])
+        rolling = self.root/"order-deliveries.json"
+        archive(rolling,dict(start=day,end=next_day,since=day+" 04:00",until=next_day+" 08:00"),
+                next_day+"T08:02:00+08:00",[delivery(1,"A",day+" 03:00:00","1"),
+                    delivery(3,"C",day+" 04:00:00","3"),delivery(5,"A",next_day+" 02:00:00","150"),
+                    delivery(6,"A",next_day+" 08:00:00","100")])
+        def status_reader(query):
+            self.assertEqual(query,scope)
+            return ({(day,"A"):dict(id="1",paidAt=day+" 01:00:00",amountUsd="100",revision=1),
+                     (day,"B"):dict(id="3",paidAt=day+" 01:00:00",amountUsd="10",revision=1)},
+                    {day:dict(jobId="j",revision=1,observedAt=next_day+"T07:59:59+08:00")})
+        def lookup():
+            return same_order.same_order_review("FC27",day,day,read=read,status_reader=status_reader,cost_root=self.root,
+                overrides=lambda doc:dict(doc,costOverrides={},testOrders={}))
+        result = lookup()
+        values = result["totals"]
+        self.assertEqual(result["status"],"partial")
+        self.assertEqual((values["salesUsd"],values["orders"]),(182,4))
+        self.assertEqual((values["completedOrders"],values["coveredOrders"],values["missingCostOrders"],values["pendingOrders"]),(3,2,1,1))
+        self.assertEqual((values["actualCostCny"],values["coveredSalesCny"],values["grossCny"]),(570,770,200))
+        self.assertEqual((values["missingCostObservedSalesUsd"],values["missingCostObservedSalesCny"]),(50,350))
+        self.assertAlmostEqual(values["grossMarginPct"],200/770*100,places=4)
+        self.assertEqual(result["daily"][0],dict(date=day,**values))
+        self.assertEqual([(r["siteId"],r["platform"],r["coveredOrders"]) for r in result["breakdown"]],
+                         [("266","PS",1),("266","unknown",1),("5","unknown",0)])
+        self.assertEqual(sum(r["orders"] for r in result["breakdown"]), values["orders"])
+        self.assertNotIn('"order_no"',json.dumps(result))
+        from channel_effects import profit_view
+        # Compare the new aggregate to the existing completed-order accounting on
+        # independently specified native sale/cost inputs, with one covered zero-cost order.
+        legacy = []
+        for sn, dollars, yuan, cost, state in (
+                ("A",100,700,570,"已完成"),("B",10,70,0,"已完成"),
+                ("C",22,154,None,"待发货"),("uncovered",50,350,None,"已完成")):
+            legacy.append(dict(orderNo=sn, gid="1327", game="FC27", day=day, salesUsd=dollars,
+                adminSaleCny=yuan, costCny=cost, status=state, payStatus="1", refunded=False,
+                deliveryRows=2 if sn=="A" else 1 if sn=="B" else 0, coupons=[],
+                codeKey="", conflict=False, attribution="无推广归属"))
+        previous = profit_view(dict(period=dict(start=day,end=day), generatedAt=next_day+"T09:00:00+08:00",
+            sources=dict(orders=dict(status="complete")), orders=legacy),{"gid":"1327"})["denominator"]
+        self.assertEqual((values["grossCny"],values["actualCostCny"],values["coveredSalesCny"]),
+                         (previous["profitCny"],previous["costCny"],previous["saleCny"]))
+        self.assertAlmostEqual(values["grossMarginPct"],previous["margin"]*100,places=4)
+        rolling.unlink()
+        missing = lookup()
+        self.assertIsNone(missing["totals"]["actualCostCny"])
+        self.assertEqual(missing["totals"]["missingCostOrders"],3)
+        self.assertNotEqual(result["revision"],missing["revision"])
 
     def test_retained_revision_and_readback(self):
         p=api.packet(core())

@@ -250,6 +250,8 @@ def enrich(data, force=False):
         for row in data['orders']: row.update(index.get(row['orderNo'], EMPTY_COST))
         cost_info['limitation'] = '已按固定发货截止 ' + cutoff.strftime('%Y-%m-%d %H:%M') + ' 完整分页读取；未匹配不补零，匹配不等于全部履约或最终结算。'
         data['sources']['cost'] = cost_info
+        if data.get('include_cost_delivery_rows') is True:
+            data['cost_delivery_rows'] = deliveries
     return data
 
 

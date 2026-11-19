@@ -24,6 +24,7 @@ from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEK
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, curve_arab_quote_targets
 from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
+from target_map import ORDER_COST_CHANNEL_OVERLAY, ORDER_COST_FC_BASELINES
 from target_map import CURVE_MARGIN_BAND_SCOPE, curve_margin_band_targets
 from target_map import CURVE_REVIEW_SCOPE, curve_review_targets
 from target_map import CURVE_STABILITY_SCOPE, curve_stability_targets
@@ -269,6 +270,12 @@ def checked_manifest(value):
         raise ValueError('fc_v3_reconcile_script_must_be_executable')
     if scope==LOOTBAR_CALLER_SCOPE and next(r for r in rows if r['candidate']=='source/collect_lootbar.sh')['mode']!='0o755':
         raise ValueError('lootbar_collector_must_be_executable')
+    if scope == CURVE_RECOVERY_SCOPES['order-cost']:
+        active_hashes = {row['candidate']: row['beforeSha256'] for row in rows}
+        if active_hashes.pop(ORDER_COST_CHANNEL_OVERLAY['candidate']) != ORDER_COST_CHANNEL_OVERLAY['beforeSha256']:
+            raise ValueError('order_cost_channel_baseline_drift')
+        if active_hashes != ORDER_COST_FC_BASELINES:
+            raise ValueError('order_cost_fc_baseline_drift')
     if value.get('businessWrites') is not False or value.get('timersChanged') is not False:
         raise ValueError('code_release_does_not_change_business_or_timer_state')
     if value.get('releaseReady') is not True:

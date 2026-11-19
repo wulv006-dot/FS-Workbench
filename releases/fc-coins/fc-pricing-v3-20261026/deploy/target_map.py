@@ -1,5 +1,6 @@
 """Exact FC code targets; the knowledge catalog has a separate release."""
 import ast
+import hashlib
 
 TARGET_COUNT = 101
 
@@ -255,7 +256,36 @@ def curve_arab_quote_targets(source):
     return module_targets(('market_registry.py',))
 
 
+ORDER_COST_CHANNEL_REPOSITORY = 'releases/fs-dashboard/dashboard-refresh-20261025/source/channel_source.py'
+ORDER_COST_CHANNEL_OVERLAY = {
+    'candidate': 'source/channel_source.py',
+    'target': '/opt/fs-hermes-fc/channel_source.py',
+    'beforeSha256': '94c5a99edced5c27cd235fd587a8bd7eac86e740597f62063b7449b00f58cb4b',
+}
+ORDER_COST_FC_BASELINES = {
+    'source/collect_p2pah_cost.py': '7c60ad5d4dc517b7e6c6b9a93cf6e8fba2f5ef0f2df9fed96411b94335ae351e',
+    'source/fc_pricing_v3/business_source.py': 'f1b86fc89b947425b84eba2d7cdcd4ac9f316cf83b2f4e1b6da8a2082773eef5',
+    'source/hermes-copy/fc_pricing_v3/business_source.py': 'f1b86fc89b947425b84eba2d7cdcd4ac9f316cf83b2f4e1b6da8a2082773eef5',
+}
+ORDER_COST_CHANNEL_INSERT = (b"        if data.get('include_cost_delivery_rows') is True:\n"
+                             b"            data['cost_delivery_rows'] = deliveries\n")
+
+
+def order_cost_channel_overlay(source):
+    if hashlib.sha256(source).hexdigest() != ORDER_COST_CHANNEL_OVERLAY['beforeSha256']:
+        raise ValueError('order_cost_channel_baseline_drift')
+    anchor = b"        data['sources']['cost'] = cost_info\n"
+    if source.count(anchor) != 1 or ORDER_COST_CHANNEL_INSERT in source:
+        raise ValueError('order_cost_channel_anchor_drift')
+    return source.replace(anchor, anchor + ORDER_COST_CHANNEL_INSERT, 1)
+
+
 CURVE_RECOVERY_TARGETS = {
+    'order-cost': {
+        'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
+        'channel_source.py': ORDER_COST_CHANNEL_OVERLAY['target'],
+        **module_targets(('business_source.py',)),
+    },
     'recent-orders': module_targets(('business_source.py', 'planning_baskets_v6.py', 'runtime.py')),
     'outcomes': module_targets(('business_source.py', 'daily.py')),
     'cost-incidents': module_targets(('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py')),

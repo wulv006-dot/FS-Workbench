@@ -114,20 +114,29 @@ class SixCost(unittest.TestCase):
                     deliveries=[dict(id=delivery_id, pid='9', qty='500', gift='0', price='.4', total='200')])
 
         slow_order = '300'
-        slow_attempts = []
+        attempts, batches = [], []
 
-        def read_detail(_expression, request):
-            order_id, timeout_ms = request
-            if order_id == slow_order:
-                slow_attempts.append(timeout_ms)
-                if timeout_ms < 10000:
-                    return {'timed_out': True}
+        def read_order(order_id, timeout_ms):
+            attempts.append([order_id, timeout_ms])
+            if order_id == slow_order and timeout_ms == 8000:
+                return {'timed_out': True}
             return details[order_id]
 
-        self.tab.evaluate = Mock(side_effect=read_detail)
+        def evaluate(expression, request):
+            if expression == self.collector.READ_ORDER:
+                return read_order(*request)
+            batches.append(request)
+            values = []
+            for order_id in request:
+                detail = read_order(order_id, 8000)
+                values.append(read_order(order_id, 16000) if detail.get('timed_out') else detail)
+            return values
+
+        self.tab.evaluate = Mock(side_effect=evaluate)
         result = self.run_collect([rows, []], curve_v6=True)
-        self.assertEqual(slow_attempts, [8000, 16000])
-        self.assertEqual(self.tab.evaluate.call_count, 19)
+        self.assertEqual([item[1] for item in attempts if item[0] == slow_order], [8000, 16000])
+        self.assertEqual(len(attempts), 19)
+        self.assertEqual([len(batch) for batch in batches], [2] * 9)
         self.assertEqual(self.closed, 1)
         for cost in result['costs']:
             samples = cost['v6_delivery_samples']
@@ -135,16 +144,30 @@ class SixCost(unittest.TestCase):
             self.assertEqual(len(samples['records']), 6)
             self.assertEqual(Decimal(cost['cny_per_1k']), Decimal('.4'))
 
-        for response, reason, attempts in (
-            ({'timed_out': True}, 'cost_order_detail_timeout', [8000, 16000]),
-            (None, 'cost_order_detail_unavailable', [8000]),
+        for response, reason in (
+            ({'timed_out': True}, 'cost_order_detail_timeout'),
+            (None, 'cost_order_detail_unavailable'),
         ):
             with self.subTest(reason=reason):
-                self.tab.evaluate = Mock(return_value=response)
+                self.tab.evaluate = Mock(return_value=[response, response])
                 with self.assertRaisesRegex(ValueError, reason):
                     self.run_collect([rows, []], curve_v6=True)
                 self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list],
-                                 [[slow_order, timeout] for timeout in attempts])
+                                 [[slow_order, '310']])
+
+        first_pair = [details[slow_order], details['310']]
+        for response in (first_pair[:1], [first_pair[0], {'goods': [], 'complete': True}]):
+            with self.subTest(response=response):
+                self.tab.evaluate = Mock(return_value=response)
+                with self.assertRaisesRegex(ValueError, 'cost_order_detail_response_unverified'):
+                    self.run_collect([rows, []], curve_v6=True)
+                self.assertEqual(self.tab.evaluate.call_count, 1)
+
+        self.tab.evaluate = Mock(return_value=first_pair)
+        with patch.object(self.collector, 'verified_delivery_cost', side_effect=ValueError('verification_failed')):
+            with self.assertRaisesRegex(ValueError, 'verification_failed'):
+                self.run_collect([rows, []], curve_v6=True)
+        self.assertEqual(self.tab.evaluate.call_count, 1)
 
     def test_sparse_ps_does_not_block_independent_v6_xbox_and_pc_costs(self):
         rows = [self.raw(1000+index*100+i, '.4', i, platform)

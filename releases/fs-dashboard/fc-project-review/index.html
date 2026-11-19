@@ -67,6 +67,7 @@
           <input id="end" name="end" type="date" aria-describedby="range-help" disabled required>
         </div>
         <button type="submit" class="fs-btn fs-btn--primary">查看数据</button>
+        <button type="button" class="fs-btn" id="recent-three" hidden>全站近三个完整日</button>
       </form>
       <p id="range-help" class="filter-note">北京时间 · 包含所选结束日</p>
       <div class="field available" id="loaded-field" hidden>
@@ -101,6 +102,12 @@
     <section id="overview" aria-labelledby="overview-title">
       <div class="section-head"><h2 id="overview-title">经营概览</h2><span class="section-meta">销售按付款日 · 毛利按发货交易日</span></div>
       <div class="kpi-grid" id="kpis"></div>
+      <article class="panel card supporting-metrics" id="same-order" hidden>
+        <h3>付款订单实际采购成本</h3>
+        <p id="same-order-status" role="status"></p>
+        <div class="kpi-grid mini-kpis" id="same-order-kpis"></div>
+        <div id="same-order-coverage"></div>
+      </article>
       <div class="grid grid-major">
         <article class="panel card"><h3>每日销售额与毛利</h3><div id="sales-trend"></div></article>
         <article class="panel card"><h3>毛利率与采购成本占比</h3><div id="rate-trend"></div></article>

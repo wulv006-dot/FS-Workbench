@@ -103,6 +103,50 @@ class SharedFacts(unittest.TestCase):
     def read(self, query=None, ident=None):
         return facts.read(query or scope(), db=self.store.path, publication_id=ident)
 
+    def test_read_main_paid_status_requires_a_covering_native_receipt_and_current_revision(self):
+        start, end = stamp(D1).isoformat(), stamp(D2).isoformat()
+        job = 'j_' + digest(['266',start,end])[:24]
+        captured = D2+'T04:18:00+08:00'
+        status = dict(status_format='已完成',pay_status=1,test_order=False,amount_usd='5.42',
+                      email='private@example.test')
+        cases = [
+            ('known','266','1327',4,1,status),
+            ('corrected-later','266','1327',6,1,dict(status,amount_usd='6.42')),
+            ('identity-only-later','266','1327',6,1,dict(status,es_identity={'status':'verified'})),
+            ('elsewhere','267','1327',4,1,status),
+            ('different-game','266','9999',4,1,status),
+            ('refunded','266','1327',4,0,dict(status,pay_status=2)),
+            ('test','266','1327',4,1,dict(status,test_order=True)),
+        ]
+        with closing(sqlite3.connect(self.store.path)) as db, db:
+            db.execute('CREATE TABLE jobs(job_id TEXT PRIMARY KEY,site,start,end,state,body,revision)')
+            db.execute('CREATE TABLE orders(order_key TEXT PRIMARY KEY,site,gid,paid_at,revision,valid,body)')
+            db.execute('CREATE INDEX purchase_time ON orders(paid_at,valid)')
+            db.execute('CREATE TABLE revisions(id INTEGER PRIMARY KEY,body)')
+            db.execute("UPDATE meta SET value='6' WHERE key='revision'")
+            db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?)',(job,'266',start,end,'complete',
+                json.dumps(dict(captured_at=captured,correction_coverage='complete_reenumeration_of_payment_window_only')),5))
+            paid_at = D1+'T13:15:14+08:00'
+            db.executemany('INSERT INTO orders VALUES(?,?,?,?,?,?,?)', [
+                (name,site,gid,paid_at,revision,valid,json.dumps(dict(row,id=index,order_no=name)))
+                for index,(name,site,gid,revision,valid,row) in enumerate(cases,1)])
+            db.execute('INSERT INTO revisions VALUES(?,?)',(6,json.dumps([
+                dict(order_key=name,site='266',gid='1327',paid_at=paid_at,revision=5,valid=1,
+                     body=json.dumps(dict(status,id=index,order_no=name))) for index,name in
+                     ((2,'corrected-later'),(3,'identity-only-later'))])))
+        orders, receipts = facts.read_main_paid_status(scope(D1,D2,site='all'), db=self.store.path)
+        self.assertEqual(orders, {
+            (D1,'known'):dict(id='1',paidAt=D1+' 13:15:14',amountUsd='5.42',revision=4),
+            (D1,'identity-only-later'):dict(id='3',paidAt=D1+' 13:15:14',amountUsd='5.42',revision=5),
+        })
+        self.assertEqual(receipts,{D1:dict(jobId=job,revision=5,observedAt=captured)})
+        with closing(sqlite3.connect(self.store.path)) as db, db:
+            db.execute('DELETE FROM revisions WHERE id=6')
+        before = self.store.path.read_bytes()
+        conservative, _ = facts.read_main_paid_status(scope(D1,site='all'), db=self.store.path)
+        self.assertEqual(set(conservative), {(D1,'known')})
+        self.assertEqual(self.store.path.read_bytes(), before)
+
     def test_native_device_keeps_known_pc_and_mobile_but_missing_or_invalid_stay_absent(self):
         rows=[dict(order(label,D1),device=device) if device is not None else order(label,D1)
               for label,device in (('pc',0),('mobile',1),('legacy',None),('unmapped',2),('invalid',False))]
@@ -332,6 +376,10 @@ class SharedFacts(unittest.TestCase):
         self.assertEqual(facts.prepare_publication(self.store, pub, D1, D2, reader=reader,
                                                    archive=workbooks), revisions)
         self.assertEqual(workbooks.call_count, 2)
+        weekly.write_publication(self.store, pub, None, shared_revisions=revisions)
+        native = facts.read(scope(D1, D2), db=self.store.path, native_only=True)
+        self.assertEqual({row['order_no'] for row in native['rows']}, {'one','two'})
+        self.assertEqual(native['dataset']['rows'], [])
 
     def test_current_month_review_rule_keeps_old_inflight_bounds(self):
         cutoff = stamp('2026-11-16')

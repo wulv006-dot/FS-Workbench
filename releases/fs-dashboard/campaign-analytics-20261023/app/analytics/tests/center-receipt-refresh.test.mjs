@@ -15,6 +15,13 @@ test('completed receipts bypass hanging prices; fresh writes and auth/hash guard
   for(const [endpoint,body,revision] of [[url,save,1],[url+'/publish',publish,2]]){const res=await post(endpoint,body);assert.equal(res.status,200);assert.equal((await res.json()).revision,revision);}
   assert.equal(calls,0);assert.equal(fs.readFileSync(path.join(dir,'public/current.json'),'utf8'),before);
   assert.equal((await post(url+'/publish',{...publish,revision:0})).status,409);assert.equal((await post(url,save,{'X-CSRF-Token':'bad'})).status,403);assert.equal((await post(url,save,{Cookie:'reader'})).status,403);assert.equal(calls,0);
+  const backend=path.join(dir,'private/backend');fs.mkdirSync(backend,{recursive:true,mode:0o700});
+  fs.writeFileSync(path.join(backend,'policy.json'),JSON.stringify({admin_reference_prices:{schema_version:1}}),{mode:0o600});
   const fresh=post(url,{revision:2,operation_id:randomUUID(),draft:state.draft});for(let i=0;i<30&&!unblock;i++)await new Promise(r=>setTimeout(r,5));assert.equal(calls,1);unblock();assert.equal((await fresh).status,200);
+  fs.writeFileSync(path.join(backend,'policy.json'),JSON.stringify({admin_reference_prices:{schema_version:2}}),{mode:0o600});
+  unblock=null;const v2=await post(url,{revision:3,operation_id:randomUUID(),draft:state.draft});
+  assert.equal(v2.status,200,'schema v2 draft save must not wait for price refresh');assert.equal(calls,2);assert(unblock);
+  unblock();unblock=null;
+  const nextPublish=post(url+'/publish',{revision:4,operation_id:randomUUID()});for(let i=0;i<30&&!unblock;i++)await new Promise(r=>setTimeout(r,5));assert.equal(calls,3);unblock();assert.equal((await nextPublish).status,200);
  }finally{unblock?.();if(provider)provider.refresh=refresh;if(server)await new Promise(r=>server.close(r));globalThis.fetch=originalFetch;fs.rmSync(dir,{recursive:true,force:true});}
 });
