@@ -992,3 +992,7 @@ a.buybtn{display:inline-block;text-decoration:none;text-align:center}
 .spendbar.spendbar-seg .seg b{display:block;height:100%;background:linear-gradient(90deg,var(--cm),#4d9fff);border-radius:99px;transition:width .4s}
 .spendbar.spendbar-seg .seg.full b{box-shadow:0 0 14px rgba(53,224,255,.7)}
 .spend-marks span small{display:block;margin-top:4px;font-size:11px;font-weight:700;letter-spacing:.3px;font-family:inherit}
+
+/* Phones: the Black Friday store takes the full width and the mascot stands on its roof corner,
+   instead of a side column that squeezed the session list and products (2026-11-19). */
+@media(max-width:650px){#flash .flash-stage.flash-stage-shelf{display:block;margin-top:104px}#flash .flash-stage-shelf .flash-stage-art{position:absolute;left:0;top:-100px;width:90px;height:126px;flex:none;transform:none;z-index:4;background-position:center bottom;background-size:contain}#flash .flash-stage-shelf .flash-shelf-content{margin-left:0;padding-left:0}}
