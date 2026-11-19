@@ -1,10 +1,11 @@
+from datetime import date
 import gzip
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from traffic import archived_day, channel_packet, search_packet
+from traffic import archived_day, channel_packet, channel_windows, search_packet
 
 
 class TrafficTest(unittest.TestCase):
@@ -44,6 +45,13 @@ class TrafficTest(unittest.TestCase):
         self.assertEqual(result["coverage"]["current"]["compared_days"], days["current"][:2])
         self.assertTrue(all(call["dataState"] == "final" for call in calls))
         self.assertEqual({call["endDate"] for call in calls[1:]}, {"2026-11-10", "2026-11-17"})
+
+    def test_attribution_retention_boundary_keeps_the_in_range_days(self):
+        period = {"start": "2025-11-11", "end": "2025-11-21"}
+        self.assertEqual(list(channel_windows(period, date(2025, 11, 19))), [
+            {"start": "2025-11-11", "end": "2025-11-18"},
+            {"start": "2025-11-19", "end": "2025-11-21"},
+        ])
 
     def test_unobserved_channel_stays_unknown(self):
         periods = {"current": {"start": "2026-11-16", "end": "2026-11-18"},
