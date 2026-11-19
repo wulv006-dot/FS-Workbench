@@ -653,7 +653,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const normalized = {...row, date:row.date || row.d};
       if (isDate(normalized.date)) {
         const current = registered.get(normalized.date) || {};
-        for (const [field, value] of Object.entries(normalized)) if (value != null) current[field] = value;
+        // A selected revision's explicit gaps override older overlapping values too.
+        Object.assign(current, normalized);
         registered.set(normalized.date, current);
       }
     }

@@ -71,6 +71,7 @@ def read_order_attribution(order_facts, actor, periods):
 
 
 def capture(game, start, end, actor, get_range, order_facts, authorizer):
+    started = datetime.now(TZ)
     if not authorizer(actor):
         raise PermissionError("authorization_changed")
     summary = read_range(get_range,game,start,end,"summary",actor)
@@ -81,6 +82,7 @@ def capture(game, start, end, actor, get_range, order_facts, authorizer):
     core = dict(game=game,start=start,end=end,scope="all",admin={**admin,"scope":admin.get("effective_scope",{})},
                 shipping=history["history"]["daily"])
     result = packet(core)
+    result["captureStartedAt"] = started.isoformat()
     lo,hi = map(date.fromisoformat,(start,end))
     # Compare partial weeks with the same weekdays. Longer custom windows use the preceding equal-length interval.
     length=(hi-lo).days+1
@@ -89,7 +91,7 @@ def capture(game, start, end, actor, get_range, order_facts, authorizer):
     try:
         orders=read_program(sys.executable,"orders.py",start,end,"--game",game)
         result["ordersData"]=orders
-        if game=="FC27" and length<=7 and hi<datetime.now(TZ).date() and not orders.get("products"):
+        if game=="FC27" and length<=7 and hi<started.date() and not orders.get("products"):
             # Native product membership is expensive. Prioritize the most recent closed date missing product proof.
             try:
                 orders=read_program(sys.executable,"orders.py",start,end,"--game",game,"--native-day",end)
@@ -104,7 +106,7 @@ def capture(game, start, end, actor, get_range, order_facts, authorizer):
     except (OSError,RuntimeError,ValueError,subprocess.TimeoutExpired) as exc:
         LOG.warning("FC orders: %s",type(exc).__name__)
         result["coverage"].append("订单专项归档暂缺，主盘保留")
-    if game=="FC27" and hi < datetime.now(TZ).date():
+    if game=="FC27" and hi < started.date():
         try:
             result["prices"]=read_program(sys.executable,"prices.py",start,end)
         except (OSError,RuntimeError,ValueError,subprocess.TimeoutExpired) as exc:
@@ -150,6 +152,27 @@ def publish(result, root=ROOT):
     return doc
 
 
+def reusable(doc, end, modified, ttl):
+    """Closed-period captures persist; intraday captures expire at the local day boundary."""
+    packet = doc["packets"][0]
+    stamps = [packet.get("captureStartedAt", doc.get("archivedAt"))]
+    # Legacy archives have no capture start. A pre-close source timestamp is
+    # evidence that even an archive published after midnight was still provisional.
+    if "captureStartedAt" not in packet and packet.get("capturedAt"):
+        stamps.append(packet["capturedAt"])
+    try:
+        dates = []
+        for stamp in stamps:
+            instant = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            dates.append(instant.replace(tzinfo=TZ).date() if instant.tzinfo is None else instant.astimezone(TZ).date())
+    except (AttributeError, TypeError, ValueError):
+        return False
+    captured = min(dates).isoformat()
+    today = datetime.now(TZ).date().isoformat()
+    return (end < today and end < captured <= today) or (
+        end == today == captured and 0 <= time.time()-modified < ttl)
+
+
 def get(params, actor, get_range, order_facts, authorizer, root=ROOT):
     if not actor or not authorizer(actor):
         return 403,{"error":"admin_required"}
@@ -170,7 +193,7 @@ def get(params, actor, get_range, order_facts, authorizer, root=ROOT):
         if len(doc["packets"])!=1 or any(doc["packets"][0].get(k)!=v for k,v in
                 (("game",game),("scope","all"),("start",start),("end",end))):
             raise ValueError("archive identity mismatch")
-        if end<str(datetime.now(TZ).date()) or time.time()-target.stat().st_mtime<300:
+        if reusable(doc,end,target.stat().st_mtime,300):
             return 200,doc
     key=(game,start,end,actor)
     with LOCK:
@@ -178,7 +201,7 @@ def get(params, actor, get_range, order_facts, authorizer, root=ROOT):
         if previous and previous[0].done():
             try:
                 completed=previous[0].result()
-                if time.time()-target.stat().st_mtime<60:
+                if time.time()-target.stat().st_mtime<60 and reusable(completed,end,target.stat().st_mtime,60):
                     return 200,completed
             except Exception:
                 del JOBS[key]
