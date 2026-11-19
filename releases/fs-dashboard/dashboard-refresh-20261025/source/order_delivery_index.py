@@ -336,7 +336,7 @@ def read_orders(order_keys, *, root=ROOT, since=None, until=None, revision=None)
             ordered = sorted(keys)
             for offset in range(0,len(ordered),400):
                 group = ordered[offset:offset+400]
-                sql = ('SELECT body FROM delivery_versions WHERE ' + ' AND '.join(where)
+                sql = ('SELECT body FROM delivery_versions INDEXED BY delivery_order WHERE ' + ' AND '.join(where)
                        + ' AND sn IN (' + ','.join('?' for _ in group) + ')')
                 rows.extend(json.loads(body) for body, in db.execute(sql,(*args,*group)))
             rows.sort(key=lambda row:(row['trade_at'], str(row['delivery_id'])))
