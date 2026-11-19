@@ -33,7 +33,7 @@ def selection(value):
     page=next(p for p in value['pages'] if p['page_id']=='fc27-sbc');players=[k for k in page['product_keys'] if k not in page['core_product_keys']]
     for index,core in enumerate(page['core_product_keys']):
         for key in players[2*index:2*index+2]:rows.append(dict(page_id='fc27-sbc',product_key=key,core_product_key=core,reason='Companion',evidence_indices=[]))
-    return dict(model='gpt-6.1-sol',source_revision=value['source_revision'],sbc_update_id=value['sbc_update']['id'],recommendations=rows)
+    return dict(model='gpt-6.2-sol',source_revision=value['source_revision'],sbc_update_id=value['sbc_update']['id'],recommendations=rows)
 
 
 class WeeklyTests(unittest.TestCase):
@@ -163,7 +163,7 @@ class WeeklyTests(unittest.TestCase):
         key=str(uuid.uuid4());self.weekly.run(key,'alice','session-private');self.finish()
         for state in ('unavailable','failed'):
             self.weekly._update(key,state='unknown',stage='model',result=dict(status='unknown',operation_id=key))
-            model=dict(status=state,operation_id=key,error='WEEKLY_HERMES_RECOMMENDATION_FAILED' if state=='failed' else 'WEEKLY_HERMES_PROVIDER_UNAVAILABLE',provider_outcome='completed' if state=='failed' else 'not_dispatched',receipt={'operation_id':key,'model':'gpt-6.1-sol'})
+            model=dict(status=state,operation_id=key,error='WEEKLY_HERMES_RECOMMENDATION_FAILED' if state=='failed' else 'WEEKLY_HERMES_PROVIDER_UNAVAILABLE',provider_outcome='completed' if state=='failed' else 'not_dispatched',receipt={'operation_id':key,'model':'gpt-6.2-sol'})
             with patch.object(self.base,'lookup',return_value=model):result=self.weekly.reconcile(key,'alice','session-private')
             self.assertEqual(result['status'],state);self.assertEqual(result['receipt'],model['receipt']);self.assertEqual(result['evidence_coverage']['categories'],['vertical'])
             self.assertEqual(self.weekly._record(key,'alice')['state'],state);self.assertEqual(self.paid,1)

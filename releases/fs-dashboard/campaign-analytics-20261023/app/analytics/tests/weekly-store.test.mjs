@@ -50,7 +50,7 @@ test('unknown execution blocks retry along original operation',t=>{
  assert.throws(()=>store.mutate(request(store,'retry'),'admin'),e=>e.code==='ORIGINAL_OPERATION_RECONCILIATION_REQUIRED');
 });
 test('Hermes toggle does not enable scheduler or claim a provider connection',t=>{
- const {store}=setup(t);const result=store.mutate({revision:0,operation_id:randomUUID(),action:'hermes',enabled:true},'admin');assert.equal(result.hermes.status,'not_connected');assert.equal(result.hermes.schedule_enabled,false);assert.equal(result.hermes.model,'gpt-6.1-sol');assert.deepEqual(result.weeks,[]);
+ const {store}=setup(t);const result=store.mutate({revision:0,operation_id:randomUUID(),action:'hermes',enabled:true},'admin');assert.equal(result.hermes.status,'not_connected');assert.equal(result.hermes.schedule_enabled,false);assert.equal(result.hermes.model,'gpt-6.2-sol');assert.deepEqual(result.weeks,[]);
  assert.throws(()=>store.mutate({revision:1,operation_id:randomUUID(),action:'hermes',enabled:true,model:'other'},'admin'),e=>e.code==='INVALID_WEEKLY_REQUEST');
 });
 test('invalid scope, unsafe notes and invented revisions are refused',t=>{

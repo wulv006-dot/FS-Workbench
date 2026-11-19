@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createWeeklyHermesProvider} from '../weekly-hermes-provider.mjs';
-const reply=(id)=>new Response(JSON.stringify({status:'completed',result:{model:'gpt-6.1-sol',source_revision:'7',sbc_update_id:'sbc1',recommendations:[]},receipt:{operation_id:id,task_id:'task1',run_id:'run1',model:'gpt-6.1-sol',cookie:'never copy',usage:{input_tokens:10,output_tokens:20,credential:'never copy'}}}),{status:200});
+const reply=(id)=>new Response(JSON.stringify({status:'completed',result:{model:'gpt-6.2-sol',source_revision:'7',sbc_update_id:'sbc1',recommendations:[]},receipt:{operation_id:id,task_id:'task1',run_id:'run1',model:'gpt-6.2-sol',cookie:'never copy',usage:{input_tokens:10,output_tokens:20,credential:'never copy'}}}),{status:200});
 
 test('request-scoped actor and session reach only fixed local headers; original ID and input reach host',async()=>{
  const id=randomUUID(),calls=[],provider=createWeeklyHermesProvider({cookie:'fixture-session',actor:'verified-admin',fetchImpl:async(url,options)=>{calls.push({url,options});return reply(id);}}),input={source_revision:'7',catalog:[]};
- const result=await provider({input,model:'browser-model',instructions:'never forward'},{operation_id:id});assert.equal(result.model,'gpt-6.1-sol');
+ const result=await provider({input,model:'browser-model',instructions:'never forward'},{operation_id:id});assert.equal(result.model,'gpt-6.2-sol');
  assert.equal(calls[0].url,'http://127.0.0.1:8931/internal/hermes/campaign-recommendations');assert.equal(calls[0].options.redirect,'error');assert.equal(calls[0].options.headers.Cookie,'fixture-session');assert.equal(calls[0].options.headers['X-FS-Actor'],'verified-admin');
  assert.deepEqual(JSON.parse(calls[0].options.body),{contract:'campaign_recommendation_v1',operation_id:id,input});assert(!JSON.stringify(provider.receipt).includes('never copy'));
  await provider.lookup({operation_id:id});assert.equal(calls[1].options.method,'GET');assert.equal(calls[1].options.body,undefined);assert(calls[1].url.endsWith('?operation_id='+id));

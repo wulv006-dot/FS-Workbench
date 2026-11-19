@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import uuid
 
-MODEL = 'gpt-6.1-sol'
+MODEL = 'gpt-6.2-sol'
 POLICY_ID = 'openai-sol-responses-tokens-only-v1'
 PRICE_VERSION = 'openai-sol-no-cny-invoice-or-fx-v1'
 OUTPUT_TOKENS = 128000

@@ -98,7 +98,7 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
    }))fail('WEEKLY_EVIDENCE_INVALID');
    const input=plan.input,result=recommendation;
    const cores=input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys,companionCount=2*cores.length;
-   if(result?.model!=='gpt-6.1-sol'||result.source_revision!==input.source_revision||result.sbc_update_id!==input.sbc_update.id||!Array.isArray(result.recommendations)||result.recommendations.length!==6+companionCount)fail('INVALID_WEEKLY_HERMES_INPUT');
+   if(!['gpt-6.1-sol','gpt-6.2-sol'].includes(result?.model)||result.source_revision!==input.source_revision||result.sbc_update_id!==input.sbc_update.id||!Array.isArray(result.recommendations)||result.recommendations.length!==6+companionCount)fail('INVALID_WEEKLY_HERMES_INPUT');
    const catalog=new Map(input.catalog.map(p=>[p.key,p])),rows=result.recommendations,seen=new Set();
    for(const row of rows){const page=input.pages.find(p=>p.page_id===row.page_id),sig=canonical([row.page_id,row.product_key,row.core_product_key??null]);
     if(!page?.product_keys.includes(row.product_key)||seen.has(sig)||!Array.isArray(row.evidence_indices)||row.evidence_indices.some(i=>!Number.isInteger(i)||i<0||i>=evidence_sources.length))fail('INVALID_WEEKLY_HERMES_INPUT');seen.add(sig);
