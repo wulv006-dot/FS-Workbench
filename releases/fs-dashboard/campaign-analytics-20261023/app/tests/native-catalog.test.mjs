@@ -30,3 +30,28 @@ test('catalog cannot overwrite same key with different source identity',()=>{
  const {c}=fixture(),catalog=projectNativeCatalog(c,{now}),seed={seedProducts:[structuredClone(catalog.products[0])],seasonal_model_contracts:{},pageProductKeys:{}};
  seed.seedProducts[0].product_ref.goods_id='999';assert.throws(()=>mergeNativeCatalog(seed,catalog),{code:'NATIVE_CATALOG_SCOPE_MISMATCH'});
 });
+
+test('preview bindings require one exact identity and retain legacy order',()=>{
+ const native=[
+  {key:'native-one',product_ref:{site:'266',model:'1'},platform:{code:'PS',id:'1'}},
+  {key:'native-duplicate-a',product_ref:{model:'2'},platform:{code:'PC'}},
+  {key:'native-duplicate-b',product_ref:{model:'2'},platform:{code:'PC'}},
+  {key:'native-legacy'},
+  {key:'native-null',product_ref:null}
+ ];
+ const previews=[
+  {key:'preview-one',preview_only:true,model_card_key:'one',product_ref:{model:'1',site:'266'},platform:{id:'1',code:'PS'}},
+  {key:'preview-duplicate',preview_only:true,model_card_key:'two',product_ref:{model:'2'},platform:{code:'PC'}},
+  {key:'preview-missing',preview_only:true,model_card_key:'missing',product_ref:{model:'3'},platform:{code:'PC'}},
+  {key:'preview-legacy',preview_only:true,model_card_key:'legacy'},
+  {key:'preview-null',preview_only:true,model_card_key:'null',product_ref:null}
+ ];
+ const seed={seedProducts:previews,seasonal_model_contracts:{},pageProductKeys:{'fc27-trio':['preview-legacy','preview-one','preview-duplicate']}};
+ const catalog={products:native,model_contracts:{}};const original=JSON.stringify({seed,catalog});
+ const result=mergeNativeCatalog(seed,catalog);
+ assert.deepEqual(result.nativeModelKeys,{'preview-one':'native-one','preview-legacy':'native-legacy','preview-null':'native-null'});
+ assert.deepEqual(result.pageProductKeys['fc27-trio'],['preview-legacy','preview-one','preview-duplicate','native-legacy','native-one']);
+ assert.deepEqual(result.pageProductKeys['seasonal-vault'],native.map(p=>p.key));
+ assert.equal(JSON.stringify({seed,catalog}),original);
+ catalog.products.reverse();assert.deepEqual(mergeNativeCatalog(seed,catalog).nativeModelKeys,result.nativeModelKeys);
+});
