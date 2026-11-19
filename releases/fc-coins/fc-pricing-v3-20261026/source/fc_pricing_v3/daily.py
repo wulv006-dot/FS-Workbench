@@ -23,6 +23,8 @@ def hourly_timing(stage, event, **details):
 
 
 def forward_hourly_timings(stderr):
+    from .business_source import HOURLY_ADMIN_FAILURES
+
     if isinstance(stderr, bytes):
         stderr = stderr.decode('utf-8', errors='replace')
     lines = [line for line in (stderr or '').splitlines() if line.startswith(HOURLY_TIMING_PREFIX)]
@@ -34,6 +36,14 @@ def forward_hourly_timings(stderr):
         if not isinstance(record, dict):
             continue
         stage, event = record.get('stage'), record.get('event')
+        if (stage, event) == ('admin_paging', 'failed'):
+            source, reason, status = (record.get(key) for key in ('source', 'reason', 'http_status'))
+            if source in ('orders', 'coupons') and isinstance(reason, str) and reason in HOURLY_ADMIN_FAILURES:
+                fields = dict(source=source, reason=reason)
+                if type(status) is int and 100 <= status <= 599:
+                    fields['http_status'] = status
+                hourly_timing(stage, event, **fields)
+            continue
         if stage not in ('admin_paging', 'order_cost', 'order_cost_native', 'es', 'binding') or event not in ('start', 'done'):
             continue
         fields = {}

@@ -133,18 +133,42 @@ async function nativeLoad(retried=false){
 }
 function scopeSignal(){return active?AbortSignal.any([active.scope.signal,AbortSignal.timeout(20000)]):AbortSignal.timeout(20000);}
 async function verify(){return sessionIdentity();}
-async function boot(){const id=++epoch;try{const next=await verify();if(id!==epoch)return;identity=next;accountNavigation(next);const registry=await(await readonly(new URL('navigation.json',base))).json();if(id!==epoch)return;if(registry.schemaVersion!==1)throw Error('入口合同错误');const permitted=registry.tools.filter(t=>/^\/(?!\/)[\w./-]+(?:\?(?:mode=(?:business|google)|report_kind=(?:daily|weekly|monthly)(?:#reports)?))?$/.test(t.path)&&!t.path.split('/').includes('..'));
- document.querySelector('.account').textContent=next.name;if(home)homeData();else nativeLoad();const loadEpoch=epoch;
- const checked=await Promise.all(permitted.map(async t=>{const path=t.id.startsWith('unified-')?analyticsURL:t.path;const permitted=t.requiredGroup!=='deploy'||next.groups.includes('deploy');const available=permitted&&await moduleAvailable(path)&&(!t.probeJson||await moduleAvailable(t.probeJson,'application/json'));return {...t,available};}));
- if(loadEpoch!==epoch||!identity||identity.name!==next.name)return;verified=checked.filter(Boolean);
- for(const a of document.querySelectorAll('.global-nav a[data-section]'))if(verified.some(t=>t.section===a.dataset.section))a.hidden=false;
- if(home)homeEntries(registry);
- }catch(e){if(id!==epoch)return;if(e.status)halt(e.status);else $('status').textContent=e.message;}}
-function homeEntries(registry){const user=identity?.name;if(!user)return;const grid=$('workspaces');grid.replaceChildren();$('tools').replaceChildren();
- for(const s of registry.sections){const tools=verified.filter(t=>s.ids.includes(t.id));if(!tools.length)continue;const card=node('article',null,'workspace-card '+s.id),a=link('',s.path,'workspace-main');a.append(node('span',s.icon,'workspace-icon'),node('h3',s.title),node('p',s.intro),node('span','进入工作区 →','entry'));card.append(a);
+const homeShortcuts=[['management','经营管理台'],['game-monitor','游戏监控台'],['coins','FC 改价台'],['d4','RPG 改价台'],['tasks','工作任务分配台']];
+async function boot(){
+ const id=++epoch;let loadEpoch=id;
+ try{
+  const next=await verify();
+  if(id!==epoch)return;
+  identity=next;accountNavigation(next);
+  document.querySelector('.account').textContent=next.name;if(home)homeData();else nativeLoad();loadEpoch=epoch;
+  const registry=await(await readonly(new URL('navigation.json',base))).json();if(loadEpoch!==epoch)return;if(registry.schemaVersion!==1)throw Error('入口合同错误');const permitted=registry.tools.filter(t=>/^\/(?!\/)[\w./-]+(?:\?(?:mode=(?:business|google)|report_kind=(?:daily|weekly|monthly)(?:#reports)?))?$/.test(t.path)&&!t.path.split('/').includes('..'));
+  if(!home){revealSections(permitted);return;}
+  renderWorkspaces(registry,permitted);
+  let recent=[];
+  try{
+   const saved=JSON.parse(sessionStorage.getItem('fs-workspace-recent')||'{}');
+   if(saved.user===next.name&&Array.isArray(saved.ids))recent=saved.ids.slice(0,3).map(id=>id==='release-radar'?'game-monitor':id);
+  }catch{}
+  const visible=new Set([...homeShortcuts.map(([id])=>id),...recent]);
+  const checked=await Promise.all(permitted.filter(tool=>visible.has(tool.id)).map(async t=>{
+   const path=t.id.startsWith('unified-')?analyticsURL:t.path;const permitted=t.requiredGroup!=='deploy'||next.groups.includes('deploy');const available=permitted&&await moduleAvailable(path)&&(!t.probeJson||await moduleAvailable(t.probeJson,'application/json'));return {...t,available};
+  }));
+  if(loadEpoch!==epoch||!identity||identity.name!==next.name)return;
+  revealSections(permitted);verified=checked;homeEntries();
+ }catch(e){if(loadEpoch!==epoch)return;if(e.status)halt(e.status);else if(home||!active)$('status').textContent=e.message;}
+}
+function revealSections(tools){
+ for(const link of document.querySelectorAll('.global-nav a[data-section]')){
+  if(tools.some(tool=>tool.section===link.dataset.section))link.hidden=false;
+ }
+}
+function renderWorkspaces(registry,tools){const grid=$('workspaces');grid.replaceChildren();
+ for(const s of registry.sections){if(!tools.some(t=>s.ids.includes(t.id)))continue;const card=node('article',null,'workspace-card '+s.id),a=link('',s.path,'workspace-main');a.append(node('span',s.icon,'workspace-icon'),node('h3',s.title),node('p',s.intro),node('span','进入工作区 →','entry'));card.append(a);
   grid.append(card);
  }
- for(const [id,label] of [['management','经营管理台'],['game-monitor','游戏监控台'],['coins','FC 改价台'],['d4','RPG 改价台'],['tasks','工作任务分配台']]){const t=verified.find(t=>t.id===id);if(!t)continue;const entry=toolLink(t,label+(t.available?'':' · 需授权'));entry.dataset.tool=id;if(t.available)entry.onclick=()=>{if(identity?.name!==user)return;try{const key='fs-workspace-recent',old=JSON.parse(sessionStorage.getItem(key)||'{}'),ids=old.user===user?old.ids||[]:[];sessionStorage.setItem(key,JSON.stringify({user:user,ids:[id,...ids.filter(v=>v!==id)].slice(0,3)}));}catch{}};$('tools').append(entry);}
+}
+function homeEntries(){const user=identity?.name;if(!user)return;$('tools').replaceChildren();
+ for(const [id,label] of homeShortcuts){const t=verified.find(t=>t.id===id);if(!t)continue;const entry=toolLink(t,label+(t.available?'':' · 需授权'));entry.dataset.tool=id;if(t.available)entry.onclick=()=>{if(identity?.name!==user)return;try{const key='fs-workspace-recent',old=JSON.parse(sessionStorage.getItem(key)||'{}'),ids=old.user===user?old.ids||[]:[];sessionStorage.setItem(key,JSON.stringify({user:user,ids:[id,...ids.filter(v=>v!==id)].slice(0,3)}));}catch{}};$('tools').append(entry);}
  try{const old=JSON.parse(sessionStorage.getItem('fs-workspace-recent')||'{}');if(old.user===user){const entries=(old.ids||[]).map(id=>verified.find(t=>t.id===(id==='release-radar'?'game-monitor':id))).filter(Boolean).slice(0,3);if(entries.length){$('recent').replaceChildren();$('recent').parentElement.hidden=false;for(const t of entries)$('recent').append(toolLink(t,t.label+(t.available?' →':' · 需授权')));}}else sessionStorage.removeItem('fs-workspace-recent');}catch{}
 }
 function homeData(){
@@ -196,4 +220,4 @@ document.addEventListener('visibilitychange',async()=>{
 const permissionTimer=setInterval(async()=>{if(document.hidden||!identity)return;const id=epoch,user=identity.name;try{const next=await verify();if(id!==epoch||!identity)return;if(next.name!==user||JSON.stringify(next.groups)!==JSON.stringify(identity.groups)){halt(403);return;}identity=next;accountNavigation(next);}catch(e){if(id===epoch&&e.status)halt(e.status);}},60000);
 addEventListener('pagehide',()=>{clearInterval(permissionTimer);epoch++;active?.scope.destroy();active=null;homeController?.abort();watcher?.stop();});addEventListener('pageshow',e=>{if(e.persisted){if(home&&identity)homeData();else nativeLoad();}});boot();
 
-const sharedNav=document.createElement('script');sharedNav.src='/__hub/hubnav.js?v=3dda7cae';sharedNav.defer=true;document.head.append(sharedNav);
+{const href=new URL('/__hub/hubnav.js?v=nav-unified-20261120-aaec928afc3e',document.baseURI).href;if(!document.getElementById('hubNav')&&![...document.scripts].some(s=>s.src===href)){const sharedNav=document.createElement('script');sharedNav.src=href;sharedNav.defer=true;document.head.append(sharedNav);}}

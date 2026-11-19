@@ -68,6 +68,33 @@ class HourlyOutcomesTest(unittest.TestCase):
             source.incremental_window_context(None,MagicMock(side_effect=ValueError('page_failed')),[window],now,prior)
         self.assertEqual(prior,snapshot)
 
+    def test_hourly_admin_failure_logs_only_source_http_status_and_safe_reason(self):
+        now, order, window = self.fixture()
+        session = MagicMock()
+        session.get_admin.return_value = 502, {'message':'hidden payload'}
+        events = []
+        def pages(downstream, path, filters, limit=200):
+            if path.endswith('Order/index'):
+                return [order]
+            downstream.get_admin(path)
+            raise ValueError('admin_page_failed')
+        with self.assertRaisesRegex(ValueError, '^admin_page_failed$'):
+            source.incremental_window_context(session, pages, [window], now, {},
+                progress=lambda stage, event, **details: events.append((stage, event, details)))
+        self.assertEqual(events[-1], ('admin_paging','failed',dict(source='coupons', reason='admin_page_failed', http_status=502)))
+        session.get_admin.assert_called_once()
+
+        stderr = StringIO()
+        reports = (
+            dict(stage='admin_paging',event='failed',source='coupons',reason='admin_page_failed',
+                 http_status=502,order_no='private order',request='private request'),
+            dict(stage='admin_paging',event='failed',source='orders',reason='private reason',http_status=403),
+        )
+        with redirect_stderr(stderr):
+            daily.forward_hourly_timings('\n'.join(daily.HOURLY_TIMING_PREFIX+json.dumps(record) for record in reports))
+        self.assertEqual(json.loads(stderr.getvalue().removeprefix(daily.HOURLY_TIMING_PREFIX)),
+                         dict(stage='admin_paging',event='failed',source='coupons',reason='admin_page_failed',http_status=502))
+
     def test_overlapping_admin_paid_ranges_page_only_once(self):
         now, order, window = self.fixture()
         reads = []

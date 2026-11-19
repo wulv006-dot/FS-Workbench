@@ -23,6 +23,12 @@ class DataMethodsTests(unittest.TestCase):
         for name in ('customer_tracking.detail', 'campaigns.report', 'knowledge.read'):
             self.assertIn(name, catalog.operations)
         methods = catalog.document['data_methods']
+        review = catalog.operation('business.fc_project_review')
+        self.assertIn('view=same-order', review['description'])
+        self.assertIn('business.summary', review['description'])
+        scope = next(row for row in methods['guides'] if row['id'] == 'scope_and_coverage')
+        self.assertIn('business.fc_project_review', scope['operations'])
+        self.assertIn('已结束自然日', scope['guidance'])
         root = Path(__file__).resolve().parents[2]
         sources = {row['id'] for row in methods['sources']}
         for row in methods['guides']:

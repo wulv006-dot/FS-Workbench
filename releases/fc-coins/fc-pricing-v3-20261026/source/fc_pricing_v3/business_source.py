@@ -22,6 +22,11 @@ OBSERVED_PRICE_WINDOWS = {'confirmed_public_price_window', 'observed_native_curv
 POINTS_PER_USD = Decimal('100')
 POINTS_CAP = Decimal('.10')
 RECENT_READ_BUDGET_SECONDS = 45
+HOURLY_ADMIN_FAILURES = frozenset((
+    'admin_page_failed', 'admin_pagination_changed', 'admin_duplicate_page', 'admin_incomplete_pages',
+    'pricing_incremental_outcome_scope_invalid', 'window_coupon_log_scope_invalid',
+    'source_timeout', 'source_io_failed', 'source_response_invalid',
+))
 PLATFORMS = {'PS': 'PlayStation 4|5', 'XBOX': 'Xbox One|X|S', 'PC': 'PC Platform'}
 PLATFORM_AIDS = {'21587': 'PS', '21585': 'XBOX', '21589': 'PC'}
 CURVE_COUPON_ELIGIBILITY = {
@@ -1735,6 +1740,33 @@ def shared_customer_flags(rows, *, publication_id=None):
         return {}, dict(status='unavailable', reason=type(error).__name__, publication_id=publication_id)
 
 
+def _hourly_admin_read(session, pages, path, filters, limit, progress, source):
+    from types import SimpleNamespace
+
+    status = None
+
+    def get_admin(*args, **kwargs):
+        nonlocal status
+        status = None
+        status, payload = session.get_admin(*args, **kwargs)
+        return status, payload
+
+    try:
+        page_limit = () if limit is None else (limit,)
+        return pages(SimpleNamespace(get_admin=get_admin), path, filters, *page_limit)
+    except Exception as error:
+        if isinstance(error, (TimeoutError, SocketTimeout)):
+            reason = 'source_timeout'
+        elif isinstance(error, OSError):
+            reason = 'source_io_failed'
+        elif isinstance(error, ValueError) and str(error) in HOURLY_ADMIN_FAILURES:
+            reason = str(error)
+        else:
+            reason = 'source_response_invalid'
+        progress('admin_paging', 'failed', source=source, reason=reason, http_status=status)
+        raise
+
+
 def incremental_window_context(session,pages,windows,now,previous, *, use_shared_customer_flags=False,
                                progress=lambda *args, **kwargs: None):
     """Increment paid membership; keep the full private cohort and rebind late costs to original windows."""
@@ -1783,12 +1815,14 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
             last=min(stop,day+timedelta(days=27))
             lo,hi=max(begin,day.isoformat()+' 00:00:00'),min(end,last.isoformat()+' 23:59:59')
             # Match the verified native page size already used by the shared ES producer.
-            batch=pages(session,'/admin/order.Order/index',[('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],1000)
+            batch=_hourly_admin_read(session,pages,'/admin/order.Order/index',
+                [('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],1000,progress,'orders')
             order_reads += 1
             fresh={}
             for row in batch:
                 ident=str(row.get('id') or '')
                 if not ident or ident in fresh or str(row.get('site_id'))!='266' or str(row.get('gid'))!='1327' or not lo<=str(row.get('paytime'))<=hi:
+                    progress('admin_paging','failed',source='orders',reason='pricing_incremental_outcome_scope_invalid')
                     raise ValueError('pricing_incremental_outcome_scope_invalid')
                 item={key:row.get(key) for key in fields}
                 email=str(row.get('email') or '').strip().casefold()
@@ -1809,9 +1843,12 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
     for offset in range(0,len(names),100):
         batch_names=names[offset:offset+100]
         for sn in batch_names:logs[sn]=[]
-        for log in pages(session,'/admin/user.MemberCouponLog/index',[('site_id','=','266'),('order_no','IN',','.join(batch_names))]):
+        for log in _hourly_admin_read(session,pages,'/admin/user.MemberCouponLog/index',
+                [('site_id','=','266'),('order_no','IN',','.join(batch_names))],None,progress,'coupons'):
             sn=str(log.get('order_no'))
-            if sn not in batch_names or str(log.get('site_id'))!='266':raise ValueError('window_coupon_log_scope_invalid')
+            if sn not in batch_names or str(log.get('site_id'))!='266':
+                progress('admin_paging','failed',source='coupons',reason='window_coupon_log_scope_invalid')
+                raise ValueError('window_coupon_log_scope_invalid')
             logs[sn].append({key:log.get(key) for key in ('id','order_no','site_id','use_time','coupon_id','status')})
         coupon_reads += 1
     admin_finished = monotonic()

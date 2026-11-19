@@ -81,4 +81,4 @@ $('copy-url').onclick=async()=>{try{await navigator.clipboard.writeText(location
 if($('refresh'))$('refresh').onclick=refresh;
 boot();
 
-const sharedNav=document.createElement('script');sharedNav.src='/__hub/hubnav.js?v=fs-revision-20261015';sharedNav.defer=true;document.head.append(sharedNav);
+{const href=new URL('/__hub/hubnav.js?v=nav-unified-20261120-aaec928afc3e',document.baseURI).href;if(!document.getElementById('hubNav')&&![...document.scripts].some(s=>s.src===href)){const sharedNav=document.createElement('script');sharedNav.src=href;sharedNav.defer=true;document.head.append(sharedNav);}}

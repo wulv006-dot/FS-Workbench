@@ -4,9 +4,11 @@
 (function () {
   'use strict';
 
+  if (window.__fsStaticNavLoaded && document.getElementById('hubNav')) return;
+  if (document.getElementById('hubNav')) window.__fsStaticNavLoaded = true;
   // Keep the shared Hermes hierarchy consistent on existing static workspace shells.
   // Compile all shared submenus from the same registry as static pages and hubnav.
-  var sharedGroups = {"analytics": "<section class=\"hn-group\"><a class=\"hn-heading\" href=\"/dashboard/modules/analytics/\"><span class=\"hn-icon\">▥</span><span>数据分析</span></a><a class=\"hn-tool\" href=\"/dashboard/analytics/?mode=business\">数据看板</a><a class=\"hn-tool\" href=\"/dashboard/channel-effects/\">渠道效果看板</a><a class=\"hn-tool\" href=\"/dashboard/users/\">用户分析</a><a class=\"hn-tool\" href=\"/dashboard/data-tools/\">数据分析工具</a><a class=\"hn-tool\" href=\"/dashboard/fs-home/brain/index.html?report_kind=weekly#reports\">运营报告</a><a class=\"hn-tool\" href=\"/dashboard/management/\">经营管理台</a><a class=\"hn-tool\" href=\"/dashboard/game-monitor/\">游戏监控台</a></section>", "brain": "<section class=\"hn-group\"><a class=\"hn-heading\" href=\"/dashboard/modules/hermes/\"><span class=\"hn-icon\">◈</span><span>Hermes 智体</span></a><a class=\"hn-tool\" href=\"/dashboard/fs-home/brain/index.html\">智体决策报告</a><a class=\"hn-tool\" href=\"/dashboard/fs-home/hermes/conversation/\">持续对话</a><a class=\"hn-tool\" href=\"/dashboard/fs-home/hermes/customer-tracking/\">智体客单追踪</a></section>", "activities": "<section class=\"hn-group\"><a class=\"hn-heading\" href=\"/dashboard/analytics/campaigns/analytics/\"><span class=\"hn-icon\">◫</span><span>主站活动区</span></a><a class=\"hn-tool\" href=\"/dashboard/analytics/campaigns/analytics/\">活动转化分析</a><a class=\"hn-tool\" href=\"/dashboard/analytics/campaigns/analytics/products.html\">商品编辑与预览</a></section>"};
+  var sharedGroups = {"analytics":"<section class=\"hn-group\"><a class=\"hn-heading\" href=\"/dashboard/modules/analytics/\"><span class=\"hn-icon\">▥</span><span>数据分析</span></a><a class=\"hn-tool\" href=\"/dashboard/analytics/?mode=business\">数据看板</a><a class=\"hn-tool\" href=\"/dashboard/channel-effects/\">渠道效果看板</a><a class=\"hn-tool\" href=\"/dashboard/users/\">用户分析</a><a class=\"hn-tool\" href=\"/dashboard/data-tools/\">数据分析工具</a><a class=\"hn-tool\" href=\"/dashboard/fs-home/brain/index.html?report_kind=weekly#reports\">运营报告</a><a class=\"hn-tool\" href=\"/dashboard/management/\">经营管理台</a><a class=\"hn-tool\" href=\"/dashboard/game-monitor/\">游戏监控台</a></section>","brain":"<section class=\"hn-group\"><a class=\"hn-heading\" href=\"/dashboard/modules/hermes/\"><span class=\"hn-icon\">◈</span><span>Hermes 智体</span></a><a class=\"hn-tool\" href=\"/dashboard/fs-home/brain/index.html\">智体决策报告</a><a class=\"hn-tool\" href=\"/dashboard/fs-home/hermes/conversation/\">持续对话</a><a class=\"hn-tool\" href=\"/dashboard/fs-home/hermes/customer-tracking/\">智体客单追踪</a></section>","activities":"<section class=\"hn-group\"><a class=\"hn-heading\" href=\"/dashboard/analytics/campaigns/analytics/\"><span class=\"hn-icon\">◫</span><span>主站活动区</span></a><a class=\"hn-tool\" href=\"/dashboard/analytics/campaigns/analytics/\">活动转化分析</a><a class=\"hn-tool\" href=\"/dashboard/analytics/campaigns/analytics/products.html\">商品编辑与预览</a><a class=\"hn-tool\" href=\"/dashboard/analytics/campaigns/analytics/weekly.html\">FC27 周更运营台</a></section>"};
   Object.keys(sharedGroups).forEach(function(id){
     var paths={analytics:'/dashboard/modules/analytics/',brain:'/dashboard/modules/hermes/',activities:"/dashboard/analytics/campaigns/analytics/"};
     var heading=document.querySelector('#hubNav .hn-heading[href="'+paths[id]+'"]');
@@ -80,23 +82,30 @@
   /* 3) 账号名：一次后台校验，只补文字，不动版式（不阻塞首屏） */
   var userSlot = document.querySelector('[data-fs-user]');
   if (userSlot) {
+    userSlot.textContent = '';
+    var admin = document.querySelector('[data-fs-admin]');
+    if (admin) admin.hidden = true;
+    document.documentElement.classList.add('fs-nav-awaiting-identity');
+    var pendingStyle = document.createElement('style');
+    pendingStyle.textContent = '.fs-nav-awaiting-identity [data-requires-group="deploy"]{display:none!important}';
+    document.head.appendChild(pendingStyle);
     fetch('/__auth/verify', { credentials: 'same-origin', cache: 'no-store', redirect: 'manual' })
       .then(function (r) {
+        if (r.status === 401 || r.status === 403) {
+          try { sessionStorage.removeItem('fs-nav-identity'); } catch (e) {}
+          var nav = document.getElementById('hubNav');
+          if (nav) { nav.style.setProperty('display','none','important');nav.setAttribute('aria-hidden','true');nav.inert = true; }
+          var toggle = document.getElementById('hubNavToggle');if (toggle) toggle.hidden = true;
+          return;
+        }
         if (r.status !== 200 || r.redirected) return;
         var name = r.headers.get('X-Auth-User');
         var role = r.headers.get('X-Auth-Role');
         var groups = (r.headers.get('X-Auth-Groups') || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
         if (name) userSlot.textContent = name;
-        var admin = document.querySelector('[data-fs-admin]');
         if (admin && role === 'admin') admin.hidden = false;
-        if (groups.indexOf('deploy') < 0) {
-          document.querySelectorAll('[data-requires-group="deploy"]').forEach(function (el) {
-            el.dataset.access = 'locked';
-            el.setAttribute('aria-disabled', 'true');
-            el.removeAttribute('href');
-            el.title = '当前账号无 deploy 组权限';
-          });
-        }
+        if (groups.indexOf('deploy') >= 0) document.documentElement.classList.remove('fs-nav-awaiting-identity');
+
       })
       .catch(function () {});
   }

@@ -17,6 +17,14 @@ test('FS authenticated persistence and secret boundary',async()=>{
    assert.equal((await get(script+'?v=wrong','fixture-admin')).headers.get('cache-control'),'no-store');assert.equal((await get(match[1])).status,401);
   }
   assert.equal((await get('api/center','fixture-admin')).headers.get('cache-control'),'no-store');
+  const weekly=await get('weekly.html','fixture-admin');assert.equal(weekly.headers.get('cache-control'),'no-store');
+  const weeklyHtml=await weekly.text();
+  for(const ref of ['weekly.js','weekly.css','dashboard.css']){
+   const url=weeklyHtml.match(new RegExp('(?:src|href)="('+ref.replace('.','\\.')+'\\?v=[0-9a-f]{64})"'))[1];
+   assert.equal((await get(url,'fixture-admin')).headers.get('cache-control'),'private, max-age=31536000, immutable');
+   assert.equal((await get(ref+'?v=wrong','fixture-admin')).headers.get('cache-control'),'no-store');
+   assert.equal((await get(url)).status,401);
+  }
   const originalEditor=await(await get('products.html?view=original','fixture-admin')).text();assert.match(originalEditor,/id="page-select"/);assert.doesNotMatch(originalEditor,/id="weekly-options"/);
   const alias=await original(url+'center.html',{headers:{Cookie:'fixture-admin'},redirect:'manual'});assert.equal(alias.status,302);assert.equal(alias.headers.get('location'),'/dashboard/analytics/campaigns/analytics/products.html');
   assert.equal(await(await get('','fixture-admin')).text(),page); // data/report page rendering is unchanged by editor navigation

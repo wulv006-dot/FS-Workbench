@@ -241,7 +241,7 @@
       "path": "/dashboard/fs-home/range.json",
       "method": "GET",
       "permission_path": "/dashboard/fs-home/range.json",
-      "description": "FC26／FC27 全站经营复盘聚合，调用者沿用原管理员权限。start/end 为包含结束日的北京时间日期。view=same-order 时直接读取最多三个完整日的已付销售、订单和已核同单实际采购成本、毛利率及来源覆盖，优先用于近三天查询。完整复盘 HTTP 202 沿原参数续查；长结果沿 data_path 展开，例如 /packets/0/ordersData。",
+      "description": "FC26／FC27 全站经营复盘聚合，沿用原管理员权限。start/end 为含首尾的北京时间日期。近三天同单查询传 view=same-order，最多三个已结束自然日，返回已付销售、订单、已核实际采购成本及毛利率和覆盖。今天的付款汇总用 business.summary 并注明截止。完整复盘 HTTP 202 沿原参数续查，长结果用 data_path 展开。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5450,10 +5450,11 @@
           "business.archives",
           "users.catalog",
           "business.native_range",
+          "business.fc_project_review",
           "knowledge.index",
           "knowledge.read"
         ],
-        "guidance": "可按问题先查看原范围/归档目录，核网站、所选游戏/项目（例如FC27）及商品身份和可用日期，再用同范围汇总。native_range的snapshotId须来自当前目录；知识只读当前真实用户获准published条目，不创建任务或借其他用户路由。月报可比较完整自然月、可比同期及必要日趋势，未完成月注明截至时点；不强制这些比较。",
+        "guidance": "可按问题先查看原范围/归档目录，核网站、所选游戏/项目（例如FC27）及商品身份和可用日期，再用同范围汇总。native_range的snapshotId须来自当前目录；知识只读当前真实用户获准published条目，不创建任务或借其他用户路由。FC 近三个已结束自然日优先走 business.fc_project_review 的 view=same-order，核付款范围、同单成本和覆盖。月报可比较完整自然月、可比同期及必要日趋势，未完成月注明截至时点；不强制这些比较。",
         "sources": [
           "monthly_index",
           "monthly_data"
@@ -5595,7 +5596,7 @@
       {
         "id": "monthly_data",
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "dbfc87dc0a22b956ab9aa2efc80f43ec0687acf6ec17f8b90d299868f132e33b",
+        "sha256": "d3c545fdd00b39b06a9c2387455f20f8c59d22328c114780bb4d42beab2c542c",
         "kind": "repository_method_reference_not_live_data"
       },
       {

@@ -15,3 +15,5 @@ releases/fc-players/media-signer-20261107/** -text
 releases/fc-players/single-card-normal-20261107/** -text
 
 /releases/fs-dashboard/hermes-conversation-20261018/source/worker-install-state-isolation.conf text eol=lf
+/ui-system/modules/native/shell.js whitespace=cr-at-eol
+/tools/pr_fast.py whitespace=cr-at-eol
