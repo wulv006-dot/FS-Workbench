@@ -281,6 +281,33 @@ class DirectImportTests(unittest.TestCase):
         self.assertEqual(self.scopes(), ["23700"])
         self.assertFalse(any(call[0] in ("slug", "product_status") for call in self.backend.calls))
 
+    def test_model_wide_slug_propagation_requires_no_duplicate_posts(self):
+        self.plan()
+        original = self.backend.set_product_slug
+
+        def propagate(pid, slug):
+            result = original(pid, slug)
+            for row in list(self.backend.products.values())[0]:
+                row["slug"] = slug
+            return result
+
+        with patch.object(self.backend, "set_product_slug", propagate):
+            self.assertEqual(self.run_plan()["completed_futbin_ids"], ["23700"])
+        self.assertEqual(sum(call[0] == "slug" for call in self.backend.calls), 1)
+
+    def test_template_slug_conflict_blocks_model_wide_edit(self):
+        self.plan()
+        original = self.backend.shelves_models
+
+        def shelves(*args, **kwargs):
+            result = original(*args, **kwargs)
+            list(self.backend.products.values())[0][0]["slug"] = "custom-template-slug"
+            return result
+
+        with patch.object(self.backend, "shelves_models", shelves):
+            self.assertEqual(self.run_plan()["unresolved_futbin_ids"], ["23700"])
+        self.assertFalse(any(call[0] in ("slug", "product_status") for call in self.backend.calls))
+
     def test_slug_lookup_failure_before_write_can_resume(self):
         self.plan()
         with patch.object(direct, "_product_slug", side_effect=TimeoutError):
