@@ -468,7 +468,7 @@ def _shared_curve_inputs(paid_cutoff, as_of, *, code_names):
 
 
 def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now, *,
-                                  average, route, facts, fx, current_cost):
+                                  average, route, facts, fx, current_cost, recent_source_gap=None):
     from .average_discount_v6 import MODEL, forecast_quotes, quantity_group
     from .cost_inputs_v6 import SMOOTH_COST_CONTRACT, _fx, estimate_historical_cost
     from .planning_baskets_v6 import build_planning_baskets
@@ -564,7 +564,8 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
         domain_gaps.append('curve_native_route_unavailable')
     quantity_revision = fingerprint(dict(model=MODEL, curve_key=key, paths=[p['quote_ref'] for p in paths]))
     return dict(baskets=build_planning_baskets(platform, key, closed, recent, repriced,
-                                               paid_cutoff=paid_cutoff, as_of=now),
+                                               paid_cutoff=paid_cutoff, as_of=now,
+                                               recent_source_gap=recent_source_gap),
                 evidence=dict(curve_key=key, paths=paths, average_discount=average,
                               smoothed_delivery_cost=current_cost if smoothed else None,
                               cost_sample_insurance={name: row.get('sample_insurance') for name, row in estimates.items()}),
@@ -1022,7 +1023,7 @@ def collect_curve_catalogues(evidence, platforms):
     from fc_shared_admin import SessionManager, read_private_config
     from .api import _curve_preview_history
     from .average_discount_v6 import MODEL, average_discount
-    from .business_source import collect_recent_curve_population
+    from .business_source import RecentCurveReadFailure, collect_recent_curve_population
     from .curve_strategy_v6 import ANCHORS, MARKET_ANCHOR_VERSION, build_candidates
     from .pricing_proof_v6 import PROVEN
     from .smart import curve_learning
@@ -1099,10 +1100,17 @@ def collect_curve_catalogues(evidence, platforms):
         shared_closed, facts, discount_source = None, None, None
     if shared_closed is not None:
         closed = shared_closed
+    recent_source_gap = None
     try:
         recent = collect_recent_curve_population(manager, closed, paid_cutoff)
-    except (ImportError, OSError, ValueError, TypeError, KeyError):
-        recent = None
+    except RecentCurveReadFailure as exc:
+        recent, recent_source_gap = None, str(exc)
+    except ImportError:
+        recent, recent_source_gap = None, 'source_dependency_unavailable'
+    except OSError:
+        recent, recent_source_gap = None, 'source_io_failed'
+    except (ValueError, TypeError, KeyError):
+        recent, recent_source_gap = None, 'source_evidence_invalid'
     now = clock()
     valid_until = now + timedelta(minutes=15)
 
@@ -1129,8 +1137,10 @@ def collect_curve_catalogues(evidence, platforms):
         def proof(curve):
             return _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now,
                 average=average, route=entry['native_route'], facts=facts, fx=evidence.get('fx'),
-                current_cost=cost)
+                current_cost=cost, recent_source_gap=recent_source_gap)
 
+        if recent_source_gap:
+            entry['recent_source_gap'] = 'recent:' + recent_source_gap
         entry.update(captured_at=now.isoformat(), valid_until=valid_until.isoformat(), pricing_assumption=MODEL,
                      plan_binding=_curve_plan_binding(plan),
                      primary_inputs={key: proof(curve) for key, curve in entry.pop('candidates').items()},
@@ -2218,6 +2228,10 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
         ready = []
     rows = [dict(platform=p, status=decisions[p]['status'], gaps=decisions[p].get('gaps', []),
                  selection=decisions[p].get('selection')) for p in platforms]
+    for row in rows:
+        gap = (frozen.get(row['platform']) or {}).get('recent_source_gap')
+        if gap and gap not in row['gaps']:
+            row['gaps'] = [*row['gaps'], gap]
     if active:
         for row in rows:
             for code in row['gaps']:
