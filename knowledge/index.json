@@ -413,7 +413,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "f13a386fbb7bf91e3c05c992f8cf05d7341286d8eb261b7099331e6e75df7a86",
+        "sha256": "337b9f7b31058869b5ae431b9a6bd370d9d313ddbe6bc22594ddbb14371da2ed",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -1324,7 +1324,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "f13a386fbb7bf91e3c05c992f8cf05d7341286d8eb261b7099331e6e75df7a86",
+        "sha256": "337b9f7b31058869b5ae431b9a6bd370d9d313ddbe6bc22594ddbb14371da2ed",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "### 每周定位溢价修复（2026-11-17）"
