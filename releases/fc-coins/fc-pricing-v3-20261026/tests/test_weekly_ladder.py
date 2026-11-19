@@ -9,15 +9,15 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'source'))
 from fc_pricing_v3 import api, scheduler, weekly_ladder as ladder
-from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
+from fc_pricing_v3.curve_strategy_v6 import margin_band_parameters, market_anchor_parameters
 from fc_pricing_v3.ledger import Ledger
 
 NOW = datetime.fromisoformat('2026-11-23T01:00:00+08:00')
 
 
-def weeks():
+def weeks(now=NOW):
     result = []
-    monday = NOW.date()
+    monday = now.date()
     for age in (14, 7):
         start = monday-timedelta(days=age)
         result.append(dict(start=start.isoformat(), end=(start+timedelta(days=6)).isoformat(), complete=True, publication_id='pin',
@@ -44,8 +44,8 @@ class WeeklyLadder(unittest.TestCase):
         clock=patch('fc_pricing_v3.ledger.clock',return_value=NOW);clock.start();self.addCleanup(clock.stop)
         policy=patch('automation_policy.load_policy',return_value={'interval_minutes':60});policy.start();self.addCleanup(policy.stop)
 
-    def run_week(self):
-        a,b=weeks()
+    def run_week(self, now=NOW):
+        a,b=weeks(now)
         self.db.put('metadata','latest_snapshot:plan',{'snapshot_id':'snapshot'})
         self.db.put('strategy_decisions','snapshot',dict(curve=[dict(platform=p,selection=dict(source='market_anchor',
             market_anchor=dict(parameters=market_anchor_parameters()[p],reference_usd_per_100k={'Lootbar':'10','U7Buy':'12'})))
@@ -54,12 +54,41 @@ class WeeklyLadder(unittest.TestCase):
         with patch('fc_pricing_v3.average_discount_v6.yesterday_es_ready',return_value=True), \
              patch.object(ladder,'read_week',side_effect=[b,a]) as source, \
              patch.dict(sys.modules,{'hermes_pricing_bridge':bridge}):
-            first=ladder.run(self.db,'plan',NOW)
-            second=ladder.run(self.db,'plan',NOW+timedelta(hours=1))
+            first=ladder.run(self.db,'plan',now)
+            second=ladder.run(self.db,'plan',now+timedelta(hours=1))
         self.assertEqual(first,second)
         self.assertEqual(source.call_count,2)
         bridge.review.assert_called_once()
         return self.db.all('ladder_proposals')
+
+    def test_auto_waits_for_owner_if_either_comparison_week_includes_promotion(self):
+        anchors = market_anchor_parameters()
+        for bands in anchors.values():
+            for terms in bands.values():
+                terms['p_low'] = '-.10'
+        guard = dict(campaign='carnival_202611', start_day='2026-11-19', last_redeem_day='2026-11-22',
+                     baseline={'PS': '.05', 'XBOX': '.07', 'PC': '.09'}, baseline_revision='se_' + 'a' * 32)
+        margin = {p: {'target': '.31'} for p in ('PS', 'XBOX', 'PC')}
+        self.plan['parameters'] = dict(market_anchor=anchors,
+            margin_band=margin_band_parameters(dict(margin, promotion_guard=guard), anchors))
+        self.db.put('pricing_plans', 'plan', self.plan)
+        control = dict(automatic=True, eligible_after=(NOW - timedelta(days=1)).isoformat())
+        self.db.put('metadata', 'weekly-ladder-control:plan', control)
+
+        for offset in (0, 1, 2):
+            now = NOW + timedelta(weeks=offset)
+            rows = [row for row in self.run_week(now) if row['week_start'] == now.date().isoformat()]
+            self.assertEqual(len(rows), 3)
+            self.assertEqual({row['procurement_gross_cny'] for row in rows}, {'2400'})
+            self.assertEqual({row['status'] for row in rows}, {'PROPOSED' if offset < 2 else 'CONFIRMED'})
+            self.assertEqual(self.db.get('metadata', 'weekly-ladder-control:plan'), control)
+            if offset == 0:
+                row = next(row for row in rows if row['platform'] == 'PS')
+                with self.assertRaisesRegex(PermissionError, 'weekly_promotion_owner_confirmation_required'):
+                    ladder.confirm_adoption(self.db, row['proposal_id'], 'system-weekly-ladder', 4, now,
+                                            automatic=True)
+                confirmation = ladder.confirm_adoption(self.db, row['proposal_id'], 'owner', 4, now)
+                self.assertEqual(confirmation['status'], 'CONFIRMED')
 
     def test_one_proposal_per_platform_week_confirmation_is_atomic_cas_and_idempotent(self):
         rows=self.run_week()

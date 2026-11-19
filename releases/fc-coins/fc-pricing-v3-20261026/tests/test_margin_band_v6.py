@@ -214,16 +214,50 @@ class MarginBandDecisions(unittest.TestCase):
         self.assertEqual(Decimal(result['desired']), Decimal('9.50'))
         self.assertIsNone(result['capped'])
 
+    def test_both_promotion_band_cuts_still_require_cost_confirmation(self):
+        from fc_pricing_v3 import runtime
+
+        guard = dict(campaign='carnival_202611', start_day='2026-11-19', last_redeem_day='2026-11-20',
+                     baseline={'PS': '.05', 'XBOX': '.07', 'PC': '.09'}, baseline_revision='a' * 64)
+        proof = dict(
+            average_discount=dict(platform='PS', retained_ratio='.75', revision='average-fixture',
+                                  actual_discount_usd='25', merchandise_before_discount_usd='100',
+                                  start='2026-11-17T00:00:00+08:00', end_exclusive='2026-11-20T00:00:00+08:00'),
+            paths=[
+                dict(path_id='small', purchase_k='100', regular_usd='10',
+                     net_receipt_usd='7.50', safe_cost_usd='6.40'),
+                dict(path_id='large', purchase_k='1000', regular_usd='100',
+                     net_receipt_usd='75.00', safe_cost_usd='64.00'),
+            ],
+            baskets={'main': {'members': [dict(path_id=band, weight='1') for band in ('small', 'large')]}},
+        )
+        position = dict(anchors={'small': '12', 'large': '120'}, low_anchors={'small': '8', 'large': '80'})
+        recorded = {'small': '10', 'large': '100'}
+        for samples, expected in ((5, ('hold', '10', '100')), (6, ('lower', '9.77', '97.65'))):
+            with self.subTest(samples=samples):
+                result = runtime.margin_band_selection(
+                    proof, position, recorded, Decimal('.31'), {'is_decision_round': True},
+                    cost_median='.364', cost_sample_count=samples, previous_decision_cost_median='.4',
+                    promotion_guard=guard,
+                )
+                action, small, large = expected
+                for band, price in (('small', small), ('large', large)):
+                    decision = result['bands'][band]
+                    self.assertEqual(decision['action'], action)
+                    self.assertEqual(Decimal(decision['desired']), Decimal(price))
+                    self.assertEqual(decision['cost_drop_unconfirmed'], samples == 5)
+
     def test_eight_percent_cost_drop_is_guarded_with_five_samples(self):
         boundary = self.selection('.39', cost='.368', samples=5, previous_cost='.4')
         self.assertTrue(boundary['cost_drop_unconfirmed'])
 
 
 class MarginBandRuntime(unittest.TestCase):
-    def freeze(self, hour, large_cost, *, enabled=True, round_hour=None, offers=True, previous=None):
+    def freeze(self, hour, large_cost, *, enabled=True, round_hour=None, offers=True, previous=None,
+               day=18, retained='1', promotion_guard=None, stress_cost=None, lootbar='10.4'):
         from datetime import datetime, timedelta, timezone
         from fc_pricing_v3 import runtime
-        from fc_pricing_v3.average_discount_v6 import MODEL
+        from fc_pricing_v3.average_discount_v6 import MODEL, average_discount_window, forecast_receipt
         from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
         from fc_pricing_v3.financial import fingerprint
         from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT, curve_key, read_curve
@@ -235,17 +269,23 @@ class MarginBandRuntime(unittest.TestCase):
         current = read_curve(current['native_payload'], current['identity'], editor)
         row = dict(current['native_payload'], id=163329310, site_id=0)
         before = read_curve(row, dict(current['identity'], id=row['id'], site_id=0), editor)
+        now = datetime(2026, 11, day, hour, 38, tzinfo=timezone(timedelta(hours=8)))
         def inputs(curve):
             _, baskets, evidence, domain = proof_fixture()
             key = curve_key(curve)
             amount = next(row['native_price_usd'] for row in curve['tiers'] if row['purchase_k'] == '1000')
-            average = dict(contract=MODEL, platform='PS', site_id='266', status='complete', retained_ratio='1')
+            start, end = average_discount_window(now)
+            average = dict(contract=MODEL, platform='PS', site_id='266', status='complete', retained_ratio=retained,
+                           start=start.isoformat(), end_exclusive=end.isoformat(),
+                           actual_discount_usd=str(100 * (1 - Decimal(retained))),
+                           merchandise_before_discount_usd='100')
             average['revision'] = fingerprint(average)
             domain.update(curve_key=key, source_revisions=dict(domain['source_revisions'], offers=average['revision']))
             evidence.update(curve_key=key, average_discount=average)
-            evidence['paths'][0].update(curve_key=key, regular_usd=amount, net_receipt_usd=amount,
+            evidence['paths'][0].update(curve_key=key, regular_usd=amount, quote_basis=MODEL,
+                                       net_receipt_usd=str(forecast_receipt(Decimal(amount), Decimal(retained))),
                                        expected_cost_usd=large_cost, safe_cost_usd=large_cost,
-                                       stress_cost_usd=large_cost, known_fee_usd='0')
+                                       stress_cost_usd=stress_cost or large_cost, known_fee_usd='0')
             return dict(baskets=baskets, evidence=evidence, domain=domain)
 
         parameters = market_anchor_parameters()
@@ -257,17 +297,45 @@ class MarginBandRuntime(unittest.TestCase):
         if enabled:
             plan['parameters']['margin_band'] = {'schedule_hours': [2, 6, 9, 13, 17, 21],
                 'PS': {'target': '.31'}, 'XBOX': {'target': '.31'}, 'PC': {'target': '.34'}}
-        now = datetime(2026, 11, 18, hour, 38, tzinfo=timezone(timedelta(hours=8)))
+            if promotion_guard:
+                plan['parameters']['margin_band']['promotion_guard'] = promotion_guard
         entry = dict(primary_curve=current, all_before=before, editor_contract=editor, native_route=None,
             primary_inputs={curve_key(current): inputs(current)}, all_inputs={}, all_targets={},
             margin_band_context=dict(automatic=True, history=[], cost_sample_count=6,
                 at=now if round_hour is None else now.replace(hour=round_hour)),
             price_insurance=dict(day_anchors={'small': '10', 'large': '95'},
                                   market_per_100k=['10'], below_margin_rounds=0))
-        quotes = position_offers(now, '10.4', '12.5') if offers else []
+        quotes = position_offers(now, lootbar, '12.5') if offers else []
         runtime._freeze_cost_protection('PS', entry, inputs, dict(reference=reference, episode=episode),
                                         plan, dict(competitor_offers=quotes), now, previous or {})
         return entry['temporary_cost_protection']
+
+    def test_promotion_changes_business_selection_while_real_discount_still_repairs_the_floor(self):
+        guard = dict(campaign='carnival_202611', start_day='2026-11-19', last_redeem_day='2026-11-20',
+                     baseline={'PS': '.05', 'XBOX': '.07', 'PC': '.09'}, baseline_revision='a' * 64)
+        for day, action in ((19, 'raise'), (20, 'lower'), (23, 'lower'), (24, 'raise')):
+            with self.subTest(day=day):
+                frozen = self.freeze(13, '60', day=day, retained='.75', promotion_guard=guard, lootbar='9.6')
+                decision = frozen['preference']['margin_band']
+                self.assertEqual(decision['bands']['large']['action'], action)
+                self.assertEqual(Decimal(decision['promotion_guard']['actual_discount']), Decimal('.25'))
+                business = '.05' if action == 'lower' else '.25'
+                self.assertEqual(Decimal(decision['promotion_guard']['business_discount']), Decimal(business))
+                self.assertEqual(decision['promotion_guard']['baseline_revision'], guard['baseline_revision'])
+                if action == 'lower':
+                    self.assertEqual(frozen['status'], 'PROVEN')
+                    self.assertLess(Decimal(frozen['normal_anchors']['large']), Decimal('95'))
+                    self.assertGreaterEqual(Decimal(frozen['final_anchors']['large']), Decimal('97.57'))
+
+        minimum = self.freeze(13, '60', day=20, retained='.96', promotion_guard=guard, lootbar='9.6')
+        audit = minimum['preference']['margin_band']['promotion_guard']
+        self.assertEqual(Decimal(audit['business_discount']), Decimal('.04'))
+        self.assertEqual(audit['reason'], 'actual_at_or_below_baseline')
+
+        protected = self.freeze(13, '60', day=20, retained='.75', promotion_guard=guard,
+                                lootbar='9.6', stress_cost='80')
+        self.assertEqual(protected['status'], 'PROVEN')
+        self.assertGreaterEqual(Decimal(protected['final_anchors']['large']), Decimal('106.67'))
 
     def test_nondecision_holds_above_target_but_preserves_the_18_percent_floor(self):
         hold = self.freeze(15, '61.75')
@@ -428,6 +496,99 @@ class MarginBandRevision(unittest.TestCase):
             self.assertEqual(reverted['revision'], 6)
             self.assertNotIn('margin_band', reverted['parameters'])
         fixture.dispatch.assert_not_called()
+
+    def test_promotion_guard_revision_uses_only_pinned_archived_baseline(self):
+        from datetime import datetime, timedelta, timezone
+        from unittest.mock import patch
+        from fc_pricing_v3 import api
+        from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
+        from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        from test_curve_runtime_v6 import CurveRuntime
+
+        fixture = CurveRuntime()
+        self.addCleanup(fixture.doCleanups)
+        fixture.setUp()
+        self.addCleanup(fixture.tearDown)
+        fixture.prepare()
+        db = fixture.db
+        now = datetime.now(timezone.utc)
+        plan = db.get('pricing_plans', 'plan')
+        plan.update(mode='smart', write_protocol=CURVE_WRITE_PROTOCOL, resources=['base:PS'],
+                    starts_at=(now - timedelta(hours=2)).isoformat(), last_cycle_at=now.isoformat(),
+                    smart_started_at=(now - timedelta(hours=2)).isoformat(),
+                    smart_strategy_version='market-anchor-v1', parameters={})
+        db.put('pricing_plans', 'plan', plan)
+        anchors = market_anchor_parameters()
+        for bands in anchors.values():
+            for terms in bands.values():
+                terms['p_low'] = '-.10'
+        baseline = {'PS': '0.08', 'XBOX': '0.1', 'PC': '0.12'}
+        guard = dict(campaign='carnival_202611', start_day='2026-11-19',
+                     last_redeem_day='2026-11-30', baseline=baseline, baseline_revision='se_' + '1' * 32)
+        band = dict(PS={'target': '.31'}, XBOX={'target': '.31'}, PC={'target': '.34'})
+        request = dict(expected_revision=4, snapshot_id='00000000-0000-4000-8000-000000000123',
+                       strategy_version='market-anchor-v1', market_anchor=anchors,
+                       margin_band=dict(band, promotion_guard=guard))
+        path = 'plans/plan/revise-curve-strategy'
+        with patch.object(api, 'ledger', return_value=db), \
+             patch('automation_policy.load_policy', return_value={'interval_minutes': 60}), \
+             patch('fc_pricing_v3.curve_strategy_v6.carnival_discount_baseline',
+                   return_value=baseline, create=True) as archived:
+            for invalid in (dict(guard, last_redeem_day='2026-11-18'),
+                            dict(guard, baseline={'PS': '0.08'}),
+                            dict(guard, baseline=dict(baseline, PS='NaN'))):
+                with self.assertRaisesRegex(ValueError, 'margin_band_parameters_invalid'):
+                    api.post(path, dict(request, margin_band=dict(band, promotion_guard=invalid)), 'signed-operator')
+            with self.assertRaisesRegex(ValueError, 'promotion_guard_baseline_unverified'):
+                wrong = dict(guard, baseline=dict(baseline, PS='0.01'))
+                api.post(path, dict(request, margin_band=dict(band, promotion_guard=wrong)), 'signed-operator')
+            self.assertEqual(db.get('pricing_plans', 'plan')['revision'], 4)
+            revised = api.post(path, request, 'signed-operator')
+            self.assertEqual(revised['parameters']['margin_band']['promotion_guard'], guard)
+            self.assertEqual(archived.call_args.args[0], guard['baseline_revision'])
+            archived.reset_mock()
+            self.assertEqual(api.post(path, request, 'signed-operator'), revised)
+            with self.assertRaisesRegex(ValueError, 'revision_changed'):
+                api.post(path, dict(request, expected_revision=3), 'signed-operator')
+            revised_band = dict(request['margin_band'], PC={'target': '.35'})
+            updated = api.post(path, dict(request, expected_revision=5, margin_band=revised_band), 'signed-operator')
+            self.assertEqual(updated['parameters']['margin_band']['promotion_guard'], guard)
+            self.assertEqual(updated['parameters']['margin_band']['PC']['target'], '0.35')
+            reverted = api.post(path, dict(request, expected_revision=6, margin_band=band), 'signed-operator')
+            self.assertNotIn('promotion_guard', reverted['parameters']['margin_band'])
+            self.assertEqual(reverted['parameters']['margin_band']['PC']['target'], '0.34')
+            archived.assert_not_called()
+        fixture.dispatch.assert_not_called()
+
+
+    def test_archive_baseline_requires_complete_fixed_window_on_all_platforms(self):
+        import sys
+        from datetime import datetime, timezone
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from fc_pricing_v3.curve_strategy_v6 import carnival_discount_baseline
+
+        pin = 'se_' + '2' * 32
+        now = datetime(2026, 11, 23, tzinfo=timezone.utc)
+        read = Mock(return_value={'coverage': {'publication_id': pin}})
+        coverage = dict(window_complete=True, population_status='complete', shared_publication_id=pin,
+                        shared_source_revision='scope-pin', paid_window_start='2026-11-16T00:00:00+08:00',
+                        paid_window_end_exclusive='2026-11-19T00:00:00+08:00')
+        rows = [dict(paid_at=f'2026-11-{day}T12:00:00+08:00', platform=platform, order_key=str(day),
+                     merchandise_before_discount_usd=gross, actual_es_discount_usd=discount)
+                for day, platform, gross, discount in (
+                    (16, 'PS', '25', '1'), (18, 'PS', '75', '9'), (17, 'XBOX', '50', '10'),
+                    (18, 'PC', '25', '3'), (19, 'PS', '100', '75'))]
+        closed = dict(historical_orders=rows, historical_orders_coverage=coverage)
+        with patch.dict(sys.modules, {'shared_es_facts': SimpleNamespace(read=read)}), \
+             patch('fc_pricing_v3.business_source.shared_curve_attachment', return_value=closed):
+            self.assertEqual(carnival_discount_baseline(pin, now), {'PS': '0.1', 'XBOX': '0.2', 'PC': '0.12'})
+            read.assert_called_once_with(dict(site_id='266', gid='1327', start='2026-11-16', end='2026-11-18'),
+                                         publication_id=pin)
+            rows[3]['actual_es_discount_usd'] = None
+            with self.assertRaisesRegex(ValueError, 'promotion_guard_baseline_unverified'):
+                carnival_discount_baseline(pin, now)
+
 
 class MarginBandWeekly(unittest.TestCase):
     def config(self):
