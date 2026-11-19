@@ -19,7 +19,11 @@ ROOT = Path(__file__).resolve().parents[4]
 SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path[:0] = [str(SOURCE), str(ROOT / 'releases/fs-dashboard/hermes-fc-pilot-20261013')]
 import knowledge_catalog as kc
-import business_context as bc
+# Exercise the installed report assembler even when other suites imported an older snapshot.
+REPORT_ASSEMBLER = ROOT / 'releases/fs-dashboard/nightly-reschedule-20261025/source/business_context.py'
+spec = importlib.util.spec_from_file_location('live_report_business_context', REPORT_ASSEMBLER)
+bc = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bc)
 
 BASE = 'b375b7835b7f3fdd2bbbea8470c228f4c555de79'
 SHARED_REVISION = 'fs-fc-admin-es-shared-20261113-r1'
@@ -63,7 +67,7 @@ def assemble_real_sources(root):
     path.write_text(json.dumps(index, ensure_ascii=False), encoding='utf-8')
     runtime = root / 'runtime'
     runtime.mkdir()
-    (runtime / 'business_context.py').write_bytes(lf(SOURCE / 'business_context.py'))
+    (runtime / 'business_context.py').write_bytes(lf(REPORT_ASSEMBLER))
     (runtime / 'business-baseline.md').write_bytes(lf(ROOT / BASELINE))
     (runtime / 'data-archive-first.md').write_bytes(lf(ROOT / 'releases/fs-dashboard/daily-archive-20261021/skills/data-archive-first/SKILL.md'))
     (runtime / 'learning-loop.md').write_bytes(lf(ROOT / 'releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/learning-loop.md'))

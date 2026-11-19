@@ -103,7 +103,7 @@ class CampaignTests(unittest.TestCase):
   self.service.execute=execute;self.service.submit(self.body,'alice','private-session');self.finish()
   result=self.service.lookup(self.body['operation_id'],'alice','private-session');self.assertEqual(result['status'],'unavailable');self.assertEqual(result['provider_outcome'],'not_dispatched');self.assertEqual(self.calls,0)
  def test_revocation_after_call_does_not_deliver_candidate(self):
-  def execute(scope,request):scope.mark_dispatch();self.auth=False;return dict(model='gpt-6.1-sol',source_revision='7',sbc_update_id='update-7',recommendations=[])
+  def execute(scope,request):scope.mark_dispatch();self.auth=False;return dict(model='gpt-6.2-sol',source_revision='7',sbc_update_id='update-7',recommendations=[])
   self.service.execute=execute;self.service.submit(self.body,'alice','private-session');self.finish();self.auth=True
   self.assertEqual(self.service.lookup(self.body['operation_id'],'alice','private-session')['status'],'unknown')
  def test_input_and_strict_schema_have_no_foreign_scope_or_empty_enums(self):
@@ -178,7 +178,7 @@ class CampaignTests(unittest.TestCase):
    with self.host.daily.db() as db:rows=db.execute('SELECT state,content FROM model_calls').fetchall()
    self.assertEqual(len(rows),1);self.assertEqual(rows[0]['state'],'succeeded');self.assertEqual(json.loads(rows[0]['content'])['usage']['total_tokens'],9)
    self.assertEqual(len(provider),1);self.assertNotIn('tools',provider[0]);self.assertEqual(provider[0]['text']['format']['strict'],True)
-   self.assertEqual(provider[0]['reasoning'],{'effort':'high'});self.assertEqual(provider[0]['max_output_tokens'],128000)
+   self.assertEqual(provider[0]['reasoning'],{'effort':'medium'});self.assertEqual(provider[0]['max_output_tokens'],128000)
 
  def test_actual_unstarted_failure_is_not_billed_or_unknown_and_native_empty_tools_remain_rejected(self):
   with self.pipeline(failure='local') as (provider,active):
@@ -186,9 +186,9 @@ class CampaignTests(unittest.TestCase):
    self.assertEqual(result['status'],'unavailable');self.assertEqual(provider,[])
    with self.host.daily.db() as db:self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'not_dispatched')
    import openai_provider
-   request=dict(model='gpt-6.1-sol',messages=[dict(role='user',content='test')],max_tokens=10,tools=[],stream=False,enable_thinking=True,reasoning_effort='high')
+   request=dict(model='gpt-6.2-sol',messages=[dict(role='user',content='test')],max_tokens=10,tools=[],stream=False,enable_thinking=True,reasoning_effort='high')
    with self.assertRaisesRegex(ValueError,'configuration_invalid'):openai_provider.prepare_request(request,[],native_chat=True)
-   self.assertEqual(json.loads(openai_provider.prepare_request(request,[],campaign=True))['model'],'gpt-6.1-sol')
+   self.assertEqual(json.loads(openai_provider.prepare_request(request,[],campaign=True))['model'],'gpt-6.2-sol')
 
  def test_actual_unknown_retains_original_ledger_and_never_calls_twice(self):
   with self.pipeline(failure='transport') as (provider,active):
@@ -343,7 +343,7 @@ class CampaignTests(unittest.TestCase):
       result=selection(json.loads(request['messages'][-1]['content']))
       if failure=='cardinality':result['recommendations'].pop()
       else:result['recommendations'][3]['product_key']='fc-core-ps'
-     return dict(id='provider_fixture',model='gpt-6.1-sol',choices=[dict(message=dict(role='assistant',content='invalid JSON' if failure=='json' else json.dumps(result)),finish_reason='stop')],usage=dict(prompt_tokens=4,completion_tokens=5,total_tokens=9))
+     return dict(id='provider_fixture',model='gpt-6.2-sol',choices=[dict(message=dict(role='assistant',content='invalid JSON' if failure=='json' else json.dumps(result)),finish_reason='stop')],usage=dict(prompt_tokens=4,completion_tokens=5,total_tokens=9))
     with patch.dict(sys.modules,{'fs_inprocess':SimpleNamespace(campaign_gateway=factory),'fc_daily':SimpleNamespace(provider_slot=slot,model_daily_limit=limit),'openai_provider':openai}),patch.object(openai,'request_model',side_effect=request),patch.dict(os.environ,{'FS_MODEL_DAILY_LIMIT':'0'}):
      yield calls,liveness
 
