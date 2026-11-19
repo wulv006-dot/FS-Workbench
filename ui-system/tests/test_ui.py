@@ -29,6 +29,9 @@ class UIContract(unittest.TestCase):
   self.assertEqual(len(guards),1)
   self.assertEqual(re.findall(r"'([^']+)'",guards[0]),['admin-paid-order-labelled-supplement-v2',contract])
   preserved=new_prefix.replace(guards[0],"data.scopeContractId!=='admin-main-order-labelled-supplement-v1'",1)
+  runtime='/dashboard/workspace-assets/fs-shared-sha256-7d021464703e02dbd879fa1c4eede18f948416e15998b9531bab8d2e4607c41c/runtime.js'
+  self.assertEqual(preserved.count(runtime),1)
+  preserved=preserved.replace(runtime,'/dashboard/workspace-assets/workspace-native-20261006-ba0a83afd594/runtime.js')
   self.assertEqual(old_prefix,preserved)
  def test_no_unknown_price_rules(self):
   for p in (ROOT/'adapters').glob('*.js'):

@@ -47,7 +47,7 @@ class LiveSummary {
  stop(){this.running=false;clearTimeout(this.timer);this.timer=null;this.epoch++;this.controller?.abort();this.current=null;this.pending=null;}
 }
 
-import {lifecycle,protectedRead,sessionIdentity,moduleAvailable} from './runtime.js';
+import {lifecycle,protectedRead,sessionIdentity,moduleAvailable} from '/dashboard/workspace-assets/fs-shared-sha256-7d021464703e02dbd879fa1c4eede18f948416e15998b9531bab8d2e4607c41c/runtime.js';
 // User-approved 2026-10-09: Admin main-site values; labelled Order supplements and estimated profit.
 function fsMainSite(profile,all=false){
  const numeric=v=>typeof v==='number'&&Number.isFinite(v);
@@ -220,4 +220,4 @@ document.addEventListener('visibilitychange',async()=>{
 const permissionTimer=setInterval(async()=>{if(document.hidden||!identity)return;const id=epoch,user=identity.name;try{const next=await verify();if(id!==epoch||!identity)return;if(next.name!==user||JSON.stringify(next.groups)!==JSON.stringify(identity.groups)){halt(403);return;}identity=next;accountNavigation(next);}catch(e){if(id===epoch&&e.status)halt(e.status);}},60000);
 addEventListener('pagehide',()=>{clearInterval(permissionTimer);epoch++;active?.scope.destroy();active=null;homeController?.abort();watcher?.stop();});addEventListener('pageshow',e=>{if(e.persisted){if(home&&identity)homeData();else nativeLoad();}});boot();
 
-{const href=new URL('/__hub/hubnav.js?v=nav-unified-20261120-aaec928afc3e',document.baseURI).href;if(!document.getElementById('hubNav')&&![...document.scripts].some(s=>s.src===href)){const sharedNav=document.createElement('script');sharedNav.src=href;sharedNav.defer=true;document.head.append(sharedNav);}}
+{const href=new URL('/__hub/hubnav.js?v=nav-unified-20261120-d05bb14f7406',document.baseURI).href;if(!document.getElementById('hubNav')&&![...document.scripts].some(s=>s.src===href)){const sharedNav=document.createElement('script');sharedNav.src=href;sharedNav.defer=true;document.head.append(sharedNav);}}

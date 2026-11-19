@@ -4,7 +4,7 @@ const {
 const fs=require('fs'),path=require('path'),assert=require('assert/strict');
 const dir=__dirname,nav=fs.readFileSync(path.join(dir,'candidate','nav.js'),'utf8'),hub=fs.readFileSync(path.join(dir,'candidate','hubnav.js'),'utf8');
 const browserPath=process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
-const ui='/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/';
+const assetURLs=JSON.parse(hub.split('const sharedAssetURLs=')[1].split(';\n')[0]);
 const registry=JSON.parse(hub.split('const registry=')[1].split(';\n')[0]);
 const firstPaintRegistry = JSON.parse(hub.split('const BUILTIN=')[1].split(';\n')[0]);
 assert.deepEqual(firstPaintRegistry, registry);
@@ -43,7 +43,7 @@ assert(registry.tools.some(tool => tool.id === 'fc-project-review'));
       });
     });
     const page=await context.newPage();
-    html=`<!doctype html><html><head><link rel="stylesheet" href="${ui}fs-tokens.css"><link rel="stylesheet" href="${ui}fs-ui.css"><script src="${ui}fs-theme.js"></script></head><body><main>test</main></body></html>`;
+    html=`<!doctype html><html><head><link rel="stylesheet" href="${assetURLs['fs-tokens.css']}"><link rel="stylesheet" href="${assetURLs['fs-ui.css']}"><script src="${assetURLs['fs-theme.js']}"></script></head><body><main>test</main></body></html>`;
     await page.goto('http://fs.test/dashboard/analytics/campaigns/analytics/weekly.html');
     await page.addScriptTag({
       content:hub
@@ -52,11 +52,11 @@ assert(registry.tools.some(tool => tool.id === 'fc-project-review'));
     await page.waitForTimeout(100);
     assert.equal(await page.locator('#hubNav a[href="/dashboard/modules/sports/fc-project-review/"]').count(),1);
     let data=await page.evaluate(({
-      ui
+      assetURLs
     })=>({
-      nav:document.querySelectorAll('#hubNav').length,weekly:document.querySelectorAll('#hubNav a[href="/dashboard/analytics/campaigns/analytics/weekly.html"]').length,tokens:[...document.querySelectorAll('link[rel="stylesheet"]')].filter(n=>n.href===new URL(ui+'fs-tokens.css',location.href).href).length,ui:[...document.querySelectorAll('link[rel="stylesheet"]')].filter(n=>n.href===new URL(ui+'fs-ui.css',location.href).href).length,theme:[...document.scripts].filter(n=>n.src===new URL(ui+'fs-theme.js',location.href).href).length,group:document.querySelectorAll('#hubNav .hn-tree > .hn-group').length
+      nav:document.querySelectorAll('#hubNav').length,weekly:document.querySelectorAll('#hubNav a[href="/dashboard/analytics/campaigns/analytics/weekly.html"]').length,tokens:[...document.querySelectorAll('link[rel="stylesheet"]')].filter(n=>n.href===new URL(assetURLs['fs-tokens.css'],location.href).href).length,ui:[...document.querySelectorAll('link[rel="stylesheet"]')].filter(n=>n.href===new URL(assetURLs['fs-ui.css'],location.href).href).length,theme:[...document.scripts].filter(n=>n.src===new URL(assetURLs['fs-theme.js'],location.href).href).length,group:document.querySelectorAll('#hubNav .hn-tree > .hn-group').length
     }),{
-      ui
+      assetURLs
     });
     assert.deepEqual(data,{
       nav:1,weekly:1,tokens:1,ui:1,theme:1,group:9
