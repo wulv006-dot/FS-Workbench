@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!owner.signal.aborted) render();
       }
     } catch (error) {
-      if (!owner.signal.aborted) setMissing(query, null, error.name === 'TimeoutError' ? 'FS 仍在汇总此区间，可稍后再查看。' : error.message);
+      if (!owner.signal.aborted) setMissing(query, null, error.name === 'TimeoutError' ? '本次读取超时，可稍后再查看。' : error.message);
     }
   }
 
@@ -430,11 +430,15 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.setAttribute('aria-label', title + '，精确数值见下方数据明细。');
     for (const item of active) caption.append(coloredLabel(item.label, item.color));
     figure.append(caption, canvas, readout);
+    if (opts.subtitle) host.append(element('p',opts.subtitle,'card-sub'));
     const share = (row, item) => {
       const total = active.reduce((sum, key) => sum + (present(row[key.key]) ? row[key.key] : 0), 0);
       return opts.showShares && total > 0 && present(row[item.key]) ? '（' + pct(row[item.key] / total * 100) + '）' : '';
     };
-    const valueText = (row,item) => item.format(row[item.key]) + share(row,item);
+    const valueText = (row,item) => {
+      const samples = opts.showSamples ? row[item.key + 'Timed'] : null;
+      return item.format(row[item.key]) + share(row,item) + (present(samples) ? '（' + count(samples) + ' 单）' : '');
+    };
     host.append(figure, details('查看' + (opts.bucket || '每日') + '数值', dataTable(title, [opts.bucket || '日期', ...active.map(item => item.label)],
       rows.map(row => [row.label || row.date, ...active.map(item => valueText(row,item))]))));
 
@@ -947,13 +951,37 @@ document.addEventListener('DOMContentLoaded', () => {
     ]);
   }
 
+  function trafficFor(packet, query) {
+    if (packet?.traffic) return packet.traffic;
+    const related = [...periods.values()].find(item =>
+      item.game === query.game && item.scope === query.scope &&
+      item.traffic?.periods?.previous?.start === query.start && item.traffic.periods.previous.end === query.end)?.traffic;
+    if (!related) return;
+    const result = {limitations:related.limitations};
+    for (const key of ['paid','organic','search']) {
+      const channel = related[key];
+      if (!channel) continue;
+      const derived = {
+        ...channel, current:channel.previous, previous:null,
+        status:channel.previous ? channel.status : 'unavailable',
+        coverage:{current:channel.coverage?.previous},
+      };
+      for (const field of ['campaigns','countries','landing_pages']) {
+        derived[field] = list(channel[field]).filter(row => row.previous)
+          .map(row => ({...row,current:row.previous,previous:null}));
+      }
+      result[key] = derived;
+    }
+    return result;
+  }
+
   function deliveryBand(row) {
     if (row.quantityBand === 'under1000') return 'under1000';
     if (row.quantityBand === 'atLeast1000') return 'atLeast1000';
     return null;
   }
 
-  function renderDelivery(orderData) {
+  function renderDelivery(orderData, dates) {
     const delivery = orderData?.delivery;
     const rows = Array.isArray(delivery) ? delivery : rowsFor(delivery,'rows');
     const scoped = byId('delivery-scope');
@@ -963,8 +991,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const labels = {smooth:'顺利', problem:'问题', unknown:'状态未知'};
     for (const [band, id] of [['under1000','delivery-small'],['atLeast1000','delivery-large']]) {
       const items = rows.filter(row => deliveryBand(row) === band && (!row.game || row.game === selected.game));
+      const trendId = id + '-trend';
+      const byDate = new Map(dates.map(date => [date,{date}]));
+      for (const row of rowsFor(delivery,'daily')) {
+        const record = byDate.get(row.date), kind = row.deliveryStatus;
+        if (!record || row.quantityBand !== band || !['smooth','problem'].includes(kind) ||
+            !present(row.meanMinutes) || !present(row.timedOrders) || row.timedOrders <= 0) continue;
+        const known = record[kind + 'Timed'] || 0, total = known + row.timedOrders;
+        record[kind] = ((record[kind] || 0) * known + row.meanMinutes * row.timedOrders) / total;
+        record[kind + 'Timed'] = total;
+      }
+      metricChart(trendId,[...byDate.values()],[
+        spec('smooth','顺利组平均耗时',minutes,'--fs-brand'),
+        spec('problem','问题组平均耗时',minutes,'--fs-danger'),
+      ], {showSamples:true, title:'按付款日比较样本完成耗时', subtitle:'按付款日 · 平均耗时（分钟）',
+        empty:'所选区间未取得可核实的逐日完成耗时。'});
       if (!items.length) {
         mount(id, empty(delivery?.reason || '所选区间未取得数量和问题状态可对应的 Coins 发货订单。'));
+        byId(trendId).replaceChildren();
         continue;
       }
       const host = byId(id);
@@ -987,9 +1031,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         legend.append(coloredLabel(labels[status] + ' ' + count(amounts[i]) + ' 单', color));
       }
-      const data = dataTable('发货质量', ['平台','状态',sample ? '样本订单数' : '订单数','已核时长','中位时长','P90'],
+      const data = dataTable('发货质量', ['平台','状态',sample ? '样本订单数' : '订单数','已核时长','平均耗时','中位耗时','P90','问题至完成均值','问题至完成中位数','问题计时笔数'],
         items.map(row => [row.platform || '汇总',labels[row.deliveryStatus] || row.deliveryStatus || '状态未知',count(row.orders),
-          count(row.timedOrders),minutes(row.medianMinutes),minutes(row.p90Minutes)]));
+          count(row.timedOrders),minutes(row.meanMinutes),minutes(row.medianMinutes),minutes(row.p90Minutes),
+          minutes(row.problemToCompleteMinutes?.meanMinutes),minutes(row.problemToCompleteMinutes?.medianMinutes),
+          count(row.problemToCompleteMinutes?.orders)]));
       host.replaceChildren();
       if (delivery.status === 'partial') host.append(element('p','部分覆盖 · 时长只统计已观测发货订单。','card-sub'));
       host.append(legend, track, data);
@@ -999,6 +1045,25 @@ document.addEventListener('DOMContentLoaded', () => {
       ...fieldCoverage(orderData, [['delivery','数量与状态'],['fulfillment','发货统计']]),
       '按购买数量划分为 1000K 以下与 1000K 及以上。状态未知及耗时未取得在表中留示。',
     ]);
+    const completion = delivery?.completion;
+    const holder = byId('delivery-completion');
+    holder.hidden = !completion;
+    if (!completion) return;
+    const bandName = {under1000:'< 1000K', atLeast1000:'≥ 1000K', unknown:'数量未知'};
+    const data = rowsFor(completion,'rows');
+    const totals = completion.totals || {};
+    const timestamp = typeof completion.asOf === 'string' && present(Date.parse(completion.asOf)) ?
+      new Date(completion.asOf).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}) + ' 北京时间' : null;
+    const summary = [statuses[completion.status], timestamp,
+      present(totals.completionRate) ? '全队列完成率 ' + fractionalPct(totals.completionRate) : '全队列完成率未取得',
+      present(totals.orders) ? count(totals.completed) + ' / ' + count(totals.orders) + ' 单完成' : null,
+    ].filter(Boolean).join(' · ');
+    const cohort = dataTable('全付款队列完成率', ['平台','购买量','问题标记','已付款','已完成','未完结','已取消','完成率'],
+      data.map(row => [row.platform || '未知',bandName[row.quantityBand] || '数量未知',labels[row.deliveryStatus] || '状态未知',
+        count(row.orders),count(row.completed),count(row.open),count(row.canceled),fractionalPct(row.completionRate)]));
+    const panel = byId('delivery-cohort');
+    panel.replaceChildren(element('p',summary,'card-sub'),cohort);
+    if (completion.reason) panel.append(element('p',completion.reason,'coverage'));
   }
 
   function sources(packet) {
@@ -1037,7 +1102,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const prior = periods.get(key(selectedPrevious));
     const dates = allDays(selected.start, selected.end);
     const orderData = packet?.ordersData;
-    const traffic = packet?.traffic;
+    const traffic = trafficFor(packet, selected);
     byId('current-range').textContent = [selected.game, scopeLabel(selected.scope), rangeLabel(selected)].join(' · ');
     byId('compare-range').textContent = '对照期 ' + rangeLabel(selectedPrevious) + (prior ? '' : ' · 汇总未取得');
     loadedSelect.value = packet ? key(packet) : '';
@@ -1049,7 +1114,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCustomers(orderData, dates);
     document.querySelectorAll('.traffic-status').forEach(node => node.remove());
     renderTraffic(traffic);
-    renderDelivery(orderData);
+    renderDelivery(orderData, dates);
     sources(packet);
   }
 
@@ -1142,6 +1207,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.addEventListener('hashchange', activeNav);
   window.addEventListener('pagehide', () => activeRequest?.abort());
+  window.addEventListener('pageshow', event => { if (event.persisted && !periods.has(key(selected))) selectRange(selected); });
   activeNav();
   updatePackets(initial);
   const latest = rangeFor('FC27', 'all', 'week', asOf);

@@ -165,9 +165,12 @@
       <div class="section-head"><h2 id="delivery-title">发货质量</h2><span class="section-meta">Coins · 按订单购买数量（K）</span></div>
       <p id="delivery-scope" class="filter-note" hidden></p>
       <div class="grid">
-        <article class="panel card"><h3>Coins 少于 1000K</h3><div id="delivery-small"></div></article>
-        <article class="panel card"><h3>Coins 1000K 及以上</h3><div id="delivery-large"></div></article>
+        <article class="panel card"><h3>Coins 少于 1000K</h3><div id="delivery-small"></div><div id="delivery-small-trend" class="detail"></div></article>
+        <article class="panel card"><h3>Coins 1000K 及以上</h3><div id="delivery-large"></div><div id="delivery-large-trend" class="detail"></div></article>
       </div>
+      <article class="panel card completion-card" id="delivery-completion" hidden>
+        <h3>Order Coins 付款队列完成率</h3><div id="delivery-cohort"></div>
+      </article>
       <div id="delivery-coverage"></div>
     </section>
     <footer><details id="sources"><summary>数据来源与口径</summary><div id="source-list"></div></details></footer>

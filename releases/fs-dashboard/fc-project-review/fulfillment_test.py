@@ -30,8 +30,10 @@ class FulfillmentTest(unittest.TestCase):
     def test_issue_is_historical_and_last_matching_shipment_times_completion(self):
         result, sample = evidence(detail(), {"platform": "PC", "had_issue": True}, DAY, DAY)
         self.assertEqual(result, "timed")
-        self.assertEqual(sample, {"platform": "PC", "band": "atLeast1000", "status": "problem", "minutes": 19})
+        self.assertEqual(sample, {"platform": "PC", "band": "atLeast1000", "status": "problem", "minutes": 19, "opened_date": "2026-11-16", "problem_minutes": 10})
         self.assertEqual(summarize([sample])[0]["p90Minutes"], 19)
+        daily = summarize([sample], by_day=True)[0]
+        self.assertEqual((daily["date"], daily["meanMinutes"], daily["problemToCompleteMinutes"]["meanMinutes"]), ("2026-11-16",19,10))
 
     def test_no_quantity_match_does_not_record_duration(self):
         raw = detail()
@@ -66,6 +68,3 @@ class FulfillmentTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-

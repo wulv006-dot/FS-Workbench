@@ -20,4 +20,3 @@
 5. 聚合 `traffic-evidence.json` 保留分来源日期、来源时区、活动记录的来源版本、对照值及缺项。使用 `python -B releases/fs-dashboard/fc-project-review/traffic_test.py` 检查等龄 Ads 挑选、GSC 完成日截齐与缺渠道数值保留空值。
 
 本轮未改投放、价格或生产采集配置。GSC 的 11 月 18 日在本次查询时尚未进入 final。
-

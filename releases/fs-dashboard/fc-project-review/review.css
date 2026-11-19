@@ -51,13 +51,14 @@ section{margin-top:1.45rem}
 .mini-kpis{grid-template-columns:repeat(auto-fit,minmax(min(100%,7.5rem),1fr));margin-bottom:.75rem}
 .kpi{padding:.78rem .85rem;min-width:0}
 .kpi span,.kpi small{display:block;color:var(--fs-muted);font-size:.75rem}
-.kpi strong{display:block;margin:.23rem 0;font-size:clamp(1rem,1.36vw,1.3rem);font-variant-numeric:tabular-nums;letter-spacing:-.022em;font-weight:720;overflow-wrap:anywhere}
+.kpi strong{display:block;margin:.23rem 0;font-size:clamp(1rem,1.20vw,1.24rem);font-variant-numeric:tabular-nums;letter-spacing:-.028em;font-weight:720;overflow-wrap:anywhere}
 .kpi .up{color:var(--fs-up)}
 .kpi .down{color:var(--fs-down)}
 .kpi .flat,.kpi .no-value{color:var(--fs-muted)}
 .grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:.75rem}
 .grid-major{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}
 .card{min-width:0;padding:1rem}
+.completion-card{margin-top:.75rem}
 .card h3{margin-bottom:.64rem}
 .card p.card-sub,.card p.traffic-status{margin-bottom:.45rem}
 .card-head{justify-content:space-between;flex-wrap:wrap;margin-bottom:.64rem;gap:.35rem .65rem}

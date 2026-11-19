@@ -468,6 +468,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('releases/fs-dashboard/fc-project-review/'):
+            groups.add('fc-project-review');continue
         if name.startswith('opt/mmoexp-lucky-loot/') or name == 'opt/bot-console/lucky_proxy.py':
             groups.add('lucky-loot');continue
         if name.startswith('releases/rpg-console/console-v2-20261112/'):
@@ -937,6 +939,9 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group == 'fc-project-review':
+            units('releases/fs-dashboard/fc-project-review',['test_api','test_review','tests_orders','traffic_test','fulfillment_test','test_dashboard_release'])
+            continue
         if group == 'order-email-deployment':
             integration='releases/fs-dashboard/order-email-export-20261111/integration'
             units(integration, ['test_prepare.Backend', 'test_workspace_patch', 'test_nginx_patch', 'test_package'])

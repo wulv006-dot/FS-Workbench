@@ -102,7 +102,9 @@ def evidence(detail, row, start, end):
     opened = ordered[0][0]
     if not start <= opened.date() <= end:
         return "queue_entry_outside_requested_period", None
-    issue = any(log[2] == "6" for log in ordered)
+    sample["opened_date"] = opened.date().isoformat()
+    first_issue = next((log[0] for log in ordered if log[2] == "6"), None)
+    issue = first_issue is not None
     if issue != row["had_issue"]:
         return "issue_flag_log_conflict", sample
     sample["status"] = "problem" if issue else "smooth"
@@ -131,6 +133,8 @@ def evidence(detail, row, start, end):
     if min(timestamps) < opened or final_shipment > ordered[-1][0] + timedelta(minutes=1):
         return "delivery_timeline_conflict", sample
     sample["minutes"] = (final_shipment - opened).total_seconds() / 60
+    if first_issue is not None and first_issue <= final_shipment:
+        sample["problem_minutes"] = (final_shipment - first_issue).total_seconds() / 60
     return "timed", sample
 
 
@@ -189,18 +193,44 @@ def select_sample(candidates, start):
     return result
 
 
-def summarize(samples):
+def time_summary(timed):
+    if not timed:
+        return {"orders": 0, "meanMinutes": None, "medianMinutes": None, "p90Minutes": None}
+    ordered = sorted(timed)
+    return {"orders": len(ordered), "meanMinutes": round(sum(ordered) / len(ordered), 2),
+            "medianMinutes": round(median(ordered), 2),
+            "p90Minutes": round(ordered[math.ceil(len(ordered) * 0.9) - 1], 2)}
+
+
+def duration_summary(rows):
+    totals = time_summary([row["minutes"] for row in rows if row["minutes"] is not None])
+    timed = totals.pop("orders")
+    problems = time_summary([row["problem_minutes"] for row in rows if row.get("problem_minutes") is not None])
+    return {"orders": len(rows), "timedOrders": timed, **totals,
+            "problemToCompleteMinutes": problems if problems["orders"] else None}
+
+
+def summarize(samples, *, by_day=False):
     groups = defaultdict(list)
     for item in samples:
-        groups[(item["platform"], item["band"], item["status"])].append(item["minutes"])
+        if by_day and not item.get("opened_date"):
+            continue
+        key = (item["platform"], item["band"], item["status"])
+        groups[(item["opened_date"], *key) if by_day else key].append(item)
     rows = []
-    for (platform, band, status), minutes in sorted(groups.items()):
-        timed = sorted(t for t in minutes if t is not None)
+    for key, members in sorted(groups.items()):
+        platform, band, status = key[-3:]
         rows.append({"game": "FC27", "platform": platform, "category": "Coins", "quantityBand": band,
-                     "deliveryStatus": status, "orders": len(minutes), "timedOrders": len(timed),
-                     "medianMinutes": round(median(timed), 2) if timed else None,
-                     "p90Minutes": round(timed[math.ceil(len(timed) * 0.9) - 1], 2) if timed else None})
+                     "deliveryStatus": status, **({"date": key[0]} if by_day else {}), **duration_summary(members)})
     return rows
+
+
+def daily_totals(samples):
+    groups = defaultdict(list)
+    for row in samples:
+        if row.get("opened_date"):
+            groups[row["opened_date"]].append(row)
+    return [{"date": day, **duration_summary(rows)} for day, rows in sorted(groups.items())]
 
 
 def readonly(route):
@@ -213,9 +243,9 @@ def readonly(route):
         route.abort()
 
 
-def collect(start, end):
+def collect(start, end, *, deadline=None):
     from playwright.sync_api import Error, sync_playwright
-    deadline = monotonic() + 105
+    deadline = deadline if deadline is not None else monotonic() + 105
     candidates = {}
     proofs = []
     samples = []
@@ -267,7 +297,7 @@ def collect(start, end):
         "coverage": {"candidates": len(candidates), "selected": len(selected), "retained": len(samples),
                      "timed": outcomes["timed"], "payments": proofs, "outcomes": dict(outcomes),
                      "timeZone": "Asia/Shanghai", "selection": "每期最多三日，各读曾问题及非曾问题前两页，按平台和数量等额选最多两笔"},
-        "rows": summarize(samples),
+        "rows": summarize(samples), "daily": summarize(samples, by_day=True), "dailyTotals": daily_totals(samples),
     }
 
 
@@ -349,11 +379,11 @@ def queue_summary(rows, purchases, complete):
         "quantityLinked": orders_of_known_size, "duplicateNativeRows": conflicts}}
 
 
-def collect_queue(start, end, purchases, publication):
+def collect_queue(start, end, purchases, publication, *, deadline=None):
     from playwright.sync_api import Error, sync_playwright
     fields = {"start": start.isoformat() + " 00:00", "end": end.isoformat() + " 23:59:59"}
     proofs, rows = [], []
-    deadline = monotonic() + 100
+    deadline = deadline if deadline is not None else monotonic() + 100
     with sync_playwright() as playwright:
         browser = playwright.chromium.connect_over_cdp("http://127.0.0.1:9226", timeout=8000, no_defaults=True)
         page = browser.contexts[0].new_page()
@@ -393,4 +423,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -31,7 +31,8 @@ NAV = {
 }
 BACKEND = {f'backend/{name}': EXACT + name for name in ('range_api.py', 'fc_dashboard.py')}
 BACKEND.update({f'backend/{name}': EXACT + 'fc_project_review/' + name
-                for name in ('api.py', 'review.py', 'orders.py', 'traffic.py', 'prices.py', 'fulfillment.py')})
+                for name in ('api.py', 'review.py', 'orders.py', 'traffic.py', 'prices.py', 'fulfillment.py',
+                             'fulfillment_completion_bridge.py')})
 SHA = lambda raw: hashlib.sha256(raw).hexdigest()
 
 

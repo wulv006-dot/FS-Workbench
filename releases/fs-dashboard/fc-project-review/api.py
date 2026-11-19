@@ -100,14 +100,7 @@ def capture(game, start, end, actor, get_range, order_facts, authorizer):
             LOG.warning("FC traffic: %s",type(exc).__name__)
             result["coverage"].append("流量或归因源本次未完整返回")
         try:
-            with (HERE/"fulfillment.py").open("rb") as reader:
-                proc=subprocess.run(["flock","-n","/var/www/dashboard/fs-home/transactions/collector.lock",
-                                     "timeout","115","docker","exec","-i","fc27-cloud-browser",
-                                     "python3","-B","-","--start",start,"--end",end],
-                                    stdin=reader,capture_output=True,timeout=125)
-            if proc.returncode:
-                raise RuntimeError("delivery reader busy or unavailable")
-            sampled=json.loads(proc.stdout.decode("utf-8"))
+            sampled=read_program(sys.executable,"fulfillment_completion_bridge.py","--start",start,"--end",end)
             if (sampled["start"],sampled["end"])!=(start,end):
                 raise ValueError("delivery window mismatch")
             result.setdefault("ordersData",{})["delivery"]=sampled
