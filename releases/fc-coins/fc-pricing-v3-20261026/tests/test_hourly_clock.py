@@ -155,5 +155,27 @@ class HourlyClockTest(unittest.TestCase):
             worker.collect_quote.assert_called_once()
             writer.assert_not_called()
 
+
+    def test_revision_and_resume_due_store_utc_and_compare_at_real_deadline(self):
+        now = datetime(2026,11,20,1,10,tzinfo=TZ).astimezone(timezone.utc)
+        deadline = datetime(2026,11,20,1,15,tzinfo=TZ).astimezone(timezone.utc)
+        for resumed in (False, True):
+            with self.subTest(resumed=resumed), tempfile.TemporaryDirectory() as folder:
+                db = Ledger(Path(folder) / 'control.sqlite3')
+                plan = dict(self.plan, revision=2)
+                if resumed:
+                    plan['resumed_at'] = now.isoformat()
+                with patch.object(scheduler,'clock',return_value=now):
+                    due = scheduler.next_cycle_at(db,plan,self.policy)
+                self.assertEqual(due,deadline)
+                self.assertEqual(due.utcoffset(),timedelta(0))
+                db.enqueue('cycle','cycle:plan:test:r0',due,dict(plan_id='plan',revision=2))
+                with db.connect() as conn:
+                    saved = conn.execute("SELECT due_at FROM durable_jobs WHERE id='cycle:plan:test:r0'").fetchone()[0]
+                    self.assertEqual(saved,deadline.isoformat())
+                    query = "SELECT count(*) FROM durable_jobs WHERE state='queued' AND due_at<=?"
+                    self.assertEqual(conn.execute(query,((deadline-timedelta(seconds=1)).isoformat(),)).fetchone()[0],0)
+                    self.assertEqual(conn.execute(query,(deadline.isoformat(),)).fetchone()[0],1)
+
 if __name__ == '__main__':
     unittest.main()

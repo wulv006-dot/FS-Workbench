@@ -24,6 +24,8 @@ from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_mark
 from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, curve_arab_quote_targets
 from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
 from target_map import ORDER_COST_CHANNEL_OVERLAY, order_cost_channel_overlay
+from target_map import HOURLY_COST_CHANNEL_BASE, HOURLY_COST_CHANNEL_OVERLAY, hourly_cost_channel_overlay
+from target_map import ORDER_COST_CHANNEL_REPOSITORY
 from target_map import CURVE_MARGIN_BAND_SCOPE, CURVE_MARGIN_BAND_TARGET_COUNT, curve_margin_band_targets
 from target_map import CURVE_REVIEW_SCOPE, CURVE_REVIEW_TARGET_COUNT, curve_review_targets
 from target_map import CURVE_STABILITY_SCOPE, CURVE_STABILITY_TARGET_COUNT, CURVE_STABILITY_REPOSITORY_SOURCES, curve_stability_targets
@@ -99,15 +101,15 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         raise ValueError('curve_arab_quote_source_provenance_changed')
     if curve_recovery and provenance.get('scope') != CURVE_RECOVERY_SCOPES[curve_recovery]:
         raise ValueError('curve_recovery_source_provenance_changed')
-    if curve_recovery == 'order-cost':
-        if provenance.get('liveSourceOverlays') != [ORDER_COST_CHANNEL_OVERLAY]:
+    channel_overlay = None
+    if curve_recovery in ('order-cost', 'hourly-order-cost'):
+        hourly = curve_recovery == 'hourly-order-cost'
+        channel_overlay = HOURLY_COST_CHANNEL_OVERLAY if hourly else ORDER_COST_CHANNEL_OVERLAY
+        if provenance.get('liveSourceOverlays') != [channel_overlay]:
             raise ValueError('order_cost_channel_overlay_provenance_changed')
-        live = Path(ORDER_COST_CHANNEL_OVERLAY['target'])
-        candidate = STAGE / 'candidate' / ORDER_COST_CHANNEL_OVERLAY['candidate']
-        regular(live)
-        regular(candidate)
-        if order_cost_channel_overlay(live.read_bytes()) != candidate.read_bytes():
-            raise ValueError('order_cost_channel_overlay_changed')
+        if hourly and (provenance.get('sourceBaseCommit') != HOURLY_COST_CHANNEL_BASE
+                       or provenance.get('repositorySources') != {channel_overlay['candidate']: ORDER_COST_CHANNEL_REPOSITORY}):
+            raise ValueError('hourly_cost_channel_overlay_provenance_changed')
     if curve_margin_band and provenance.get('scope') != CURVE_MARGIN_BAND_SCOPE:
         raise ValueError('curve_margin_band_source_provenance_changed')
     if curve_review and provenance.get('scope') != CURVE_REVIEW_SCOPE:
@@ -179,7 +181,16 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
             if info.st_uid != 0 or info.st_gid != 0:
                 raise ValueError('target_owner_drift:' + target)
             mode = oct(stat.S_IMODE(info.st_mode))
-            before = sha(current)
+            if channel_overlay and name == channel_overlay['candidate']:
+                live = current.read_bytes()
+                contents = (STAGE / 'candidate' / name).read_bytes()
+                expected_overlay = (hourly_cost_channel_overlay(live, contents) if hourly
+                                    else order_cost_channel_overlay(live))
+                if expected_overlay != contents:
+                    raise ValueError('order_cost_channel_overlay_changed')
+                before = hashlib.sha256(live).hexdigest()
+            else:
+                before = sha(current)
         else:
             mode = '0o755' if target == '/opt/fc27-cloud-browser/reconcile_price.sh' else '0o644'
             before = None

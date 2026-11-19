@@ -37,7 +37,7 @@ def _v6_hourly(plan, policy):
 
 def _hourly_slot(now):
     local = now.astimezone(timezone(timedelta(hours=8)))
-    return local.replace(minute=15, second=0, microsecond=0)
+    return local.replace(minute=15, second=0, microsecond=0).astimezone(timezone.utc)
 
 
 def _natural_hour_used(db, plan, now):

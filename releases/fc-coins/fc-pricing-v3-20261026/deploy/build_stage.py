@@ -22,6 +22,7 @@ from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEK
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, curve_arab_quote_targets
 from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
+from target_map import HOURLY_COST_CHANNEL_BASE, HOURLY_COST_CHANNEL_OVERLAY, hourly_cost_channel_overlay
 from target_map import (ORDER_COST_CHANNEL_INSERT, ORDER_COST_CHANNEL_OVERLAY,
                         ORDER_COST_CHANNEL_REPOSITORY, order_cost_channel_overlay)
 from target_map import CURVE_MARGIN_BAND_SCOPE, CURVE_MARGIN_BAND_TARGET_COUNT, curve_margin_band_targets
@@ -54,18 +55,24 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
                    curve_weekly, curve_review, curve_margin_band, curve_arab_quote, curve_recovery)
     if sum(map(bool,(coupon_display,three_platform,lootbar,*curve_modes)))>1:raise ValueError('exclusive_stage_mode_required')
     if monitor_sqlite_library is not None and not three_platform:raise ValueError('monitor_library_requires_three_platform_scope')
-    if (curve_recovery == 'order-cost') != (order_cost_channel_baseline is not None):
+    if (curve_recovery in ('order-cost', 'hourly-order-cost')) != (order_cost_channel_baseline is not None):
         raise ValueError('order_cost_channel_baseline_required_for_scope')
+    checkout = Path(checkout).resolve()
+    release = checkout / 'releases/fc-coins/fc-pricing-v3-20261026'
+    source = release / 'source'
     channel_overlay = None
     if order_cost_channel_baseline is not None:
         baseline = Path(order_cost_channel_baseline)
         if baseline.is_symlink() or not baseline.is_file():
             raise ValueError('order_cost_channel_baseline_invalid')
-        channel_overlay = order_cost_channel_overlay(baseline.read_bytes())
-    checkout = Path(checkout).resolve()
-    release = checkout / 'releases/fc-coins/fc-pricing-v3-20261026'
-    source = release / 'source'
+        live = baseline.read_bytes()
+        if curve_recovery == 'order-cost':
+            channel_overlay = order_cost_channel_overlay(live)
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, text=True).strip()
+    if curve_recovery == 'hourly-order-cost':
+        channel_path = checkout / ORDER_COST_CHANNEL_REPOSITORY
+        previous, updated = (git_blob(checkout, channel_path, rev) for rev in (HOURLY_COST_CHANNEL_BASE, commit))
+        channel_overlay = hourly_cost_channel_overlay(live, updated, repository_before=previous)
     paths=[str(release.relative_to(checkout))]
     if coupon_display:paths.append(COUPON_DISPLAY_SOURCE)
     if lootbar:paths.extend(LOOTBAR_CALLER_REPOSITORY_SOURCES.values())
@@ -104,7 +111,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
     def read_blob(path):
         return git_blob(checkout, path, commit) if curve_stage else git_blob(checkout, path)
 
-    if channel_overlay is not None and ORDER_COST_CHANNEL_INSERT not in read_blob(checkout / ORDER_COST_CHANNEL_REPOSITORY):
+    if curve_recovery == 'order-cost' and ORDER_COST_CHANNEL_INSERT not in read_blob(checkout / ORDER_COST_CHANNEL_REPOSITORY):
         raise ValueError('order_cost_channel_repository_delta_missing')
     with tempfile.TemporaryDirectory(prefix='fc-v3-stage-') as temporary:
         stage = Path(temporary) / 'fc-pricing-v3-20261026'
@@ -155,7 +162,11 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             provenance['scope'] = CURVE_ARAB_QUOTE_SCOPE
         if curve_recovery:
             provenance['scope'] = CURVE_RECOVERY_SCOPES[curve_recovery]
-        if channel_overlay is not None:
+        if curve_recovery == 'hourly-order-cost':
+            provenance.update(sourceBaseCommit=HOURLY_COST_CHANNEL_BASE,
+                              repositorySources={HOURLY_COST_CHANNEL_OVERLAY['candidate']: ORDER_COST_CHANNEL_REPOSITORY},
+                              liveSourceOverlays=[HOURLY_COST_CHANNEL_OVERLAY])
+        elif curve_recovery == 'order-cost':
             provenance['liveSourceOverlays'] = [ORDER_COST_CHANNEL_OVERLAY]
         if curve_margin_band:
             provenance['scope'] = CURVE_MARGIN_BAND_SCOPE
