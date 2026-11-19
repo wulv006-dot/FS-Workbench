@@ -194,22 +194,23 @@ class CompetitorOffersV6(unittest.TestCase):
         module=snapshot_module()
         from threading import Event
 
-        cost_started, market_started = Event(), Event()
+        cost_started, fx_started = Event(), Event()
 
         def run_source(command, **kwargs):
             if command[0] == str(module.COST_COLLECTOR):
                 cost_started.set()
-                self.assertTrue(market_started.wait(1), 'market source should start before Order finishes')
+                self.assertTrue(fx_started.wait(2), 'the FX read must start before the outstanding Order read finishes')
             elif command[0] == str(module.COLLECTOR):
-                market_started.set()
                 self.assertTrue(cost_started.wait(1), 'Order cost should start before the market source finishes')
+            elif command[0] == str(module.FX_COLLECTOR):
+                fx_started.set()
             return SimpleNamespace(returncode=int(command[0] in (str(module.COLLECTOR), str(module.PUBLIC_COLLECTOR))),
                                    stdout=b'')
         with tempfile.TemporaryDirectory() as folder,patch.object(module,'ROOT',Path(folder)),\
              patch.object(module.subprocess,'run',side_effect=run_source) as run,\
              patch.object(module,'collector_failure',return_value='fixture_missing'),\
              patch('fc_pricing_v3.runtime.ledger'),\
-             patch('fc_pricing_v3.runtime._curve_insurance_context',return_value={'confirmed_cost_cny_per_k': '.4'}),\
+             patch('fc_pricing_v3.runtime._confirmed_cost_references',return_value=dict.fromkeys(module.PLATFORMS,'.4')),\
              patch.object(module,'cost_snapshots',return_value=[dict(status='valid',platform=p) for p in module.PLATFORMS]),\
              patch.object(module,'newest_evidence',return_value=dict(status='valid',checked_at=NOW.isoformat(),cny_per_usd='7')),\
              patch.object(module,'atomic_json') as save,patch.object(module.os,'chown',create=True),patch.object(module.os,'chmod'):
@@ -243,7 +244,7 @@ class CompetitorOffersV6(unittest.TestCase):
             return next(fixture_evidence) if pattern.endswith('lootbar-*.jsonl') else []
         with tempfile.TemporaryDirectory() as folder,patch.object(module,'ROOT',Path(folder)),\
              patch('fc_pricing_v3.runtime.ledger'),\
-             patch('fc_pricing_v3.runtime._curve_insurance_context',return_value={'confirmed_cost_cny_per_k': None}),\
+             patch('fc_pricing_v3.runtime._confirmed_cost_references',return_value=dict.fromkeys(module.PLATFORMS)),\
              patch.object(module.subprocess,'run',side_effect=run_source) as run,\
              patch.object(module.glob,'glob',side_effect=fixture_glob),\
              patch.object(module.Path,'read_text',return_value='\n'.join(json.dumps(event) for event in events)),\

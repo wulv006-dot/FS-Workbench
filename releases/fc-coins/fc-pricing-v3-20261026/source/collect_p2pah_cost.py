@@ -266,7 +266,14 @@ def read_page(page, number, observations=None, window=None):
         if data.get("login"):
             raise CostPageError("login_expired", diagnostic)
         if window is not None and data.get('ready') not in ('interactive', 'complete'):
-            page.wait_for_timeout(500)
+            if window.get('area') == '0':
+                try:
+                    page.wait_for_function(
+                        "['interactive', 'complete'].includes(document.readyState)", timeout=500)
+                except PlaywrightTimeoutError:
+                    pass  # Retain the bounded retry and recheck the full page below.
+            else:
+                page.wait_for_timeout(500)
             continue
         if (data.get("page") == str(number) and data.get("game") == "1322"
                 and data.get("product") == "1" and data.get("genre") == "1"

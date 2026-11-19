@@ -295,6 +295,12 @@ CURVE_RECOVERY_TARGETS = {
         'snapshot_layer.py': '/opt/fc27-cloud-browser/snapshot_layer.py',
         **module_targets(('business_source.py', 'runtime.py', 'average_discount_v6.py')),
     },
+    'round-latency': {
+        'fc27_cloud_worker.py': '/opt/fc27-cloud-browser/fc27_cloud_worker.py',
+        'snapshot_layer.py': '/opt/fc27-cloud-browser/snapshot_layer.py',
+        'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
+        **module_targets(('business_source.py', 'runtime.py', 'planning_baskets_v6.py')),
+    },
     'recent-orders': module_targets(('business_source.py', 'planning_baskets_v6.py', 'runtime.py')),
     'outcomes': module_targets(('business_source.py', 'daily.py')),
     'cost-incidents': module_targets(('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py')),

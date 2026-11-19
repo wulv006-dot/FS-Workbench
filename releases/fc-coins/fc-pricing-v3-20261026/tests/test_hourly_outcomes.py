@@ -71,16 +71,23 @@ class HourlyOutcomesTest(unittest.TestCase):
     def test_overlapping_admin_paid_ranges_page_only_once(self):
         now, order, window = self.fixture()
         reads = []
+        coupon_reads = []
         def pages(session, path, filters, limit=200):
             if 'CouponLog' in path:
+                coupon_reads.append((filters,limit))
                 return []
-            reads.append(next(f[2] for f in filters if f[0] == 'paytime'))
+            reads.append((filters,limit))
             return [order]
         events = []
         with patch.object(source, 'hourly_accounting', return_value=dict(archived={}, cost_source={})):
             result = source.incremental_window_context(None, pages, [window], now, {},
                 progress=lambda stage, event, **details: events.append((stage, event)))
         self.assertEqual(len(reads), 1)
+        order_filters,limit = reads[0]
+        self.assertEqual(order_filters[:2], [('site_id','=','266'),('gid','=','1327')])
+        self.assertEqual(order_filters[2][:2], ('paytime','RANGE'))
+        self.assertEqual(limit,1000)
+        self.assertEqual(coupon_reads, [([('site_id','=','266'),('order_no','IN',order['order_no'])],200)])
         self.assertEqual(len(result['online']['actual_outcomes']), 1)
         self.assertEqual(events, [(stage, event) for stage in ('admin_paging', 'order_cost', 'es', 'binding')
                                   for event in ('start', 'done')])
@@ -251,7 +258,8 @@ class HourlyOutcomesTest(unittest.TestCase):
                     data['cost_delivery_rows'] = [row]
                 return data
             channel.enrich.side_effect = enrich
-            with patch.object(sys, 'path', [str(dashboard), *sys.path]), patch.dict('sys.modules', {'channel_source':channel}):
+            with patch.object(sys, 'path', [str(dashboard), *sys.path]), \
+                    patch.dict('sys.modules', {'channel_source':channel, 'order_delivery_index':None}):
                 result = source.hourly_accounting([order], {}, start, now, now-timedelta(days=1), reuse_closed_days=True)
         self.assertEqual(channel.load_costs.call_count, 1)
         self.assertEqual(channel.normalize.call_args.args[4], [row])

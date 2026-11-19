@@ -122,8 +122,30 @@ def collect_quote(job):
     if code or snapshot.get("status") != "ready_for_quote":
         job["error_detail"] = snapshot.get("reason") or snapshot.get("status") or "collector_failed"
         raise ValueError("collection_incomplete")
-    job["storefront"] = (refresh_storefront(job) if cfg['mode'] == 'server' else
-                         {'status': 'ok', 'collection_location': 'local', 'refreshed_platforms': list(PLATFORMS)})
+    run_path = ROOT / "runs" / f"{run_id}.json"
+    def snapshot_for_quote():
+        value = json.loads(run_path.read_text(encoding="utf-8"))
+        if value.get("run_id") != run_id or value.get("status") != "ready_for_quote":
+            raise ValueError("snapshot_changed_before_quote")
+        return value
+
+    arab = arab_input = None
+    if cfg['mode'] == 'server' and curve_run:
+        from concurrent.futures import ThreadPoolExecutor
+        from fc_pricing_v3.sources import collect_arab_100k
+        initial = snapshot_for_quote()
+        if not isinstance(initial.get('arab_ut_status'), dict):
+            # Both are independent, read-only observations of this run. Keep their original clients and leases.
+            arab_input = {k:initial.get(k) for k in ('run_id','created_at','checked_at','collection_deadline_at')}
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pending = pool.submit(collect_arab_100k, dict(arab_input,collection_mode=cfg))
+                job["storefront"] = refresh_storefront(job)
+                arab = pending.result()
+        else:
+            job["storefront"] = refresh_storefront(job)
+    else:
+        job["storefront"] = (refresh_storefront(job) if cfg['mode'] == 'server' else
+                             {'status': 'ok', 'collection_location': 'local', 'refreshed_platforms': list(PLATFORMS)})
     save_job(job)
     if job["storefront"].get("status") != "ok" and not curve_run:
         job["error_detail"] = "storefront_incomplete"
@@ -143,17 +165,15 @@ def collect_quote(job):
             raise ValueError("storefront_run_mismatch")
         state = dict(status='unavailable', collection_run_id=run_id,
                      reason=job['storefront'].get('reason') or 'storefront_run_mismatch')
-    run_path = ROOT / "runs" / f"{run_id}.json"
-    run_snapshot = json.loads(run_path.read_text(encoding="utf-8"))
-    if run_snapshot.get("run_id") != run_id or run_snapshot.get("status") != "ready_for_quote":
-        raise ValueError("snapshot_changed_before_quote")
+    run_snapshot = snapshot_for_quote()
     run_snapshot["storefront"] = state
     run_snapshot["collection_mode"] = cfg
     run_snapshot['source_plan']=planned
     # The existing shared source runtime owns HTTPS reads; worker Python has no ssl.
     if curve_run and not isinstance(run_snapshot.get('arab_ut_status'),dict):
         from fc_pricing_v3.sources import collect_arab_100k
-        run_snapshot['arab_ut_status']=collect_arab_100k(run_snapshot)
+        same_parent = arab_input is not None and all(run_snapshot.get(k)==v for k,v in arab_input.items())
+        run_snapshot['arab_ut_status'] = arab if same_parent else collect_arab_100k(run_snapshot)
     atomic_json(run_path, run_snapshot)
     os.chown(run_path, -1, 11028)
     os.chmod(run_path, 0o640)

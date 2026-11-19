@@ -27,6 +27,7 @@ class CurveV6Release(unittest.TestCase):
         modules_by_fix = {
             'live-order-cost': (),
             'shared-order': ('business_source.py', 'runtime.py', 'average_discount_v6.py'),
+            'round-latency': ('business_source.py', 'runtime.py', 'planning_baskets_v6.py'),
             'recent-orders': ('business_source.py', 'planning_baskets_v6.py', 'runtime.py'),
             'outcomes': ('business_source.py', 'daily.py'),
             'cost-incidents': ('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py'),
@@ -43,9 +44,11 @@ class CurveV6Release(unittest.TestCase):
                 for name in modules:
                     expected['source/fc_pricing_v3/' + name] = '/opt/fc27-cloud-browser/fc_pricing_v3/' + name
                     expected['source/hermes-copy/fc_pricing_v3/' + name] = '/opt/fs-hermes-fc/fc_pricing_v3/' + name
-                if fix in ('shared-order', 'live-order-cost'):
+                if fix in ('shared-order', 'live-order-cost', 'round-latency'):
                     expected['source/collect_p2pah_cost.py'] = '/opt/fc27-cloud-browser/collect_p2pah_cost.py'
                     expected['source/snapshot_layer.py'] = '/opt/fc27-cloud-browser/snapshot_layer.py'
+                if fix == 'round-latency':
+                    expected['source/fc27_cloud_worker.py'] = '/opt/fc27-cloud-browser/fc27_cloud_worker.py'
                 self.assertEqual(built['targets'], len(expected))
                 self.assertEqual(set(provenance['files']), set(expected))
                 self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)

@@ -60,7 +60,9 @@ class BusinessOutcome(unittest.TestCase):
 
     def test_public_storefront_429_keeps_original_v6_quote_path_only(self):
         from fc_pricing_v3.competitor_offers import POLICY
-        from fc_pricing_v3 import sources
+        from importlib import import_module
+        from threading import Event
+        sources = import_module('fc_pricing_v3.sources')
 
         source = SOURCE/'fc27_cloud_worker.py'
         function = next(node for node in ast.parse(source.read_text()).body
@@ -79,8 +81,19 @@ class BusinessOutcome(unittest.TestCase):
                              atomic_json=Mock(),os=SimpleNamespace(chown=Mock(),chmod=Mock()),json=json)
                 exec(compile(ast.Module(body=[function],type_ignores=[]),str(source),'exec'),scope)
                 arab = dict(status='available', offers=[dict(platform='PC', purchase_k='100')])
+                storefront_started, arab_started = Event(), Event()
+                def read_arab(_):
+                    arab_started.set()
+                    self.assertTrue(storefront_started.wait(2))
+                    return arab
+                def read_storefront(_):
+                    storefront_started.set()
+                    if scope_fields:
+                        self.assertTrue(arab_started.wait(2))
+                    return dict(status='unavailable',reason='HTTP 429')
+                scope['refresh_storefront'].side_effect = read_storefront
                 with patch.object(runtime,'ledger'), patch.object(runtime,'collection_scope',return_value=dict(
-                        active_mode='smart',scope=scope_fields)), patch.object(sources,'collect_arab_100k',return_value=arab) as collect_arab:
+                        active_mode='smart',scope=scope_fields)), patch.object(sources,'collect_arab_100k',side_effect=read_arab) as collect_arab:
                     if scope_fields:
                         result = scope['collect_quote'](dict(job_id='original'))
                         self.assertEqual(result,dict(run_id='original',quote_status='proof_incomplete'))

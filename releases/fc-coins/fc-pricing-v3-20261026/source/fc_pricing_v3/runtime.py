@@ -947,6 +947,36 @@ def _same_hour_curve_performance(platform, online, now):
     return result
 
 
+def _confirmed_cost_references(db, platforms=PLATFORMS, *, conn=None):
+    """Read each platform's latest original confirmed cost from one ledger snapshot."""
+    if conn is None:
+        from contextlib import closing
+        with closing(db.connect()) as conn:
+            conn.execute('BEGIN')
+            return _confirmed_cost_references(db, platforms, conn=conn)
+    pending = set(platforms)
+    references = dict.fromkeys(platforms)
+    for raw, in conn.execute('SELECT body FROM operations ORDER BY rowid DESC'):
+        op = json.loads(raw)
+        matches = (pending.intersection((op.get('bundle', {}).get('action', {}).get('curves') or {}))
+                   if op.get('status') in ('COMPLETED', 'NO_CHANGE') else set())
+        if not matches:
+            continue
+        try:
+            confirmed_curve_window(op)
+        except ValueError:
+            continue
+        snapshot = db.get('pricing_snapshots', op['bundle']['snapshot_id'], conn) or {}
+        for platform in matches:
+            cost = (snapshot.get('evidence', {}).get('costs') or {}).get(platform) or {}
+            selected = (op['bundle'].get('curve_selection') or {}).get(platform) or {}
+            references[platform] = selected.get('confirmed_cost_cny_per_k') or cost.get('cny_per_1k')
+            pending.remove(platform)
+        if not pending:
+            break
+    return references
+
+
 def _curve_insurance_context(db, platform, evidence, now):
     from .curve_strategy_v6 import band_anchors, large_market_reference
 
@@ -958,22 +988,8 @@ def _curve_insurance_context(db, platform, evidence, now):
                and (row.get('resource_closed_at', {}).get('base:' + platform) is None
                     or instant(row['resource_closed_at']['base:' + platform]) > cutoff)]
     day = max(windows, key=lambda row: instant(row['opened_at']), default=None)
-    reference = None
     with db.connect() as conn:
-        for raw, in conn.execute('SELECT body FROM operations ORDER BY rowid DESC'):
-            op = json.loads(raw)
-            if (op.get('status') not in ('COMPLETED', 'NO_CHANGE')
-                    or platform not in (op.get('bundle', {}).get('action', {}).get('curves') or {})):
-                continue
-            try:
-                confirmed_curve_window(op)
-            except ValueError:
-                continue
-            snapshot = db.get('pricing_snapshots', op['bundle']['snapshot_id'], conn) or {}
-            cost = (snapshot.get('evidence', {}).get('costs') or {}).get(platform) or {}
-            selected = (op['bundle'].get('curve_selection') or {}).get(platform) or {}
-            reference = selected.get('confirmed_cost_cny_per_k') or cost.get('cny_per_1k')
-            break
+        reference = _confirmed_cost_references(db, (platform,), conn=conn)[platform]
         # Old strategy rows contain large forecasts; project only this release's natural rounds.
         decisions = [json.loads(raw) for raw, in conn.execute(
             'SELECT body FROM strategy_decisions WHERE body LIKE ?', ('%"automatic_curve_round": true%',))]

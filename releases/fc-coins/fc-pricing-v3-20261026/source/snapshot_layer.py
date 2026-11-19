@@ -286,10 +286,8 @@ def collect_order_cost(run_id, *, curve_v6):
     try:
         cost_kwargs = {}
         if curve_v6:
-            from fc_pricing_v3.runtime import _curve_insurance_context, ledger
-            db = ledger()
-            captured = datetime.now(timezone.utc)
-            references = {p: _curve_insurance_context(db, p, {}, captured)['confirmed_cost_cny_per_k'] for p in PLATFORMS}
+            from fc_pricing_v3.runtime import _confirmed_cost_references, ledger
+            references = _confirmed_cost_references(ledger(), PLATFORMS)
             cost_kwargs['env'] = dict(os.environ, FC_V6_COST_REFERENCES=json.dumps(references))
         process = subprocess.run([str(COST_COLLECTOR)], capture_output=True, timeout=185, **cost_kwargs)
         if process.returncode:
@@ -320,6 +318,22 @@ def collect_order_cost(run_id, *, curve_v6):
     return costs, cost_failure, failure_text
 
 
+def collect_fx():
+    before = set(glob.glob(str(ROOT / "evidence/fx-*.json")))
+    try:
+        process = subprocess.run([str(FX_COLLECTOR)], capture_output=True, timeout=55)
+        if process.returncode:
+            raise ValueError(collector_failure("fx-*.json", before, "BOC"))
+        fx = newest_evidence("fx-*.json", before)
+        if fx.get("status") != "valid" or not fx.get("checked_at"):
+            raise ValueError("fx_contract_mismatch")
+        positive(fx.get("cny_per_usd"))
+        return fx, None
+    except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        return {"status": "missing", "reason": "fx_collector_failed"}, "BOC:" + (
+            str(exc) if isinstance(exc, ValueError) else type(exc).__name__)
+
+
 def collect_once(run_id=None, competitor_policy=None):
     from fc_pricing_v3.competitor_offers import CURRENT_QUANTITIES, POLICY, quantity_coverage
     if competitor_policy not in (None,POLICY):raise ValueError('competitor_policy_unknown')
@@ -332,25 +346,16 @@ def collect_once(run_id=None, competitor_policy=None):
         with ThreadPoolExecutor(max_workers=1) as executor:
             order = executor.submit(collect_order_cost, run_id, curve_v6=True)
             snapshots, quantity_offers, failures = collect_market_sources(run_id, curve_v6=True)
+            fx, fx_failure = collect_fx()
             costs, cost_failure, cost_failure_text = order.result()
     else:
         snapshots, quantity_offers, failures = collect_market_sources(run_id, curve_v6=False)
         costs, cost_failure, cost_failure_text = collect_order_cost(run_id, curve_v6=False)
+        fx, fx_failure = collect_fx()
     if cost_failure_text:
         failures.append("P2PAH:" + cost_failure_text)
-    fx = {"status": "missing", "reason": "fx_collector_failed"}
-    before = set(glob.glob(str(ROOT / "evidence/fx-*.json")))
-    try:
-        process = subprocess.run([str(FX_COLLECTOR)], capture_output=True, timeout=55)
-        if process.returncode:
-            raise ValueError(collector_failure("fx-*.json", before, "BOC"))
-        fx = newest_evidence("fx-*.json", before)
-        if fx.get("status") != "valid" or not fx.get("checked_at"):
-            raise ValueError("fx_contract_mismatch")
-        positive(fx.get("cny_per_usd"))
-    except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
-        failures.append("BOC:" + (str(exc) if isinstance(exc, ValueError) else type(exc).__name__))
-        fx = {"status": "missing", "reason": "fx_collector_failed"}
+    if fx_failure:
+        failures.append(fx_failure)
     valid_count = sum(x["status"] == "valid" for x in snapshots)
     cost_count = sum(x["status"] == "valid" for x in costs)
     coverage = dict(ready=True,required_sources=[],optional_sources=['Lootbar'],

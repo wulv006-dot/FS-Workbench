@@ -1572,7 +1572,12 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
     def indexed_costs(checked_at):
         if not reuse_closed_days or cohort_start + ' 00:00:00' > cutoff:
             return None
-        from order_delivery_index import covers_window, read_orders
+        try:
+            from order_delivery_index import covers_window, read_orders
+        except ModuleNotFoundError as exc:
+            if exc.name == 'order_delivery_index':
+                return None
+            raise
         keys = [('www.mmoexp.com', row['order_no']) for row in rows]
         since = cohort_start + ' 00:00:00'
         publication = read_orders(keys, root=channel.ROOT, since=since, until=cutoff)
@@ -1755,7 +1760,8 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
         while day<=stop:
             last=min(stop,day+timedelta(days=27))
             lo,hi=max(begin,day.isoformat()+' 00:00:00'),min(end,last.isoformat()+' 23:59:59')
-            batch=pages(session,'/admin/order.Order/index',[('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],100)
+            # Match the verified native page size already used by the shared ES producer.
+            batch=pages(session,'/admin/order.Order/index',[('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],1000)
             order_reads += 1
             fresh={}
             for row in batch:

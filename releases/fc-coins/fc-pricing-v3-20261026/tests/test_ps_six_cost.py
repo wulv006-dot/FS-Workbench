@@ -453,6 +453,39 @@ class SixCost(unittest.TestCase):
         window = dict(start=self.now, end=self.now+timedelta(hours=1), area='0')
         self.assertEqual(self.collector.read_page(page, 1, [], window=window), data)
 
+    def test_native_all_platform_wait_returns_on_dom_ready_and_rechecks_window(self):
+        window = dict(start=self.now, end=self.now + timedelta(hours=1), area='0')
+        loading = dict(self.empty_page(ready='loading'), area='0')
+        ready = dict(self.empty_page(ready='interactive'), area='0')
+        for wait_error, expected in ((None, ready), (TimeoutError, ready)):
+            with self.subTest(wait_error=wait_error):
+                observed = []
+                page = types.SimpleNamespace(goto=Mock(return_value=types.SimpleNamespace(status=200)),
+                    evaluate=Mock(side_effect=[loading, expected]),
+                    wait_for_function=Mock(side_effect=wait_error),
+                    wait_for_timeout=Mock())
+                self.assertEqual(self.collector.read_page(page, 1, observed, window=window), expected)
+                self.assertEqual([row['observed']['ready'] for row in observed], ['interactive'])
+                self.assertEqual(page.wait_for_function.call_count, 1)
+                self.assertEqual(page.wait_for_function.call_args.kwargs['timeout'], 500)
+                page.wait_for_timeout.assert_not_called()
+
+        page.evaluate = Mock(side_effect=[loading, dict(ready, area='21942')])
+        with self.assertRaisesRegex(self.collector.CostPageError, 'cost_ps_filter_unverified'):
+            self.collector.read_page(page, 1, [], window=window)
+
+    def test_native_all_platform_dom_wait_keeps_original_loading_budget(self):
+        window = dict(start=self.now, end=self.now + timedelta(hours=1), area='0')
+        page = types.SimpleNamespace(goto=Mock(return_value=types.SimpleNamespace(status=200)),
+            evaluate=Mock(return_value=dict(self.empty_page(ready='loading'), area='0')),
+            wait_for_function=Mock(side_effect=TimeoutError), wait_for_timeout=Mock())
+        with self.assertRaisesRegex(self.collector.CostPageError, 'filter_or_rows_unverified:1'):
+            self.collector.read_page(page, 1, [], window=window)
+        self.assertEqual(page.wait_for_function.call_count, 40)
+        self.assertTrue(all(call.kwargs['timeout'] == 500 for call in page.wait_for_function.call_args_list))
+        self.assertEqual(page.goto.call_args.kwargs['timeout'], 35000)
+        page.wait_for_timeout.assert_not_called()
+
     def test_ps_empty_page_waits_for_document_parsing_and_pc_gate_is_unchanged(self):
         values=iter([self.empty_page(ready='loading'),self.empty_page()]);waits=[]
         page=types.SimpleNamespace(goto=lambda *a,**k:types.SimpleNamespace(status=200),evaluate=lambda _:next(values),
