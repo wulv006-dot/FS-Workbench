@@ -227,6 +227,81 @@ class CompetitorOffersV6(unittest.TestCase):
         self.assertEqual(stored['legacy_competitor_scope'],'100k_observed_only')
         self.assertEqual(summary['status'],'ready_for_quote')
 
+    def test_snapshot_retries_only_timed_out_fx_after_current_order_completes(self):
+        from threading import Event
+        module = snapshot_module()
+        release_order = Event()
+        order_finished = Event()
+        run_id = '00000000-0000-4000-8000-000000000099'
+        costs = [dict(status='valid', platform=p, run_id=run_id) for p in module.PLATFORMS]
+        market_rows = [raw('100')]
+        missing = dict(status='missing', reason='fx_collector_failed')
+        rate = dict(status='valid', checked_at=NOW.isoformat(), cny_per_usd='7')
+        timeout = 'BOC:browser_connection_timeout'
+
+        def collect_cost(*args, **kwargs):
+            self.assertTrue(release_order.wait(2))
+            order_finished.set()
+            return costs, None, None
+
+        for recovered in (True, False):
+            with self.subTest(recovered=recovered), tempfile.TemporaryDirectory() as folder:
+                release_order.clear()
+                order_finished.clear()
+                attempts = []
+                second_failure = None if recovered else 'BOC:page_read_timeout'
+                warnings = ['Lootbar:collector_failed'] if recovered else []
+
+                def collect_fx():
+                    attempts.append(order_finished.is_set())
+                    if len(attempts) == 1:
+                        release_order.set()
+                        return missing, timeout
+                    return (rate if recovered else missing), second_failure
+
+                with patch.object(module, 'ROOT', Path(folder)), \
+                        patch.object(module, 'collect_market_sources', return_value=([], market_rows, list(warnings))) as market, \
+                        patch.object(module, 'collect_order_cost', side_effect=collect_cost) as cost, \
+                        patch.object(module, 'collect_fx', side_effect=collect_fx), \
+                        patch.object(module, 'atomic_json') as save, \
+                        patch.object(module.os, 'chown', create=True), patch.object(module.os, 'chmod'):
+                    summary, ready = module.collect_once(run_id, POLICY)
+                self.assertEqual(attempts, [False, True])
+                market.assert_called_once_with(run_id, curve_v6=True)
+                cost.assert_called_once_with(run_id, curve_v6=True)
+                stored = save.call_args.args[1]
+                self.assertEqual(stored['costs'], costs)
+                self.assertEqual(stored['competitor_offers'], market_rows)
+                self.assertEqual(stored['fx'], rate if recovered else missing)
+                self.assertEqual(stored['fx_retry'], dict(first_failure=timeout, retry_failure=second_failure))
+                self.assertEqual(stored['fx_retry'], summary['fx_retry'])
+                self.assertEqual(stored['source_warnings'], warnings)
+                self.assertEqual(ready, recovered)
+                self.assertEqual(summary['reason'], second_failure)
+
+    def test_snapshot_does_not_retry_fx_for_other_failures_or_legacy(self):
+        module = snapshot_module()
+        run_id = '00000000-0000-4000-8000-000000000099'
+        costs = [dict(status='valid', platform=p, run_id=run_id) for p in module.PLATFORMS]
+        timeout = 'BOC:browser_connection_timeout'
+        cases = [(POLICY, costs, True, 'BOC:page_read_timeout'),
+                 (POLICY, costs, False, timeout),
+                 (POLICY, costs[:-1], True, timeout),
+                 (None, costs, True, timeout)]
+        for mode, platform_costs, market_ready, fx_failure in cases:
+            with self.subTest(mode=mode, count=len(platform_costs), market_ready=market_ready, fx=fx_failure), \
+                    tempfile.TemporaryDirectory() as folder, patch.object(module, 'ROOT', Path(folder)), \
+                    patch.object(module, 'collect_market_sources', return_value=([], [], [])), \
+                    patch('fc_pricing_v3.competitor_offers.quantity_coverage', return_value={'ready': market_ready}), \
+                    patch.object(module, 'collect_order_cost', return_value=(platform_costs, None, None)), \
+                    patch.object(module, 'collect_fx', return_value=(dict(status='missing'), fx_failure)) as fx, \
+                    patch.object(module, 'atomic_json') as save, \
+                    patch.object(module.os, 'chown', create=True), patch.object(module.os, 'chmod'):
+                _, ready = module.collect_once(run_id, mode)
+                self.assertFalse(ready)
+                fx.assert_called_once()
+                self.assertNotIn('fx_retry', save.call_args.args[1])
+
     def test_snapshot_only_requests_and_records_100k_lootbar_rows(self):
         module=snapshot_module()
         offers={p:dict(platform=p,base_k='100',bonus_k='5',usd_price='9',coupon_excluded=False) for p in module.PLATFORMS}

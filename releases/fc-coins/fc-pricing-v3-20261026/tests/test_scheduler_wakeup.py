@@ -116,5 +116,50 @@ class SchedulerWakeupTest(unittest.TestCase):
             executors['collection'].submit.assert_called_once()
 
 
+    def test_original_future_retry_wakes_at_due_without_changing_identity(self):
+        now = datetime(2026, 11, 20, 0, 43, 10, tzinfo=timezone.utc)
+        due = now + timedelta(seconds=29, milliseconds=700)
+        for deferred in (False, True):
+            with self.subTest(deferred=deferred), tempfile.TemporaryDirectory() as folder:
+                db = Ledger(Path(folder) / 'control.sqlite3')
+                plan = dict(plan_id='plan', revision=1, generation='g', resources=['base:pc'],
+                            starts_at=(now - timedelta(hours=1)).isoformat(),
+                            last_cycle_at=(now - timedelta(hours=1)).isoformat(),
+                            state='ACTIVE', mode='daily', resume_count=1)
+                db.put('metadata', 'generation', dict(id='g'))
+                db.put('pricing_plans', 'plan', plan)
+                body = dict(plan_id='plan', revision=1)
+                if deferred:
+                    body['deferred_reason'] = scheduler.WAITING_FOR_ES
+                identity = 'cycle:plan:original:r1'
+                db.enqueue('cycle', identity, due, body)
+                with db.transaction() as conn:
+                    conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','plan',1,'g')")
+                    conn.execute('UPDATE durable_jobs SET attempt=? WHERE id=?', (2, identity))
+                future = Mock()
+                future.done.return_value = False
+                executors = {lane: Mock() for lane in ('collection', 'control', 'observation', 'outcomes')}
+                executors['collection'].submit.return_value = future
+                running = {}
+                with patch.object(scheduler, 'ledger', return_value=db), \
+                        patch.object(scheduler, 'export_shadow_snapshot'), \
+                        patch.object(runtime, 'write_json'), \
+                        patch('automation_policy.load_policy', return_value=dict(interval_minutes=60)):
+                    with patch.object(scheduler, 'clock', return_value=now):
+                        self.assertEqual(scheduler.tick(executors, running), due)
+                    with db.connect() as conn:
+                        before = dict(conn.execute('SELECT * FROM durable_jobs WHERE id=?', (identity,)).fetchone())
+                    self.assertEqual((before['state'], before['attempt'], before['due_at']),
+                                     ('queued', 2, due.isoformat()))
+                    with patch.object(scheduler, 'clock', return_value=due):
+                        scheduler.tick(executors, running)
+                        scheduler.tick(executors, running)
+                with db.connect() as conn:
+                    rows = conn.execute("SELECT id,state,attempt,due_at FROM durable_jobs WHERE kind='cycle'").fetchall()
+                self.assertEqual(len(rows), 1)
+                self.assertEqual(tuple(rows[0]), (identity, 'running', 2, due.isoformat()))
+                executors['collection'].submit.assert_called_once()
+
+
 if __name__ == '__main__':
     unittest.main()

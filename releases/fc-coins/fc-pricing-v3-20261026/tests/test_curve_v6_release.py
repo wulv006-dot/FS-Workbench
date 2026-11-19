@@ -30,7 +30,7 @@ class CurveV6Release(unittest.TestCase):
             'round-latency': ('business_source.py', 'runtime.py', 'planning_baskets_v6.py'),
             'recent-orders': ('business_source.py', 'planning_baskets_v6.py', 'runtime.py'),
             'catalogue-inputs': ('runtime.py',),
-            'cycle-wakeup': ('scheduler.py',),
+            'cycle-recovery': ('scheduler.py',),
             'targeted-price-reads': ('business_source.py', 'daily.py'),
             'outcomes': ('business_source.py', 'daily.py'),
             'cost-incidents': ('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py'),
@@ -54,6 +54,8 @@ class CurveV6Release(unittest.TestCase):
                     expected['source/fc27_cloud_worker.py'] = '/opt/fc27-cloud-browser/fc27_cloud_worker.py'
                 if fix == 'targeted-price-reads':
                     expected['source/coin_all_sync_job.py'] = '/opt/fc27-cloud-browser/coin_all_sync_job.py'
+                if fix == 'cycle-recovery':
+                    expected['source/snapshot_layer.py'] = '/opt/fc27-cloud-browser/snapshot_layer.py'
                 self.assertEqual(built['targets'], len(expected))
                 self.assertEqual(set(provenance['files']), set(expected))
                 self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)

@@ -507,6 +507,10 @@ def tick(executors, running):
                 conn.execute("INSERT INTO consumer_cursors VALUES ('external_market_observer',?)",(event['id'],))
     with db.connect() as conn:
         due=[dict(row) for row in conn.execute('SELECT * FROM durable_jobs WHERE state=\'queued\' AND due_at<=?',(now.isoformat(),))]
+        future_cycle=conn.execute("SELECT MIN(due_at) FROM durable_jobs WHERE state='queued' "
+                                  "AND kind='cycle' AND due_at>?", (now.isoformat(),)).fetchone()[0]
+    if future_cycle:
+        natural_wakes.append(instant(future_cycle))
 
     for job in sorted(due,key=lambda j:(PRIORITY[j['kind']],j['due_at'])):
         lane='outcomes' if job['kind']=='outcomes' else 'observation' if job['kind'] in ('observe','daily','history') else 'collection' if job['kind'] in ('cycle','postwrite_refresh','uk_retirement') else 'control'

@@ -352,15 +352,23 @@ def collect_once(run_id=None, competitor_policy=None):
         snapshots, quantity_offers, failures = collect_market_sources(run_id, curve_v6=False)
         costs, cost_failure, cost_failure_text = collect_order_cost(run_id, curve_v6=False)
         fx, fx_failure = collect_fx()
+    coverage = (quantity_coverage(quantity_offers, requested=CURRENT_QUANTITIES) if competitor_policy == POLICY
+                else dict(ready=True, required_sources=[], optional_sources=['Lootbar'],
+                          pricing_source_policy='current_available_quote_or_100k_margin_floor'))
+    fx_retry = None
+    if (competitor_policy == POLICY and fx_failure == 'BOC:browser_connection_timeout'
+            and coverage['ready'] and not cost_failure and not cost_failure_text
+            and {row['platform'] for row in costs if row['status'] == 'valid'} == set(PLATFORMS)):
+        # Order is finished. Refresh only FX and retain this run's market and cost evidence.
+        first_failure = fx_failure
+        fx, fx_failure = collect_fx()
+        fx_retry = dict(first_failure=first_failure, retry_failure=fx_failure)
     if cost_failure_text:
         failures.append("P2PAH:" + cost_failure_text)
     if fx_failure:
         failures.append(fx_failure)
     valid_count = sum(x["status"] == "valid" for x in snapshots)
     cost_count = sum(x["status"] == "valid" for x in costs)
-    coverage = dict(ready=True,required_sources=[],optional_sources=['Lootbar'],
-                    pricing_source_policy='current_available_quote_or_100k_margin_floor')
-    if competitor_policy==POLICY:coverage=quantity_coverage(quantity_offers, requested=CURRENT_QUANTITIES)
     source_warnings = [failure for failure in failures
                        if failure.split(":", 1)[0] in ("Lootbar", "IGGM", "U4GM", "U7Buy")]
     for row in snapshots:
@@ -379,6 +387,8 @@ def collect_once(run_id=None, competitor_policy=None):
             legacy_competitor_scope='100k_observed_only')
     if cost_failure is not None:
         payload['cost_failure'] = cost_failure
+    if fx_retry is not None:
+        payload['fx_retry'] = fx_retry
     run_path = ROOT / "runs" / f"{run_id}.json"
     atomic_json(run_path, payload)
     os.chown(run_path.parent, -1, 11028)
@@ -391,6 +401,8 @@ def collect_once(run_id=None, competitor_policy=None):
                "source_coverage": coverage, "source_warnings": source_warnings}
     if cost_failure is not None:
         summary['cost_failure'] = cost_failure
+    if fx_retry is not None:
+        summary['fx_retry'] = fx_retry
     return summary, complete
 
 
