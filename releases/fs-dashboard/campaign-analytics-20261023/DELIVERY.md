@@ -436,3 +436,12 @@
 - 修改（`market.TempActivity/save?code=carnival&site_id=266`）：开始 2026-11-19 13:00:00、结束 2026-12-02 13:00:00。入口配券（17 个入口，含 FC 三入口 → 1395）、档位 [1,100,300,500,800,1000]、档位券 1501–1511、启用、币种 USD 均与改前一致。首次请求把 `code` 放进请求体被拒（"不允许保存配置项: code"，未改动），改为放在 URL 后成功。
 - 读回：Admin 为目标值，其余配置逐项一致。主站 `/ajax/carnival/coupon`（读回时浏览器已是未登录状态）：fc_weekly / fc_sbc / fc_trio / carnival_home / capsule 均 `enabled:true`，各券为 `guest`。
 - 未覆盖：登录态下 FC 三页 1395 是否 `claimable` 及扭蛋累计消费按 11/19 13:00 重算，需登录主站后读回。
+
+### 2026-11-19 `nav-20261119T064438Z`（PR #1264）神秘商店 ARC / COD 增加 PS、Xbox
+
+- 来源：PR #1264，合并 `d7fa07ec`；候选 `/var/tmp/fs-campaign-release92-candidate`，manifest `e798344b…`；发布 `app/Carnival.html`、`app/carnival-live.js`（`?v=20261119c`）。发布前两文件与 release 91 合并 `5820cfef` 一致（无漂移）。
+- 起因：用户反馈 ARC Raiders、COD MW4 平台只有 PC。原因是页面只配了 PC 商品 ID。
+- 修改：主站这两款游戏每件商品按平台各一行（同名同价），按主站目录逐个映射 PS / Xbox 商品 ID 与平台 aid（ARC 19835/19839/19837，COD 21629/21631/21633）。券 1431–1435 按整款游戏绑定，三平台通用。
+- 线上读回（用户 Chrome，只读）：两款游戏平台选项 PC/PS/XBOX；ARC PS、Xbox 9 件均有价（与 PC 相同）；COD PS、Xbox、PC 9 件均有价。
+- 已知旧问题（未改）：COD 两个机器人房间（1 Run Domination、2 Hours 套餐）是同一商品的不同 SKU，页面显示的是商品基础价 $6.99，不是各自 SKU 价。
+- 回退：`/var/backups/fs-navigation-20261006/nav-20261119T064438Z`。
