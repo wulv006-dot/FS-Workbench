@@ -212,6 +212,16 @@ const GOODS={
  165175543:[1335,2,9665,21629],186374427:[1335,2,10431,21629,'Binding Catalyst'],186374619:[1335,2,10431,21629,'High-Tenacity Fibers'],165175575:[1335,2,9665,21631],186372891:[1335,2,10431,21629,'Comms Module'],186372603:[1335,2,10431,21629,'Alloyed Plating'],186372507:[1335,2,10431,21629,'Stock Rod'],186372699:[1335,2,10431,21629,'Structural Alloy'],186373083:[1335,2,10431,21629,'Power Regulator'],
 };
 const lists=new Map(),quotes=new Map(),LIST_TTL=120000;
+// A page asks for many catalogs at once; a few at a time keeps phones and the CDN from failing some.
+let goodsActive=0;const goodsQueue=[];
+async function goodsPage(form){
+  if(goodsActive>=4)await new Promise(r=>goodsQueue.push(r));
+  goodsActive++;
+  try{
+    const r=await fetch('/ajax/goods',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)});
+    if(!r.ok)throw Error('HTTP_'+r.status);return await r.json();
+  }finally{goodsActive--;goodsQueue.shift()?.();}
+}
 async function listRows(scope){
   const key=JSON.stringify(scope),hit=lists.get(key);
   if(hit&&(hit.promise||Date.now()-hit.at<LIST_TTL))return hit.promise||hit.rows;
@@ -219,8 +229,7 @@ async function listRows(scope){
     const rows=[];let pages=1;
     for(let page=1;page<=pages&&page<=10;page++){
       const form={site_id:SITE,Game_id:String(scope.game),page:String(page),top_cid:String(scope.top),category_id:String(scope.cid),level:'1',get_about_multi_by_cid:'1',perpage:'28',...(scope.aid?{aid:String(scope.aid)}:{}),...(scope.keyword?{keyword:scope.keyword}:{})};
-      const r=await fetch('/ajax/goods',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)});
-      const index=(await r.json())?.goods?.index;if(!index||!Array.isArray(index.list))throw Error('CATALOG');
+      const index=(await goodsPage(form))?.goods?.index;if(!index||!Array.isArray(index.list))throw Error('CATALOG');
       rows.push(...index.list);pages=Math.ceil(Number(index.total)/Number(index.perpage||28))||1;
     }
     return rows;
@@ -251,8 +260,14 @@ function cachedQuote(spec,rerender){
   if(!hit?.pending){
     quotes.set(key,{...(hit||{price:null,at:0}),pending:true});
     specRow(spec).then(row=>{
-      quotes.set(key,{price:rowPrice(row,spec.top,spec.qty),at:Date.now()});
-    }).catch(()=>quotes.set(key,{price:null,at:Date.now()-LIST_TTL+15000})).finally(()=>rerender());
+      quotes.set(key,{price:rowPrice(row,spec.top,spec.qty),at:Date.now()});rerender();
+    }).catch(()=>{
+      // A failed read retries on its own (2s, 4s, 6s); waiting for an unrelated re-render left
+      // a price pending for good when nothing else on the page changed.
+      const fails=(hit?.fails||0)+1;
+      quotes.set(key,{price:hit?.price??null,at:fails<4?0:Date.now(),fails});
+      if(fails<4)setTimeout(rerender,2000*fails);else rerender();
+    });
   }
   return hit?.price??null;
 }
