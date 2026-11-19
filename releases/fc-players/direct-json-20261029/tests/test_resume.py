@@ -1,11 +1,12 @@
 """Real WSGI/Repository resume contracts; deferred fake pool and fake backend only."""
 from dataclasses import replace
+import hashlib
 import io
 import json
 import time
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import test_direct_import as fixtures
 from test_direct_import import direct, load
@@ -101,6 +102,75 @@ class ResumeTests(unittest.TestCase):
         self.assertEqual(self.repo.get_plan(frozen['plan_id'],'operator'),frozen)
         self.assertEqual(self.backend.calls.count(('add','23700')),1)
         self.assertEqual(self.row_counts()['executions'],before['executions'])
+
+    def test_image_resume_reuses_attachment_skips_verified_and_continues_same_id(self):
+        from player_web.model_image_service import create_batch, stage_png, prepare_image_plan, execute_image_plan
+        from player_web.model_service import refresh_models
+        from tests_cloud.test_model_images import png
+        from tests_cloud.test_feature_parity import Backend
+        from player_web.model_image_service import AdminHttpError, ImageUploadNotStarted
+
+        self.app.settings = replace(self.settings, manual_model_images_enabled=True, manual_new_cards_enabled=False)
+        self.settings = self.app.settings
+        backend = Backend(3)
+        for row in backend.rows.values():
+            row["icon"] = 0
+        content = png()
+        image_hash = hashlib.sha256(content).hexdigest()
+        snapshot = refresh_models(self.settings, self.repo, backend, "operator")
+        names = ["400000.png", "400001.png", "400002.png"]
+        batch = create_batch(self.settings, self.repo, backend, "operator", snapshot["snapshot_id"],
+                             [{"name": name, "size": len(content), "sha256": image_hash} for name in names])
+        for name in names:
+            stage_png(self.settings, "operator", batch["batch_id"], name, content)
+        plan = prepare_image_plan(self.settings, self.repo, backend, "operator", batch["batch_id"])
+        execution, created = self.repo.confirm(plan["plan_id"], "operator", plan["plan_digest"], write_enabled=True)
+        self.assertTrue(created)
+        self.execution = execution
+        self.app._sessions[self.key] = (backend, time.time(), time.time())
+        get_model = backend.get_model
+        uploads = Mock(side_effect=[{"attachment_id": 777, "url": ""}, {"attachment_id": 778, "url": ""},
+                                    ImageUploadNotStarted("IMAGE_UPLOAD_PRECHECK_FAILED"),
+                                    {"attachment_id": 779, "url": ""}])
+
+        def read_model(model_id):
+            if uploads.call_count == 2 and model_id == 300001:
+                raise AdminHttpError("read timed out")
+            return get_model(model_id)
+
+        def bind(client, model_id, attachment_id):
+            client.rows[model_id]["icon"] = attachment_id
+
+        image_module = web.execute_image_plan.__module__
+        with patch(image_module + ".upload_png", uploads), patch(image_module + ".edit_model_icon", side_effect=bind) as edit:
+            with patch.object(backend, "get_model", side_effect=read_model):
+                with self.assertRaises(AdminHttpError):
+                    execute_image_plan(self.settings, self.repo, backend, execution, plan)
+            job_path = "/api/jobs/" + execution
+            before = self.request(job_path)[1]
+            self.assertTrue(before["can_resume"])
+            self.assertTrue(before["image_resume"])
+            self.assertEqual([item["status"] for item in before["items"]], ["verified", "unknown", "planned"])
+            self.assertEqual([call.args[1] for call in edit.call_args_list], [300000])
+            self.assertEqual(self.request(job_path + "/resume", "POST", {})[1]["error"], "EXPLICIT_CONFIRMATION_REQUIRED")
+            self.assertEqual(self.resume(csrf="wrong")[0], 403)
+            self.assertEqual(self.resume()[1], {"execution_id": execution, "status": "queued"})
+            self.assertEqual(self.resume()[1], {"execution_id": execution, "status": "existing"})
+            self.assertEqual(len(self.pool.submissions), 1)
+            self.pool.drain()
+            blocked = self.request(job_path)[1]
+            self.assertTrue(blocked["can_resume"])
+            self.assertEqual([item["status"] for item in blocked["items"]], ["verified", "verified", "not_started"])
+            self.assertEqual(self.resume()[1], {"execution_id": execution, "status": "queued"})
+            self.pool.drain()
+        self.assertEqual([call.args[1].name for call in uploads.call_args_list], names + [names[-1]])
+        self.assertEqual([(call.args[1], call.args[2]) for call in edit.call_args_list],
+                         [(300000, 777), (300001, 778), (300002, 779)])
+        after = self.repo.get_execution(execution, "operator")
+        self.assertEqual(after["status"], "completed_readback")
+        self.assertEqual([item["after"]["icon"] for item in after["items"]], [777, 778, 779])
+        self.assertEqual(after["events"][:len(before["events"])], before["events"])
+        self.assertEqual(after["events"][-1]["detail"]["images_verified"], 3)
 
     def test_repeat_resume_has_no_second_submission_or_new_execution(self):
         self.assertEqual(self.resume()[0],202)
