@@ -240,6 +240,8 @@ test('a failed catalog read retries by itself, so coin prices do not stay pendin
  await page.waitForFunction(()=>curGame==='fc27');
  // Coins are the first cards; their catalog read is among the failed ones and must recover.
  await page.waitForFunction(()=>{const p=[...document.querySelectorAll('#msPool .pprice')].slice(0,4).map(e=>e.textContent);return p.length===4&&p.every(x=>/^\$\d/.test(x));},null,{timeout:15000});
+ // The USD list price (price_discount), not the converted / new-user display price.
+ assert.equal(await page.locator('#msPool .pprice').first().textContent(),'$12.00');
  assert.deepEqual(errors,[]);
 });
 

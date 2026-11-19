@@ -14,9 +14,10 @@ export function mainSite({signedIn=true}={}){
  const claims=[],claimed=new Map(),cart={clears:0,adds:[]};let memberCoupon=9000;
  const coupons={carnival_home:[1399],ms_fc27:[1401,1403,1405],bf_items:[1513,1443,1445,1447,1515,1455,1457,1459],bf_vouchers_1128:[1469,1471,1473,1475],carnival_test:[1601]};
  // Every goods id the page asks for gets one listed row; currency rows carry quantity tiers.
+ // A tier's _format price is the visitor-currency/new-user display price; price_discount is USD.
  function goods(form){
   const top=Number(form.get('top_cid')),row=id=>({id,status:1,auto_off:0,min_qty:1,price_discount_format:'10.00',game_area_format:'Israphel - Asmodian',
-   goods_list:top===1?Object.fromEntries([3,5,8,10,20,30,50,70,100,200,300,500,600,800,1000,1500,2000].map(q=>[String(q),{price_discount_format:(q*0.1).toFixed(2)}])):undefined});
+   goods_list:top===1?Object.fromEntries([3,5,8,10,20,30,50,70,100,200,300,500,600,800,1000,1500,2000].map(q=>[String(q),{price_discount:Math.round(q*12)/100,price_discount_format:(q*0.1).toFixed(2)}])):undefined});
   const ids={9623:[163329311,163329277,163329345],9627:[170015253,170015245,170015249,170017913,170015181,170015205],9661:[165167189],6955:[105267633],9991:[187090053],10079:[186209371],1338:[186208657],3955:[170070065]}[form.get('category_id')]||[];
   return {goods:{index:{total:ids.length,perpage:28,list:ids.map(row)}}};
  }

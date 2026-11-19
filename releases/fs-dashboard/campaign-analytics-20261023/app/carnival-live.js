@@ -240,7 +240,9 @@ async function listRows(scope){
 // Public price of an exact goods row and quantity; null when that tier is not sold.
 function rowPrice(row,top,qty){
   if(!row||Number(row.status)!==1||Number(row.auto_off)!==0)return null;
-  if(top===1){const tier=row.goods_list?.[String(qty)];const v=Number(tier?.price_discount_format);return Number.isFinite(v)&&v>0?v:null;}
+  // price_discount is the USD list price; the _format field is converted to the visitor's
+  // currency and, for guests, already takes the main site's new-user coupon off.
+  if(top===1){const tier=row.goods_list?.[String(qty)];const v=Number(tier?.price_discount??tier?.price_discount_format);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;}
   // The formatted price is rounded to cents, which zeroes tiny unit prices (POE orbs); use the raw one.
   const unit=Number(row.price_discount??row.price_discount_format),v=unit*Math.max(1,Number(row.min_qty)||1);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;
 }
@@ -254,14 +256,26 @@ async function specRow(spec){
   // FC 27 players: the category is longer than the page cap, so a missing row is looked up by name.
   return row||(spec.search?find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.search})):null);
 }
+// ?price_debug=1 lists every price lookup on the page, to diagnose a device that shows none.
+const PRICE_DEBUG=new URLSearchParams(location.search).has('price_debug'),diag=new Map();
+function priceDiag(key,spec,state){
+  if(!PRICE_DEBUG)return;diag.set(key,(spec.goods||spec.area||'')+' q'+spec.qty+' a'+(spec.aid||'')+': '+state);
+  let box=document.getElementById('priceDebug');
+  if(!box){box=document.createElement('pre');box.id='priceDebug';box.style.cssText='position:fixed;left:0;right:0;bottom:0;max-height:45vh;overflow:auto;margin:0;padding:8px;z-index:99999;background:#000e;color:#7f7;font:11px/1.35 monospace;white-space:pre-wrap';document.body.append(box);}
+  box.textContent=[navigator.userAgent,...diag.values()].join(String.fromCharCode(10));
+}
 function cachedQuote(spec,rerender){
   if(!spec)return null;const key=quoteKey(spec),hit=quotes.get(key);
   if(hit&&Date.now()-hit.at<LIST_TTL)return hit.price;
   if(!hit?.pending){
     quotes.set(key,{...(hit||{price:null,at:0}),pending:true});
+    priceDiag(key,spec,'loading');
     specRow(spec).then(row=>{
-      quotes.set(key,{price:rowPrice(row,spec.top,spec.qty),at:Date.now()});rerender();
-    }).catch(()=>{
+      const price=rowPrice(row,spec.top,spec.qty);
+      priceDiag(key,spec,price!==null?'ok '+price:!row?'no row':'no price (status '+row.status+', off '+row.auto_off+', tiers '+Object.keys(row.goods_list||{}).join('/')+')');
+      quotes.set(key,{price,at:Date.now()});rerender();
+    }).catch(e=>{
+      priceDiag(key,spec,'error '+String(e?.message||e).slice(0,80));
       // A failed read retries on its own (2s, 4s, 6s); waiting for an unrelated re-render left
       // a price pending for good when nothing else on the page changed.
       const fails=(hit?.fails||0)+1;
