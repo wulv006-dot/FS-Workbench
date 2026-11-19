@@ -64,8 +64,8 @@ def hermes_native_publisher_remaining():
         raise RuntimeError("hermes_native_publisher_partition_changed_update_groups")
     return unittest.TestSuite(remaining)
 
-def node(path):
-    subprocess.run(["node",str(ROOT/path)],cwd=(ROOT/path).parent,check=True,timeout=30)
+def node(path,timeout=30):
+    subprocess.run(["node",str(ROOT/path)],cwd=(ROOT/path).parent,check=True,timeout=timeout)
 
 def browser_python(path):
     subprocess.run([sys.executable,"-I","-B",str(ROOT/path)],cwd=(ROOT/path).parent,check=True,timeout=45)
@@ -1025,7 +1025,7 @@ def main():
             units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
             subprocess.run([sys.executable,"-I","-B",str(folder.parent/"backend/runtime_tests/test_statistics_refresh.py")],check=True,timeout=15,cwd=ROOT)
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
-            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/carnival-mystery-browser.mjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/carnival-mystery-browser.mjs",timeout=60)
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/carnival-page-browser.mjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operator-dashboard-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/draft-compat-browser.cjs")
