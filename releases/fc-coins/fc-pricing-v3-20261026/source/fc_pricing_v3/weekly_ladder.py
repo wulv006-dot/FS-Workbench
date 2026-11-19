@@ -1,6 +1,6 @@
 """Deterministic weekly positioning proposals; prices still use the original hourly writer."""
 from copy import deepcopy
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import json
@@ -76,6 +76,19 @@ def _target_proposal(platform, before, orders, previous_orders, gross, previous_
                 margin_ratio=str(margin) if margin is not None else None)
 
 
+def _promotion_comparison_week(proposal_week, margin_band):
+    guard = (margin_band or {}).get('promotion_guard')
+    if not guard:
+        return False
+    first_day = (date.fromisoformat(proposal_week) - timedelta(weeks=2)).isoformat()
+    return first_day <= guard['last_redeem_day'] and guard['start_day'] < proposal_week
+
+
+def _promotion_requires_owner(proposal, margin_band):
+    return (proposal.get('automatic_hold_reason') == 'promotion_comparison_week'
+            or _promotion_comparison_week(proposal['week_start'], margin_band))
+
+
 def propose_adoption(previous, current, parameters, *, now, history=(), blocked=None, margin_band=None):
     """W is the last closed week; the proposal takes effect during this week."""
     monday = week_start(now)
@@ -90,6 +103,8 @@ def propose_adoption(previous, current, parameters, *, now, history=(), blocked=
     proposals = []
     expires = datetime.combine(monday + timedelta(days=3), datetime.min.time(), LOCAL).isoformat()
     field = 'delta_t' if margin_band else 'delta_p'
+    hold = ({'automatic_hold_reason': 'promotion_comparison_week'}
+            if _promotion_comparison_week(monday.isoformat(), margin_band) else {})
     for platform in PLATFORMS:
         others = [p for p in PLATFORMS if p != platform]
         denominator = sum(totals(previous,p,'orders') for p in others)
@@ -105,7 +120,7 @@ def propose_adoption(previous, current, parameters, *, now, history=(), blocked=
                 totals(current, platform, 'orders'), totals(previous, platform, 'orders'),
                 totals(current, platform, 'procurement_gross_cny'), totals(previous, platform, 'procurement_gross_cny'),
                 totals(current, platform, 'revenue_cny'), market, last, frozen, monday)
-            proposals.append(dict(proposal, week_start=monday.isoformat(), expires_at=expires))
+            proposals.append(dict(proposal, week_start=monday.isoformat(), expires_at=expires, **hold))
             continue
         frozen = {r['band'] for r in actions if r.get('freeze_until') and r['freeze_until'] > monday.isoformat()}
         unavailable = (blocked or {}).get(platform) or {}
@@ -225,6 +240,8 @@ def confirm_adoption(db, ident, actor, expected_revision, now, *, automatic=Fals
     plan_parameters = plan.get('parameters') or {}
     parameters = market_anchor_parameters(plan_parameters.get('market_anchor'))
     margin_band = plan_parameters.get('margin_band')
+    if automatic and _promotion_requires_owner(proposal, margin_band):
+        raise PermissionError('weekly_promotion_owner_confirmation_required')
     if bool(margin_band) != ('delta_t' in proposal):
         raise ValueError('weekly_proposal_expired_or_parameters_changed')
     platform = proposal['platform']
@@ -350,9 +367,11 @@ def run(db, plan_id, now):
         control=dict(automatic=False,started_week=monday.isoformat(),
                      eligible_after=datetime.combine(monday+timedelta(days=28),datetime.min.time(),LOCAL).isoformat())
         db.put('metadata',key,control)
+    margin_band = (plan.get('parameters') or {}).get('margin_band')
     for ident in ids:
         proposal=db.get('ladder_proposals',ident)
-        if control.get('automatic') and proposal['status']=='PROPOSED':
+        if (control.get('automatic') and proposal['status']=='PROPOSED'
+                and not _promotion_requires_owner(proposal, margin_band)):
             confirm_adoption(db,ident,'system-weekly-ladder',db.get('pricing_plans',plan_id)['revision'],now,automatic=True)
     notification_key='weekly-ladder-notification:'+monday.isoformat()
     notification=db.get('metadata',notification_key)
