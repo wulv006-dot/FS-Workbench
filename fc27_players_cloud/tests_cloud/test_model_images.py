@@ -266,8 +266,8 @@ class MediaContractTests(unittest.TestCase):
         import urllib.error
         material = 'synthetic-test-material'
         script = ('const UPLOAD_AUTH_SECRET=' + json.dumps(material) + ';').encode()
-        current_module = 'https://admin.p2pah.cn/assets/uploadAuth-ac6fbfe3.js'
-        retired_module = 'https://admin.p2pah.cn/assets/uploadAuth-4cd714b6.js'
+        current_module = 'https://admin.p2pah.cn/assets/uploadAuth-e88263af.js'
+        retired_module = 'https://admin.p2pah.cn/assets/uploadAuth-ac6fbfe3.js'
         fixed_time = 1793980000.125
         expected_timestamp = 1793980000125
         response = {'upload':{'picture':{'code':200,'file':{'id':778,'full_url':'https://example.test/778.png'}}}}
