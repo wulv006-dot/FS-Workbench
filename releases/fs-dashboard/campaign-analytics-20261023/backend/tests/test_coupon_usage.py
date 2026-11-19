@@ -87,6 +87,28 @@ class CarnivalCouponUsageTests(unittest.TestCase):
         self.assertNotIn('D1515', repr(result))
         self.assertNotIn('member_id', repr(result))
 
+    def test_breakdown_uses_orders_across_modules_and_keeps_unknown_games(self):
+        logs = [log(f'D{cid}', id=cid, coupon_id=cid, use_time='2026-11-19 14:00:00')
+                for cid in (1399, 1401, 1403, 1443, 1501)]
+        orders = [order('D1399', gid=1327, game=dict(title='FC 27')),
+                  order('D1401', gid='1327', pay_status=2),
+                  order('D1403', gid=891, game=dict(title='Aion 2'), pay_status=0),
+                  order('D1443', gid=0)]
+        reader = CarnivalReader(logs=[*logs, logs[0]], orders=orders)
+        result = read_coupon_usage(reader, self.request)
+        self.assertEqual(result['games'], [
+            dict(game_id='1327', game_name='FC 27', used_orders=2, paid_orders=2, unpaid_orders=0,
+                 refunded_orders=1, paid_usd_minor=23904, discount_usd_minor=2016),
+            dict(game_id='891', game_name='Aion 2', used_orders=1, paid_orders=0, unpaid_orders=1,
+                 refunded_orders=0, paid_usd_minor=0, discount_usd_minor=0),
+            dict(game_id=None, game_name=None, used_orders=2, paid_orders=2, unpaid_orders=0,
+                 refunded_orders=0, paid_usd_minor=23904, discount_usd_minor=2016),
+        ])
+        for key in ('used_orders', 'paid_orders', 'unpaid_orders', 'refunded_orders', 'paid_usd_minor', 'discount_usd_minor'):
+            self.assertEqual(sum(row[key] for row in result['games']), sum(row[key] for row in result['modules']))
+        self.assertEqual(result['coverage']['orders_unmatched'], 1)
+        self.assertEqual(sum(call[0] == 'orders' for call in reader.calls), 1)
+
     def test_missing_group_rows_fail_the_whole_report(self):
         class BrokenReader(CarnivalReader):
             def pages(self, resource, filters, **kw):

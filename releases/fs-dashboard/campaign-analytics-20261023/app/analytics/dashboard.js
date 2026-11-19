@@ -68,7 +68,12 @@
   if(c.status!=='available'){section.innerHTML='<h2>活动券使用与转化</h2><p role="status">'+esc(c.message||'活动券使用记录暂不可读；未完成不记为零。')+'</p>';return;}
   if(carnival()){
    const fields=[['累计领取','issued_total'],['累计使用','used_total'],['用券订单','used_orders'],['已付款','paid_orders'],['含退款','refunded_orders'],['付款金额 · USD','paid_usd_minor'],['确认抵扣 · USD','discount_usd_minor']];
-   section.innerHTML='<h2>活动券使用 · 按模块</h2><div class="report-table-wrap" tabindex="0" role="region" aria-label="活动券使用"><table><thead><tr><th scope="col">模块</th>'+fields.map(([label])=>'<th scope="col">'+label+'</th>').join('')+'</tr></thead><tbody>'+c.modules.map(m=>'<tr><th scope="row">'+esc(core.carnivalModules[m.module])+'</th>'+fields.map(([,key])=>'<td>'+(key.endsWith('_minor')?usd(m[key]):num(m[key]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div><p class="muted">领取和使用累计取自券模板。窗口内按 UTC 用券日期归组，付款金额含单列的退款订单。'+(c.coverage.orders_unmatched?' '+num(c.coverage.orders_unmatched)+' 笔未匹配到订单，使用用券记录的付款状态与金额。':'')+' 更新时间 '+esc(bjt(c.generated_at))+'（北京时间）。</p>';
+   const table=(kind,rows,columns,label)=>'<div class="report-table-wrap" tabindex="0" role="region" aria-label="活动券使用 · '+kind+'"><table><thead><tr><th scope="col">'+kind+'</th>'+columns.map(([title])=>'<th scope="col">'+title+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr><th scope="row">'+esc(label(row))+'</th>'+columns.map(([,key])=>'<td>'+(key.endsWith('_minor')?usd(row[key]):num(row[key]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+   const gameRows=c.games?.length?table('游戏',c.games,fields.slice(2),row=>row.game_name||(row.game_id?'游戏 #'+row.game_id:'游戏待归类')):
+    '<p class="muted">'+(Array.isArray(c.games)?'所选区间没有用券订单。':'游戏明细暂不可用。')+'</p>';
+   section.innerHTML='<h2>活动券使用 · 按模块</h2>'+table('模块',c.modules,fields,row=>core.carnivalModules[row.module])
+    +'<h3>活动券使用 · 按购买游戏</h3>'+gameRows+'<p class="muted">按 Admin 订单所属游戏统计，覆盖所有活动模块。未匹配订单或无明确游戏的记录计入「游戏待归类」。</p>'
+    +'<p class="muted">领取和使用累计取自券模板。窗口内按 UTC 用券日期归组，付款金额含单列的退款订单。'+(c.coverage.orders_unmatched?' '+num(c.coverage.orders_unmatched)+' 笔未匹配到订单，使用用券记录的付款状态与金额。':'')+' 更新时间 '+esc(bjt(c.generated_at))+'（北京时间）。</p>';
    return;
   }
   const t=c.totals,cp=c.coupon,rate=c.conversion,code=fcRevenue?.status==='available'?fcRevenue.totals:null;
@@ -116,15 +121,11 @@
  let googleSource='gsc',googleKey='',googleGeneration=0;
  function showGoogle(){
   let panel=$('google-traffic-report');
-  if(carnival()){
-   googleKey='';googleGeneration++;
-   if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';}
-   panel.hidden=false;panel.innerHTML='<h2>Google 流量</h2><p class="muted">狂欢盛典暂未接入 Google 流量数据。</p>';$('filters').after(panel);return;
-  }
-  if(!seasonal()){if(panel)panel.hidden=true;return;}
+  if(!seasonal()&&!carnival()){if(panel)panel.hidden=true;googleKey='';googleGeneration++;return;}
   if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';}panel.hidden=false;if($('filters').nextElementSibling!==panel)$('filters').after(panel);
-  const from=$('from').value,to=$('to').value,mode=$('mode').value,key=[from,to,mode,googleSource].join(':');if(key===googleKey)return;googleKey=key;googleGeneration++;
-  panel.innerHTML='<h2>Google · 万圣节页面流量</h2><p class="muted">只查询正式活动页；各来源按自己的统计日，不与UTC行为窗口拼成逐访客漏斗。此区不随游戏、设备和渠道筛选，不会在页面自动刷新时重复请求Google。</p><label>数据来源 <select id="google-source"><option value="gsc">Search Console · 自然搜索</option><option value="ga4">GA4 · 页面与访问</option><option value="ads">Google Ads · 广告落地页</option></select></label> <button id="google-load" class="fs-btn fs-btn--primary" type="button">读取 Google 明细</button><div id="google-result" role="status" aria-live="polite"><p>'+esc(from)+' 至 '+esc(to)+' · 点击读取；未查询不显示为零。</p></div>';
+  const activity=$('activity').value,from=$('from').value,to=$('to').value,mode=$('mode').value,key=[activity,from,to,mode,googleSource].join(':');
+  if(key===googleKey)return;googleKey=key;googleGeneration++;
+  panel.innerHTML='<h2>Google · '+(carnival()?'狂欢盛典':'万圣节')+'页面流量</h2><p class="muted">只查询正式活动页；各来源按自己的统计日，不与UTC行为窗口拼成逐访客漏斗。此区不随游戏、设备和渠道筛选，不会在页面自动刷新时重复请求Google。</p><label>数据来源 <select id="google-source"><option value="gsc">Search Console · 自然搜索</option><option value="ga4">GA4 · 页面与访问</option><option value="ads">Google Ads · 广告落地页</option></select></label> <button id="google-load" class="fs-btn fs-btn--primary" type="button">读取 Google 明细</button><div id="google-result" role="status" aria-live="polite"><p>'+esc(from)+' 至 '+esc(to)+' · 点击读取；未查询不显示为零。</p></div>';
   const labels=googleSource==='ga4'?['浏览量','活跃用户','入口会话']:googleSource==='ads'?['曝光','点击','广告费用']:['曝光','点击','CTR'];
   $('google-result').insertAdjacentHTML('afterbegin','<div class="metrics">'+labels.map(label=>'<article class="metric"><span>'+label+'</span><strong>—</strong></article>').join('')+'</div>');
   $('google-result').querySelector('p').textContent=from+' 至 '+to+' · 尚未查询，请点击“读取 Google 明细”。';
@@ -132,20 +133,20 @@
   $('google-load').disabled=mode!=='live'||!window.CampaignServer;
   $('google-load').addEventListener('click',async()=>{
    const generation=++googleGeneration,button=$('google-load');button.disabled=true;$('google-result').textContent='正在读取活动页专属Google聚合数据…';
-   try{const response=await fetch('api/google-traffic?'+new URLSearchParams({activity:'mmoexp-seasonal',source:googleSource,from,to,refresh:'1'}),{credentials:'same-origin',signal:AbortSignal.timeout(95000)}),value=await response.json();if(generation!==googleGeneration)return;if(!response.ok)throw Error('Google查询未完成');renderGoogle(value);}
+   try{const response=await fetch('api/google-traffic?'+new URLSearchParams({activity,source:googleSource,from,to,refresh:'1'}),{credentials:'same-origin',signal:AbortSignal.timeout(95000)}),value=await response.json();if(generation!==googleGeneration)return;if(!response.ok)throw Error('Google查询未完成');renderGoogle(value);}
    catch{if(generation===googleGeneration)$('google-result').textContent='Google查询未完成；未将失败或超时记为零。';}
    finally{if(generation===googleGeneration)button.disabled=false;}
   });
  }
  function renderGoogle(value){
-  const reports=value.reports||{},names={page_total:'页面浏览汇总',landing_total:'作为入口的会话汇总',total:'自然搜索汇总',daily:'逐日记录',query:'搜索词',country:'国家',device:'设备',channel:'来源 / 媒介',events:'已上报事件',landing:'广告日期 × 系列 × 设备'},labels={screenPageViews:'浏览量',activeUsers:'活跃用户',userEngagementDuration:'参与时长（秒）',sessions:'入口会话',engagedSessions:'参与会话',bounceRate:'跳出率',clicks:'点击',impressions:'曝光',ctr:'CTR',position:'平均位置',eventCount:'事件次数',costMicros:'广告费用（USD）',date:'日期',query:'搜索词',country:'国家',device:'设备',deviceCategory:'设备',sessionSourceMedium:'来源 / 媒介',eventName:'事件',campaign:'广告系列'};
+  const reports=value.reports||{},names={page_total:'页面浏览汇总',landing_total:'作为入口的会话汇总',organic_landing_total:'自然搜索入口会话',total:'自然搜索汇总',daily:'逐日记录',query:'搜索词',country:'国家',device:'设备',channel:'来源 / 媒介',events:'已上报事件',landing:'广告日期 × 系列 × 设备'},labels={screenPageViews:'浏览量',activeUsers:'活跃用户',userEngagementDuration:'参与时长（秒）',sessions:'入口会话',organicSessions:'自然搜索入口会话',engagedSessions:'参与会话',bounceRate:'跳出率',clicks:'点击',impressions:'曝光',ctr:'CTR',position:'平均位置',eventCount:'事件次数',costMicros:'广告费用（USD）',date:'日期',query:'搜索词',country:'国家',device:'设备',deviceCategory:'设备',sessionSourceMedium:'来源 / 媒介',eventName:'事件',campaign:'广告系列'};
   labels.costMicros='广告费用（'+(value.currency||'币种未核实')+'）';
   const display=(key,v)=>v==null?'—':['ctr','bounceRate'].includes(key)?pct(v):key==='costMicros'?(v/1000000).toFixed(2):typeof v==='number'?num(v):esc(v);
   let html='<p>'+esc(value.from||$('from').value)+' 至 '+esc(value.to||$('to').value)+' · 来源时区 '+esc(value.timezone||'未提供')+' · 读取时间 '+esc(bjt(value.generatedAt))+'（北京时间）</p>';
   html+='<p>'+({available:'接口已返回活动页记录。',no_rows:'接口正常，但未返回该活动页记录；不能据此认定真实流量为零。',partial:'部分报表未完成；仅显示本次成功返回的部分。',unavailable:'来源暂不可读；未将缺测记为零。'}[value.status]||'查询状态待核对')+'</p>';
   html+='<p class="muted">'+(value.source==='ga4'?'GA4仍受访客同意、标签加载和拦截影响。页面用户与入口会话分别查询；细分用户不相加。':value.source==='gsc'?'仅Google自然网页搜索，不含广告。最终数据可能延迟，搜索词明细受隐私与Top行限制；无记录的日期不补零。':'仅MMOEXP广告账号中直接落到该活动页的记录，不代表站内入口引流，也不等同实际订单归因。')+'</p>';
   if(value.coverage)html+='<p>站点最终数据已覆盖日期：'+esc(value.coverage.availableFinalDates.join('、')||'未取得')+'；'+(value.coverage.missingDates.length?'所选区间尚缺 '+esc(value.coverage.missingDates.join('、'))+'，当前汇总不能当完整区间结果。':'所选日期最终数据均已可查询。')+'</p>';
-  const totalReports=Object.entries(reports).filter(([name])=>name.endsWith('total')||name==='total'),totals=totalReports.flatMap(([,report])=>report.rows?.[0]?Object.entries(report.rows[0].metrics):[]);
+  const totalReports=Object.entries(reports).filter(([name])=>name.endsWith('total')||name==='total'),totals=totalReports.flatMap(([name,report])=>report.rows?.[0]?Object.entries(report.rows[0].metrics).map(([key,value])=>[name==='organic_landing_total'&&key==='sessions'?'organicSessions':key,value]):[]);
   const restricted=report=>report.quality&&(report.quality.subjectToThresholding||report.quality.dataLossFromOtherRow||report.quality.samplingMetadatas?.length||report.quality.schemaRestrictionResponse?.activeMetricRestrictions?.length);
   if(value.source==='ads'&&reports.landing?.rows?.length&&!reports.landing.truncated)for(const key of ['impressions','clicks','costMicros'])totals.push([key,reports.landing.rows.reduce((sum,row)=>sum+row.metrics[key],0)]);
   if(totals.length)html+='<div class="metrics">'+totals.map(([key,v])=>'<article class="metric"><span>'+esc(labels[key]||key)+'</span><strong>'+display(key,v)+'</strong></article>').join('')+'</div>';
@@ -303,5 +304,14 @@
  $('editor-form').addEventListener('submit',async e=>{e.preventDefault();const submit=e.submitter;submit.disabled=true;try{const item={id:$('activity-id').value,name:$('activity-name').value,path:$('activity-path').value,view:registry.find(x=>x.id===editing)?.view||$('activity-id').value,type:$('activity-type').value,status:$('activity-status').value,owner:$('activity-owner').value,version:$('activity-version').value,origin:$('activity-origin').value,windowHours:Number($('activity-window').value),startAt:$('activity-start').value?$('activity-start').value+'Z':'',endAt:$('activity-end').value?$('activity-end').value+'Z':'',matches:[...$('match-rows').children].map(row=>Object.fromEntries([...row.querySelectorAll('input')].map(el=>[el.dataset.field,el.value&&el.type==='datetime-local'?el.value+'Z':el.value])))};await save(editing?registry.map(a=>a.id===editing?item:a):[...registry,item]);$('editor').close();}catch(error){$('editor-error').textContent=error.message;}finally{submit.disabled=false;}});
  $('export').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(registry,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='activity-registry.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
  $('import').addEventListener('change',async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>100000)throw Error('文件超过 100 KB');const next=core.validateRegistry(JSON.parse(await file.text()));await save(next);$('feedback').textContent=window.CampaignServer?'活动配置已保存服务器；网站追踪接入需开发完成。':'活动配置已导入本浏览器；尚未发布或启用追踪。';}catch(error){$('feedback').textContent='导入失败：'+error.message;}finally{e.target.value='';}});
- $('management').open=!window.CampaignServer;$('show-planned').addEventListener('change',()=>{renderRegistry();refresh();});renderRegistry();const initial=new URLSearchParams(location.search);if(window.CampaignServer){$('mode').value='live';if(registry.some(a=>a.id==='mmoexp-seasonal'&&a.status==='active'))$('activity').value='mmoexp-seasonal';}if(initial.get('mode')==='test')$('mode').value='test';const initialActivity=core.canonicalActivity(initial.get('activity'));if([...$('activity').options].some(o=>o.value===initialActivity))$('activity').value=initialActivity;refresh();if(window.CampaignServer)setInterval(()=>{if(autoRefreshAllowed&&(!fcActivity()||Date.now()-lastFcReadAt>=600000)&&document.visibilityState==='visible'&&$('mode').value==='live'&&!$('editor').open&&(!scheduledActivity()||$('statistics-scope').value!=='custom'))refresh();},60000);
+ $('management').open=!window.CampaignServer;$('show-planned').addEventListener('change',()=>{renderRegistry();refresh();});renderRegistry();const initial=new URLSearchParams(location.search);if(window.CampaignServer){
+  $('mode').value='live';
+  const activeIds=registry.filter(a=>a.status==='active').map(a=>a.id);
+  const preferred=['mmoexp-carnival','mmoexp-seasonal'].find(id=>activeIds.includes(id));
+  if(preferred)$('activity').value=preferred;
+ }
+ if(initial.get('mode')==='test')$('mode').value='test';
+ const initialActivity=core.canonicalActivity(initial.get('activity'));
+ if([...$('activity').options].some(o=>o.value===initialActivity))$('activity').value=initialActivity;
+ activityFilters();refresh();if(window.CampaignServer)setInterval(()=>{if(autoRefreshAllowed&&(!fcActivity()||Date.now()-lastFcReadAt>=600000)&&document.visibilityState==='visible'&&$('mode').value==='live'&&!$('editor').open&&(!scheduledActivity()||$('statistics-scope').value!=='custom'))refresh();},60000);
 })();

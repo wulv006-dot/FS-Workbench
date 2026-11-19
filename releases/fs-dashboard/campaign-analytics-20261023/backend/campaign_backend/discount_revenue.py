@@ -231,6 +231,7 @@ CARNIVAL_COUPONS = {
     'capsule': tuple(range(1501, 1512, 2)),
 }
 COUPON_ORDER_CHUNK = 40
+COUPON_GAME_COUNTS = ('used_orders', 'paid_orders', 'refunded_orders', 'unpaid_orders', 'paid_usd_minor', 'discount_usd_minor')
 
 
 def coupon_money(value, code):
@@ -258,9 +259,9 @@ def coupon_record(row, expected=FC_COUPON):
                 limit_qty=coupon_counter(row, 'limit_qty'), valid_days=coupon_counter(row, 'days'))
 
 
-def summarize_coupon_usage(coupon, logs, orders, start, end, coupon_ids=(FC_COUPON['id'],)):
+def summarize_coupon_usage(coupon, logs, orders, start, end, coupon_ids=(FC_COUPON['id'],), *, game_totals=None):
     """logs: MemberCouponLog rows in the window; orders: whichever Admin orders exist for those logs."""
-    by_order = {}
+    by_order, ambiguous_games = {}, set()
     fields = ('pay_status', 'paytime', 'amount_usd_format')
     for row in orders:
         number = identity(str(row.get('order_no')))
@@ -268,9 +269,11 @@ def summarize_coupon_usage(coupon, logs, orders, start, end, coupon_ids=(FC_COUP
             raise ContractError('COUPON_ORDER_SCOPE_MISMATCH')
         if number in by_order and canonical({k: row.get(k) for k in fields}) != canonical({k: by_order[number].get(k) for k in fields}):
             raise ContractError('CONFLICTING_DUPLICATE_ORDER')
+        if game_totals is not None and number in by_order and str(row.get('gid')) != str(by_order[number].get('gid')):
+            ambiguous_games.add(number)
         by_order[number] = row
-    totals = dict(used_orders=0, paid_orders=0, refunded_orders=0, unpaid_orders=0, paid_usd_minor=0,
-                  discount_usd_minor=0, repurchase_orders=0, repurchase_usd_minor=0, unique_buyers=0)
+    totals = dict.fromkeys(COUPON_GAME_COUNTS, 0)
+    totals.update(repurchase_orders=0, repurchase_usd_minor=0, unique_buyers=0)
     coverage = dict(complete=True, logs=len(logs), unique_uses=0, orders_read=len(by_order), orders_unmatched=0, amounts_from_log=0)
     buyers, daily, seen = set(), {}, {}
     for log in logs:
@@ -301,10 +304,22 @@ def summarize_coupon_usage(coupon, logs, orders, start, end, coupon_ids=(FC_COUP
         paid = state in (1, 2, '1', '2') if order is not None else log.get('status') in (1, '1')
         day = used_at.astimezone(timezone.utc).strftime('%Y-%m-%d')
         bucket = daily.setdefault(day, dict(date=day, used_orders=0, paid_orders=0, paid_usd_minor=0))
-        totals['used_orders'] += 1
+        groups = [totals]
+        if game_totals is not None:
+            gid = str(order.get('gid')) if order and number not in ambiguous_games else ''
+            gid = gid if re.fullmatch(r'[1-9][0-9]{0,19}', gid) else None
+            game = game_totals.setdefault(gid, dict(game_id=gid, game_name=None, **dict.fromkeys(COUPON_GAME_COUNTS, 0)))
+            if gid and not game['game_name']:
+                title = order['game'].get('title') if isinstance(order.get('game'), dict) else None
+                name = title or order.get('game_format')
+                if isinstance(name, str):
+                    game['game_name'] = name.strip()[:120] or None
+            groups.append(game)
+        for group in groups:
+            group['used_orders'] += 1
+            group['unpaid_orders'] += int(not paid)
         bucket['used_orders'] += 1
         if not paid:
-            totals['unpaid_orders'] += 1
             continue
         logged = log.get('order') if isinstance(log.get('order'), dict) else {}
         if order is not None:
@@ -312,20 +327,23 @@ def summarize_coupon_usage(coupon, logs, orders, start, end, coupon_ids=(FC_COUP
         else:
             usd = coupon_money(logged.get('amount'), 'COUPON_LOG_AMOUNT_INVALID')
             coverage['amounts_from_log'] += 1
-        totals['paid_orders'] += 1
-        totals['paid_usd_minor'] += usd
         bucket['paid_orders'] += 1
         bucket['paid_usd_minor'] += usd
-        totals['refunded_orders'] += int(state in (2, '2'))
         member = log.get('member_id')
         if type(member) is int and member > 0:
             buyers.add(member)
         # The log's own amounts are used only when they equal the paid USD amount.
+        discount = 0
         try:
             if coupon_money(logged.get('amount'), 'COUPON_LOG_AMOUNT_INVALID') == usd:
-                totals['discount_usd_minor'] += coupon_money(log.get('discount_amount'), 'COUPON_LOG_DISCOUNT_INVALID')
+                discount = coupon_money(log.get('discount_amount'), 'COUPON_LOG_DISCOUNT_INVALID')
         except ContractError:
             pass
+        for group in groups:
+            group['paid_orders'] += 1
+            group['paid_usd_minor'] += usd
+            group['refunded_orders'] += int(state in (2, '2'))
+            group['discount_usd_minor'] += discount
         # Admin's repurchase: paid orders by the same member on this site within 90 days after the use.
         try:
             count = log.get('repurchase_count')
@@ -398,13 +416,14 @@ def read_carnival_coupon_usage(reader, start, end):
     for row in read_coupon_orders(reader, order_module):
         orders_by_module[order_module[str(row['order_no'])]].append(row)
 
-    modules, unmatched = [], 0
+    modules, unmatched, games = [], 0, {}
     for module, coupon_ids in groups.items():
         coupon = {key: sum(counters[cid][key] for cid in coupon_ids) for key in ('issued_total', 'used_total')}
-        result = summarize_coupon_usage(coupon, logs_by_module[module], orders_by_module[module], start, end, coupon_ids)
+        result = summarize_coupon_usage(coupon, logs_by_module[module], orders_by_module[module], start, end, coupon_ids, game_totals=games)
         modules.append(dict(module=module, **coupon, **result['totals']))
         unmatched += result['coverage']['orders_unmatched']
-    return dict(status='available', activity_id='mmoexp-carnival', modules=modules,
+    game_rows = sorted(games.values(), key=lambda row: (row['game_id'] is None, -row['used_orders'], row['game_id'] or ''))
+    return dict(status='available', activity_id='mmoexp-carnival', modules=modules, games=game_rows,
                 coverage=dict(complete=True, orders_unmatched=unmatched),
                 generated_at=datetime.now(timezone.utc).isoformat())
 
