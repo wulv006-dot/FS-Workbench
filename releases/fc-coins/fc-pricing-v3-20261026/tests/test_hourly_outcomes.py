@@ -79,9 +79,10 @@ class HourlyOutcomesTest(unittest.TestCase):
             reads.append((filters,limit))
             return [order]
         events = []
-        with patch.object(source, 'hourly_accounting', return_value=dict(archived={}, cost_source={})):
+        with patch.object(source, 'hourly_accounting', return_value=dict(archived={}, cost_source={})), \
+                patch.object(source, 'monotonic', side_effect=(0, 1.25, 4.5, 5, 6, 7, 8, 9, 10)):
             result = source.incremental_window_context(None, pages, [window], now, {},
-                progress=lambda stage, event, **details: events.append((stage, event)))
+                progress=lambda stage, event, **details: events.append((stage, event, details)))
         self.assertEqual(len(reads), 1)
         order_filters,limit = reads[0]
         self.assertEqual(order_filters[:2], [('site_id','=','266'),('gid','=','1327')])
@@ -89,8 +90,11 @@ class HourlyOutcomesTest(unittest.TestCase):
         self.assertEqual(limit,1000)
         self.assertEqual(coupon_reads, [([('site_id','=','266'),('order_no','IN',order['order_no'])],200)])
         self.assertEqual(len(result['online']['actual_outcomes']), 1)
-        self.assertEqual(events, [(stage, event) for stage in ('admin_paging', 'order_cost', 'es', 'binding')
-                                  for event in ('start', 'done')])
+        self.assertEqual([event[:2] for event in events],
+                         [(stage, event) for stage in ('admin_paging', 'order_cost', 'es', 'binding')
+                          for event in ('start', 'done')])
+        self.assertEqual(events[1][2], dict(elapsed_seconds=4.5, order_seconds=1.25, coupon_seconds=3.25,
+                                           order_reads=1, coupon_reads=1))
 
     def test_cost_cache_reuse_requires_fixed_cutoff_and_full_start_day(self):
         dashboard = Path(__file__).resolve().parents[3] / 'fs-dashboard/dashboard-refresh-20261025/source'
@@ -333,7 +337,11 @@ class HourlyOutcomesTest(unittest.TestCase):
             def timeout(command, **kwargs):
                 self.assertEqual(kwargs['timeout'], 600)
                 raise daily.subprocess.TimeoutExpired(command, kwargs['timeout'], stderr=(
-                    b'private traceback\nFC27 hourly timing {"stage":"order_cost","event":"start",'
+                    b'private traceback\nFC27 hourly timing {"stage":"admin_paging","event":"done",'
+                    b'"elapsed_seconds":4.5,"order_seconds":1.25,"coupon_seconds":3.25,"order_no":"private order"}\n'
+                    b'FC27 hourly timing {"stage":"admin_paging","event":"done",'
+                    b'"order_seconds":-1,"coupon_seconds":"private value"}\n'
+                    b'FC27 hourly timing {"stage":"order_cost","event":"start",'
                     b'"requested_start":"2026-11-19","covered_until":"private text","cookie":"private value"}\n'
                     b'FC27 hourly timing {"stage":"order_cost_native","event":"start",'
                     b'"native_refresh_start":"2026-11-18","closed_trade_days":7,"cookie":"private value"}\n'))
@@ -343,13 +351,13 @@ class HourlyOutcomesTest(unittest.TestCase):
                 with self.assertRaises(daily.subprocess.TimeoutExpired):
                     daily.run_hourly({'plan_id':'p','revision':1})
             lines = stderr.getvalue().splitlines()
-            self.assertEqual(len(lines), 2)
-            self.assertTrue(lines[0].startswith(daily.HOURLY_TIMING_PREFIX))
-            self.assertEqual(json.loads(lines[0].removeprefix(daily.HOURLY_TIMING_PREFIX)),
-                             {'stage':'order_cost', 'event':'start', 'requested_start':'2026-11-19'})
-            self.assertEqual(json.loads(lines[1].removeprefix(daily.HOURLY_TIMING_PREFIX)),
-                             {'stage':'order_cost_native', 'event':'start', 'native_refresh_start':'2026-11-18',
-                              'closed_trade_days':7})
+            self.assertTrue(all(line.startswith(daily.HOURLY_TIMING_PREFIX) for line in lines))
+            self.assertEqual([json.loads(line.removeprefix(daily.HOURLY_TIMING_PREFIX)) for line in lines], [
+                dict(stage='admin_paging', event='done', elapsed_seconds=4.5, order_seconds=1.25, coupon_seconds=3.25),
+                dict(stage='admin_paging', event='done'),
+                dict(stage='order_cost', event='start', requested_start='2026-11-19'),
+                dict(stage='order_cost_native', event='start', native_refresh_start='2026-11-18', closed_trade_days=7),
+            ])
 
     def test_success_persists_full_context_and_source_together_without_model(self):
         from fc_pricing_v3.smart import policy_suffix

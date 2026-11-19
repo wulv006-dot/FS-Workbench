@@ -1782,6 +1782,7 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
     for day in pending:checks[day]=now.isoformat()
     if not previous.get('cursor_at'):
         checks.update({day:now.isoformat() for day in days})
+    coupon_started = monotonic()
     names=sorted(sn for sn,row in changed.items() if _quantity(row))
     for offset in range(0,len(names),100):
         batch_names=names[offset:offset+100]
@@ -1791,7 +1792,10 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
             if sn not in batch_names or str(log.get('site_id'))!='266':raise ValueError('window_coupon_log_scope_invalid')
             logs[sn].append({key:log.get(key) for key in ('id','order_no','site_id','use_time','coupon_id','status')})
         coupon_reads += 1
-    progress('admin_paging', 'done', elapsed_seconds=round(monotonic()-admin_started, 3),
+    admin_finished = monotonic()
+    progress('admin_paging', 'done', elapsed_seconds=round(admin_finished-admin_started, 3),
+             order_seconds=round(coupon_started-admin_started, 3),
+             coupon_seconds=round(admin_finished-coupon_started, 3),
              order_reads=order_reads, coupon_reads=coupon_reads)
     live=list(rows.values())
     cost_cursor=_window_instant(state['cost_cursor_at']) if state.get('cost_cursor_at') else start
