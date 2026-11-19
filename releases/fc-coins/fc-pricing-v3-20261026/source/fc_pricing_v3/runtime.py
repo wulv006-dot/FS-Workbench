@@ -432,6 +432,28 @@ def ordinary_delivery_archives(scope, shared, *, root=None):
 
     root = Path(root or '/var/lib/fs-channel-effects')
     names = {row['order_no'] for row in shared['rows']}
+    if scope.get('site_id') == '266':
+        try:
+            from order_delivery_index import read_orders
+        except ImportError:
+            read_orders = None
+        if read_orders is not None:
+            indexed = read_orders({('www.mmoexp.com',str(name)) for name in names}, root=root)
+            if indexed.get('status') == 'available':
+                revision = indexed['revision']
+                if not isinstance(revision,str) or not revision:
+                    raise ValueError('curve_delivery_index_revision')
+                windows = [dict(start=w['since'],end=w['until'],revision=w['revision'],
+                                generated_at=w['capturedAt']) for w in indexed['windows']
+                           if w['source']=='www.mmoexp.com']
+                coverage = dict(shared['coverage'])
+                coverage['admin_captured_at'] = coverage.get('captured_at')
+                coverage['captured_at'] = clock().isoformat()
+                coverage['cost'] = dict(status='observed_only',source_revision=fingerprint(windows) if windows else None,
+                    index_revision=revision,generated_at=indexed['generatedAt'],shipment_windows=windows,
+                    shipment_window_complete=bool(windows),order_cost_complete=False)
+                return project_order_facts(shared['rows'],shared['dataset'],indexed['rows'],scope=scope,
+                    source_coverage=coverage,identity_catalog=shared['identity_catalog'])
     lo = datetime.fromisoformat(scope['start']).date()
     hi = datetime.fromisoformat(scope['end']).date()
     days = [(lo + timedelta(days=i)).isoformat() for i in range((hi - lo).days + 1)]

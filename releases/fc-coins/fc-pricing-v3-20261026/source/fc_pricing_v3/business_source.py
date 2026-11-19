@@ -1563,12 +1563,29 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
     import channel_source as channel
     from channel_cache import delivery_bounds
     from channel_effects import accounting_row
-    deliveries,cost_info=channel.load_costs()
     coupons = [log for values in logs.values() for log in values]
     first = (start if reuse_closed_days else cost_since).astimezone(TZ).date().isoformat()
     local_now = now.astimezone(TZ)
     today = local_now.date().isoformat()
     cutoff = (local_now.replace(second=0, microsecond=0)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:59')
+    cohort_start = first
+    def indexed_costs(checked_at):
+        if not reuse_closed_days or cohort_start + ' 00:00:00' > cutoff:
+            return None
+        from order_delivery_index import covers_window, read_orders
+        keys = [('www.mmoexp.com', row['order_no']) for row in rows]
+        since = cohort_start + ' 00:00:00'
+        publication = read_orders(keys, root=channel.ROOT, since=since, until=cutoff)
+        if (publication['status'] == 'available' and
+                covers_window(publication['windows'], 'www.mmoexp.com', since, cutoff, as_of=checked_at)):
+            captured = max((_window_instant(w['capturedAt']) for w in publication['windows']
+                            if w['since'] <= cutoff and since <= w['until']),default=None)
+            if captured is not None and captured <= checked_at:
+                return publication['rows'], dict(status='partial', source='Order 逐条订单发货记录',
+                    revision=publication['revision'], generatedAt=captured.isoformat(),
+                    period=dict(start=cohort_start, end=cutoff[:10], until=cutoff))
+        return None
+    deliveries, cost_info = indexed_costs(now) or channel.load_costs()
     def native_bounds(cost):
         period = cost.get('period')
         if not isinstance(period, dict):
@@ -1608,6 +1625,13 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
         if archive is not None:
             data['include_cost_delivery_rows'] = True
         channel.enrich(data)
+        # The rolling file certifies only the freshly read tail. The index also pins its prefix.
+        updated = indexed_costs(datetime.now(timezone.utc))
+        if updated:
+            deliveries, data['sources']['cost'] = updated
+            data.pop('cost_delivery_rows', None)
+            archive, first, missing_days = None, cohort_start, []
+            data['orders'] = channel.normalize(rows,[],coupons,[],deliveries,{},dict(entries=[]))
     if archive is not None:
         if 'cost_delivery_rows' in data:
             # Use the rows loaded with the successful refresh's source revision under its lock.

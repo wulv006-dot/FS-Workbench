@@ -184,6 +184,50 @@ class HourlyOutcomesTest(unittest.TestCase):
                 channel.enrich.assert_not_called()
                 self.assertEqual(at_midnight['cost_cursor_at'], midnight.isoformat())
 
+    def test_hourly_cost_reads_only_the_requested_orders_on_a_complete_index(self):
+        dashboard = Path(__file__).resolve().parents[3] / 'fs-dashboard/dashboard-refresh-20261025/source'
+        now, order, window = self.fixture()
+        start = source._window_instant(window['opened_at'])
+        lo = start.astimezone(source.TZ).strftime('%Y-%m-%d 00:00:00')
+        hi = (now.astimezone(source.TZ)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:59')
+        witness = dict(source='www.mmoexp.com', since=lo, until=hi, capturedAt=now.isoformat())
+        receipt = dict(status='available', revision='cost-a', rows=[], generatedAt=now.isoformat(), windows=[witness])
+        with tempfile.TemporaryDirectory() as folder:
+            channel = MagicMock(ROOT=Path(folder))
+            channel.normalize.return_value = []
+            with patch.object(sys, 'path', [str(dashboard), *sys.path]), patch.dict('sys.modules', {'channel_source':channel}), \
+                    patch('order_delivery_index.read_orders',return_value=receipt) as read:
+                result = source.hourly_accounting([order], {}, start, now, start, reuse_closed_days=True)
+            self.assertEqual(read.call_args.args[0], [('www.mmoexp.com',order['order_no'])])
+            channel.enrich.assert_not_called()
+            channel.load_costs.assert_not_called()
+            self.assertEqual(result['cost_source']['revision'], 'cost-a')
+            self.assertEqual(result['cost_cursor_at'], now.isoformat())
+
+    def test_hourly_refresh_reloads_both_corrected_prefix_and_new_tail_at_one_revision(self):
+        dashboard = Path(__file__).resolve().parents[3] / 'fs-dashboard/dashboard-refresh-20261025/source'
+        now, order, window = self.fixture()
+        start = source._window_instant(window['opened_at'])
+        since = start.astimezone(source.TZ).strftime('%Y-%m-%d 00:00:00')
+        until = (now.astimezone(source.TZ)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:59')
+        proof = dict(source='www.mmoexp.com', since=since, until=until, capturedAt=now.isoformat())
+        corrected = dict(delivery_id='1', sn=order['order_no'], cost_total='21')
+        new = dict(delivery_id='2', sn=order['order_no'], cost_total='12')
+        fresh = dict(status='available', revision='corrected-tail', rows=[corrected, new], windows=[proof])
+        with tempfile.TemporaryDirectory() as folder:
+            channel = MagicMock(ROOT=Path(folder))
+            channel.normalize.return_value = []
+            channel.load_costs.return_value = ([dict(corrected, cost_total='19')], dict(status='unavailable'))
+            with patch.object(sys, 'path', [str(dashboard), *sys.path]), patch.dict('sys.modules', {'channel_source':channel}), \
+                    patch('order_delivery_index.read_orders', side_effect=[dict(status='unavailable'), fresh]):
+                result = source.hourly_accounting([order], {}, start, now, start, reuse_closed_days=True)
+            channel.enrich.assert_called_once()
+            channel.load_costs.assert_called_once()
+            self.assertEqual(channel.normalize.call_args.args[4], [corrected, new])
+            self.assertEqual(result['cost_source']['revision'], 'corrected-tail')
+            self.assertFalse(result['cost_cache_reused'])
+            self.assertEqual(result['cost_cursor_at'], now.isoformat())
+
     def test_hourly_outcomes_use_the_rows_from_the_successful_native_cost_refresh(self):
         dashboard = Path(__file__).resolve().parents[3] / 'fs-dashboard/dashboard-refresh-20261025/source'
         now, order, window = self.fixture()

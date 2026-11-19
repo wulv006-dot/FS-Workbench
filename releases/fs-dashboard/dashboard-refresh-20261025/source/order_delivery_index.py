@@ -22,12 +22,13 @@ SCHEMA = (
         seq INTEGER PRIMARY KEY, input_hash TEXT NOT NULL UNIQUE, revision TEXT NOT NULL UNIQUE,
         observed TEXT NOT NULL, windows TEXT NOT NULL)''',
     '''CREATE TABLE IF NOT EXISTS delivery_versions (
-        identity TEXT NOT NULL, first_seq INTEGER NOT NULL, last_seq INTEGER,
+        identity TEXT NOT NULL, first_seq INTEGER NOT NULL, last_seq INTEGER NOT NULL DEFAULT 0,
         observed TEXT NOT NULL, trade INTEGER NOT NULL, sn TEXT, body TEXT,
         PRIMARY KEY(identity,first_seq))''',
-    '''CREATE UNIQUE INDEX IF NOT EXISTS active_delivery ON delivery_versions(identity) WHERE last_seq IS NULL''',
-    '''CREATE INDEX IF NOT EXISTS active_trade ON delivery_versions(trade) WHERE last_seq IS NULL AND body IS NOT NULL''',
-    '''CREATE INDEX IF NOT EXISTS delivery_order ON delivery_versions(sn,trade,first_seq,last_seq) WHERE body IS NOT NULL''',
+    # The production SQLite 3.7 runtime needs ordinary indexes. last_seq=0 marks the current version.
+    '''CREATE UNIQUE INDEX IF NOT EXISTS active_delivery ON delivery_versions(identity,last_seq)''',
+    '''CREATE INDEX IF NOT EXISTS active_trade ON delivery_versions(last_seq,trade)''',
+    '''CREATE INDEX IF NOT EXISTS delivery_order ON delivery_versions(sn,last_seq,trade,first_seq)''',
     '''CREATE TABLE IF NOT EXISTS inputs (
         id INTEGER PRIMARY KEY CHECK(id=1), signature TEXT NOT NULL, retained_rolling INTEGER NOT NULL,
         rolling_window TEXT)''',
@@ -189,12 +190,12 @@ def apply_capture(db, capture, head):
     for lo, hi in additions:
         prior.update((row[0],row[1:]) for row in db.execute(
             '''SELECT identity,observed,trade,sn,body FROM delivery_versions
-               WHERE last_seq IS NULL AND body IS NOT NULL AND trade BETWEEN ? AND ?''', (lo,hi)))
+               WHERE last_seq=0 AND body IS NOT NULL AND trade BETWEEN ? AND ?''', (lo,hi)))
     extra = sorted(incoming.keys()-prior.keys())
     for offset in range(0, len(extra), 400):
         keys = extra[offset:offset+400]
         prior.update((row[0],row[1:]) for row in db.execute(
-            'SELECT identity,observed,trade,sn,body FROM delivery_versions WHERE last_seq IS NULL AND identity IN ('
+            'SELECT identity,observed,trade,sn,body FROM delivery_versions WHERE last_seq=0 AND identity IN ('
             + ','.join('?' for _ in keys) + ')', keys))
     retire, touch, insert = [], [], []
     for key in prior.keys() | incoming.keys():
@@ -212,8 +213,8 @@ def apply_capture(db, capture, head):
         if old:
             retire.append((seq,key))
         insert.append((key,seq,observed,*new))
-    db.executemany('UPDATE delivery_versions SET last_seq=? WHERE identity=? AND last_seq IS NULL', retire)
-    db.executemany('UPDATE delivery_versions SET observed=? WHERE identity=? AND last_seq IS NULL', touch)
+    db.executemany('UPDATE delivery_versions SET last_seq=? WHERE identity=? AND last_seq=0', retire)
+    db.executemany('UPDATE delivery_versions SET observed=? WHERE identity=? AND last_seq=0', touch)
     db.executemany('INSERT INTO delivery_versions(identity,first_seq,observed,trade,sn,body) VALUES(?,?,?,?,?,?)', insert)
     db.execute('INSERT INTO batches VALUES(?,?,?,?,?)', (seq,digest,revision,observed,encode(windows)))
     return seq, revision, windows
@@ -321,9 +322,9 @@ def read_orders(order_keys, *, root=ROOT, since=None, until=None, revision=None)
             where = ['body IS NOT NULL']
             args = []
             if batch[1] == db.execute('SELECT revision FROM batches ORDER BY seq DESC LIMIT 1').fetchone()[0]:
-                where.append('last_seq IS NULL')
+                where.append('last_seq=0')
             else:
-                where.append('first_seq<=? AND (last_seq IS NULL OR last_seq>?)')
+                where.append('first_seq<=? AND (last_seq=0 OR last_seq>?)')
                 args.extend((seq,seq))
             if limit_start is not None:
                 where.append('trade>=?')

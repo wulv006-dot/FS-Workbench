@@ -206,6 +206,14 @@ class CostInputs(unittest.TestCase):
                 rows=[dict(data['rows'][0], cost_total='50')])
             (root/'order-deliveries.json').write_text(json.dumps(latest), encoding='utf-8')
             result = runtime.ordinary_delivery_archives(scope, shared, root=root)
+            from order_delivery_index import sync
+            revision = sync(root)
+            indexed = runtime.ordinary_delivery_archives(scope, shared, root=root)
+            self.assertEqual(indexed['orders'][0]['observed_cost_cny'],result['orders'][0]['observed_cost_cny'])
+            self.assertEqual({x['cost_record_id'] for x in indexed['orders'][0]['cost_records']},
+                             {x['cost_record_id'] for x in result['orders'][0]['cost_records']})
+            self.assertFalse(indexed['source_coverage']['cost']['order_cost_complete'])
+            self.assertEqual(indexed['source_coverage']['cost']['index_revision'],revision)
         proof = result['source_coverage']['cost']
         self.assertEqual(len(proof['shipment_windows']), 3)
         self.assertFalse(proof['order_cost_complete'])
