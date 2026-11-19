@@ -12,7 +12,7 @@ HERE = Path(__file__).resolve().parents[1]
 
 
 class CostTimeout(unittest.TestCase):
-    def wrapper(self, code, payload='', baseline=False):
+    def wrapper(self, code, payload='', baseline=False, read_failure=False):
         if os.name == 'nt':
             self.skipTest('shell integration requires Linux; run before publication')
         with tempfile.TemporaryDirectory() as directory:
@@ -29,7 +29,10 @@ class CostTimeout(unittest.TestCase):
                          TEST_PAYLOAD=payload, TEST_EXIT=str(code)), timeout=10)
             files = list((root / 'evidence').glob('*'))
             self.assertEqual(len(files), 1)
-            return result.returncode, json.loads(result.stdout), files[0].name
+            values = result.returncode, json.loads(result.stdout), files[0].name
+            if read_failure:
+                return (*values, json.loads(files[0].read_text()))
+            return values
 
     def test_baseline_loses_timeout_and_fix_preserves_it(self):
         self.assertEqual(self.wrapper(124, baseline=True)[1]['reason'], 'collector_failed')
@@ -40,8 +43,9 @@ class CostTimeout(unittest.TestCase):
         self.assertEqual(value['evidence_file'], filename)
 
     def test_other_failures_and_invalid_success_stay_failures(self):
-        for code, payload in ((137, ''), (1, ''), (0, '{}')):
-            self.assertEqual(self.wrapper(code, payload)[1]['reason'], 'collector_failed')
+        for code, payload, reason in ((137, '', 'collector_output_empty'), (1, '', 'collector_output_empty'),
+                                      (0, '{}', 'collector_payload_invalid')):
+            self.assertEqual(self.wrapper(code, payload)[1]['reason'], reason)
         value = self.wrapper(1, json.dumps({'status': 'missing', 'reason': 'login_expired'}))[1]
         self.assertEqual(value['reason'], 'login_expired')
 
@@ -51,6 +55,23 @@ class CostTimeout(unittest.TestCase):
         self.assertEqual(self.wrapper(0, json.dumps(payload))[0], 0)
         payload['costs'][0]['delivery_type'] = 'other'
         self.assertEqual(self.wrapper(0, json.dumps(payload))[0], 1)
+
+    def test_failed_file_matches_sanitized_report(self):
+        for code, payload, reason in (
+            (124, '', 'collector_process_timeout'),
+            (137, '', 'collector_output_empty'),
+            (0, '{}', 'collector_payload_invalid'),
+            (1, json.dumps({'status': 'missing', 'reason': 'login_expired',
+                            'diagnostic': {'url': 'private-url'}}), 'login_expired'),
+        ):
+            with self.subTest(code=code, reason=reason):
+                status, value, filename, saved = self.wrapper(code, payload, read_failure=True)
+                self.assertEqual(status, 1)
+                self.assertTrue(filename.endswith('.failed.json'))
+                self.assertEqual(saved, value)
+                self.assertEqual(saved['reason'], reason)
+                self.assertEqual(saved['diagnostic']['exit_code'], code)
+                self.assertNotIn('private-url', json.dumps(saved))
 
     def test_retry_requires_same_run_and_no_write_artifacts(self):
         tree = ast.parse((HERE / 'source/automation_tick.py').read_text())

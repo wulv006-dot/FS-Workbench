@@ -36,27 +36,39 @@ PY
 else
   collector_exit=$?
 fi
-mv "$trace" "${trace%.tmp}.failed.json"
-python3 - "${trace%.tmp}.failed.json" "$collector_exit" <<'PY'
+python3 - "$trace" "$collector_exit" <<'PY'
 import json,re,sys
 from pathlib import Path
-result={'source':'P2PAH','status':'missing','reason':'collector_failed'}
-if sys.argv[2]=='124':
-    result.update(reason='collector_process_timeout', diagnostic={'exit_code':124,'timeout_seconds':180})
-try:
-    payload=json.load(open(sys.argv[1],encoding='utf-8'))
-    reason=payload.get('reason') or ('cost_records_incomplete' if payload.get('status')=='incomplete' else '')
-    if isinstance(reason,str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_:,.-]{0,119}',reason):
-        result['reason']=reason
-    diagnostic=payload.get('diagnostic')
-    if isinstance(diagnostic,dict):
-        result['diagnostic']={k:diagnostic.get(k) for k in ('requested_page','http_status','checked_at')}
-        observed=diagnostic.get('observed')
-        if isinstance(observed,dict):
-            result['diagnostic']['observed']={k:observed.get(k) for k in ('login','page','game','product','genre','typeHeader','table','hasDataRows','empty')}
-except (OSError,ValueError,TypeError,AttributeError):
-    pass
-result['evidence_file']=Path(sys.argv[1]).name
-print(json.dumps(result))
+trace = Path(sys.argv[1])
+failed = trace.with_suffix('.failed.json')
+exit_code = int(sys.argv[2])
+diagnostic = {'exit_code': exit_code}
+result = {'source': 'P2PAH', 'status': 'missing', 'reason': 'collector_payload_invalid',
+          'diagnostic': diagnostic, 'evidence_file': failed.name}
+if exit_code == 124:
+    result['reason'] = 'collector_process_timeout'
+    diagnostic['timeout_seconds'] = 180
+else:
+    try:
+        raw = trace.read_text(encoding='utf-8')
+        if not raw.strip():
+            result['reason'] = 'collector_output_empty'
+        else:
+            payload = json.loads(raw)
+            reason = payload.get('reason') or ('cost_records_incomplete' if payload.get('status') == 'incomplete' else '')
+            if isinstance(reason, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_:,.-]{0,119}', reason):
+                result['reason'] = reason
+            detail = payload.get('diagnostic')
+            if isinstance(detail, dict):
+                diagnostic.update({k: detail[k] for k in ('requested_page', 'http_status', 'checked_at') if k in detail})
+                observed = detail.get('observed')
+                if isinstance(observed, dict):
+                    diagnostic['observed'] = {k: observed.get(k) for k in ('login','page','game','product','genre','typeHeader','table','hasDataRows','empty')}
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+receipt = json.dumps(result)
+trace.write_text(receipt + '\n', encoding='utf-8')
+trace.replace(failed)
+print(receipt)
 PY
 exit 1
