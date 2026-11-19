@@ -303,6 +303,7 @@ CURVE_RECOVERY_TARGETS = {
     },
     'recent-orders': module_targets(('business_source.py', 'planning_baskets_v6.py', 'runtime.py')),
     'catalogue-inputs': module_targets(('runtime.py',)),
+    'cycle-wakeup': module_targets(('scheduler.py',)),
     'targeted-price-reads': {
         'coin_all_sync_job.py': '/opt/fc27-cloud-browser/coin_all_sync_job.py',
         **module_targets(('business_source.py', 'daily.py')),

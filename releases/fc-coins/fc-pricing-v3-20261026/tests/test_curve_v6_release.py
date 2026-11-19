@@ -30,6 +30,7 @@ class CurveV6Release(unittest.TestCase):
             'round-latency': ('business_source.py', 'runtime.py', 'planning_baskets_v6.py'),
             'recent-orders': ('business_source.py', 'planning_baskets_v6.py', 'runtime.py'),
             'catalogue-inputs': ('runtime.py',),
+            'cycle-wakeup': ('scheduler.py',),
             'targeted-price-reads': ('business_source.py', 'daily.py'),
             'outcomes': ('business_source.py', 'daily.py'),
             'cost-incidents': ('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py'),
