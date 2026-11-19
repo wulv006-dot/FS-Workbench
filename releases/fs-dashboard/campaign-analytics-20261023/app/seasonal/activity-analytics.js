@@ -94,6 +94,8 @@
   const consentKey='mmoexp-event-analytics-consent-v1';let transportOptIn=false,distinct=uuid();
   // Reuse the verified MMOEXP web stream; only load its tag after the existing opt-in.
   const googleId='G-L67DEVB5XN',googleConsentKey='mmoexp-event-google-consent-v1';let googleStarted=false,googlePageSent=false,googleOwnsDefaults=false;
+  const googlePageLocation=()=>location.origin+(formalFc||carnivalPage?location.pathname:'/events/seasonal/');
+  const googleActivityId=carnivalPage?'mmoexp-carnival':formalFc?'fc27-'+fcView:'mmoexp-seasonal';
   function googleConsent(){
     let googleAllowed=false;try{googleAllowed=localStorage.getItem(googleConsentKey)==='granted';}catch{}
     if(!consent||!googleAllowed||!liveSeasonal()||verification){window['ga-disable-'+googleId]=true;if(googleStarted&&googleOwnsDefaults)window.gtag('consent','update',{analytics_storage:'denied'});return;}
@@ -103,17 +105,17 @@
         googleOwnsDefaults=typeof window.gtag!=='function'&&!document.querySelector('script[src*="googletagmanager.com/gtag/js"]');
         window.dataLayer=window.dataLayer||[];window.gtag=window.gtag||function(){window.dataLayer.push(arguments);};
         if(googleOwnsDefaults)window.gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
-        window.gtag('js',new Date());window.gtag('config',googleId,{send_page_view:false,allow_google_signals:false,allow_ad_personalization_signals:false,page_location:location.origin+(formalFc?location.pathname:'/events/seasonal/'),page_referrer:cleanReferrer(),...Object.fromEntries([['utm_source','campaign_source'],['utm_medium','campaign_medium'],['utm_campaign','campaign_name'],['utm_content','campaign_content'],['utm_term','campaign_term']].filter(([key])=>safe(params.get(key))).map(([key,field])=>[field,safe(params.get(key))]))});
+        window.gtag('js',new Date());window.gtag('config',googleId,{send_page_view:false,allow_google_signals:false,allow_ad_personalization_signals:false,page_location:googlePageLocation(),page_referrer:cleanReferrer(),...Object.fromEntries([['utm_source','campaign_source'],['utm_medium','campaign_medium'],['utm_campaign','campaign_name'],['utm_content','campaign_content'],['utm_term','campaign_term']].filter(([key])=>safe(params.get(key))).map(([key,field])=>[field,safe(params.get(key))]))});
         const tag=document.createElement('script');tag.async=true;tag.src='https://www.googletagmanager.com/gtag/js?id='+googleId;document.head.append(tag);googleStarted=true;
       }
       window.gtag('consent','update',{analytics_storage:'granted'});
-      if(!googlePageSent){googlePageSent=true;window.gtag('event','page_view',{send_to:googleId,page_location:location.origin+(formalFc?location.pathname:'/events/seasonal/'),page_referrer:cleanReferrer()});}
+      if(!googlePageSent){googlePageSent=true;window.gtag('event','page_view',{send_to:googleId,page_location:googlePageLocation(),page_referrer:cleanReferrer(),...(carnivalPage?{activity_id:googleActivityId}:{})});}
     }catch{/* Google availability cannot interrupt consent or purchasing. */}
   }
   function cleanReferrer(){try{const u=new URL(document.referrer);return /^https?:$/.test(u.protocol)?u.origin+'/':'';}catch{return '';}}
   function googleEvent(event,props){
     if(!consent||!liveSeasonal()||verification||!googleStarted||window['ga-disable-'+googleId])return;
-    try{window.gtag('event',event,{send_to:googleId,page_location:location.origin+(formalFc?location.pathname:'/events/seasonal/'),activity_id:formalFc?'fc27-'+fcView:'mmoexp-seasonal',...Object.fromEntries(['game_id','slot','action','target','depth','active_seconds'].filter(k=>props[k]!=null).map(k=>[k,props[k]]))});}catch{}
+    try{window.gtag('event',event,{send_to:googleId,page_location:googlePageLocation(),activity_id:googleActivityId,...Object.fromEntries(['game_id','slot','action','target','depth','active_seconds'].filter(k=>props[k]!=null).map(k=>[k,props[k]]))});}catch{}
   }
   // Reuse the existing public Capture API transport, with no SDK autocapture/replay.
   const transport={capture(event,props){
