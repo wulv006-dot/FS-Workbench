@@ -1,6 +1,6 @@
 // Extend the original history-five VM DOM fixture with actual api/showJob handlers.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../../admin-api-repair-20261031/source/app.js'),'utf8');
+const source=fs.readFileSync(path.join(__dirname,'../../mixed-plan-20261031/source/app.js'),'utf8');
 const helper=source.slice(source.indexOf('  function node('),source.indexOf('  function clearPlan('));
 const api=source.slice(source.indexOf('  async function api('),source.indexOf('  async function status()'));
 const jobs=source.slice(source.indexOf('  async function loadJobs()'),source.indexOf('  async function loadTagCatalog('));
@@ -13,10 +13,10 @@ class Element{
   click(){if(!this.disabled)return this.onclick?.();}
 }
 function all(root){return [root,...root.children.flatMap(all)];}
-function fixture({role='admin',auth=true,can_resume=true}={}){
+function fixture({role='admin',auth=true,can_resume=true,image_resume=false}={}){
   const roots={jobResult:new Element('div'),jobsList:new Element('div')},requests=[];
   const id='2b24ac5661fb404e8bef25f2e6c791f5';
-  let job={id,created_at:'original-created',updated_at:'now',status:'needs_reconcile',step:'unknown',can_resume,items:[],events:[]};
+  let job={id,created_at:'original-created',updated_at:'now',status:'needs_reconcile',step:'unknown',can_resume,image_resume,items:[],events:[]};
   let resolvePost,rejectPost,recoveries=0;
   const deferred=new Promise((resolve,reject)=>{resolvePost=resolve;rejectPost=reject;});
   const response=(status,data)=>({ok:status>=200&&status<300,status,json:async()=>data});
@@ -34,7 +34,7 @@ function fixture({role='admin',auth=true,can_resume=true}={}){
   vm.createContext(context);vm.runInContext(helper+api+jobs,context);
   return {context,roots,requests,id,response,resolvePost,rejectPost,setJob:value=>{job={...job,...value};},recoveries:()=>recoveries,
     show:()=>vm.runInContext('showJob('+JSON.stringify(id)+')',context),
-    buttons:()=>all(roots.jobResult).filter(node=>node.tag==='button'&&node.textContent==='继续原任务')};
+    buttons:()=>all(roots.jobResult).filter(node=>node.tag==='button'&&node.textContent===(image_resume?'继续上传':'继续原任务'))};
 }
 (async()=>{
   let scenarios=0;
@@ -61,6 +61,17 @@ function fixture({role='admin',auth=true,can_resume=true}={}){
     assert.ok(f.requests.every(request=>request.url.includes('/api/jobs')),'resume never creates a plan or new execution ID');
     assert.equal(f.requests.filter(request=>request.options.method==='POST').length,1);
     scenarios++;
+  }
+  {
+    const f=fixture({image_resume:true});await f.show();
+    assert.equal(f.buttons().length,1);
+    assert.ok(all(f.roots.jobResult).some(node=>/已上传的附件会复用/.test(node.textContent)));
+    assert.equal(f.requests.filter(request=>request.options.method==='POST').length,0);
+    const pending=f.buttons()[0].click();
+    f.setJob({status:'queued',can_resume:false});
+    f.resolvePost(f.response(202,{execution_id:f.id,status:'queued'}));await pending;
+    assert.equal(f.requests.filter(request=>request.options.method==='POST').length,1);
+    assert.equal(f.buttons().length,0);scenarios++;
   }
   for(const failure of ['http403','network']){
     const f=fixture();await f.show();const resume=f.buttons()[0],pending=resume.click();

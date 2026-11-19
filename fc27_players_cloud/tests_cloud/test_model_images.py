@@ -15,11 +15,11 @@ from PIL import Image
 from player_web.main import App
 from player_web.media_client import ImageUploadNotStarted, upload_png, edit_model_icon
 from player_web.model_image_service import (create_batch, stage_png, prepare_image_plan,
-                                            verify_image_plan, execute_image_plan, validate_png)
+                                            verify_image_plan, execute_image_plan, image_resume_items, validate_png)
 from player_web.model_service import refresh_models
 from player_web.repository import Repository, StateError
 from tests_cloud.test_feature_parity import Backend, configuration
-from 球员维护工具.admin_client import AdminContractError
+from 球员维护工具.admin_client import AdminContractError, AdminHttpError
 
 
 def png():
@@ -138,6 +138,29 @@ class ModelImageTests(unittest.TestCase):
         with self.repo.connection() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM active_scope').fetchone()[0], 0)
 
+    def test_transient_model_reads_after_upload_do_not_repeat_writes(self):
+        plan = self.plan()
+        job = self.execution(plan)
+        get_model = self.backend.get_model
+        failures = iter((AdminHttpError('timed out'), AdminHttpError('HTTP 503', status=503)))
+
+        def read_model(model_id):
+            if upload.called:
+                failure = next(failures, None)
+                if failure is not None:
+                    raise failure
+            return get_model(model_id)
+
+        with patch('player_web.model_image_service.upload_png', return_value={'attachment_id': 777, 'url': ''}) as upload, \
+             patch('player_web.model_image_service.edit_model_icon', side_effect=self.bind) as edit, \
+             patch.object(self.backend, 'get_model', side_effect=read_model):
+            execute_image_plan(self.settings, self.repo, self.backend, job, plan)
+        upload.assert_called_once()
+        edit.assert_called_once_with(self.backend, 300000, 777)
+        result = self.repo.get_execution(job, 'operator')
+        self.assertEqual(result['status'], 'completed_readback')
+        self.assertEqual(result['items'][0]['after']['icon'], 777)
+
     def test_lost_upload_response_stops_batch_and_keeps_scope_no_retry(self):
         plan = self.plan(('400000.png', '400002.png'))
         job = self.execution(plan)
@@ -150,6 +173,8 @@ class ModelImageTests(unittest.TestCase):
         result = self.repo.get_execution(job, 'operator')
         self.assertEqual(result['status'], 'needs_reconcile')
         self.assertEqual([item['status'] for item in result['items']], ['unknown', 'planned'])
+        with self.assertRaisesRegex(StateError, 'IMAGE_JOB_NOT_RESUMABLE'):
+            image_resume_items(result, self.repo.get_plan(plan['plan_id'], 'operator'))
         with self.repo.connection() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM active_scope').fetchone()[0], 2)
 
@@ -179,6 +204,61 @@ class ModelImageTests(unittest.TestCase):
         result = self.repo.get_execution(job, 'operator')
         self.assertEqual(result['items'][0]['after']['attachment_id'], 777)
         self.assertEqual(result['status'], 'needs_reconcile')
+
+        self.backend.rows[300000]['icon'] = 777
+        self.repo.set_execution(job, 'queued', 'image_resume_queued')
+        frozen = self.repo.get_plan(plan['plan_id'], 'operator')
+        with patch('player_web.model_image_service.upload_png') as upload, \
+             patch('player_web.model_image_service.edit_model_icon') as edit:
+            execute_image_plan(self.settings, self.repo, self.backend, job, frozen, resume=True)
+            upload.assert_not_called()
+            edit.assert_not_called()
+        self.assertEqual(self.repo.get_execution(job, 'operator')['status'], 'completed_readback')
+
+    def test_resume_after_last_item_was_verified_needs_no_upstream_call(self):
+        plan = self.plan()
+        job = self.execution(plan)
+        set_execution = self.repo.set_execution
+
+        def interrupt_before_finish(execution_id, status, *args, **kwargs):
+            if status == 'completed_readback':
+                raise SystemExit()
+            return set_execution(execution_id, status, *args, **kwargs)
+
+        with patch.object(self.repo, 'set_execution', side_effect=interrupt_before_finish), \
+             patch('player_web.model_image_service.upload_png', return_value={'attachment_id': 777, 'url': ''}), \
+             patch('player_web.model_image_service.edit_model_icon', side_effect=self.bind):
+            with self.assertRaises(SystemExit):
+                execute_image_plan(self.settings, self.repo, self.backend, job, plan)
+        self.repo.interrupted_jobs()
+        self.repo.set_execution(job, 'queued', 'image_resume_queued')
+        frozen = self.repo.get_plan(plan['plan_id'], 'operator')
+        execute_image_plan(self.settings, self.repo, object(), job, frozen, resume=True)
+        self.assertEqual(self.repo.get_execution(job, 'operator')['status'], 'completed_readback')
+
+    def test_stop_during_model_read_after_upload_preserves_attachment(self):
+        plan = self.plan()
+        job = self.execution(plan)
+        get_model = self.backend.get_model
+        stopped = False
+
+        def read_model(model_id):
+            nonlocal stopped
+            if upload.called and not stopped:
+                stopped = True
+                raise AdminHttpError('timed out')
+            return get_model(model_id)
+
+        with patch('player_web.model_image_service.upload_png', return_value={'attachment_id': 777, 'url': ''}) as upload, \
+             patch('player_web.model_image_service.edit_model_icon') as edit, \
+             patch.object(self.backend, 'get_model', side_effect=read_model):
+            with self.assertRaisesRegex(StateError, 'IMAGE_STOPPED_AFTER_UPLOAD'):
+                execute_image_plan(self.settings, self.repo, self.backend, job, plan, lambda: stopped)
+            upload.assert_called_once()
+            edit.assert_not_called()
+        result = self.repo.get_execution(job, 'operator')
+        self.assertEqual(result['status'], 'needs_reconcile')
+        self.assertEqual(result['items'][0]['after']['attachment_id'], 777)
 
     def test_write_switch_and_stop_before_upload(self):
         plan = self.plan()

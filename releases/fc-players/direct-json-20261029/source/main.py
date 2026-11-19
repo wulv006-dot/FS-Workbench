@@ -28,7 +28,7 @@ from .settings import Settings
 from .shared_session import shared_client
 from .direct_model_import import _bound_plan
 from .model_image_service import (create_batch, stage_png, prepare_image_plan,
-                                  verify_image_plan, execute_image_plan, MAX_PNG_BYTES)
+                                  verify_image_plan, execute_image_plan, image_resume_items, MAX_PNG_BYTES)
 
 
 class ThreadingServer(ThreadingMixIn, WSGIServer):
@@ -290,14 +290,22 @@ class App:
                 ))
             if method == "GET" and path.startswith("/api/jobs/"):
                 job = self.repository.get_execution(path.rsplit("/", 1)[-1], owner)
+                resumable = image_resume = False
                 try:
-                    _bound_plan(self.repository, job["id"], self._direct_resume_plan(job))
-                    resumable = job["status"] in {"waiting_price_lock", "needs_reconcile", "partial_readback"}
+                    plan = self.repository.get_plan(job["plan_id"], owner)
+                    if plan.get("kind") == "model_images":
+                        if (job["status"] == "needs_reconcile" and self.settings.model_image_write_enabled
+                                and not (self.settings.data_root / "STOP_WRITES").exists()):
+                            image_resume_items(job, plan)
+                            resumable = image_resume = True
+                    else:
+                        _bound_plan(self.repository, job["id"], self._direct_resume_plan(job))
+                        resumable = job["status"] in {"waiting_price_lock", "needs_reconcile", "partial_readback"}
                 except (StateError, OSError, ValueError, KeyError):
-                    resumable = False
+                    pass
                 events = [{**event, "detail": {key: value for key, value in event["detail"].items()
                                                if key != "direct_plan"}} for event in job["events"]]
-                return self._json(start, "200 OK", {**job, "events": events, "can_resume": resumable})
+                return self._json(start, "200 OK", {**job, "events": events, "can_resume": resumable, "image_resume": image_resume})
             if method == "GET" and path == "/api/jobs":
                 return self._json(start, "200 OK", {"items": self.repository.list_executions(owner)})
             if method != "POST":
@@ -488,7 +496,8 @@ class App:
                 return self._json(start, "202 Accepted", {"execution_id": execution_id,
                                                            "status": "queued" if created else "existing"})
             if path.startswith("/api/jobs/") and path.endswith("/resume"):
-                if not self.settings.new_card_write_enabled or (self.settings.data_root / "STOP_WRITES").exists():
+                if (not (self.settings.new_card_write_enabled or self.settings.model_image_write_enabled)
+                        or (self.settings.data_root / "STOP_WRITES").exists()):
                     raise StateError("WRITE_DISABLED")
                 client = self._session(session_key)
                 if client is None:
@@ -501,26 +510,40 @@ class App:
                 with self._state_lock:
                     if execution_id in self._stops:
                         return self._json(start, "202 Accepted", {"execution_id": execution_id, "status": "existing"})
-                if job["status"] not in {"waiting_price_lock", "needs_reconcile", "partial_readback"}:
-                    raise StateError("DIRECT_JOB_NOT_RESUMABLE")
-                plan = self._direct_resume_plan(job)
-                verify_source_policy(self.settings, plan)
-                verify_manual_new_card_scope(self.settings, plan)
-                _bound_plan(self.repository, execution_id, plan)
+                plan = self.repository.get_plan(job["plan_id"], owner)
+                image_resume = plan.get("kind") == "model_images"
+                if image_resume:
+                    if not self.settings.model_image_write_enabled:
+                        raise StateError("WRITE_DISABLED")
+                    if job["status"] != "needs_reconcile":
+                        raise StateError("IMAGE_JOB_NOT_RESUMABLE")
+                    image_resume_items(job, plan)
+                else:
+                    if not self.settings.new_card_write_enabled:
+                        raise StateError("WRITE_DISABLED")
+                    if job["status"] not in {"waiting_price_lock", "needs_reconcile", "partial_readback"}:
+                        raise StateError("DIRECT_JOB_NOT_RESUMABLE")
+                    plan = self._direct_resume_plan(job)
+                    verify_source_policy(self.settings, plan)
+                    verify_manual_new_card_scope(self.settings, plan)
+                    _bound_plan(self.repository, execution_id, plan)
+                resume_step = "image_resume" if image_resume else "direct_resume"
                 with self._state_lock:
                     if execution_id in self._stops:
+                        return self._json(start, "202 Accepted", {"execution_id": execution_id, "status": "existing"})
+                    if image_resume and self.repository.get_execution(execution_id, owner) != job:
                         return self._json(start, "202 Accepted", {"execution_id": execution_id, "status": "existing"})
                     stop = threading.Event()
                     self._stops[execution_id] = stop
                     queued = False
                     try:
-                        self.repository.set_execution(execution_id, "queued", "direct_resume_queued", {"same_execution": True})
+                        self.repository.set_execution(execution_id, "queued", resume_step + "_queued", {"same_execution": True})
                         queued = True
-                        self._pool.submit(self._run_job, client, execution_id, plan, stop)
+                        self._pool.submit(self._run_job, client, execution_id, plan, stop, image_resume)
                     except Exception as exc:
                         self._stops.pop(execution_id, None)
                         if queued:
-                            self.repository.set_execution(execution_id, "needs_reconcile", "direct_resume_not_started",
+                            self.repository.set_execution(execution_id, "needs_reconcile", resume_step + "_not_started",
                                                           {"dispatch_started": False, "error_type": type(exc).__name__})
                         raise
                 return self._json(start, "202 Accepted", {"execution_id": execution_id, "status": "queued"})
@@ -552,7 +575,8 @@ class App:
                      "DIRECT_MIGRATION_PROOF_REQUIRED", "DIRECT_ORIGIN_CHANGED", "DIRECT_PLAN_CHANGED"}
             known |= {"IMAGE_BATCH_INVALID", "IMAGE_BATCH_EXPIRED", "IMAGE_BATCH_TOO_LARGE",
                       "IMAGE_DUPLICATE_FILENAME", "IMAGE_FILE_CHANGED", "IMAGE_MODEL_CHANGED",
-                      "IMAGE_MODEL_IDENTITY_CHANGED", "IMAGE_FIELD_UNKNOWN", "IMAGE_NO_MATCHES", "INVALID_PNG"}
+                      "IMAGE_MODEL_IDENTITY_CHANGED", "IMAGE_FIELD_UNKNOWN", "IMAGE_NO_MATCHES",
+                      "IMAGE_JOB_NOT_RESUMABLE", "INVALID_PNG"}
             return self._json(start, "409 Conflict", {"error": code if code in known else type(exc).__name__})
         except Exception as exc:
             return self._json(start, "502 Bad Gateway", {"error": "OPERATION_FAILED",
@@ -571,10 +595,11 @@ class App:
                     return derived
         raise StateError("DIRECT_PLAN_REQUIRED")
 
-    def _run_job(self, client: Any, execution_id: str, plan: dict[str, Any], stop: threading.Event) -> None:
+    def _run_job(self, client: Any, execution_id: str, plan: dict[str, Any], stop: threading.Event,
+                 image_resume: bool = False) -> None:
         with self._writer_lock:
             try:
-                if stop.is_set() and plan.get("import_mode") != "direct_json_v1":
+                if stop.is_set() and not image_resume and plan.get("import_mode") != "direct_json_v1":
                     self.repository.set_execution(execution_id, "stopped", "not_started", release_scope=True)
                     return
                 lease_deadline = time.time() + 1800
@@ -588,7 +613,7 @@ class App:
                                            execution_id, plan, should_stop)
                 elif plan.get("kind") == "model_images":
                     execute_image_plan(self.settings, self.repository, client,
-                                       execution_id, plan, should_stop)
+                                       execution_id, plan, should_stop, resume=image_resume)
                 else:
                     raise StateError("PLAN_BLOCKED")
             except Exception:

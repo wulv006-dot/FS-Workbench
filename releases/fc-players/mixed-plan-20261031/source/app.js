@@ -123,9 +123,9 @@
     if(waiting.length)root.append(node("p","上架请求已受理、等待读回（"+waiting.length+" 人）。接续原任务会先只读核对，不重复上架。","warn"));
     if(job.can_resume&&state.role==="admin"&&state.auth){
       const pending=state.resumePending||(state.resumePending=new Map());
-      const hint=node("p","继续未完成步骤；已完成的球员不会重复新增。"),message=node("p","");
+      const hint=node("p",job.image_resume?"继续本批次未完成的图片。已完成的图片会跳过，已上传的附件会复用。":"继续未完成步骤；已完成的球员不会重复新增。"),message=node("p","");
       message.setAttribute("role","status");message.setAttribute("aria-live","polite");
-      const resume=button("继续原任务",async()=>{
+      const resume=button(job.image_resume?"继续上传":"继续原任务",async()=>{
         if(pending.has(id))return;
         const progress={button:resume,message};pending.set(id,progress);
         resume.disabled=true;message.textContent="正在接续原任务…";

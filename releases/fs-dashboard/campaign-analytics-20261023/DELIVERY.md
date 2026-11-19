@@ -403,3 +403,12 @@
 - 在 187 用已发布的只读 bridge 核对 11 月 19 日 UTC 窗口，完整读取 Coupon 模板和 MemberCouponLog 窗口，56 张模板在首页、神秘商店、黑五、扭蛋四组返回 coverage.complete=true，耗时 10.86 秒。Order 退款识别已由回归样本验证，正式窗口的真实付费及退款订单尚待验收。FC 1395 仍单独归因。本次验收未领券、加购或付款。
 - 待验收项为北京时间 11 月 19 日 13:00 开始后，测试访客自行同意统计并浏览正式活动页，随后对照 PostHog 与活动看板的首批正式事件及计划快照。发布日志仍为 applied-awaiting-actual-http-role-acceptance，本记录已核登录看板的开始前状态。万圣节活动码付款来源在发布前已报 ACTIVITY_CODE_IDENTITY_MISMATCH，本次保留原口径。
 - 回退依据为 /var/backups/fs-navigation-20261006/nav-20261118T080236Z。登记历史由原 store 保存在 history/11.json。若需撤回登记，通过活动管理调整状态。
+
+### 2026-11-19 `nav-20261119T022945Z`（PR #1249）狂欢页手机端：金币价格重试、黑五商店全宽
+
+- 来源：PR #1249，合并 `90a7455`；候选 `/var/tmp/fs-campaign-release90-candidate`，manifest `9cafbe1c…`；发布 `app/Carnival.html`、`app/carnival-live.js`、`app/carnival.css`（版本号 `?v=20261119a`），静态清单同步。发布前三文件与上一版仓库内容一致（无漂移）。
+- 起因：用户手机反馈神秘商店金币类（FC 27 Coins、AION 2 Kina）一直 `PRICE PENDING`；黑五秒杀区被吉祥物侧栏挤窄。
+- 修改：`/ajax/goods` 读取失败后自动重试 3 次（2s/4s/6s），同时最多 4 个目录请求；旧代码失败后要等别处重绘才会再取价。650px 以下黑五商店占满宽度，吉祥物缩小站在屋顶左角。
+- 线上读回（手机模拟 375px、未登录）：脚本/样式为新版本；神秘商店 FC 金币 $6.11/$30.56/$62.93/$125.87、球员 $5.72 等均有价；黑五商店占满宽度，吉祥物在屋顶上方。
+- 未验证：用户 iPhone 实机复看；手机上原本取价失败的具体原因未抓到（模拟环境主站接口返回正常），本次按"失败后不会自动恢复"修复，CI 新增用例覆盖。
+- 回退：`/var/backups/fs-navigation-20261006/nav-20261119T022945Z`。

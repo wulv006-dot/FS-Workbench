@@ -12,6 +12,7 @@ from typing import Any, Mapping
 
 from PIL import Image
 from 球员维护工具.admin_adapter import extract_futbin_id, extract_model_id
+from 球员维护工具.admin_client import AdminHttpError
 from .media_client import ImageUploadNotStarted, edit_model_icon, upload_png
 from .repository import Repository, StateError, now
 from .settings import Settings
@@ -41,8 +42,16 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _identity(client: Any, model_id: int, futbin_id: str) -> Mapping[str, Any]:
-    row = client.get_model(model_id)
+def _identity(client: Any, model_id: int, futbin_id: str, *, retry: bool = False) -> Mapping[str, Any]:
+    # Retry transient model reads only. Upload and icon writes remain single-dispatch.
+    attempts = 3 if retry else 1
+    for attempt in range(attempts):
+        try:
+            row = client.get_model(model_id)
+            break
+        except AdminHttpError as exc:
+            if attempt + 1 == attempts or (exc.status is not None and not 500 <= exc.status < 600):
+                raise
     if (extract_model_id(row) != model_id or extract_futbin_id(row) != futbin_id
             or str(row.get("gid")) != "1327" or str(row.get("cid")) != "9627"):
         raise StateError("IMAGE_MODEL_IDENTITY_CHANGED")
@@ -163,7 +172,7 @@ def prepare_image_plan(settings: Settings, repo: Repository, client: Any, owner:
                                 "overwrite": batch["overwrite"], "actions": ["set_model_icon"]})
 
 
-def verify_image_plan(settings: Settings, client: Any, plan: Mapping[str, Any]) -> None:
+def verify_image_plan(settings: Settings, client: Any, plan: Mapping[str, Any], *, retry: bool = False) -> None:
     if plan.get("kind") != "model_images" or plan.get("gid") != 1327 or plan.get("cid") != 9627 or plan.get("blockers"):
         raise StateError("PLAN_BLOCKED")
     items = plan.get("items") or []
@@ -175,40 +184,121 @@ def verify_image_plan(settings: Settings, client: Any, plan: Mapping[str, Any]) 
         if path.resolve().parent != root or path.is_symlink() or not path.is_file() or _sha(path) != item["sha256"]:
             raise StateError("IMAGE_FILE_CHANGED")
         validate_png(path.read_bytes())
-        live = _identity(client, item["model_id"], item["futbin_id"])
+        live = _identity(client, item["model_id"], item["futbin_id"], retry=retry)
         if live["icon"] != item["before"]["icon"]:
             raise StateError("IMAGE_MODEL_CHANGED")
 
 
+def image_resume_items(job: Mapping[str, Any], plan: Mapping[str, Any]) -> dict[int, tuple[dict | None, bool]]:
+    """Only replay work whose dispatch state can be established from the original ledger."""
+    if (plan.get("kind") != "model_images" or plan.get("gid") != 1327 or plan.get("cid") != 9627
+            or plan.get("blockers") or plan.get("execution_id") != job["id"]
+            or plan.get("plan_id") != job["plan_id"] or plan.get("owner") != job["owner"]):
+        raise StateError("IMAGE_JOB_NOT_RESUMABLE")
+    planned = {item["model_id"]: item for item in plan["items"]}
+    if (not planned or {item["model_id"] for item in job["items"]} != planned.keys()
+            or {item["futbin_id"] for item in planned.values()} != set(plan["scope_ids"])):
+        raise StateError("IMAGE_JOB_NOT_RESUMABLE")
+    uploads, not_started, edits, receipts = set(), set(), {}, {}
+    for event in job["events"]:
+        detail = event["detail"]
+        model = detail.get("model_id")
+        if event["step"] == "image_upload_intent":
+            uploads.add(model)
+            not_started.discard(model)
+            receipts.pop(model, None)
+        elif event["step"] == "model_action" and event["status"] == "not_started":
+            not_started.add(model)
+        elif event["step"] == "image_attachment_readback":
+            receipts[model] = detail.get("attachment_id")
+        elif event["step"] == "image_edit_intent":
+            edits[model] = detail.get("attachment_id")
+    pending = {}
+    for row in job["items"]:
+        model = row["model_id"]
+        if row["planned"] != planned[model]:
+            raise StateError("IMAGE_JOB_NOT_RESUMABLE")
+        if row["status"] == "verified":
+            continue
+        after = row["after"] or {}
+        attachment = after.get("attachment_id")
+        if (row["status"] in {"dispatch_intent", "unknown"} and type(attachment) is int
+                and attachment > 0 and model in uploads and receipts.get(model) == attachment
+                and (model not in edits or edits[model] == attachment)):
+            pending[model] = ({"attachment_id": attachment, "url": after.get("url", "")}, model in edits)
+        elif (model not in edits and model not in receipts and not attachment
+              and ((row["status"] in {"planned", "unknown"} and model not in uploads)
+                   or (row["status"] == "not_started" and model in not_started))):
+            pending[model] = (None, False)
+        else:
+            raise StateError("IMAGE_JOB_NOT_RESUMABLE")
+    return pending
+
+
 def execute_image_plan(settings: Settings, repo: Repository, client: Any,
-                       execution_id: str, plan: Mapping[str, Any], should_stop: Any = None) -> None:
+                       execution_id: str, plan: Mapping[str, Any], should_stop: Any = None,
+                       *, resume: bool = False) -> None:
     if not settings.model_image_write_enabled:
         raise StateError("WRITE_DISABLED")
     current_id = None
     uploaded = None
+
+    def pause_before_upload() -> bool:
+        if should_stop and should_stop():
+            status = "needs_reconcile" if resume else "stopped"
+            repo.set_execution(execution_id, status, "image_not_started", release_scope=not resume)
+            return True
+        return False
+
     try:
-        verify_image_plan(settings, client, plan)
-        for item in plan["items"]:
-            if should_stop and should_stop():
-                repo.set_execution(execution_id, "stopped", "image_not_started", release_scope=True)
+        if resume:
+            if pause_before_upload():
                 return
-            current_id = item["model_id"]
-            uploaded = None
-            live = _identity(client, current_id, item["futbin_id"])
-            if live["icon"] != item["before"]["icon"]:
-                raise StateError("IMAGE_MODEL_CHANGED")
-            repo.set_execution(execution_id, "running", "image_upload_intent", {"model_id": current_id, "sha256": item["sha256"]})
-            uploaded = upload_png(client, Path(item["artifact_path"]))
-            repo.set_execution_item(execution_id, current_id, "dispatch_intent", before=item["before"], after=uploaded)
-            repo.set_execution(execution_id, "running", "image_attachment_readback", {"model_id": current_id, **uploaded})
-            if should_stop and should_stop():
-                raise StateError("IMAGE_STOPPED_AFTER_UPLOAD")
-            live = _identity(client, current_id, item["futbin_id"])
-            if live["icon"] != item["before"]["icon"]:
-                raise StateError("IMAGE_MODEL_CHANGED")
-            repo.set_execution(execution_id, "running", "image_edit_intent", {"model_id": current_id, **uploaded})
-            edit_model_icon(client, current_id, uploaded["attachment_id"])
-            readback = _identity(client, current_id, item["futbin_id"])
+            job = repo.get_execution(execution_id, plan["owner"])
+            if (job["status"], job["step"]) != ("queued", "image_resume_queued"):
+                raise StateError("IMAGE_JOB_NOT_RESUMABLE")
+            pending = image_resume_items(job, plan)
+            with repo.connection() as db:
+                locked = {row[0] for row in db.execute("SELECT futbin_id FROM active_scope WHERE execution_id=?", (execution_id,))}
+            if locked != set(plan["scope_ids"]):
+                raise StateError("IMAGE_JOB_NOT_RESUMABLE")
+            unchecked = [item for item in plan["items"]
+                         if item["model_id"] in pending and not pending[item["model_id"]][1]]
+            if unchecked:
+                verify_image_plan(settings, client, {**plan, "items": unchecked,
+                                  "scope_ids": [item["futbin_id"] for item in unchecked]}, retry=True)
+        else:
+            verify_image_plan(settings, client, plan, retry=True)
+            pending = {item["model_id"]: (None, False) for item in plan["items"]}
+        for item in plan["items"]:
+            model_id = item["model_id"]
+            if model_id not in pending:
+                continue
+            if pause_before_upload():
+                return
+            current_id = model_id
+            uploaded, edit_sent = pending[model_id]
+            if uploaded is None:
+                live = _identity(client, current_id, item["futbin_id"], retry=True)
+                if live["icon"] != item["before"]["icon"]:
+                    raise StateError("IMAGE_MODEL_CHANGED")
+                if pause_before_upload():
+                    return
+                repo.set_execution(execution_id, "running", "image_upload_intent", {"model_id": current_id, "sha256": item["sha256"]})
+                uploaded = upload_png(client, Path(item["artifact_path"]))
+                repo.set_execution_item(execution_id, current_id, "dispatch_intent", before=item["before"], after=uploaded)
+                repo.set_execution(execution_id, "running", "image_attachment_readback", {"model_id": current_id, **uploaded})
+            if not edit_sent:
+                if should_stop and should_stop():
+                    raise StateError("IMAGE_STOPPED_AFTER_UPLOAD")
+                live = _identity(client, current_id, item["futbin_id"], retry=True)
+                if live["icon"] != item["before"]["icon"]:
+                    raise StateError("IMAGE_MODEL_CHANGED")
+                if should_stop and should_stop():
+                    raise StateError("IMAGE_STOPPED_AFTER_UPLOAD")
+                repo.set_execution(execution_id, "running", "image_edit_intent", {"model_id": current_id, **uploaded})
+                edit_model_icon(client, current_id, uploaded["attachment_id"])
+            readback = _identity(client, current_id, item["futbin_id"], retry=True)
             if str(readback["icon"]) != str(uploaded["attachment_id"]):
                 raise StateError("IMAGE_READBACK_INCOMPLETE")
             repo.set_execution_item(execution_id, current_id, "verified", before=item["before"],
@@ -217,7 +307,8 @@ def execute_image_plan(settings: Settings, repo: Repository, client: Any,
     except ImageUploadNotStarted as exc:
         if current_id is not None:
             repo.set_execution_item(execution_id, current_id, "not_started", after={"error_code": str(exc)})
-        repo.set_execution(execution_id, "failed", "image_not_started", {"error_code": str(exc)}, release_scope=True)
+        status = "needs_reconcile" if resume else "failed"
+        repo.set_execution(execution_id, status, "image_not_started", {"error_code": str(exc)}, release_scope=not resume)
         raise
     except Exception as exc:
         if current_id is not None:
