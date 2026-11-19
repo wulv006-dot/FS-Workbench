@@ -1,8 +1,9 @@
 """Offline V6 fixed-reference candidates and confirmation-bound adoption."""
 from copy import deepcopy
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, localcontext
 import json
+import re
 from statistics import median
 
 from .financial import fingerprint, instant
@@ -14,6 +15,8 @@ from .admin_readback import GID_FC27, MID_FC27_COINS, PLATFORM_AID, SITE_MAIN
 
 ANCHORS = COIN_BAND_ANCHORS
 MARKET_ANCHOR_VERSION = 'market-anchor-v1'
+CARNIVAL_CAMPAIGN = 'carnival_202611'
+CARNIVAL_START_DAY = '2026-11-19'
 STEP = Decimal('.03')
 CENT = Decimal('.01')
 INTERMEDIATE_TRIAL_STEPS = (Decimal('.02'), Decimal('.01'))
@@ -59,7 +62,7 @@ def margin_band_parameters(value, anchors):
         return None
     invalid = 'margin_band_parameters_invalid'
     platforms = set(INITIAL_MARKET_ANCHOR)
-    if (not isinstance(value, dict) or set(value) - {'schedule_hours'} != platforms
+    if (not isinstance(value, dict) or set(value) - {'schedule_hours', 'promotion_guard'} != platforms
             or not all('p_low' in terms for bands in anchors.values() for terms in bands.values())):
         raise ValueError(invalid)
     hours = value.get('schedule_hours', [2, 6, 9, 13, 17, 21])
@@ -78,7 +81,29 @@ def margin_band_parameters(value, anchors):
         if not target.is_finite() or not Decimal('.28') <= target <= Decimal('.35') or target % Decimal('.005'):
             raise ValueError(invalid)
         parsed[platform] = dict(target=str(target.normalize()))
+    if 'promotion_guard' in value:
+        parsed['promotion_guard'] = _promotion_guard_parameters(value['promotion_guard'])
     return parsed
+
+
+def _promotion_guard_parameters(value):
+    invalid = 'margin_band_parameters_invalid'
+    if (not isinstance(value, dict)
+            or set(value) != {'campaign', 'start_day', 'last_redeem_day', 'baseline', 'baseline_revision'}
+            or value['campaign'] != CARNIVAL_CAMPAIGN or value['start_day'] != CARNIVAL_START_DAY
+            or not isinstance(value['baseline_revision'], str)
+            or not re.fullmatch(r'se_[0-9a-f]{32}', value['baseline_revision'])
+            or not isinstance(value['baseline'], dict) or set(value['baseline']) != set(INITIAL_MARKET_ANCHOR)):
+        raise ValueError(invalid)
+    try:
+        last_day = date.fromisoformat(value['last_redeem_day'])
+        baseline = {platform: Decimal(str(ratio)) for platform, ratio in value['baseline'].items()}
+        if (last_day.isoformat() != value['last_redeem_day'] or last_day.isoformat() < CARNIVAL_START_DAY
+                or any(not ratio.is_finite() or not 0 <= ratio < 1 for ratio in baseline.values())):
+            raise ValueError(invalid)
+        return dict(value, baseline={platform: str(ratio.normalize()) for platform, ratio in baseline.items()})
+    except (ArithmeticError, TypeError, ValueError):
+        raise ValueError(invalid) from None
 
 
 def _position_quotes(platform, offers, at):

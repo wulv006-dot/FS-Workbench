@@ -137,7 +137,7 @@ Hermes及Codex/ChatGPT产出、指导或审核任何报告、文字分析，优�
 <!-- fc27-report-method-current-20261024 -->
 ## FC27经营报告字段与呈现
 
-FC27经营报告先按[字段使用与呈现规则](docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)定位相关教材：逐字段核来源、范围、单位、分母、计算、允许结论及主动补查；日期和数字是历史实例，新任务重取证。可比数据优先图表，多维指标按需切换；Ads/流量按经营重要性充分分析，阅读顺序由Hermes结合本次问题自主安排。详细界面设计仍由Hermes自主，不扩为FS全站UI要求，不改预算或业务执行权。Git追溯、项目入口、正式技能、任务实际加载和长期应用分别验收；只入Git不等于服务器自动生效。Admin优先/Order补缺、现行业务基准、当前FC财务scope及原调度/权限保持。
+FC 经营日报、周报、月报和专项分析成稿默认启用 [FC 经营分析图解](.agents/skills/fc-report-visuals/SKILL.md)，Claude Code 从同名项目技能发现。取证按[字段使用与呈现规则](docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)核来源、范围、单位、分母、计算、可支持的结论及主动补查；历史实例只作方法参考。Ads 和流量按经营重要性充分分析，详细界面设计和阅读顺序按本次问题自主安排。Git 版本、项目技能发现、Hermes 实际加载和真实报告应用分别验收。Admin 优先／Order 补缺、现行业务基准及财务口径、预算、调度及权限沿原合同。
 
 <!-- fc-v3-current-20261026 -->
 FC 当前执行以实际计划协议和已发布版本为准。`fc27_curve_v6` 走本文件顶部的 V6.1 合同。旧标量 `smart`、`daily` 和 `revenue_sprint` 的原版本见[旧标量基线](docs/planning/fc-pricing-v3-20261026/CURRENT-BASELINE.md)。

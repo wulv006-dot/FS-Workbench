@@ -48,6 +48,8 @@ FC_V61_MARGIN_BAND_REVISION = 'fc_v61_margin_band_20261118'
 FC_V61_MARGIN_BAND_BASE = 'b12cb55f9dc346dfb27980d53028f79579891bb4'
 FC_V61_HOURLY_REVISION = 'fc_v61_margin_band_hourly_20261119'
 FC_V61_HOURLY_BASE = '27fe0962a8b51fcfb64a415603101ece8097dff8'
+FC_V61_CARNIVAL_REVISION = 'fc_v61_carnival_discount_20261119'
+FC_V61_CARNIVAL_BASE = '9295063b2c1ee4bfb15c175ecba19253d808e99a'
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
 FC_V61_LEARNING_ID = 'fs.learning.methods'
 FC_V61_MARGIN_BAND_IDS = (*FC_V61_OVERLAYS, FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID,
@@ -56,6 +58,7 @@ FC_V61_HOURLY_IDS = (FC_V61_OVERLAYS[0], FC_V61_PARAMETER_ID)
 FC_V61_MARGIN_BAND_SCOPES = {
     FC_V61_MARGIN_BAND_REVISION: (FC_V61_MARGIN_BAND_IDS, FC_V61_MARGIN_BAND_BASE),
     FC_V61_HOURLY_REVISION: (FC_V61_HOURLY_IDS, FC_V61_HOURLY_BASE),
+    FC_V61_CARNIVAL_REVISION: ((FC_V61_OVERLAYS[0],), FC_V61_CARNIVAL_BASE),
 }
 FC_V61_REPORTING_BASE_COMMIT = 'c51bb4f494523f19e6979cf5c85565dac94a4257'
 FC_V61_REPORTING_REVISIONS = {
@@ -117,6 +120,14 @@ def normalized(data, source):
     return data.replace(b'\r\n', b'\n') if source.get('hash_basis') == 'utf8_lf' else data
 
 
+def contextual_changes(previous, current):
+    old, new = (text.splitlines(keepends=True) for text in (previous, current))
+    return [
+        (''.join(old[group[0][1]:group[-1][2]]), ''.join(new[group[0][3]:group[-1][4]]))
+        for group in difflib.SequenceMatcher(None, old, new, autojunk=False).get_grouped_opcodes(1)
+    ]
+
+
 def shared_changes(root, commit, catalog, canonical, current):
     if (canonical.get('release') != SHARED_ADMIN_ES or canonical.get('release_state') != 'candidate'
             or canonical.get('source_commit') is not None or canonical.get('base_commit') != SHARED_BASE_COMMIT):
@@ -138,13 +149,7 @@ def shared_changes(root, commit, catalog, canonical, current):
             if sha(data) != source['sha256']:
                 raise ValueError('canonical_source_changed:' + identity)
             selected.append(catalog.extract(data.decode('utf-8-sig'), source.get('selector')))
-        old, new = (text.splitlines(keepends=True) for text in selected)
-        # One line of unchanged context uniquely anchors the small D5 edits while
-        # retaining the distinct finance and attribution wording in live catalogs.
-        changes[identity] = [
-            (''.join(old[group[0][1]:group[-1][2]]), ''.join(new[group[0][3]:group[-1][4]]))
-            for group in difflib.SequenceMatcher(None, old, new, autojunk=False).get_grouped_opcodes(1)
-        ]
+        changes[identity] = contextual_changes(*selected)
         if not changes[identity]:
             raise ValueError('shared_admin_es_delta_missing:' + identity)
     return changes
@@ -157,7 +162,7 @@ def merge_shared_entry(identity, template, row, content, changes):
         content = content.replace(old, new, 1)
     data = (content.rstrip('\n') + '\n').encode('utf-8')
     source = template['source']
-    row.update(revision=template['revision'], knowledge_updated_at=template['knowledge_updated_at'],
+    row.update(revision=template['revision'], knowledge_updated_at=template.get('knowledge_updated_at', template['effective_at']),
                source=dict(path='overlay/' + template['revision'] + '/' + identity + '.md',
                            sha256=sha(data), hash_basis='utf8_lf',
                            canonical_path=source['path'], canonical_sha256=source['sha256']),
@@ -184,7 +189,7 @@ def reporting_entry(identity, existing, template, previous, live_body, previous_
                 supersedes=list(dict.fromkeys(existing['supersedes'] + template['supersedes']))), data
 
 
-def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False, revision=None, email_only=False):
+def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False, revision=None, retain_baseline=False):
     info = json.loads(bound(snapshot, 'preflight.json').read_bytes())
     if release in info['immutable_directories']:
         raise ValueError('shared_admin_es_release_already_exists_reconcile')
@@ -193,9 +198,9 @@ def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=Fa
     units = {'fs-hermes-fc.service', 'fs-business-range.service'}
     if info['runtime'] != {name: {'ActiveState': 'active'} for name in units}:
         raise ValueError('shared_admin_es_active_services_required')
-    if email_only:
+    if retain_baseline:
         if digest != info['protected'][BASELINE_TARGET]:
-            raise ValueError('email_overlay_retained_baseline_hash')
+            raise ValueError('overlay_retained_baseline_hash')
         return info, {'retained_source_sha256': digest}
     proof = json.loads(git_bytes(root, commit, BASELINE_SOURCE.replace('.md', '.provenance.json')))
     candidate = git_bytes(root, commit, BASELINE_SOURCE)
@@ -331,10 +336,12 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                if shared_admin_es else 'fc-reporting-knowledge-20261105-' + commit[:8])
     if shared_admin_es:
         changes = shared_changes(root, commit, catalog, canonical, current)
+    carnival = fc_v61 and constraints_revision == FC_V61_CARNIVAL_REVISION
+    retain_baseline = email_only or carnival
     if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
             allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current,
-            revision=constraints_revision if fc_v61 else None, email_only=email_only)
+            revision=constraints_revision if fc_v61 else None, retain_baseline=retain_baseline)
         compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
             if not (fc_v61 and baseline_proof.get('retained_current_git') and all(
@@ -407,8 +414,9 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 live = existing[0]
                 source = live['source']
                 data = normalized(payloads['artifact/' + sources + source['path']], source)
+                live_body = catalog.extract(data.decode('utf-8-sig'), source.get('selector'))
                 if (live['revision'] != margin_band_prior[identity]['revision']
-                        or catalog.extract(data.decode('utf-8-sig'), source.get('selector')) != prior_bodies[identity]):
+                        or not carnival and live_body != prior_bodies[identity]):
                     raise ValueError('margin_band_live_entry_changed:' + identity)
             if shared_admin_es:
                 if not existing:
@@ -441,7 +449,14 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                         FC_V61_MARKET_ANCHOR_REVISION, FC_V61_WEEKLY_REVISION, FC_V61_INSURANCE_REVISION)):
                     # Retain the preceding snapshot's source at its original path.
                     overlay_root += row['revision'] + '/'
-                if fc_v61_reporting:
+                if carnival:
+                    delta = contextual_changes(prior_bodies[identity], content)
+                    if len(delta) != 1 or not delta[0][0] or 'margin_band.promotion_guard' not in delta[0][1]:
+                        raise ValueError('carnival_constraints_delta_invalid')
+                    row = copy.deepcopy(existing[0])
+                    row['effective_at'] = template['effective_at']
+                    data = merge_shared_entry(identity, template, row, live_body, {identity: delta})
+                elif fc_v61_reporting:
                     previous_source = existing[0]['source']
                     previous_data = payloads['artifact/' + sources + previous_source['path']]
                     live_body = catalog.extract(normalized(previous_data, previous_source).decode('utf-8-sig'),
@@ -479,7 +494,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     payloads['runtime/knowledge-load-policy.json'] = encoded(policy)
     payloads['artifact/originals/policy.json'] = policy_raw
     baseline_patch = None
-    if (preserve_routes and not email_only and not baseline_proof.get('retained_current_git')
+    if (preserve_routes and not retain_baseline and not baseline_proof.get('retained_current_git')
             and baseline_proof['after_sha256'] != preflight['protected'][BASELINE_TARGET]):
         before_digest = preflight['protected'][BASELINE_TARGET]
         baseline_patch = dict(contract='fc-v61-current-baseline-patch-v1',

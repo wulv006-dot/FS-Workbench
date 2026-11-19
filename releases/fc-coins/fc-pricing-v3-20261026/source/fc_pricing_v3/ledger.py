@@ -719,6 +719,13 @@ class Ledger:
             for row in conn.execute("SELECT body FROM durable_jobs WHERE kind='cycle' AND state='running'"):
                 if json.loads(row[0]).get('plan_id') == ident:
                     raise ValueError('pricing_migration_cycle_running')
+            if strategy_revision and margin_band:
+                guard = margin_band.get('promotion_guard')
+                previous_guard = ((plan.get('parameters') or {}).get('margin_band') or {}).get('promotion_guard') or {}
+                if guard and any(guard[field] != previous_guard.get(field) for field in ('baseline_revision', 'baseline')):
+                    from .runtime import verify_carnival_discount_baseline
+
+                    verify_carnival_discount_baseline(self, snapshot_id, plan, guard, conn)
             proof = check(conn, plan, now)
             due = next_cycle_at(conn, plan)
             plan.update(revision=expected_revision + 1, write_protocol=CURVE_WRITE_PROTOCOL,
