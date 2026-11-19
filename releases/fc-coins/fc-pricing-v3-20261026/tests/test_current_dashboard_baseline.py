@@ -1,0 +1,27 @@
+"""The active Hermes baseline must preserve the current dashboard profit contract."""
+import hashlib
+import json
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[4]
+RUNTIME = ROOT / "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md"
+CANONICAL = ROOT / "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
+
+class CurrentDashboardBaselineTest(unittest.TestCase):
+    def test_runtime_uses_shipping_and_provenance_tracks_published_bytes(self):
+        runtime = RUNTIME.read_bytes().replace(b"\r\n", b"\n")
+        canonical = CANONICAL.read_bytes().replace(b"\r\n", b"\n")
+        text = runtime.decode("utf-8")
+        for stale in ("dashboard-actual-profit-current-20261024", "看板自动读取使用原鉴权channel-effects入口mode=actual-profit", "发货统计的利润及利润率从看板隐藏", "经营分析看板实际成本毛利主展示保持独立", "毛利仍是同网站同批付款订单逐单实际成本"):
+            self.assertNotIn(stale, text)
+        self.assertIn("毛利（¥）=同一响应的人民币销售总额−采购总额", text)
+        self.assertIn("标为预估非实结", text)
+        self.assertIn("同单实际成本毛利按需独立核算", text)
+        provenance = json.loads(RUNTIME.with_suffix(".provenance.json").read_text(encoding="utf-8"))
+        self.assertEqual(provenance["canonical_sha256"], hashlib.sha256(canonical).hexdigest())
+        self.assertEqual(provenance["after_sha256"], hashlib.sha256(runtime).hexdigest())
+        self.assertEqual(provenance["bytes"], len(runtime))
+
+if __name__ == "__main__":
+    unittest.main()

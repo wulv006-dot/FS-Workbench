@@ -468,6 +468,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name == "docs/planning/fs-query-perf-20261119/release_archive_timers.py":
+            groups.add("user-analytics");continue
         if name.startswith('releases/fs-dashboard/fc-project-review/'):
             groups.add('fc-project-review');continue
         if name.startswith('opt/mmoexp-lucky-loot/') or name == 'opt/bot-console/lucky_proxy.py':
