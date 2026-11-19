@@ -253,8 +253,9 @@ def _shelves_readback(client, mid):
             time.sleep(2)
 
 
-def _product_slug(client, mid, pid, aid):
-    rows = [row for row in client.get_products(mid) if str(row.get("id")) == str(pid)]
+def _product_slug(client, mid, pid, aid, *, before_fill=None):
+    products = client.get_products(mid)
+    rows = [row for row in products if str(row.get("id")) == str(pid)]
     if len(rows) != 1:
         raise StateError("DIRECT_PRODUCT_SCOPE_CHANGED")
     row = rows[0]
@@ -263,6 +264,12 @@ def _product_slug(client, mid, pid, aid):
         raise StateError("DIRECT_PRODUCT_SCOPE_CHANGED")
     if "slug" not in row:
         raise StateError("DIRECT_PRODUCT_SLUG_MISMATCH")
+    if before_fill is not None and row["slug"] in (None, ""):
+        # Admin may propagate one edit to every product for the model.
+        _products(client, mid, rows=products)
+        if any("slug" not in product or product["slug"] not in (None, "", before_fill)
+               for product in products):
+            raise StateError("DIRECT_PRODUCT_SLUG_MISMATCH")
     return row["slug"]
 
 
@@ -437,7 +444,7 @@ def execute_direct_plan(settings, repo, client, execution_id, plan, should_stop=
                         if str(product["site_id"]) != "266":
                             continue
                         pid, aid = int(product["id"]), int(product["aid"])
-                        current_slug = _product_slug(client, mid, pid, aid)
+                        current_slug = _product_slug(client, mid, pid, aid, before_fill=slug)
                         if current_slug not in (None, "", slug):
                             raise StateError("DIRECT_PRODUCT_SLUG_MISMATCH")
                         phase = "product_slug_" + str(pid)
