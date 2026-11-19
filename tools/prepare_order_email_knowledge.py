@@ -48,6 +48,8 @@ FC_V61_MARGIN_BAND_REVISION = 'fc_v61_margin_band_20261118'
 FC_V61_MARGIN_BAND_BASE = 'b12cb55f9dc346dfb27980d53028f79579891bb4'
 FC_V61_HOURLY_REVISION = 'fc_v61_margin_band_hourly_20261119'
 FC_V61_HOURLY_BASE = '27fe0962a8b51fcfb64a415603101ece8097dff8'
+FC_V61_CARNIVAL_REVISION = 'fc_v61_carnival_discount_20261119'
+FC_V61_CARNIVAL_BASE = '9295063b2c1ee4bfb15c175ecba19253d808e99a'
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
 FC_V61_LEARNING_ID = 'fs.learning.methods'
 FC_V61_MARGIN_BAND_IDS = (*FC_V61_OVERLAYS, FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID,
@@ -56,6 +58,7 @@ FC_V61_HOURLY_IDS = (FC_V61_OVERLAYS[0], FC_V61_PARAMETER_ID)
 FC_V61_MARGIN_BAND_SCOPES = {
     FC_V61_MARGIN_BAND_REVISION: (FC_V61_MARGIN_BAND_IDS, FC_V61_MARGIN_BAND_BASE),
     FC_V61_HOURLY_REVISION: (FC_V61_HOURLY_IDS, FC_V61_HOURLY_BASE),
+    FC_V61_CARNIVAL_REVISION: ((FC_V61_OVERLAYS[0],), FC_V61_CARNIVAL_BASE),
 }
 FC_V61_REPORTING_BASE_COMMIT = 'c51bb4f494523f19e6979cf5c85565dac94a4257'
 FC_V61_REPORTING_REVISIONS = {
@@ -184,7 +187,7 @@ def reporting_entry(identity, existing, template, previous, live_body, previous_
                 supersedes=list(dict.fromkeys(existing['supersedes'] + template['supersedes']))), data
 
 
-def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False, revision=None, email_only=False):
+def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=False, revision=None, retain_baseline=False):
     info = json.loads(bound(snapshot, 'preflight.json').read_bytes())
     if release in info['immutable_directories']:
         raise ValueError('shared_admin_es_release_already_exists_reconcile')
@@ -193,9 +196,9 @@ def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=Fa
     units = {'fs-hermes-fc.service', 'fs-business-range.service'}
     if info['runtime'] != {name: {'ActiveState': 'active'} for name in units}:
         raise ValueError('shared_admin_es_active_services_required')
-    if email_only:
+    if retain_baseline:
         if digest != info['protected'][BASELINE_TARGET]:
-            raise ValueError('email_overlay_retained_baseline_hash')
+            raise ValueError('overlay_retained_baseline_hash')
         return info, {'retained_source_sha256': digest}
     proof = json.loads(git_bytes(root, commit, BASELINE_SOURCE.replace('.md', '.provenance.json')))
     candidate = git_bytes(root, commit, BASELINE_SOURCE)
@@ -331,10 +334,11 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                if shared_admin_es else 'fc-reporting-knowledge-20261105-' + commit[:8])
     if shared_admin_es:
         changes = shared_changes(root, commit, catalog, canonical, current)
+    retain_baseline = email_only or fc_v61 and constraints_revision == FC_V61_CARNIVAL_REVISION
     if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
             allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current,
-            revision=constraints_revision if fc_v61 else None, email_only=email_only)
+            revision=constraints_revision if fc_v61 else None, retain_baseline=retain_baseline)
         compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
             if not (fc_v61 and baseline_proof.get('retained_current_git') and all(
@@ -479,7 +483,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     payloads['runtime/knowledge-load-policy.json'] = encoded(policy)
     payloads['artifact/originals/policy.json'] = policy_raw
     baseline_patch = None
-    if (preserve_routes and not email_only and not baseline_proof.get('retained_current_git')
+    if (preserve_routes and not retain_baseline and not baseline_proof.get('retained_current_git')
             and baseline_proof['after_sha256'] != preflight['protected'][BASELINE_TARGET]):
         before_digest = preflight['protected'][BASELINE_TARGET]
         baseline_patch = dict(contract='fc-v61-current-baseline-patch-v1',

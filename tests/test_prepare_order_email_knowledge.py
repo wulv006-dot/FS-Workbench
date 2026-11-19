@@ -376,6 +376,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assert_fc_revision_migration(builder.FC_V61_MARGIN_BAND_REVISION,
                                           builder.FC_V61_HOURLY_REVISION, baseline_patch=True)
 
+    def test_carnival_updates_only_constraints_and_preserves_the_live_baseline(self):
+        self.assert_fc_revision_migration(builder.FC_V61_HOURLY_REVISION,
+                                          builder.FC_V61_CARNIVAL_REVISION)
+
     def test_margin_band_refuses_to_overwrite_newer_live_reporting(self):
         self.assert_fc_revision_migration(builder.FC_V61_INSURANCE_REVISION,
                                           builder.FC_V61_MARGIN_BAND_REVISION, drift_reporting=True)
@@ -470,7 +474,7 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             index = json.loads((artifact / slot).read_bytes())
             sources = artifact / index['source_root'].split(result['release'] + '/', 1)[1]
             self.assertEqual((sources / old_path).read_bytes(), old_data)
-            if new_revision == builder.FC_V61_HOURLY_REVISION:
+            if new_revision in (builder.FC_V61_HOURLY_REVISION, builder.FC_V61_CARNIVAL_REVISION):
                 method = next(r for r in index['entries'] if r['id'] == 'fc.pricing.v3')
                 self.assertEqual(method['revision'], old_revision)
                 self.assertEqual(method['source']['path'], old_path)
