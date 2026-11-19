@@ -354,7 +354,10 @@ class LearningCatalog(unittest.TestCase):
         rows = {r['id']:r for r in value['entries']}
         updated = {'fs.data.sources'}
         new = {'fc.marketing.attribution','fc.reporting.data'}
-        self.assertEqual(rows['fs.data.sources']['revision'], '20261113-v61-reporting-sources')
+        self.assertEqual(rows['fs.data.sources']['revision'], 'shared-order-cost-20261119')
+        self.assertEqual(rows['fs.data.sources']['effective_at'], '2026-11-19')
+        self.assertIn('fs.data.sources@20261113-v61-reporting-sources',
+                      rows['fs.data.sources']['supersedes'])
         self.assertIn('fs.data.sources@fs-fc-admin-es-shared-20261113-r2',
                       rows['fs.data.sources']['supersedes'])
         self.assertEqual(rows['fc.reporting.data']['revision'], 'fc_v61_margin_band_20261118')
@@ -364,7 +367,8 @@ class LearningCatalog(unittest.TestCase):
                          {'fc.marketing.attribution'})
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated-new-{'fs.learning.methods'})
         for ident in expected:
-            expected_date = '2026-11-18' if ident in {'fc.reporting.data','fs.learning.methods'} else '2026-11-13'
+            expected_date = {'fs.data.sources': '2026-11-19', 'fc.reporting.data': '2026-11-18',
+                             'fs.learning.methods': '2026-11-18'}.get(ident, '2026-11-13')
             self.assertEqual(rows[ident]['knowledge_updated_at'],expected_date)
             self.assertTrue(rows[ident]['supersedes'])
         mail = rows['fs.orders.email_export']
@@ -379,6 +383,18 @@ class LearningCatalog(unittest.TestCase):
         self.assertIn('FC 定价按实际计划协议执行', texts['fs.data.sources'])
         self.assertIn('历史标量操作按', texts['fs.data.sources'])
         self.assertNotIn('FC定价双20', texts['fs.data.sources'])
+        self.assertIn('同单采购成本与跨日查询', texts['fs.data.sources'])
+        self.assertIn('验证未通过订单', texts['fs.data.sources'])
+        self.assertIn('跨零点先归档昨日', texts['fs.data.sources'])
+        self.assertNotIn('看板自动读取使用原鉴权channel-effects入口mode=actual-profit', texts['fs.data.sources'])
+        baseline = lf(ROOT/BASELINE).decode()
+        self.assertNotIn('看板自动读取使用原鉴权channel-effects入口mode=actual-profit', baseline)
+        self.assertIn('经营看板毛利：Order发货统计', baseline)
+        self.assertIn('同站原单人民币收入减实际采购成本', baseline)
+        self.assertNotIn('经营分析看板实际成本毛利主展示保持独立', baseline)
+        self.assertNotIn('毛利仍是同网站同批付款订单逐单实际成本', baseline)
+        self.assertIn('Admin全站销售额×Order同期间全站参考率', baseline)
+        self.assertIn('逐单实际采购成本独立核算', baseline)
         for token in ('unknown','首访不当首购','后补不移动价格窗口','Admin已付金额非净收入'):
             self.assertIn(token,texts['fc.marketing.attribution'])
         self.assertIn('actual_cost需整单覆盖证据',texts['fs.finance.procurement'])
