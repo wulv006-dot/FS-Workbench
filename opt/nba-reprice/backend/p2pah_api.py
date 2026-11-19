@@ -30,7 +30,7 @@ import tempfile
 from write_contract import serialized, execute_bound_plan
 from pathlib import Path
 
-BASE = "https://admin-api.p2pah.cn"
+BASE = "http://127.0.0.1:8911"   # 2026-10-27 admin 域切数据中台 HMAC 本地签名代理
 DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = str(Path(os.environ.get("NBA_DATA_DIR") or (Path.home()/".local"/"state"/"fs-nba-reprice")).resolve())
 if Path(DATA_DIR).is_relative_to(Path(DIR).resolve().parent):
