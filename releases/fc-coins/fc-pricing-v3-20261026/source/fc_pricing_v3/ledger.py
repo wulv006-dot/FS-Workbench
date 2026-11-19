@@ -667,7 +667,7 @@ class Ledger:
         """Switch the original active plan under its existing ownership CAS."""
         from .competitor_offers import POLICY
         from .dispatch import CURVE_WRITE_PROTOCOL
-        from .scheduler import next_cycle_at
+        from .scheduler import next_cycle_at, _queued_natural_slot, _v6_hourly
 
         if type(expected_revision) is not int:
             raise ValueError('pricing_plan_revision_changed')
@@ -727,7 +727,10 @@ class Ledger:
 
                     verify_carnival_discount_baseline(self, snapshot_id, plan, guard, conn)
             proof = check(conn, plan, now)
-            due = next_cycle_at(conn, plan)
+            from automation_policy import load_policy
+            queued = (_queued_natural_slot(conn, plan) if strategy_revision
+                      and _v6_hourly(plan, load_policy()) else None)
+            due = queued[1] if queued else next_cycle_at(conn, plan)
             plan.update(revision=expected_revision + 1, write_protocol=CURVE_WRITE_PROTOCOL,
                         activation_revision=fingerprint([ident, expected_revision, snapshot_id, proof]),
                         curve_activation_snapshot_id=snapshot_id)
@@ -749,13 +752,16 @@ class Ledger:
             body = dict(plan_id=ident, revision=plan['revision'])
             if plan.get('ends_at'):
                 self.enqueue('deadline', 'deadline:' + ident + ':' + str(plan['revision']), plan['ends_at'], body, conn)
-            cycle_id = 'cycle:' + ident + ':' + str(int(due.timestamp())) + ':r' + str(plan.get('resume_count', 0))
+            cycle_id = (queued[0] if queued and queued[1] == due else
+                        'cycle:' + ident + ':' + str(int(due.timestamp())) + ':r' + str(plan.get('resume_count', 0)))
             scheduled = dict(body, scheduled_at=due.isoformat())
             existing = conn.execute('SELECT state,body FROM durable_jobs WHERE id=?', (cycle_id,)).fetchone()
             if existing:
                 if existing[0] != 'queued' or json.loads(existing[1]).get('plan_id') != ident:
                     raise ValueError('pricing_migration_slot_already_consumed')
-                conn.execute('UPDATE durable_jobs SET body=? WHERE id=?', (json.dumps(scheduled), cycle_id))
+                retained = json.loads(existing[1])
+                retained.update(scheduled)
+                conn.execute('UPDATE durable_jobs SET body=? WHERE id=?', (json.dumps(retained), cycle_id))
             else:
                 self.enqueue('cycle', cycle_id, due, scheduled, conn)
             self.put('metadata', key, dict(actor=actor, snapshot_id=snapshot_id, before=before, after=plan,

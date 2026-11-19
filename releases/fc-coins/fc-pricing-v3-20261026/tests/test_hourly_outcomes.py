@@ -79,10 +79,14 @@ class HourlyOutcomesTest(unittest.TestCase):
             reads.append((filters,limit))
             return [order]
         events = []
-        with patch.object(source, 'hourly_accounting', return_value=dict(archived={}, cost_source={})), \
-                patch.object(source, 'monotonic', side_effect=(0, 1.25, 4.5, 5, 6, 7, 8, 9, 10)):
+        with patch.object(source, 'hourly_accounting', return_value=dict(archived={}, cost_source={})) as accounting, \
+                patch.object(source, 'shared_customer_flags', return_value=({}, {})), \
+                patch.object(source, 'monotonic', side_effect=(0, 0, 1.25, 4.5, 5, 6, 7, 8, 9, 10)):
             result = source.incremental_window_context(None, pages, [window], now, {},
+                use_shared_customer_flags=True,
                 progress=lambda stage, event, **details: events.append((stage, event, details)))
+        accounting.assert_called_once()
+        self.assertEqual(accounting.call_args.kwargs['lock_deadline'], 185)
         self.assertEqual(len(reads), 1)
         order_filters,limit = reads[0]
         self.assertEqual(order_filters[:2], [('site_id','=','266'),('gid','=','1327')])

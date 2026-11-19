@@ -257,11 +257,42 @@ def curve_arab_quote_targets(source):
 
 
 ORDER_COST_CHANNEL_REPOSITORY = 'releases/fs-dashboard/dashboard-refresh-20261025/source/channel_source.py'
+HOURLY_COST_CHANNEL_BASE = '807cfd5369eb2a2ccf7f06e8e4238dffa9e6251d'
 ORDER_COST_CHANNEL_OVERLAY = {
     'candidate': 'source/channel_source.py',
     'target': '/opt/fs-hermes-fc/channel_source.py',
     'beforeSha256': '94c5a99edced5c27cd235fd587a8bd7eac86e740597f62063b7449b00f58cb4b',
 }
+HOURLY_COST_CHANNEL_OVERLAY = dict(ORDER_COST_CHANNEL_OVERLAY,
+    beforeSha256='d1263f5e74d5b9a845f1d98258025a9758865a362419dea7d969e76c9872981c')
+
+
+def _hourly_cost_refresh_parts(source):
+    start, end = b'\ndef enrich(', b'\ndef shared_view('
+    if source.count(start) != 1 or source.count(end) != 1:
+        raise ValueError('hourly_cost_channel_boundary_changed')
+    prefix, refresh = source.split(start)
+    refresh, suffix = refresh.split(end)
+    return prefix, start + refresh, end + suffix
+
+
+def hourly_cost_channel_overlay(live, updated, *, repository_before=None):
+    """Replace just the verified channel refresh function in the live source."""
+    if hashlib.sha256(live).hexdigest() != HOURLY_COST_CHANNEL_OVERLAY['beforeSha256']:
+        raise ValueError('hourly_cost_channel_baseline_changed')
+    prefix, refresh, suffix = _hourly_cost_refresh_parts(live)
+    repo_prefix, new_refresh, repo_suffix = _hourly_cost_refresh_parts(updated)
+    if repository_before is not None:
+        old_prefix, old_refresh, old_suffix = _hourly_cost_refresh_parts(repository_before)
+        if old_refresh != refresh:
+            raise ValueError('hourly_cost_refresh_function_drift')
+        if (old_prefix, old_suffix) != (repo_prefix, repo_suffix):
+            raise ValueError('hourly_cost_change_outside_refresh')
+    if new_refresh == refresh:
+        raise ValueError('hourly_cost_refresh_change_missing')
+    return prefix + new_refresh + suffix
+
+
 ORDER_COST_FC_BASELINES = {
     'source/collect_p2pah_cost.py': '7c60ad5d4dc517b7e6c6b9a93cf6e8fba2f5ef0f2df9fed96411b94335ae351e',
     'source/fc_pricing_v3/business_source.py': 'f1b86fc89b947425b84eba2d7cdcd4ac9f316cf83b2f4e1b6da8a2082773eef5',
@@ -303,6 +334,8 @@ CURVE_RECOVERY_TARGETS = {
     },
     'recent-orders': module_targets(('business_source.py', 'planning_baskets_v6.py', 'runtime.py')),
     'catalogue-inputs': module_targets(('runtime.py',)),
+    'hourly-order-cost': {'channel_source.py': HOURLY_COST_CHANNEL_OVERLAY['target'],
+                          **module_targets(('scheduler.py', 'business_source.py', 'ledger.py'))},
     'cycle-recovery': {
         'snapshot_layer.py': '/opt/fc27-cloud-browser/snapshot_layer.py',
         **module_targets(('scheduler.py',)),

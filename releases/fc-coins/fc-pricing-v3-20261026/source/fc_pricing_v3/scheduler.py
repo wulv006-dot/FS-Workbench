@@ -2,7 +2,7 @@
 from .platforms import SMART_VERSIONS, action_key
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
-from datetime import timedelta
+from datetime import timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -31,8 +31,100 @@ def cycle_interval(policy=None):
     return timedelta(minutes=value)
 
 
+def _v6_hourly(plan, policy):
+    return plan.get('write_protocol') == CURVE_WRITE_PROTOCOL and cycle_interval(policy) == timedelta(hours=1)
+
+
+def _hourly_slot(now):
+    local = now.astimezone(timezone(timedelta(hours=8)))
+    return local.replace(minute=15, second=0, microsecond=0).astimezone(timezone.utc)
+
+
+def _queued_natural_slot(db, plan):
+    """Return the original ID and scheduled time of this revision's queued natural cycle."""
+    from contextlib import closing
+
+    prefix = 'cycle:' + plan['plan_id'] + ':'
+    def find(conn):
+        matches = []
+        for ident, raw in conn.execute(
+                "SELECT id,body FROM durable_jobs WHERE kind='cycle' AND state='queued' AND id>=? AND id<?",
+                (prefix, prefix[:-1] + ';')):
+            body = json.loads(raw)
+            if (body.get('plan_id') != plan['plan_id'] or body.get('revision') != plan['revision']
+                    or body.get('manual_requested') or not body.get('scheduled_at')):
+                continue
+            scheduled = instant(body['scheduled_at'])
+            expected = prefix + str(int(scheduled.timestamp())) + ':r'
+            if ((ident.startswith(expected) and ident[len(expected):].isdigit())
+                    or body.get('_durable_job_id') == ident):
+                matches.append((ident, scheduled))
+        return min(matches, key=lambda value: (value[1], value[0])) if matches else None
+    if isinstance(db, sqlite3.Connection):
+        return find(db)
+    with closing(db.connect()) as conn:
+        return find(conn)
+
+
+def _natural_hour_used(db, plan, now):
+    from contextlib import closing
+
+    hour = _hourly_slot(now).replace(minute=0)
+    end = hour + timedelta(hours=1)
+    prefix = 'cycle:' + plan['plan_id'] + ':'
+    def check(conn):
+        for ident, state, due, raw in conn.execute(
+                "SELECT id,state,due_at,body FROM durable_jobs WHERE kind='cycle' "
+                "AND ((id>=? AND id<?) OR id IN (?,?))",
+                (prefix, prefix[:-1] + ';', 'initial:' + plan['plan_id'], 'exit-cycle:' + plan['plan_id'])):
+            body = json.loads(raw)
+            if body.get('plan_id') != plan['plan_id'] or body.get('manual_requested'):
+                continue
+            if state in ('queued', 'running') and body.get('revision') != plan['revision']:
+                continue
+            result = (body.get('result') or {}).get('status')
+            if state == 'done' and result in ('superseded', 'operator_paused'):
+                continue
+            stamps = [body.get('scheduled_at'), body.get('completed_at')]
+            if state in ('queued', 'running'):
+                stamps.append(due)
+            if any(hour <= instant(value) < end for value in stamps if value):
+                return True
+        return False
+    if isinstance(db, sqlite3.Connection):
+        return check(db)
+    with closing(db.connect()) as conn:
+        return check(conn)
+
+
 def next_cycle_at(db,plan,policy=None):
     """One configured clock per plan, without replaying paused or old due slots."""
+    if policy is None:
+        from automation_policy import load_policy
+        policy = load_policy()
+    if _v6_hourly(plan, policy):
+        queued = _queued_natural_slot(db, plan)
+        if queued:
+            return queued[1]
+        now = clock()
+        slot = _hourly_slot(now)
+        if _natural_hour_used(db, plan, now):
+            slot += timedelta(hours=1)
+        from .smart import strategy_start
+        earliest = [instant(plan['starts_at'])]
+        if plan.get('smart_strategy_version') in SMART_VERSIONS:
+            earliest.append(strategy_start(plan))
+        if plan.get('resumed_at'):
+            earliest.append(instant(plan['resumed_at']))
+        if policy.get('updated_at'):
+            earliest.append(instant(policy['updated_at']))
+        available_at = max(earliest)
+        if available_at > now:
+            future_slot = _hourly_slot(available_at)
+            if future_slot < available_at:
+                future_slot += timedelta(hours=1)
+            return max(slot, future_slot)
+        return slot
     anchor=plan.get('last_cycle_at')
     if not anchor:
         def completed_times(conn):
@@ -183,14 +275,20 @@ def cycle(body=None):
         started = clock()
         if not yesterday_es_ready(started):
             return dict(status=WAITING_FOR_ES, write_performed=False)
-        if body.pop('deferred_reason', None) == WAITING_FOR_ES and body.get('scheduled_at'):
+        if body.get('deferred_reason') == WAITING_FOR_ES and body.get('scheduled_at'):
             # Keep the original durable ID, but evaluate the current strategy slot once.
-            if requested.get('smart_strategy_version') in SMART_VERSIONS:
+            if _v6_hourly(requested, policy):
+                slot = _hourly_slot(started)
+                body.pop('deferred_reason', None)
+                body['scheduled_at'] = min(slot, started).isoformat()
+            elif requested.get('smart_strategy_version') in SMART_VERSIONS:
+                body.pop('deferred_reason', None)
                 from .smart import strategy_start
                 start = strategy_start(requested)
                 interval = cycle_interval(policy)
                 body['scheduled_at'] = (start + ((started - start) // interval) * interval).isoformat()
             else:
+                body.pop('deferred_reason', None)
                 body['scheduled_at'] = started.isoformat()
     if body.get('scheduled_at') and clock()>=instant(body['scheduled_at'])+cycle_interval(policy):
         return dict(status='expired_cycle',scheduled_at=body['scheduled_at'])
@@ -478,8 +576,13 @@ def tick(executors, running):
         if not pending and now>=due_at:
             from .smart import STRATEGY_VERSION, strategy_start
             scheduled={}
-            if plan.get('smart_strategy_version') in SMART_VERSIONS:
-                interval=cycle_interval()
+            from automation_policy import load_policy
+            policy = load_policy()
+            if _v6_hourly(plan, policy):
+                due_at = _hourly_slot(now)
+                scheduled['scheduled_at'] = due_at.isoformat()
+            elif plan.get('smart_strategy_version') in SMART_VERSIONS:
+                interval=cycle_interval(policy)
                 start=strategy_start(plan)
                 due_at=start+((now-start)//interval)*interval
                 scheduled['scheduled_at']=due_at.isoformat()

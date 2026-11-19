@@ -214,5 +214,69 @@ class DeliveryIndexTest(unittest.TestCase):
                                            as_of=start+timedelta(minutes=15)))
 
 
+    def test_hourly_wait_preserves_fixed_cutoff_and_collects_only_verified_increment(self):
+        import channel_source
+
+        old_time = NEXT + 'T02:10:00+08:00'
+        through = NEXT + ' 02:12:59'
+        old = delivery('1', 'A', NEXT + ' 02:08:00', '5')
+        corrected = dict(old, cost_total='9')
+        self.publish([old], name='order-deliveries.json', generated=old_time, start=DAY, end=NEXT,
+                     until=NEXT + ' 02:09')
+        index.sync(self.root)
+        session = Mock()
+        flock = Mock(side_effect=[BlockingIOError(), None])
+        clock = SimpleNamespace(monotonic=Mock(return_value=1), sleep=Mock())
+        modules = dict(fcntl=SimpleNamespace(LOCK_EX=1, LOCK_NB=2, flock=flock),
+                       p2pah_auth=SimpleNamespace(Session=lambda: session))
+        data = dict(period=dict(start=DAY, end=NEXT), orders=[], sources=dict(cost={'status':'partial'}))
+        with patch.dict(sys.modules, modules), patch.object(channel_source, 'ROOT', self.root), \
+                patch.object(channel_source, 'SALES', self.root/'sales'), \
+                patch.object(channel_source, 'time', clock), \
+                patch.object(channel_source, 'datetime', wraps=datetime) as dates, \
+                patch.object(request, 'urlopen', return_value=io.BytesIO(b'{"ready":true}')), \
+                patch('channel_cost_source.collect', return_value=[corrected]) as native:
+            dates.now.return_value = datetime.fromisoformat(NEXT + 'T02:16:00+08:00')
+            result = channel_source.enrich(data, required_until=through, lock_deadline=5)
+        self.assertEqual(flock.call_count, 2)
+        clock.sleep.assert_called_once_with(1)
+        native.assert_called_once_with(session, NEXT, NEXT, since=NEXT+' 02:05:00', until=NEXT+' 02:12')
+        self.assertEqual(result['sources']['cost']['period']['until'], NEXT+' 02:12')
+        self.assertEqual(self.lookup('A')['rows'], [corrected])
+
+    def test_hourly_wait_reuses_other_producers_exact_revision_and_frontend_stays_nonblocking(self):
+        import channel_source
+
+        through = NEXT + ' 02:12:59'
+        now = datetime.fromisoformat(NEXT + 'T02:16:00+08:00')
+        observed = delivery('1', 'A', NEXT + ' 02:08:00', '9')
+        def after_other_producer(_):
+            self.publish([observed], name='order-deliveries.json', generated=now.isoformat(), start=DAY,
+                         end=NEXT, until=NEXT+' 02:12')
+            index.sync(self.root)
+        time = SimpleNamespace(monotonic=Mock(return_value=1), sleep=Mock(side_effect=after_other_producer))
+        flock = Mock(side_effect=[BlockingIOError(), BlockingIOError(), None, BlockingIOError()])
+        modules = dict(fcntl=SimpleNamespace(LOCK_EX=1, LOCK_NB=2, flock=flock))
+        def data():
+            return dict(period=dict(start=DAY, end=NEXT), orders=[], sources=dict(cost={'status':'partial'}),
+                        include_cost_delivery_rows=True)
+        with patch.dict(sys.modules, modules), patch.object(channel_source, 'ROOT', self.root), \
+                patch.object(channel_source, 'SALES', self.root/'sales'), patch.object(channel_source, 'time', time), \
+                patch.object(channel_source, 'datetime', wraps=datetime) as dates, \
+                patch.object(request, 'urlopen', side_effect=lambda *a, **k: io.BytesIO(b'{"ready":true}')), \
+                patch('channel_cost_source.collect') as native:
+            dates.now.return_value = now
+            front = channel_source.enrich(data())
+            background = channel_source.enrich(data(), required_until=through, lock_deadline=5)
+            expired = channel_source.enrich(data(), required_until=through, lock_deadline=1)
+        self.assertIn('limitation', front['sources']['cost'])
+        self.assertNotIn('refresh_reason', front['sources']['cost'])
+        self.assertEqual(background['cost_delivery_rows'], [observed])
+        self.assertEqual(expired['sources']['cost']['refresh_reason'], 'order_delivery_lock_wait_timeout')
+        self.assertEqual(expired['sources']['cost']['status'], 'partial')
+        time.sleep.assert_called_once_with(1)
+        native.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()

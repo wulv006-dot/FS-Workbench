@@ -120,6 +120,130 @@ class CurveV6Release(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'order_cost_channel_baseline_drift'):
                     build_stage.build(ROOT, output, curve_recovery='order-cost', order_cost_channel_baseline=live)
 
+    def test_hourly_cost_stage_and_original_adapter_require_the_exact_seven_targets(self):
+        key = 'hourly-order-cost'
+        updated_refresh = b"\ndef enrich(data):\n    return 'new refresh'\n"
+        previous_refresh = b"\ndef enrich(data):\n    return 'old refresh'\n"
+        live = b'# live-only integration\n' + previous_refresh + b"\ndef shared_view():\n    return 'live'\n"
+        original = b'# canonical prefix\n' + previous_refresh + b"\ndef shared_view():\n    return 'canonical'\n"
+        updated = original.replace(previous_refresh, updated_refresh)
+        expected_content = live.replace(previous_refresh, updated_refresh)
+        commit = 'a' * 40
+        expected = {
+            'source/channel_source.py': '/opt/fs-hermes-fc/channel_source.py',
+            'source/fc_pricing_v3/business_source.py': '/opt/fc27-cloud-browser/fc_pricing_v3/business_source.py',
+            'source/hermes-copy/fc_pricing_v3/business_source.py': '/opt/fs-hermes-fc/fc_pricing_v3/business_source.py',
+            'source/fc_pricing_v3/ledger.py': '/opt/fc27-cloud-browser/fc_pricing_v3/ledger.py',
+            'source/hermes-copy/fc_pricing_v3/ledger.py': '/opt/fs-hermes-fc/fc_pricing_v3/ledger.py',
+            'source/fc_pricing_v3/scheduler.py': '/opt/fc27-cloud-browser/fc_pricing_v3/scheduler.py',
+            'source/hermes-copy/fc_pricing_v3/scheduler.py': '/opt/fs-hermes-fc/fc_pricing_v3/scheduler.py',
+        }
+        self.assertNotIn('hourly-quarter-past', target_map.CURVE_RECOVERY_SCOPES)
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            baseline = root / 'live-channel.py'
+            baseline.write_bytes(live)
+            output = root / 'hourly.tar.gz'
+
+            def git_blob(_, path, rev):
+                if path == ROOT / target_map.ORDER_COST_CHANNEL_REPOSITORY:
+                    self.assertIn(rev, (target_map.HOURLY_COST_CHANNEL_BASE, commit))
+                    return original if rev == target_map.HOURLY_COST_CHANNEL_BASE else updated
+                self.assertEqual(rev, commit)
+                return path.read_bytes()
+
+            with patch.dict(target_map.HOURLY_COST_CHANNEL_OVERLAY, beforeSha256=hashlib.sha256(live).hexdigest()), \
+                 patch.object(build_stage.subprocess, 'check_output', side_effect=lambda cmd, **kwargs:
+                              commit if cmd[1:2] == ['rev-parse'] else ''), \
+                 patch.object(build_stage, 'git_blob', side_effect=git_blob):
+                built = build_stage.build(ROOT, output, curve_recovery=key, order_cost_channel_baseline=baseline)
+                self.assertEqual(built['targets'], 7)
+                with tarfile.open(output) as bundle:
+                    prefix = 'fc-pricing-v3-20261026/'
+                    provenance = json.load(bundle.extractfile(prefix + 'source-manifest.json'))
+                    files = {name: bundle.extractfile(prefix + 'candidate/' + name).read() for name in expected}
+                self.assertEqual(provenance['sourceBaseCommit'], target_map.HOURLY_COST_CHANNEL_BASE)
+                self.assertEqual(provenance['repositorySources'], {
+                    'source/channel_source.py': target_map.ORDER_COST_CHANNEL_REPOSITORY})
+                self.assertEqual(provenance['liveSourceOverlays'], [target_map.HOURLY_COST_CHANNEL_OVERLAY])
+                self.assertEqual(provenance['files'], {name: hashlib.sha256(raw).hexdigest() for name, raw in files.items()})
+                self.assertEqual(files['source/channel_source.py'], expected_content)
+                self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)
+                for name in ('scheduler.py', 'business_source.py', 'ledger.py'):
+                    self.assertEqual(files['source/fc_pricing_v3/' + name],
+                                     files['source/hermes-copy/fc_pricing_v3/' + name])
+
+                for changed, error in ((original, 'refresh_change_missing'),
+                                       (updated + b'# unrelated repository change\n', 'change_outside_refresh')):
+                    updated = changed
+                    with self.assertRaisesRegex(ValueError, 'hourly_cost_' + error):
+                        build_stage.build(ROOT, output, curve_recovery=key, order_cost_channel_baseline=baseline)
+                updated = original.replace(previous_refresh, updated_refresh)
+                baseline.write_bytes(live + b'# concurrent live edit\n')
+                with self.assertRaisesRegex(ValueError, 'hourly_cost_channel_baseline_changed'):
+                    build_stage.build(ROOT, output, curve_recovery=key, order_cost_channel_baseline=baseline)
+                baseline.write_bytes(live)
+                with self.assertRaisesRegex(ValueError, 'order_cost_channel_baseline_required_for_scope'):
+                    build_stage.build(ROOT, output, curve_recovery='outcomes', order_cost_channel_baseline=baseline)
+
+                stage = root / 'stage'
+                deployment = stage / 'deploy'
+                deployment.mkdir(parents=True)
+                for name, content in files.items():
+                    path = stage / 'candidate' / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(content)
+                manifest_source = stage / 'source-manifest.json'
+                manifest_source.write_text(json.dumps(provenance))
+                live_paths = {}
+                for name in files:
+                    current = root / 'targets' / name
+                    current.parent.mkdir(parents=True, exist_ok=True)
+                    current.write_bytes(live if name == 'source/channel_source.py' else b'old module')
+                    live_paths[name.removeprefix('source/')] = str(current)
+
+                def inspect(manifest, candidate_stage):
+                    self.assertEqual(candidate_stage, stage)
+                    rows = [dict(row, target=expected[row['candidate']]) for row in manifest['files']]
+                    channel = next(row for row in rows if row['candidate'] == 'source/channel_source.py')
+                    self.assertEqual(channel['beforeSha256'], target_map.HOURLY_COST_CHANNEL_OVERLAY['beforeSha256'])
+                    value = dict(manifest, files=rows)
+                    self.assertIs(adapter.checked_manifest(value), value)
+                    with self.assertRaisesRegex(ValueError, 'exact_fc_v3_targets_required'):
+                        adapter.checked_manifest(dict(value, files=rows[:-1]))
+                    for row in rows:
+                        if row['candidate'].startswith('source/hermes-copy/'):
+                            changed = [dict(item, sha256='c' * 64) if item is row else item for item in rows]
+                            with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):
+                                adapter.checked_manifest(dict(value, files=changed))
+                    return {'verified': True}
+
+                frozen = SimpleNamespace(HERMES_TARGETS={}, HERMES_CAPABILITY_TARGETS={},
+                                         CAP_PROTECTED_SESSION=set(), HERMES_DIRECT_TARGETS={})
+                regular, sha = prepare.regular, prepare.sha
+                with patch.object(prepare, 'STAGE', stage), patch.object(prepare, 'HERE', deployment), \
+                     patch.dict(prepare.CURVE_RECOVERY_TARGETS, {key: live_paths}), \
+                     patch.object(prepare, 'regular', side_effect=lambda path, **kw:
+                                  regular(path, **kw) if root in path.parents else None), \
+                     patch.object(prepare, 'sha', side_effect=lambda path:
+                                  sha(path) if root in path.parents else 'e' * 64), \
+                     patch.object(prepare, 'stat', SimpleNamespace(S_IMODE=lambda _: 0o644)), \
+                     patch.object(prepare, 'load_base', return_value=frozen), \
+                     patch.object(prepare.subprocess, 'check_output', return_value='ActiveState=active'), \
+                     patch.object(adapter, 'load_base', return_value=SimpleNamespace(inspect=inspect)):
+                    channel = stage / 'candidate' / 'source/channel_source.py'
+                    tampered = expected_content + b'# unexpected staged edit\n'
+                    channel.write_bytes(tampered)
+                    provenance['files']['source/channel_source.py'] = hashlib.sha256(tampered).hexdigest()
+                    manifest_source.write_text(json.dumps(provenance))
+                    with self.assertRaisesRegex(ValueError, 'order_cost_channel_overlay_changed'):
+                        prepare.prepare(curve_recovery=key)
+                    channel.write_bytes(expected_content)
+                    provenance['files']['source/channel_source.py'] = hashlib.sha256(expected_content).hexdigest()
+                    manifest_source.write_text(json.dumps(provenance))
+                    result = prepare.prepare(curve_recovery=key)
+                self.assertEqual((result['files'], result['existing'], result['new']), (7, 7, 0))
+
     def test_arab_quote_scope_uses_only_identical_existing_market_registry_copies(self):
         scope = 'fc-pricing-v6-arab-quote-20261119'
         expected = {
@@ -279,7 +403,8 @@ class CurveV6Release(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / 'stability.tar.gz'
             with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']), \
-                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, commit: path.read_bytes()):
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, commit:
+                              path.read_bytes().replace(b'\r\n', b'\n')):
                 result = build_stage.build(ROOT, output, curve_stability=True)
             with tarfile.open(output) as bundle:
                 provenance = json.load(bundle.extractfile('fc-pricing-v3-20261026/source-manifest.json'))
