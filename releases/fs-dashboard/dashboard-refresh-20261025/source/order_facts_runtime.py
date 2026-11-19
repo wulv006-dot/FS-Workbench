@@ -301,19 +301,47 @@ def collect_dashboard(scope, **kwargs):
     return collect_shared_many([scope], dashboard=True, **kwargs)[0]
 
 
+def indexed_dashboard_deliveries(scope, rows, path):
+    """Use the index only when it preserves the legacy day-plus-rolling scope."""
+    if str(scope.get('site_id')) != '266' or any(str(r.get('site_id')) != '266' for r in rows):
+        return None
+    try:
+        from order_delivery_index import read_orders, covers_window
+    except ImportError:
+        return None
+    start, end = scope['start']+' 00:00:00', scope['end']+' 23:59:59'
+    keys = {('www.mmoexp.com',str(r['order_no'])) for r in rows
+            if (r.get('site') or {}).get('full_title') == 'www.mmoexp.com'}
+    result = read_orders(keys, root=Path(path).parent, since=start, until=end)
+    if result.get('status') != 'available' or result.get('legacyCompatible') is not True:
+        return None
+    rolling = result.get('rollingWindow')
+    if rolling is not None and (rolling.get('source') != 'www.mmoexp.com'
+            or not start <= rolling['since'] <= rolling['until'] <= end):
+        return None
+    if not covers_window(result['windows'],'www.mmoexp.com',start,end,as_of=datetime.now(timezone.utc)):
+        return None
+    return result['rows'], dict(status='observed_only',source_revision=result['revision'],
+        generated_at=result['generatedAt'],period={k:scope[k] for k in ('start','end')},order_cost_complete=False)
+
+
 def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, reader=None, dashboard=False):
     """Project a single shared publication without live acquisition or legacy cache reads."""
     if not scopes or any((s['start'],s['end'])!=(scopes[0]['start'],scopes[0]['end']) for s in scopes):
         raise ValueError('order_facts_batch_period')
     if reader is None:
         from shared_es_facts import read as reader
-    deliveries, cost_proof = dashboard_deliveries(scopes[0],costs) if dashboard else existing_costs(costs)
+    indexed_candidate = dashboard and len(scopes)==1 and str(scopes[0].get('site_id'))=='266'
+    deliveries, cost_proof = (None,None) if indexed_candidate else (dashboard_deliveries(scopes[0],costs) if dashboard else existing_costs(costs))
     if dashboard:
         mapping, mapping_revision = dashboard_mapping()
     results = []
     first_read = True
     for scope in scopes:
         shared = reader(scope, db=Path(db), publication_id=publication_id)
+        if deliveries is None:
+            selected = indexed_dashboard_deliveries(scope,shared['rows'],costs)
+            deliveries,cost_proof = selected if selected is not None else dashboard_deliveries(scope,costs)
         coverage = dict(shared['coverage'], cost=cost_proof)
         current = coverage.get('publication_id')
         if (publication_id is not None or not first_read) and current != publication_id:

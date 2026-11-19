@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import sqlite3
 import sys
 import tempfile
 import time
@@ -200,8 +201,12 @@ def collect_period(period, root=ROOT, force=False):
     return result
 
 
-def cache_day(day, root=ROOT, *, shared=False):
+def cache_day(day, root=ROOT, *, shared=False, recheck=False):
     import fcntl
+    from order_delivery_index import sync, sync_after_publish
+
+    if date.fromisoformat(day).isoformat()!=day or day>=datetime.now(TZ).date().isoformat():
+        raise ValueError('closed_day_required')
     period = dict(start=day, end=day)
     if not shared:
         from channel_source import collect
@@ -212,26 +217,35 @@ def cache_day(day, root=ROOT, *, shared=False):
                 data = collect(period)
                 store_days(data, root)
     path = root / 'delivery-days' / (day + '.json')
-    if not path.exists():
+    if recheck or not path.exists():
         from channel_cost_source import collect as collect_cost
         sys.path.insert(0, '/opt/sales-dashboard/collector'); import p2pah_auth as auth
         with (root / 'order-deliveries.lock').open('a+b') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            session = auth.Session()
-            try:
-                rows = collect_cost(session, day, day)
-            finally: session.close()
-            atomic(path, dict(contract='channel-order-deliveries-v1', complete=True,
-                generatedAt=datetime.now(TZ).isoformat(), period=period, rows=rows))
+            if recheck or not path.exists():
+                if recheck and path.is_file():
+                    sync(root)
+                session = auth.Session()
+                try:
+                    rows = collect_cost(session, day, day)
+                finally: session.close()
+                atomic(path, dict(contract='channel-order-deliveries-v1', complete=True,
+                    generatedAt=datetime.now(TZ).isoformat(), period=period, rows=rows))
+    index_revision = sync_after_publish(root)
     if shared:
         cost = json.loads(path.read_text('utf-8'))
         if cost.get('contract')!='channel-order-deliveries-v1' or cost.get('complete') is not True or cost.get('period')!=period:
             raise ValueError('invalid_delivery_day_cache')
         from shared_es_facts import read
-        value = read(dict(period,site_id='266',gid='all'))
-        return dict(day=day,orders=len(value['rows']) if value['coverage']['admin_complete'] else None,
-                    status='complete' if value['coverage']['admin_complete'] else 'partial',
-                    missingDays=value['coverage']['missing_days'],deliveryDayComplete=True)
+        try:
+            value = read(dict(period,site_id='266',gid='all'))
+            orders = len(value['rows']) if value['coverage']['admin_complete'] else None
+            missing = value['coverage']['missing_days']
+        except (OSError,sqlite3.Error):
+            orders, missing = None, [day]
+        return dict(day=day,orders=orders,status='complete' if orders is not None else 'partial',
+                    missingDays=missing,deliveryDayComplete=True,
+                    deliveryIndexRevision=index_revision,deliveryIndexStatus='complete' if index_revision else 'pending')
     # Complete pagination means source coverage, not that every order has a cost.
     result = compose(period, root)
     result['deliveryDayComplete'] = True
@@ -240,14 +254,35 @@ def cache_day(day, root=ROOT, *, shared=False):
                 status='complete' if data['sources']['customer']['status'] == 'complete' else 'partial')
 
 
+def rotation_day(days_to_check, root, now):
+    """Recheck at most one prior closed day during the existing nightly backfill."""
+    older = []
+    for day in days_to_check:
+        path = root/'delivery-days'/f'{day}.json'
+        if not path.is_file():
+            return None
+        modified = datetime.fromtimestamp(path.stat().st_mtime,TZ)
+        # File replacement schedules the next revisit. Its mtime is not source coverage evidence.
+        if modified.date() >= now.date():
+            return None
+        older.append((modified,day))
+    return min(older)[1] if older else None
+
+
 def main():
     import fcntl
     parser = argparse.ArgumentParser()
     parser.add_argument('--backfill', action='store_true')
     parser.add_argument('--day')
+    parser.add_argument('--recheck', action='store_true')
     args = parser.parse_args()
+    if args.recheck and (args.backfill or not args.day):
+        parser.error('--recheck requires one explicit --day')
     now = datetime.now(TZ)
     yesterday = (now.date() - timedelta(days=1)).isoformat()
+    target = args.day or yesterday
+    if not args.backfill and (date.fromisoformat(target).isoformat()!=target or target>yesterday):
+        raise ValueError('closed_day_required')
     if args.backfill and not 1 <= now.hour < 7: return
     ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
     mode = 'backfill' if args.backfill else 'daily'
@@ -256,13 +291,15 @@ def main():
         except BlockingIOError: print('{"status":"deferred","reason":"scheduled_job_running"}'); return
         from daily_archive import cutoff
         period = dict(start=max('2026-09-01',cutoff(now.date()).isoformat()), end=yesterday)
-        queue = list(reversed(list(days(period)))) if args.backfill else [args.day or yesterday]
+        queue = list(reversed(list(days(period)))) if args.backfill else list(dict.fromkeys((yesterday,target)))
+        historical = rotation_day(queue[1:],ROOT,now) if args.backfill else None
         for day in queue:
+            recheck = day==historical or args.recheck and day==target
             if not date.fromisoformat(day) < now.date(): raise ValueError('closed_day_required')
             if args.backfill:
                 if datetime.now(TZ).hour >= 7: break
-                if (ROOT/'delivery-days'/(day+'.json')).is_file():continue
-            try: result = cache_day(day,shared=True)
+                if day != yesterday and not recheck and (ROOT/'delivery-days'/(day+'.json')).is_file():continue
+            try: result = cache_day(day,shared=True,recheck=recheck)
             except BlockingIOError:
                 result = dict(day=day, status='deferred', reason='foreground_source_read_active')
                 atomic(ROOT / (mode + '-status.json'), dict(result, at=datetime.now(TZ).isoformat()))
@@ -273,10 +310,14 @@ def main():
                 result = dict(day=day, status='failed', error=type(error).__name__)
                 atomic(ROOT / (mode + '-status.json'), dict(result, at=datetime.now(TZ).isoformat()))
                 print(json.dumps(result), flush=True); raise
+            if recheck:
+                result['recheck'] = True
             atomic(ROOT / (mode + '-status.json'), dict(result, at=datetime.now(TZ).isoformat()))
             print(json.dumps(result), flush=True)
-            if result['status'] != 'complete' and not args.backfill: raise SystemExit(75)
-            if not args.backfill: return
+            if not result.get('deliveryIndexRevision'):
+                if not args.backfill: raise SystemExit(75)
+                return
+            if not args.backfill and day==target: return
             time.sleep(2)
 
 

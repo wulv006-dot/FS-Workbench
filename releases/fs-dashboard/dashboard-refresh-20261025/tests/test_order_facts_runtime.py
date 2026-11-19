@@ -412,6 +412,60 @@ class Runtime(unittest.TestCase):
         self.assertNotIn('effective_attribution',plain['orders'][0])
         self.assertEqual(plain,batch)
 
+    def test_channel_facts_uses_index_only_when_existing_reader_scope_is_preserved(self):
+        from order_facts_runtime import collect_dashboard
+        import types
+        raw=row()
+        response=dict(status='available',rows=[raw],dataset=None,identity_catalog=None,
+            coverage=dict(admin_complete=True,publication_id='uw_fixed',day_revisions={},missing_days=[]))
+        delivery=dict(delivery_id='71',source='www.mmoexp.com',sn='O2',genre=1,
+                      trade_at='2026-11-10 11:00:00',cost_total='200')
+        window=dict(source='www.mmoexp.com',since='2026-11-10 00:00:00',until='2026-11-10 23:59:59',
+                    capturedAt='2026-11-11T00:01:00+08:00',revision='capture')
+        record=dict(status='available',legacyCompatible=True,rollingWindow=None,rows=[delivery],
+                    revision='index-r1',generatedAt=window['capturedAt'],windows=[window])
+        read=Mock(return_value=record)
+        module=types.SimpleNamespace(read_orders=read,covers_window=lambda *a,**kw:True)
+        with tempfile.TemporaryDirectory() as folder, patch.dict(sys.modules,{'order_delivery_index':module}), \
+             patch('order_facts_runtime.dashboard_deliveries',return_value=([],{'status':'unavailable'})) as legacy:
+            path=Path(folder)/'order-deliveries.json'
+            output=collect_dashboard(SCOPE,reader=Mock(return_value=response),costs=path,publication_id='uw_fixed')
+            legacy.assert_not_called()
+            self.assertEqual(output['orders'][0]['observed_cost_cny'],'200')
+            self.assertEqual(output['source_coverage']['cost']['source_revision'],'index-r1')
+            self.assertFalse(output['source_coverage']['cost']['order_cost_complete'])
+            self.assertEqual(read.call_args.args[0],{('www.mmoexp.com','O2')})
+            record['rollingWindow']=dict(window,since='2026-11-09 00:00:00')
+            fallback=collect_dashboard(SCOPE,reader=Mock(return_value=response),costs=path,publication_id='uw_fixed')
+            legacy.assert_called_once()
+            self.assertEqual(fallback['source_coverage']['cost']['status'],'unavailable')
+
+    def test_channel_facts_real_index_matches_legacy_and_stale_reverts(self):
+        from order_facts_runtime import collect_dashboard
+        from order_delivery_index import sync
+        raw=row()
+        response=dict(status='available',rows=[raw],dataset=None,identity_catalog=None,
+            coverage=dict(admin_complete=True,publication_id='uw_fixed',day_revisions={},missing_days=[]))
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder); daydir=root/'delivery-days';daydir.mkdir()
+            dayfile=daydir/'2026-11-10.json'
+            dayfile.write_text(json.dumps(dict(contract='channel-order-deliveries-v1',complete=True,
+                generatedAt='2026-11-11T00:01:00+08:00',period=dict(start='2026-11-10',end='2026-11-10'),
+                rows=[dict(delivery_id='71',source='www.mmoexp.com',sn='O2',genre=1,
+                           trade_at='2026-11-10 11:00:00',cost_total='200')])),encoding='utf8')
+            kw=dict(reader=Mock(return_value=response),costs=root/'order-deliveries.json',publication_id='uw_fixed')
+            legacy=collect_dashboard(SCOPE,**kw)
+            revision=sync(root)
+            indexed=collect_dashboard(SCOPE,**kw)
+            self.assertEqual(indexed['orders'],legacy['orders'])
+            self.assertEqual(indexed['totals'],legacy['totals'])
+            self.assertEqual(indexed['source_coverage']['cost']['source_revision'],revision)
+            self.assertFalse(indexed['source_coverage']['cost']['order_cost_complete'])
+            dayfile.write_text(dayfile.read_text(encoding='utf8')+' ',encoding='utf8')
+            stale=collect_dashboard(SCOPE,**kw)
+            self.assertEqual(stale['orders'],legacy['orders'])
+            self.assertNotEqual(stale['source_coverage']['cost']['source_revision'],revision)
+
     def test_shared_reader_missing_coverage_and_batch_revision_drift_are_explicit(self):
         from order_facts_runtime import collect_shared_many
         unavailable=dict(status='unavailable',rows=[],dataset=None,identity_catalog=None,
