@@ -1,15 +1,18 @@
 from copy import deepcopy
+from contextlib import redirect_stderr
 from datetime import timedelta
 import hashlib
+from io import StringIO
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
+import test_business_source
 from fc_pricing_v3 import business_source as source, daily, runtime
 from fc_pricing_v3.ledger import Ledger
-import test_business_source
 
 
 class HourlyOutcomesTest(unittest.TestCase):
@@ -39,7 +42,8 @@ class HourlyOutcomesTest(unittest.TestCase):
         self.assertEqual(actual[0]['actual_contribution_usd'],'2.604')
         self.assertEqual(actual[0]['price_window_id'],'op')
         self.assertEqual(actual[0]['order_key'],first['online']['actual_outcomes'][0]['order_key'])
-        self.assertTrue(any((now-timedelta(minutes=1)).astimezone(source.TZ).strftime('%Y-%m-%d %H:%M:%S') in span for span in reads[1:]))
+        overlap = (now-timedelta(minutes=1)).astimezone(source.TZ).strftime('%Y-%m-%d %H:%M:%S')
+        self.assertTrue(any(lo <= overlap <= hi for lo, hi in (span.split(',') for span in reads[1:])))
         self.assertNotIn('private@example.invalid',json.dumps(later))
         self.assertNotIn(order['order_no'],json.dumps(later['online']))
 
@@ -63,6 +67,56 @@ class HourlyOutcomesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'page_failed'):
             source.incremental_window_context(None,MagicMock(side_effect=ValueError('page_failed')),[window],now,prior)
         self.assertEqual(prior,snapshot)
+
+    def test_overlapping_admin_paid_ranges_page_only_once(self):
+        now, order, window = self.fixture()
+        reads = []
+        def pages(session, path, filters, limit=200):
+            if 'CouponLog' in path:
+                return []
+            reads.append(next(f[2] for f in filters if f[0] == 'paytime'))
+            return [order]
+        events = []
+        with patch.object(source, 'hourly_accounting', return_value=dict(archived={}, cost_source={})):
+            result = source.incremental_window_context(None, pages, [window], now, {},
+                progress=lambda stage, event, **details: events.append((stage, event)))
+        self.assertEqual(len(reads), 1)
+        self.assertEqual(len(result['online']['actual_outcomes']), 1)
+        self.assertEqual(events, [(stage, event) for stage in ('admin_paging', 'order_cost', 'es', 'binding')
+                                  for event in ('start', 'done')])
+
+    def test_cost_cache_reuse_requires_fixed_cutoff_and_full_start_day(self):
+        dashboard = Path(__file__).resolve().parents[3] / 'fs-dashboard/dashboard-refresh-20261025/source'
+        now, _, window = self.fixture()
+        start = source._window_instant(window['opened_at'])
+        first = start.astimezone(source.TZ).date().isoformat()
+        last = now.astimezone(source.TZ).date().isoformat()
+        cutoff = (now.astimezone(source.TZ)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M')
+        earlier = (now.astimezone(source.TZ)-timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M')
+        valid_period = dict(start=first, end=last, until=cutoff)
+        for period, generated, covered in (
+            (valid_period, now.isoformat(), True),
+            (dict(valid_period, until=earlier), now.isoformat(), False),
+            (dict(valid_period, since=first+' 01:00'), now.isoformat(), False),
+            (dict(start=first, end=last), now.isoformat(), False),
+            (dict(valid_period, until='not a cutoff'), now.isoformat(), False),
+            (dict(valid_period, end=None), now.isoformat(), False),
+            (dict(valid_period, end='2099-01-01'), now.isoformat(), False),
+            (valid_period, (now-timedelta(minutes=2)).isoformat(), False),
+            (valid_period, now.replace(tzinfo=None).isoformat(), False),
+            (valid_period, '2099-01-01T00:00:00+00:00', False),
+        ):
+            with self.subTest(period=period, generated=generated):
+                channel = MagicMock()
+                channel.normalize.return_value = []
+                channel.load_costs.return_value = ([], dict(status='partial', period=period, generatedAt=generated))
+                with patch.object(sys, 'path', [str(dashboard), *sys.path]), \
+                        patch.dict('sys.modules', {'channel_source':channel}):
+                    result = source.hourly_accounting([], {}, start, now, start)
+                self.assertEqual(channel.enrich.call_count, 0 if covered else 1)
+                self.assertEqual(result['cost_cursor_at'], now.isoformat() if covered else None)
+                self.assertEqual(result['cost_source']['status'], 'partial')
+                self.assertEqual(result['cost_cache_reused'], covered)
 
     def test_saved_orders_get_same_order_pinned_es_flags_without_recollecting_membership(self):
         now, order, window = self.fixture()
@@ -121,6 +175,29 @@ class HourlyOutcomesTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'hourly_outcome_collection_failed'):
                     daily.run_hourly({'plan_id':'p','revision':1})
             self.assertEqual(db.get('metadata','daily_online_context'),{'actual_outcomes':[{'order_key':'old'}]})
+
+    def test_hourly_timeout_preserves_safe_stages_and_existing_deadline(self):
+        _, _, window = self.fixture()
+        with tempfile.TemporaryDirectory() as folder:
+            db = Ledger(Path(folder)/'test.db')
+            db.put('pricing_plans', 'p', dict(plan_id='p', revision=1, state='ACTIVE',
+                starts_at=window['opened_at'], write_protocol=daily.CURVE_WRITE_PROTOCOL))
+            db.put('actual_price_windows', 'op', window)
+            def timeout(command, **kwargs):
+                self.assertEqual(kwargs['timeout'], 600)
+                raise daily.subprocess.TimeoutExpired(command, kwargs['timeout'], stderr=(
+                    b'private traceback\nFC27 hourly timing {"stage":"order_cost","event":"start",'
+                    b'"requested_start":"2026-11-19","covered_until":"private text","cookie":"private value"}\n'))
+            stderr = StringIO()
+            with patch.object(runtime, 'ledger', return_value=db), \
+                    patch.object(daily.subprocess, 'run', side_effect=timeout), redirect_stderr(stderr):
+                with self.assertRaises(daily.subprocess.TimeoutExpired):
+                    daily.run_hourly({'plan_id':'p','revision':1})
+            lines = stderr.getvalue().splitlines()
+            self.assertEqual(len(lines), 1)
+            self.assertTrue(lines[0].startswith(daily.HOURLY_TIMING_PREFIX))
+            self.assertEqual(json.loads(lines[0].removeprefix(daily.HOURLY_TIMING_PREFIX)),
+                             {'stage':'order_cost', 'event':'start', 'requested_start':'2026-11-19'})
 
     def test_success_persists_full_context_and_source_together_without_model(self):
         from fc_pricing_v3.smart import policy_suffix

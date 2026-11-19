@@ -8,6 +8,7 @@ import html
 import json
 import re
 import sqlite3
+from time import monotonic
 from urllib.error import HTTPError, URLError
 
 from .financial import fingerprint
@@ -1494,21 +1495,44 @@ def attach_shared_marketing(context, facts):
 def hourly_accounting(rows, logs, start, now, cost_since):
     """Recompute existing same-order accounting using the shared delivery cache and ES flags."""
     import channel_source as channel
+    from channel_cache import delivery_bounds
     from channel_effects import accounting_row
     deliveries,cost_info=channel.load_costs()
     normalized=channel.normalize(rows,[],[log for values in logs.values() for log in values],[],deliveries,{},dict(entries=[]))
-    data=dict(orders=normalized,period=dict(start=cost_since.astimezone(TZ).date().isoformat(),end=now.astimezone(TZ).date().isoformat()),
+    first = cost_since.astimezone(TZ).date().isoformat()
+    local_now = now.astimezone(TZ)
+    today = local_now.date().isoformat()
+    cutoff = (local_now.replace(second=0, microsecond=0)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:59')
+    data=dict(orders=normalized,period=dict(start=first,end=today),
               sources=dict(cost=cost_info))
-    channel.enrich(data)
+
+    def covers_requested_window(cost):
+        period = cost.get('period')
+        if not isinstance(period, dict) or cutoff < first+' 00:00:00':
+            return False
+        period_end = period.get('end')
+        if not isinstance(period_end, str) or period_end > today or (period_end == today and not period.get('until')):
+            return False
+        try:
+            begin, end = delivery_bounds(period)
+            captured = datetime.fromisoformat(cost['generatedAt'].replace('Z', '+00:00'))
+            last_trade = datetime.fromisoformat(end).replace(tzinfo=TZ)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return False
+        return (begin <= first+' 00:00:00' and end >= cutoff
+                and captured.tzinfo is not None and last_trade <= captured <= datetime.now(timezone.utc))
+
+    cache_reused = covers_requested_window(cost_info)
+    if not cache_reused:
+        channel.enrich(data)
     data['period']['start']=start.astimezone(TZ).date().isoformat()
     channel.apply_customer_types(data,request=False)
     channel.apply_cost_overrides(data)
     # Preserve the binder's existing Order shipping-CNY margin basis, not Admin display-CNY conversion.
     cost=data['sources']['cost']
-    covered=(cost.get('period',{}).get('start','9999')<=cost_since.astimezone(TZ).date().isoformat() and
-             cost.get('period',{}).get('end','')>=now.astimezone(TZ).date().isoformat())
     return dict(archived={row['orderNo']:[accounting_row(row,data['costOverrides'],data['testOrders'],admin_revenue=False)] for row in data['orders']},
-                cost_source=cost,cost_cursor_at=cost.get('generatedAt') if covered else None)
+                cost_source=cost, cost_cache_reused=cache_reused,
+                cost_cursor_at=cost.get('generatedAt') if covers_requested_window(cost) else None)
 
 
 def shared_customer_flags(rows, *, publication_id=None):
@@ -1552,7 +1576,8 @@ def shared_customer_flags(rows, *, publication_id=None):
         return {}, dict(status='unavailable', reason=type(error).__name__, publication_id=publication_id)
 
 
-def incremental_window_context(session,pages,windows,now,previous, *, use_shared_customer_flags=False):
+def incremental_window_context(session,pages,windows,now,previous, *, use_shared_customer_flags=False,
+                               progress=lambda *args, **kwargs: None):
     """Increment paid membership; keep the full private cohort and rebind late costs to original windows."""
     from copy import deepcopy
     valid=[w for w in windows if w.get('origin') in OBSERVED_PRICE_WINDOWS and w.get('mode')=='production']
@@ -1578,17 +1603,27 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
         begin=max(start.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S'),day+' 00:00:00')
         end=min(now.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S'),day+' 23:59:59')
         if begin<=end:ranges.append((begin,end))
+    disjoint = []
+    for begin, end in sorted(ranges):
+        if disjoint and begin <= disjoint[-1][1]:
+            disjoint[-1] = (disjoint[-1][0], max(end, disjoint[-1][1]))
+        else:
+            disjoint.append((begin, end))
     fields=('id','order_no','site_id','gid','aid','timestamp','timestamp_format','paytime','pay_status','status',
             'status_format','content','show_game_pro','before_discount','discount','points','amount_usd_format','is_region_price',
             'region_price_factor','region_price_lang_region_id')
     changed={}
-    for begin,end in ranges:
+    admin_started = monotonic()
+    progress('admin_paging', 'start', order_ranges=len(disjoint))
+    order_reads = coupon_reads = 0
+    for begin,end in disjoint:
         # Respect the existing Admin detail limit even after a prolonged outage.
         day=datetime.fromisoformat(begin[:10]).date();stop=datetime.fromisoformat(end[:10]).date()
         while day<=stop:
             last=min(stop,day+timedelta(days=27))
             lo,hi=max(begin,day.isoformat()+' 00:00:00'),min(end,last.isoformat()+' 23:59:59')
             batch=pages(session,'/admin/order.Order/index',[('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],100)
+            order_reads += 1
             fresh={}
             for row in batch:
                 ident=str(row.get('id') or '')
@@ -1616,11 +1651,22 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
             sn=str(log.get('order_no'))
             if sn not in batch_names or str(log.get('site_id'))!='266':raise ValueError('window_coupon_log_scope_invalid')
             logs[sn].append({key:log.get(key) for key in ('id','order_no','site_id','use_time','coupon_id','status')})
+        coupon_reads += 1
+    progress('admin_paging', 'done', elapsed_seconds=round(monotonic()-admin_started, 3),
+             order_reads=order_reads, coupon_reads=coupon_reads)
     live=list(rows.values())
     cost_cursor=_window_instant(state['cost_cursor_at']) if state.get('cost_cursor_at') else start
     cost_days=pending | set(state.get('pending_cost_days',[]))
     cost_since=min([cost_cursor-timedelta(days=1)]+[datetime.fromisoformat(day).replace(tzinfo=TZ) for day in cost_days])
+    cost_started = monotonic()
+    progress('order_cost', 'start', requested_start=max(start,cost_since).astimezone(TZ).date().isoformat(),
+             requested_end=last_day.isoformat())
     accounting=hourly_accounting(live,logs,start,now,max(start,cost_since))
+    cost_period=accounting['cost_source'].get('period') or {}
+    progress('order_cost', 'done', elapsed_seconds=round(monotonic()-cost_started, 3),
+             covered_start=cost_period.get('start'), covered_end=cost_period.get('end'),
+             covered_until=cost_period.get('until'), request_covered=bool(accounting.get('cost_cursor_at')),
+             cache_reused=accounting.get('cost_cache_reused', False))
     archived=accounting['archived']
     if accounting.get('cost_cursor_at'):state['cost_cursor_at']=accounting['cost_cursor_at']
     state['pending_cost_days']=sorted({str(row['paytime'])[:10] for row in live
@@ -1628,7 +1674,12 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
         not str(row.get('status_format','')).startswith('已退款') and not (archived.get(row['order_no']) or [{}])[0].get('testOrder') and
         any((archived.get(row['order_no']) or [{}])[0].get(key) is None for key in ('costCny','saleCny'))})
     filtered=[row for row in live if not (archived.get(row['order_no']) or [{}])[0].get('testOrder')]
+    es_started = monotonic()
+    progress('es', 'start', enabled=use_shared_customer_flags)
     shared_customers = shared_customer_flags(filtered) if use_shared_customer_flags else None
+    progress('es', 'done', elapsed_seconds=round(monotonic()-es_started, 3))
+    binding_started = monotonic()
+    progress('binding', 'start', orders=len(filtered))
     online=bind_price_windows(filtered,valid,now,archived=archived,coupon_logs=logs,
                 customer_keys={row['order_no']:row['customer_key'] for row in filtered if row.get('customer_key')},
                 shared_customers=shared_customers)
@@ -1641,6 +1692,8 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
         oldest_status_rechecked_at=min(checks.values()) if checks else None,
         status_recheck_basis='one_oldest_paid_day_each_hour_plus_unfinished_days; not_final_refund_clearance')
     state['cursor_at']=now.isoformat()
+    progress('binding', 'done', elapsed_seconds=round(monotonic()-binding_started, 3),
+             outcomes=len(online['actual_outcomes']))
     return dict(state=state,online=online)
 
 
