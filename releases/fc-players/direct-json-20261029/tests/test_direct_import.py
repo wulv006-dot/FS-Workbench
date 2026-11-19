@@ -105,7 +105,7 @@ class Backend:
         self.rows[mid]["is_put"] = 1
         self.products[mid] = [
             {"id": mid * 10 + index + 1, "mid": mid, "gid": 1327, "cid": 9627,
-             "site_id": site, "aid": aid, "status": 0, "unit_price": self.shelves_placeholder,
+             "site_id": site, "slug": "", "aid": aid, "status": 0, "unit_price": self.shelves_placeholder,
              "num": 1, "discount": 100, "price": 9999, "total": 0, "auto_off": 0}
             for index, (site, aid) in enumerate((site, aid) for site in (0, 266) for aid in (21587, 21585, 21589))]
         if self.bad_six:
@@ -153,6 +153,17 @@ class Backend:
         if pid in self.fallback_lost:
             raise TimeoutError("fallback response lost")
         return {"code": 1}
+
+    def set_product_slug(self, pid, slug):
+        for mid, rows in self.products.items():
+            for row in rows:
+                if row["id"] == pid:
+                    self.case.assertEqual(row["site_id"], 266)
+                    self.intent("product_slug_" + str(pid), self.rows[mid]["futbin_id"])
+                    row["slug"] = slug
+                    self.calls.append(("slug", pid))
+                    return {"code": 1}
+        raise AssertionError("unknown product")
 
     def set_product_status(self, mid, pid, status):
         fid = self.rows[mid]["futbin_id"]
@@ -242,6 +253,9 @@ class DirectImportTests(unittest.TestCase):
         self.assertEqual(self.scopes(), [])
         for mid, rows in self.backend.products.items():
             self.assertEqual(len(rows), 6)
+            fid = self.backend.rows[mid]["futbin_id"]
+            for row in rows:
+                self.assertEqual(row["slug"], f"player-{int(fid) - 23700}-{fid}" if row["site_id"] == 266 else "")
             self.assertTrue(all(row["status"] == 1 and row["unit_price"] == 10 and row["price"] == 9999 for row in rows))
             self.assertEqual(set(self.backend.rows[mid]["tid"]), {12307, 12411})
         before = list(self.backend.calls)
@@ -250,6 +264,30 @@ class DirectImportTests(unittest.TestCase):
         self.assertEqual(self.backend.calls, before)
         self.assertEqual(self.backend.list_reads, reads)
         self.assertEqual(reads, 2, "only initial duplicate checks need full model pages")
+
+    def test_existing_slug_and_conflict_preserve_product(self):
+        self.plan()
+        original = self.backend.shelves_models
+
+        def shelves(*args, **kwargs):
+            result = original(*args, **kwargs)
+            rows = list(self.backend.products.values())[0]
+            rows[3]["slug"] = "player-0-23700"
+            rows[4]["slug"] = "custom-slug"
+            return result
+
+        with patch.object(self.backend, "shelves_models", shelves):
+            self.assertEqual(self.run_plan()["unresolved_futbin_ids"], ["23700"])
+        self.assertEqual(self.scopes(), ["23700"])
+        self.assertFalse(any(call[0] in ("slug", "product_status") for call in self.backend.calls))
+
+    def test_slug_lookup_failure_before_write_can_resume(self):
+        self.plan()
+        with patch.object(direct, "_product_slug", side_effect=TimeoutError):
+            self.assertEqual(self.run_plan()["unresolved_futbin_ids"], ["23700"])
+        self.assertFalse(any(call[0] == "slug" for call in self.backend.calls))
+        self.assertEqual(self.run_plan()["completed_futbin_ids"], ["23700"])
+        self.assertEqual(sum(call[0] == "slug" for call in self.backend.calls), 3)
 
     def test_pilot_subselection_then_same_execution_full_plan(self):
         self.plan(2)
@@ -284,11 +322,11 @@ class DirectImportTests(unittest.TestCase):
         original = direct._products
         failed = []
 
-        def fail_once_after_sync(client, mid):
+        def fail_once_after_sync(client, mid, **kwargs):
             if ("sync", "23700") in self.backend.calls and not failed:
                 failed.append(True)
                 raise OSError("readback unavailable")
-            return original(client, mid)
+            return original(client, mid, **kwargs)
 
         with patch.object(direct, "_products", side_effect=fail_once_after_sync):
             self.run_plan()
