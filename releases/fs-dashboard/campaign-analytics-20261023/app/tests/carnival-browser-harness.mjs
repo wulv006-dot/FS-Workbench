@@ -9,15 +9,30 @@ import {createCarnivalVerifier} from '../analytics/carnival-unlocks.mjs';
 const require=createRequire(import.meta.url),{chromium}=require('playwright');
 const app=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const types={'.js':'application/javascript','.html':'text/html','.css':'text/css','.webp':'image/webp'};
+export const lobbyCatalog={
+ PC:{aid:21629,goods:165175543,skuIds:[158519,157935]},
+ PS:{aid:21631,goods:165175575,skuIds:[158743,158031]},
+ XBOX:{aid:21633,goods:165175607,skuIds:[158967,158127]},
+};
+export const lobbyOffers=[
+ {name:'1 Run Domination Bot Lobby',price:'3.99'},
+ {name:'2 Hours Bot Lobbies + 2 Hour Weapon & Rank XP Token',price:'23.98'},
+];
 
 export function mainSite({signedIn=true}={}){
  const claims=[],claimed=new Map(),cart={clears:0,adds:[]};let memberCoupon=9000;
- const coupons={carnival_home:[1399],ms_fc27:[1401,1403,1405],bf_items:[1513,1443,1445,1447,1515,1455,1457,1459],bf_vouchers_1128:[1469,1471,1473,1475],carnival_test:[1601]};
+ const coupons={carnival_home:[1399],ms_fc27:[1401,1403,1405],ms_mix:[1431,1433,1435],bf_items:[1513,1443,1445,1447,1515,1455,1457,1459],bf_vouchers_1128:[1469,1471,1473,1475],carnival_test:[1601]};
  // Every goods id the page asks for gets one listed row; currency rows carry quantity tiers.
  // A tier's _format price is the visitor-currency/new-user display price; price_discount is USD.
  function goods(form){
   const top=Number(form.get('top_cid')),row=id=>({id,status:1,auto_off:0,min_qty:1,price_discount_format:'10.00',game_area_format:'Israphel - Asmodian',
    goods_list:top===1?Object.fromEntries([3,5,8,10,20,30,50,70,100,200,300,500,600,800,1000,1500,2000].map(q=>[String(q),{price_discount:Math.round(q*12)/100,price_discount_format:(q*0.1).toFixed(2)}])):undefined});
+  if(form.get('category_id')==='9665'){
+   const lobby=Object.values(lobbyCatalog).find(entry=>entry.aid===Number(form.get('aid')));
+   const list=lobby?[{...row(lobby.goods),aid:lobby.aid,price_discount:6.99,
+    saleprop:Object.fromEntries(lobby.skuIds.map((id,index)=>[id,{id,goods_id:lobby.goods,...lobbyOffers[index],status:1,stock:100}]).filter(([id])=>id!==site.missingLobbySku))}]:[];
+   return {goods:{index:{total:list.length,perpage:28,list}}};
+  }
   const ids={9623:[163329311,163329277,163329345],9627:[170015253,170015245,170015249,170017913,170015181,170015205],9661:[165167189],6955:[105267633],9991:[187090053],10079:[186209371],1338:[186208657],3955:[170070065],7111:[185981107,185981139,185981171]}[form.get('category_id')]||[];
   return {goods:{index:{total:ids.length,perpage:28,list:ids.map(row)}}};
  }
