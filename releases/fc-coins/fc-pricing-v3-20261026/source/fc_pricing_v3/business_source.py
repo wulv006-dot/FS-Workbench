@@ -2,11 +2,13 @@
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from http.client import HTTPException, IncompleteRead
 import hashlib
 import html
 import json
 import re
 import sqlite3
+from urllib.error import HTTPError, URLError
 
 from .financial import fingerprint
 
@@ -182,13 +184,55 @@ def read_used_templates(session,pages,identities):
 
 
 class _CurveAdminRead:
-    def __init__(self, manager):
+    def __init__(self, manager, *, recent=False):
         self.manager = manager
+        self.recent = recent
 
     def get_admin(self, path, **params):
         from urllib.parse import urlencode
-        status, raw = self.manager.request(path + '?' + urlencode(params))
+        try:
+            status, raw = self.manager.request(path + '?' + urlencode(params))
+        except (OSError, HTTPException) as exc:
+            # The transport may fail while reading the body of an HTTP error.
+            http_error = exc if isinstance(exc, HTTPError) else exc.__context__
+            if not self.recent or not isinstance(http_error, HTTPError):
+                raise
+            status, raw = http_error.code, b''
+        if self.recent and status != 200:
+            raise RecentCurveReadFailure('source_http_' + str(status) if type(status) is int and 100 <= status <= 599
+                                         else 'source_response_invalid')
         return status, json.loads(raw)
+
+
+class RecentCurveReadFailure(ValueError):
+    """A sanitized recent population read failure suitable for frozen evidence."""
+
+
+def _read_recent_curve_batch(manager, filters):
+    session = _CurveAdminRead(manager, recent=True)
+    for attempt in range(3):
+        try:
+            return _recent_curve_native_rows(session, filters)
+        except RecentCurveReadFailure as exc:
+            if str(exc) not in {'source_http_502', 'source_http_503', 'source_http_504'} or attempt == 2:
+                raise
+        except (OSError, IncompleteRead) as exc:
+            reason = exc.reason if isinstance(exc, URLError) else exc
+            if isinstance(reason, TimeoutError):
+                code = 'source_timeout'
+            elif isinstance(reason, (ConnectionResetError, ConnectionAbortedError, IncompleteRead)):
+                code = 'source_connection_interrupted'
+            else:
+                raise RecentCurveReadFailure('source_transport_failed') from exc
+            if attempt == 2:
+                raise RecentCurveReadFailure(code) from exc
+        except (HTTPException, ValueError, TypeError, AttributeError, KeyError) as exc:
+            reason = str(exc) if isinstance(exc, ValueError) else None
+            if reason in ('admin_pagination_changed', 'admin_duplicate_page', 'admin_incomplete_pages'):
+                raise RecentCurveReadFailure('source_pagination_invalid') from None
+            if reason in ('recent_curve_native_identity_missing', 'recent_curve_native_identity_conflict'):
+                raise RecentCurveReadFailure('source_order_identity_invalid') from None
+            raise RecentCurveReadFailure('source_response_invalid') from None
 
 
 def _offer_time(value):
@@ -2150,18 +2194,18 @@ def collect_recent_curve_population(manager, closed, paid_cutoff):
     rows, unknown, seen = [], 0, set()
     latest = cutoff.strftime('%Y-%m-%d %H:%M:%S')
     earliest = midnight.strftime('%Y-%m-%d %H:%M:%S')
-    batch = _recent_curve_native_rows(_CurveAdminRead(manager), [('site_id', '=', '266'), ('gid', '=', '1327'),
+    batch = _read_recent_curve_batch(manager, [('site_id', '=', '266'), ('gid', '=', '1327'),
                   ('pay_status', '=', '1'), ('paytime', 'RANGE', earliest + ',' + latest),
                   ('cid', '=', '1')]) if cutoff > midnight else []
     observed = _historical_provider_now()
     if observed < cutoff:
-        raise ValueError('recent_curve_observation_precedes_cutoff')
+        raise RecentCurveReadFailure('source_observation_precedes_cutoff')
     for raw in batch:
         sn, paytime = raw.get('order_no'), raw.get('paytime')
         if (not isinstance(sn, str) or not sn or sn in seen or str(raw.get('site_id')) != '266'
                 or str(raw.get('gid')) != '1327' or str(raw.get('pay_status')) != '1'
                 or not isinstance(paytime, str) or not earliest <= paytime <= latest):
-            raise ValueError('recent_curve_native_order_scope')
+            raise RecentCurveReadFailure('source_order_scope_invalid')
         seen.add(sn)
         status = str(raw.get('status_format') or '')
         test = tests.get(sn)

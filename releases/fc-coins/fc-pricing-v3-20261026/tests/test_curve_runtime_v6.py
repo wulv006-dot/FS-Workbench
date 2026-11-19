@@ -1483,6 +1483,8 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(self.transport.posts, [])
 
     def test_native_catalogue_collection_produces_real_tiers_without_fabricating_checkout(self):
+        from fc_pricing_v3.business_source import RecentCurveReadFailure
+        from fc_pricing_v3.competitor_offers import POLICY
         from fc_pricing_v3.price_curve import curve_key, read_curve
         from test_curve_strategy_v6 import fixture
 
@@ -1496,13 +1498,14 @@ class CurveRuntime(unittest.TestCase):
         adopted = read_curve(primary_row, catalogue['identity'], dict(source='fixture saved readback'))
         self.db.start_curve_episode(PLATFORM, 'test-rules', 'Adopted readback', initial_curve=adopted,
                                     readback_ref='fixture-same-platform')
-        evidence = dict(run_id='run', checked_at=(now - timedelta(seconds=5)).isoformat(),
+        run_id = '00000000-0000-4000-8000-000000000079'
+        evidence = dict(run_id=run_id, checked_at=(now - timedelta(seconds=5)).isoformat(), competitor_policy=POLICY,
                         storefront={'rows': {PLATFORM: {'sku_id': primary_id}}})
         plan = dict(self.db.get('pricing_plans', 'plan'), mode='smart', starts_at=(now - timedelta(hours=3)).isoformat())
         self.db.put('pricing_plans', 'plan', plan)
         self.db.put('metadata', 'curve-online-context:plan', {'smart_plan_id': 'plan'})
         self.db.put('actual_price_windows', 'window', {'operation_id': 'window'})
-        job = runtime.ROOT / 'jobs' / 'run.json'
+        job = runtime.ROOT / 'jobs' / (run_id + '.json')
         job.parent.mkdir(parents=True, exist_ok=True)
         job.write_text(json.dumps({'request': {'v3_plan_id': 'plan', 'v3_operation_id': 'op'}}))
         def read(_, platform, site, observer):
@@ -1512,6 +1515,8 @@ class CurveRuntime(unittest.TestCase):
 
         with patch.object(writer, 'read_row', side_effect=read) as get, \
                 patch.object(writer, 'read_curve_routes', return_value={}), \
+                patch('fc_pricing_v3.business_source.collect_recent_curve_population',
+                      side_effect=RecentCurveReadFailure('source_timeout')), \
                 patch('fc_pricing_v3.smart.curve_learning', return_value={'large': {'blocks': []}}) as learning, \
                 patch('fc_shared_admin.SessionManager'):
             found = runtime.collect_curve_catalogues(evidence, [PLATFORM])[PLATFORM]
@@ -1526,6 +1531,15 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(runtime._validated_curve(curve, proof_input)['status'], 'PROOF_INCOMPLETE')
         self.assertIn('average_discount_window_unavailable', proof_input['domain']['coverage_gaps'])
         self.assertIn('curve_native_route_unavailable', proof_input['domain']['coverage_gaps'])
+        recent = proof_input['baskets']['recent']
+        self.assertEqual(recent['population_status'], 'partial')
+        self.assertEqual(recent['coverage_gaps'], ['source_timeout'])
+        runtime.store_curve_proof_inputs(self.db, evidence, {PLATFORM: found})
+        cycle = runtime.calculate_curve_cycle(self.db, evidence, plan, {'v3_operation_id': OPERATION}, runtime.clock())
+        decision = self.db.get('strategy_decisions', run_id)
+        self.assertFalse(cycle['execution_authorized'])
+        self.assertEqual(decision['curve_round_id'], OPERATION)
+        self.assertIn('recent:source_timeout', decision['curve'][0]['gaps'])
         self.assertTrue(found['all_targets'])
         for key, target in found['all_targets'].items():
             self.assertEqual(target['identity']['site_id'], '0')
