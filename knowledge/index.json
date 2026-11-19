@@ -413,7 +413,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "e01e3db7ddcbf87d4d598e68e4429068a54e41bd74725634e9c58e63a31b2160",
+        "sha256": "f13a386fbb7bf91e3c05c992f8cf05d7341286d8eb261b7099331e6e75df7a86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -1311,26 +1311,27 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc_v61_margin_band_20261118",
+      "revision": "fc_v61_evaluation_timeline_20261119",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-18",
+      "effective_at": "2026-11-19",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "e01e3db7ddcbf87d4d598e68e4429068a54e41bd74725634e9c58e63a31b2160",
+        "sha256": "f13a386fbb7bf91e3c05c992f8cf05d7341286d8eb261b7099331e6e75df7a86",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "### 每周定位溢价修复（2026-11-17）"
         }
       },
       "supersedes": [
+        "fc.pricing.v3@fc_v61_margin_band_20261118",
         "fc.pricing.v3@fc_v61_admin_only_two_band_20261113",
         "fc.pricing.v3@fc_v6_d8_d2_amount_weighted_discount_v1",
         "fc.pricing.reference-weighting@fc-reference-weighting-20261024-v2",
@@ -1480,6 +1481,12 @@
           "date": "2026-11-18",
           "decision": "docs/planning/fc-pricing-market-anchor-20261117/MARGIN-BAND-CONSTRUCTION.md",
           "scope": "Stage 5 applies only to eligible plan revisions; separate decision evidence from realized gross profit and preserve existing reader scopes."
+        },
+        {
+          "kind": "direct_user_v6_evaluation_timeline",
+          "date": "2026-11-19",
+          "decision": "docs/planning/fc-pricing-market-anchor-20261117/STAGE-5-ACCEPTANCE.md",
+          "scope": "V6 overall evaluation starts at production activation. Strategy revisions segment that timeline. Data and report repairs mark observation windows."
         }
       ],
       "consumers": [
@@ -1487,7 +1494,7 @@
         "Hermes selected knowledge candidate"
       ],
       "pricing_scope": "native_curve_average_discount",
-      "knowledge_updated_at": "2026-11-18"
+      "knowledge_updated_at": "2026-11-19"
     },
     {
       "id": "fc.reporting.methods",
