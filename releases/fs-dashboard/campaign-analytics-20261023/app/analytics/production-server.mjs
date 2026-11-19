@@ -63,6 +63,13 @@ const weeklyRecommendations=makeWeeklyRecommendations({dir:path.join(dir,'center
 const assertCenterWritable=()=>{if(weeklyWorkflow.isPublishing())throw Object.assign(Error('WEEKLY_PUBLICATION_IN_PROGRESS'),{status:409,code:'WEEKLY_PUBLICATION_IN_PROGRESS'});};
 const weeklyPipeline=makeWeeklyPipeline({dir:path.join(dir,'center','weekly-plans'),center,contextProvider:centerState,onDraftSaved:record=>weekly.syncRun(record),beforeDraftSave:assertCenterWritable,enabledProvider:()=>weekly.read().hermes.enabled,sourceProvider:({bundle_refs})=>backendRead({action:'weekly_selection',site_id:'266',game_id:'1327',bundle_refs}),nativeCandidateProvider:source=>{const stateDir=process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend');return weeklyNativeCandidates({source,pricePolicy:readAdminPricePolicy(stateDir),nativeCatalog:readNativeLaunchPolicy(stateDir).catalog});}});
 const secret=()=>fs.existsSync(secretFile)?JSON.parse(fs.readFileSync(secretFile,'utf8')).key:null;
+const pageAssets={
+ 'analytics/products.html':['products.js','../activity-content.js','dashboard.css'],
+ 'analytics/weekly.html':['weekly.js','weekly.css','dashboard.css'],
+ 'analytics/index.html':['dashboard.css','dashboard.js']
+};
+const versionedAssets=new Set(Object.entries(pageAssets).flatMap(([page,refs])=>
+ refs.map(ref=>path.posix.join(path.posix.dirname(page),ref))));
 const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
 const searchCache=new Map();
 async function readSearch(body,auth){
@@ -273,9 +280,16 @@ export const server=http.createServer(async(req,res)=>{
     const site=new URL(publicOrigin);
     if(site.origin!==publicOrigin||site.protocol!=='https:'&&!(site.protocol==='http:'&&['127.0.0.1','localhost'].includes(site.hostname))||!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(publicPrefix))throw Error('公开活动地址配置无效。');
     body=body.replace(/<html\b/i,'<html data-campaign-public-origin="'+publicOrigin+'" data-campaign-public-prefix="'+publicPrefix+'"');
-    for(const [src,file] of [['products.js','analytics/products.js'],['../activity-content.js','activity-content.js']])body=body.replace('src="'+src+'"','src="'+src+'?v='+digest(fs.readFileSync(path.join(base,file)))+'"');
    }
-   if(['analytics/products.js','activity-content.js'].includes(name)&&[...url.searchParams].length===1&&url.searchParams.get('v')===digest(body))cacheControl='private, max-age=31536000, immutable';
+   for(const ref of pageAssets[name]||[]){
+    const attr=ref.endsWith('.css')?'href':'src';
+    const original=attr+'="'+ref+'"';
+    if(body.includes(original)){
+     const hash=digest(fs.readFileSync(path.resolve(path.dirname(file),ref)));
+     body=body.replace(original,attr+'="'+ref+'?v='+hash+'"');
+    }
+   }
+   if(versionedAssets.has(name)&&[...url.searchParams].length===1&&url.searchParams.get('v')===digest(body))cacheControl='private, max-age=31536000, immutable';
    if(name==='analytics/index.html')body=body.replace(/<option value="(?:demo|local)">[^<]*<\/option>/g,'').replace('<script src="demo-data.js"></script>','');
   }
   res.writeHead(200,{'Content-Type':type,'Cache-Control':cacheControl,'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'});res.end(req.method==='HEAD'?undefined:body);

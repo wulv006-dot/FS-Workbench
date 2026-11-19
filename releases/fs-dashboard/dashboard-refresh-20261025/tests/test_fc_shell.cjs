@@ -7,17 +7,17 @@ const repo=path.resolve(__dirname,'../../../..'),source=path.join(__dirname,'../
 const keys=['b_fc_platform','b_fc_site_group','b_fc_customer','b_fc_product','b_fc_bucket'];
 const added=keys.map(k=>`'${k}'`).join(',')+',';
 const cases=[
- ['shell.js','business.js','dca3ea6ed17296bb5efded9b7d8dab835ace6a35cb74c342b9965ed365d10595'],
- ['home-shell.js','home-business.js','66278928104b1edf1e78b9123b6f18c2781f8065423d886918b2ca2776c613d5'],
- ['legacy-shell.js','legacy-business.js','f6c776a5ec169f5d77338a83d312e55185410ab56f224e694bb7c181edb07047']
+ ['shell.js','business.js','d9918748f4199c1a83b190d2e0bbe6d136ca27943373e76b874b1b3342c3939c'],
+ ['home-shell.js','home-business.js','7c180a0288b00a572f3879369188666789d8498f0871f23ccd9b0b88c4a92bfe'],
+ ['legacy-shell.js','legacy-business.js','5a2013f3f256e630291f07a7e45db66a8ab55ae01a3425c81d59e4ff48720e20']
 ];
 for(const [name,,baseline]of cases){
  const code=fs.readFileSync(path.join(source,name),'utf8').replace(/\r\n/g,'\n');
  assert.equal(code.split(added).length-1,1,name+' only adds the five state keys once');
  const beforeSummaryFix=code.replace(added,'')
-  .replace(" document.querySelector('.account').textContent=next.name;if(home)homeData();else nativeLoad();const loadEpoch=epoch;\n","")
-  .replace("if(loadEpoch!==epoch||!identity||identity.name!==next.name)return","if(id!==epoch||!identity||identity.name!==next.name)return")
-  .replace(" if(home)homeEntries(registry);"," document.querySelector('.account').textContent=next.name;if(home){homeEntries(registry);homeData();}else nativeLoad();")
+  .replace(/const homeShortcuts=[\s\S]*?(?=function homeData\(\))/,'')
+  .replace(/^\{const href=new URL\('\/__hub\/hubnav\.js\?v=[\w-]+'.*document\.head\.append\(sharedNav\);\}\}$/m,
+   "const sharedNav=document.createElement('script');sharedNav.src='<versioned shared navigation>';sharedNav.defer=true;document.head.append(sharedNav);")
   .replace("!['admin-paid-order-labelled-supplement-v2','admin-paid-order-labelled-supplement-v3-scope-repeat'].includes(data.scopeContractId)",name==='shell.js'?"data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'":"data.scopeContractId!=='admin-main-order-labelled-supplement-v1'")
   .replace("const day=fsPeriodPolicy().shift(FSHomeMetrics.beijingDate(),-1);","const day=FSHomeMetrics.beijingDate();")
   .replace("'昨日MMOEXP '","'今日MMOEXP '")
@@ -34,6 +34,8 @@ async function run(page,url,shellName,businessName){
  const code=fs.readFileSync(path.join(source,shellName),'utf8'),business=fs.readFileSync(path.join(source,businessName),'utf8');
  const html=fs.readFileSync(path.join(repo,'ui-system/modules/native/index.html'),'utf8').replace(/(<script type="module" src=")[^"]+\/shell\.js/, '$1/under-test/shell.js');
  const errors=[];page.on('pageerror',e=>errors.push(e.stack));
+ let releaseRegistry,probeCount=0;
+ const registryGate=new Promise(resolve=>{releaseRegistry=resolve;});
  await page.addInitScript(()=>{const OriginalDate=Date;window.Date=class extends OriginalDate{constructor(...args){super(...(args.length?args:['2026-10-24T08:00:00Z']));}static now(){return new OriginalDate('2026-10-24T08:00:00Z').getTime();}};});
  await page.route('**/*',route=>{
   const u=new URL(route.request().url()),file=path.posix.basename(u.pathname),q=Object.fromEntries(u.searchParams);
@@ -47,18 +49,20 @@ async function run(page,url,shellName,businessName){
   if(file==='google.html')return send('<p id="google-fixture">模拟Google数据模块</p>','text/html');
   if(file==='business.css')return send(fs.readFileSync(path.join(repo,'ui-system/modules/native/business.css'),'utf8'),'text/css');
   if(['fs-tokens.css','fs-ui.css','native-alias.css'].includes(file))return send(fs.readFileSync(path.join(fixtures,file),'utf8'),'text/css');
-  if(file==='navigation.json')return route.fulfill({json:{schemaVersion:1,tools:[],sections:[]}});
+  if(file==='navigation.json')return registryGate.then(()=>route.fulfill({json:{schemaVersion:1,tools:[{id:'unrelated',path:'/probe-unused/'}],sections:[]}}));
+  if(u.pathname==='/probe-unused/'){probeCount++;return send('','text/html');}
   if(file==='range.json'&&q.mode==='fc-detail')return route.fulfill({json:detail(q)});
   if(file==='range.json'&&q.mode==='fc-daily')return route.fulfill({status:503,json:{error:'fictional_unavailable'}});
   if(file.endsWith('.css'))return send('','text/css');
   if(file.endsWith('.js'))return send('');
   return route.continue();
  });
- await page.goto(url+'/shell-state?mode=business&b_site=all&b_profile=FC27&b_group=sports&b_grain=day&b_range=yesterday');
+ await page.goto(url+'/shell-state?mode=business&b_site=all&b_profile=FC27&b_group=sports&b_grain=day&b_range=yesterday',{waitUntil:'domcontentloaded'});
  const filter=key=>page.locator(`[data-fc-filter=${key}]`);
- await filter('product').waitFor();
+ try{await filter('product').waitFor({timeout:5000});}finally{releaseRegistry();}
  await page.waitForFunction(()=>document.querySelector('.native-content')?.shadowRoot.querySelector('[data-fc-filter=customer]')?.disabled===false);
  await filter('product').selectOption('Players');
+ assert.equal(probeCount,0,'opening a dashboard must not probe unrelated workspaces');
  await page.locator('.fc-more-filters summary').click();
  await filter('platform').selectOption('PC');
  await filter('site_group').selectOption('satellite');
