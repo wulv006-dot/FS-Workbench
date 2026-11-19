@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 import hashlib
 from http.client import BadStatusLine
+from io import BytesIO
 import json
 from pathlib import Path
 import sys
@@ -201,7 +202,7 @@ class PlanningBaskets(unittest.TestCase):
         invalid_order = dict(id=1, order_no='private-order', site_id='999')
         invalid_scope = 200, json.dumps(dict(code=1, data=dict(total=1, list=[invalid_order])))
         error_body_timeout = TimeoutError('private body read')
-        error_body_timeout.__context__ = HTTPError('https://example.invalid', 403, 'private', {}, None)
+        error_body_timeout.__context__ = HTTPError('https://example.invalid', 403, 'private', {}, BytesIO())
         self.addCleanup(error_body_timeout.__context__.close)
         cases = (
             (URLError(TimeoutError('private details')), 'source_timeout', 3),
