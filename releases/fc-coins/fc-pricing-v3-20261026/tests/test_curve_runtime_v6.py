@@ -1591,6 +1591,97 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(inputs.call_count, proof_builds)
         self.assertEqual(self.transport.posts, [])
 
+    def test_native_catalogue_retries_only_the_failed_get(self):
+        from socket import timeout as SocketTimeout
+        from urllib.error import URLError
+        from fc_pricing_v3.competitor_offers import POLICY
+        from test_curve_writer_v6 import goods
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        all_id, primary_id, _ = writer.PRODUCTS[PLATFORM]
+        evidence = dict(run_id='00000000-0000-4000-8000-000000000080',
+                        checked_at=now.isoformat(), competitor_policy=POLICY)
+        calls = []
+
+        def read(_, platform, site, observer):
+            self.assertEqual(platform, PLATFORM)
+            calls.append(site)
+            if calls == [266, 0]:
+                observer({'transport_error': 'URLError'})
+                raise URLError(SocketTimeout('private connection data'))
+            observer({'response_sha256': 'success-' + str(site)})
+            return goods(primary_id if site == 266 else all_id, site)
+
+        with patch.object(writer, 'read_row', side_effect=read), \
+                patch.object(writer, 'read_curve_routes', return_value={}) as routes, \
+                patch.object(runtime, '_shared_curve_inputs', return_value=(None, None, None)), \
+                patch('fc_pricing_v3.business_source.collect_recent_curve_population', return_value=None), \
+                patch('fc_shared_admin.SessionManager'):
+            collected = runtime.collect_curve_catalogues(evidence, [PLATFORM])
+        routes.assert_called_once()
+        self.assertEqual(calls, [266, 0, 0])
+        self.assertEqual(collected[PLATFORM]['readbacks'], [
+            {'response_sha256': 'success-266'}, {'response_sha256': 'success-0'}])
+        self.assertNotIn('curve_catalogue_gaps', evidence)
+        self.assertEqual(self.transport.posts, [])
+
+    def test_native_catalogue_timeout_retry_budget_is_shared_across_platforms(self):
+        from urllib.error import HTTPError
+        from fc_pricing_v3.competitor_offers import POLICY
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        evidence = dict(run_id='00000000-0000-4000-8000-000000000081',
+                        checked_at=now.isoformat(), competitor_policy=POLICY)
+        failures = [HTTPError('https://private.invalid', 503, 'private response', None, None),
+                    TimeoutError('private response'), TimeoutError('private response'),
+                    TimeoutError('private response')]
+        with patch.object(writer, 'read_row', side_effect=failures) as get, \
+                patch.object(writer, 'read_curve_routes', return_value={}) as routes, \
+                patch('fc_shared_admin.SessionManager'):
+            collected = runtime.collect_curve_catalogues(evidence, ['PS', 'XBOX', 'PC'])
+        self.assertEqual(collected, {})
+        routes.assert_called_once()
+        self.assertEqual([call.args[1:] for call in get.call_args_list],
+                         [('PS', 266), ('XBOX', 266), ('XBOX', 266), ('PC', 266)])
+        cycle = runtime.calculate_curve_cycle(self.db, evidence, None, {}, now)
+        self.assertFalse(cycle['execution_authorized'])
+        record = self.db.get('strategy_decisions', evidence['run_id'])
+        for row in record['curve']:
+            with self.subTest(platform=row['platform']):
+                self.assertEqual(row['status'], 'PROOF_INCOMPLETE')
+                category = 'source_rejected' if row['platform'] == 'PS' else 'source_timeout'
+                self.assertIn('native_catalogue:primary:' + category, row['gaps'])
+                self.assertIn('curve_reference_or_fresh_execution_inputs_unavailable', row['gaps'])
+        self.assertNotIn('private', json.dumps(record))
+        self.assertEqual(self.transport.posts, [])
+
+    def test_native_catalogue_does_not_retry_invalid_or_non_timeout_responses(self):
+        from urllib.error import URLError
+        from fc_pricing_v3.competitor_offers import POLICY
+        from test_curve_writer_v6 import goods
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        evidence = dict(run_id='00000000-0000-4000-8000-000000000082',
+                        checked_at=now.isoformat(), competitor_policy=POLICY)
+        primary_id = writer.PRODUCTS['PC'][1]
+        failures = [ValueError('coin_product_scope_changed'), ValueError('coin_backend_response_invalid'),
+                    goods(primary_id, 266), URLError(OSError('private connection data'))]
+        with patch.object(writer, 'read_row', side_effect=failures) as get, \
+                patch.object(writer, 'read_curve_routes', return_value={}), \
+                patch('fc_shared_admin.SessionManager'):
+            self.assertEqual(runtime.collect_curve_catalogues(evidence, ['PS', 'XBOX', 'PC']), {})
+        self.assertEqual([call.args[1:] for call in get.call_args_list],
+                         [('PS', 266), ('XBOX', 266), ('PC', 266), ('PC', 0)])
+        self.assertEqual(evidence['curve_catalogue_gaps'], {
+            'PS': 'native_catalogue:primary:source_identity_invalid',
+            'XBOX': 'native_catalogue:primary:source_evidence_invalid',
+            'PC': 'native_catalogue:all:source_transport_failed',
+        })
+        self.assertEqual(self.transport.posts, [])
+
     def test_native_catalogue_collection_produces_real_tiers_without_fabricating_checkout(self):
         from fc_pricing_v3.business_source import RecentCurveReadFailure
         from fc_pricing_v3.competitor_offers import POLICY

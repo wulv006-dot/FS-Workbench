@@ -1113,6 +1113,9 @@ def _margin_band_cycle_context(db, plan, job, now, hours):
 def collect_curve_catalogues(evidence, platforms):
     """Collect current saved Goods rows for the same run's private proof inputs."""
     from contextlib import closing
+    from http.client import HTTPException
+    from socket import timeout as SocketTimeout
+    from urllib.error import HTTPError, URLError
     from coin_all_sync_job import PRODUCTS, read_curve_routes, read_row
     from fc_shared_admin import SessionManager, read_private_config
     from .api import _curve_preview_history
@@ -1149,6 +1152,36 @@ def collect_curve_catalogues(evidence, platforms):
         closed = _curve_preview_history(conn, dict(snapshot_id=evidence['run_id'], created_at=paid_cutoff), clock(),
                                         require_snapshot_binding=False)
     collected = {}
+    retry_available = True
+
+    def failure_category(error):
+        code = str(error) if isinstance(error, ValueError) else None
+        if (isinstance(error, HTTPError) or isinstance(error.__context__, HTTPError)
+                or code == 'coin_backend_request_rejected'):
+            return 'source_rejected'
+        reason = error.reason if isinstance(error, URLError) else error
+        if isinstance(reason, (TimeoutError, SocketTimeout)):
+            return 'source_timeout'
+        if isinstance(error, (OSError, HTTPException)):
+            return 'source_transport_failed'
+        if code in ('coin_product_scope_changed', 'curve_identity_invalid', 'curve_identity_mismatch'):
+            return 'source_identity_invalid'
+        return 'source_evidence_invalid'
+
+    def read_catalogue_row(platform, site, observed):
+        nonlocal retry_available
+        attempt = []
+        try:
+            row = read_row(manager, platform, site, observer=attempt.append)
+        except OSError as error:
+            if not retry_available or failure_category(error) != 'source_timeout':
+                raise
+            retry_available = False
+            attempt.clear()
+            row = read_row(manager, platform, site, observer=attempt.append)
+        observed.extend(attempt)
+        return row
+
     for platform in platforms:
         if restore and platform not in restore:
             continue
@@ -1156,15 +1189,19 @@ def collect_curve_catalogues(evidence, platforms):
         if public.get('sku_id') is not None and str(public['sku_id']) != str(PRODUCTS[platform][1]):
             continue
         observed = []
+        contract = dict(source='Admin Goods edit read only', verified_domain='native stored tiers only',
+                        editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256,
+                        price_edit_policy=TWO_BAND_PRICE_EDIT)
+        stage = 'primary'
         try:
-            primary = read_row(manager, platform, 266, observer=observed.append)
-            all_row = read_row(manager, platform, 0, observer=observed.append)
-            contract = dict(source='Admin Goods edit read only', verified_domain='native stored tiers only',
-                            editor_asset_sha256=EDITOR_ASSET_SHA256, editor_handler_sha256=EDITOR_HANDLER_SHA256,
-                            price_edit_policy=TWO_BAND_PRICE_EDIT)
-            current, all_before = (read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, contract)
-                                   for row in (primary, all_row))
-        except (OSError, TypeError, ValueError):
+            primary = read_catalogue_row(platform, 266, observed)
+            current = read_curve(primary, {key: primary[key] for key in IDENTITY_FIELDS}, contract)
+            stage = 'all'
+            all_row = read_catalogue_row(platform, 0, observed)
+            all_before = read_curve(all_row, {key: all_row[key] for key in IDENTITY_FIELDS}, contract)
+        except (OSError, HTTPException, TypeError, ValueError, KeyError, AttributeError) as error:
+            evidence.setdefault('curve_catalogue_gaps', {})[platform] = (
+                'native_catalogue:' + stage + ':' + failure_category(error))
             continue
         editor = contract
         candidates = {curve_key(current): current}
@@ -2376,10 +2413,12 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
         ready = []
     rows = [dict(platform=p, status=decisions[p]['status'], gaps=decisions[p].get('gaps', []),
                  selection=decisions[p].get('selection')) for p in platforms]
+    catalogue_gaps = evidence.get('curve_catalogue_gaps') or {}
     for row in rows:
-        gap = (frozen.get(row['platform']) or {}).get('recent_source_gap')
-        if gap and gap not in row['gaps']:
-            row['gaps'] = [*row['gaps'], gap]
+        platform = row['platform']
+        for gap in ((frozen.get(platform) or {}).get('recent_source_gap'), catalogue_gaps.get(platform)):
+            if gap and gap not in row['gaps']:
+                row['gaps'] = [*row['gaps'], gap]
     if active:
         for row in rows:
             primary_inputs = (frozen.get(row['platform']) or {}).get('primary_inputs') or {}
