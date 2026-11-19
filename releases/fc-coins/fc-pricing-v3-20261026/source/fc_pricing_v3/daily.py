@@ -34,14 +34,14 @@ def forward_hourly_timings(stderr):
         if not isinstance(record, dict):
             continue
         stage, event = record.get('stage'), record.get('event')
-        if stage not in ('admin_paging', 'order_cost', 'es', 'binding') or event not in ('start', 'done'):
+        if stage not in ('admin_paging', 'order_cost', 'order_cost_native', 'es', 'binding') or event not in ('start', 'done'):
             continue
         fields = {}
-        for key in ('order_ranges', 'order_reads', 'coupon_reads', 'elapsed_seconds', 'orders', 'outcomes'):
+        for key in ('order_ranges', 'order_reads', 'coupon_reads', 'elapsed_seconds', 'orders', 'outcomes', 'closed_trade_days'):
             value = record.get(key)
             if type(value) in (int, float) and 0 <= value <= 1_000_000_000:
                 fields[key] = value
-        for key in ('requested_start', 'requested_end', 'covered_start', 'covered_end', 'covered_until'):
+        for key in ('requested_start', 'requested_end', 'covered_start', 'covered_end', 'covered_until', 'native_refresh_start'):
             value = record.get(key)
             if isinstance(value, str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}(?: [0-9]{2}:[0-9]{2}(?::[0-9]{2})?)?', value):
                 fields[key] = value

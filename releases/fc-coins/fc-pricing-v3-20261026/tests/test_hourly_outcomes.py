@@ -118,6 +118,72 @@ class HourlyOutcomesTest(unittest.TestCase):
                 self.assertEqual(result['cost_source']['status'], 'partial')
                 self.assertEqual(result['cost_cache_reused'], covered)
 
+    def test_curve_reuses_old_trade_archives_and_refreshes_recent_deliveries_for_old_paid_order(self):
+        dashboard = Path(__file__).resolve().parents[3] / 'fs-dashboard/dashboard-refresh-20261025/source'
+        now, order, window = self.fixture()
+        start = source._window_instant(window['opened_at'])
+        now += timedelta(days=3)
+        first = start.astimezone(source.TZ).date().isoformat()
+        today = now.astimezone(source.TZ).date().isoformat()
+        yesterday = (now.astimezone(source.TZ)-timedelta(days=1)).date().isoformat()
+        archive_days = [first, (start.astimezone(source.TZ)+timedelta(days=1)).date().isoformat()]
+        def delivery(ident, day, cost):
+            return dict(delivery_id=ident, sn=order['order_no'], source='www.mmoexp.com', genre=1,
+                        trade_at=day+' 10:00:00', cost_total=cost, sale_total=cost)
+        old, fresh = delivery('1', first, '40'), delivery('2', today, '10')
+        retained = delivery('3', first, '41')
+        future = dict(delivery('1', today, '999'), trade_at=today+' 23:59:59')
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            archives = root/'delivery-days'
+            archives.mkdir()
+            for day in archive_days:
+                captured = (source.datetime.fromisoformat(day).replace(tzinfo=source.TZ)+timedelta(days=1)).isoformat()
+                (archives/(day+'.json')).write_text(json.dumps(dict(contract='channel-order-deliveries-v1', complete=True,
+                    period=dict(start=day, end=day), generatedAt=captured, rows=[old] if day == first else [])), encoding='utf-8')
+            channel = MagicMock(ROOT=root)
+            channel.normalize.return_value = []
+            stale = dict(status='partial')
+            current = dict(status='partial', generatedAt=now.isoformat(), period=dict(start=yesterday, end=today,
+                until=(now.astimezone(source.TZ)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M')))
+            def enrich(data):
+                data['sources']['cost'] = current
+                channel.load_costs.return_value = ([retained, fresh, future], current)
+            channel.enrich.side_effect = enrich
+            with patch.object(sys, 'path', [str(dashboard), *sys.path]), patch.dict('sys.modules', {'channel_source':channel}):
+                for mode, expected_start, missing in ((True, yesterday, []), (False, first, []), (True, yesterday, [first])):
+                    with self.subTest(mode=mode, expected_start=expected_start, missing=missing):
+                        channel.load_costs.return_value = ([], stale)
+                        seen = []
+                        def refresh(data):
+                            seen.append(data['period']['start'])
+                            enrich(data)
+                        channel.enrich.side_effect = refresh
+                        requested = now-timedelta(days=1) if mode and not missing else start
+                        result = source.hourly_accounting([order], {}, start, now, requested, reuse_closed_days=mode)
+                        self.assertEqual(seen, [expected_start])
+                        if expected_start == yesterday:
+                            deliveries = channel.normalize.call_args.args[4]
+                            from channel_effects import delivery_index
+                            self.assertEqual({row['delivery_id'] for row in deliveries}, {'2', '3'} if missing else {'1', '2'})
+                            self.assertEqual(delivery_index(deliveries)[order['order_no']]['costCny'],
+                                             51.0 if missing else 50.0)
+                            self.assertEqual(result['cost_cursor_at'], None if missing else now.isoformat())
+                            self.assertEqual(result['cost_source']['missing_closed_trade_days'], missing)
+                        if not mode:
+                            (archives/(first+'.json')).write_text('invalid JSON', encoding='utf-8')
+                (archives/(first+'.json')).write_text(json.dumps(dict(
+                    contract='channel-order-deliveries-v1', complete=True, period=dict(start=first, end=first),
+                    generatedAt=(start+timedelta(days=1)).isoformat(), rows=[old])), encoding='utf-8')
+                midnight = source.datetime.fromisoformat(today).replace(tzinfo=source.TZ)
+                channel.load_costs.return_value = ([retained], dict(status='partial', generatedAt=midnight.isoformat(),
+                    period=dict(start=yesterday, end=yesterday, until=yesterday+' 23:59')))
+                channel.enrich.reset_mock()
+                at_midnight = source.hourly_accounting([order], {}, start, midnight, midnight-timedelta(days=1),
+                    reuse_closed_days=True)
+                channel.enrich.assert_not_called()
+                self.assertEqual(at_midnight['cost_cursor_at'], midnight.isoformat())
+
     def test_saved_orders_get_same_order_pinned_es_flags_without_recollecting_membership(self):
         now, order, window = self.fixture()
         closed = order['paytime'][:10]
@@ -187,17 +253,22 @@ class HourlyOutcomesTest(unittest.TestCase):
                 self.assertEqual(kwargs['timeout'], 600)
                 raise daily.subprocess.TimeoutExpired(command, kwargs['timeout'], stderr=(
                     b'private traceback\nFC27 hourly timing {"stage":"order_cost","event":"start",'
-                    b'"requested_start":"2026-11-19","covered_until":"private text","cookie":"private value"}\n'))
+                    b'"requested_start":"2026-11-19","covered_until":"private text","cookie":"private value"}\n'
+                    b'FC27 hourly timing {"stage":"order_cost_native","event":"start",'
+                    b'"native_refresh_start":"2026-11-18","closed_trade_days":7,"cookie":"private value"}\n'))
             stderr = StringIO()
             with patch.object(runtime, 'ledger', return_value=db), \
                     patch.object(daily.subprocess, 'run', side_effect=timeout), redirect_stderr(stderr):
                 with self.assertRaises(daily.subprocess.TimeoutExpired):
                     daily.run_hourly({'plan_id':'p','revision':1})
             lines = stderr.getvalue().splitlines()
-            self.assertEqual(len(lines), 1)
+            self.assertEqual(len(lines), 2)
             self.assertTrue(lines[0].startswith(daily.HOURLY_TIMING_PREFIX))
             self.assertEqual(json.loads(lines[0].removeprefix(daily.HOURLY_TIMING_PREFIX)),
                              {'stage':'order_cost', 'event':'start', 'requested_start':'2026-11-19'})
+            self.assertEqual(json.loads(lines[1].removeprefix(daily.HOURLY_TIMING_PREFIX)),
+                             {'stage':'order_cost_native', 'event':'start', 'native_refresh_start':'2026-11-18',
+                              'closed_trade_days':7})
 
     def test_success_persists_full_context_and_source_together_without_model(self):
         from fc_pricing_v3.smart import policy_suffix
