@@ -1688,24 +1688,26 @@
     },
     {
       "id": "fc.reporting.report",
-      "revision": "20261105-1",
+      "revision": "20261119-fc-report-default-visuals",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-05",
+      "effective_at": "2026-11-19",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/REPORT.md",
-        "sha256": "aecd80e9fccd6f09c08adf90c7505ebd422758af13d9171dd2fa9e5a0d319705",
+        "sha256": "d2b7c3a09d0999b57425d6b9e3a275d5e0510fab1853bbad791d9b051b981f8e",
         "hash_basis": "utf8_lf"
       },
-      "supersedes": [],
+      "supersedes": [
+        "fc.reporting.report@20261105-1"
+      ],
       "provenance": [
         {
           "kind": "direct_user_knowledge_consolidation",
@@ -1715,10 +1717,16 @@
         {
           "kind": "existing_confirmed_methods",
           "path": "docs/planning/report-methods-20261102/README.md"
+        },
+        {
+          "kind": "direct_user_fc_report_default_visuals",
+          "date": "2026-11-19",
+          "scope": "Default to visual presentation for formal FC daily, weekly, monthly and focused operating reports, including the second half of the weekly report."
         }
       ],
       "consumers": [
         "Codex",
+        "Claude Code",
         "Hermes after original review and target-profile readback"
       ]
     },
