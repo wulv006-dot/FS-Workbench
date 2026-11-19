@@ -2,6 +2,10 @@
 
 先按实际计划的写入协议选择合同。`fc27_curve_v6` 使用[FC27 V6.1 合同](docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md)，三平台旧标量计划和历史原操作使用[对应旧合同](docs/planning/fc-three-platform-20261110/CONTRACT.md)。部署、计划激活、真实执行及自然周期分别核验。共享 Sol 接入由原任务维护，FC 继续消费 `pricing_review_v3`。周报、经营管理台和已暂停的日报／月报仍按各自配置运行。
 
+## FC 项目经理经营复盘
+
+专项分析先读[取数入口](docs/planning/fc-project-review-20261119/README.md)和[经营复盘分工](knowledge/reporting/fc-project-owner.md)。SEO、广告投放的待核问题分别交该项负责人，其他 FC 经营环节由吴律亲自下钻和追踪。
+
 ## FC 看板分类（2026-11-06 用户确认）
 
 修改 FC 看板、趋势、导出或订单组利润时，读取[商品整单归属合同](docs/planning/fc-dashboard-category-20261106/CONTRACT.md)。知识源候选与真实数据验收状态见[本轮施工记录](docs/planning/fc-dashboard-20261106/IMPLEMENTATION.md)；代码存在不代表已部署。

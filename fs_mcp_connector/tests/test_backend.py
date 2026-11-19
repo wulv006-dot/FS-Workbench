@@ -31,6 +31,26 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(out['data']['next_cursor'], 'next')
         self.assertNotIn('MMOEXP_AUTH', json.dumps(out))
 
+    def test_fc_project_review_fixed_read_preserves_pending_and_admin_denial(self):
+        operation = 'business.fc_project_review'
+        args = {'profile': 'FC27', 'start': '2026-11-16', 'end': '2026-11-18'}
+        self.response = (202, b'{"status":"pending","retryAfter":3,"internal":"excluded"}')
+        result = self.backend.query(self.principal, operation, args)
+        self.assertEqual((result['status_code'], result['data']), (202, {'status': 'pending', 'retryAfter': 3}))
+        method, target, _, body, _ = self.calls[-1]
+        self.assertEqual((method, body), ('GET', None))
+        self.assertTrue(target.startswith('/dashboard/fs-home/range.json?'))
+        self.assertIn('mode=fc-project-review', target)
+        self.assertIn('profile=FC27', target)
+        self.response = (403, b'{"error":"admin_required"}')
+        with self.assertRaises(BackendError) as rejected:
+            self.backend.query(self.principal, operation, args)
+        self.assertEqual(rejected.exception.status_code, 403)
+        for invalid in (dict(args, mode='summary'), dict(args, profile='MMOEXP'),
+                        dict(args, start='2026-11-16 08:00')):
+            with self.assertRaises(ValidationError):
+                self.backend.query(self.principal, operation, invalid)
+
     def test_customer_email_is_post_body_only(self):
         self.backend.query(self.principal, 'orders.customer', dict(self.query, customer_email='fixture@example.test'))
         method, target, headers, body, limits = self.calls[0]

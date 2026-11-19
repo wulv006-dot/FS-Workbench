@@ -236,6 +236,52 @@
       }
     },
     {
+      "name": "business.fc_project_review",
+      "module": "unified-business",
+      "path": "/dashboard/fs-home/range.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/range.json",
+      "description": "FC26／FC27 全站经营复盘聚合，调用者沿用原管理员权限。start/end 为包含当天的北京时间日期。HTTP 202 沿原参数续查；来源、覆盖和费用币种各自保留。长结果沿 data_path 展开，例如 /packets/0/ordersData。",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": ["FC26", "FC27"],
+            "maxLength": 4
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+          }
+        },
+        "required": ["profile", "start", "end"],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "fc-project-review"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "response_fields": ["schema", "archivedAt", "revision", "packets", "status", "retryAfter"],
+      "provenance": {
+        "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py; releases/fs-dashboard/fc-project-review/api.py",
+        "mapping_status": "candidate_fc_project_review_admin_route_not_verified",
+        "route_config": "/etc/nginx/fs-business-range.locations.conf",
+        "route_prefix": "/dashboard/fs-home/range.json"
+      }
+    },
+    {
       "name": "business.native_range",
       "module": "unified-business",
       "path": "/dashboard/fs-home/range.json",
@@ -5106,7 +5152,7 @@
     {
       "module": "unified-business",
       "status": "partially_mapped_not_live_verified",
-      "operations": 5,
+      "operations": 6,
       "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
       "permission_path": "/dashboard/analytics/"
     },
