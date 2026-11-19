@@ -1004,7 +1004,7 @@ document.addEventListener('DOMContentLoaded', () => {
       metricChart(trendId,[...byDate.values()],[
         spec('smooth','顺利组平均耗时',minutes,'--fs-brand'),
         spec('problem','问题组平均耗时',minutes,'--fs-danger'),
-      ], {showSamples:true, title:'按付款日比较样本完成耗时', subtitle:'按付款日 · 平均耗时（分钟）',
+      ], {showSamples:true, title:'按提单日比较样本完成耗时', subtitle:'按首次入队日志提单日 · 平均耗时（分钟）',
         empty:'所选区间未取得可核实的逐日完成耗时。'});
       if (!items.length) {
         mount(id, empty(delivery?.reason || '所选区间未取得数量和问题状态可对应的 Coins 发货订单。'));
@@ -1043,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', () => {
     coverage('delivery-coverage', [
       delivery && {label:'Coins 数量及状态', status:delivery.status, reason:delivery.reason || delivery.source},
       ...fieldCoverage(orderData, [['delivery','数量与状态'],['fulfillment','发货统计']]),
-      '按购买数量划分为 1000K 以下与 1000K 及以上。状态未知及耗时未取得在表中留示。',
+      '范围为 MMOEXP 主站 Order Coins。按购买数量划分为 1000K 以下与 1000K 及以上。状态未知及耗时未取得在表中留示。',
     ]);
     const completion = delivery?.completion;
     const holder = byId('delivery-completion');

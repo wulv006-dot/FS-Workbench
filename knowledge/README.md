@@ -1,6 +1,6 @@
 # 知识读取入口
 
-FC26 / FC27 负责人专项日、周、月及自定义复盘从 [FC 项目经营复盘入口](../docs/planning/fc-project-review-20261119/README.md) 进入。查看全站总盘，再按商品、客户、国家、支付、投放、自然搜索、价格和交付追查变化。
+FC26 / FC27 负责人专项日、周、月及自定义复盘从 [FC 项目经营复盘入口](../docs/planning/fc-project-review-20261119/README.md) 进入。人工核对遵循 [FC 项目经理的复盘分工](reporting/fc-project-owner.md)。查看全站总盘，再按商品、客户、国家、支付、投放、自然搜索、价格和交付追查变化。
 
 订单用户邮箱筛选、跨月多游戏和 XLSX 下载见[订单邮箱导出](order-email-export.md)（`fs.orders.email_export`）。FS 页面提供订单进度、状态、产品类型和逐游戏区服。「全部游戏」使用 Admin 的 `gid=0`，区服筛选适用于具体游戏。连接器的现行操作以本人可见目录为准。
 
