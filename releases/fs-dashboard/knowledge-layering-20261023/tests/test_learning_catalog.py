@@ -354,20 +354,20 @@ class LearningCatalog(unittest.TestCase):
         rows = {r['id']:r for r in value['entries']}
         updated = {'fs.data.sources'}
         new = {'fc.marketing.attribution','fc.reporting.data'}
-        self.assertEqual(rows['fs.data.sources']['revision'], 'shared-order-cost-20261119')
-        self.assertEqual(rows['fs.data.sources']['effective_at'], '2026-11-19')
+        self.assertEqual(rows['fs.data.sources']['revision'], 'shared-order-cost-tools-20261120')
+        self.assertEqual(rows['fs.data.sources']['effective_at'], '2026-11-20')
         self.assertIn('fs.data.sources@20261113-v61-reporting-sources',
                       rows['fs.data.sources']['supersedes'])
         self.assertIn('fs.data.sources@fs-fc-admin-es-shared-20261113-r2',
                       rows['fs.data.sources']['supersedes'])
-        self.assertEqual(rows['fc.reporting.data']['revision'], 'fc_v61_margin_band_20261118')
+        self.assertEqual(rows['fc.reporting.data']['revision'], 'fc_v61_same_order_query_20261120')
         self.assertIn('fc.reporting.data@fs-fc-admin-es-shared-20261113-r4',
                       rows['fc.reporting.data']['supersedes'])
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']=='fs-fc-admin-es-shared-20261113-r5'},
                          {'fc.marketing.attribution'})
         self.assertEqual({r['id'] for r in value['entries'] if r['revision']==SHARED_REVISION},expected-updated-new-{'fs.learning.methods'})
         for ident in expected:
-            expected_date = {'fs.data.sources': '2026-11-19', 'fc.reporting.data': '2026-11-18',
+            expected_date = {'fs.data.sources': '2026-11-20', 'fc.reporting.data': '2026-11-20',
                              'fs.learning.methods': '2026-11-18'}.get(ident, '2026-11-13')
             self.assertEqual(rows[ident]['knowledge_updated_at'],expected_date)
             self.assertTrue(rows[ident]['supersedes'])
@@ -386,8 +386,16 @@ class LearningCatalog(unittest.TestCase):
         self.assertIn('同单采购成本与跨日查询', texts['fs.data.sources'])
         self.assertIn('验证未通过订单', texts['fs.data.sources'])
         self.assertIn('跨零点先归档昨日', texts['fs.data.sources'])
+        for token in ('view=same-order', 'business.summary', '三日快查不含今天', 'products.html', 'weekly.html'):
+            self.assertIn(token, texts['fs.data.sources'])
+        self.assertIn('view=same-order', texts['fc.reporting.data'])
+        pricing = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.v3'], preview=True)['entries'][0]
+        self.assertEqual(pricing['revision'], 'fc_v61_quarter_past_20261120')
+        self.assertIn('北京时间每小时 15 分到期', pricing['content'])
+        self.assertIn('沿同一任务等待并续跑', pricing['content'])
         self.assertNotIn('看板自动读取使用原鉴权channel-effects入口mode=actual-profit', texts['fs.data.sources'])
         baseline = lf(ROOT/BASELINE).decode()
+        self.assertNotIn('V6.1 新报价按第 6 节的七日实际平均优惠', baseline)
         self.assertNotIn('看板自动读取使用原鉴权channel-effects入口mode=actual-profit', baseline)
         self.assertIn('经营看板毛利：Order发货统计', baseline)
         self.assertIn('同站原单人民币收入减实际采购成本', baseline)
