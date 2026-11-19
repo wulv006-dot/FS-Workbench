@@ -109,7 +109,7 @@ FC 自动改价及必要依赖属于 P0 核心常驻链路，豁免全局节省�
 <!-- admin-api-direct-takeover-20261028 -->
 ## 本轮接管与直接 API（2026-10-28 用户确认）
 
-Admin 接入沿[原修复合同](docs/planning/admin-recovery-review-20261028/CONTRACT.md)，直接 HMAC API 主线 8912、备用 8911、容器 8913 桥。8767 已退役，原会话和 OCR 回退仍按该合同处理。旧标量通过原 Order writer 执行，Admin 读取、同步和核价走 API，保留 Price 原价展示，实价核同商品 `unit_price`。V6.1 走原 writer 的 Admin 完整价表分支。看板销售统一全部已付款，毛利仍取已核完成子集。2026-10-28 修复按 P0 至 P3 推进，并补 P4 多人并发。原 ID、并发保护和自动化按对应协议执行。
+Admin 接入沿[原修复合同](docs/planning/admin-recovery-review-20261028/CONTRACT.md)，直接 HMAC API 主线 8912、备用 8911、容器 8913 桥。8767 已退役，原会话和 OCR 回退仍按该合同处理。旧标量通过原 Order writer 执行，Admin 读取、同步和核价走 API，保留 Price 原价展示，实价核同商品 `unit_price`。V6.1 走原 writer 的 Admin 完整价表分支。2026-10-28 修复按 P0 至 P3 推进，并补 P4 多人并发。原 ID、并发保护和自动化按对应协议执行。
 
 <!-- fc-v3-historical-rules-archived-20261029 -->
 早期 FC 定价规则见[历史记录](docs/planning/fc-pricing-v3-20261026/history/AGENTS-FC-RULES-BEFORE-100K-20261029.md)。当前执行按本文件顶部的协议入口选择合同，历史操作沿其原协议追溯。
@@ -132,7 +132,7 @@ Hermes及Codex/ChatGPT产出、指导或审核任何报告、文字分析，优�
 <!-- business-shipping-profit-current-20261024 -->
 ## 经营看板利润计算规则（2026-10-24）
 
-全局/分游戏主利润与每日曲线按Order“统计管理→发货统计”同网站、游戏、原生类目、交易时间取人民币销售减采购；分游戏原生率、全局总利润÷总销售，不再用Admin付款USD乘参考率。零分母率不适用，未知不补零，负利润保留，非净利润；同订单Admin整单人民币收入减Order实际成本及覆盖证明独立展示。规则见[业务基准专项补充](docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md#看板发货利润2026-10-24用户确认并上线)及[计算合同](docs/planning/business-shipping-profit-20261024/CONTRACT.md)。PR435/436已上线，活动源见[交付与版本](docs/planning/business-shipping-profit-20261024/DELIVERY.md)。仅看板Shipping字段迁移；旧primary兼容、Hermes其他报告、当前FC定价合同、权限/会话/调度和原UNKNOWN保持。Git文档/候选知识与生产装入、模型实际使用分别验收。
+全局/分游戏主利润与每日曲线按Order“统计管理→发货统计”同网站、游戏、原生类目、交易时间取人民币销售减采购；分游戏原生率、全局总利润÷总销售，不再用Admin付款USD乘参考率。零分母率不适用，未知不补零，负利润保留，非净利润；同订单Admin整单人民币收入减Order实际成本及覆盖证明独立展示。规则见[现行业务基准](docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md)及[计算合同](docs/planning/business-shipping-profit-20261024/CONTRACT.md)。PR435/436已上线，活动源见[交付与版本](docs/planning/business-shipping-profit-20261024/DELIVERY.md)。仅看板Shipping字段迁移；旧primary兼容、Hermes其他报告、当前FC定价合同、权限/会话/调度和原UNKNOWN保持。Git文档/候选知识与生产装入、模型实际使用分别验收。
 
 <!-- fc27-report-method-current-20261024 -->
 ## FC27经营报告字段与呈现

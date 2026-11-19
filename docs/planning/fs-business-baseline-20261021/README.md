@@ -1,6 +1,6 @@
 # 业务基准修订与工具接入
 
-2026-10-24经营看板专项：全局/分游戏主利润和每日曲线已按Order发货统计同范围人民币销售减采购上线，同订单实际成本毛利独立展示；规则见[业务基准§5](BUSINESS-BASELINE.md#看板发货利润2026-10-24用户确认并上线)，Git/候选知识与实际生效边界见[同步记录](../business-shipping-profit-20261024/RULES-SYNC.md)。这条不代表Hermes其他报告已自动换源，后文交付仍按各时点理解。
+2026-10-24经营看板专项：全局/分游戏主利润和每日曲线已按Order发货统计同范围人民币销售减采购上线，同订单实际成本毛利独立展示；规则见[现行业务基准](BUSINESS-BASELINE.md)，Git/候选知识与实际生效边界见[同步记录](../business-shipping-profit-20261024/RULES-SYNC.md)。这条不代表Hermes其他报告已自动换源，后文交付仍按各时点理解。
 
 当前有效业务基准以 [BUSINESS-BASELINE.md](BUSINESS-BASELINE.md)文件头、对应版本活动映射及实际装入SHA为准，不把本页历史v10说明当最新版本。渠道核算与直接工具维护源分别为 `releases/fs-dashboard/channel-effects-20261021/source/`、`releases/fs-dashboard/fc-coins-evidence-20261021/source/`、`releases/fs-dashboard/fc-coins-workflow-20261022/source/`。Admin整单收入、实际采购毛利、缓存修复与真实模型验收见 [财务验收](../fs-channel-dashboard-20261021/FINANCIAL-ACCEPTANCE-20261022.md)，经营前端实际接入见[看板验收](../fs-business-procurement-20261022/ACCEPTANCE.md)；先前 [FC Coins证据接入](../fc-coins-evidence-20261021/README.md)及下文v1–v9交付、策略原文与失败按原时点保留，不据旧源码或旧“当前”覆盖活动文件。后续新版本须以其独立发布/实际装入回执接续。
 
