@@ -188,7 +188,7 @@ def load_costs():
     return rows, info
 
 
-def enrich(data, force=False):
+def enrich(data, force=False, *, required_until=None, lock_deadline=None):
     """Publish orders first, then fill costs through the same shared Order source."""
     from urllib.request import urlopen
     try:
@@ -206,10 +206,30 @@ def enrich(data, force=False):
     from order_delivery_index import MAIN_SITE, capture_time, covered_through, read_orders, sync_after_publish, trade_second
     import fcntl
     with (ROOT / 'order-deliveries.lock').open('a+b') as lock:
-        try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            data['sources']['cost']['limitation'] = '另一项全局成本读取进行中；保留现有覆盖，完成后可刷新。'
-            return data
+        wait_started = None
+        while True:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if lock_deadline is not None:
+                    at = time.monotonic()
+                    if wait_started is None:
+                        wait_started = at
+                    remaining = lock_deadline - at
+                    if remaining > 0:
+                        time.sleep(min(1, remaining))
+                        continue
+                    cost = data['sources']['cost']
+                    if cost.get('status') != 'unavailable':
+                        cost['status'] = 'partial'
+                    cost.update(refresh_reason='order_delivery_lock_wait_timeout',
+                                lock_wait_seconds=round(at - wait_started, 3))
+                data['sources']['cost']['limitation'] = '另一项全局成本读取进行中；保留现有覆盖，完成后可刷新。'
+                return data
+        wait_seconds = None if wait_started is None else round(time.monotonic() - wait_started, 3)
+        if wait_seconds is not None:
+            data['sources']['cost']['lock_wait_seconds'] = wait_seconds
         previous = json.loads(path.read_text('utf-8')) if path.is_file() else None
         if previous and (previous.get('contract') != 'channel-order-deliveries-v1' or previous.get('complete') is not True):
             raise ValueError('invalid_order_cost_cache')
@@ -218,6 +238,12 @@ def enrich(data, force=False):
         cutoff = now.replace(second=0, microsecond=0) - timedelta(minutes=1)
         requested = data['period']['start']+' 00:00:00'
         stop = cutoff.strftime('%Y-%m-%d %H:%M:59')
+        if required_until is not None:
+            requested_cutoff = datetime.fromisoformat(required_until)
+            if (requested_cutoff.strftime('%Y-%m-%d %H:%M:59') != required_until
+                    or required_until > stop):
+                raise ValueError('invalid_required_delivery_cutoff')
+            cutoff, stop = requested_cutoff.replace(tzinfo=TZ), required_until
         if requested > stop:
             return data
         proof = read_orders((),root=ROOT)
@@ -240,10 +266,27 @@ def enrich(data, force=False):
                     and datetime.fromisoformat(legacy_stop).replace(tzinfo=TZ) <= observed <= now):
                 reusable = legacy_stop
             reusable = max(reusable or '',retained_through or '')
-        if reusable and (reusable>=stop or reusable[:10]==now.date().isoformat() and age is not None and 0<=age<600):
+        if reusable and (reusable >= stop or required_until is None and reusable[:10] == now.date().isoformat()
+                         and age is not None and 0 <= age < 600):
+            include_rows = data.get('include_cost_delivery_rows') is True
+            if include_rows or required_until is not None:
+                deliveries, observed_cost = load_costs()
+                if include_rows:
+                    data['cost_delivery_rows'] = deliveries
+                if required_until is not None:
+                    by_order = delivery_index(deliveries)
+                    for row in data['orders']:
+                        row.update(by_order.get(row['orderNo'], EMPTY_COST))
+                    data['sources']['cost'] = observed_cost
+                    if wait_seconds is not None:
+                        observed_cost['lock_wait_seconds'] = wait_seconds
             data['sources']['cost']['limitation'] = '复用固定发货截止 ' + reusable + '；未匹配不补零，匹配不等于最终结算。'
-            if data.get('include_cost_delivery_rows') is True:
-                data['cost_delivery_rows'], _ = load_costs()
+            return data
+        if wait_started is not None and not retained_through:
+            cost = data['sources']['cost']
+            if cost.get('status') != 'unavailable':
+                cost['status'] = 'partial'
+            cost['refresh_reason'] = 'order_delivery_incremental_prefix_unverified'
             return data
         begin = requested
         if retained_through:
@@ -277,6 +320,8 @@ def enrich(data, force=False):
         for row in data['orders']: row.update(index.get(row['orderNo'], EMPTY_COST))
         cost_info['limitation'] = '已按固定发货截止 ' + cutoff.strftime('%Y-%m-%d %H:%M') + ' 完整分页读取；未匹配不补零，匹配不等于全部履约或最终结算。'
         data['sources']['cost'] = cost_info
+        if wait_seconds is not None:
+            cost_info['lock_wait_seconds'] = wait_seconds
         if data.get('include_cost_delivery_rows') is True:
             data['cost_delivery_rows'] = deliveries
     sync_after_publish(ROOT)

@@ -1558,7 +1558,7 @@ def closed_delivery_days(root, first, recent, now):
     return archived, captures, missing
 
 
-def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=False,
+def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=False, lock_deadline=None,
                       progress=lambda *args, **kwargs: None):
     """Recompute existing same-order accounting using the shared delivery cache and ES flags."""
     import channel_source as channel
@@ -1591,7 +1591,9 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
                     revision=publication['revision'], generatedAt=captured.isoformat(),
                     period=dict(start=cohort_start, end=cutoff[:10], until=cutoff))
         return None
-    deliveries, cost_info = indexed_costs(now) or channel.load_costs()
+    background = lock_deadline is not None
+    checked_at = datetime.now(timezone.utc) if background else now
+    deliveries, cost_info = indexed_costs(checked_at) or channel.load_costs()
     def native_bounds(cost):
         period = cost.get('period')
         if not isinstance(period, dict):
@@ -1623,21 +1625,33 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
         archived_deliveries, historical_days, missing_days = archive
         first = recent
         cache_reused = covers_requested_window(cost_info)
-    normalized=[] if archive is not None else channel.normalize(rows,[],coupons,[],deliveries,{},dict(entries=[]))
+    normalized=[] if archive is not None or background else channel.normalize(rows,[],coupons,[],deliveries,{},dict(entries=[]))
     data=dict(orders=normalized,period=dict(start=first,end=today),sources=dict(cost=cost_info))
     if not cache_reused:
         progress('order_cost_native', 'start', native_refresh_start=first, requested_end=today,
                  closed_trade_days=len(historical_days))
-        if archive is not None:
+        if archive is not None or background:
             data['include_cost_delivery_rows'] = True
-        channel.enrich(data)
+        if background:
+            channel.enrich(data, required_until=cutoff, lock_deadline=lock_deadline)
+        else:
+            channel.enrich(data)
         # The rolling file certifies only the freshly read tail. The index also pins its prefix.
-        updated = indexed_costs(datetime.now(timezone.utc))
+        checked_at = datetime.now(timezone.utc)
+        wait_seconds = data['sources']['cost'].get('lock_wait_seconds')
+        updated = indexed_costs(checked_at)
         if updated:
             deliveries, data['sources']['cost'] = updated
+            if wait_seconds is not None:
+                data['sources']['cost']['lock_wait_seconds'] = wait_seconds
             data.pop('cost_delivery_rows', None)
             archive, first, missing_days = None, cohort_start, []
-            data['orders'] = channel.normalize(rows,[],coupons,[],deliveries,{},dict(entries=[]))
+            if not background:
+                data['orders'] = channel.normalize(rows,[],coupons,[],deliveries,{},dict(entries=[]))
+        elif archive is not None and wait_seconds is not None:
+            # A completed recheck may have changed a closed archive during the wait.
+            archived_deliveries, historical_days, missing_days = closed_delivery_days(
+                Path(channel.ROOT), cohort_start, recent, checked_at)
     if archive is not None:
         if 'cost_delivery_rows' in data:
             # Use the rows loaded with the successful refresh's source revision under its lock.
@@ -1645,10 +1659,12 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
         elif not cache_reused:
             deliveries, latest_cost = channel.load_costs()
             data['sources']['cost'] = dict(latest_cost, **{key: data['sources']['cost'][key]
-                for key in ('status', 'limitation') if key in data['sources']['cost']})
+                for key in ('status', 'limitation', 'refresh_reason', 'lock_wait_seconds') if key in data['sources']['cost']})
         bounds = native_bounds(data['sources']['cost'])
         for row in deliveries:
             trade = str(row.get('trade_at') or '')
+            if background and trade > cutoff:
+                continue
             day = trade[:10]
             identity = str(row['delivery_id'])
             if day in historical_days:
@@ -1664,6 +1680,10 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
         data['sources']['cost']['native_refresh_start'] = first
         if archived_deliveries and (missing_days or not covers_requested_window(data['sources']['cost'])):
             data['sources']['cost']['status'] = 'partial'
+    elif background:
+        deliveries = [row for row in data.pop('cost_delivery_rows', deliveries)
+                      if str(row.get('trade_at') or '') <= cutoff]
+        data['orders'] = channel.normalize(rows,[],coupons,[],deliveries,{},dict(entries=[]))
     data['period']['start']=start.astimezone(TZ).date().isoformat()
     channel.apply_customer_types(data,request=False)
     channel.apply_cost_overrides(data)
@@ -1719,6 +1739,7 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
                                progress=lambda *args, **kwargs: None):
     """Increment paid membership; keep the full private cohort and rebind late costs to original windows."""
     from copy import deepcopy
+    started = monotonic()
     valid=[w for w in windows if w.get('origin') in OBSERVED_PRICE_WINDOWS and w.get('mode')=='production']
     if not valid:
         return dict(state=previous,online=dict(actual_outcomes=[],learning_coverage=dict(status='await_first_confirmed_exposure',query_complete=False)))
@@ -1806,7 +1827,9 @@ def incremental_window_context(session,pages,windows,now,previous, *, use_shared
     progress('order_cost', 'start', requested_start=max(start,cost_since).astimezone(TZ).date().isoformat(),
              requested_end=last_day.isoformat())
     accounting=hourly_accounting(live,logs,start,now,max(start,cost_since), **(
-        {'reuse_closed_days':True, 'progress':progress} if use_shared_customer_flags else {}))
+        # Keep at least the final three minutes of the existing 600s job for the refresh and binding.
+        {'reuse_closed_days':True, 'progress':progress, 'lock_deadline':min(cost_started+180, started+420)}
+        if use_shared_customer_flags else {}))
     cost_period=accounting['cost_source'].get('period') or {}
     progress('order_cost', 'done', elapsed_seconds=round(monotonic()-cost_started, 3),
              covered_start=cost_period.get('start'), covered_end=cost_period.get('end'),
