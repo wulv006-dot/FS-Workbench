@@ -138,7 +138,7 @@ async function claimSlot(slot,couponId){
 const postForm=(url,form)=>fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)}).then(r=>{if(!r.ok)throw Error('HTTP_'+r.status);return r.json().catch(()=>({}));});
 function cartLine(spec,row){
   if(spec.top===1)return {category:'new_gold',id:String(row.id),group:String(spec.qty),num:'1',attr:'',aid:''};
-  return {category:'new_items',id:String(row.id),group:'1',num:String(Math.max(1,Number(row.min_qty)||1)),attr:'',aid:String(row.aid??spec.aid??'')};
+  return {category:'new_items',id:String(row.id),group:'1',num:String(Math.max(1,Number(row.min_qty)||1)),attr:row.saleSku?row.saleSku.id+'-'+row.saleSku.name:'',aid:String(row.aid??spec.aid??'')};
 }
 async function buyNow(spec,memberCouponId){
   let row;try{row=spec&&await specRow(spec);}catch{}
@@ -244,17 +244,21 @@ function rowPrice(row,top,qty){
   // currency and, for guests, already takes the main site's new-user coupon off.
   if(top===1){const tier=row.goods_list?.[String(qty)];const v=Number(tier?.price_discount??tier?.price_discount_format);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;}
   // The formatted price is rounded to cents, which zeroes tiny unit prices (POE orbs); use the raw one.
-  const unit=Number(row.price_discount??row.price_discount_format),v=unit*Math.max(1,Number(row.min_qty)||1);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;
+  const unit=Number(row.saleSku?row.saleSku.price:row.price_discount??row.price_discount_format),v=unit*Math.max(1,Number(row.min_qty)||1);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;
 }
-// spec: {game,top,cid,aid?,keyword?,goods?,area?,sid?,qty}
+// spec: {game,top,cid,aid?,keyword?,goods?,area?,sid?,qty,skuName?}
 function quoteKey(spec){return JSON.stringify(spec);}
 // The one goods row a spec names, or null when it is missing or ambiguous.
 async function specRow(spec){
   const find=rows=>{const m=spec.goods?rows.filter(r=>Number(r.id)===spec.goods)
     :rows.filter(r=>String(r.game_area_format||'').trim()===spec.area&&(!spec.sid||Number(r.sid)===spec.sid));return m.length===1?m[0]:null;};
-  const row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.keyword}));
+  let row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.keyword}));
   // FC 27 players: the category is longer than the page cap, so a missing row is looked up by name.
-  return row||(spec.search?find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.search})):null);
+  if(!row&&spec.search)row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.search}));
+  if(!row||!spec.skuName)return row;
+  const variants=Object.values(row.saleprop||{}).filter(sku=>sku?.name===spec.skuName&&Number(sku.goods_id)===spec.goods);
+  const [saleSku]=variants;
+  return variants.length===1&&/^[1-9]\d*$/.test(String(saleSku.id))&&Number(saleSku.status)===1&&Number(saleSku.stock)>0?{...row,saleSku}:null;
 }
 // ?price_debug=1 lists every price lookup on the page, to diagnose a device that shows none.
 const PRICE_DEBUG=new URLSearchParams(location.search).has('price_debug'),diag=new Map();
@@ -299,7 +303,8 @@ function mysterySpec(it){
   // ARC and COD list each item once per platform; the configured id is the PC (or COD lobby) row.
   if(it.marketGame==='arc'||it.marketGame==='codmw4'){
     const row=MARKET_PLATFORM_GOODS[id]?.[choice],aid=MARKET_PLATFORM_AID[it.marketGame][choice];
-    return row&&aid?{game:g[0],top:g[1],cid:g[2],aid,...(g[4]?{keyword:g[4]}:{}),goods:row,qty:g[1]===1?amountOf(it.name):1}:null;
+    return row&&aid?{game:g[0],top:g[1],cid:g[2],aid,...(g[4]?{keyword:g[4]}:{}),goods:row,qty:g[1]===1?amountOf(it.name):1,
+      ...(it.marketGame==='codmw4'&&g[2]===9665?{skuName:it.name}:{})}:null;
   }
   return {game:g[0],top:g[1],cid:g[2],aid:g[3],...(g[4]?{keyword:g[4]}:{}),goods:id,qty:g[1]===1?amountOf(it.name):1};
 }

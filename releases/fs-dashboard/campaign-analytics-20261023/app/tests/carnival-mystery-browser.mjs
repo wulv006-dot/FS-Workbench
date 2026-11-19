@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {createCarnival} from '../runtime/carnival.mjs';
-import {mainSite,open,app,types,chromium} from './carnival-browser-harness.mjs';
+import {mainSite,open,app,types,chromium,lobbyCatalog,lobbyOffers} from './carnival-browser-harness.mjs';
 
 test('mystery shop: live prices, one server draw that survives reload, coupon handed to the cart',async t=>{
  const {page,site,errors,carnival}=await open(t);
@@ -69,4 +69,58 @@ test('guests are asked to sign in before drawing and nothing is written',async t
  await page.waitForSelector('#loginRequiredMask.show form.carnival-login');
  assert.deepEqual(site.claims,[]);
  assert.equal(carnival.state(new URLSearchParams({uid:'123456'})).games.fc27.rounds_drawn,0);
+});
+
+for(const [platform,{aid,goods,skuIds}] of Object.entries(lobbyCatalog)){
+ test(`COD ${platform}: each lobby quote adds its own SKU without placing an order`,async t=>{
+  const {page,site,errors}=await open(t);
+  const openCod=async()=>{
+   await page.locator('a[href="#mystery"]').first().click();
+   await page.locator('.gtab.game-codmw4').click();
+  };
+  await openCod();
+  await page.locator('#marketChoiceSelect').selectOption(platform);
+  for(const offer of lobbyOffers){
+   const card=page.locator('#msPool .pcard').filter({hasText:offer.name});
+   await page.waitForFunction(({name,price})=>[...document.querySelectorAll('#msPool .pcard')].some(card=>
+    card.querySelector('h4').textContent===name&&card.querySelector('.pprice').textContent==='$'+price),offer);
+   await card.click();
+  }
+  await page.locator('#msPool .pcard').nth(1).click();
+  await page.locator('.drawdeal-btn').click();
+  await page.waitForSelector('#msVerifyBtn');
+  for(const [index,offer] of lobbyOffers.entries()){
+   if(index){
+    await page.goto('https://www.mmoexp.com/events/Carnival.html');
+    await openCod();
+   }
+   const card=page.locator('#msResult .fcard').filter({hasText:offer.name});
+   await card.getByText('$'+offer.price,{exact:true}).first().waitFor();
+   await card.locator('.buybtn').click();
+   await page.waitForSelector('#mysteryFlowMask.show [data-carnival-buy]');
+   assert.ok((await page.locator('#mysteryFlowMask .mystery-flow-box').textContent()).includes('$'+offer.price+' →'));
+   await page.locator('#mysteryFlowMask.show [data-carnival-buy]').click();
+   await page.waitForURL('**/Cart.html');
+   assert.deepEqual(site.cart.adds,[{category:'new_items',id:String(goods),group:'1',num:'1',attr:skuIds[index]+'-'+offer.name,aid:String(aid)}]);
+  }
+  assert.equal(site.cart.clears,2);
+  assert.deepEqual(errors,[]);
+ });
+}
+
+test('a missing lobby SKU does not use the parent price or modify the cart',async t=>{
+ const {page,site,carnival}=await open(t);
+ site.missingLobbySku=lobbyCatalog.PC.skuIds[0];
+ carnival.draw({uid:'123456',game:'codmw4',items:[0,1,3]});
+ await page.reload();
+ await page.locator('a[href="#mystery"]').first().click();
+ await page.locator('.gtab.game-codmw4').click();
+ await page.locator('#msResult .fcard').filter({hasText:lobbyOffers[1].name}).getByText('$23.98',{exact:true}).first().waitFor();
+ const missing=page.locator('#msResult .fcard').filter({hasText:lobbyOffers[0].name});
+ assert.equal(await missing.locator('.price-row').textContent(),'PRICE PENDING');
+ await missing.locator('.buybtn').click();
+ await page.locator('#mysteryFlowMask.show [data-carnival-buy]').click();
+ await page.locator('#toast.show').getByText('This item cannot be added right now. Please try again in a moment.').waitFor();
+ assert.equal(site.cart.clears,0);
+ assert.deepEqual(site.cart.adds,[]);
 });
