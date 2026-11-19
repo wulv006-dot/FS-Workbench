@@ -372,6 +372,58 @@ def _curve_collection_fingerprint(evidence):
     return fingerprint({key: value for key, value in evidence.items() if key != 'curve_proof_inputs'})
 
 
+def verify_carnival_discount_baseline(db, snapshot_id, plan, guard, conn):
+    from .admin_readback import GID_FC27, MID_FC27_COINS, PLATFORM_AID, SITE_MAIN
+    from .average_discount_v6 import MODEL, average_discount_window
+    from .competitor_offers import POLICY
+    from .curve_strategy_v6 import CARNIVAL_START_DAY
+    from .price_curve import curve_key
+
+    invalid = 'promotion_guard_baseline_unverified'
+    try:
+        snapshot = db.get('pricing_snapshots', snapshot_id, conn) or {}
+        evidence = snapshot.get('evidence') or {}
+        if (snapshot.get('snapshot_id') != snapshot_id or evidence.get('run_id') != snapshot_id
+                or (snapshot.get('plan_id'), snapshot.get('plan_revision')) != (plan['plan_id'], plan['revision'])
+                or (snapshot.get('origin'), snapshot.get('mode')) != ('live_collector', 'production')
+                or snapshot.get('write_protocol') != CURVE_WRITE_PROTOCOL or snapshot.get('curve_restore_preview_id')
+                or evidence.get('competitor_policy') != POLICY):
+            raise ValueError(invalid)
+        inputs = _curve_proof_inputs(db, evidence, conn)
+        binding = _curve_plan_binding(plan)
+        start, end = average_discount_window(CARNIVAL_START_DAY + 'T00:00:00+08:00')
+        for platform, aid in PLATFORM_AID.items():
+            row = inputs[platform]
+            curve = row['primary_curve']
+            identity = curve['identity']
+            if (row['plan_binding'] != binding
+                    or (identity['gid'], identity['mid'], identity['site_id'], identity['aid']) !=
+                       (GID_FC27, MID_FC27_COINS, SITE_MAIN, aid)):
+                raise ValueError(invalid)
+            key = curve_key(curve)
+            frozen = row['primary_inputs'][key]
+            proof, domain = frozen['evidence'], frozen['domain']
+            average = proof['average_discount']
+            revision = average['revision']
+            if (proof['curve_key'] != key or domain['curve_key'] != key or domain['platform'] != platform
+                    or revision != domain['source_revisions']['offers']
+                    or revision != fingerprint({field: value for field, value in average.items() if field != 'revision'})
+                    or (average['contract'], average['status'], average['platform'], average['site_id']) !=
+                       (MODEL, 'complete', platform, SITE_MAIN)
+                    or average['publication_id'] != guard['baseline_revision'] or not average['source_revision']
+                    or (instant(average['start']), instant(average['end_exclusive'])) != (start, end)
+                    or average['gap_counts'] or type(average['eligible_orders']) is not int
+                    or average['eligible_orders'] <= 0 or average['eligible_orders'] != average['matched_orders']):
+                raise ValueError(invalid)
+            gross = number(average['merchandise_before_discount_usd'])
+            discount = number(average['actual_discount_usd'], zero=True)
+            if (discount >= gross or discount / gross != Decimal(guard['baseline'][platform])
+                    or (gross - discount) / gross != number(average['retained_ratio'])):
+                raise ValueError(invalid)
+    except (KeyError, ArithmeticError, AttributeError, TypeError, ValueError):
+        raise ValueError(invalid) from None
+
+
 def ordinary_delivery_archives(scope, shared, *, root=None):
     """Use original closed delivery-day files, superseded by the current cache where it actually covers."""
     from pathlib import Path

@@ -106,41 +106,6 @@ def _promotion_guard_parameters(value):
         raise ValueError(invalid) from None
 
 
-def carnival_discount_baseline(revision, now):
-    """Read the fixed three pre-campaign days from the pinned shared ES publication."""
-    import sqlite3
-    import sys
-
-    from .average_discount_v6 import average_discount, average_discount_window
-    from .business_source import shared_curve_attachment
-
-    for path in ('/opt/fs-exact-range-20261001', '/opt/fs-hermes-fc'):
-        if path not in sys.path:
-            sys.path.append(path)
-    invalid = 'promotion_guard_baseline_unverified'
-    cutoff = CARNIVAL_START_DAY + 'T00:00:00+08:00'
-    start, end = average_discount_window(cutoff)
-    scope = dict(site_id='266', gid='1327', start=start.date().isoformat(),
-                 end=(end.date() - timedelta(days=1)).isoformat())
-    try:
-        from shared_es_facts import read
-
-        shared = read(scope, publication_id=revision)
-        closed = shared_curve_attachment(shared, scope, as_of=now)
-        if not closed or shared['coverage'].get('publication_id') != revision:
-            raise ValueError(invalid)
-        baseline = {}
-        for platform in INITIAL_MARKET_ANCHOR:
-            proof = average_discount(closed, platform, cutoff)
-            if proof['status'] != 'complete':
-                raise ValueError(invalid)
-            ratio = Decimal(proof['actual_discount_usd']) / Decimal(proof['merchandise_before_discount_usd'])
-            baseline[platform] = str(ratio.normalize())
-        return baseline
-    except (ImportError, OSError, sqlite3.Error, KeyError, ArithmeticError, TypeError, ValueError):
-        raise ValueError(invalid) from None
-
-
 def _position_quotes(platform, offers, at):
     quotes = {}
     for source in ('Lootbar', 'U7Buy', 'ArabUT'):

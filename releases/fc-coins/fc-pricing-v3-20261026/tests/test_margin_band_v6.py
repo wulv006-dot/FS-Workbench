@@ -499,10 +499,19 @@ class MarginBandRevision(unittest.TestCase):
 
     def test_promotion_guard_revision_uses_only_pinned_archived_baseline(self):
         from datetime import datetime, timedelta, timezone
-        from unittest.mock import patch
-        from fc_pricing_v3 import api
+        from copy import deepcopy
+        import sys
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from fc_pricing_v3 import api, runtime
+        from fc_pricing_v3.admin_readback import PLATFORM_AID
+        from fc_pricing_v3.average_discount_v6 import average_discount
+        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.price_curve import curve_key, read_curve
+        from test_pricing_proof_v6 import make_curve
         from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
         from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
+        from fc_pricing_v3.financial import fingerprint
         from test_curve_runtime_v6 import CurveRuntime
 
         fixture = CurveRuntime()
@@ -530,10 +539,33 @@ class MarginBandRevision(unittest.TestCase):
                        strategy_version='market-anchor-v1', market_anchor=anchors,
                        margin_band=dict(band, promotion_guard=guard))
         path = 'plans/plan/revise-curve-strategy'
+        snapshot_id = request['snapshot_id']
+        start, cutoff = '2026-11-16T00:00:00+08:00', '2026-11-19T00:00:00+08:00'
+        coverage = dict(window_complete=True, population_status='complete',
+                        shared_publication_id=guard['baseline_revision'], shared_source_revision='shared-archive',
+                        paid_window_start=start, paid_window_end_exclusive=cutoff)
+        inputs = {}
+        curve = make_curve()
+        for platform, aid in PLATFORM_AID.items():
+            native = read_curve(dict(curve['native_payload'], aid=aid), dict(curve['identity'], aid=aid),
+                                curve['native_contract'])
+            closed = dict(historical_orders_coverage=coverage, historical_orders=[
+                dict(platform=platform, paid_at=start, order_key=platform, merchandise_before_discount_usd='100',
+                     actual_es_discount_usd=str(100 * Decimal(baseline[platform])))])
+            average = average_discount(closed, platform, cutoff)
+            key = curve_key(native)
+            inputs[platform] = dict(primary_curve=native, plan_binding=runtime._curve_plan_binding(plan),
+                primary_inputs={key: dict(evidence=dict(curve_key=key, average_discount=average),
+                    domain=dict(curve_key=key, platform=platform, source_revisions=dict(offers=average['revision'])))})
+        evidence = dict(run_id=snapshot_id, competitor_policy=POLICY)
+        snapshot = dict(snapshot_id=snapshot_id, plan_id='plan', plan_revision=4, origin='live_collector',
+                        mode='production', write_protocol=CURVE_WRITE_PROTOCOL, evidence=evidence)
+        attachment = runtime.store_curve_proof_inputs(db, evidence, inputs)
+        db.put('pricing_snapshots', snapshot_id, snapshot)
+        denied = Mock(side_effect=PermissionError('system API account cannot read ES database'))
         with patch.object(api, 'ledger', return_value=db), \
              patch('automation_policy.load_policy', return_value={'interval_minutes': 60}), \
-             patch('fc_pricing_v3.curve_strategy_v6.carnival_discount_baseline',
-                   return_value=baseline, create=True) as archived:
+             patch.dict(sys.modules, {'shared_es_facts': SimpleNamespace(read=denied)}):
             for invalid in (dict(guard, last_redeem_day='2026-11-18'),
                             dict(guard, baseline={'PS': '0.08'}),
                             dict(guard, baseline=dict(baseline, PS='NaN'))):
@@ -542,11 +574,41 @@ class MarginBandRevision(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'promotion_guard_baseline_unverified'):
                 wrong = dict(guard, baseline=dict(baseline, PS='0.01'))
                 api.post(path, dict(request, margin_band=dict(band, promotion_guard=wrong)), 'signed-operator')
+            for forged in (dict(snapshot, origin='mock'), dict(snapshot, plan_revision=3),
+                           dict(snapshot, evidence=dict(evidence, forged=True))):
+                db.put('pricing_snapshots', snapshot_id, forged)
+                with self.assertRaisesRegex(ValueError, 'promotion_guard_baseline_unverified'):
+                    api.post(path, request, 'signed-operator')
+            db.put('pricing_snapshots', snapshot_id, snapshot)
+            proof_key = 'curve-proof-inputs:' + snapshot_id
+            missing = deepcopy(attachment)
+            missing['platforms'].pop('PC')
+            with self.assertRaisesRegex(ValueError, 'promotion_guard_baseline_unverified'):
+                db.put('metadata', proof_key, missing)
+                api.post(path, request, 'signed-operator')
+            for field, value, resign in (
+                ('actual_discount_usd', '80', False),
+                ('start', '2026-11-15T00:00:00+08:00', True),
+                ('publication_id', 'se_' + '2' * 32, True),
+                ('status', 'partial', True),
+            ):
+                forged = deepcopy(attachment)
+                platform = forged['platforms']['PS']
+                frozen = platform['primary_inputs'][curve_key(platform['primary_curve'])]
+                average = frozen['evidence']['average_discount']
+                average[field] = value
+                if resign:
+                    del average['revision']
+                    average['revision'] = fingerprint(average)
+                    frozen['domain']['source_revisions']['offers'] = average['revision']
+                db.put('metadata', proof_key, forged)
+                with self.assertRaisesRegex(ValueError, 'promotion_guard_baseline_unverified'):
+                    api.post(path, request, 'signed-operator')
+            db.put('metadata', proof_key, attachment)
             self.assertEqual(db.get('pricing_plans', 'plan')['revision'], 4)
             revised = api.post(path, request, 'signed-operator')
             self.assertEqual(revised['parameters']['margin_band']['promotion_guard'], guard)
-            self.assertEqual(archived.call_args.args[0], guard['baseline_revision'])
-            archived.reset_mock()
+            db.put('metadata', proof_key, {})
             self.assertEqual(api.post(path, request, 'signed-operator'), revised)
             with self.assertRaisesRegex(ValueError, 'revision_changed'):
                 api.post(path, dict(request, expected_revision=3), 'signed-operator')
@@ -557,37 +619,9 @@ class MarginBandRevision(unittest.TestCase):
             reverted = api.post(path, dict(request, expected_revision=6, margin_band=band), 'signed-operator')
             self.assertNotIn('promotion_guard', reverted['parameters']['margin_band'])
             self.assertEqual(reverted['parameters']['margin_band']['PC']['target'], '0.34')
-            archived.assert_not_called()
+            denied.assert_not_called()
         fixture.dispatch.assert_not_called()
 
-
-    def test_archive_baseline_requires_complete_fixed_window_on_all_platforms(self):
-        import sys
-        from datetime import datetime, timezone
-        from types import SimpleNamespace
-        from unittest.mock import Mock, patch
-        from fc_pricing_v3.curve_strategy_v6 import carnival_discount_baseline
-
-        pin = 'se_' + '2' * 32
-        now = datetime(2026, 11, 23, tzinfo=timezone.utc)
-        read = Mock(return_value={'coverage': {'publication_id': pin}})
-        coverage = dict(window_complete=True, population_status='complete', shared_publication_id=pin,
-                        shared_source_revision='scope-pin', paid_window_start='2026-11-16T00:00:00+08:00',
-                        paid_window_end_exclusive='2026-11-19T00:00:00+08:00')
-        rows = [dict(paid_at=f'2026-11-{day}T12:00:00+08:00', platform=platform, order_key=str(day),
-                     merchandise_before_discount_usd=gross, actual_es_discount_usd=discount)
-                for day, platform, gross, discount in (
-                    (16, 'PS', '25', '1'), (18, 'PS', '75', '9'), (17, 'XBOX', '50', '10'),
-                    (18, 'PC', '25', '3'), (19, 'PS', '100', '75'))]
-        closed = dict(historical_orders=rows, historical_orders_coverage=coverage)
-        with patch.dict(sys.modules, {'shared_es_facts': SimpleNamespace(read=read)}), \
-             patch('fc_pricing_v3.business_source.shared_curve_attachment', return_value=closed):
-            self.assertEqual(carnival_discount_baseline(pin, now), {'PS': '0.1', 'XBOX': '0.2', 'PC': '0.12'})
-            read.assert_called_once_with(dict(site_id='266', gid='1327', start='2026-11-16', end='2026-11-18'),
-                                         publication_id=pin)
-            rows[3]['actual_es_discount_usd'] = None
-            with self.assertRaisesRegex(ValueError, 'promotion_guard_baseline_unverified'):
-                carnival_discount_baseline(pin, now)
 
 
 class MarginBandWeekly(unittest.TestCase):
