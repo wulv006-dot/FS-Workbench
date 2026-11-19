@@ -255,6 +255,15 @@ def curve_arab_quote_targets(source):
     return module_targets(('market_registry.py',))
 
 
+CURVE_RECOVERY_TARGETS = {
+    'recent-orders': module_targets(('business_source.py', 'planning_baskets_v6.py', 'runtime.py')),
+    'outcomes': module_targets(('business_source.py', 'daily.py')),
+    'cost-incidents': module_targets(('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py')),
+}
+CURVE_RECOVERY_SCOPES = {name: 'fc-pricing-v6-recovery-' + name + '-20261119'
+                         for name in CURVE_RECOVERY_TARGETS}
+
+
 def curve_margin_band_targets(source):
     return {'fc-pricing-v3.js': targets(source)['fc-pricing-v3.js'],
             **module_targets(('api.py', 'average_discount_v6.py', 'curve_strategy_v6.py',

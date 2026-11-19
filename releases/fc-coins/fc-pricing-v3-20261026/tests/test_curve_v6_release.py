@@ -23,6 +23,37 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_recovery_scope_only_packages_each_fix_and_rejects_mirror_drift(self):
+        modules_by_fix = {
+            'recent-orders': ('business_source.py', 'planning_baskets_v6.py', 'runtime.py'),
+            'outcomes': ('business_source.py', 'daily.py'),
+            'cost-incidents': ('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py'),
+        }
+        for fix, modules in modules_by_fix.items():
+            with self.subTest(fix=fix), tempfile.TemporaryDirectory() as folder:
+                output = Path(folder) / 'recovery.tar.gz'
+                with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']), \
+                     patch.object(build_stage, 'git_blob', side_effect=lambda _, path, commit: path.read_bytes()):
+                    built = build_stage.build(ROOT, output, curve_recovery=fix)
+                with tarfile.open(output) as bundle:
+                    provenance = json.load(bundle.extractfile('fc-pricing-v3-20261026/source-manifest.json'))
+                expected = {}
+                for name in modules:
+                    expected['source/fc_pricing_v3/' + name] = '/opt/fc27-cloud-browser/fc_pricing_v3/' + name
+                    expected['source/hermes-copy/fc_pricing_v3/' + name] = '/opt/fs-hermes-fc/fc_pricing_v3/' + name
+                self.assertEqual(built['targets'], len(expected))
+                self.assertEqual(set(provenance['files']), set(expected))
+                self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)
+                files = [dict(candidate=name, target=path, sha256=provenance['files'][name],
+                              beforeSha256='b' * 64, owner='0:0', mode='0o644')
+                         for name, path in expected.items()]
+                manifest = dict(scope=provenance['scope'], releaseReady=True, businessWrites=False,
+                                timersChanged=False, files=files)
+                self.assertIs(adapter.checked_manifest(manifest), manifest)
+                files[1]['sha256'] = 'c' * 64
+                with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):
+                    adapter.checked_manifest(manifest)
+
     def test_arab_quote_scope_uses_only_identical_existing_market_registry_copies(self):
         scope = 'fc-pricing-v6-arab-quote-20261119'
         expected = {
