@@ -23,12 +23,16 @@ ADMIN_LOSS_BUCKETS = ('ts', 'tssj', 'dc', 'cb', 'tkwtg', 'wh', 'bftk', 'qt', 'bh
                       'ts_zhui_no', 'tssj_zhui_no', 'dc_zhui_no', 'cb_zhui_no', 'pianzi')
 ORDINARY_COST_BASIS = 'same_order_ordinary_delivery_total_at_verified_promised_k'
 SMOOTH_COST_CONTRACT = 'latest_3h_valid_order_delivery_median_v1'
+COST_SOURCE_MISSING = 'ordinary_delivery_cost_sample_missing'
+COST_SAMPLES_INSUFFICIENT = 'curve_cost_samples_insufficient'
+COST_SAMPLE_OUTLIER = 'curve_cost_sample_outlier'
+CURVE_COST_GAPS = (COST_SOURCE_MISSING, COST_SAMPLES_INSUFFICIENT, COST_SAMPLE_OUTLIER)
 
 
 def smooth_delivery_cost(source, platform, as_of, confirmed_cny_per_k=None):
     """Use evidenced same-platform deliveries, after the existing outlier filter."""
     missing = dict(platform=platform, status='missing', sample_contract=SMOOTH_COST_CONTRACT,
-                   reason='ordinary_delivery_cost_sample_missing')
+                   reason=COST_SOURCE_MISSING)
     source = source or {}
     captured = _instant(source.get('checked_at'))
     now = instant(as_of)
@@ -36,7 +40,9 @@ def smooth_delivery_cost(source, platform, as_of, confirmed_cny_per_k=None):
     if (source.get('platform') != platform or captured is None or not captured <= now
             or now - captured > timedelta(hours=1) or evidence.get('window_complete') is not True):
         return missing
-    records = evidence.get('records') or []
+    records = evidence.get('records')
+    if not isinstance(records, list):
+        return missing
     ids = set()
     for row in records:
         traded = _instant(row.get('trade_at'))
@@ -46,13 +52,14 @@ def smooth_delivery_cost(source, platform, as_of, confirmed_cny_per_k=None):
             return missing
         ids.add(ident)
     filtered = filter_cost_samples(dict(status='valid', sample_records=records), confirmed_cny_per_k)
+    insurance = filtered['sample_insurance']
+    if insurance['valid_count'] < 6 and evidence.get('history_complete') is not True:
+        return dict(missing, sample_insurance=insurance)
     if filtered['status'] != 'valid':
-        return dict(missing, reason='curve_cost_sample_outlier', sample_insurance=filtered['sample_insurance'])
+        return dict(missing, reason=filtered['reason'], sample_insurance=insurance)
     ordered = sorted(filtered['sample_records'], key=lambda row: (_instant(row['trade_at']), str(row['record_id'])), reverse=True)
     recent = [row for row in ordered if _instant(row['trade_at']) >= now - timedelta(hours=3)]
     selected = recent if len(recent) >= 6 else ordered[:6]
-    if len(recent) < 6 and len(selected) < 6 and evidence.get('history_complete') is not True:
-        return missing
     value = str(median([Decimal(row['cny_per_1k']) for row in selected]))
     return dict(selected[0], platform=platform, source_platform=platform, checked_at=captured.isoformat(),
                 cny_per_1k=value, cny_per_k=value, sample_contract=SMOOTH_COST_CONTRACT,
@@ -80,7 +87,8 @@ def filter_cost_samples(cost, confirmed_cny_per_k=None):
                     valid_count=len(valid), outliers=outliers)
     result = dict(cost, sample_insurance=evidence)
     if len(valid) < (3 if samples is not None else 1):
-        return dict(result, status='missing', reason='curve_cost_sample_outlier')
+        reason = COST_SAMPLE_OUTLIER if outliers else COST_SAMPLES_INSUFFICIENT
+        return dict(result, status='missing', reason=reason)
     selected = max(valid, key=lambda row: Decimal(row['cny_per_1k']))
     result.update({key: selected[key] for key in
                    ('cny_per_1k', 'cny_per_k', 'record_id', 'trade_at', 'traded_at') if key in selected})

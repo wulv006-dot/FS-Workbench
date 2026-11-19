@@ -302,9 +302,89 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(path.get('cost_status'), expected)
             if size == 1:
                 self.assertEqual(proof['status'], 'PROOF_INCOMPLETE')
-                self.assertIn('curve_cost_sample_outlier', frozen['domain']['coverage_gaps'])
+                self.assertIn('curve_cost_samples_insufficient', frozen['domain']['coverage_gaps'])
             else:
                 self.assertNotIn('curve_cost_sample_outlier', frozen['domain']['coverage_gaps'])
+        missing = runtime._average_discount_proof_input(curve, 'PS', source, source, CUT.isoformat(), AS_OF,
+            average=average_discount(source, 'PS', CUT), route={'propagation_revision': 'directory'},
+            facts=None, fx=fx(), current_cost=None)
+        self.assertIn('ordinary_delivery_cost_sample_missing', missing['domain']['coverage_gaps'])
+        self.assertNotIn('curve_cost_sample_outlier', missing['domain']['coverage_gaps'])
+
+    def test_cost_recovery_requires_natural_proven_scope_and_newer_capture(self):
+        from fc_pricing_v3 import ledger
+        from fc_pricing_v3.cost_inputs_v6 import COST_SAMPLE_OUTLIER, COST_SOURCE_MISSING
+        from fc_pricing_v3.price_curve import curve_key
+        from test_curve_strategy_v6 import fixture
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        run, operation = 'recovery-snapshot', 'natural-round'
+        plan = dict(self.db.get('pricing_plans', 'plan'), resources=['base:PS'],
+                    write_protocol=CURVE_WRITE_PROTOCOL)
+        self.db.put('pricing_plans', 'plan', plan)
+        with patch.object(ledger, 'clock', return_value=now - timedelta(minutes=5)):
+            legacy = self.db.incident(COST_SAMPLE_OUTLIER, 'cost', ['PC', 'PS'])
+            missing = self.db.incident(COST_SOURCE_MISSING, 'cost', ['PS'])
+        curve, _, _ = fixture()
+        key = curve_key(curve)
+        from fc_pricing_v3.pricing_proof_v6 import CONTRACT
+        proof = dict(status='PROVEN', contract=CONTRACT, scope={'platform': 'PS'}, curve_key=key)
+        proof['proof_hash'] = fingerprint(proof)
+        cost = dict(status='valid', platform='PS', source_platform='PS', selected_count=6,
+                    sample_contract='latest_3h_valid_order_delivery_median_v1',
+                    checked_at=(now - timedelta(minutes=2)).isoformat())
+        evidence = dict(run_id=run, costs={'PS': cost})
+        data = dict(primary_curve=curve, primary_inputs={key: dict(evidence={'smoothed_delivery_cost': cost},
+                    domain={'coverage_gaps': []})}, valid_until=(now + timedelta(minutes=10)).isoformat(),
+                    readbacks=[dict(path='/admin/goods.Goods/edit?id=' + curve['identity']['id'],
+                                    http_status=200, response_code=1, response_sha256='primary-readback',
+                                    received_at=now.isoformat())])
+        request = dict(v3_operation_id=operation)
+
+        def collect(*, run_id=run, **flags):
+            with patch.object(runtime, '_curve_proof_inputs', return_value={'PS': data}), patch.object(
+                    runtime, '_prove_curve_inputs', return_value=dict(status='KEEP', proof=proof)):
+                runtime.calculate_curve_cycle(self.db, dict(evidence, run_id=run_id), plan, dict(request, **flags), now)
+
+        def recover(at=now, *, run_id=run):
+            with patch.object(ledger, 'clock', return_value=at), self.db.transaction() as conn:
+                self.db.recover_curve_cost_incidents(run_id, operation, conn)
+
+        collect(run_id='preview')
+        recover(run_id='preview')
+        self.assertEqual(self.db.get('incidents', missing['incident_key'])['state'], 'OPEN')
+        collect(run_id='manual', natural_curve_cycle=True, manual_requested=True)
+        recover(run_id='manual')
+        self.assertEqual(self.db.get('incidents', missing['incident_key'])['state'], 'OPEN')
+        collect(run_id='rejected', natural_curve_cycle=True)
+        recover(run_id='rejected')
+        self.assertEqual(self.db.get('incidents', missing['incident_key'])['state'], 'OPEN')
+        data['readbacks'][0]['received_at'] = (now + timedelta(seconds=1)).isoformat()
+        collect(run_id='superseded', natural_curve_cycle=True)
+        newer = (now + timedelta(seconds=2)).isoformat()
+        self.db.put('actual_price_windows', 'confirmed-write', dict(
+            operation_id='confirmed-write', resources=['base:PS'], opened_at=newer, action={}))
+        recover(now + timedelta(seconds=3), run_id='superseded')
+        self.assertEqual(self.db.get('incidents', missing['incident_key'])['state'], 'OPEN')
+        data['readbacks'][0]['received_at'] = (now + timedelta(seconds=4)).isoformat()
+        collect(natural_curve_cycle=True)
+        recover(now + timedelta(minutes=11))
+        self.assertEqual(self.db.get('incidents', missing['incident_key'])['state'], 'OPEN')
+        recover(now + timedelta(seconds=5))
+        recover(now + timedelta(seconds=5))
+        remaining = self.db.get('incidents', legacy['incident_key'])
+        self.assertEqual((remaining['state'], remaining['affected_scopes']), ('OPEN', ['PC']))
+        closed = self.db.get('incidents', missing['incident_key'])
+        self.assertEqual(closed['state'], 'RESOLVED')
+        record, = closed['recovery_history']
+        self.assertEqual((record['snapshot_id'], record['operation_id'], record['proof_hash']),
+                         (run, operation, proof['proof_hash']))
+        with patch.object(ledger, 'clock', return_value=now):
+            reopened = self.db.incident(COST_SOURCE_MISSING, 'cost', ['PS'])
+        recover(now + timedelta(seconds=5))
+        self.assertEqual(self.db.get('incidents', missing['incident_key']), reopened)
+        self.assertEqual(reopened['recovery_history'], [record])
 
     def test_protected_target_is_recompiled_and_reproved_after_the_fifteen_percent_cap(self):
         from decimal import Decimal
@@ -815,17 +895,46 @@ class CurveRuntime(unittest.TestCase):
         self.reconcile.assert_not_called()
 
     def test_partial_original_confirms_after_propagation_without_reposting(self):
+        from fc_pricing_v3 import ledger
+        from fc_pricing_v3.cost_inputs_v6 import COST_SAMPLE_OUTLIER
+
         self.prepare(propagate=False)
+        now = datetime.now(timezone.utc)
+        with patch.object(ledger, 'clock', return_value=now - timedelta(minutes=5)):
+            incident = self.db.incident(COST_SAMPLE_OUTLIER, 'cost', [PLATFORM])
+        run = self.bundle['snapshot_id']
+        evidence = dict(run_id=run)
+        self.bundle['snapshot_sha256'] = fingerprint(evidence)
+        self.bundle['sha256'] = fingerprint({k: v for k, v in self.bundle.items() if k != 'sha256'})
+        self.db.put('pricing_snapshots', run, dict(snapshot_id=run, evidence=evidence, origin='live_collector',
+                                                 mode='production', write_protocol=CURVE_WRITE_PROTOCOL))
+        self.db.put('strategy_decisions', run, dict(automatic_curve_round=True, curve_round_id=OPERATION,
+                    cost_recovery={PLATFORM: dict(status='READY', snapshot_sha256=fingerprint(evidence),
+                        source_captured_at=(now-timedelta(minutes=2)).isoformat(),
+                        valid_until=(now+timedelta(minutes=10)).isoformat(),
+                        proof_hash=self.bundle['curve_proofs'][PLATFORM]['proof_hash'])}))
+        with self.db.transaction() as conn:
+            self.db.recover_curve_cost_incidents(run, OPERATION, conn)
+        self.assertEqual(self.db.get('incidents', incident['incident_key'])['state'], 'OPEN')
         first = self.execute()
         self.assertEqual(first['status'], 'PARTIALLY_APPLIED')
+        self.assertEqual(self.db.get('incidents', incident['incident_key'])['state'], 'OPEN')
         self.assertTrue(self.leased())
         self.assertIsNone(self.db.get('actual_price_windows', OPERATION))
         self.transport.apply_recipient()
-        recovered = runtime.reconcile(OPERATION)
+        with patch.object(self.db, 'recover_curve_cost_incidents', side_effect=ValueError('bad recovery evidence')), \
+                self.assertLogs('fc_pricing_v3.runtime', level='ERROR') as recovery_log:
+            recovered = runtime.reconcile(OPERATION)
+        self.assertIn('curve_cost_incident_recovery_failed', recovery_log.output[0])
         self.assertEqual(recovered['status'], 'COMPLETED')
+        self.assertEqual(self.db.get('operations', OPERATION)['status'], 'COMPLETED')
+        self.assertEqual(self.db.get('incidents', incident['incident_key'])['state'], 'OPEN')
         self.assertEqual(recovered['readback']['execution_id'], OPERATION)
         self.assertFalse(self.leased())
         self.assertEqual(runtime.reconcile(OPERATION), recovered)
+        closed = self.db.get('incidents', incident['incident_key'])
+        self.assertEqual(closed['state'], 'RESOLVED')
+        self.assertEqual([row['operation_id'] for row in closed['recovery_history']], [OPERATION])
         self.assertEqual(len(self.transport.posts), 1)
         self.reconcile.assert_called_once()
         self.dispatch.assert_called_once()

@@ -16,7 +16,7 @@ from .engine import POLICIES
 from .dispatch import CURVE_WRITE_PROTOCOL
 from .financial import fingerprint, instant
 from .ledger import clock
-from .runtime import ledger, ROOT, STORE, execute_run, reconcile, complete_player_followup
+from .runtime import ledger, ROOT, STORE, execute_run, reconcile, complete_player_followup, recover_curve_cost_alerts
 
 PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'uk_retirement':3,'cycle':4,'outcomes':5,'observe':5,'daily':5,'history':5}
 BACKOFF=(5,15,30,60)
@@ -148,6 +148,9 @@ def cycle(body=None):
     operation_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-operation:'+root_key))
     existing=db.get('operations',operation_id)
     if existing:
+        original_bundle = existing.get('bundle') or {}
+        if existing['status'] == 'COMPLETED' and original_bundle.get('write_protocol') == CURVE_WRITE_PROTOCOL:
+            recover_curve_cost_alerts(original_bundle.get('snapshot_id'), operation_id, check_completed=True)
         return complete_player_followup(existing) if existing['status'] in ('COMPLETED','NO_CHANGE') else reconcile(operation_id)
     manual=None
     if body.get('manual_preview_id'):
@@ -168,6 +171,8 @@ def cycle(body=None):
     policy=load_policy()
     curve_plan = requested.get('write_protocol') == CURVE_WRITE_PROTOCOL
     automatic_curve = curve_plan and not body.get('manual_requested')
+    natural_curve = automatic_curve and (body.get('_durable_job_id') or '').startswith(
+        'cycle:' + requested['plan_id'] + ':')
     if not automatic_curve and body.get('scheduled_at') and clock()>=instant(body['scheduled_at'])+cycle_interval(policy):
         return dict(status='expired_cycle',scheduled_at=body['scheduled_at'])
     if not policy['system_enabled'] or not body.get('manual_requested') and policy['mode']!='auto':
@@ -207,6 +212,8 @@ def cycle(body=None):
     if curve_plan and manual:
         job['actor']=body['actor']
         job['request']['curve_restore_preview_id']=manual['manual_preview_id']
+    if natural_curve:
+        job['request']['natural_curve_cycle'] = True
     worker.save_job(job)
     try:
         collected=worker.collect_quote(job)
@@ -225,6 +232,8 @@ def cycle(body=None):
             result = dict(status=quote['result']['status'], rows=quote['result']['rows'], write_performed=False)
             job.update(status='ready', result=result, completed_at=clock().isoformat())
             worker.save_job(job)
+            if natural_curve:
+                recover_curve_cost_alerts(collected['run_id'], operation_id)
             return result
         if manual and not curve_plan:
             manual=db.get('manual_previews',body['manual_preview_id'])
@@ -268,6 +277,8 @@ def cycle(body=None):
         worker.save_job(job)
         raise
     worker.save_job(job)
+    if natural_curve and outcome.get('status') == 'COMPLETED':
+        recover_curve_cost_alerts(collected['run_id'], operation_id, check_completed=True)
     return job['result']
 
 

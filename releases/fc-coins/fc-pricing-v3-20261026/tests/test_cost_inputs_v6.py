@@ -156,8 +156,19 @@ class CostInputs(unittest.TestCase):
                 records=rows, window_complete=True, history_complete=False))
             result = smooth_delivery_cost(source, platform, AS_OF, '.4')
             self.assertEqual((result['cny_per_1k'], result['selected_count'], result['window']), ('0.40', 6, 'latest_six'))
+            for count in (0, 2, 4):
+                source['v6_delivery_samples']['records'] = rows[:count]
+                self.assertEqual(smooth_delivery_cost(source, platform, AS_OF, '.4')['reason'],
+                                 'ordinary_delivery_cost_sample_missing')
+            source['v6_delivery_samples'].update(records=[], history_complete=True)
+            self.assertEqual(smooth_delivery_cost(source, platform, AS_OF, '.4')['reason'],
+                             'curve_cost_samples_insufficient')
             source['v6_delivery_samples']['records'] = rows[:2]
-            self.assertEqual(smooth_delivery_cost(source, platform, AS_OF, '.4')['reason'], 'curve_cost_sample_outlier')
+            self.assertEqual(smooth_delivery_cost(source, platform, AS_OF, '.4')['reason'], 'curve_cost_samples_insufficient')
+            source['v6_delivery_samples']['records'] = rows[:2] + [dict(rows[-1], cny_per_1k='390')]
+            rejected = smooth_delivery_cost(source, platform, AS_OF, '.4')
+            self.assertEqual(rejected['reason'], 'curve_cost_sample_outlier')
+            self.assertEqual(len(rejected['sample_insurance']['outliers']), 1)
             source['v6_delivery_samples'].update(records=rows, window_complete=False)
             self.assertEqual(smooth_delivery_cost(source, platform, AS_OF, '.4')['status'], 'missing')
 
