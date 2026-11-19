@@ -66,6 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const key = item => [item.game, item.scope || 'all', item.start, item.end].join('|');
   const scopeLabel = scope => scope === 'all' ? '全部网站' : scope === 'main' ? 'MMOEXP' : scope;
   const rangeLabel = item => item.start === item.end ? item.start : item.start + ' 至 ' + item.end;
+  function compactRange({start, end}) {
+    if (start === end) return start;
+    const last = start.slice(0,4) === end.slice(0,4) ? end.slice(5) : end;
+    return start + ' – ' + last;
+  }
   const periods = new Map();
   let selected, selectedPrevious, categoryMode = 'salesUsd', spendMode = 'customers', activeRequest;
   const resizeObservers = [];
@@ -291,10 +296,10 @@ document.addEventListener('DOMContentLoaded', () => {
       render();
       const comparison = selectedPrevious;
       if (periods.has(key(query)) && !periods.has(key(comparison)) && comparison.start >= season(query.game).start) {
-        byId('compare-range').textContent = '对照期 ' + rangeLabel(comparison) + ' · 正在读取';
+        byId('compare-range').textContent = '对照期 ' + compactRange(comparison) + ' · 正在读取';
         try { await getPacket(comparison, owner.signal); }
         catch (error) {
-          if (!owner.signal.aborted) byId('compare-range').textContent = '对照期 ' + rangeLabel(comparison) + ' · ' + error.message;
+          if (!owner.signal.aborted) byId('compare-range').textContent = '对照期 ' + compactRange(comparison) + ' · ' + error.message;
           return;
         }
         if (!owner.signal.aborted) render();
@@ -657,14 +662,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const kpiSpecs = [
     ['salesUsd','销售额',usd], ['orders','订单数'], ['profitCny','毛利',cny],
     ['marginPct','毛利率',pct,'pp'], ['newCustomers','新客人数'],
-    ['newPct','新客占比',pct,'pp'], ['returningPct','复购率',pct,'pp'],
+    ['newPct','新客占比',pct,'pp'], ['returningPct','老客占比',pct,'pp'],
     ['discountPct','优惠率',pct,'pp'], ['aov','客单价',usd],
   ];
   const spec = (key, label, format, color, settings = {}) => ({key, label, format, color, ...settings});
 
   function renderOverview(packet, prior, dates) {
     const daily = dailyRows(packet, dates);
-    cards('kpis', kpiSpecs, packet?.kpi, prior?.kpi);
+    cards('kpis', kpiSpecs.slice(0,4), packet?.kpi, prior?.kpi);
+    cards('overview-customers', kpiSpecs.slice(4), packet?.kpi, prior?.kpi, {mini:true});
     metricChart('sales-trend', daily, [
       spec('salesUsd', '销售 USD', usd, '--fs-brand', {unit:'$', bar:true}),
       spec('profitCny', '毛利 CNY', cny, '--fs-info', {unit:'¥', axis:1}),
@@ -805,8 +811,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (countries.length) {
       const ordered = [...countries].sort((a,b) => ((b.salesUsd ?? -Infinity) - (a.salesUsd ?? -Infinity)) || ((b.orders ?? 0) - (a.orders ?? 0)));
-      container.append(dataTable('国家及地区销售额与订单', ['国家 / 地区','销售额 USD','订单数'],
-        ordered.map(row => [row.label, usd(row.salesUsd), count(row.orders)])));
+      container.append(details('查看全部国家与地区（' + count(ordered.length) + '）',
+        dataTable('国家及地区销售额与订单', ['国家 / 地区','销售额 USD','订单数'],
+          ordered.map(row => [row.label, usd(row.salesUsd), count(row.orders)]))));
     }
     const bySales = payments.some(row => present(row.salesUsd));
     ranking('payments', payments, bySales ? {} : {valueKey:'orders', note:'按订单数排序 · 销售额未取得'});
@@ -892,9 +899,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fractionalPct = x => present(x) ? pct(x * 100) : '—';
   const adsSpecs = [['cost','花费',usd],['value','平台转化价值',usd],['roas','ROAS',ratio],
-    ['impressions','曝光'],['clicks','点击'],['conversions','转化数'],['cpc','CPC',usd],['cpa','CPA',usd]];
-  const organicSpecs = [['sessions','会话'],['purchases','购买事件'],['purchase_rate','购买率',fractionalPct],['new_users','新用户']];
-  const searchSpecs = [['clicks','点击'],['impressions','展示'],['ctr','点击率',fractionalPct],['position','平均排名']];
+    ['conversions','主要转化',valueFormat({maximumFractionDigits:2})],['impressions','曝光'],['clicks','点击'],['cpc','CPC',usd],['cpa','CPA',usd]];
+  const organicSpecs = [['sessions','会话'],['purchases','购买事件'],['purchase_rate','购买事件/会话',fractionalPct],['new_users','新用户']];
+  const searchSpecs = [['impressions','展示'],['clicks','点击'],['ctr','点击率',fractionalPct],['position','平均排名']];
 
   function scopeText(channel) {
     return [statuses[channel?.status], channel?.scope].filter(item => typeof item === 'string' && item).join(' · ');
@@ -902,49 +909,140 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function trafficScope(channel, side) {
     const dates = channel?.coverage?.[side];
-    const covered = dates?.compared_days || dates?.days;
+    const covered = dates?.compared_days || dates?.observed_days || dates?.days;
     return list(covered).length ? (side === 'current' ? '本期 ' : '对照期 ') +
       rangeLabel({start:covered[0],end:covered[covered.length - 1]}) + '（' + covered.length + ' 天）' : null;
   }
 
-  function trafficTable(id, heading, rows, specs, name = '名称', formatLabel = x => x) {
+  function trafficTable(id, heading, rows, specs, name = '名称', formatLabel = x => x, note = '') {
     const sortField = specs[0][0];
     const sorted = [...list(rows)].sort((a, b) => (b.current?.[sortField] ?? -Infinity) - (a.current?.[sortField] ?? -Infinity));
     const rowsWithValues = sorted.filter(row => row?.current || row?.previous);
-    if (!rowsWithValues.length) { mount(id, empty()); return; }
-    const used = rowsWithValues.map(row => [formatLabel(row.label || row.key),
-      ...specs.map(([key, , format = count]) => format(row.current?.[key]) +
-        (present(row.previous?.[key]) ? ' / ' + format(row.previous[key]) : ''))]);
-    const hasComparison = rowsWithValues.some(row => specs.some(([key]) => present(row.previous?.[key])));
-    const header = element('p', heading + (hasComparison ? ' · 本期 / 对照期' : ''), 'card-sub');
-    const table = dataTable(heading, [name, ...specs.map(([, title]) => title)], used);
-    byId(id).replaceChildren(header, table);
+    const body = element('div',null,'traffic-detail-body');
+    if (note) body.append(element('p',note,'card-sub'));
+    if (!rowsWithValues.length) {
+      body.append(empty());
+      mount(id,details(heading + ' · 未取得',body));
+      return;
+    }
+    const names = rowsWithValues.map(row => formatLabel(row.label || row.key));
+    const hasComparison = rowsWithValues.some(row => row.previous);
+    const frame = dataTable(heading,[name,...specs.map(([, title]) => title)],
+      names.map(label => [label,...specs.map(() => '')]));
+    frame.classList.add('traffic-table');
+    const rendered = [...frame.querySelectorAll('tbody tr')];
+    for (const [i, row] of rowsWithValues.entries()) {
+      for (const [col, [key, , format = count]] of specs.entries()) {
+        const cell = rendered[i].cells[col + 1];
+        const current = format(row.current?.[key]);
+        const previous = format(row.previous?.[key]);
+        cell.append(element('span',current,'traffic-current'));
+        if (hasComparison) {
+          cell.append(element('small',previous,'traffic-previous'));
+          cell.setAttribute('aria-label','本期 ' + current + '，对照期 ' + previous);
+        }
+      }
+    }
+    if (hasComparison) body.append(element('p','每格上方为本期，下方为对照期。','card-sub'));
+    if (rendered.length > 20) {
+      const search = element('input',null,'traffic-filter');
+      search.type = 'search';
+      search.placeholder = '搜索' + name;
+      search.setAttribute('aria-label','搜索' + heading);
+      const found = element('p',null,'card-sub traffic-filter-status');
+      found.setAttribute('role','status');
+      search.addEventListener('input',() => {
+        const query = search.value.trim().toLowerCase();
+        let visible = 0;
+        rendered.forEach((row, i) => {
+          row.hidden = !String(names[i]).toLowerCase().includes(query) &&
+            !String(rowsWithValues[i].key || '').toLowerCase().includes(query);
+          if (!row.hidden) visible++;
+        });
+        found.textContent = query ? visible + ' 条匹配' : '';
+      });
+      body.append(search,found);
+    }
+    body.append(frame);
+    mount(id,details(heading + ' · ' + rendered.length + ' 条',body));
+  }
+
+  function renderCampaignFocus(paid) {
+    const rows = list(paid?.campaigns);
+    const paired = rows.filter(row => present(row.current?.value) && present(row.previous?.value));
+    const compare = paid?.status === 'complete' && paired.length > 0;
+    const values = (compare ? paired : rows.filter(row => present(row.current?.value)))
+      .map(row => ({label:row.label || row.key,value:compare ? row.current.value-row.previous.value : row.current.value}));
+    const ranked = values.sort((a,b) => (compare ? Math.abs(b.value)-Math.abs(a.value) : b.value-a.value)).slice(0,6);
+    byId('ads-focus-title').textContent = compare ? '系列转化价值差额' : '本期系列转化价值';
+    if (!ranked.length) { mount('ads-focus',empty()); return; }
+    const maxValue = Math.max(1,...ranked.map(row => Math.abs(row.value)));
+    const points = element('ol',null,compare ? 'traffic-bars traffic-diverging' : 'traffic-bars');
+    for (const row of ranked) {
+      const item = element('li');
+      const label = element('div',null,'traffic-bar-label');
+      const display = (compare && row.value > 0 ? '+' : '') + usd(row.value);
+      label.append(element('span',row.label),element('strong',display));
+      const track = element('div',null,'traffic-track');
+      track.setAttribute('aria-hidden','true');
+      const fill = element('span',null,'traffic-fill');
+      fill.dataset.direction = row.value < 0 ? 'down' : 'up';
+      fill.style.setProperty('--traffic-length',Math.abs(row.value) / maxValue * (compare ? 50 : 100) + '%');
+      track.append(fill);
+      item.append(label,track);
+      points.append(item);
+    }
+    const caption = compare ? '本期减对照期 · 按绝对差额排列' : '按本期平台归因价值排列';
+    byId('ads-focus').replaceChildren(element('p',caption + ' · USD','card-sub'),points);
+  }
+
+  function renderOrderAttribution(orders) {
+    const proof = side => {
+      const value = orders?.[side], source = orders?.coverage?.[side];
+      const label = side === 'current' ? '本期' : '对照期';
+      if (!value && !source) return null;
+      return [value ? label + ' ' + count(value.orders) + ' 单 / ' + usd(value.sales_usd) : label + '未取得',
+        present(source?.unlinked_attribution_rows) ? '关联缺失 ' + count(source.unlinked_attribution_rows) + ' 单' : null,
+        list(source?.missing_days).length ? '缺 ' + source.missing_days.length + ' 个付款日' : null].filter(Boolean).join('，');
+    };
+    const note = ['全部渠道 · Admin 付款日',scopeText(orders),proof('current'),proof('previous')]
+      .filter(Boolean).join(' · ');
+    trafficTable('ads-attribution','ES 订单渠道归因',orders?.channels,
+      [['sales_usd','实付 USD',usd],['orders','订单'],['order_share','订单占比',fractionalPct]],
+      '渠道',undefined,note);
   }
 
   function renderTraffic(traffic) {
     const paid = traffic?.paid, organic = traffic?.organic, search = traffic?.search;
     byId('ads-scope').textContent = scopeText(paid);
     byId('organic-scope').textContent = 'MMOEXP 主站 · 独立流量来源';
-    cards('ads-kpis', adsSpecs, paid?.current, paid?.previous);
+    renderCampaignFocus(paid);
+    cards('ads-kpis',adsSpecs.slice(0,4),paid?.current,paid?.previous);
+    const secondary = element('div',null,'kpi-grid traffic-kpis');
+    secondary.id = 'ads-secondary-kpis';
+    mount('ads-secondary',details('查看曝光、点击与单次成本',secondary));
+    cards('ads-secondary-kpis',adsSpecs.slice(4),paid?.current,paid?.previous);
     for (const [id, label, rows, format] of [['campaigns','广告系列',paid?.campaigns],
-      ['ads-countries','投放国家 / 地区',paid?.countries,countryName]]) {
+      ['ads-countries','用户实际所在地',paid?.countries,countryName]]) {
       trafficTable(id, label, rows, adsSpecs.slice(0,3), label, format);
     }
+    trafficTable('ads-cross-game','跨游戏系列',paid?.cross_game ? [paid.cross_game] : [],adsSpecs.slice(0,4),'系列',undefined,
+      '系列包含多款游戏的 Google Ads 归因，独立于 FC27 专属系列汇总。');
+    renderOrderAttribution(traffic?.orders);
     coverage('ads-coverage', [
       paid && {label:'Google Ads', status:paid.status, reason:[paid.source, trafficScope(paid,'current'), trafficScope(paid,'previous')].filter(Boolean).join(' · ')},
       ...list(traffic?.limitations),
     ]);
-    for (const [id, channel, specs] of [['organic-kpis',organic,organicSpecs],['search-kpis',search,searchSpecs]]) {
-      const host = byId(id);
-      host.className = 'kpi-grid';
+    for (const [id, caption, channel, specs] of [['organic-kpis','organic-range',organic,organicSpecs],
+      ['search-kpis','search-range',search,searchSpecs]]) {
+      byId(id).className = 'kpi-grid traffic-kpis';
       cards(id, specs, channel?.current, channel?.previous, {mini:true});
-      if (channel?.status !== 'complete') {
-        host.before(element('p', [scopeText(channel), trafficScope(channel,'current'), trafficScope(channel,'previous')].filter(Boolean).join(' · ') || '所选区间未取得此流量来源。', 'coverage traffic-status'));
-      }
+      byId(caption).textContent = [statuses[channel?.status] || '未取得',trafficScope(channel,'current'),
+        trafficScope(channel,'previous')].filter(Boolean).join(' · ');
     }
-    trafficTable('organic-countries','国家 / 地区',organic?.countries,organicSpecs.slice(0,3),'国家 / 地区',countryName);
-    trafficTable('organic-pages','落地页',organic?.landing_pages,organicSpecs.slice(0,3),'页面');
-    trafficTable('search-pages','Google 自然搜索落地页',search?.landing_pages,searchSpecs.slice(0,3),'页面');
+    trafficTable('organic-countries','GA4 国家 / 地区',organic?.countries,organicSpecs.slice(0,3),'国家 / 地区',countryName);
+    trafficTable('organic-pages','GA4 落地页',organic?.landing_pages,organicSpecs.slice(0,3),'页面');
+    trafficTable('search-pages','GSC 自然搜索落地页',search?.landing_pages,searchSpecs.slice(0,3),'页面');
     coverage('organic-coverage', [
       organic && {label:'GA4',status:organic.status,reason:[organic.source,organic.scope,trafficScope(organic,'current'),trafficScope(organic,'previous')].filter(Boolean).join(' · ')},
       search && {label:'Search Console',status:search.status,reason:[search.source,search.scope,trafficScope(search,'current'),trafficScope(search,'previous')].filter(Boolean).join(' · ')},
@@ -958,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', () => {
       item.traffic?.periods?.previous?.start === query.start && item.traffic.periods.previous.end === query.end)?.traffic;
     if (!related) return;
     const result = {limitations:related.limitations};
-    for (const key of ['paid','organic','search']) {
+    for (const key of ['paid','organic','search','orders']) {
       const channel = related[key];
       if (!channel) continue;
       const derived = {
@@ -966,10 +1064,11 @@ document.addEventListener('DOMContentLoaded', () => {
         status:channel.previous ? channel.status : 'unavailable',
         coverage:{current:channel.coverage?.previous},
       };
-      for (const field of ['campaigns','countries','landing_pages']) {
+      for (const field of ['campaigns','countries','landing_pages','channels']) {
         derived[field] = list(channel[field]).filter(row => row.previous)
           .map(row => ({...row,current:row.previous,previous:null}));
       }
+      if (channel.cross_game) derived.cross_game = {...channel.cross_game,current:channel.cross_game.previous,previous:null};
       result[key] = derived;
     }
     return result;
@@ -1062,7 +1161,8 @@ document.addEventListener('DOMContentLoaded', () => {
       data.map(row => [row.platform || '未知',bandName[row.quantityBand] || '数量未知',labels[row.deliveryStatus] || '状态未知',
         count(row.orders),count(row.completed),count(row.open),count(row.canceled),fractionalPct(row.completionRate)]));
     const panel = byId('delivery-cohort');
-    panel.replaceChildren(element('p',summary,'card-sub'),cohort);
+    panel.replaceChildren(element('p',summary,'cohort-summary'));
+    panel.append(details('展开各平台、购买量与问题单明细',cohort));
     if (completion.reason) panel.append(element('p',completion.reason,'coverage'));
   }
 
@@ -1103,8 +1203,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const dates = allDays(selected.start, selected.end);
     const orderData = packet?.ordersData;
     const traffic = trafficFor(packet, selected);
-    byId('current-range').textContent = [selected.game, scopeLabel(selected.scope), rangeLabel(selected)].join(' · ');
-    byId('compare-range').textContent = '对照期 ' + rangeLabel(selectedPrevious) + (prior ? '' : ' · 汇总未取得');
+    byId('current-range').textContent = [selected.game, scopeLabel(selected.scope), compactRange(selected)].join(' · ');
+    byId('compare-range').textContent = '对照期 ' + compactRange(selectedPrevious) + (prior ? '' : ' · 汇总未取得');
     loadedSelect.value = packet ? key(packet) : '';
     setMissing(selected, packet);
     renderOverview(packet, prior, dates);
@@ -1149,7 +1249,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const query = rangeFor(fields.get('game'), fields.get('scope'), grain, start, end);
-    if (validPeriod(query)) selectRange(query);
+    if (validPeriod(query)) {
+      byId('query-controls').open = false;
+      byId('query-controls').querySelector('summary').focus({preventScroll:true});
+      selectRange(query);
+    }
   });
 
   byId('theme').value = window.FSTheme?.get() || 'light';
@@ -1198,14 +1302,38 @@ document.addEventListener('DOMContentLoaded', () => {
     setForm(query);
     selectRange(query, false);
   });
+  const moduleLinks = [...document.querySelectorAll('.section-nav a')];
+  const moduleSelect = byId('module-select');
+  const panes = moduleLinks.map(link => document.getElementById(link.hash.slice(1)));
+  for (const link of moduleLinks) moduleSelect.add(new Option(link.textContent, link.hash));
+
   function activeNav() {
-    const hash = location.hash || '#overview';
-    for (const link of document.querySelectorAll('.section-nav a')) {
-      if (link.hash === hash) link.setAttribute('aria-current','location');
+    const active = moduleLinks.find(link => link.hash === location.hash) || moduleLinks[0];
+    moduleLinks.forEach((link, index) => {
+      const current = link === active;
+      panes[index].hidden = !current;
+      if (current) link.setAttribute('aria-current','page');
       else link.removeAttribute('aria-current');
-    }
+    });
+    moduleSelect.value = active.hash;
   }
+
+  function switchModule(hash) {
+    if (location.hash !== hash) history.pushState(null, '', hash);
+    activeNav();
+    window.scrollTo(0,0);
+  }
+
+  for (const link of moduleLinks) {
+    link.addEventListener('click', event => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      switchModule(link.hash);
+    });
+  }
+  moduleSelect.addEventListener('change', () => switchModule(moduleSelect.value));
   window.addEventListener('hashchange', activeNav);
+  window.addEventListener('popstate', activeNav);
   window.addEventListener('pagehide', () => activeRequest?.abort());
   window.addEventListener('pageshow', event => { if (event.persisted && !periods.has(key(selected))) selectRange(selected); });
   activeNav();

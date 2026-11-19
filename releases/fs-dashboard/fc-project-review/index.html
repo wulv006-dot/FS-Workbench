@@ -15,11 +15,13 @@
 </head>
 <body class="fs-ui-page">
   <a class="skip-link fs-btn" href="#overview">跳至经营概览</a>
+  <main class="fc-workspace">
+  <div class="board-shell">
   <header class="masthead">
-    <div class="shell masthead-inner">
+    <div class="masthead-inner">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">FC</span>
-        <div><p class="context">FS 工作台 / FC 项目</p><h1>FC 项目经营看板</h1></div>
+        <div><h1>FC 项目经营看板</h1></div>
       </div>
       <div class="utility">
         <label class="utility-label" for="theme">主题</label>
@@ -31,8 +33,13 @@
       </div>
     </div>
   </header>
-  <main class="shell">
-    <search class="panel filters" aria-label="看板筛选">
+
+    <details class="query-controls" id="query-controls">
+      <summary class="query-summary">
+        <span class="range-context"><strong id="current-range" role="status" aria-live="polite">FC27 · 全部网站</strong><span id="compare-range"></span></span>
+        <span class="query-action">调整筛选</span>
+      </summary>
+    <search class="filters" aria-label="看板筛选">
       <form id="filters" action="?" method="get">
         <div class="field">
           <label for="game">游戏版本</label>
@@ -67,10 +74,7 @@
         <select id="loaded-period"><option value="">选择区间</option></select>
       </div>
     </search>
-    <div class="range-context">
-      <p id="current-range" role="status" aria-live="polite"></p>
-      <p id="compare-range"></p>
-    </div>
+    </details>
     <p id="import-status" class="notice" role="status" hidden></p>
     <div id="request-pane" class="fs-note" hidden>
       <p id="request-text"></p>
@@ -79,7 +83,11 @@
         <pre id="request-command" tabindex="0"></pre>
       </details>
     </div>
-    <nav class="panel section-nav" aria-label="经营面板">
+    <div class="module-switch">
+      <label class="mobile-modules" for="module-select">分析模块
+        <select id="module-select"></select>
+      </label>
+    <nav class="section-nav" aria-label="经营面板">
       <a href="#overview">经营概览</a>
       <a href="#category">商品结构</a>
       <a href="#market">国家与支付</a>
@@ -88,6 +96,7 @@
       <a href="#organic">自然流量</a>
       <a href="#delivery">发货质量</a>
     </nav>
+    </div>
 
     <section id="overview" aria-labelledby="overview-title">
       <div class="section-head"><h2 id="overview-title">经营概览</h2><span class="section-meta">销售按付款日 · 毛利按发货交易日</span></div>
@@ -96,6 +105,9 @@
         <article class="panel card"><h3>每日销售额与毛利</h3><div id="sales-trend"></div></article>
         <article class="panel card"><h3>毛利率与采购成本占比</h3><div id="rate-trend"></div></article>
       </div>
+      <article class="panel card supporting-metrics">
+        <h3>客户与消费</h3><div class="kpi-grid" id="overview-customers"></div>
+      </article>
       <div id="overview-coverage"></div>
     </section>
 
@@ -144,37 +156,40 @@
 
     <section id="ads" aria-labelledby="ads-title">
       <div class="section-head"><h2 id="ads-title">Google Ads</h2><span class="section-meta" id="ads-scope"></span></div>
-      <div class="kpi-grid" id="ads-kpis"></div>
-      <div class="grid">
-        <article class="panel card"><h3>广告系列</h3><div id="campaigns"></div></article>
-        <article class="panel card"><h3>投放国家 / 地区</h3><div id="ads-countries"></div></article>
+      <div class="traffic-hero">
+        <article class="panel card"><h3 id="ads-focus-title">系列转化价值</h3><div id="ads-focus"></div></article>
+        <article class="panel card"><h3>专属系列投放成效</h3><div class="kpi-grid traffic-kpis" id="ads-kpis"></div><div id="ads-secondary"></div></article>
       </div>
+      <div class="panel traffic-detail-group"><div id="campaigns"></div><div id="ads-countries"></div><div id="ads-cross-game"></div></div>
       <div id="ads-coverage"></div>
+      <div id="ads-attribution"></div>
     </section>
 
     <section id="organic" aria-labelledby="organic-title">
       <div class="section-head"><h2 id="organic-title">自然流量</h2><span class="section-meta" id="organic-scope"></span></div>
       <div class="grid">
-        <article class="panel card"><h3>GA4 自然搜索</h3><div id="organic-kpis"></div><div id="organic-countries"></div><div id="organic-pages"></div></article>
-        <article class="panel card"><h3>Google Search Console</h3><div id="search-kpis"></div><div id="search-pages"></div></article>
+        <article class="panel card"><h3>Google Search Console</h3><p id="search-range" class="card-sub"></p><div id="search-kpis"></div></article>
+        <article class="panel card"><h3>GA4 自然搜索落地</h3><p id="organic-range" class="card-sub"></p><div id="organic-kpis"></div></article>
       </div>
+      <div class="panel traffic-detail-group"><div id="search-pages"></div><div id="organic-countries"></div><div id="organic-pages"></div></div>
       <div id="organic-coverage"></div>
     </section>
 
     <section id="delivery" aria-labelledby="delivery-title">
       <div class="section-head"><h2 id="delivery-title">发货质量</h2><span class="section-meta">MMOEXP 主站 · Order Coins · 按购买数量（K）</span></div>
       <p id="delivery-scope" class="filter-note" hidden></p>
+      <article class="panel card completion-card" id="delivery-completion" hidden>
+        <h3>主站 Order Coins 付款队列完成率</h3><div id="delivery-cohort"></div>
+      </article>
       <div class="grid">
         <article class="panel card"><h3>Coins 少于 1000K</h3><div id="delivery-small"></div><div id="delivery-small-trend" class="detail"></div></article>
         <article class="panel card"><h3>Coins 1000K 及以上</h3><div id="delivery-large"></div><div id="delivery-large-trend" class="detail"></div></article>
       </div>
-      <article class="panel card completion-card" id="delivery-completion" hidden>
-        <h3>主站 Order Coins 付款队列完成率</h3><div id="delivery-cohort"></div>
-      </article>
       <div id="delivery-coverage"></div>
     </section>
     <footer><details id="sources"><summary>数据来源与口径</summary><div id="source-list"></div></details></footer>
     <noscript><p>请在浏览器中启用 JavaScript 后打开看板。</p></noscript>
+  </div>
   </main>
 </body>
 </html>
