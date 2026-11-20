@@ -75,11 +75,16 @@
       if (action === 'scan') await loadCandidates($('candidate-date').value);
       if (action === 'vip_feedback') await loadVip($('vip-week-date').value, value.result?.case_id);
       $('scan-day').disabled = false;
+      updateVipBulkControls();
     } catch (error) { if (error.status === 403) { denied(); return; } setStatus('上次操作仍需核对：' + error.message, true); }
   }
   let writeInFlight = false;
   async function write(action, fields, button) {
     if (writeInFlight) return null;
+    if (vipBulkJobs.get(vipViewer)?.pending) {
+      setStatus('请先核对待核批次。', true);
+      return null;
+    }
     if (pendingWrite) { await reconcile(); return null; }
     const body = {...fields,request_id:requestId()};
     const receipt = {action,request_id:body.request_id};
@@ -103,7 +108,11 @@
       if (!error.status || error.status >= 500) { pendingWrite = receipt; setStatus('连接中断，操作结果待核对。请勿重复提交。', true); }
       else setStatus('操作未接受：' + error.message, true);
       return null;
-    } finally { writeInFlight = false; button.disabled = !!pendingWrite; }
+    } finally {
+      writeInFlight = false;
+      button.disabled = !!pendingWrite;
+      updateVipBulkControls();
+    }
   }
   async function loadConfig() {
     try {
@@ -367,6 +376,12 @@
   function shanghaiDay(at = Date.now()) { const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(at); const field = type => parts.find(part => part.type === type)?.value; return field('year') + '-' + field('month') + '-' + field('day'); }
 
   let vipAbort = null, vipEditor = null, vipItems = [], vipScope = 'uk_us';
+  const vipSelected = new Set(), vipBulkJobs = new Map();
+  const vipBulkLimit = 100;
+  let vipVisibleRows = [], vipViewer = null, vipWeek = null;
+  const vipScopeLabels = {uk_us:'英美队列',global_preferred:'全国家优选'};
+  const vipSkipReasons = {already_claimed:'已由本人领取',assigned_to_other:'已由其他同事领取',not_member:'已不在当前名单',
+    closed:'已结案',returned:'已回购',not_due:'未到复核期',payment_unverified:'付款仍待核实'};
   const vipStatuses = {queued:'待领取',assigned:'已领取',contacted:'已联系',closed:'已结案',returned:'已回购'};
   const vipPriorities = {after_sales:'售后优先',due:'到期复核',review:'优先维护'};
   const vipCycles = {due:'到期复核',normal:'正常周期',unknown:'周期待核'};
@@ -390,6 +405,10 @@
     vipAbort?.abort();
     vipEditor = null;
     vipItems = [];
+    vipSelected.clear();
+    vipVisibleRows = [];
+    vipViewer = vipWeek = null;
+    $('vip-bulk').hidden = true;
     $('vip-tools').hidden = true;
     $('vip-cycle-overview').hidden = true;
     $('vip-list-count').textContent = '';
@@ -441,6 +460,186 @@
     button.type = 'button';
     button.onclick = accept;
     return button;
+  }
+  function vipCanBulkClaim(item) {
+    return item.can_bulk_claim === true && item.status === 'queued' && !vipHistory(item);
+  }
+  function selectedVipRows() {
+    return vipVisibleRows.filter(item => vipSelected.has(item.case_id));
+  }
+  function vipJobContext(job) {
+    return !!job && config && vipViewer === job.viewer && vipScope === job.scope && vipWeek === job.week &&
+      job.week === currentWeek() && !disposed && !document.hidden;
+  }
+  const vipFilterKey = () => JSON.stringify([$('vip-filter').value,$('vip-cycle-filter').value,$('vip-search').value.trim().toLowerCase()]);
+  const canContinueVipBulk = job => vipJobContext(job) && job.filter === vipFilterKey();
+  function updateVipBulkControls() {
+    const job = vipBulkJobs.get(vipViewer);
+    const selected = selectedVipRows();
+    const eligible = selected.filter(vipCanBulkClaim).length;
+    const busy = Boolean(job?.running || job?.checking);
+    const hasPlan = job && !job.stopped && job.done < job.ids.length;
+    $('vip-bulk').hidden = !vipViewer || (!vipItems.length && !job);
+    for (const control of document.querySelectorAll('#vip-scopes button,#vip-week-form :is(input,button),#vip-tools :is(input,select)')) {
+      control.disabled = busy || (control.id === 'vip-week-next' && $('vip-week-date').value >= currentWeek());
+    }
+    const selectAll = $('vip-select-all');
+    selectAll.checked = !!vipVisibleRows.length && selected.length === vipVisibleRows.length;
+    selectAll.indeterminate = selected.length > 0 && !selectAll.checked;
+    selectAll.disabled = busy || !vipVisibleRows.length;
+    $('vip-clear-selection').disabled = !selected.length || busy;
+    $('vip-export').disabled = !selected.length || busy;
+    $('vip-selection-status').textContent = vipViewer
+      ? vipScopeLabels[vipScope] + ' · ' + vipWeek + ' 周 · 当前筛选 ' + vipVisibleRows.length +
+        ' 人（含折叠及后续行） · 已选 ' + selected.length + ' 人 · 可领取 ' + eligible + ' 人'
+      : '';
+    $('vip-list').querySelectorAll('input[data-vip-select]').forEach(box => {
+      box.checked = vipSelected.has(box.value);
+      box.disabled = busy;
+    });
+    const claim = $('vip-bulk-claim');
+    const remaining = hasPlan ? job.ids.length - job.done : 0;
+    claim.textContent = hasPlan ? (busy ? '正在领取' : '继续领取剩余') + '（' + remaining + ' 人）'
+      : '领取给我' + (eligible ? '（' + eligible + ' 人）' : '');
+    claim.disabled = busy || writeInFlight || !!pendingWrite || !!job?.pending ||
+      (hasPlan ? !canContinueVipBulk(job) : !eligible || vipWeek !== currentWeek());
+    const verify = $('vip-bulk-reconcile');
+    verify.hidden = !job?.pending;
+    verify.disabled = busy;
+    $('vip-bulk-stop').hidden = !hasPlan || busy || remaining <= (job.pending?.case_ids.length || 0);
+    const status = $('vip-bulk-status');
+    if (!job) { status.textContent = ''; return; }
+    const awaiting = job.pending?.case_ids.length || 0;
+    const reasons = Object.entries(job.reasons).map(([reason,count]) => (vipSkipReasons[reason] || '其他原因') + ' ' + count + ' 人');
+    const unsent = Math.max(0, job.ids.length - job.done - awaiting - job.rejected);
+    const progress = [vipScopeLabels[job.scope] + ' · ' + job.week + ' 周批量领取',
+      '已确认领取 ' + job.claimed + ' 人', '已跳过 ' + job.skipped + ' 人',
+      awaiting ? (job.running ? '本批正在提交 ' : '待核 ' ) + awaiting + ' 人' : '',
+      job.rejected ? '本批未被接受 ' + job.rejected + ' 人' : '',
+      unsent ? (job.stopped ? '已停止发送 ' : '未发送 ') + unsent + ' 人' : '',
+      reasons.length ? reasons.join('、') : '', job.message,
+      !busy && hasPlan && !job.pending && !canContinueVipBulk(job) ? '返回原周、范围及筛选后可继续。' : '',
+    ];
+    status.textContent = progress.filter(Boolean).join(' · ');
+    status.dataset.state = job.pending && !job.running || job.rejected ? 'partial' : 'ready';
+  }
+  function validVipBulkReceipt(result, request) {
+    if (result?.status !== 'recorded' || result.action !== 'vip_bulk_claim' ||
+        result.request_id !== request.request_id || result.week !== request.week || result.scope !== request.scope ||
+        !Array.isArray(result.items) || result.items.length !== request.case_ids.length) return false;
+    const remaining = new Set(request.case_ids);
+    let claimed = 0;
+    for (const item of result.items) {
+      if (!remaining.delete(item.case_id) || !['claimed','skipped'].includes(item.status)) return false;
+      if (item.status === 'claimed') claimed++;
+    }
+    return !remaining.size && result.claimed === claimed && result.skipped === result.items.length - claimed;
+  }
+  function recordVipBulkReceipt(job, result) {
+    job.done += result.items.length;
+    job.claimed += result.claimed;
+    job.skipped += result.skipped;
+    for (const item of result.items) {
+      if (item.status === 'skipped') job.reasons[item.reason_code] = (job.reasons[item.reason_code] || 0) + 1;
+    }
+    job.pending = null;
+    job.message = '';
+  }
+  async function runVipBulk(job) {
+    if (!canContinueVipBulk(job) || job.running || job.pending || job.stopped || writeInFlight || pendingWrite) return;
+    job.running = writeInFlight = true;
+    try {
+      while (job.done < job.ids.length && vipJobContext(job)) {
+        const request = {week:job.week,scope:job.scope,request_id:requestId(),case_ids:job.ids.slice(job.done, job.done + vipBulkLimit)};
+        job.pending = request;
+        updateVipBulkControls();
+        try {
+          const result = await post('vip_bulk_claim', request);
+          if (!validVipBulkReceipt(result, request)) {
+            job.message = '回执待核对。请先核对原批次。';
+            break;
+          }
+          recordVipBulkReceipt(job, result);
+        } catch (error) {
+          if ([400,401,403,404,409,413,422].includes(error.status)) {
+            job.pending = null;
+            job.rejected = request.case_ids.length;
+            job.stopped = true;
+            job.message = '本批未被接受，请重新查看名单。';
+            if (error.status === 403 && vipViewer === job.viewer) denied();
+          } else job.message = '连接中断，请先核对原批次。';
+          break;
+        }
+      }
+    } finally {
+      job.running = writeInFlight = false;
+      updateVipBulkControls();
+    }
+    if (!job.pending && vipJobContext(job)) await loadVip(job.week);
+  }
+  async function reconcileVipBulk() {
+    const job = vipBulkJobs.get(vipViewer);
+    const request = job?.pending;
+    if (!request || job.running || job.checking) return;
+    job.checking = true;
+    updateVipBulkControls();
+    try {
+      const response = await get('request', {request_id:request.request_id});
+      if (response.status === 'available' && response.action === 'vip_bulk_claim' && validVipBulkReceipt(response.result, request)) {
+        recordVipBulkReceipt(job, response.result);
+        if (vipJobContext(job)) await loadVip(job.week);
+      } else job.message = '原批次仍待核对，后续批次保持暂停。';
+    } catch (error) {
+      if (error.status === 403 && vipViewer === job.viewer) denied();
+      job.message = '回执读取失败，可继续核对同一批次。';
+    } finally {
+      job.checking = false;
+      updateVipBulkControls();
+    }
+  }
+  function exportVipSelection() {
+    const items = selectedVipRows();
+    if (!vipViewer || !items.length) return;
+    const headers = ['周起始日','名单范围','客户邮箱','会员 UID','付款国家','复核周期','优先级','优先理由',
+      '距末购天数','最近有效付款时间（北京时间）','入组30日实付 USD','入组窗口前15日实付 USD','入组窗口后15日实付 USD',
+      '观察购买日数','本人购买间隔中位数（天）','建议复核日期','计划复核日期','跟进状态','维护人','联系前待核资料','回购状态'];
+    const uidCell = value => {
+      const uid = String(value ?? '');
+      return /^0\d+$|^\d{16,}$/.test(uid) ? "'" + uid : uid;
+    };
+    const rows = items.map(item => [
+      vipWeek,vipScopeLabels[vipScope],item.email ?? '待核实',uidCell(item.uid),item.country ?? '待核实',
+      vipCycles[item.cycle?.status] || '待核实',item.guidance?.band ? vipBands[item.guidance.band] : vipPriorities[item.guidance?.priority],
+      item.guidance?.reason || item.guidance?.headline,item.days_since_last_paid,
+      Number.isFinite(Date.parse(item.last_paid_at)) ? timeText(item.last_paid_at) : '',
+      item.windows?.month?.salesUsd,item.windows?.firstHalf?.salesUsd,item.windows?.secondHalf?.salesUsd,
+      item.guidance?.purchase_days,item.guidance?.median_gap_days,item.cycle?.review_day,item.next_review_day,
+      vipStatuses[item.status],item.owner,(item.checks_before_contact || []).map(code => vipChecks[code] || '核对其他待确认资料').join('、'),
+      vipOutcome(item),
+    ]);
+    const cell = value => {
+      const text = String(value ?? '');
+      const safe = /^[\t\r\n]|^[\s\u200B\uFEFF]*[=+\-@]/u.test(text) ? "'" + text : text;
+      return '"' + safe.replaceAll('"','""') + '"';
+    };
+    const csv = [headers,...rows].map(row => row.map(cell).join(',')).join('\r\n') + '\r\n';
+    const url = URL.createObjectURL(new Blob(['\uFEFF',csv], {type:'text/csv;charset=utf-8'}));
+    const link = node('a', undefined, document.body);
+    link.href = url;
+    link.download = 'FC27-' + vipScope + '-' + vipWeek + '.csv';
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+  function startVipBulk() {
+    const job = vipBulkJobs.get(vipViewer);
+    if (job && !job.stopped && job.done < job.ids.length) return runVipBulk(job);
+    const ids = selectedVipRows().filter(vipCanBulkClaim).map(item => item.case_id);
+    if (!vipViewer || !ids.length || job?.pending || writeInFlight || pendingWrite || vipWeek !== currentWeek()) return;
+    const plan = {viewer:vipViewer,week:vipWeek,scope:vipScope,filter:vipFilterKey(),ids,
+      done:0,claimed:0,skipped:0,rejected:0,reasons:Object.create(null)};
+    vipBulkJobs.set(vipViewer, plan);
+    return runVipBulk(plan);
   }
   function validVipReceipt(result, request) {
     return result?.status === 'recorded' && result.case_id === request.case_id &&
@@ -561,7 +760,23 @@
     if (idPattern.test(item.case_id || '')) row.dataset.caseId = item.case_id;
     const main = node('div', undefined, row, 'vip-row-main');
     const person = node('div', undefined, main, 'vip-person');
-    node('h3', item.email || '邮箱待核验', person);
+    const identity = node('div', undefined, person, 'vip-select-row');
+    if (vipViewer && row.dataset.caseId) {
+      const box = node('input', undefined, identity);
+      box.type = 'checkbox';
+      box.value = item.case_id;
+      box.dataset.vipSelect = '';
+      box.setAttribute('aria-label', '选择客户 ' + (item.email || uidText(item.uid)));
+      box.checked = vipSelected.has(item.case_id);
+      const job = vipBulkJobs.get(vipViewer);
+      box.disabled = Boolean(job?.running || job?.checking);
+      box.onchange = () => {
+        if (box.checked) vipSelected.add(item.case_id);
+        else vipSelected.delete(item.case_id);
+        updateVipBulkControls();
+      };
+    }
+    node('h3', item.email || '邮箱待核验', identity);
     vipRowValue(person, uidText(item.uid), true);
     if (item.country) vipRowValue(person, item.country, true);
     if (item.last_paid_at) vipRowValue(person, '最近付款 ' + timeText(item.last_paid_at), true);
@@ -688,6 +903,10 @@
       if (filter === 'needs_feedback') return vipNeedsFeedback(item) && !vipHistory(item);
       return true;
     });
+    const rowById = new Map(visible.filter(item => idPattern.test(item.case_id || '')).map(item => [item.case_id,item]));
+    vipVisibleRows = [...rowById.values()];
+    for (const id of vipSelected) if (!rowById.has(id)) vipSelected.delete(id);
+    updateVipBulkControls();
     const filtered = search || filter !== 'all' || cycleFilter !== 'all';
     $('vip-list-count').textContent = '优先待跟进 ' + count + ' 人 · 本周名单 ' + vipItems.length +
       ' 人' + (filtered ? ' · 找到 ' + visible.length + ' 人' : '');
@@ -748,6 +967,8 @@
       if (result.week !== week || (result.scope && result.scope !== vipScope) || !Array.isArray(result.items)) {
         throw Error('名单范围、日期或格式异常。');
       }
+      vipWeek = week;
+      vipViewer = typeof result.viewer === 'string' && result.viewer.trim() ? result.viewer : null;
       const partial = result.status !== 'ready';
       const updated = result.as_of || result.coverage?.as_of;
       const freshness = updated ? '最近更新 ' + timeText(updated) + '（北京时间）' : result.frozen_at ? '名单生成 ' + timeText(result.frozen_at) + '（北京时间）' : '';
@@ -764,6 +985,7 @@
       }
       showVipCycleOverview(result.summary);
       renderVipPerformance(result.summary);
+      updateVipBulkControls();
       if (focusCase && idPattern.test(focusCase)) {
         const row = host.querySelector('[data-case-id="' + focusCase + '"]');
         if (row) { row.tabIndex = -1; row.focus(); } else ($('vip-tools').hidden ? form.querySelector('[type="submit"]') : $('vip-search')).focus();
@@ -804,6 +1026,21 @@
       loadVip($('vip-week-date').value || currentWeek());
     };
   }
+  $('vip-select-all').onchange = event => {
+    vipSelected.clear();
+    if (event.target.checked) for (const item of vipVisibleRows) vipSelected.add(item.case_id);
+    updateVipBulkControls();
+  };
+  $('vip-clear-selection').onclick = () => { vipSelected.clear(); updateVipBulkControls(); };
+  $('vip-bulk-claim').onclick = startVipBulk;
+  $('vip-bulk-reconcile').onclick = reconcileVipBulk;
+  $('vip-bulk-stop').onclick = () => {
+    const job = vipBulkJobs.get(vipViewer);
+    if (!job || job.running || job.checking) return;
+    job.stopped = true;
+    updateVipBulkControls();
+  };
+  $('vip-export').onclick = exportVipSelection;
   $('vip-cycle-filter').onchange = () => renderVipList();
   $('vip-search').oninput = () => renderVipList();
   $('vip-filter').onchange = () => renderVipList();

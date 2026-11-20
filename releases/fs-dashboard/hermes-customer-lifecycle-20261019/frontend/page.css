@@ -121,3 +121,12 @@ main{max-width:1280px;margin:auto;padding:24px 20px 64px}.intro{margin-bottom:18
  .vip-head form{display:grid;grid-template-columns:minmax(0,1fr) max-content;gap:8px}
  .vip-week-actions .fs-btn{padding-inline:8px;min-height:40px;font-size:.8125rem}
 }
+
+.vip-bulk{padding:10px 0;border-bottom:1px solid var(--fs-line)}
+.vip-bulk-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px}
+.vip-bulk-actions label{display:inline-flex;align-items:center;gap:5px;min-height:36px;font-weight:600}
+.vip-bulk-actions .fs-btn{padding-inline:9px;font-size:.8125rem}
+.vip-select-row{display:flex;align-items:flex-start;gap:6px}
+.vip-select-row input,.vip-bulk-actions input{flex:none;accent-color:var(--fs-brand)}
+.vip-select-row input{margin:4px 2px 0 0}
+.vip-bulk p{margin:6px 0 0}
