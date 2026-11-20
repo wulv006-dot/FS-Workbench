@@ -102,7 +102,7 @@
   const params=new URLSearchParams(Object.fromEntries(['activity','mode','from','to'].map(k=>[k,filter[k]||''])));
   if(force)params.set('refresh','1');
   try{
-   const response=await fetch('api/coupon-usage?'+params,{credentials:'same-origin',signal:AbortSignal.timeout(125000)});if(generation!==couponGeneration)return;if([401,403].includes(response.status)){couponPrevious=null;autoRefreshAllowed=false;throw Error('登录状态或访问权限未确认，请重新登录后重试。');}const r=await response.json();
+   const response=await fetch('api/coupon-usage?'+params,{credentials:'same-origin',signal:AbortSignal.timeout(125000)});if(generation!==couponGeneration)return;if(carnival()&&[401,403].includes(response.status)){couponPrevious=null;autoRefreshAllowed=false;throw Error('登录状态或访问权限未确认，请重新登录后重试。');}const r=await response.json();
    if(generation!==couponGeneration)return;
    if(!response.ok||r.status!=='available'&&r.status!=='not_started'||r.status==='available'&&r.coverage?.complete!==true){if(response.status===401||response.status===403)couponPrevious=null;throw Error(r.message||'活动券使用记录读取未完成');}
    if(carnival()&&r.status==='available'&&r.activity_id!=='mmoexp-carnival')throw Error('活动券结果与所选活动不一致');
@@ -261,7 +261,7 @@
   else {couponUsage=null;couponNotice='';if($('coupon-usage'))$('coupon-usage').hidden=true;}
   if(carnival())showCarnival(null);
   try{
-   const response=await fetch('api/statistics-snapshot?'+new URLSearchParams({kind,activity:$('activity').value}),{credentials:'same-origin',signal:AbortSignal.timeout(10000)});if(gen!==generation)return;if([401,403].includes(response.status)){couponPrevious=null;autoRefreshAllowed=false;throw Error('登录状态或访问权限未确认，请重新登录后重试。');}const v=await response.json();
+   const response=await fetch('api/statistics-snapshot?'+new URLSearchParams({kind,activity:$('activity').value}),{credentials:'same-origin',signal:AbortSignal.timeout(10000)});if(gen!==generation)return;if(carnival()&&[401,403].includes(response.status)){couponPrevious=null;autoRefreshAllowed=false;throw Error('登录状态或访问权限未确认，请重新登录后重试。');}const v=await response.json();
    if(gen!==generation)return;if([400,401,403].includes(response.status))autoRefreshAllowed=false;if([401,403].includes(response.status))couponPrevious=null;if(!response.ok)throw Error(v.message||'计划汇总暂不可读');
    const source=name=>v.sources?.[name]?.lastSuccess,behavior=source('behavior')?.summary,revenue=source('revenue')?.summary,traffic=source('traffic')?.summary,attempt=v.sources?.traffic?.lastAttempt;
    currentContext=v.context||null;currentDiagnostics=null;
