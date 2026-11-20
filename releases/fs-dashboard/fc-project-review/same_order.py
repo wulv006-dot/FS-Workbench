@@ -18,6 +18,39 @@ ACCOUNTING_RULE = "exclude-confirmed-test-failed-validation-v1"
 UNAVAILABLE_NOTE = "同单采购成本本次未取得"
 
 
+def preserves_delivery_evidence(previous, reviewed, start, end):
+    """Every known trade second in the cohort still has evidence of equal authority or newer."""
+    previous_order = previous.get("revisions", {}).get("order", [])
+    if not previous_order:
+        return True
+    new_order = sorted(
+        (window for window in reviewed["revisions"].get("order", [])
+         if window["start"] <= end and start <= window["end"]),
+        key=lambda window: window["start"],
+    )
+    for old in previous_order:
+        cursor, stop = max(old["start"], start), min(old["end"], end)
+        if cursor > stop:
+            continue
+        old_stamp = datetime.fromisoformat(old["capturedAt"])
+        for fresh in new_order:
+            if fresh["start"] > cursor:
+                return False
+            if fresh["end"] < cursor:
+                continue
+            stamp = datetime.fromisoformat(fresh["capturedAt"])
+            same_authority = (fresh.get("indexRevision") or
+                              not old.get("indexRevision") and fresh["revision"] == old["revision"])
+            if stamp < old_stamp or stamp == old_stamp and not same_authority:
+                continue
+            if fresh["end"] >= stop:
+                break
+            cursor = (datetime.fromisoformat(fresh["end"]) + timedelta(seconds=1)).isoformat(sep=" ")
+        else:
+            return False
+    return True
+
+
 def same_order_archive_update(packet, reviewed):
     """Return a revised packet when local evidence changes its same-order section."""
     if reviewed["status"] == "unavailable" or reviewed["coverage"]["invalidCostFiles"]:
@@ -42,21 +75,16 @@ def same_order_archive_update(packet, reviewed):
         return None
     previous_receipts = previous.get("revisions", {}).get("completedStatus", {})
     new_receipts = reviewed["revisions"]["completedStatus"]
-    if previous_receipts.keys() - new_receipts.keys():
+    observations = {day: datetime.fromisoformat(receipt["observedAt"]) for day, receipt in previous_receipts.items()}
+    if any(day not in new_receipts or datetime.fromisoformat(new_receipts[day]["observedAt"]) < observed
+           for day, observed in observations.items()):
         return None
-    if reviewed["totals"]["coveredOrders"] < previous.get("totals", {}).get("coveredOrders", 0):
-        # A correction within a verified trade window can remove costs. A gap
-        # from rotation or fallback cannot establish that the shipment vanished.
-        start = packet["start"] + " 00:00:00"
-        end = max(
-            (datetime.fromisoformat(receipt["observedAt"]).astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")
-             for receipt in previous_receipts.values()),
-            default=packet["end"] + " 23:59:59",
-        )
-        for lo, hi in before.get("costWindows", []):
-            lo, hi = max(lo, start), min(hi, end)
-            if lo <= hi and not any(new_lo <= lo <= hi <= new_hi for new_lo, new_hi in after["costWindows"]):
-                return None
+    # A verified replacement can correct or remove costs. Rotation cannot prove an older shipment vanished.
+    start = packet["start"] + " 00:00:00"
+    end = (max(observations.values()).astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")
+           if observations else packet["end"] + " 23:59:59")
+    if not preserves_delivery_evidence(previous, reviewed, start, end):
+        return None
     coverage = [message for message in packet["coverage"] if message != UNAVAILABLE_NOTE]
     return dict(packet, sameOrder=reviewed, coverage=coverage)
 

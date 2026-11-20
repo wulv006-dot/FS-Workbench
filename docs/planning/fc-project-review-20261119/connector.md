@@ -27,6 +27,16 @@ HTTP 查询也可携带 `revision`，取 64 个小写十六进制字符，匹配
 
 回执缺失或需要更新时，使用原客户任务的精确日期同步。在已有授权的运行环境，用 `python3 /opt/fs-hermes-fc/user_jobs.py sync --site 266 --start 2026-11-16 --end 2026-11-19` 补主站付款自然日；该命令的 `--end` 不含当日。已有回执默认复用。需要重读已覆盖日时沿用 `--recheck`，待原 Order 发货归档覆盖新的观察时点后再次读回。
 
+## 归档续查版本的发布
+
+从运行中连接器的原镜像导出 `/app/fs_mcp_connector/catalog.json` 和 `/app/fs_mcp_connector/response_view.py` 的原始字节，记录镜像 ID 及当前服务定义文件的 SHA-256。在已审核源码工作树生成候选。
+
+```text
+python3 -B connector_release.py prepare <候选目录> --operation fc-project-review-revision --active-catalog <原目录> --active-response-view <原展示代码> --base-image <原镜像ID> --unit-sha <原服务定义SHA256> --source-commit <源码SHA> --merged-commit <合并SHA>
+```
+
+候选保留活动目录中的其余操作，仅为现有 FC 操作加入可选 `revision` 和续查说明，并更新展示代码的 FC 版本上下文。沿用原 `build`、`check`、`apply` 和 `rollback`，构建和检查会读回基础与候选镜像的两个文件哈希。
+
 ## 首次接入的发布输入
 
 本节历史输入对应专项首次接入。11 月 19 日晚本次提速实核的活动镜像为 sha256:d5961d59734ada4ae3214063b4595aa5d17c5ac45166028ace6af92c004001ad，目录 SHA256 为 872caef8b5129c20937ed0769051d12601cc3b7056847357e68fbafd5565915d。本次候选须使用该现场基线或重新核对后的版本。

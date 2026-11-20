@@ -16,7 +16,9 @@ BASE = "sha256:18a4c07741382bef8a99e0c3967d7b31a0c9a4d21e0a6d080018f706dd379088"
 BASE_TAG = "fs-data-connector:stage5-methods-27fe096"
 ACTIVE_CATALOG_SHA = "07c81c4615d5c30aeee969f145a3c4c09971030f445682eb3330f2a70394a598"
 UNIT_SHA = "e353ddb0c4ac846086675f331fc3e8331260ff7ff965ff2156e4598c5f7f9ffb"
-OPERATION = "business.fc_project_review"
+FC_REVIEW = "business.fc_project_review"
+OPERATION = FC_REVIEW
+REVISION_UPDATE = "fc-project-review-revision"
 COVERAGE_MODULE = "unified-business"
 GUIDE = None
 BACKUP_PREFIX = "fc-review-"
@@ -35,12 +37,23 @@ PUBLISHER_FILES = ("update_connector_image_187.py", "install_connector_187.py",
                    "fs-data-connector.service.in", "client_public_probe.py", "connector_smoke.py")
 
 
-def select_release(operation):
+def select_release(operation, *, base_image=None, active_catalog_sha=None, unit_sha=None):
     global OPERATION, BASE, BASE_TAG, ACTIVE_CATALOG_SHA, UNIT_SHA, COVERAGE_MODULE, GUIDE, BACKUP_PREFIX, STAGE_BASE_TAG
-    if operation not in RELEASES:
-        raise ValueError("unknown_connector_release_operation")
+    if operation == REVISION_UPDATE:
+        if not base_image or not re.fullmatch(r"sha256:[0-9a-f]{64}", base_image):
+            raise ValueError("fixed_live_base_image_required")
+        for digest in (active_catalog_sha, unit_sha):
+            if not digest or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise ValueError("fixed_live_base_digest_required")
+        tag = "fs-data-connector:fc-review-revision-base-" + base_image[7:19]
+        config = (base_image, tag, active_catalog_sha, unit_sha, "unified-business", None,
+                  "fc-review-revision-", True)
+    else:
+        if operation not in RELEASES:
+            raise ValueError("unknown_connector_release_operation")
+        config = RELEASES[operation]
     OPERATION = operation
-    BASE, BASE_TAG, ACTIVE_CATALOG_SHA, UNIT_SHA, COVERAGE_MODULE, GUIDE, BACKUP_PREFIX, STAGE_BASE_TAG = RELEASES[operation]
+    BASE, BASE_TAG, ACTIVE_CATALOG_SHA, UNIT_SHA, COVERAGE_MODULE, GUIDE, BACKUP_PREFIX, STAGE_BASE_TAG = config
 
 
 def verify_catalog(active, proposed):
@@ -71,26 +84,70 @@ def verify_catalog(active, proposed):
         raise ValueError("unrelated_catalog_change")
 
 
+def revision_catalog(active, reviewed):
+    candidate = deepcopy(active)
+    current = [item for item in candidate["operations"] if item["name"] == FC_REVIEW]
+    reference = [item for item in reviewed["operations"] if item["name"] == FC_REVIEW]
+    if len(current) != 1 or len(reference) != 1:
+        raise ValueError("existing_fc_operation_required")
+    before = deepcopy(reference[0])
+    schema = before["input_schema"]["properties"].pop("revision", None)
+    if schema != {"type": "string", "maxLength": 64, "pattern": "[0-9a-f]{64}"}:
+        raise ValueError("optional_fc_revision_schema_required")
+    before["description"] = current[0]["description"]
+    if "revision" in before["input_schema"].get("required", []) or before != current[0]:
+        raise ValueError("live_fc_operation_changed_reconcile_first")
+    current[0]["description"] = reference[0]["description"]
+    current[0]["input_schema"]["properties"]["revision"] = schema
+    return json.dumps(candidate, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+
+
+def revision_response_view(active, reviewed):
+    active = active.replace(b"\r\n", b"\n")
+    anchor = b"        for key in CONTEXT_FIELDS:\n"
+    revision_context = (
+        b"        fields = CONTEXT_FIELDS\n"
+        b"        if not ancestor_path and result.get('operation') == 'business.fc_project_review':\n"
+        b"            fields = ('revision', 'archivedAt') + fields\n"
+        b"        for key in fields:\n"
+    )
+    if active.count(anchor) != 1 or active.replace(anchor, revision_context) != reviewed:
+        raise ValueError("live_response_view_changed_reconcile_first")
+    return reviewed
+
+
 def commit_id(value):
     if not isinstance(value,str) or not re.fullmatch(r"[0-9a-f]{40}",value):
         raise ValueError("full_git_commit_required")
     return value
 
 
-def prepare(directory, active, source_commit, merged_commit):
+def prepare(directory, active, source_commit, merged_commit, *, active_response_view=None):
     source_commit, merged_commit = commit_id(source_commit), commit_id(merged_commit)
     raw = active.read_bytes()
     if sha256(raw).hexdigest() != ACTIVE_CATALOG_SHA:
         raise ValueError("active_catalog_changed_reconcile_first")
     proposed = (REPO / "fs_mcp_connector/catalog.json").read_bytes().replace(b"\r\n", b"\n")
-    verify_catalog(json.loads(raw), json.loads(proposed))
+    response_hashes = {}
+    copy_line = "COPY catalog.json /app/fs_mcp_connector/catalog.json\n"
+    if OPERATION == REVISION_UPDATE:
+        proposed = revision_catalog(json.loads(raw), json.loads(proposed))
+        active_view = active_response_view.read_bytes()
+        reviewed_view = (REPO / "fs_mcp_connector/response_view.py").read_bytes().replace(b"\r\n", b"\n")
+        view = revision_response_view(active_view, reviewed_view)
+        response_hashes = {"base_response_view_sha256": sha256(active_view).hexdigest(),
+                           "response_view_sha256": sha256(view).hexdigest()}
+        copy_line = "COPY catalog.json response_view.py /app/fs_mcp_connector/\n"
+    else:
+        verify_catalog(json.loads(raw), json.loads(proposed))
     directory.mkdir(parents=True, exist_ok=False)
     image = directory / "image"
     image.mkdir()
     (image / "catalog.json").write_bytes(proposed)
+    if response_hashes:
+        (image / "response_view.py").write_bytes(view)
     (image / "Dockerfile").write_bytes((
-        f"FROM {BASE_TAG}\n"
-        "COPY catalog.json /app/fs_mcp_connector/catalog.json\n"
+        f"FROM {BASE_TAG}\n{copy_line}"
         f'LABEL org.opencontainers.image.revision="{source_commit}" fs.previous-image="{BASE}"\n').encode("utf-8"))
     publisher = directory / "publisher"
     publisher.mkdir()
@@ -99,7 +156,8 @@ def prepare(directory, active, source_commit, merged_commit):
     shutil.copyfile(__file__,directory / "connector_release.py")
     (directory / "release.json").write_text(json.dumps(dict(source_commit=source_commit,
         merged_commit=merged_commit, base_image=BASE, base_catalog_sha256=ACTIVE_CATALOG_SHA,
-        catalog_sha256=sha256(proposed).hexdigest(), unit_before_sha256=UNIT_SHA, operation=OPERATION)),encoding="utf-8")
+        catalog_sha256=sha256(proposed).hexdigest(), unit_before_sha256=UNIT_SHA, operation=OPERATION,
+        **response_hashes)),encoding="utf-8")
     return directory
 
 
@@ -116,27 +174,40 @@ def verify_image(image_id, source_commit):
     expected_labels = {**(before.pop("Labels") or {}), "org.opencontainers.image.revision":source_commit,
                        "fs.previous-image":BASE}
     if candidate["Id"] != image_id or new_layers[:-1] != old_layers or after != before or labels != expected_labels:
-        raise ValueError("derived_image_changed_beyond_catalog")
+        raise ValueError("derived_image_changed_beyond_connector_payload")
 
 
-def verify_catalog_image(image_id, expected):
+def verify_payload_image(image_id, metadata, *, base=False):
+    prefix = "base_" if base else ""
+    payloads = {"catalog.json": metadata[prefix + "catalog_sha256"]}
+    if metadata["operation"] == REVISION_UPDATE:
+        payloads["response_view.py"] = metadata[prefix + "response_view_sha256"]
+    expected = {"/app/fs_mcp_connector/" + name: digest for name, digest in payloads.items()}
     value = subprocess.check_output([
         "docker", "run", "--rm", "--network=none", "--read-only", "--entrypoint", "sha256sum",
-        image_id, "/app/fs_mcp_connector/catalog.json",
+        image_id, *expected,
     ], text=True)
-    if value.split()[0] != expected:
-        raise ValueError("derived_catalog_readback_failed")
+    checked = {path: digest for digest, path in (line.split(maxsplit=1) for line in value.splitlines())}
+    if checked != expected:
+        raise ValueError("connector_payload_readback_failed")
 
 
 def load_release(directory):
     metadata = json.loads((directory / "release.json").read_bytes())
-    select_release(metadata.get("operation", "business.fc_project_review"))
+    operation = metadata.setdefault("operation", FC_REVIEW)
+    select_release(operation, base_image=metadata["base_image"],
+                   active_catalog_sha=metadata["base_catalog_sha256"], unit_sha=metadata["unit_before_sha256"])
     if metadata["base_image"] != BASE or metadata["base_catalog_sha256"] != ACTIVE_CATALOG_SHA or metadata["unit_before_sha256"] != UNIT_SHA:
         raise ValueError("release_base_changed")
     for name in ("source_commit","merged_commit"):
         commit_id(metadata[name])
     if sha256((directory/"image/catalog.json").read_bytes()).hexdigest() != metadata["catalog_sha256"]:
         raise ValueError("release_catalog_changed")
+    if operation == REVISION_UPDATE:
+        if not re.fullmatch(r"[0-9a-f]{64}", metadata["base_response_view_sha256"]):
+            raise ValueError("release_base_response_view_changed")
+        if sha256((directory / "image/response_view.py").read_bytes()).hexdigest() != metadata["response_view_sha256"]:
+            raise ValueError("release_response_view_changed")
     return metadata
 
 
@@ -175,20 +246,36 @@ def main():
     plan.add_argument("--active-catalog",type=Path,required=True)
     plan.add_argument("--source-commit",required=True)
     plan.add_argument("--merged-commit",required=True)
-    plan.add_argument("--operation",choices=tuple(RELEASES),default="business.fc_project_review")
+    plan.add_argument("--operation", choices=(*RELEASES, REVISION_UPDATE), default=FC_REVIEW)
+    plan.add_argument("--active-response-view", type=Path)
+    plan.add_argument("--base-image")
+    plan.add_argument("--unit-sha")
     actions.add_parser("build")
     for action in ("check","apply"):
         actions.add_parser(action).add_argument("image_id")
     actions.add_parser("rollback")
     args = parser.parse_args()
     if args.action == "prepare":
-        select_release(args.operation)
-        print(prepare(args.directory,args.active_catalog,args.source_commit,args.merged_commit))
+        baseline = (args.active_response_view, args.base_image, args.unit_sha)
+        if args.operation == REVISION_UPDATE:
+            if not all(baseline):
+                plan.error("revision update requires --active-response-view, --base-image and --unit-sha")
+            select_release(args.operation, base_image=args.base_image,
+                           active_catalog_sha=sha256(args.active_catalog.read_bytes()).hexdigest(),
+                           unit_sha=args.unit_sha)
+        else:
+            if any(baseline):
+                plan.error("live baseline arguments are only supported by the revision update")
+            select_release(args.operation)
+        print(prepare(args.directory, args.active_catalog, args.source_commit, args.merged_commit,
+                      active_response_view=args.active_response_view))
         return
     metadata = load_release(HERE)
     if args.action == "build":
+        if OPERATION == REVISION_UPDATE:
+            verify_payload_image(BASE, metadata, base=True)
         image_id = build(HERE,metadata["source_commit"])
-        verify_catalog_image(image_id,metadata["catalog_sha256"])
+        verify_payload_image(image_id, metadata)
         print(image_id)
         return
     publisher = updater(HERE,metadata)
@@ -196,7 +283,9 @@ def main():
         publisher.rollback()
         return
     verify_image(args.image_id,metadata["source_commit"])
-    verify_catalog_image(args.image_id,metadata["catalog_sha256"])
+    if OPERATION == REVISION_UPDATE:
+        verify_payload_image(BASE, metadata, base=True)
+    verify_payload_image(args.image_id, metadata)
     if publisher.base.sha(publisher.base.UNIT.read_bytes()) != UNIT_SHA:
         raise ValueError("active_unit_changed_reconcile_first")
     if args.action == "check":

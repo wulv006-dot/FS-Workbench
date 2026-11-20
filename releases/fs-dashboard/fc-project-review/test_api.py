@@ -1,11 +1,12 @@
 from datetime import date, timedelta
-from concurrent.futures import Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from importlib import import_module
 import json
 import os
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
+from threading import Event
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -115,6 +116,36 @@ class ApiTests(unittest.TestCase):
 
     def get(self, permitted=True, **updates):
         return api.get({**self.params,**updates},"reviewer",None,None,lambda _:permitted,self.root)
+
+    def test_full_refresh_preserves_same_order_published_during_capture(self):
+        started, finish = Event(), Event()
+        stale = dict(status="unavailable")
+        fresh = dict(status="complete", totals=dict(coveredOrders=1),
+                     coverage=dict(invalidCostFiles=[], missingDays=[], costWindows=[]),
+                     revisions=dict(completedStatus={}, order=[]))
+
+        def capture(*args):
+            started.set()
+            self.assertTrue(finish.wait(5))
+            return dict(packet, sameOrder=stale, coverage=["full capture updated"])
+
+        with patch.object(api, "datetime", wraps=api.datetime) as clock, \
+                patch.object(api, "capture", side_effect=capture), \
+                patch.object(api, "same_order_review", return_value=fresh):
+            clock.now.return_value = api.datetime(2026, 11, 19, tzinfo=api.TZ)
+            packet = dict(api.packet(core()), sameOrder=stale)
+            api.publish(packet, self.root)
+            with ThreadPoolExecutor(1) as pool, patch.object(api, "POOL", pool):
+                try:
+                    self.assertEqual(self.get(refresh=["true"])[0], 202)
+                    self.assertTrue(started.wait(5))
+                    self.assertEqual(self.get()[1]["packets"][0]["sameOrder"], fresh)
+                finally:
+                    finish.set()
+        with patch.object(api, "same_order_review", side_effect=OSError):
+            current = self.get()[1]["packets"][0]
+        self.assertEqual(current["coverage"], ["full capture updated"])
+        self.assertEqual(current["sameOrder"], fresh)
 
     def test_completed_report_exposes_authorized_same_order_aggregate(self):
         source=core();admin=source["admin"]

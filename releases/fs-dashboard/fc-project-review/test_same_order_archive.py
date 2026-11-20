@@ -119,12 +119,53 @@ class SameOrderArchiveTests(unittest.TestCase):
             receipts[self.day] = receipt
 
             # An authoritative replacement of the same trade window can revoke evidence.
-            publish_delivery([])
+            publish_delivery([], stamp="2026-11-17T11:00:00+08:00")
             status, corrected = self.get()
             self.assertEqual((status, corrected["packets"][0]["sameOrder"]["totals"]["coveredOrders"]), (200, 0))
             self.assertNotEqual(corrected["revision"], updated["revision"])
             submit.assert_not_called()
             self.upstream.assert_not_called()
+
+    def test_closed_packet_preserves_indexed_trade_evidence_from_fallback(self):
+        window_start = self.day + " 00:00:00"
+        receipt_at = "2026-11-17T08:00:00+08:00"
+        window_end = "2026-11-17 08:00:00"
+
+        def facts(start, captured_at, cost, index=None):
+            witness = dict(start=start, end=window_end, capturedAt=captured_at, revision="trade-capture")
+            if index is not None:
+                witness["indexRevision"] = index
+            return dict(status="partial", totals=dict(coveredOrders=1, actualCostCny=cost),
+                revisions=dict(completedStatus={self.day: dict(observedAt=receipt_at)}, order=[witness]),
+                coverage=dict(missingDays=[], invalidCostFiles=[], costWindows=[[start, window_end]]))
+
+        indexed = facts(window_start, "2026-11-17T10:00:00+08:00", 400, index="corrected-index")
+        with patch.object(api, "datetime", wraps=datetime) as clock, \
+                patch.object(api, "same_order_review") as read, patch.object(api.POOL, "submit") as submit:
+            clock.now.return_value = datetime(2026, 11, 19, tzinfo=api.TZ)
+            original = api.publish(dict(api.packet(core()), sameOrder=indexed), self.root)
+            fallbacks = {
+                "narrower time range covers a different order": facts(self.day + " 06:00:00",
+                    "2026-11-17T11:00:00+08:00", 250),
+                "older raw capture covers the same window": facts(window_start, "2026-11-17T09:00:00+08:00", 450),
+                "same-time raw capture cannot replace indexed authority": facts(window_start,
+                    "2026-11-17T10:00:00+08:00", 600),
+            }
+            for reason, fresh in fallbacks.items():
+                with self.subTest(reason=reason):
+                    api.publish(original["packets"][0], self.root)
+                    read.return_value = fresh
+                    status, selected = self.get()
+                    self.assertEqual((status, selected["revision"]), (200, original["revision"]))
+
+            corrected = facts(window_start, "2026-11-17T11:00:00+08:00", 300, index="newer-index")
+            witness = corrected["revisions"]["order"][0]
+            corrected["revisions"]["order"] = [dict(witness, start="2026-11-17 00:00:00"),
+                dict(witness, end="2026-11-16 23:59:59")]
+            read.return_value = corrected
+            status, selected = self.get()
+            self.assertEqual((status, selected["packets"][0]["sameOrder"]["totals"]["actualCostCny"]), (200, 300))
+            submit.assert_not_called()
 
     def test_older_same_order_read_cannot_overwrite_concurrent_publish(self):
         read_started, continue_read = Event(), Event()
