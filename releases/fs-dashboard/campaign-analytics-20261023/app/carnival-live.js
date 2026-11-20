@@ -409,14 +409,16 @@ startMysteryPurchase=async function(index){
   if(result.state==='login_required'){closeMysteryFlow();requireLogin(null);return;}
   if(!couponOutcome(result,r.couponId,slot)){closeMysteryFlow();return;}
   handToCart(result.memberCouponId);
-  const price=offer?.price??cachedQuote(spec,rerenderMs);
+  const modalOffer=offer??quotedOffer(spec);
+  if(!modalOffer)cachedQuote(spec,rerenderMs);
+  const price=modalOffer?.price??null;
   mysteryBox(`<div class="mystery-flow-label">${say('ITEM COUPON','商品专属优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+r.off+'% OFF coupon is in your account','你的 '+r.off+'% OFF 优惠券已到账')}</h3>
   ${couponCard({amount:r.off+'% OFF',description:esc(nm(r.it))})}
   <div class="mystery-flow-box"><p>${esc(nm(game))} · ${esc(nm(r.it))}</p>${price!==null?`<p>${say('Current price','当前价格')}: $${price.toFixed(2)} → <b>$${(price*(1-r.off/100)).toFixed(2)}</b></p>`:''}
   <p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Coupons cannot be combined with other coupons or codes.','最终价格以结算页为准；不能与其他优惠券或折扣码叠加。')}</p></div>
   ${buyNowBlock()}
   <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
-  wireBuyNow(spec,result.memberCouponId,offer?.line);
+  wireBuyNow(spec,result.memberCouponId,modalOffer?.line);
 };
 tickMs=function(){syncMysteryCooldown();document.getElementById('msTimer').textContent=msDrawsLeft?say('READY','可以翻牌'):say('VERIFY AFTER PAYMENT TO UNLOCK','付款后点下方按钮校验解锁');};
 // A drawn round unlocks only when the member presses "verify" after paying: the order is
