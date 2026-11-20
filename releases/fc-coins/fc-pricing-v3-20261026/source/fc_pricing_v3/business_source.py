@@ -1579,22 +1579,21 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
         if not reuse_closed_days or cohort_start + ' 00:00:00' > cutoff:
             return None
         try:
-            from order_delivery_index import covers_window, read_orders
-        except ModuleNotFoundError as exc:
+            from order_delivery_index import MAIN_SITE, InvalidDeliveryEvidence, read_evidence
+        except ImportError as exc:
             if exc.name == 'order_delivery_index':
                 return None
             raise
-        keys = [('www.mmoexp.com', row['order_no']) for row in rows]
+        keys = [(MAIN_SITE, row['order_no']) for row in rows]
         since = cohort_start + ' 00:00:00'
-        publication = read_orders(keys, root=channel.ROOT, since=since, until=cutoff)
-        if (publication['status'] == 'available' and
-                covers_window(publication['windows'], 'www.mmoexp.com', since, cutoff, as_of=checked_at)):
-            captured = max((_window_instant(w['capturedAt']) for w in publication['windows']
-                            if w['since'] <= cutoff and since <= w['until']),default=None)
-            if captured is not None and captured <= checked_at:
-                return publication['rows'], dict(status='partial', source='Order 逐条订单发货记录',
-                    revision=publication['revision'], generatedAt=captured.isoformat(),
-                    period=dict(start=cohort_start, end=cutoff[:10], until=cutoff))
+        try:
+            evidence = read_evidence(keys, root=channel.ROOT, as_of=checked_at, since=since, until=cutoff)
+        except InvalidDeliveryEvidence:
+            return None
+        if evidence and any(lo <= since <= cutoff <= hi for lo, hi in evidence['intervals']):
+            return evidence['rows'], dict(status='partial', source='Order 逐条订单发货记录',
+                revision=evidence['revision'], generatedAt=evidence['generatedAt'],
+                period=dict(start=cohort_start, end=cutoff[:10], until=cutoff))
         return None
     background = lock_deadline is not None
     checked_at = datetime.now(timezone.utc) if background else now

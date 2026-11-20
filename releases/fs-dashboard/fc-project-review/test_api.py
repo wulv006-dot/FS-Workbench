@@ -241,6 +241,8 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(indexed["daily"],result["daily"])
         self.assertEqual(indexed["breakdown"],result["breakdown"])
         self.assertTrue(all(item["indexRevision"]==index_revision for item in indexed["revisions"]["order"]))
+        with patch.dict(sys.modules, {"order_delivery_index":SimpleNamespace(sync=sync)}):
+            self.assertEqual(lookup(), result)
         rolling.unlink()
         missing = lookup()
         self.assertIsNone(missing["totals"]["actualCostCny"])
@@ -295,6 +297,11 @@ class ApiTests(unittest.TestCase):
         self.assertNotIn('"order_no"',json.dumps(result))
 
     def test_same_order_index_uses_only_verified_windows_and_main_site(self):
+        source = HERE.parent / "dashboard-refresh-20261025/source"
+        sys.path.insert(0, str(source))
+        self.addCleanup(sys.path.remove, str(source))
+        import order_delivery_index as index
+
         now=api.datetime(2026,11,19,tzinfo=api.TZ)
         rows=[dict(delivery_id="1",source=same_order.MAIN,sn="A",genre=1,
                    trade_at="2026-11-16 03:00:00",cost_total="12")]
@@ -304,7 +311,7 @@ class ApiTests(unittest.TestCase):
         def read(keys,**kwargs):
             calls.append((keys,kwargs))
             return dict(status="available",rows=rows,revision="index-v1",generatedAt=windows[0]["capturedAt"],windows=windows)
-        with patch.dict(sys.modules,{"order_delivery_index":SimpleNamespace(read_orders=read)}):
+        with patch.object(index, "read_orders", read):
             costs, intervals, revisions, invalid = same_order.delivery_evidence(["2026-11-16"],now,self.root,
                                                                                   {(same_order.MAIN,"A")})
         self.assertEqual(costs["A"],[("2026-11-16 03:00:00","12")])
@@ -313,7 +320,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(invalid,[])
         self.assertEqual(calls[0][0],{(same_order.MAIN,"A")})
         self.assertEqual(calls[0][1]["root"],self.root)
-        with patch.dict(sys.modules,{"order_delivery_index":SimpleNamespace(read_orders=lambda *a,**k:{"status":"stale"})}):
+        with patch.object(index, "read_orders", return_value={"status":"stale"}):
             costs, intervals, revisions, invalid = same_order.delivery_evidence(["2026-11-16"],now,self.root,
                                                                                   {(same_order.MAIN,"A")})
         self.assertEqual((costs,intervals,revisions,invalid),({},[],[],[]))
