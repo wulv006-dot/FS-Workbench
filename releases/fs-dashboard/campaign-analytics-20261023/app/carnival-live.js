@@ -137,7 +137,7 @@ async function claimSlot(slot,couponId){
  * Each request is sent once; any failure stops with a "try again" message. */
 const postForm=(url,form)=>fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)}).then(r=>{if(!r.ok)throw Error('HTTP_'+r.status);return r.json().catch(()=>({}));});
 async function buyNow(spec,memberCouponId){
-  let offer;try{offer=spec&&(await resolveOffer(spec)).offer;}catch{}
+  let offer;try{offer=spec&&(await resolveOffer(spec,{fresh:true})).offer;}catch{}
   if(!offer)return {state:'unavailable'};
   const {line}=offer;
   try{const c=await postForm('/Cart/clear',{});if(Number(c?.code)===0||c?.status===false)return {state:'clear_failed'};}catch{return {state:'clear_failed'};}
@@ -214,13 +214,13 @@ async function goodsPage(form){
   if(goodsActive>=4)await new Promise(r=>goodsQueue.push(r));
   goodsActive++;
   try{
-    const r=await fetch('/ajax/goods',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)});
+    const r=await fetch('/ajax/goods',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)});
     if(!r.ok)throw Error('HTTP_'+r.status);return await r.json();
   }finally{goodsActive--;goodsQueue.shift()?.();}
 }
-async function listRows(scope){
+async function listRows(scope,{fresh=false}={}){
   const key=JSON.stringify(scope),hit=lists.get(key);
-  if(hit&&(hit.promise||Date.now()-hit.at<LIST_TTL))return hit.promise||hit.rows;
+  if(!fresh&&hit&&(hit.promise||Date.now()-hit.at<LIST_TTL))return hit.promise||hit.rows;
   const promise=(async()=>{
     const rows=[];let pages=1;
     for(let page=1;page<=pages&&page<=10;page++){
@@ -230,6 +230,8 @@ async function listRows(scope){
     }
     return rows;
   })();
+  // Checkout must not wait on or change the display cache before clearing the cart.
+  if(fresh)return promise;
   lists.set(key,{promise});
   try{const rows=await promise;lists.set(key,{rows,at:Date.now()});return rows;}catch(e){lists.delete(key);throw e;}
 }
@@ -237,8 +239,8 @@ function offerFromRow(row,spec){
   if(!row||Number(row.status)!==1||Number(row.auto_off)!==0)return null;
   const currency=spec.top===1,qty=currency?spec.qty:Math.max(1,Number(row.min_qty)||1);
   const saleSku=currency?null:row.saleSku,pricedRow=currency?row.goods_list?.[String(qty)]:row;
-  // Raw USD takes priority. The formatted field can be localized, pre-discounted or rounded to zero.
-  const unit=Number(saleSku?saleSku.price:pricedRow?.price_discount??pricedRow?.price_discount_format);
+  // The formatted field can be localized, pre-discounted or rounded to zero.
+  const unit=Number(saleSku?saleSku.price:pricedRow?.price_discount);
   const total=currency?unit:unit*qty;
   if(!Number.isFinite(total)||total<=0)return null;
   const id=String(row.id),line=currency
@@ -248,12 +250,12 @@ function offerFromRow(row,spec){
 }
 // spec: {game,top,cid,aid?,keyword?,goods?,area?,sid?,search?,qty,skuName?}
 function quoteKey(spec){return JSON.stringify(spec);}
-async function resolveOffer(spec){
+async function resolveOffer(spec,options){
   const find=rows=>{const m=spec.goods?rows.filter(r=>Number(r.id)===spec.goods)
     :rows.filter(r=>String(r.game_area_format||'').trim()===spec.area&&(!spec.sid||Number(r.sid)===spec.sid));return m.length===1?m[0]:null;};
-  let row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.keyword}));
+  let row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.keyword},options));
   // FC 27 players: the category is longer than the page cap, so a missing row is looked up by name.
-  if(!row&&spec.search)row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.search}));
+  if(!row&&spec.search)row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.search},options));
   if(row&&spec.skuName){
     const variants=Object.values(row.saleprop||{}).filter(sku=>sku?.name===spec.skuName&&Number(sku.goods_id)===spec.goods);
     const [saleSku]=variants;

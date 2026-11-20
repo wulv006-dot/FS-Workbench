@@ -25,12 +25,15 @@ export function mainSite({signedIn=true}={}){
  // Every goods id the page asks for gets one listed row; currency rows carry quantity tiers.
  // A tier's _format price is the visitor-currency/new-user display price; price_discount is USD.
  function goods(form){
-  const top=Number(form.get('top_cid')),row=id=>({id,status:1,auto_off:0,min_qty:1,price_discount_format:'10.00',game_area_format:'Israphel - Asmodian',
+  const top=Number(form.get('top_cid'));
+  const row=id=>({id,status:1,auto_off:0,min_qty:1,game_area_format:'Israphel - Asmodian',
+   price_discount:id===site.formattedOnlyGoods?undefined:10,
+   price_discount_format:id===site.formattedOnlyGoods?'40.86':'10.00',
    goods_list:top===1?Object.fromEntries([3,5,8,10,20,30,50,70,100,200,300,500,600,800,1000,1500,2000].map(q=>[String(q),{price_discount:Math.round(q*12)/100,price_discount_format:(q*0.1).toFixed(2)}])):undefined});
   if(form.get('category_id')==='9665'){
    const lobby=Object.values(lobbyCatalog).find(entry=>entry.aid===Number(form.get('aid')));
    const list=lobby?[{...row(lobby.goods),aid:lobby.aid,price_discount:6.99,
-    saleprop:Object.fromEntries(lobby.skuIds.map((id,index)=>[id,{id,goods_id:lobby.goods,...lobbyOffers[index],status:1,stock:100}]).filter(([id])=>id!==site.missingLobbySku))}]:[];
+    saleprop:Object.fromEntries(lobby.skuIds.map((id,index)=>[id,{id,goods_id:lobby.goods,...lobbyOffers[index],status:1,stock:id===site.soldOutLobbySku?0:100}]).filter(([id])=>id!==site.missingLobbySku))}]:[];
    return {goods:{index:{total:list.length,perpage:28,list}}};
   }
   const ids={9623:[163329311,163329277,163329345],9627:[170015253,170015245,170015249,170017913,170015181,170015205],9661:[165167189],6955:[105267633],9991:[187090053,187090087],10079:[186209371],1338:[186208657],3955:[170070065],7111:[185981107,185981139,185981171]}[form.get('category_id')]||[];

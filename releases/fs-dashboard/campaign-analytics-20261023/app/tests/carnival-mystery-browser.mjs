@@ -124,3 +124,47 @@ test('a missing lobby SKU does not use the parent price or modify the cart',asyn
  assert.equal(site.cart.clears,0);
  assert.deepEqual(site.cart.adds,[]);
 });
+
+test('a lobby SKU that sells out after the quote leaves the existing cart untouched',async t=>{
+ const {page,site,carnival}=await open(t);
+ carnival.draw({uid:'123456',game:'codmw4',items:[0,1,3]});
+ await page.reload();
+ await page.locator('a[href="#mystery"]').first().click();
+ await page.locator('.gtab.game-codmw4').click();
+ const offer=lobbyOffers[0],card=page.locator('#msResult .fcard').filter({hasText:offer.name});
+ await card.getByText('$'+offer.price,{exact:true}).first().waitFor();
+ await card.locator('.buybtn').click();
+ const checkout=page.locator('#mysteryFlowMask.show [data-carnival-buy]');
+ await checkout.waitFor();
+ const existingLine={category:'new_items',id:'185981107',group:'1',num:'1',attr:'',aid:'19835'};
+ site.cart.adds.push(existingLine);
+ site.soldOutLobbySku=lobbyCatalog.PC.skuIds[0];
+ const unavailable=page.locator('#toast.show').getByText('This item cannot be added right now. Please try again in a moment.');
+ await checkout.click();
+ await Promise.race([unavailable.waitFor(),page.waitForURL('**/Cart.html')]);
+ assert.equal(site.cart.clears,0);
+ assert.deepEqual(site.cart.adds,[existingLine]);
+ assert.equal(await unavailable.isVisible(),true);
+});
+
+test('a localized formatted price cannot be quoted as USD or reach the cart',async t=>{
+ const {page,site,carnival}=await open(t);
+ site.formattedOnlyGoods=185981107;
+ carnival.draw({uid:'123456',game:'arc',items:[0,1,7]});
+ await page.goto('https://www.mmoexp.com/events/Carnival.html?price_debug=1');
+ await page.addStyleTag({content:'#priceDebug{display:none!important}'});
+ await page.locator('a[href="#mystery"]').first().click();
+ await page.locator('.gtab.game-arc').click();
+ const card=page.locator('#msResult .fcard').filter({hasText:'Stencil Parts'});
+ await page.waitForFunction(()=>/185981107 q1 a19835: (ok|no price)/.test(document.getElementById('priceDebug')?.textContent||''));
+ assert.match(await page.locator('#priceDebug').textContent(),/185981107 q1 a19835: no price/);
+ assert.equal(await card.locator('.price-row').textContent(),'PRICE PENDING');
+ await card.locator('.buybtn').click();
+ const checkout=page.locator('#mysteryFlowMask.show [data-carnival-buy]');
+ const unavailable=page.locator('#toast.show').getByText('This item cannot be added right now. Please try again in a moment.');
+ await checkout.click();
+ await Promise.race([unavailable.waitFor(),page.waitForURL('**/Cart.html')]);
+ assert.equal(site.cart.clears,0);
+ assert.deepEqual(site.cart.adds,[]);
+ assert.equal(await unavailable.isVisible(),true);
+});
