@@ -744,6 +744,7 @@ class VipMaintenance:
                         db.execute(f'INSERT OR IGNORE INTO {memberships}(week,case_id) VALUES(?,?)', (week, case['id']))
             if not frozen:
                 return
+            recorded_ids = {case['id'] for case, _, _, _ in previous}
             opened = start_of(checked_week(week))
             for buyer in cohort['buyers']:
                 last_order = buyer.get('lastOrder') or {}
@@ -766,8 +767,9 @@ class VipMaintenance:
                                    (week, same_cycle['id'], encoded(buyer)))
                     continue
                 shared = next((case for case, prior_buyer, _, active in reversed(cross_scope)
-                               if active or case['id'] in other_current
-                               or (prior_buyer.get('lastOrder') or {}).get('orderNo') == last_order.get('orderNo')), None)
+                               if case['id'] not in recorded_ids and
+                               (active or case['id'] in other_current
+                                or (prior_buyer.get('lastOrder') or {}).get('orderNo') == last_order.get('orderNo'))), None)
                 prior = matching or cross_scope
                 if prior:
                     identity = prior[-1][1]
