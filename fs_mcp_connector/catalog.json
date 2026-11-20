@@ -241,7 +241,7 @@
       "path": "/dashboard/fs-home/range.json",
       "method": "GET",
       "permission_path": "/dashboard/fs-home/range.json",
-      "description": "FC26／FC27 全站经营复盘聚合，沿用原管理员权限。start/end 为含首尾的北京时间日期。近三天同单查询传 view=same-order，最多三个已结束自然日，返回已付销售、订单、已核实际采购成本及毛利率和覆盖。今天的付款汇总用 business.summary 并注明截止。完整复盘 HTTP 202 沿原参数续查，长结果用 data_path 展开。",
+      "description": "FC26／FC27 全站经营复盘聚合，沿用原管理员权限。start/end 为含首尾的北京时间日期。近三天同单查询传 view=same-order，最多三个已结束自然日，返回已付销售、订单、已核实际采购成本及毛利率和覆盖。今天的付款汇总用 business.summary 并注明截止。完整复盘 HTTP 202 沿原参数续查。长结果用 data_path 展开或用 offset 继续展示分页，沿用 profile/start/end 并把 data_context 根路径返回的 revision 放入 arguments。revision 仅用于读取已保存的完整复盘。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -264,6 +264,11 @@
             "type": "string",
             "enum": ["same-order"],
             "maxLength": 10
+          },
+          "revision": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "[0-9a-f]{64}"
           }
         },
         "required": ["profile", "start", "end"],

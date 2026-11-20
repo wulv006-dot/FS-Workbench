@@ -331,10 +331,13 @@ def enrich(data, force=False, *, required_until=None, lock_deadline=None):
 def shared_view(period, gid=None, *, read=None):
     """Adapt one existing scoped ES publication to the original channel views."""
     from order_facts_api import safe_detail
-    if read is None:
-        from order_facts_runtime import collect_dashboard as read
     scope = dict(period,site_id=str(SITE),gid=gid or 'all')
-    result = read(scope)
+    if read is None:
+        from order_facts_runtime import collect_dashboard
+        # Channel accounting attaches its own cost sources below and in the delivery cache overlay.
+        result = collect_dashboard(scope, include_costs=False)
+    else:
+        result = read(scope)
     coverage = result['source_coverage']
     if result['status']=='unavailable':return None, coverage
     deliveries, cost = load_costs()

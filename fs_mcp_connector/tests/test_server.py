@@ -21,6 +21,8 @@ from mcp.client.streamable_http import streamablehttp_client
 import uvicorn
 
 from fs_mcp_connector.auth import AuthStore
+from fs_mcp_connector.backend import Backend
+from fs_mcp_connector.catalog import Catalog
 from fs_mcp_connector.portal import PortalError, Principal
 from fs_mcp_connector.server import create_app
 
@@ -136,6 +138,52 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(result['structuredContent']['response_view']['next_offset'], 23)
         self.assertEqual(result['structuredContent']['data_context']['']['next_cursor'], 'original-cursor')
         query.assert_called_once_with(Principal('alice', 'MMOEXP_AUTH=alice'), 'fixture.summary', {'original': 'query'})
+
+    def test_fc_project_display_continues_from_the_returned_revision_after_new_publication(self):
+        token = self.approve()['access_token']
+        reports = {}
+        for revision, generation in (('a' * 64, 1), ('b' * 64, 2)):
+            reports[revision] = {
+                'revision': revision,
+                'archivedAt': f'2026-11-19T0{generation}:00:00+08:00',
+                'packets': [{'daily': [
+                    {'day': index, 'sales': generation, 'source': 'x' * 400}
+                    for index in range(1, 41)
+                ]}],
+            }
+        latest = 'a' * 64
+
+        def transport(method, target, _headers, _body, _limits):
+            params = parse_qs(urlsplit(target).query)
+            self.assertEqual(method, 'GET')
+            self.assertEqual(params.pop('mode'), ['fc-project-review'])
+            revision = params.pop('revision', [latest])[0]
+            self.assertEqual(params, {'profile': ['FC27'], 'start': ['2026-10-01'], 'end': ['2026-10-31']})
+            return 200, json.dumps(reports[revision]).encode()
+
+        backend = Backend(Catalog(lambda *_: 200), ORIGIN, transport=transport)
+        period = {'profile': 'FC27', 'start': '2026-10-01', 'end': '2026-10-31'}
+
+        def read(query, **display):
+            response = self.rpc(token, 'tools/call', {'name': 'fs_query_data',
+                'arguments': {'operation': 'business.fc_project_review', 'arguments': query, **display}})
+            result = response.json()['result']
+            self.assertFalse(result['isError'], result)
+            return result['structuredContent']
+
+        with patch.object(self.backend, 'query', wraps=backend.query):
+            indexed = read(period)
+            self.assertEqual(indexed['response_view']['kind'], 'index')
+            identity = indexed['data_context']['']
+            self.assertEqual(identity, {'revision': 'a' * 64, 'archivedAt': '2026-11-19T01:00:00+08:00'})
+            latest = 'b' * 64
+            args = dict(period, revision=identity['revision'])
+            first = read(args, data_path='/packets/0/daily', limit=2)
+            following = read(args, data_path='/packets/0/daily', offset=first['response_view']['next_offset'], limit=2)
+            self.assertEqual(following['data_context'][''], identity)
+            self.assertEqual([item['sales'] for item in first['data'] + following['data']], [1, 1, 1, 1])
+            self.assertEqual([item['day'] for item in following['data']], [3, 4])
+            self.assertEqual(read(period)['data_context']['']['revision'], latest)
 
     def test_data_display_never_runs_before_backend_authorization_or_exposes_outside_data(self):
         tokens = self.approve()

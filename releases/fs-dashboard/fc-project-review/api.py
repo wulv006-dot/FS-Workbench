@@ -1,17 +1,21 @@
 """Dedicated FC review on the existing authenticated FS range service."""
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from hashlib import sha256
 import json
 import logging
+import os
 from pathlib import Path
+import re
+import sqlite3
 import subprocess
 import sys
 import threading
 import time
 
 from .review import TZ, interval, packet, save
-from .same_order import same_order_review
+from .same_order import UNAVAILABLE_NOTE, same_order_archive_update, same_order_review
 
 ROOT = Path("/var/lib/fs-fc-project-review")
 HERE = Path(__file__).resolve().parent
@@ -95,7 +99,7 @@ def capture(game, start, end, actor, get_range, order_facts, authorizer):
         except (ImportError,OSError,RuntimeError,ValueError,KeyError,TypeError) as exc:
             LOG.warning("FC same-order facts: %s",type(exc).__name__)
             result["sameOrder"]={"status":"unavailable"}
-            result["coverage"].append("同单采购成本本次未取得")
+            result["coverage"].append(UNAVAILABLE_NOTE)
     try:
         orders=read_program(sys.executable,"orders.py",start,end,"--game",game)
         result["ordersData"]=orders
@@ -142,22 +146,62 @@ def capture(game, start, end, actor, get_range, order_facts, authorizer):
     return result
 
 
-def publish(result, root=ROOT):
-    if result.get("game") not in ("FC26","FC27") or result.get("scope")!="all":
-        raise ValueError("invalid archive scope")
-    interval(result["game"],result["start"],result["end"])
-    if any(str(date.fromisoformat(result[k]))!=result[k] for k in ("start","end")):
-        raise ValueError("invalid archive dates")
-    root.mkdir(mode=0o700,parents=True,exist_ok=True)
-    daydir=root/result["game"]
-    daydir.mkdir(mode=0o700,parents=True,exist_ok=True)
-    base=result["start"]+"_"+result["end"]
+def packet_revision(result):
     raw=json.dumps(result,sort_keys=True,ensure_ascii=False,allow_nan=False).encode()
-    revision=sha256(raw).hexdigest()
-    doc={"schema":1,"archivedAt":datetime.now(TZ).isoformat(),"revision":revision,"packets":[result]}
-    save(daydir/"versions"/(base+"_"+revision+".json"),doc)
-    save(daydir/(base+".json"),doc)
+    return sha256(raw).hexdigest()
+
+
+@contextmanager
+def archive_lock(root):
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd = os.open(root / ".publish.lock", os.O_CREAT | os.O_RDWR, 0o600)
+    with os.fdopen(fd, "r+b") as lock:
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        yield
+
+
+def _publish(result, root):
+    game, start, end = (result[key] for key in ("game", "start", "end"))
+    daydir = root / game
+    daydir.mkdir(mode=0o700, exist_ok=True)
+    base = start + "_" + end
+    revision = packet_revision(result)
+    version = daydir / "versions" / (base + "_" + revision + ".json")
+    if version.is_file():
+        doc = read_archive(version, game, start, end, revision)
+    else:
+        doc = {"schema":1, "archivedAt":datetime.now(TZ).isoformat(), "revision":revision, "packets":[result]}
+        save(version, doc)
+    save(daydir / (base + ".json"), doc)
     return doc
+
+
+def publish(result, root=ROOT, *, captured_from=None):
+    game, start, end = (result[key] for key in ("game", "start", "end"))
+    if game not in ("FC26", "FC27") or result.get("scope") != "all":
+        raise ValueError("invalid archive scope")
+    interval(game, start, end)
+    if any(str(date.fromisoformat(value)) != value for value in (start, end)):
+        raise ValueError("invalid archive dates")
+    with archive_lock(root):
+        target = root / game / (start + "_" + end + ".json")
+        if target.is_file():
+            latest = read_archive(target, game, start, end)
+            previous = latest["packets"][0]
+            section = previous.get("sameOrder", {})
+            incoming = result.get("sameOrder") or {"status":"unavailable"}
+            overlapped = captured_from is not None and latest["revision"] != captured_from
+            if section.get("status") in ("complete", "partial") and (
+                    overlapped or same_order_archive_update(previous, incoming) is None):
+                # Full captures and imported legacy packets can lack the latest evidence.
+                coverage = [item for item in result["coverage"] if item != UNAVAILABLE_NOTE]
+                result = dict(result, sameOrder=section, coverage=coverage)
+        return _publish(result, root)
 
 
 def reusable(doc, end, modified, ttl):
@@ -181,15 +225,54 @@ def reusable(doc, end, modified, ttl):
         end == today == captured and 0 <= time.time()-modified < ttl)
 
 
+def read_archive(path, game, start, end, revision=None):
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    if len(doc["packets"]) != 1 or any(doc["packets"][0].get(key) != value for key, value in
+            (("game", game), ("scope", "all"), ("start", start), ("end", end))):
+        raise ValueError("archive identity mismatch")
+    if revision is not None and (doc.get("revision") != revision or packet_revision(doc["packets"][0]) != revision):
+        raise ValueError("archive revision mismatch")
+    return doc
+
+
+def refresh_same_order_archive(doc, target, pointer_before, game, start, end, actor, authorizer, root):
+    try:
+        result = same_order_archive_update(doc["packets"][0], same_order_review(game, start, end))
+    except (ImportError, OSError, RuntimeError, ValueError, KeyError, TypeError, sqlite3.Error) as exc:
+        LOG.warning("FC archived same-order facts: %s", type(exc).__name__)
+        result = None
+    if result is None:
+        if not authorizer(actor):
+            return 403, {"error":"admin_required"}
+        if target.stat() != pointer_before:
+            doc = read_archive(target, game, start, end)
+        return 200, doc
+    with archive_lock(root):
+        if not authorizer(actor):
+            return 403, {"error":"admin_required"}
+        latest = read_archive(target, game, start, end)
+        if latest["revision"] != doc["revision"]:
+            return 200, latest
+        try:
+            return 200, _publish(result, root)
+        except OSError as exc:
+            LOG.warning("FC same-order archive publication: %s", type(exc).__name__)
+            return 200, latest
+
+
 def get(params, actor, get_range, order_facts, authorizer, root=ROOT):
     if not actor or not authorizer(actor):
         return 403,{"error":"admin_required"}
-    if set(params)-{"mode","profile","start","end","refresh","view"} or not {"mode","profile","start","end"}<=set(params) or any(not isinstance(v,list) or len(v)!=1 for v in params.values()):
+    if set(params)-{"mode","profile","start","end","refresh","view","revision"} or not {"mode","profile","start","end"}<=set(params) or any(not isinstance(v,list) or len(v)!=1 for v in params.values()):
         return 422,{"error":"invalid_review_query"}
     if "view" in params and (params["view"]!=["same-order"] or "refresh" in params):
         return 422,{"error":"invalid_review_view"}
     if "refresh" in params and params["refresh"]!=["true"]:
         return 422,{"error":"invalid_refresh"}
+    revision=params.get("revision",[None])[0]
+    if "revision" in params and ("view" in params or "refresh" in params
+                                 or not isinstance(revision,str) or not re.fullmatch(r"[0-9a-f]{64}",revision)):
+        return 422,{"error":"invalid_revision"}
     game,start,end=(params[k][0] for k in ("profile","start","end"))
     try:
         if game not in ("FC26","FC27"):raise ValueError()
@@ -202,14 +285,21 @@ def get(params, actor, get_range, order_facts, authorizer, root=ROOT):
             return 422,{"error":"same_order_requires_up_to_three_closed_days"}
         data=same_order_review(game,start,end)
         return (200,data) if authorizer(actor) else (403,{"error":"admin_required"})
-    target=root/game/(start+"_"+end+".json")
+    base=start+"_"+end
+    target=root/game/(base+".json")
+    if revision is not None:
+        target=root/game/"versions"/(base+"_"+revision+".json")
     if target.is_file() and "refresh" not in params:
-        doc=json.loads(target.read_text(encoding="utf-8"))
-        if len(doc["packets"])!=1 or any(doc["packets"][0].get(k)!=v for k,v in
-                (("game",game),("scope","all"),("start",start),("end",end))):
-            raise ValueError("archive identity mismatch")
-        if reusable(doc,end,target.stat().st_mtime,300):
-            return 200,doc
+        pointer_before = target.stat()
+        doc = read_archive(target, game, start, end, revision)
+        if revision is not None:
+            return 200, doc
+        if reusable(doc, end, pointer_before.st_mtime, 300):
+            if len(dates) <= 3 and date.fromisoformat(end) < datetime.now(TZ).date():
+                return refresh_same_order_archive(doc, target, pointer_before, game, start, end, actor, authorizer, root)
+            return 200, doc
+    if revision is not None:
+        return 404,{"error":"revision_not_found"}
     key=(game,start,end,actor)
     with LOCK:
         previous=JOBS.get(key)
@@ -228,7 +318,12 @@ def get(params, actor, get_range, order_facts, authorizer, root=ROOT):
                 if f.done() and time.monotonic()-since>=60:del JOBS[old]
             def collect():
                 try:
-                    return publish(capture(game,start,end,actor,get_range,order_facts,authorizer),root)
+                    try:
+                        captured_from = read_archive(target, game, start, end)["revision"]
+                    except FileNotFoundError:
+                        captured_from = ""
+                    result = capture(game,start,end,actor,get_range,order_facts,authorizer)
+                    return publish(result, root, captured_from=captured_from)
                 except Exception:
                     LOG.exception("FC project review capture failed for %s %s %s",game,start,end)
                     raise

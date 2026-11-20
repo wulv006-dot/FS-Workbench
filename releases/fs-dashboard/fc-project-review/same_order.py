@@ -15,6 +15,103 @@ MAIN = "www.mmoexp.com"
 COST_ROOT = Path("/var/lib/fs-channel-effects")
 CONTRACT = "fc-same-order-procurement-v1"
 ACCOUNTING_RULE = "exclude-confirmed-test-failed-validation-v1"
+UNAVAILABLE_NOTE = "同单采购成本本次未取得"
+
+
+def preserves_delivery_evidence(previous, reviewed, start, end):
+    """Every known trade second in the cohort still has evidence of equal authority or newer."""
+    previous_order = previous.get("revisions", {}).get("order", [])
+    if not previous_order:
+        return True
+    new_order = sorted(
+        (window for window in reviewed["revisions"].get("order", [])
+         if window["start"] <= end and start <= window["end"]),
+        key=lambda window: window["start"],
+    )
+    for old in previous_order:
+        cursor, stop = max(old["start"], start), min(old["end"], end)
+        if cursor > stop:
+            continue
+        old_stamp = datetime.fromisoformat(old["capturedAt"])
+        for fresh in new_order:
+            if fresh["start"] > cursor:
+                return False
+            if fresh["end"] < cursor:
+                continue
+            stamp = datetime.fromisoformat(fresh["capturedAt"])
+            same_authority = (fresh.get("indexRevision") or
+                              not old.get("indexRevision") and fresh["revision"] == old["revision"])
+            if stamp < old_stamp or stamp == old_stamp and not same_authority:
+                continue
+            if fresh["end"] >= stop:
+                break
+            cursor = (datetime.fromisoformat(fresh["end"]) + timedelta(seconds=1)).isoformat(sep=" ")
+        else:
+            return False
+    return True
+
+
+def same_order_archive_update(packet, reviewed):
+    """Return a revised packet when local evidence changes its same-order section."""
+    if reviewed["status"] == "unavailable" or reviewed["coverage"]["invalidCostFiles"]:
+        return None
+
+    def comparable(section):
+        coverage = section.get("coverage", {})
+        # Index windows and provenance can advance outside this cohort.
+        return (
+            section.get("contract"), section.get("status"), section.get("totals"),
+            section.get("daily"), section.get("breakdown"), section.get("definition"),
+            section.get("revisions", {}).get("accountingRule"),
+            {key: value for key, value in coverage.items() if key != "costWindows"},
+        )
+
+    previous = packet.get("sameOrder", {})
+    if comparable(previous) == comparable(reviewed):
+        return None
+
+    before, after = previous.get("coverage", {}), reviewed["coverage"]
+    if set(after["missingDays"]) - set(before.get("missingDays", after["missingDays"])):
+        return None
+    old_revisions, new_revisions = previous.get("revisions", {}), reviewed["revisions"]
+    old_admin = old_revisions.get("admin", {}).get("captured_at")
+    new_admin = new_revisions.get("admin", {}).get("captured_at")
+    if old_admin and new_admin and (
+            datetime.fromisoformat(new_admin.replace("Z", "+00:00"))
+            < datetime.fromisoformat(old_admin.replace("Z", "+00:00"))):
+        return None
+
+    previous_receipts = old_revisions.get("completedStatus", {})
+    new_receipts = new_revisions["completedStatus"]
+    observations = {day: datetime.fromisoformat(receipt["observedAt"]) for day, receipt in previous_receipts.items()}
+    if any(day not in new_receipts or datetime.fromisoformat(new_receipts[day]["observedAt"]) < observed
+           for day, observed in observations.items()):
+        return None
+    new_daily = {item["date"]: item for item in reviewed.get("daily", [])}
+    for old in previous.get("daily", []):
+        day = old["date"]
+        fresh = new_daily[day]
+        if (fresh["coveredOrders"] >= old["coveredOrders"]
+                or fresh["missingCostOrders"] <= old["missingCostOrders"] or day not in observations):
+            continue
+        if (new_receipts[day] == previous_receipts[day]
+                and new_revisions.get("completedStatusRevision") != old_revisions.get("completedStatusRevision")):
+            # Reconstructing the same receipt can lose witnesses when its undo history expires.
+            return None
+        old_bound = observations[day].astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")
+        new_bound = datetime.fromisoformat(new_receipts[day]["observedAt"]).astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")
+        if old_bound < new_bound and not any(lo <= old_bound <= new_bound <= hi for lo, hi in after["costWindows"]):
+            # The new completed-order observation needs matching delivery coverage.
+            return None
+
+    # A verified replacement can correct or remove costs. Rotation cannot prove an older shipment vanished.
+    start = packet["start"] + " 00:00:00"
+    end = (max(observations.values()).astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")
+           if observations else packet["end"] + " 23:59:59")
+    if not preserves_delivery_evidence(previous, reviewed, start, end):
+        return None
+    coverage = [message for message in packet["coverage"] if message != UNAVAILABLE_NOTE]
+    return dict(packet, sameOrder=reviewed, coverage=coverage)
 
 
 @lru_cache(maxsize=12)

@@ -1,11 +1,12 @@
 from datetime import date, timedelta
-from concurrent.futures import Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from importlib import import_module
 import json
 import os
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
+from threading import Event
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -115,6 +116,69 @@ class ApiTests(unittest.TestCase):
 
     def get(self, permitted=True, **updates):
         return api.get({**self.params,**updates},"reviewer",None,None,lambda _:permitted,self.root)
+
+    def test_full_refresh_preserves_same_order_published_during_capture(self):
+        started, finish = Event(), Event()
+        stale = dict(status="unavailable")
+        fresh = dict(status="complete", totals=dict(coveredOrders=1),
+                     coverage=dict(invalidCostFiles=[], missingDays=[], costWindows=[]),
+                     revisions=dict(completedStatus={}, order=[]))
+
+        def capture(*args):
+            started.set()
+            self.assertTrue(finish.wait(5))
+            return dict(packet, sameOrder=stale, coverage=["full capture updated"])
+
+        with patch.object(api, "datetime", wraps=api.datetime) as clock, \
+                patch.object(api, "capture", side_effect=capture), \
+                patch.object(api, "same_order_review", return_value=fresh):
+            clock.now.return_value = api.datetime(2026, 11, 19, tzinfo=api.TZ)
+            packet = dict(api.packet(core()), sameOrder=stale)
+            api.publish(packet, self.root)
+            with ThreadPoolExecutor(1) as pool, patch.object(api, "POOL", pool):
+                try:
+                    self.assertEqual(self.get(refresh=["true"])[0], 202)
+                    self.assertTrue(started.wait(5))
+                    self.assertEqual(self.get()[1]["packets"][0]["sameOrder"], fresh)
+                finally:
+                    finish.set()
+        with patch.object(api, "same_order_review", side_effect=OSError):
+            current = self.get()[1]["packets"][0]
+        self.assertEqual(current["coverage"], ["full capture updated"])
+        self.assertEqual(current["sameOrder"], fresh)
+
+    def test_archive_import_preserves_the_verified_same_order_section(self):
+        fresh = dict(status="complete", totals=dict(coveredOrders=1))
+        with patch.object(api, "datetime", wraps=api.datetime) as clock:
+            clock.now.return_value = api.datetime(2026, 11, 19, tzinfo=api.TZ)
+            legacy = api.packet(core())
+            first = api.publish(dict(legacy, sameOrder=fresh), self.root)
+            revised = api.publish(dict(legacy, coverage=["verified aggregate import"]), self.root)
+            self.assertNotEqual(revised["revision"], first["revision"])
+            self.assertEqual(revised["packets"][0]["sameOrder"], fresh)
+            self.assertEqual(revised["packets"][0]["coverage"], ["verified aggregate import"])
+            self.assertEqual(self.get(revision=[first["revision"]]), (200, first))
+
+    def test_no_update_read_returns_concurrently_published_current_archive(self):
+        started, finish = Event(), Event()
+
+        def unavailable(*args):
+            started.set()
+            self.assertTrue(finish.wait(5))
+            raise OSError
+
+        with patch.object(api, "datetime", wraps=api.datetime) as clock, \
+                patch.object(api, "same_order_review", side_effect=unavailable), ThreadPoolExecutor(1) as pool:
+            clock.now.return_value = api.datetime(2026, 11, 19, tzinfo=api.TZ)
+            packet = api.packet(core())
+            api.publish(packet, self.root)
+            inflight = pool.submit(self.get)
+            try:
+                self.assertTrue(started.wait(5))
+                newer = api.publish(dict(packet, coverage=["concurrent source update"]), self.root)
+            finally:
+                finish.set()
+            self.assertEqual(inflight.result(timeout=5), (200, newer))
 
     def test_completed_report_exposes_authorized_same_order_aggregate(self):
         source=core();admin=source["admin"]
@@ -356,6 +420,31 @@ class ApiTests(unittest.TestCase):
         second=api.publish(dict(p,coverage=["source corrected"]),self.root)
         self.assertNotEqual(first["revision"],second["revision"])
         self.assertEqual(len(list((self.root/"FC27"/"versions").glob("*.json"))),2)
+        self.assertEqual(self.get(), (200,second))
+        self.assertEqual(self.get(revision=[first["revision"]]), (200,first))
+
+    def test_exact_revision_is_admin_only_and_never_falls_back_to_other_report_modes(self):
+        revision=api.publish(api.packet(core()),self.root)["revision"]
+        with patch.object(api.POOL,"submit") as submit, patch.object(api,"same_order_review") as live:
+            self.assertEqual(self.get(False,revision=[revision]),(403,{"error":"admin_required"}))
+            for query in ({"revision":["0"*64]}, {"revision":[revision],"start":["2026-11-15"]}):
+                with self.subTest(query=query):
+                    self.assertEqual(self.get(**query),(404,{"error":"revision_not_found"}))
+            for query in ({"revision":["../report"]}, {"revision":[revision,revision]},
+                          {"revision":[revision],"refresh":["true"]}, {"revision":[revision],"view":["same-order"]}):
+                with self.subTest(query=query):
+                    self.assertEqual(self.get(**query)[0],422)
+            submit.assert_not_called()
+            live.assert_not_called()
+
+    def test_exact_revision_rejects_changed_packet_under_saved_hash(self):
+        report=api.publish(api.packet(core()),self.root)
+        revision=report["revision"]
+        path=self.root/"FC27"/"versions"/("2026-11-16_2026-11-16_"+revision+".json")
+        report["packets"][0]["kpi"]["orders"]=999
+        path.write_text(json.dumps(report),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"archive revision mismatch"):
+            self.get(revision=[revision])
 
     def test_source_shape_and_optional_gaps(self):
         source=core()

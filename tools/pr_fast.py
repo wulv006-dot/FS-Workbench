@@ -942,7 +942,7 @@ def main():
     selfcheck()
     for group in groups:
         if group == 'fc-project-review':
-            units('releases/fs-dashboard/fc-project-review',['test_api','test_review','tests_orders','traffic_test','fulfillment_test','test_dashboard_release'])
+            units('releases/fs-dashboard/fc-project-review',['test_api','test_same_order_archive','test_review','tests_orders','traffic_test','fulfillment_test','test_dashboard_release'])
             subprocess.run(['node',str(ROOT/'releases/fs-dashboard/fc-project-review/test_daily_rows.cjs')],
                 env={**os.environ,'PYTHON':sys.executable},check=True,timeout=30,cwd=ROOT)
             continue

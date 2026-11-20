@@ -62,7 +62,11 @@ def present(result, data_path='', offset=None, limit=None):
 
     context, context_index = {}, []
     for ancestor_path, ancestor in ancestors:
-        for key in CONTEXT_FIELDS:
+        fields = CONTEXT_FIELDS
+        if (not ancestor_path and result.get('operation') == 'business.fc_project_review'
+                and 'archivedAt' in ancestor and 'packets' in ancestor):
+            fields = ('revision', 'archivedAt') + fields
+        for key in fields:
             if key in ancestor:
                 item = ancestor[key]
                 metadata = {**context.get(ancestor_path, {}), key: item}
