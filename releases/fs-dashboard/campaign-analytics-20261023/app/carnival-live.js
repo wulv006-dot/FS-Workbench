@@ -136,30 +136,28 @@ async function claimSlot(slot,couponId){
  * it), the exact goods row is added once, and the cart page opens with the coupon selected.
  * Each request is sent once; any failure stops with a "try again" message. */
 const postForm=(url,form)=>fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)}).then(r=>{if(!r.ok)throw Error('HTTP_'+r.status);return r.json().catch(()=>({}));});
-function cartLine(spec,row){
-  if(spec.top===1)return {category:'new_gold',id:String(row.id),group:String(spec.qty),num:'1',attr:'',aid:''};
-  return {category:'new_items',id:String(row.id),group:'1',num:String(Math.max(1,Number(row.min_qty)||1)),attr:row.saleSku?row.saleSku.id+'-'+row.saleSku.name:'',aid:String(row.aid??spec.aid??'')};
-}
-async function buyNow(spec,memberCouponId){
-  let row;try{row=spec&&await specRow(spec);}catch{}
-  if(!row||rowPrice(row,spec.top,spec.qty)===null)return {state:'unavailable'};
-  const line=cartLine(spec,row);
+async function buyNow(spec,memberCouponId,quotedLine){
+  let offer;try{offer=spec&&(await resolveOffer(spec,{fresh:true})).offer;}catch{}
+  if(!offer)return {state:'unavailable'};
+  const {line}=offer;
+  // The final price can change, but the buyer chose this exact product, SKU and quantity.
+  if(quotedLine&&Object.entries(quotedLine).some(([key,value])=>line[key]!==value))return {state:'unavailable'};
   try{const c=await postForm('/Cart/clear',{});if(Number(c?.code)===0||c?.status===false)return {state:'clear_failed'};}catch{return {state:'clear_failed'};}
   let res;try{res=await postForm('/Cart/add.html',line);}catch{return {state:'unknown'};}
   const value=res?.data?.cart?.add||res?.cart?.add;
   if(res?.code===0||res?.status===false||value?.status===false)return {state:'rejected',message:String(value?.msg||res?.msg||'').slice(0,200)};
   if(!(Number(res?.code)===1||value&&(value.details||value.cart||value.total!=null)))return {state:'unknown'};
-  handToCart(memberCouponId);track('fcactivity:selection',{action:'buy_now',ids:[String(row.id)]});
+  handToCart(memberCouponId);track('fcactivity:selection',{action:'buy_now',ids:[line.id]});
   location.assign('/Cart.html');return {state:'navigating'};
 }
 function buyNowBlock(){
   return `<button type="button" class="buybtn" data-carnival-buy>${say('CHECKOUT NOW','立即结算')}</button>`;
 }
-function wireBuyNow(spec,memberCouponId){
+function wireBuyNow(spec,memberCouponId,quotedLine){
   const b=document.querySelector('#mysteryFlowMask [data-carnival-buy]');if(!b)return;
   b.addEventListener('click',async()=>{
     b.disabled=true;b.textContent=say('ADDING TO CART…','正在加入购物车…');
-    const r=await buyNow(spec,memberCouponId);
+    const r=await buyNow(spec,memberCouponId,quotedLine);
     if(r.state==='navigating')return;
     b.disabled=false;b.textContent=say('CHECKOUT NOW','立即结算');
     toast(r.state==='unknown'?say('We could not confirm the cart. Open your cart before trying again.','无法确认是否已加入购物车，请先打开购物车查看再重试。')
@@ -218,13 +216,13 @@ async function goodsPage(form){
   if(goodsActive>=4)await new Promise(r=>goodsQueue.push(r));
   goodsActive++;
   try{
-    const r=await fetch('/ajax/goods',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)});
+    const r=await fetch('/ajax/goods',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)});
     if(!r.ok)throw Error('HTTP_'+r.status);return await r.json();
   }finally{goodsActive--;goodsQueue.shift()?.();}
 }
-async function listRows(scope){
+async function listRows(scope,{fresh=false}={}){
   const key=JSON.stringify(scope),hit=lists.get(key);
-  if(hit&&(hit.promise||Date.now()-hit.at<LIST_TTL))return hit.promise||hit.rows;
+  if(!fresh&&hit&&(hit.promise||Date.now()-hit.at<LIST_TTL))return hit.promise||hit.rows;
   const promise=(async()=>{
     const rows=[];let pages=1;
     for(let page=1;page<=pages&&page<=10;page++){
@@ -234,31 +232,39 @@ async function listRows(scope){
     }
     return rows;
   })();
+  // Checkout must not wait on or change the display cache before clearing the cart.
+  if(fresh)return promise;
   lists.set(key,{promise});
   try{const rows=await promise;lists.set(key,{rows,at:Date.now()});return rows;}catch(e){lists.delete(key);throw e;}
 }
-// Public price of an exact goods row and quantity; null when that tier is not sold.
-function rowPrice(row,top,qty){
+function offerFromRow(row,spec){
   if(!row||Number(row.status)!==1||Number(row.auto_off)!==0)return null;
-  // price_discount is the USD list price; the _format field is converted to the visitor's
-  // currency and, for guests, already takes the main site's new-user coupon off.
-  if(top===1){const tier=row.goods_list?.[String(qty)];const v=Number(tier?.price_discount??tier?.price_discount_format);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;}
-  // The formatted price is rounded to cents, which zeroes tiny unit prices (POE orbs); use the raw one.
-  const unit=Number(row.saleSku?row.saleSku.price:row.price_discount??row.price_discount_format),v=unit*Math.max(1,Number(row.min_qty)||1);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;
+  const currency=spec.top===1,qty=currency?spec.qty:Math.max(1,Number(row.min_qty)||1);
+  const saleSku=currency?null:row.saleSku,pricedRow=currency?row.goods_list?.[String(qty)]:row;
+  // The formatted field can be localized, pre-discounted or rounded to zero.
+  const unit=Number(saleSku?saleSku.price:pricedRow?.price_discount);
+  const total=currency?unit:unit*qty;
+  if(!Number.isFinite(total)||total<=0)return null;
+  const id=String(row.id),line=currency
+    ?{category:'new_gold',id,group:String(qty),num:'1',attr:'',aid:''}
+    :{category:'new_items',id,group:'1',num:String(qty),attr:saleSku?saleSku.id+'-'+saleSku.name:'',aid:String(row.aid??spec.aid??'')};
+  return {price:Math.round(total*100)/100,line};
 }
-// spec: {game,top,cid,aid?,keyword?,goods?,area?,sid?,qty,skuName?}
+// spec: {game,top,cid,aid?,keyword?,goods?,area?,sid?,search?,qty,skuName?}
 function quoteKey(spec){return JSON.stringify(spec);}
-// The one goods row a spec names, or null when it is missing or ambiguous.
-async function specRow(spec){
+function quotedOffer(spec){return spec?quotes.get(quoteKey(spec))?.offer:null;}
+async function resolveOffer(spec,options){
   const find=rows=>{const m=spec.goods?rows.filter(r=>Number(r.id)===spec.goods)
     :rows.filter(r=>String(r.game_area_format||'').trim()===spec.area&&(!spec.sid||Number(r.sid)===spec.sid));return m.length===1?m[0]:null;};
-  let row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.keyword}));
+  let row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.keyword},options));
   // FC 27 players: the category is longer than the page cap, so a missing row is looked up by name.
-  if(!row&&spec.search)row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.search}));
-  if(!row||!spec.skuName)return row;
-  const variants=Object.values(row.saleprop||{}).filter(sku=>sku?.name===spec.skuName&&Number(sku.goods_id)===spec.goods);
-  const [saleSku]=variants;
-  return variants.length===1&&/^[1-9]\d*$/.test(String(saleSku.id))&&Number(saleSku.status)===1&&Number(saleSku.stock)>0?{...row,saleSku}:null;
+  if(!row&&spec.search)row=find(await listRows({game:spec.game,top:spec.top,cid:spec.cid,aid:spec.aid,keyword:spec.search},options));
+  if(row&&spec.skuName){
+    const variants=Object.values(row.saleprop||{}).filter(sku=>sku?.name===spec.skuName&&Number(sku.goods_id)===spec.goods);
+    const [saleSku]=variants;
+    row=variants.length===1&&/^[1-9]\d*$/.test(String(saleSku.id))&&Number(saleSku.status)===1&&Number(saleSku.stock)>0?{...row,saleSku}:null;
+  }
+  return {row,offer:offerFromRow(row,spec)};
 }
 // ?price_debug=1 lists every price lookup on the page, to diagnose a device that shows none.
 const PRICE_DEBUG=new URLSearchParams(location.search).has('price_debug'),diag=new Map();
@@ -270,24 +276,24 @@ function priceDiag(key,spec,state){
 }
 function cachedQuote(spec,rerender){
   if(!spec)return null;const key=quoteKey(spec),hit=quotes.get(key);
-  if(hit&&Date.now()-hit.at<LIST_TTL)return hit.price;
+  if(hit&&Date.now()-hit.at<LIST_TTL)return hit.offer?.price??null;
   if(!hit?.pending){
-    quotes.set(key,{...(hit||{price:null,at:0}),pending:true});
+    quotes.set(key,{...(hit||{offer:null,at:0}),pending:true});
     priceDiag(key,spec,'loading');
-    specRow(spec).then(row=>{
-      const price=rowPrice(row,spec.top,spec.qty);
+    resolveOffer(spec).then(({row,offer})=>{
+      const price=offer?.price??null;
       priceDiag(key,spec,price!==null?'ok '+price:!row?'no row':'no price (status '+row.status+', off '+row.auto_off+', tiers '+Object.keys(row.goods_list||{}).join('/')+')');
-      quotes.set(key,{price,at:Date.now()});rerender();
+      quotes.set(key,{offer,at:Date.now()});rerender();
     }).catch(e=>{
       priceDiag(key,spec,'error '+String(e?.message||e).slice(0,80));
       // A failed read retries on its own (2s, 4s, 6s); waiting for an unrelated re-render left
       // a price pending for good when nothing else on the page changed.
       const fails=(hit?.fails||0)+1;
-      quotes.set(key,{price:hit?.price??null,at:fails<4?0:Date.now(),fails});
+      quotes.set(key,{offer:hit?.offer??null,at:fails<4?0:Date.now(),fails});
       if(fails<4)setTimeout(rerender,2000*fails);else rerender();
     });
   }
-  return hit?.price??null;
+  return hit?.offer?.price??null;
 }
 const amountOf=name=>{const m=/(\d+(?:\.\d+)?)\s*K\b/i.exec(name||'');return m?Number(m[1]):null;};
 function mysterySpec(it){
@@ -396,20 +402,23 @@ drawDeal=async function(){
 startMysteryPurchase=async function(index){
   const r=revealed?.[index];if(!r)return;
   if(account.state!=='signed_in'){requireLogin(null);return;}
-  const slot=mystery[curGame]?.coupon_slot;if(!slot||!r.couponId){toast(say('This discount is not available right now.','这个折扣暂时不可用。'));return;}
+  const spec=mysterySpec(r.it),game=gameItems(),slot=mystery[curGame]?.coupon_slot;if(!slot||!r.couponId){toast(say('This discount is not available right now.','这个折扣暂时不可用。'));return;}
+  const offer=quotedOffer(spec);
   mysteryBox(`<div class="mystery-flow-label">${say('ITEM COUPON','商品专属优惠券')}</div><h3 id="mysteryFlowTitle">${say('Getting your coupon…','正在领取优惠券…')}</h3>`);
   const result=await claimSlot(slot,r.couponId);
   if(result.state==='login_required'){closeMysteryFlow();requireLogin(null);return;}
   if(!couponOutcome(result,r.couponId,slot)){closeMysteryFlow();return;}
   handToCart(result.memberCouponId);
-  const price=fc27Price(r.it),spec=mysterySpec(r.it);
+  const modalOffer=offer??quotedOffer(spec);
+  if(!modalOffer)cachedQuote(spec,rerenderMs);
+  const price=modalOffer?.price??null;
   mysteryBox(`<div class="mystery-flow-label">${say('ITEM COUPON','商品专属优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+r.off+'% OFF coupon is in your account','你的 '+r.off+'% OFF 优惠券已到账')}</h3>
   ${couponCard({amount:r.off+'% OFF',description:esc(nm(r.it))})}
-  <div class="mystery-flow-box"><p>${esc(nm(gameItems()))} · ${esc(nm(r.it))}</p>${price!==null?`<p>${say('Current price','当前价格')}: $${price.toFixed(2)} → <b>$${(price*(1-r.off/100)).toFixed(2)}</b></p>`:''}
+  <div class="mystery-flow-box"><p>${esc(nm(game))} · ${esc(nm(r.it))}</p>${price!==null?`<p>${say('Current price','当前价格')}: $${price.toFixed(2)} → <b>$${(price*(1-r.off/100)).toFixed(2)}</b></p>`:''}
   <p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Coupons cannot be combined with other coupons or codes.','最终价格以结算页为准；不能与其他优惠券或折扣码叠加。')}</p></div>
   ${buyNowBlock()}
   <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
-  wireBuyNow(spec,result.memberCouponId);
+  wireBuyNow(spec,result.memberCouponId,modalOffer?.line);
 };
 tickMs=function(){syncMysteryCooldown();document.getElementById('msTimer').textContent=msDrawsLeft?say('READY','可以翻牌'):say('VERIFY AFTER PAYMENT TO UNLOCK','付款后点下方按钮校验解锁');};
 // A drawn round unlocks only when the member presses "verify" after paying: the order is
@@ -509,6 +518,7 @@ document.getElementById('flashGrid').addEventListener('click',async e=>{
       if(r.state==='login_required'){requireLogin(null);return;}
       if(couponOutcome(r,id,vb.dataset.slot))toast(say('Coupon added to your account.','优惠券已发到你的账户。'));return;}
     const p=s.products.find(x=>x.key===pb.dataset.carnivalProduct);if(!p)return;
+    const spec=flashSpec(p),offer=quotedOffer(spec);
     const r=await claimSlot('bf_items',p.coupon_id);
     if(r.state==='login_required'){requireLogin(null);return;}
     if(!couponOutcome(r,p.coupon_id,'bf_items'))return;
@@ -519,7 +529,7 @@ document.getElementById('flashGrid').addEventListener('click',async e=>{
     <div class="mystery-flow-box"><p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Use it within 1 day.','最终价格以结算页为准。领取后 1 天内有效。')}</p></div>
     ${buyNowBlock()}
     <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
-    wireBuyNow(flashSpec(p),r.memberCouponId);
+    wireBuyNow(spec,r.memberCouponId,offer?.line);
   }finally{btn.disabled=false;}
 },true);
 

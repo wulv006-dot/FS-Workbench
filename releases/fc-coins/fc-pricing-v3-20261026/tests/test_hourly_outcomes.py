@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from types import ModuleType
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -232,7 +233,7 @@ class HourlyOutcomesTest(unittest.TestCase):
         start = source._window_instant(window['opened_at'])
         lo = start.astimezone(source.TZ).strftime('%Y-%m-%d 00:00:00')
         hi = (now.astimezone(source.TZ)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:59')
-        witness = dict(source='www.mmoexp.com', since=lo, until=hi, capturedAt=now.isoformat())
+        witness = dict(source='www.mmoexp.com', since=lo, until=hi, capturedAt=now.isoformat(), revision='a')
         receipt = dict(status='available', revision='cost-a', rows=[], generatedAt=now.isoformat(), windows=[witness])
         with tempfile.TemporaryDirectory() as folder:
             channel = MagicMock(ROOT=Path(folder))
@@ -241,10 +242,35 @@ class HourlyOutcomesTest(unittest.TestCase):
                     patch('order_delivery_index.read_orders',return_value=receipt) as read:
                 result = source.hourly_accounting([order], {}, start, now, start, reuse_closed_days=True)
             self.assertEqual(read.call_args.args[0], [('www.mmoexp.com',order['order_no'])])
+            with patch.object(sys, 'path', [str(dashboard), *sys.path]), patch.dict('sys.modules', {'channel_source':channel}):
+                with self.assertRaisesRegex(ValueError, 'invalid_delivery_order_key'):
+                    source.hourly_accounting([dict(order, order_no='')], {}, start, now, start, reuse_closed_days=True)
             channel.enrich.assert_not_called()
             channel.load_costs.assert_not_called()
             self.assertEqual(result['cost_source']['revision'], 'cost-a')
             self.assertEqual(result['cost_cursor_at'], now.isoformat())
+
+    def test_hourly_cost_gap_uses_native_fallback_and_keeps_cursor_pending(self):
+        dashboard = Path(__file__).resolve().parents[3] / 'fs-dashboard/dashboard-refresh-20261025/source'
+        now, order, window = self.fixture()
+        start = source._window_instant(window['opened_at'])
+        day = start.astimezone(source.TZ).date().isoformat()
+        until = (now.astimezone(source.TZ)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:59')
+        witness = dict(source='www.mmoexp.com', capturedAt=now.isoformat())
+        prefix = dict(witness, since=day+' 00:00:00', until=day+' 00:00:59', revision='prefix')
+        tail = dict(witness, since=day+' 00:01:01', until=until, revision='tail')
+        receipt = dict(status='available', revision='cost-a', rows=[], windows=[prefix, tail])
+        with tempfile.TemporaryDirectory() as folder:
+            channel = MagicMock(ROOT=Path(folder))
+            channel.normalize.return_value = []
+            channel.load_costs.return_value = ([], dict(status='unavailable'))
+            with patch.object(sys, 'path', [str(dashboard), *sys.path]), patch.dict('sys.modules', {'channel_source':channel}), \
+                    patch('order_delivery_index.read_orders', return_value=receipt):
+                result = source.hourly_accounting([order], {}, start, now, start, reuse_closed_days=True)
+        channel.load_costs.assert_called_once()
+        channel.enrich.assert_called_once()
+        self.assertFalse(result['cost_cache_reused'])
+        self.assertIsNone(result['cost_cursor_at'])
 
     def test_hourly_refresh_reloads_both_corrected_prefix_and_new_tail_at_one_revision(self):
         dashboard = Path(__file__).resolve().parents[3] / 'fs-dashboard/dashboard-refresh-20261025/source'
@@ -252,7 +278,7 @@ class HourlyOutcomesTest(unittest.TestCase):
         start = source._window_instant(window['opened_at'])
         since = start.astimezone(source.TZ).strftime('%Y-%m-%d 00:00:00')
         until = (now.astimezone(source.TZ)-timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:59')
-        proof = dict(source='www.mmoexp.com', since=since, until=until, capturedAt=now.isoformat())
+        proof = dict(source='www.mmoexp.com', since=since, until=until, capturedAt=now.isoformat(), revision='tail')
         corrected = dict(delivery_id='1', sn=order['order_no'], cost_total='21')
         new = dict(delivery_id='2', sn=order['order_no'], cost_total='12')
         fresh = dict(status='available', revision='corrected-tail', rows=[corrected, new], windows=[proof])
@@ -283,22 +309,28 @@ class HourlyOutcomesTest(unittest.TestCase):
                    trade_at=today+' 10:00:00', cost_total='42', sale_total='60')
         refreshed = dict(status='partial', generatedAt=now.isoformat(), period=dict(start=recent, end=today, until=cutoff))
         later = dict(refreshed, generatedAt=(now+timedelta(seconds=1)).isoformat())
-        with tempfile.TemporaryDirectory() as folder:
-            channel = MagicMock(ROOT=Path(folder))
-            channel.normalize.return_value = []
-            channel.load_costs.side_effect = [([], dict(status='unavailable')), ([dict(row, cost_total='99')], later)]
-            def enrich(data):
-                data['sources']['cost'] = refreshed
-                if data.get('include_cost_delivery_rows') is True:
-                    data['cost_delivery_rows'] = [row]
-                return data
-            channel.enrich.side_effect = enrich
-            with patch.object(sys, 'path', [str(dashboard), *sys.path]), \
-                    patch.dict('sys.modules', {'channel_source':channel, 'order_delivery_index':None}):
-                result = source.hourly_accounting([order], {}, start, now, now-timedelta(days=1), reuse_closed_days=True)
-        self.assertEqual(channel.load_costs.call_count, 1)
-        self.assertEqual(channel.normalize.call_args.args[4], [row])
-        self.assertEqual(result['cost_source']['generatedAt'], refreshed['generatedAt'])
+        older_index = ModuleType('order_delivery_index')
+        older_index.MAIN_SITE = 'www.mmoexp.com'
+        older_index.read_orders = MagicMock()
+        for installed_index in (None, older_index):
+            with self.subTest(installed_index=installed_index):
+                with tempfile.TemporaryDirectory() as folder:
+                    channel = MagicMock(ROOT=Path(folder))
+                    channel.normalize.return_value = []
+                    channel.load_costs.side_effect = [([], dict(status='unavailable')), ([dict(row, cost_total='99')], later)]
+                    def enrich(data):
+                        data['sources']['cost'] = refreshed
+                        if data.get('include_cost_delivery_rows') is True:
+                            data['cost_delivery_rows'] = [row]
+                        return data
+                    channel.enrich.side_effect = enrich
+                    with patch.object(sys, 'path', [str(dashboard), *sys.path]), \
+                            patch.dict('sys.modules', {'channel_source':channel, 'order_delivery_index':installed_index}):
+                        result = source.hourly_accounting([order], {}, start, now, now-timedelta(days=1), reuse_closed_days=True)
+                self.assertEqual(channel.load_costs.call_count, 1)
+                self.assertEqual(channel.normalize.call_args.args[4], [row])
+                self.assertEqual(result['cost_source']['generatedAt'], refreshed['generatedAt'])
+        older_index.read_orders.assert_not_called()
 
     def test_saved_orders_get_same_order_pinned_es_flags_without_recollecting_membership(self):
         now, order, window = self.fixture()

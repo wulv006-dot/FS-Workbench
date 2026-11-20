@@ -53,27 +53,15 @@ def delivery_capture(path, signature):
 def delivery_evidence(dates, now, root, order_keys=None):
     if order_keys:
         try:
-            from order_delivery_index import read_orders
+            from order_delivery_index import read_evidence
         except ImportError:
-            read_orders = None
-        if read_orders is not None:
-            indexed = read_orders(order_keys, root=root)
-            if indexed.get("status") == "available":
-                revision = indexed["revision"]
-                if not isinstance(revision, str) or not revision:
-                    raise ValueError("invalid_delivery_index_revision")
-                windows, revisions, costs, seen = [], [], defaultdict(list), set()
-                for window in indexed["windows"]:
-                    lo, hi = window["since"], window["until"]
-                    start, stop = datetime.strptime(lo,"%Y-%m-%d %H:%M:%S"), datetime.strptime(hi,"%Y-%m-%d %H:%M:%S")
-                    captured = datetime.fromisoformat(window["capturedAt"].replace("Z", "+00:00"))
-                    if (window["source"] != MAIN or start > stop or captured.tzinfo is None
-                            or captured.astimezone(TZ).replace(tzinfo=None) < stop or captured > now):
-                        raise ValueError("invalid_delivery_index_window")
-                    windows.append((lo,hi))
-                    revisions.append(dict(start=lo,end=hi,capturedAt=captured.isoformat(),
-                                          revision=window["revision"],indexRevision=revision))
-                for row in indexed["rows"]:
+            read_evidence = None
+        if read_evidence is not None:
+            evidence = read_evidence(order_keys, root=root, as_of=now)
+            if evidence is not None:
+                windows = evidence['intervals']
+                costs, seen = defaultdict(list), set()
+                for row in evidence['rows']:
                     identity = str(row["delivery_id"])
                     if (not identity.isdecimal() or identity in seen or row["source"] != MAIN
                             or str(row["genre"]) != "1" or (MAIN,row["sn"]) not in order_keys
@@ -81,14 +69,7 @@ def delivery_evidence(dates, now, root, order_keys=None):
                         raise ValueError("invalid_delivery_index_row")
                     seen.add(identity)
                     costs[row["sn"]].append((row["trade_at"],row["cost_total"]))
-                merged = []
-                for lo, hi in sorted(windows):
-                    adjacent = (datetime.fromisoformat(lo)-timedelta(seconds=1)).isoformat(sep=" ")
-                    if merged and adjacent <= merged[-1][1]:
-                        merged[-1] = (merged[-1][0],max(merged[-1][1],hi))
-                    else:
-                        merged.append((lo,hi))
-                return costs, merged, revisions, []
+                return costs, windows, evidence['provenance'], []
     captures, missing = [], []
     paths = [root / "order-deliveries.json"]
     # shortcut: consult the selected days and the next closed trade day; wider late-cost history needs an indexed order source.

@@ -64,6 +64,38 @@ class DeliveryIndexTest(unittest.TestCase):
         self.assertFalse(index.covers_window(out['windows'][1:],as_of=NEXT+'T00:15:00+08:00',**kwargs))
         self.assertFalse(index.covers_window(out['windows'],SITE,trade,NEXT+' 00:09:00',as_of=NEXT+'T00:15:00+08:00'))
 
+    def test_read_evidence_binds_adjacent_windows_and_provenance_to_the_same_revision(self):
+        first, last = DAY+' 00:00:00', NEXT+' 00:09:59'
+        row = delivery('2', 'A', NEXT+' 00:03:00')
+        self.publish([])
+        rev_day = index.sync(self.root)
+        args = dict(root=self.root, since=first, until=last)
+        self.publish([row], name='order-deliveries.json', generated=NEXT+'T00:11:00+08:00',
+                     start=NEXT, end=NEXT, since=NEXT+' 00:00:01', until=NEXT+' 00:09')
+        index.sync(self.root)
+        gap = index.read_evidence([(SITE,'A')], as_of=NEXT+'T00:11:00+08:00', **args)
+        self.assertFalse(gap['covered'])
+        self.publish([row], name='order-deliveries.json', generated=NEXT+'T00:12:00+08:00',
+                     start=NEXT, end=NEXT, until=NEXT+' 00:09')
+        rev_rolling = index.sync(self.root)
+        evidence = index.read_evidence([(SITE,'A')], as_of=NEXT+'T00:12:00+08:00', **args)
+        self.assertEqual(evidence['intervals'], [(first,last)])
+        self.assertTrue(evidence['covered'])
+        self.assertEqual(evidence['rows'], [row])
+        uncovered = index.read_evidence([(SITE,'A')], as_of=NEXT+'T00:12:00+08:00',
+                                        **dict(args, until=NEXT+' 00:10:00'))
+        self.assertFalse(uncovered['covered'])
+        self.assertEqual(evidence['revision'], rev_rolling)
+        self.assertEqual([proof['revision'] for proof in evidence['provenance']], [rev_day, rev_rolling])
+        self.assertTrue(all(proof['indexRevision']==rev_rolling for proof in evidence['provenance']))
+        with self.assertRaisesRegex(index.InvalidDeliveryEvidence, 'invalid_delivery_index_window'):
+            index.read_evidence([(SITE,'A')], as_of=NEXT+'T00:11:00+08:00', **args)
+        day = index.read_evidence([(SITE,'A')], as_of=NEXT+'T00:11:00+08:00', root=self.root,
+                                  since=first, until=DAY+' 23:59:59')
+        self.assertEqual(day['revision'], rev_rolling)
+        self.assertEqual(day['rows'], [])
+        self.assertEqual(day['generatedAt'], '2026-11-16T16:05:00+00:00')
+
     def test_correction_removes_old_association_only_in_complete_scope_and_replays_old_revision(self):
         old_rows = [delivery('1','A',DAY+' 11:01:00'),delivery('2','A',DAY+' 11:02:00'),
                     delivery('3','C',DAY+' 07:11:00','6.78')]

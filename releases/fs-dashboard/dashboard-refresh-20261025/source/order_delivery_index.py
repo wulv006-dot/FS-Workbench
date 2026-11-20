@@ -57,22 +57,30 @@ def capture_time(value):
     return value.astimezone(timezone.utc)
 
 
+def _merge_trade_intervals(intervals):
+    merged = []
+    for lo, hi in sorted(intervals):
+        if merged and lo <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+        else:
+            merged.append((lo, hi))
+    return merged
+
+
 def covered_through(windows, source, since, *, as_of):
     """Last contiguous covered Shanghai second at the requested observation cutoff."""
     try:
         first = trade_second(since)
         cutoff = capture_time(as_of)
-        intervals = sorted((trade_second(w['since']), trade_second(w['until'])) for w in windows
-                           if w['source'] == source and capture_time(w['capturedAt']) <= cutoff)
+        intervals = [(trade_second(w['since']), trade_second(w['until'])) for w in windows
+                     if w['source'] == source and capture_time(w['capturedAt']) <= cutoff]
     except (AttributeError, KeyError, TypeError, ValueError):
         return None
-    next_second = first
-    for lo, hi in intervals:
-        if lo > next_second:
-            break
-        next_second = max(next_second, hi + 1)
-    last = min(next_second-1, int(cutoff.timestamp()))
-    return local_second(last) if first <= last else None
+    for lo, hi in _merge_trade_intervals(intervals):
+        last = min(hi, int(cutoff.timestamp()))
+        if lo <= first <= last:
+            return local_second(last)
+    return None
 
 
 def covers_window(windows, source, since, until, *, as_of):
@@ -345,3 +353,43 @@ def read_orders(order_keys, *, root=ROOT, since=None, until=None, revision=None)
                         legacyCompatible=legacy_reason is None,legacyReason=legacy_reason,rollingWindow=rolling)
     except (OSError, sqlite3.Error, ValueError, KeyError, TypeError) as error:
         return dict(empty,reason=type(error).__name__)
+
+
+class InvalidDeliveryEvidence(ValueError):
+    """An available publication has invalid coverage or provenance."""
+
+
+def read_evidence(order_keys, *, root=ROOT, as_of, since=None, until=None):
+    """Read observed shipments and verified trade coverage from the current publication.
+
+    as_of limits the observation times of the intersecting capture windows.
+    covered requires a continuous interval across both requested bounds.
+    """
+    publication = read_orders(order_keys, root=root, since=since, until=until)
+    if publication['status'] != 'available':
+        return None
+    revision = publication['revision']
+    if not isinstance(revision, str) or not revision:
+        raise InvalidDeliveryEvidence('invalid_delivery_index_revision')
+    cutoff = capture_time(as_of)
+    intervals, provenance, stamps = [], [], []
+    for window in publication['windows']:
+        try:
+            start, end = window['since'], window['until']
+            if (since is not None and end < since) or (until is not None and until < start):
+                continue
+            lo, hi = trade_second(start), trade_second(end)
+            stamp = capture_time(window['capturedAt'])
+            source, capture_revision = window['source'], window['revision']
+        except (AttributeError, KeyError, TypeError, ValueError) as error:
+            raise InvalidDeliveryEvidence('invalid_delivery_index_window') from error
+        if source != MAIN_SITE or lo > hi or stamp.timestamp() < hi or stamp > cutoff:
+            raise InvalidDeliveryEvidence('invalid_delivery_index_window')
+        intervals.append((lo, hi))
+        provenance.append(dict(start=start, end=end, capturedAt=stamp.isoformat(),
+                               revision=capture_revision, indexRevision=revision))
+        stamps.append(stamp)
+    intervals = [(local_second(lo), local_second(hi)) for lo, hi in _merge_trade_intervals(intervals)]
+    covered = since is not None and until is not None and any(lo <= since <= until <= hi for lo, hi in intervals)
+    return dict(rows=publication['rows'], revision=revision, provenance=provenance,
+                intervals=intervals, covered=covered, generatedAt=max(stamps).isoformat() if stamps else None)
