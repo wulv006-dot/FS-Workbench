@@ -34,6 +34,7 @@ class CurveV6Release(unittest.TestCase):
             'targeted-price-reads': ('business_source.py', 'daily.py'),
             'outcomes': ('business_source.py', 'daily.py'),
             'cost-incidents': ('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py'),
+            'shared-evidence': ('api.py', 'pricing_proof_v6.py', 'runtime.py'),
         }
         for fix, modules in modules_by_fix.items():
             with self.subTest(fix=fix), tempfile.TemporaryDirectory() as folder:
@@ -56,6 +57,9 @@ class CurveV6Release(unittest.TestCase):
                     expected['source/coin_all_sync_job.py'] = '/opt/fc27-cloud-browser/coin_all_sync_job.py'
                 if fix == 'cycle-recovery':
                     expected['source/snapshot_layer.py'] = '/opt/fc27-cloud-browser/snapshot_layer.py'
+                if fix == 'shared-evidence':
+                    expected['source/fc_pricing_v3/business_source.py'] = '/opt/fc27-cloud-browser/fc_pricing_v3/business_source.py'
+                    self.assertEqual(provenance['scope'], 'fc-pricing-v6-recovery-shared-evidence-20261120')
                 self.assertEqual(built['targets'], len(expected))
                 self.assertEqual(set(provenance['files']), set(expected))
                 self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)
@@ -65,6 +69,14 @@ class CurveV6Release(unittest.TestCase):
                 manifest = dict(scope=provenance['scope'], releaseReady=True, businessWrites=False,
                                 timersChanged=False, files=files)
                 self.assertIs(adapter.checked_manifest(manifest), manifest)
+                if fix == 'shared-evidence':
+                    extra = dict(files[-1], candidate='source/hermes-copy/fc_pricing_v3/business_source.py',
+                                 target='/opt/fs-hermes-fc/fc_pricing_v3/business_source.py')
+                    with self.assertRaisesRegex(ValueError, 'exact_fc_v3_targets_required'):
+                        adapter.checked_manifest(dict(manifest, files=files + [extra]))
+                    for field in ('businessWrites', 'timersChanged'):
+                        with self.assertRaisesRegex(ValueError, 'code_release_does_not_change_business_or_timer_state'):
+                            adapter.checked_manifest(dict(manifest, **{field: True}))
                 if modules:
                     files[1]['sha256'] = 'c' * 64
                     with self.assertRaisesRegex(ValueError, 'module_copy_sha_mismatch'):

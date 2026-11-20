@@ -346,9 +346,14 @@ CURVE_RECOVERY_TARGETS = {
     },
     'outcomes': module_targets(('business_source.py', 'daily.py')),
     'cost-incidents': module_targets(('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py')),
+    'shared-evidence': {
+        **module_targets(('api.py', 'pricing_proof_v6.py', 'runtime.py')),
+        'fc_pricing_v3/business_source.py': '/opt/fc27-cloud-browser/fc_pricing_v3/business_source.py',
+    },
 }
 CURVE_RECOVERY_SCOPES = {name: 'fc-pricing-v6-recovery-' + name + '-20261119'
                          for name in CURVE_RECOVERY_TARGETS}
+CURVE_RECOVERY_SCOPES['shared-evidence'] = 'fc-pricing-v6-recovery-shared-evidence-20261120'
 
 
 def curve_margin_band_targets(source):

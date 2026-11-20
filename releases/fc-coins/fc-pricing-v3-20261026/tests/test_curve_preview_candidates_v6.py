@@ -138,6 +138,15 @@ class PreviewCandidatesV6(unittest.TestCase):
             found = self.preview()['decision']['candidates'][0]['financial_proof']['paths']
             self.assertFalse(any(row.get('coupon_template_id') for row in found))
 
+    def test_malformed_frozen_proof_does_not_use_the_preview_fallback(self):
+        key = curve_key(self.current)
+        with patch.object(runtime, '_catalogue_proof_input') as fallback:
+            with self.assertRaisesRegex(KeyError, 'baskets'):
+                runtime._preview_curve_candidates(
+                    self.current, key, 'PS', None, 'large', None,
+                    SNAPSHOT_AT.isoformat(), NOW.isoformat(), NOW, {key: {}})
+            fallback.assert_not_called()
+
     def test_real_saved_terms_changes_still_block_candidates(self):
         self.db.start_curve_episode('PS', 'fixture-rules', 'Trusted approved fixture A',
                                     initial_curve=self.current, readback_ref='original-A')
