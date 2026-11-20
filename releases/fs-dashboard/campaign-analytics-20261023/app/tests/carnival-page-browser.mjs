@@ -33,18 +33,35 @@ test('home coupon, Black Friday session and gacha spend',async t=>{
  assert.deepEqual(errors,[]);
 });
 
-test('checkout now empties the cart, adds the claimed item and opens the cart with the coupon',async t=>{
- const {page,site}=await open(t);
- await page.locator('.store-categories [data-category="currency"]').click();
- await page.waitForFunction(()=>!document.querySelector('#flashGrid [data-carnival-product]:disabled'));
- await page.locator('#flashGrid [data-carnival-product]').first().click();
- await page.locator('#mysteryFlowMask.show [data-carnival-buy]').click();
- await page.waitForURL('**/Cart.html');
- assert.equal(site.cart.clears,1);
- assert.equal(site.cart.adds.length,1);
- assert.equal(site.cart.adds[0].category,'new_gold');
- assert.equal(await page.evaluate(()=>sessionStorage.getItem('pending_member_coupon_id')),String(site.claimed.get(1513)));
-});
+for(const {product,option,changedTo,goods,group,price,coupon} of [
+ {product:'fc27-coins',option:'Platform',changedTo:'xbox',goods:'163329311',group:'1000',price:'$120.00',coupon:1513},
+ {product:'wow-gold',option:'realm',changedTo:'PVP',goods:'187090053',group:'10',price:'$1.20',coupon:1443},
+]){
+ test(`Flash checkout keeps the ${option} selected when the coupon was requested`,async t=>{
+  const {page,site}=await open(t);
+  await page.locator('.store-categories [data-category="currency"]').click();
+  const card=page.locator(`#flashGrid [data-product="${product}"]`);
+  await card.locator('.fprice .old').getByText(price,{exact:true}).waitFor();
+  let releaseClaim;
+  const claimResponse=new Promise(resolve=>{releaseClaim=resolve;});
+  await page.route('**/ajax/carnival/claim',async route=>{
+   await claimResponse;
+   await route.fallback();
+  });
+  try{
+   const claim=page.waitForRequest('**/ajax/carnival/claim');
+   await card.locator('[data-carnival-product]').click();
+   await claim;
+   await card.getByLabel(option,{exact:true}).selectOption(changedTo);
+  }finally{releaseClaim();}
+  await page.locator('#mysteryFlowMask.show [data-carnival-buy]').click();
+  await page.waitForURL('**/Cart.html');
+  assert.deepEqual(site.claims,[{slot:'bf_items',coupon_id:coupon}]);
+  assert.equal(site.cart.clears,1);
+  assert.deepEqual(site.cart.adds,[{category:'new_gold',id:goods,group,num:'1',attr:'',aid:''}]);
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('pending_member_coupon_id')),String(site.claimed.get(coupon)));
+ });
+}
 
 test('capsule tiers follow the paid total the main site reports, and grow as it grows',async t=>{
  const {page,site,errors}=await open(t);
