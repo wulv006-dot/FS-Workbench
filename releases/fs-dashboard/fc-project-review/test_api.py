@@ -183,7 +183,7 @@ class ApiTests(unittest.TestCase):
                         rows=rows)
         def delivery(identity, sn, trade, amount):
             return dict(delivery_id=str(identity),sn=sn,trade_at=trade,cost_total=amount,
-                        source=same_order.MAIN,genre=1)
+                        source=same_order.MAIN,genre=1,sale_total="200")
         def archive(path, period, generated, deliveries):
             path.parent.mkdir(exist_ok=True)
             path.write_text(json.dumps(dict(contract="channel-order-deliveries-v1", complete=True,
@@ -192,9 +192,11 @@ class ApiTests(unittest.TestCase):
                 next_day+"T01:00:00+08:00",[
                     delivery(1,"A",day+" 03:00:00","420"),delivery(2,"B",day+" 03:00:00","0"),
                     delivery(3,"C",day+" 04:00:00","3"),delivery(4,"A",day+" 05:00:00","90")])
+        from order_delivery_index import read_orders, sync
+        closed_revision = sync(self.root)
         rolling = self.root/"order-deliveries.json"
         archive(rolling,dict(start=day,end=next_day,since=day+" 04:00",until=next_day+" 08:00"),
-                next_day+"T08:02:00+08:00",[delivery(1,"A",day+" 03:00:00","1"),
+                next_day+"T08:01:00+08:00",[delivery(1,"A",day+" 03:00:00","1"),
                     delivery(3,"C",day+" 04:00:00","3"),delivery(5,"A",next_day+" 02:00:00","150"),
                     delivery(6,"A",next_day+" 08:00:00","100")])
         def status_reader(query):
@@ -234,13 +236,35 @@ class ApiTests(unittest.TestCase):
         self.assertEqual((values["grossCny"],values["actualCostCny"],values["coveredSalesCny"]),
                          (previous["profitCny"],previous["costCny"],previous["saleCny"]))
         self.assertAlmostEqual(values["grossMarginPct"],previous["margin"]*100,places=4)
-        from order_delivery_index import sync
         index_revision=sync(self.root)
+        self.assertNotEqual(index_revision, closed_revision)
+        before = read_orders([(same_order.MAIN, "A")], root=self.root, revision=closed_revision)
+        self.assertEqual([row["cost_total"] for row in before["rows"]], ["420", "90"])
         indexed=lookup()
         self.assertEqual(indexed["totals"],result["totals"])
         self.assertEqual(indexed["daily"],result["daily"])
         self.assertEqual(indexed["breakdown"],result["breakdown"])
         self.assertTrue(all(item["indexRevision"]==index_revision for item in indexed["revisions"]["order"]))
+
+        pricing = HERE.parents[1] / "fc-coins/fc-pricing-v3-20261026/source"
+        sys.path.insert(0, str(pricing))
+        self.addCleanup(sys.path.remove, str(pricing))
+        from fc_pricing_v3.business_source import hourly_accounting
+        import channel_source
+
+        start = api.datetime.fromisoformat(day+"T01:00:00+08:00")
+        now = api.datetime.fromisoformat(next_day+"T08:01:00+08:00")
+        with patch.object(sys, "path", sys.path.copy()), patch.object(channel_source, "ROOT", self.root), \
+                patch.object(channel_source, "ES_ARCHIVE", self.root/"es"), \
+                patch.object(channel_source, "load_costs", side_effect=AssertionError("unexpected JSON fallback")), \
+                patch.object(channel_source, "enrich", side_effect=AssertionError("unexpected native refresh")):
+            hourly = hourly_accounting([row for row in rows if row["site_id"] == 266], {}, start, now, start,
+                                       reuse_closed_days=True)
+        self.assertEqual(hourly["cost_source"]["revision"], index_revision)
+        self.assertIsNotNone(hourly["cost_cursor_at"])
+        a = hourly["archived"]["A"][0]
+        self.assertEqual((a["costCny"], a["saleCny"], a["revenueBasis"]), (670, 600, "legacy_delivery"))
+
         with patch.dict(sys.modules, {"order_delivery_index":SimpleNamespace(sync=sync)}):
             self.assertEqual(lookup(), result)
         rolling.unlink()

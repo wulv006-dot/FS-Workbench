@@ -1590,7 +1590,7 @@ def hourly_accounting(rows, logs, start, now, cost_since, *, reuse_closed_days=F
             evidence = read_evidence(keys, root=channel.ROOT, as_of=checked_at, since=since, until=cutoff)
         except InvalidDeliveryEvidence:
             return None
-        if evidence and any(lo <= since <= cutoff <= hi for lo, hi in evidence['intervals']):
+        if evidence and evidence['covered']:
             return evidence['rows'], dict(status='partial', source='Order 逐条订单发货记录',
                 revision=evidence['revision'], generatedAt=evidence['generatedAt'],
                 period=dict(start=cohort_start, end=cutoff[:10], until=cutoff))

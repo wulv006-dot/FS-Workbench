@@ -360,7 +360,11 @@ class InvalidDeliveryEvidence(ValueError):
 
 
 def read_evidence(order_keys, *, root=ROOT, as_of, since=None, until=None):
-    """Return observed same-site shipments and verified trade coverage from one publication."""
+    """Read observed shipments and verified trade coverage from the current publication.
+
+    as_of limits the observation times of the intersecting capture windows.
+    covered requires a continuous interval across both requested bounds.
+    """
     publication = read_orders(order_keys, root=root, since=since, until=until)
     if publication['status'] != 'available':
         return None
@@ -385,6 +389,7 @@ def read_evidence(order_keys, *, root=ROOT, as_of, since=None, until=None):
         provenance.append(dict(start=start, end=end, capturedAt=stamp.isoformat(),
                                revision=capture_revision, indexRevision=revision))
         stamps.append(stamp)
+    intervals = [(local_second(lo), local_second(hi)) for lo, hi in _merge_trade_intervals(intervals)]
+    covered = since is not None and until is not None and any(lo <= since <= until <= hi for lo, hi in intervals)
     return dict(rows=publication['rows'], revision=revision, provenance=provenance,
-                intervals=[(local_second(lo), local_second(hi)) for lo, hi in _merge_trade_intervals(intervals)],
-                generatedAt=max(stamps).isoformat() if stamps else None)
+                intervals=intervals, covered=covered, generatedAt=max(stamps).isoformat() if stamps else None)

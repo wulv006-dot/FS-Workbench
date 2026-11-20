@@ -69,13 +69,22 @@ class DeliveryIndexTest(unittest.TestCase):
         row = delivery('2', 'A', NEXT+' 00:03:00')
         self.publish([])
         rev_day = index.sync(self.root)
+        args = dict(root=self.root, since=first, until=last)
+        self.publish([row], name='order-deliveries.json', generated=NEXT+'T00:11:00+08:00',
+                     start=NEXT, end=NEXT, since=NEXT+' 00:00:01', until=NEXT+' 00:09')
+        index.sync(self.root)
+        gap = index.read_evidence([(SITE,'A')], as_of=NEXT+'T00:11:00+08:00', **args)
+        self.assertFalse(gap['covered'])
         self.publish([row], name='order-deliveries.json', generated=NEXT+'T00:12:00+08:00',
                      start=NEXT, end=NEXT, until=NEXT+' 00:09')
         rev_rolling = index.sync(self.root)
-        args = dict(root=self.root, since=first, until=last)
         evidence = index.read_evidence([(SITE,'A')], as_of=NEXT+'T00:12:00+08:00', **args)
         self.assertEqual(evidence['intervals'], [(first,last)])
+        self.assertTrue(evidence['covered'])
         self.assertEqual(evidence['rows'], [row])
+        uncovered = index.read_evidence([(SITE,'A')], as_of=NEXT+'T00:12:00+08:00',
+                                        **dict(args, until=NEXT+' 00:10:00'))
+        self.assertFalse(uncovered['covered'])
         self.assertEqual(evidence['revision'], rev_rolling)
         self.assertEqual([proof['revision'] for proof in evidence['provenance']], [rev_day, rev_rolling])
         self.assertTrue(all(proof['indexRevision']==rev_rolling for proof in evidence['provenance']))
