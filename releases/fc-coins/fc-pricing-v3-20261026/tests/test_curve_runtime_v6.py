@@ -428,7 +428,10 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(Decimal(frozen['final_anchors']['large']), Decimal('109.25'))
         with patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
             decision = runtime._prove_temporary_curve(PLATFORM, entry, current, state, {})
+            main_only = runtime._prove_temporary_curve(PLATFORM, dict(entry, all_inputs={}), current, state, {})
         self.assertEqual(decision['status'], 'READY', decision)
+        self.assertEqual(main_only['status'], 'PROOF_INCOMPLETE')
+        self.assertEqual(main_only['gaps'], ['curve_target_all_proof_unavailable'])
         self.assertTrue(decision['selection']['price_insurance']['below_margin'])
         self.assertEqual(decision['proof']['price_insurance']['round'], 1)
         self.assertEqual(decision['proof']['waived_hard_failures'], ['platform_margin:main', 'platform_margin:recent'])
@@ -590,7 +593,7 @@ class CurveRuntime(unittest.TestCase):
                                 assignment={'background_curve_key': None}))
             with patch.object(runtime, '_validated_curve', return_value={'status': 'PROVEN'}):
                 row = runtime._prove_temporary_curve(platform, dict(temporary_cost_protection=frozen,
-                    primary_inputs={key: {}}), final, state, previous)
+                    primary_inputs={key: {'evidence': {'curve_key': key}}}), final, state, previous)
             self.assertEqual(row['status'], 'KEEP')
             self.assertEqual(row['selection']['cost_protection']['segments'], segments)
             assignment = row['selection']['assignment']
@@ -1397,10 +1400,41 @@ class CurveRuntime(unittest.TestCase):
             (self.root/'jobs'/(run_id+'.json')).write_text(json.dumps(dict(actor='system-automation', request=request)))
             self.assertEqual(runtime.collection_scope(self.db, run_id)['scope']['competitor_policy'], POLICY)
             evidence = dict(run_id=run_id, competitor_policy=POLICY)
+            platform_inputs['plan_binding'] = runtime._curve_plan_binding(activated)
             runtime.store_curve_proof_inputs(self.db, evidence, {'PS': platform_inputs})
             result = runtime.calculate(evidence)
             self.assertEqual(result['status'], 'READY')
             self.bundle = result['decision_receipt']
+            if not cost_repair:
+                frozen = runtime._curve_proof_inputs(self.db, evidence)[PLATFORM]
+                preview = runtime._preview_curve_candidates(
+                    current, curve_key(current), PLATFORM, reference_before, 'large', None,
+                    now.isoformat(), now.isoformat(), now, frozen['primary_inputs'], editor=EDITOR_CONTRACT)
+                primary = next(row['financial_proof'] for row in preview['candidates'] if 'A' in row['labels'])
+                all_proof = self.bundle['curve_proofs'][PLATFORM]
+                self.assertEqual(primary, runtime._validated_curve(target, frozen['primary_inputs'][curve_key(target)]))
+                self.assertEqual(primary['status'], 'PROVEN')
+                self.assertEqual(all_proof, runtime._validated_curve(all_target, frozen['all_inputs'][curve_key(all_target)]))
+                self.assertNotEqual(primary['curve_key'], all_proof['curve_key'])
+                self.assertNotEqual(primary['proof_hash'], all_proof['proof_hash'])
+                preview_current = next(row['financial_proof'] for row in preview['candidates'] if 'CURRENT' in row['labels'])
+                keep = runtime._prove_curve_inputs(PLATFORM, dict(frozen, preferred_label='CURRENT'), self.db, now,
+                                                   evidence=evidence, plan=activated)
+                self.assertEqual(keep['status'], 'KEEP')
+                self.assertEqual(keep['proof'], preview_current)
+
+                for when, plan, gap in (
+                    (datetime.fromisoformat(frozen['valid_until']), activated,
+                     'curve_reference_or_fresh_execution_inputs_unavailable'),
+                    (now, dict(activated, revision=activated['revision'] + 1),
+                     'pricing_curve_strategy_revision_changed'),
+                ):
+                    with self.subTest(execution_gap=gap):
+                        denied = runtime._prove_curve_inputs(PLATFORM, frozen, self.db, when, evidence=evidence, plan=plan)
+                        self.assertEqual(denied, dict(status='PROOF_INCOMPLETE', gaps=[gap]))
+                without_all = dict(frozen, all_inputs={})
+                denied = runtime._prove_curve_inputs(PLATFORM, without_all, self.db, now, evidence=evidence, plan=activated)
+                self.assertEqual(denied, dict(status='PROOF_INCOMPLETE', gaps=['curve_target_all_proof_unavailable']))
             self.assertEqual(self.db.curve_strategy_state(PLATFORM), reference_before)
             if cost_repair:
                 self.assertEqual(self.bundle['curve_selection'][PLATFORM]['label'], 'COST_REPAIR')
@@ -1411,6 +1445,16 @@ class CurveRuntime(unittest.TestCase):
                          snapshot_sha256='original-run-hash', quote_engine_sha256='original-engine-hash')
             (self.root/'quotes'/(run_id+'.json')).write_text(json.dumps(quote))
             self.assertEqual(runtime.verify_quote(quote, policy, ['PS'], for_execution=True), self.bundle)
+            if not cost_repair:
+                deadline = datetime.fromisoformat(platform_inputs['valid_until'])
+                with self.assertRaisesRegex(ValueError, 'pricing_authorization_expired_or_unowned'):
+                    runtime.verify_quote(quote, policy, ['PS'], now=deadline, for_execution=True)
+                self.db.put('pricing_plans', 'plan', dict(activated, revision=activated['revision'] + 1))
+                try:
+                    with self.assertRaisesRegex(ValueError, 'pricing_curve_plan_revision_changed'):
+                        runtime.verify_quote(quote, policy, ['PS'], for_execution=True)
+                finally:
+                    self.db.put('pricing_plans', 'plan', activated)
             self.assertEqual(self.transport.posts, [])
             tampered = dict(self.bundle, curve_proofs={'PS': dict(self.bundle['curve_proofs']['PS'], status='PROOF_INCOMPLETE')})
             tampered['sha256'] = fingerprint({k: v for k, v in tampered.items() if k != 'sha256'})

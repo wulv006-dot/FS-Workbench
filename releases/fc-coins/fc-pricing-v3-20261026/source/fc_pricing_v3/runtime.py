@@ -300,8 +300,8 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
     if instant(snapshot['created_at']) > evidence_as_of:
         gaps.append('pricing_snapshot_clock_invalid')
         return result
-    if (frozen_inputs and (not instant(frozen_inputs['captured_at']) <= evidence_as_of < instant(frozen_inputs['valid_until'])
-            or curve_key(frozen_inputs['primary_curve']) != key)):
+    if frozen_inputs and (not _curve_inputs_fresh(frozen_inputs, evidence_as_of)
+                          or curve_key(frozen_inputs['primary_curve']) != key):
         frozen_inputs = None
     decision.update(_preview_curve_candidates(curve, key, platform, strategy_state, segment, closed_attachment,
                                               snapshot['created_at'], captured_at, evidence_as_of,
@@ -314,16 +314,15 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
 def _preview_curve_candidates(curve, key, platform, strategy_state, segment, closed_attachment,
                               snapshot_at, catalogue_at, evidence_as_of, frozen_candidates, *, editor=None, repair=None):
     from .admin_readback import SITE_MAIN
-    from .curve_strategy_v6 import ANCHORS, build_candidates
+    from .curve_strategy_v6 import ANCHORS
     from .price_curve import EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, curve_key, quote_native
 
     candidate_gaps = {}
     boundary_search_status = None
     if strategy_state:
-        comparison = build_candidates(curve, strategy_state['reference'], strategy_state['episode'], segment,
-            editor_contract=editor or dict(curve['native_contract'], editor_asset_sha256=EDITOR_ASSET_SHA256,
-                                 editor_handler_sha256=EDITOR_HANDLER_SHA256),
-            check_saved_discount_terms=True)
+        comparison = _saved_curve_comparison(curve, strategy_state, segment,
+            editor or dict(curve['native_contract'], editor_asset_sha256=EDITOR_ASSET_SHA256,
+                           editor_handler_sha256=EDITOR_HANDLER_SHA256))
         candidates, candidate_gaps = comparison['candidates'], comparison['gaps']
         boundary_search_status = comparison['boundary_search_status']
     else:
@@ -340,11 +339,11 @@ def _preview_curve_candidates(curve, key, platform, strategy_state, segment, clo
         candidate_key = candidate['curve_key']
         quote = quote_native(proposed, dict(purchase_k=ANCHORS[segment], multiplier=1,
                                              site_id=SITE_MAIN, currency='USD'))
-        frozen = frozen_candidates.get(candidate_key)
-        if frozen is None:
+        frozen, proof = _frozen_curve_proof(proposed, candidate_key, frozen_candidates)
+        if proof is None:
             frozen = _catalogue_proof_input(proposed, platform, closed_attachment, snapshot_at, evidence_as_of)
+            proof = _validated_curve(proposed, frozen)
         baskets = frozen['baskets']
-        proof = _validated_curve(proposed, frozen)
         output.append(dict(curve_key=candidate_key, labels=candidate['labels'],
                            catalogue_basis='offline_admin_editor_model'
                            if quote['catalogue_status'] == 'editor_candidate_tier' else 'saved_catalogue',
@@ -353,6 +352,10 @@ def _preview_curve_candidates(curve, key, platform, strategy_state, segment, clo
     return dict(candidates=output, candidate_gaps=candidate_gaps, boundary_search_status=boundary_search_status,
                 historical_evidence_as_of=evidence_as_of.isoformat(),
                 catalogue_captured_at=catalogue_at)
+
+
+def _curve_inputs_fresh(inputs, when):
+    return instant(inputs['captured_at']) <= when < instant(inputs['valid_until'])
 
 
 def _curve_proof_inputs(db, evidence, conn=None):
@@ -1121,7 +1124,7 @@ def collect_curve_catalogues(evidence, platforms):
     from .api import _curve_preview_history
     from .average_discount_v6 import MODEL, average_discount
     from .business_source import RecentCurveReadFailure, collect_recent_curve_population
-    from .curve_strategy_v6 import ANCHORS, MARKET_ANCHOR_VERSION, build_candidates
+    from .curve_strategy_v6 import ANCHORS, MARKET_ANCHOR_VERSION
     from .pricing_proof_v6 import PROVEN
     from .smart import curve_learning
     from .price_curve import (EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256, TWO_BAND_PRICE_EDIT,
@@ -1208,8 +1211,7 @@ def collect_curve_catalogues(evidence, platforms):
         state = db.curve_strategy_state(platform) if not restore else None
         if state:
             for segment in ANCHORS:
-                comparison = build_candidates(current, state['reference'], state['episode'], segment,
-                                              editor_contract=editor, check_saved_discount_terms=True)
+                comparison = _saved_curve_comparison(current, state, segment, editor)
                 candidates.update({row['curve_key']: row['curve'] for row in comparison['candidates']})
         all_targets = {key: _all_curve_target(all_before, curve) for key, curve in candidates.items()
                        if key != curve_key(current)}
@@ -1422,7 +1424,7 @@ def margin_band_selection(proof, position, current, target, decision_round, *, c
 
 def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, now, previous):
     from .average_discount_v6 import minimum_band_price
-    from .curve_strategy_v6 import (ANCHORS, band_anchors, build_candidates, large_market_reference,
+    from .curve_strategy_v6 import (ANCHORS, band_anchors, large_market_reference,
                                     large_market_comparison, market_anchor_targets, market_direction, segment_changes)
     from .price_curve import coin_quantity_band, compile_curve, curve_key
     from .pricing_proof_v6 import FAILED, PROVEN
@@ -1494,8 +1496,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
         preference = dict(preference, market_anchor=position)
         frozen.update(preference=preference, market_anchor=position)
     else:
-        comparison = build_candidates(current, reference, episode, segment, editor_contract=editor,
-                                      check_saved_discount_terms=True)
+        comparison = _saved_curve_comparison(current, state, segment, editor)
         candidate = next((row for row in comparison['candidates'] if label in row['labels']), None)
     if not candidate or candidate['write_gaps']:
         gaps = candidate['write_gaps'] if candidate else comparison['gaps'].get(label, ['normal_candidate_unavailable'])
@@ -1705,7 +1706,7 @@ def _freeze_anchor_shadow(platform, entry, inputs_for, state, plan, evidence, no
 def _freeze_intermediate_trial(platform, entry, inputs_for, state, plan, evidence, now):
     """Keep the first valid intermediate step for this round's selected band and direction."""
     from coin_all_sync_job import curve_route_ready, curve_writer_capabilities
-    from .curve_strategy_v6 import INTERMEDIATE_TRIAL_STEPS, build_candidates, intermediate_candidates
+    from .curve_strategy_v6 import INTERMEDIATE_TRIAL_STEPS, intermediate_candidates
     from .price_curve import curve_key
     from .pricing_proof_v6 import PROVEN
 
@@ -1720,15 +1721,14 @@ def _freeze_intermediate_trial(platform, entry, inputs_for, state, plan, evidenc
     if label not in ('B', 'C'):
         return
     factors_verified = capability.get('tier_price_factors') is True
-    comparison = build_candidates(current, state['reference'], state['episode'], preferred['segment'],
-                                  editor_contract=editor, check_saved_discount_terms=True,
-                                  tier_price_factors_verified=factors_verified)
+    comparison = _saved_curve_comparison(current, state, preferred['segment'], editor,
+                                         tier_price_factors_verified=factors_verified)
     for candidate in comparison['candidates']:
         if label not in candidate['labels']:
             continue
         key = candidate['curve_key']
-        frozen = entry['primary_inputs'].get(key)
-        if not frozen or _validated_curve(candidate['curve'], frozen)['status'] != PROVEN:
+        _, proof = _frozen_curve_proof(candidate['curve'], key, entry['primary_inputs'])
+        if not proof or proof['status'] != PROVEN:
             continue
         if key == comparison['confirmed_current_curve_key']:
             return
@@ -1859,6 +1859,19 @@ def _curve_assignment_result(preference, primary, key, labels):
     return dict(preference, assignment=info)
 
 
+def _saved_curve_comparison(current, state, segment, editor, *, tier_price_factors_verified=False):
+    from .curve_strategy_v6 import build_candidates
+
+    return build_candidates(current, state['reference'], state['episode'], segment, editor_contract=editor,
+                            check_saved_discount_terms=True,
+                            tier_price_factors_verified=tier_price_factors_verified)
+
+
+def _frozen_curve_proof(curve, key, frozen_curves):
+    frozen = frozen_curves.get(key) if frozen_curves else None
+    return frozen, _validated_curve(curve, frozen) if frozen else None
+
+
 def _validated_curve(curve, frozen):
     from .pricing_proof_v6 import validate_curve
 
@@ -1957,13 +1970,13 @@ def _curve_repair(current, current_proof, repair):
 def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, plan=None, decision_at=None,
                         paired_bands=True, temporary_protection=True):
     from coin_all_sync_job import curve_catalog_plan, curve_route_ready, curve_writer_capabilities, editable
-    from .curve_strategy_v6 import (INTERMEDIATE_TRIAL_STEPS, MARKET_ANCHOR_VERSION, build_candidates, choose_action,
+    from .curve_strategy_v6 import (INTERMEDIATE_TRIAL_STEPS, MARKET_ANCHOR_VERSION, choose_action,
                                     intermediate_candidates, primary_reference_curve)
     from .price_curve import curve_key
     from .pricing_proof_v6 import FAILED, PROVEN
 
     state = db.curve_strategy_state(platform, conn)
-    if not inputs or not instant(inputs['captured_at']) <= now < instant(inputs['valid_until']):
+    if not inputs or not _curve_inputs_fresh(inputs, now):
         return dict(status='PROOF_INCOMPLETE', gaps=['curve_reference_or_fresh_execution_inputs_unavailable'])
     if (plan and (inputs.get('plan_binding') or plan.get('smart_strategy_version') == MARKET_ANCHOR_VERSION)
             and inputs.get('plan_binding') != _curve_plan_binding(plan)):
@@ -1992,15 +2005,14 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
     route = inputs.get('native_route')
     capability = (curve_writer_capabilities({platform: route}) if route else curve_writer_capabilities()).get(platform) or {}
     factors_verified = curve_route_ready(capability) and capability.get('tier_price_factors') is True
-    comparison = build_candidates(current, state['reference'], state['episode'], preference['segment'],
-                                  editor_contract=inputs.get('editor_contract'), check_saved_discount_terms=True,
-                                  tier_price_factors_verified=factors_verified)
+    comparison = _saved_curve_comparison(current, state, preference['segment'], inputs.get('editor_contract'),
+                                         tier_price_factors_verified=factors_verified)
     proofs = {}
     for row in comparison['candidates']:
         key = row['curve_key']
-        frozen = inputs.get('primary_inputs', {}).get(key)
-        if frozen:
-            proofs[key] = _validated_curve(row['curve'], frozen)
+        _, proof = _frozen_curve_proof(row['curve'], key, inputs.get('primary_inputs'))
+        if proof is not None:
+            proofs[key] = proof
     current_proof = proofs.get(comparison['confirmed_current_curve_key']) or {}
     if current_proof.get('status') not in (PROVEN, FAILED):
         return dict(status='PROOF_INCOMPLETE', gaps=current_proof.get('gaps') or ['curve_current_proof_unavailable'],
@@ -2066,10 +2078,9 @@ def _prove_curve_inputs(platform, inputs, db, now, conn=None, *, evidence=None, 
     if repair:
         proof = repair_target['proof']
     else:
-        frozen = (inputs.get('all_inputs') or {}).get(curve_key(after))
-        if not frozen:
+        _, proof = _frozen_curve_proof(after, curve_key(after), inputs.get('all_inputs'))
+        if proof is None:
             return dict(status='PROOF_INCOMPLETE', gaps=['curve_target_all_proof_unavailable'])
-        proof = _validated_curve(after, frozen)
     if proof['status'] != PROVEN:
         return dict(status=proof['status'], gaps=proof['gaps'] + proof['hard_failures'])
     before_hash = fingerprint(editable(current['native_payload'])) if route else None
@@ -2126,7 +2137,10 @@ def _prove_temporary_curve(platform, inputs, current, state, previous):
                        and segment_terms(normal, 'small') == segment_terms(final, 'small'))
     labels = frozen['labels'] if small_unchanged or not (active or selection.get('restore_other_band')) else []
     if key == curve_key(current):
-        return dict(status='KEEP', current_key=key, proof=_validated_curve(current, inputs['primary_inputs'][key]),
+        _, proof = _frozen_curve_proof(current, key, inputs.get('primary_inputs'))
+        if proof is None:
+            return dict(status='PROOF_INCOMPLETE', gaps=['curve_current_proof_unavailable'], selection=selection)
+        return dict(status='KEEP', current_key=key, proof=proof,
                     selection=_curve_assignment_result(selection, current, key, labels), gaps=frozen['gaps'])
     route = inputs.get('native_route')
     capability = (curve_writer_capabilities({platform: route}) if route else curve_writer_capabilities()).get(platform) or {}
@@ -2137,7 +2151,9 @@ def _prove_temporary_curve(platform, inputs, current, state, previous):
         return dict(status='PROOF_INCOMPLETE', gaps=['curve_current_all_primary_mismatch'], selection=selection)
     if (after['tiers'], after['unit_price_usd_per_k']) != (final['tiers'], final['unit_price_usd_per_k']):
         return dict(status='PROOF_INCOMPLETE', gaps=['curve_target_all_primary_mismatch'], selection=selection)
-    proof = _validated_curve(after, inputs['all_inputs'][curve_key(after)])
+    _, proof = _frozen_curve_proof(after, curve_key(after), inputs.get('all_inputs'))
+    if proof is None:
+        return dict(status='PROOF_INCOMPLETE', gaps=['curve_target_all_proof_unavailable'], selection=selection)
     if proof['status'] != PROVEN:
         return dict(status=proof['status'], gaps=proof['gaps'] + proof['hard_failures'], selection=selection)
     before_hash = fingerprint(editable(current['native_payload'])) if route else None
@@ -2205,7 +2221,7 @@ def _prove_curve_restore(platform, inputs, original, source_id, now):
     from .price_curve import curve_key
     from .pricing_proof_v6 import PROVEN
 
-    if not inputs or not instant(inputs['captured_at']) <= now < instant(inputs['valid_until']):
+    if not inputs or not _curve_inputs_fresh(inputs, now):
         return dict(status='PROOF_INCOMPLETE', gaps=['curve_restore_fresh_inputs_unavailable'])
     current, before = inputs['primary_curve'], inputs['all_before']
     if (before['tiers'], before['unit_price_usd_per_k']) != (current['tiers'], current['unit_price_usd_per_k']):
@@ -2215,10 +2231,9 @@ def _prove_curve_restore(platform, inputs, original, source_id, now):
     except ValueError as error:
         return dict(status='PROOF_INCOMPLETE', gaps=[str(error)])
     key = curve_key(after)
-    frozen = inputs['all_inputs'].get(key)
-    if not frozen:
+    _, proof = _frozen_curve_proof(after, key, inputs.get('all_inputs'))
+    if proof is None:
         return dict(status='PROOF_INCOMPLETE', gaps=['curve_target_all_proof_unavailable'])
-    proof = _validated_curve(after, frozen)
     if proof['status'] != PROVEN:
         return dict(status=proof['status'], gaps=proof['gaps'] + proof['hard_failures'])
     if key == curve_key(before):
