@@ -56,7 +56,16 @@
   }catch(error){if(generation!==revenueGeneration)return;if(fc){fcRevenue={status:'unavailable'};renderFcRevenueCard();}section.innerHTML='<h2>活动码付款收入</h2><p role="status">'+esc(error.name==='TimeoutError'?'付款订单查询超时，请更新分析重试；未完成不记为零。':error.message)+'</p>';}
  }
 
- let couponGeneration=0,couponUsage=null;
+ let couponGeneration=0,couponUsage=null,couponPrevious=null,couponNotice='';
+ const couponKey=filter=>JSON.stringify([core.canonicalActivity(filter.activity||''),filter.mode||'',filter.from||'',filter.to||'']);
+ const couponCurrentFilter=()=>Object.fromEntries(new FormData($('filters')));
+ function retainCoupon(filter,notice){
+  const scope=$('statistics-scope').value,day=new Date(Date.now()).toISOString().slice(0,10);
+  const expectedEnd=scope==='today'?day:scope==='yesterday'?new Date(Date.parse(day+'T00:00:00Z')-86400000).toISOString().slice(0,10):null;
+  const scopeMatches=scope==='custom'||couponPrevious?.scope===scope;
+  const prior=carnival()&&scopeMatches&&(!expectedEnd||filter.to===expectedEnd)&&couponPrevious?.key===couponKey(filter)?couponPrevious.data:null;
+  couponUsage=prior;couponNotice=prior?notice:'';return !!prior;
+ }
  const pctText=v=>v==null?'—':(v*100).toFixed(1)+'%';
  function renderCouponPanel(){
   let section=$('coupon-usage');
@@ -71,7 +80,7 @@
    const table=(kind,rows,columns,label)=>'<div class="report-table-wrap" tabindex="0" role="region" aria-label="活动券使用 · '+kind+'"><table><thead><tr><th scope="col">'+kind+'</th>'+columns.map(([title])=>'<th scope="col">'+title+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr><th scope="row">'+esc(label(row))+'</th>'+columns.map(([,key])=>'<td>'+(key.endsWith('_minor')?usd(row[key]):num(row[key]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
    const gameRows=c.games?.length?table('游戏',c.games,fields.slice(2),row=>row.game_name||(row.game_id?'游戏 #'+row.game_id:'游戏待归类')):
     '<p class="muted">'+(Array.isArray(c.games)?'所选区间没有用券订单。':'游戏明细暂不可用。')+'</p>';
-   section.innerHTML='<h2>活动券使用 · 按模块</h2>'+table('模块',c.modules,fields,row=>core.carnivalModules[row.module])
+   section.innerHTML='<h2>活动券使用 · 按模块</h2>'+(couponNotice?'<p role="status">'+esc(couponNotice)+'</p>':'')+table('模块',c.modules,fields,row=>core.carnivalModules[row.module])
     +'<h3>活动券使用 · 按购买游戏</h3>'+gameRows+'<p class="muted">按 Admin 订单所属游戏统计，覆盖所有活动模块。未匹配订单或无明确游戏的记录计入「游戏待归类」。</p>'
     +'<p class="muted">领取和使用累计取自券模板。窗口内按 UTC 用券日期归组，付款金额含单列的退款订单。'+(c.coverage.orders_unmatched?' '+num(c.coverage.orders_unmatched)+' 笔未匹配到订单，使用用券记录的付款状态与金额。':'')+' 更新时间 '+esc(bjt(c.generated_at))+'（北京时间）。</p>';
    return;
@@ -89,15 +98,18 @@
   if(carnival()&&(!filter.from||!filter.to||Date.now()<Date.parse(currentContext?.startsAt)||Date.parse(filter.to)+86400000<=Date.parse(currentContext?.startsAt))){
    couponUsage={status:'not_started',message:'所选区间尚未开始统计。'};renderCouponPanel();return;
   }
-  couponUsage={status:'loading'};renderCouponPanel();
+  if(!retainCoupon(filter,'正在更新；保留同一范围上次成功结果。'))couponUsage={status:'loading'};renderCouponPanel();
   const params=new URLSearchParams(Object.fromEntries(['activity','mode','from','to'].map(k=>[k,filter[k]||''])));
   if(force)params.set('refresh','1');
   try{
-   const response=await fetch('api/coupon-usage?'+params,{credentials:'same-origin',signal:AbortSignal.timeout(125000)}),r=await response.json();
+   const response=await fetch('api/coupon-usage?'+params,{credentials:'same-origin',signal:AbortSignal.timeout(125000)});if(generation!==couponGeneration)return;if(carnival()&&[401,403].includes(response.status)){couponPrevious=null;autoRefreshAllowed=false;throw Error('登录状态或访问权限未确认，请重新登录后重试。');}const r=await response.json();
    if(generation!==couponGeneration)return;
-   if(!response.ok||r.status!=='available'&&r.status!=='not_started'||r.status==='available'&&r.coverage?.complete!==true)throw Error(r.message||'活动券使用记录读取未完成');
-   couponUsage=r;
-  }catch(error){if(generation!==couponGeneration)return;couponUsage={status:'unavailable',message:error.name==='TimeoutError'?'活动券使用记录查询超时，请更新分析重试；未完成不记为零。':error.message};}
+   if(!response.ok||r.status!=='available'&&r.status!=='not_started'||r.status==='available'&&r.coverage?.complete!==true){if(response.status===401||response.status===403)couponPrevious=null;throw Error(r.message||'活动券使用记录读取未完成');}
+   if(carnival()&&r.status==='available'&&r.activity_id!=='mmoexp-carnival')throw Error('活动券结果与所选活动不一致');
+   couponUsage=r;couponNotice='';
+   if(carnival()&&r.status==='not_started')couponPrevious=null;
+   if(carnival()&&r.status==='available'&&Number.isFinite(Date.parse(r.generated_at)))couponPrevious={key:couponKey(filter),scope:$('statistics-scope').value,data:r};
+  }catch(error){if(generation!==couponGeneration)return;const message=error.name==='TimeoutError'?'活动券使用记录查询超时，请更新分析重试；未完成不记为零。':error.message;if(!retainCoupon(filter,'更新失败：'+message+' 保留同一范围上次成功结果。'))couponUsage={status:'unavailable',message};}
   renderCouponPanel();
  }
  let trafficState=null,trafficGeneration=0;
@@ -244,12 +256,13 @@
  }
  async function refreshScheduled(gen){
   const kind=$('statistics-scope').value;revenueGeneration++;trafficGeneration++;trafficState=null;scheduleStatus.hidden=false;scheduleStatus.textContent='正在读取服务器计划汇总…';
-  couponGeneration++;couponUsage=null;
-  if($('coupon-usage'))$('coupon-usage').hidden=true;
+  couponGeneration++;
+  if(retainCoupon(couponCurrentFilter(),'正在更新；保留同一范围上次成功结果。'))renderCouponPanel();
+  else {couponUsage=null;couponNotice='';if($('coupon-usage'))$('coupon-usage').hidden=true;}
   if(carnival())showCarnival(null);
   try{
-   const response=await fetch('api/statistics-snapshot?'+new URLSearchParams({kind,activity:$('activity').value}),{credentials:'same-origin',signal:AbortSignal.timeout(10000)}),v=await response.json();
-   if(gen!==generation)return;if([400,401,403].includes(response.status))autoRefreshAllowed=false;if(!response.ok)throw Error(v.message||'计划汇总暂不可读');
+   const response=await fetch('api/statistics-snapshot?'+new URLSearchParams({kind,activity:$('activity').value}),{credentials:'same-origin',signal:AbortSignal.timeout(10000)});if(gen!==generation)return;if(carnival()&&[401,403].includes(response.status)){couponPrevious=null;autoRefreshAllowed=false;throw Error('登录状态或访问权限未确认，请重新登录后重试。');}const v=await response.json();
+   if(gen!==generation)return;if([400,401,403].includes(response.status))autoRefreshAllowed=false;if([401,403].includes(response.status))couponPrevious=null;if(!response.ok)throw Error(v.message||'计划汇总暂不可读');
    const source=name=>v.sources?.[name]?.lastSuccess,behavior=source('behavior')?.summary,revenue=source('revenue')?.summary,traffic=source('traffic')?.summary,attempt=v.sources?.traffic?.lastAttempt;
    currentContext=v.context||null;currentDiagnostics=null;
    if(currentContext?.games)$('game').innerHTML='<option value="all">全部游戏</option>'+currentContext.games.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+'</option>').join('');
@@ -274,9 +287,9 @@
    let section=$('discount-revenue');if(!section){section=document.createElement('section');section.id='discount-revenue';section.className='panel';$('metrics').after(section);}section.hidden=false;
    section.innerHTML='<h2>活动码付款收入</h2>'+(revenue?'<div class="metrics"><article class="metric"><span>用码付款订单</span><strong>'+num(revenue.paidOrders)+'</strong></article><article class="metric"><span>付款订单金额 · USD</span><strong>'+usd(revenue.paidUsdMinor)+'</strong></article></div><p>后台付款显示金额：'+esc(revenue.paidCurrencies.map(c=>c.currency+' '+c.amount).join(' · ')||'当前区间无付款')+'</p><div class="report-table-wrap"><table><thead><tr><th>游戏</th><th>活动码</th><th>优惠</th><th>付款订单</th><th>金额 · USD</th></tr></thead><tbody>'+revenue.codes.map(c=>'<tr><th>'+esc(gameNames[c.gameId]||c.gameId)+'</th><td>'+esc(c.code)+'</td><td>'+num(c.offPercent)+'% OFF</td><td>'+num(c.paidOrders)+'</td><td>'+usd(c.paidUsdMinor)+'</td></tr>').join('')+'</tbody></table></div>':'<p>当前区间付款数据缺测，未填零。</p>')+'<p class="muted">12个活动专属码的已付款订单美元金额；未扣退款，不是净收入或逐访客归因。最后成功 '+esc(bjt(source('revenue')?.at))+'（北京时间）。</p>';
    $('feedback').textContent='计划汇总已读取；统计日期采用UTC，运行时间显示北京时间。';
-  }catch(error){if(gen!==generation)return;fcRevenue=null;show(null,'live');for(const id of ['basic-traffic-report','discount-revenue'])if($(id))$(id).innerHTML='<h2>计划数据暂不可读</h2><p>未显示旧筛选数字，也不把失败填为零。</p>';if(carnival()){couponUsage={status:'unavailable',message:'统计区间读取失败，请更新分析。'};renderCouponPanel();}scheduleStatus.textContent=error.message;$('feedback').textContent=error.message;}
+  }catch(error){if(gen!==generation)return;fcRevenue=null;show(null,'live');for(const id of ['basic-traffic-report','discount-revenue'])if($(id))$(id).innerHTML='<h2>计划数据暂不可读</h2><p>未显示旧筛选数字，也不把失败填为零。</p>';if(carnival()){if(!retainCoupon(couponCurrentFilter(),'统计区间读取失败，请更新分析；保留同一范围上次成功结果。'))couponUsage={status:'unavailable',message:'统计区间读取失败，请更新分析。'};renderCouponPanel();}scheduleStatus.textContent=error.message;$('feedback').textContent=error.message;}
  }
- async function refresh(forceRevenue=false){if(fcActivity())lastFcReadAt=Date.now();if(forceRevenue===true&&(fcActivity()||carnival()))$('statistics-scope').value='custom';normalizeFilters();const gen=++generation,mode=$('mode').value,filter=Object.fromEntries(new FormData($('filters')));if(!seasonal())delete filter.game;if(carnival())delete filter.platform;if(!filter.activity){show(null,mode);$('feedback').textContent='暂无可查询的已上线活动。请在活动管理区查看登记状态。';return;}$('feedback').textContent='';if(filter.from>filter.to&&(!window.CampaignServer||(!seasonal()&&!carnival())||mode!=='live'||$('statistics-scope').value==='custom')){$('feedback').textContent='开始日期不能晚于结束日期。';return;}
+ async function refresh(forceRevenue=false){if(fcActivity())lastFcReadAt=Date.now();if(forceRevenue===true&&(fcActivity()||carnival()))$('statistics-scope').value='custom';normalizeFilters();const gen=++generation,mode=$('mode').value,filter=Object.fromEntries(new FormData($('filters')));couponGeneration++;if(!carnival()||couponPrevious?.key!==couponKey(filter)){couponUsage=null;couponNotice='';renderCouponPanel();}if(!seasonal())delete filter.game;if(carnival())delete filter.platform;if(!filter.activity){show(null,mode);$('feedback').textContent='暂无可查询的已上线活动。请在活动管理区查看登记状态。';return;}$('feedback').textContent='';if(filter.from>filter.to&&(!window.CampaignServer||(!seasonal()&&!carnival())||mode!=='live'||$('statistics-scope').value==='custom')){$('feedback').textContent='开始日期不能晚于结束日期。';return;}
   scheduleControl.hidden=!window.CampaignServer||!scheduledActivity();
   if(mode!=='live'||['game','device','source'].some(k=>filter[k]&&filter[k]!=='all')||filter.windowHours!=='24')$('statistics-scope').value='custom';
   if(window.CampaignServer&&scheduledActivity()&&mode==='live'&&$('statistics-scope').value!=='custom')return refreshScheduled(gen);

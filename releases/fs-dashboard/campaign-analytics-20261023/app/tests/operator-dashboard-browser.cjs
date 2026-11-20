@@ -100,7 +100,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   await page.unroute('**/analytics/api/statistics-snapshot?**');await page.goto(base+'analytics/?activity=mmoexp-seasonal&scope=custom');await page.waitForFunction(()=>document.querySelector('#feedback').textContent.includes('查询结果时间'));
   let deniedReads=0;await page.route('**/analytics/api/report?**',r=>{deniedReads++;return r.fulfill({status:403,json:{status:'error',message:'fixture access denied'}});});await page.selectOption('#mode','live');await page.waitForFunction(()=>document.getElementById('feedback').textContent.includes('fixture access denied'));await page.evaluate(()=>window.__operatorCheck());await page.waitForTimeout(50);assert.equal(deniedReads,1,'Permission failures stop automatic polling');
   await page.unroute('**/analytics/api/report?**');
-  let carnivalStarted=false,carnivalCoupons=0;
+  let carnivalStarted=false,carnivalCoupons=0,carnivalMode='ok',releaseCarnival;
   await page.route('**/analytics/api/statistics-snapshot?**',r=>{
    if(new URL(r.request().url()).searchParams.get('activity')!=='mmoexp-carnival')return r.fallback();
    const context={activityId:'mmoexp-carnival',startsAt:'2026-11-19T05:00:00Z',endsAt:'2026-12-02T05:00:00Z'};
@@ -112,11 +112,13 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   await page.route('**/analytics/api/coupon-usage?**',r=>{
    if(new URL(r.request().url()).searchParams.get('activity')!=='mmoexp-carnival')return r.fallback();
    carnivalCoupons++;
+   if(carnivalMode==='hold')return new Promise(resolve=>{releaseCarnival=()=>resolve(r.fulfill({status:502,json:{status:'unavailable',message:'模拟券源失败'}}));});
+   if(carnivalMode==='denied')return r.fulfill({status:403,contentType:'text/html',body:'forbidden'});if(carnivalMode==='error')return r.fulfill({status:502,json:{status:'unavailable',message:'模拟券源失败'}});
    const modules=['home','mystery','blackFriday','capsule'].map(module=>({module,issued_total:1,used_total:1,
     used_orders:1,paid_orders:1,refunded_orders:0,paid_usd_minor:100,discount_usd_minor:20}));
    const games=[{game_id:'1327',game_name:'FC 27',used_orders:3,paid_orders:3,refunded_orders:0,paid_usd_minor:300,discount_usd_minor:60},
     {game_id:null,game_name:null,used_orders:1,paid_orders:1,refunded_orders:0,paid_usd_minor:100,discount_usd_minor:20}];
-   return r.fulfill({json:{status:'available',coverage:{complete:true,orders_unmatched:1},modules,games}});
+   return r.fulfill({json:{status:'available',activity_id:'mmoexp-carnival',generated_at:'2026-11-19T07:35:00Z',coverage:{complete:true,orders_unmatched:1},modules,games}});
   });
   await page.addInitScript(()=>{Date.now=()=>Date.parse('2026-11-18T08:00:00Z');});
   const beforeCarnivalGoogle=googleRequests.length;
@@ -146,6 +148,39 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   assert.deepEqual(await page.locator('#funnel .step strong').allTextContents(),['2','1']);
   assert.match(await page.locator('#channels').innerText(),/神秘商店/);
   assert.equal(carnivalCoupons,1);
+  const originalCoupon=await page.locator('#coupon-usage').innerText();
+  assert.match(originalCoupon,/更新时间.*15:35:00/);
+  carnivalMode='hold';releaseCarnival=null;await page.evaluate(()=>window.__operatorCheck());
+  await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('正在更新；保留同一范围上次成功结果'));
+  while(!releaseCarnival)await new Promise(resolve=>setTimeout(resolve,10));
+  releaseCarnival();await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('更新失败'));
+  assert.match(await page.locator('#coupon-usage').innerText(),/FC 27.*15:35:00/s);
+  carnivalMode='hold';releaseCarnival=null;await page.selectOption('#statistics-scope','yesterday');
+  while(!releaseCarnival)await new Promise(resolve=>setTimeout(resolve,10));
+  assert.doesNotMatch(await page.locator('#coupon-usage').innerText(),/FC 27|15:35:00/);
+  releaseCarnival();await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('模拟券源失败'));
+  carnivalMode='ok';await page.selectOption('#statistics-scope','today');
+  await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('FC 27'));
+  carnivalMode='hold';releaseCarnival=null;await page.locator('#filters button[type=submit]').click();
+  await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('正在更新；保留同一范围上次成功结果'));
+  assert.match(await page.locator('#coupon-usage').innerText(),/FC 27/);
+  await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('15:35:00'));
+  while(!releaseCarnival)await new Promise(resolve=>setTimeout(resolve,10));
+  releaseCarnival();await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('更新失败'));
+  assert.match(await page.locator('#coupon-usage').innerText(),/FC 27/);
+  assert.match(await page.locator('#coupon-usage').innerText(),/15:35:00/);
+  carnivalMode='error';await page.locator('#to').fill('2026-11-20');await page.locator('#filters button[type=submit]').click();
+  await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('模拟券源失败'));
+  assert.doesNotMatch(await page.locator('#coupon-usage').innerText(),/FC 27|15:35:00/);
+  await page.locator('#to').fill('2026-11-19');carnivalMode='ok';await page.locator('#filters button[type=submit]').click();
+  await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('FC 27'));
+  await page.selectOption('#activity','mmoexp-seasonal');
+  await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.hidden===true);
+  await page.selectOption('#activity','mmoexp-carnival');
+  await page.waitForFunction(()=>document.querySelector('#coupon-usage')?.textContent.includes('FC 27'));
+  carnivalMode='denied';await page.locator('#filters button[type=submit]').click();
+  await page.waitForFunction(()=>!document.querySelector('#coupon-usage')?.textContent.includes('FC 27'));
+  assert.doesNotMatch(await page.locator('#coupon-usage').innerText(),/FC 27|15:35:00/);
   for(const width of [1440,390])for(const theme of ['light','dark']){
    await page.setViewportSize({width,height:950});
    await page.evaluate(t=>document.documentElement.dataset.fsTheme=t,theme);
