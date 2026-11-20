@@ -5077,6 +5077,70 @@
       }
     },
     {
+      "name": "customer_tracking.vip_period",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "按自选上海付款日期重算 MMOEXP FC27 英美大客，窗口累计实付至少300美元，第15天开始复购追踪。起止日期含首尾且为已结束的自然日。可选 as_of 为含时区的观察时点（晚于入组窗口），默认当前。按segment筛全部、到期、正常、未核或末单标退款。每页20人，有next_offset时续传相同as_of、条件及offset。返回订单联系邮箱、可核会员UID、付款和退款标记。只读；不会改动每周队列或触达客户。",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}",
+            "maxLength": 10
+          },
+          "end": {
+            "type": "string",
+            "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}",
+            "maxLength": 10
+          },
+          "as_of": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "segment": {
+            "type": "string",
+            "enum": [
+              "all",
+              "due",
+              "recent",
+              "unknown",
+              "refund"
+            ]
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "vip_period"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 95
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/vip_followup.py; releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/vip_query.py",
+        "mapping_status": "source_mapped; deployment_and_authenticated_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
       "name": "customer_tracking.candidates",
       "module": "customer-tracking",
       "path": "/dashboard/fs-home/advisor.json",
@@ -5341,7 +5405,7 @@
     {
       "module": "customer-tracking",
       "status": "partially_mapped_not_live_verified",
-      "operations": 5,
+      "operations": 6,
       "reason": "Existing reads plus SELECT-only candidates/detail adapter; new helper deployment and real user reads pending.",
       "permission_path": "/dashboard/fs-home/hermes/customer-tracking/"
     },
@@ -5556,6 +5620,7 @@
           "customer_tracking.tracked",
           "customer_tracking.request",
           "customer_tracking.candidates",
+          "customer_tracking.vip_period",
           "customer_tracking.detail",
           "orders.customer"
         ],

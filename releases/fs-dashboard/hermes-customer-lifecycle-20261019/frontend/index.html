@@ -10,10 +10,10 @@
   <title>智体客单追踪 · FS</title>
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
-  <link rel="stylesheet" href="page.css?v=detail-feedback-20261019-v2">
+  <link rel="stylesheet" href="page.css?v=vip-maintenance-20261120">
   <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
   <script defer src="/__hub/hubnav.js?v=3dda7cae"></script>
-  <script defer src="page.js?v=pool-lifecycle-20261019-v1"></script>
+  <script defer src="page.js?v=vip-maintenance-20261120"></script>
 <link rel="stylesheet" href="/__hub/hermes-nav.css?v=hermes-nav-20261019-v2">
 <script defer src="/__hub/nav.js?v=hermes-nav-20261019-v1"></script>
 </head>
@@ -49,10 +49,44 @@
   <a class="skip" href="#main">跳到主内容</a>
   <header class="page-head"><a href="/dashboard/">FS / MMOEXP</a><nav aria-label="当前位置"><a href="/dashboard/modules/hermes/">Hermes 智体</a><span aria-hidden="true"> / </span><span aria-current="page">智体客单追踪</span></nav><label>显示主题 <select id="theme"><option value="system">跟随系统</option><option value="light">浅色主题</option><option value="dark">深色主题</option></select></label></header>
   <main id="main" tabindex="-1">
-    <div class="intro"><p class="eyebrow">HERMES · FC27 CUSTOMER TRACKING</p><h1>智体客单追踪</h1><p>首期聚焦 FC27。筛选高价值订单，人工决定是否加入持续观察。Hermes 只提出维护建议；联系客户、发券及修改订单均需另行人工操作。</p></div>
+    <div class="intro"><h1>智体客单追踪</h1><p>查看 FC27 每周优先维护名单，记录私域跟进和回购结果。</p></div>
     <p id="status" class="status" role="status" aria-live="polite">正在核对管理员权限…</p><button id="reconcile-write" class="fs-btn" type="button" hidden>核对上次操作</button>
     <div id="app" hidden>
-      <section class="panel" aria-labelledby="config-title"><div class="section-head"><h2 id="config-title">筛选条件</h2><span id="config-version" class="muted"></span></div>
+      <section class="panel vip-queue" aria-labelledby="vip-title">
+        <div class="section-head vip-head">
+          <div>
+            <h2 id="vip-title">本周优先跟进</h2>
+            <p class="hint" id="vip-week-label">按北京时间周一至周日</p>
+            <a id="vip-performance-link" href="#vip-performance" hidden>查看周维护效果</a>
+          </div>
+          <form id="vip-week-form">
+            <label>周起始日 <input id="vip-week-date" type="date" required></label>
+            <div class="vip-week-actions">
+              <button id="vip-week-prev" class="fs-btn" type="button">上一周</button>
+              <button id="vip-week-next" class="fs-btn" type="button">下一周</button>
+              <button class="fs-btn fs-btn--primary" type="submit">查看</button>
+            </div>
+          </form>
+        </div>
+        <p id="vip-state" class="vip-state" role="status" aria-live="polite">正在读取维护名单…</p>
+        <div id="vip-tools" class="vip-tools" hidden>
+          <label>搜索客户 <input id="vip-search" type="search" placeholder="邮箱或会员 UID" maxlength="180" autocomplete="off"></label>
+          <label>跟进状态 <select id="vip-filter">
+            <option value="all">全部客户</option><option value="queued">待领取</option>
+            <option value="mine">我负责</option><option value="needs_feedback">已联系待反馈</option>
+          </select></label>
+        </div>
+        <p id="vip-list-count" class="vip-list-count" role="status"></p>
+        <div id="vip-list" aria-busy="true"></div>
+      </section>
+      <section class="panel vip-performance" aria-labelledby="vip-performance-title" hidden id="vip-performance">
+        <div class="section-head"><h2 id="vip-performance-title">周维护效果</h2></div>
+        <p id="vip-performance-note" class="hint"></p>
+        <div id="vip-metrics"></div>
+      </section>
+      <details id="legacy-tools" class="legacy-tools">
+        <summary>候选扫描、持续观察与历史报告</summary>
+        <section class="panel" aria-labelledby="config-title"><div class="section-head"><h2 id="config-title">筛选条件</h2><span id="config-version" class="muted"></span></div>
         <form id="config-form">
           <div class="fields"><label>游戏 <select name="profile" required disabled><option value="FC27">FC27（首期）</option></select></label><fieldset><legend>商品品类</legend><label><input type="checkbox" name="product_types" value="Coins"> Coins（货币）</label><label><input type="checkbox" name="product_types" value="Items"> Items（物品）</label></fieldset><label>单笔订单金额高于（USD） <input name="min_order_usd_exclusive" type="number" min="0" step="0.01" required></label><label>折扣金额低于（USD） <input name="max_discount_usd_exclusive" type="number" min="0" step="0.01" required></label><fieldset><legend>新老客标记</legend><label><input type="checkbox" name="customer_flags" value="new"> 新客</label><label><input type="checkbox" name="customer_flags" value="old"> 老客</label><label><input type="checkbox" name="customer_flags" value="unknown"> 未识别</label></fieldset></div>
           <p class="hint">候选订单金额以 ES 导出为准，严格大于所设金额；折扣严格小于所设金额。新老客以数据源标记为准，游客 UID 0 不等于新客。</p><p id="enabled-state" class="muted"></p><div class="actions"><button id="save-config" class="fs-btn fs-btn--primary" type="submit">保存条件</button><span id="config-state" class="muted"></span></div>
@@ -61,6 +95,7 @@
       <section class="panel" aria-labelledby="candidate-title"><div class="section-head"><div><h2 id="candidate-title">区间候选名单</h2><p class="hint">仅管理员可见。按北京时间所选起止日期（含首尾）合并每日归档，缺失日期单独提示，不当作零订单。</p></div><form id="date-form"><label>开始日期 <input id="candidate-date" name="start" type="date" required></label><label>结束日期 <input id="candidate-end" name="end" type="date" required></label><button class="fs-btn" type="submit">查看名单</button><button id="scan-day" class="fs-btn fs-btn--primary" type="button">扫描所选区间</button></form></div><p id="candidate-meta" class="muted"></p><div id="candidate-list" class="list"><p class="empty">选择起止日期查看名单。</p></div></section>
       <section class="panel" aria-labelledby="pool-title"><div class="section-head"><h2 id="pool-title">全局追踪报告</h2><div class="actions"><button id="generate-pool" class="fs-btn fs-btn--primary" type="button">生成追踪报告</button><button id="refresh-pool" class="fs-btn" type="button">刷新报告列表</button></div></div><p class="hint">手动生成时统一分析当前仍在追踪池的客户。首次付款自然日为第1天；7／14／30天仅为阶段标记，不再自动生成单人报告。每日北京时间00:00–07:00更新状态，拉取失败保留上次更新时间。</p><div id="pool-reports"></div></section><section class="panel" aria-labelledby="tracked-title"><div class="section-head"><h2 id="tracked-title">持续观察名单</h2><button id="refresh-tracked" class="fs-btn" type="button">刷新名单</button></div><div id="tracked-list" class="list"><p class="empty">正在读取观察名单…</p></div></section>
       <section id="detail-section" class="panel" aria-labelledby="detail-title" hidden><div class="section-head"><h2 id="detail-title">客户观察详情</h2><button id="refresh-detail" class="fs-btn" type="button">刷新观察</button></div><div id="detail"></div></section>
+      </details>
     </div>
   </main>
 </body>
