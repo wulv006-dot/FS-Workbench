@@ -51,11 +51,23 @@ class Reader:
 
 
 class CarnivalReader(Reader):
+    coupon_ids = {str(cid) for ids in CARNIVAL_COUPONS.values() for cid in ids}
+
+    def list_coupons(self):
+        return [dict(self.coupon, id=int(cid), game_id=0, fetch_qty=2, used_qty=1, days='7 days')
+                for cid in sorted(self.coupon_ids)]
+
     def detail(self, resource, object_id):
         template = super().detail(resource, object_id)
         return dict(template, id=int(object_id), game_id=0, fetch_qty=2, used_qty=1)
 
     def pages(self, resource, filters, **kw):
+        if resource == 'coupons':
+            self.calls.append((resource, filters))
+            rows = self.list_coupons()
+            if kw.get('validate') and not all(kw['validate'](row) for row in rows):
+                raise ContractError('UPSTREAM_SCOPE_MISMATCH')
+            return rows
         rows = super().pages(resource, filters, **kw)
         if resource == 'coupon_logs':
             coupon_ids = next(value for field, _operator, value in filters if field == 'coupon_id').split(',')
@@ -79,11 +91,15 @@ class CarnivalCouponUsageTests(unittest.TestCase):
         counters = [(m['module'], m['issued_total'], m['paid_orders'], m['refunded_orders']) for m in result['modules']]
         self.assertEqual(counters, [('home', 2, 1, 0), ('mystery', 36, 2, 0), ('blackFriday', 62, 4, 1), ('capsule', 12, 2, 0)])
         expected = {str(cid) for ids in CARNIVAL_COUPONS.values() for cid in ids}
-        details = [call[2] for call in reader.calls if call[0] == 'detail']
-        self.assertEqual(set(details), expected)
-        self.assertEqual(len(details), 56)
-        self.assertNotIn('1395', details)
-        self.assertNotIn('1442', details)
+        self.assertEqual([name for name, *_ in reader.calls], ['coupons', 'coupon_logs', 'orders'])
+        for resource, expected_filters in (('coupons', {'site_id': ('=', '266'), 'param_code': ('=', 'carnival_202611')}),
+                                           ('coupon_logs', {'site_id': ('=', '266'), 'use_time': ('RANGE', '2026-11-19 08:00:00,2026-11-20 07:59:59')})):
+            filters = dict((field, (operator, value)) for field, operator, value in dict(reader.calls)[resource])
+            operator, coupon_ids = filters.pop('id' if resource == 'coupons' else 'coupon_id')
+            self.assertEqual(operator, 'IN')
+            self.assertEqual(len(coupon_ids.split(',')), 56)
+            self.assertEqual(set(coupon_ids.split(',')), expected)
+            self.assertEqual(filters, expected_filters)
         self.assertNotIn('D1515', repr(result))
         self.assertNotIn('member_id', repr(result))
 
@@ -118,6 +134,37 @@ class CarnivalCouponUsageTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ContractError, 'INCOMPLETE_PAGES'):
             read_coupon_usage(BrokenReader(), self.request)
+
+    def test_carnival_coupon_catalogue_requires_exact_scope_and_counters(self):
+        class CatalogueReader(CarnivalReader):
+            def __init__(self, change):
+                super().__init__()
+                self.change = change
+
+            def list_coupons(self):
+                rows = super().list_coupons()
+                return self.change(rows)
+
+        cases = [
+            (lambda rows: rows[:-1], 'COUPON_CATALOGUE_INCOMPLETE'),
+            (lambda rows: [*rows[:-1], rows[0]], 'COUPON_CATALOGUE_INCOMPLETE'),
+            (lambda rows: [dict(rows[0], id=1395), *rows[1:]], 'UPSTREAM_SCOPE_MISMATCH'),
+            (lambda rows: [dict(rows[0], site_id=100), *rows[1:]], 'UPSTREAM_SCOPE_MISMATCH'),
+            (lambda rows: [dict(rows[0], param_code='other'), *rows[1:]], 'UPSTREAM_SCOPE_MISMATCH'),
+            (lambda rows: [dict(rows[0], used_qty=None), *rows[1:]], 'COUPON_COUNTER_INVALID'),
+        ]
+        for change, code in cases:
+            reader = CatalogueReader(change)
+            with self.subTest(code=code), self.assertRaisesRegex(ContractError, code):
+                read_coupon_usage(reader, self.request)
+            self.assertEqual([call[0] for call in reader.calls], ['coupons'])
+
+    def test_cross_module_order_conflicts_still_fail_before_reading_orders(self):
+        logs = [log('D1', id=cid, coupon_id=cid, use_time='2026-11-19 14:00:00') for cid in (1399, 1401)]
+        reader = CarnivalReader(logs=logs)
+        with self.assertRaisesRegex(ContractError, 'CONFLICTING_DUPLICATE_COUPON_USE'):
+            read_coupon_usage(reader, self.request)
+        self.assertNotIn('orders', [call[0] for call in reader.calls])
 
 
 class CouponUsageTests(unittest.TestCase):

@@ -397,21 +397,29 @@ def read_coupon_orders(reader, numbers):
 
 def read_carnival_coupon_usage(reader, start, end):
     groups = {module: tuple(map(str, ids)) for module, ids in CARNIVAL_COUPONS.items()}
-    counters = {}
-    for coupon_ids in groups.values():
-        for cid in coupon_ids:
-            counters[cid] = coupon_record(reader.detail('coupon', cid),
-                dict(id=cid, site_id=CARNIVAL_SITE_ID, param_code=CARNIVAL_COUPON_PARAM))
+    coupon_module = {cid: module for module, ids in groups.items() for cid in ids}
+    rows = reader.pages('coupons', [
+        ('site_id', '=', CARNIVAL_SITE_ID), ('param_code', '=', CARNIVAL_COUPON_PARAM),
+        ('id', 'IN', ','.join(coupon_module)),
+    ], validate=lambda row: str(row.get('id')) in coupon_module
+        and str(row.get('site_id')) == CARNIVAL_SITE_ID and row.get('param_code') == CARNIVAL_COUPON_PARAM)
+    by_id = {str(row['id']): row for row in rows}
+    if by_id.keys() != coupon_module.keys() or len(rows) != len(coupon_module):
+        raise ContractError('COUPON_CATALOGUE_INCOMPLETE')
+    # The list formats validity days for display. Carnival uses only the two native counters.
+    counters = {cid: dict(issued_total=coupon_counter(row, 'fetch_qty'), used_total=coupon_counter(row, 'used_qty'))
+                for cid, row in by_id.items()}
 
-    logs_by_module = {}
+    logs_by_module = defaultdict(list)
     order_module = {}
-    for module, coupon_ids in groups.items():
-        logs = read_coupon_logs(reader, coupon_ids, start, end)
-        for log in logs:
-            number = identity(str(log.get('order_no')))
-            if order_module.setdefault(number, module) != module:
-                raise ContractError('CONFLICTING_DUPLICATE_COUPON_USE')
-        logs_by_module[module] = logs
+    for log in read_coupon_logs(reader, tuple(coupon_module), start, end):
+        module = coupon_module.get(str(log.get('coupon_id')))
+        if module is None or str(log.get('site_id')) != CARNIVAL_SITE_ID:
+            raise ContractError('COUPON_LOG_SCOPE_MISMATCH')
+        number = identity(str(log.get('order_no')))
+        if order_module.setdefault(number, module) != module:
+            raise ContractError('CONFLICTING_DUPLICATE_COUPON_USE')
+        logs_by_module[module].append(log)
     orders_by_module = defaultdict(list)
     for row in read_coupon_orders(reader, order_module):
         orders_by_module[order_module[str(row['order_no'])]].append(row)
