@@ -268,6 +268,16 @@ def _target(main):
     return result
 
 
+def validate_frozen_curve(curve, frozen):
+    return validate_curve(curve, frozen['baskets'], frozen['evidence'], frozen['domain'])
+
+
+def frozen_curve_proof(curve, key, frozen_curves):
+    """Return the stored evidence and its proof for the caller's curve scope."""
+    frozen = frozen_curves.get(key) if frozen_curves else None
+    return frozen, validate_frozen_curve(curve, frozen) if frozen else None
+
+
 def validate_curve(curve, baskets, evidence, validation_domain):
     """Verify 0/18/25 over a caller-attested domain and frozen total USD quote rows.
 

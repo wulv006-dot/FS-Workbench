@@ -591,7 +591,7 @@ class CurveRuntime(unittest.TestCase):
                 final_curve=final, normal_anchors={}, final_anchors={}, segments=segments, gaps=[],
                 preference=dict(segment='small', label=label, restore_other_band=True,
                                 assignment={'background_curve_key': None}))
-            with patch.object(runtime, '_validated_curve', return_value={'status': 'PROVEN'}):
+            with patch('fc_pricing_v3.pricing_proof_v6.validate_frozen_curve', return_value={'status': 'PROVEN'}):
                 row = runtime._prove_temporary_curve(platform, dict(temporary_cost_protection=frozen,
                     primary_inputs={key: {'evidence': {'curve_key': key}}}), final, state, previous)
             self.assertEqual(row['status'], 'KEEP')
@@ -1435,6 +1435,11 @@ class CurveRuntime(unittest.TestCase):
                 without_all = dict(frozen, all_inputs={})
                 denied = runtime._prove_curve_inputs(PLATFORM, without_all, self.db, now, evidence=evidence, plan=activated)
                 self.assertEqual(denied, dict(status='PROOF_INCOMPLETE', gaps=['curve_target_all_proof_unavailable']))
+                malformed = dict(frozen, primary_inputs=dict(frozen['primary_inputs']))
+                malformed['primary_inputs'][curve_key(current)] = {}
+                denied = runtime._prove_curve_inputs(PLATFORM, malformed, self.db, now, evidence=evidence, plan=activated)
+                self.assertEqual(denied['status'], 'PROOF_INCOMPLETE')
+                self.assertEqual(denied['gaps'], ['curve_current_proof_unavailable'])
             self.assertEqual(self.db.curve_strategy_state(PLATFORM), reference_before)
             if cost_repair:
                 self.assertEqual(self.bundle['curve_selection'][PLATFORM]['label'], 'COST_REPAIR')

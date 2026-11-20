@@ -419,8 +419,9 @@ def read(path):
     if path=='market':
         if curve:
             from .competitor_offers import POLICY
-            from .runtime import _curve_proof_inputs, _validated_curve
+            from .runtime import _curve_proof_inputs
             from .price_curve import curve_key
+            from .pricing_proof_v6 import frozen_curve_proof
 
             if not current:
                 return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY, snapshot_id=None)
@@ -435,9 +436,10 @@ def read(path):
                                  if row.get('http_status') == 200 and row.get('response_code') == 1), None)
                 if tiers and observed:
                     catalogues[platform] = dict(tiers=tiers, observed_at=observed, basis='admin_sample')
+                if curve is None:
+                    continue
                 try:
-                    frozen = (entry.get('primary_inputs') or {}).get(curve_key(curve)) if curve else None
-                    proof = _validated_curve(curve, frozen) if frozen is not None else None
+                    _, proof = frozen_curve_proof(curve, curve_key(curve), entry.get('primary_inputs'))
                 except (KeyError, TypeError, ValueError):
                     proof = None
                 if proof is None:

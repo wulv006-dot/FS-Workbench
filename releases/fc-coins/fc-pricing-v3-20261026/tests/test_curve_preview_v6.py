@@ -135,12 +135,12 @@ class CurvePreviewV6(unittest.TestCase):
         self.db.put('metadata','latest_snapshot:active-plan',{'snapshot_id':SNAPSHOT_ID})
         self.db.put('metadata','latest_snapshot_summary',{'snapshot_id':'unrelated-legacy-summary'})
         curve=read_curve(self.row,{key:self.row[key] for key in IDENTITY_FIELDS},{})
-        entry=dict(primary_curve=curve,primary_inputs={curve_key(curve):{}})
+        entry=dict(primary_curve=curve,primary_inputs={curve_key(curve):{'evidence': {}}})
         plan=dict(plan_id='active-plan',write_protocol=CURVE_WRITE_PROTOCOL)
         with patch.object(api,'ledger',return_value=self.db),patch.object(self.db,'active_plan',return_value=plan), \
                 patch.object(engine,'price_basis',side_effect=AssertionError('scalar price basis')), \
                 patch.object(runtime,'_curve_proof_inputs',return_value={'PS':entry,'PC':{'primary_curve':curve}}), \
-                patch.object(runtime,'_validated_curve',return_value=dict(status='PROVEN',
+                patch('fc_pricing_v3.pricing_proof_v6.validate_frozen_curve',return_value=dict(status='PROVEN',
                     average_discount={'retained_ratio':'0.91'},minimum_safe_procurement_margin='0.182')):
             response=api.read('market')
         self.assertEqual((response['snapshot_id'],response['write_protocol'],response['competitor_policy']),
