@@ -6,6 +6,7 @@ import json
 
 TZ = timezone(timedelta(hours=8))
 ROOT = Path('/var/lib/fs-hermes-fc/fs/nightly-data')
+VIP_REPORT_ROOT = Path('/var/lib/fs-hermes-fc/native')
 FALLBACK = time(2, 0)
 
 
@@ -74,7 +75,20 @@ def report_context(now,kind='daily',warnings=()):
     from source_snapshots import archive_status
     start,end=closed_period(now.astimezone(TZ).date(),kind)
     query=dict(start=start,end=end,**({} if kind in ('management','management_weekly') else {'profile':'FC27'}))
-    return dict(archive_status=archive_status(query),preparation_gaps=list(warnings),
+    context = dict(archive_status=archive_status(query),preparation_gaps=list(warnings),
         rule=('归档分项观察不代表区间完整，无需等待整轮归档。'
             ' 继续使用已存可用证据，按分项说明缺失、原因、重试时间或明确停止；未知不填零，不重复启动正在进行或结果未知的采集。')
         + ' 缺失数据不阻塞本次发布。有可比趋势及已核相关证据才可推算；逐项标注“预估，真实数据暂未提供”，说明依据、方法、假设、范围和不确定性。无依据则保留未知。预估与真实数值分开，不能写回真实归档；回看此前估计，取得同范围真实值后核对误差并追加修订，保留原稿，不重放旧任务。')
+
+    if kind == 'weekly':
+        end_exclusive = datetime.fromisoformat(end).replace(tzinfo=TZ) + timedelta(days=1)
+        try:
+            from vip_maintenance import read_weekly_report
+        except ImportError:
+            context['vip_maintenance'] = dict(status='unavailable', week=start, reason='vip_module_unavailable')
+        else:
+            context['vip_maintenance'] = read_weekly_report(VIP_REPORT_ROOT, start, end_exclusive)
+        context['rule'] += (' FC27 大客维护章节使用服务端 vip_maintenance 聚合。报告已联系、自然回流、'
+                            '联系后七天付款人数及已核美元金额，交代未满七天、覆盖缺口及反馈原因。'
+                            '以成熟且有覆盖的被联系人作七天比例分母。只有先后顺序，不能归因为维护挽回。')
+    return context

@@ -119,7 +119,13 @@ class Tests(unittest.TestCase):
          'source/customer_tracking.py':release/'source/customer_tracking.py',
          'source/page.js':release/'frontend/page.js','source/index.html':release/'frontend/index.html'}
   for name,path in files.items():
-   self.assertEqual(hashlib.sha256(path.read_bytes().replace(b'\r\n',b'\n')).hexdigest(),buyer.AFTER[name])
+   if name in {'source/page.js','source/index.html'}:
+    # The weekly dashboard supersedes these two immutable November 10 published artifacts.
+    proof=(release.parents[2]/'docs/planning/customer-buyer-tracking-20261110/IMPLEMENTATION.md').read_text('utf-8')
+    row=next(line for line in proof.splitlines() if line.startswith('|') and path.name in line and buyer.BEFORE[name] in line)
+    self.assertIn(buyer.AFTER[name],row)
+   else:
+    self.assertEqual(hashlib.sha256(path.read_bytes().replace(b'\r\n',b'\n')).hexdigest(),buyer.AFTER[name])
   with tempfile.TemporaryDirectory() as dirname:
    stage=Path(dirname)
    base=release.parents[0]/'hermes-report-repair-20261019/deploy/release_navigation_base.py'

@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -123,7 +124,10 @@ class TrackingController:
             self.report_pool=ThreadPoolExecutor(max_workers=1,thread_name_prefix='customer-reports')
             self.report_future=None
         else:self.reports=None
+        from vip_maintenance import VipMaintenance
+        self.vip = VipMaintenance(self.store)
         if auto_start:
+            threading.Thread(target=self._vip_loop,name='fs-vip-maintenance',daemon=True).start()
             threading.Thread(target=self._daily_loop,name='fs-customer-daily',daemon=True).start()
 
     def _queue_reports(self):
@@ -195,6 +199,14 @@ class TrackingController:
         self.store.note_history_attempt(tracking_id,state)
         return state
 
+    def _vip_loop(self):
+        while True:
+            try:
+                self.vip.refresh()
+            except Exception as error:
+                logging.getLogger(__name__).error('VIP refresh failed: %s', type(error).__name__)
+            time.sleep(60)
+
     def _daily_loop(self):
         while True:
             try:
@@ -230,6 +242,14 @@ class TrackingController:
             raise ValueError('tracking_query')
         view=params.get('view',[''])[0]
         allowed={'mode','structure','view'}
+        if view == 'vip_week' and set(params) <= allowed | {'week'}:
+            return 200, self.vip.queue(week=params.get('week', [None])[0], actor=user)
+        if view == 'vip_period':
+            from vip_query import query
+            from vip_followup import read_period
+            return 200, query(read_period,
+                              {key: val for key, val in params.items() if key not in allowed},
+                              datetime.now(SHANGHAI))
         if view=='pool_reports':
             if set(params)!=allowed:raise ValueError('tracking_query')
             return 200,self.reports.listed(user) if self.reports else {'status':'unavailable','items':[]}
@@ -246,6 +266,10 @@ class TrackingController:
             field='id' if view=='detail' else 'request_id'
             allowed.add(field)
             if set(params)!=allowed or not ID.fullmatch(params[field][0]):raise ValueError('tracking_query')
+            if view == 'request':
+                receipt = self.vip.lookup_receipt(user, params[field][0])
+                if receipt is not None:
+                    return 200, receipt
             value=self.admin.get(user,view,id=params[field][0])
             if view=='detail':
                 value['history_status']=self._poll_history(params[field][0])
@@ -261,6 +285,9 @@ class TrackingController:
     def post(self,user,body):
         self.admin._admin(user)
         if not isinstance(body,dict) or body.get('kind')!='hermes_customer_tracking':raise ValueError('tracking_kind')
+        if body.get('action') == 'vip_feedback':
+            data = {key: val for key, val in body.items() if key not in ('kind', 'action')}
+            return 200, self.vip.feedback(user, data)
         if body.get('action')=='scan' and set(body)=={'kind','action','day','request_id'}:
             day=body['day'];request_id=body['request_id']
             if date.fromisoformat(day)>datetime.now(SHANGHAI).date():raise ValueError('future_scan')

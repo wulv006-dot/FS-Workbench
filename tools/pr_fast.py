@@ -1538,7 +1538,7 @@ def main():
         elif group=="fc-wait-sort":
             units("releases/fs-dashboard/fc-order-wait-sort-20261020/tests",["test_wait_sort"])
         elif group=="customer-lifecycle":
-            units("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests",["test_lifecycle","test_readonly"])
+            units("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests",["test_lifecycle","test_readonly","test_vip_followup","test_vip_maintenance","test_vip_query"])
             units("releases/fs-dashboard/hermes-customer-tracking-20261018/tests",["test_private_tracking"])
         elif group=="hermes-navigation-range":
             units("releases/fs-dashboard/hermes-navigation-range-20261019/tests",["test_contract"])
