@@ -356,6 +356,31 @@ class ApiTests(unittest.TestCase):
         second=api.publish(dict(p,coverage=["source corrected"]),self.root)
         self.assertNotEqual(first["revision"],second["revision"])
         self.assertEqual(len(list((self.root/"FC27"/"versions").glob("*.json"))),2)
+        self.assertEqual(self.get(), (200,second))
+        self.assertEqual(self.get(revision=[first["revision"]]), (200,first))
+
+    def test_exact_revision_is_admin_only_and_never_falls_back_to_other_report_modes(self):
+        revision=api.publish(api.packet(core()),self.root)["revision"]
+        with patch.object(api.POOL,"submit") as submit, patch.object(api,"same_order_review") as live:
+            self.assertEqual(self.get(False,revision=[revision]),(403,{"error":"admin_required"}))
+            for query in ({"revision":["0"*64]}, {"revision":[revision],"start":["2026-11-15"]}):
+                with self.subTest(query=query):
+                    self.assertEqual(self.get(**query),(404,{"error":"revision_not_found"}))
+            for query in ({"revision":["../report"]}, {"revision":[revision,revision]},
+                          {"revision":[revision],"refresh":["true"]}, {"revision":[revision],"view":["same-order"]}):
+                with self.subTest(query=query):
+                    self.assertEqual(self.get(**query)[0],422)
+            submit.assert_not_called()
+            live.assert_not_called()
+
+    def test_exact_revision_rejects_changed_packet_under_saved_hash(self):
+        report=api.publish(api.packet(core()),self.root)
+        revision=report["revision"]
+        path=self.root/"FC27"/"versions"/("2026-11-16_2026-11-16_"+revision+".json")
+        report["packets"][0]["kpi"]["orders"]=999
+        path.write_text(json.dumps(report),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"archive revision mismatch"):
+            self.get(revision=[revision])
 
     def test_source_shape_and_optional_gaps(self):
         source=core()

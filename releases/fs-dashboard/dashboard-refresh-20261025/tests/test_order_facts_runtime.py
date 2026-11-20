@@ -7,6 +7,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 from unittest.mock import Mock, patch
 
@@ -411,6 +412,58 @@ class Runtime(unittest.TestCase):
         self.assertTrue(value['source_coverage']['admin_snapshot'])
         self.assertNotIn('effective_attribution',plain['orders'][0])
         self.assertEqual(plain,batch)
+
+    def test_channel_profit_reads_rolling_order_cost_only_for_the_channel(self):
+        from channel_effects import ChannelService
+        from order_facts_runtime import dashboard_deliveries
+
+        raw = [row(), row(3, game_format='Aion2')]
+        shared = dict(status='available', rows=raw, dataset=None, identity_catalog=None,
+            coverage=dict(admin_complete=True, publication_id='uw_cost', captured_at='2026-11-11T00:15:00+08:00'))
+        generated_at = '2026-11-11T00:15:00+08:00'
+        period = {key: SCOPE[key] for key in ('start', 'end')}
+        rolling_row = dict(delivery_id='51', sn='O2', source='www.mmoexp.com', genre=1,
+            trade_at='2026-11-10 11:00:00', cost_total='100', sale_total='999')
+        supplement_row = dict(rolling_row, delivery_id='52', cost_total='200')
+        sales_row = dict(rolling_row, delivery_id='53', sn='O3', cost_total='75')
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            sales = root / 'sales'
+            sales.mkdir()
+            rolling = root / 'order-deliveries.json'
+            supplement = root / 'order-supplements.json'
+            capture = dict(contract='channel-order-deliveries-v1', complete=True,
+                generatedAt=generated_at, period=period, rows=[rolling_row])
+            rolling.write_text(json.dumps(capture), encoding='utf-8')
+            supplement.write_text(json.dumps(dict(capture, period=None, scope='exact_orders',
+                orderNos=['O2'], generatedAt='2026-11-11T00:20:00+08:00', rows=[supplement_row])), encoding='utf-8')
+            (sales / 'deliveries.json').write_text(json.dumps([sales_row]), encoding='utf-8')
+            reads = []
+            read_text = Path.read_text
+
+            def record_read(path, *args, **kwargs):
+                if path in (rolling, supplement):
+                    reads.append(path.name)
+                return read_text(path, *args, **kwargs)
+
+            service = ChannelService(root, lambda user: user == 'admin', shared=True)
+            self.addCleanup(service.pool.shutdown)
+            es_read = Mock(return_value=shared)
+            with patch.dict(sys.modules, shared_es_facts=SimpleNamespace(read=es_read)), \
+                    patch('channel_source.ROOT', root), patch('channel_source.SALES', sales), \
+                    patch('order_delivery_index.read_orders', return_value={'status': 'unavailable'}) as archive_read, \
+                    patch('order_facts_runtime.dashboard_deliveries', side_effect=lambda scope, _: dashboard_deliveries(scope, rolling)), \
+                    patch.object(Path, 'read_text', record_read):
+                code, output = service.get(dict(start=[period['start']], end=[period['end']], mode=['profit']), 'admin')
+            self.assertEqual((code, output['status']), (200, 'partial'))
+            self.assertEqual(output['sources']['orders']['publication_id'], 'uw_cost')
+            totals = output['denominator']
+            values = tuple(totals[name] for name in ('orders', 'coveredOrders', 'saleCny', 'costCny', 'profitCny'))
+            self.assertEqual(values, (2, 2, 700, 275, 425))
+            es_read.assert_called_once()
+            self.assertEqual(reads.count(rolling.name), 2)
+            self.assertEqual(reads.count(supplement.name), 1)
+            archive_read.assert_not_called()
 
     def test_channel_facts_uses_index_only_when_existing_reader_scope_is_preserved(self):
         from order_facts_runtime import collect_dashboard

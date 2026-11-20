@@ -15,6 +15,50 @@ MAIN = "www.mmoexp.com"
 COST_ROOT = Path("/var/lib/fs-channel-effects")
 CONTRACT = "fc-same-order-procurement-v1"
 ACCOUNTING_RULE = "exclude-confirmed-test-failed-validation-v1"
+UNAVAILABLE_NOTE = "同单采购成本本次未取得"
+
+
+def same_order_archive_update(packet, reviewed):
+    """Return a revised packet when local evidence changes its same-order section."""
+    if reviewed["status"] == "unavailable" or reviewed["coverage"]["invalidCostFiles"]:
+        return None
+
+    def comparable(section):
+        coverage = section.get("coverage", {})
+        # Index windows and provenance can advance outside this cohort.
+        return (
+            section.get("contract"), section.get("status"), section.get("totals"),
+            section.get("daily"), section.get("breakdown"), section.get("definition"),
+            section.get("revisions", {}).get("accountingRule"),
+            {key: value for key, value in coverage.items() if key != "costWindows"},
+        )
+
+    previous = packet.get("sameOrder", {})
+    if comparable(previous) == comparable(reviewed):
+        return None
+
+    before, after = previous.get("coverage", {}), reviewed["coverage"]
+    if set(after["missingDays"]) - set(before.get("missingDays", after["missingDays"])):
+        return None
+    previous_receipts = previous.get("revisions", {}).get("completedStatus", {})
+    new_receipts = reviewed["revisions"]["completedStatus"]
+    if previous_receipts.keys() - new_receipts.keys():
+        return None
+    if reviewed["totals"]["coveredOrders"] < previous.get("totals", {}).get("coveredOrders", 0):
+        # A correction within a verified trade window can remove costs. A gap
+        # from rotation or fallback cannot establish that the shipment vanished.
+        start = packet["start"] + " 00:00:00"
+        end = max(
+            (datetime.fromisoformat(receipt["observedAt"]).astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")
+             for receipt in previous_receipts.values()),
+            default=packet["end"] + " 23:59:59",
+        )
+        for lo, hi in before.get("costWindows", []):
+            lo, hi = max(lo, start), min(hi, end)
+            if lo <= hi and not any(new_lo <= lo <= hi <= new_hi for new_lo, new_hi in after["costWindows"]):
+                return None
+    coverage = [message for message in packet["coverage"] if message != UNAVAILABLE_NOTE]
+    return dict(packet, sameOrder=reviewed, coverage=coverage)
 
 
 @lru_cache(maxsize=12)

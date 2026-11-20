@@ -325,14 +325,20 @@ def indexed_dashboard_deliveries(scope, rows, path):
         generated_at=result['generatedAt'],period={k:scope[k] for k in ('start','end')},order_cost_complete=False)
 
 
-def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, reader=None, dashboard=False):
+def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, reader=None,
+                        dashboard=False, include_costs=True):
     """Project a single shared publication without live acquisition or legacy cache reads."""
     if not scopes or any((s['start'],s['end'])!=(scopes[0]['start'],scopes[0]['end']) for s in scopes):
         raise ValueError('order_facts_batch_period')
     if reader is None:
         from shared_es_facts import read as reader
     indexed_candidate = dashboard and len(scopes)==1 and str(scopes[0].get('site_id'))=='266'
-    deliveries, cost_proof = (None,None) if indexed_candidate else (dashboard_deliveries(scopes[0],costs) if dashboard else existing_costs(costs))
+    if not include_costs:
+        deliveries, cost_proof = [], None
+    elif indexed_candidate:
+        deliveries, cost_proof = None, None
+    else:
+        deliveries, cost_proof = dashboard_deliveries(scopes[0],costs) if dashboard else existing_costs(costs)
     if dashboard:
         mapping, mapping_revision = dashboard_mapping()
     results = []
@@ -342,7 +348,9 @@ def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, read
         if deliveries is None:
             selected = indexed_dashboard_deliveries(scope,shared['rows'],costs)
             deliveries,cost_proof = selected if selected is not None else dashboard_deliveries(scope,costs)
-        coverage = dict(shared['coverage'], cost=cost_proof)
+        coverage = dict(shared['coverage'])
+        if include_costs:
+            coverage['cost'] = cost_proof
         current = coverage.get('publication_id')
         if (publication_id is not None or not first_read) and current != publication_id:
             raise ValueError('order_facts_shared_revision_changed')
@@ -352,8 +360,10 @@ def collect_shared_many(scopes, *, db=DB, publication_id=None, costs=COSTS, read
             raise ValueError('order_facts_shared_status')
         if status=='unavailable':coverage['admin_complete'] = False
         rows = shared['rows']
-        keys = {((r.get('site') or {}).get('full_title'),str(r['order_no'])) for r in rows}
-        selected_deliveries = [r for r in deliveries if (r.get('source'),str(r.get('sn') or '')) in keys]
+        selected_deliveries = []
+        if deliveries:
+            keys = {((r.get('site') or {}).get('full_title'),str(r['order_no'])) for r in rows}
+            selected_deliveries = [r for r in deliveries if (r.get('source'),str(r.get('sn') or '')) in keys]
         value = project_order_facts(rows,shared['dataset'],selected_deliveries,scope=scope,
             source_coverage=coverage,identity_catalog=shared['identity_catalog'])
         if status!='available':value['status'] = status

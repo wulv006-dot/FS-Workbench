@@ -1,6 +1,14 @@
 # FC 项目复盘的 FS 数据入口
 
-`business.fc_project_review` 从 `unified-business` 目录发现。传 `profile`、`start`、`end`，游戏取 FC26 或 FC27，日期采用包含结束日的北京时间自然日。目录声明固定将原调用者的登录态带到 `/dashboard/fs-home/range.json`，查询条件为 `mode=fc-project-review`。FS 后端复用原管理员权限。完整复盘返回 202 时沿相同参数继续。大报告用 `data_path` 展开，例如 `/packets/0/kpi`、`/packets/0/ordersData`。
+`business.fc_project_review` 从 `unified-business` 目录发现。传 `profile`、`start`、`end`，游戏取 FC26 或 FC27，日期采用包含结束日的北京时间自然日。目录声明固定将原调用者的登录态带到 `/dashboard/fs-home/range.json`，查询条件为 `mode=fc-project-review`。FS 后端复用原管理员权限。完整复盘返回 202 时沿相同参数继续。
+
+## 按版本展开与复查完整报告
+
+完整归档的 `revision` 在响应顶层。MCP 小结果可从 `data.revision` 读取；大结果的索引和展示分页将 `revision`、`archivedAt` 保留在 `data_context[""]`。下一次调用在 `arguments` 内沿用 `profile`、`start`、`end` 并加上该 `revision`，在工具参数外层传 `data_path`（如 `/packets/0/kpi`、`/packets/0/ordersData`）并将数组响应的 `response_view.next_offset` 传给下一次的 `offset`。
+
+HTTP 查询也可携带 `revision`，取 64 个小写十六进制字符，匹配同一游戏和期间下的已保存完整报告。版本缺失时返回 404，版本请求与 `view` 或 `refresh` 同传时返回 422。
+
+普通读取可复用的完整报告时，若期间为最多三个已结束的自然日，会检查本地同单证据。证据可用且结果发生变化时，只更新 `sameOrder` 及对应覆盖说明并保存为新版本。指定 `revision` 直接读取当时已存内容。HTTP `refresh=true` 仍沿原流程重取整份复盘。
 
 ## 三个完整付款日的同单采购毛利
 
@@ -15,7 +23,7 @@
 | `releases/fs-dashboard/fc-project-review/{api.py,same_order.py}` | `/opt/fs-exact-range-20261001/fc_project_review/`。复用原 `/range` 项目复盘分支和 `fs-business-range.service`。 |
 | `releases/fs-dashboard/fc-project-review/{index.html,review.js}` | FC 项目经营看板当前正式静态发布路径。使用原静态发布器生成，现役哈希在发布前核对。 |
 | `releases/fs-dashboard/user-analytics-20261022/source/shared_es_facts.py` | `/opt/fs-hermes-fc/shared_es_facts.py`。只读原共享 ES 归档及主站逐日采集回执。 |
-| `fs_mcp_connector/catalog.json` | 连接器运行镜像 `/app/fs_mcp_connector/catalog.json` 中原 `business.fc_project_review` 操作。 |
+| `fs_mcp_connector/{catalog.json,response_view.py}` | 连接器运行镜像 `/app/fs_mcp_connector/` 中原 `business.fc_project_review` 目录与版本续查展示。 |
 
 回执缺失或需要更新时，使用原客户任务的精确日期同步。在已有授权的运行环境，用 `python3 /opt/fs-hermes-fc/user_jobs.py sync --site 266 --start 2026-11-16 --end 2026-11-19` 补主站付款自然日；该命令的 `--end` 不含当日。已有回执默认复用。需要重读已覆盖日时沿用 `--recheck`，待原 Order 发货归档覆盖新的观察时点后再次读回。
 

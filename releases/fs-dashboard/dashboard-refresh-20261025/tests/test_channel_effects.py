@@ -476,7 +476,7 @@ class SharedTracking(unittest.TestCase):
                 self.assertEqual(value['sources']['orders']['publication_id'],'se_fixture')
             code,value=service.get(dict(start=[day],end=[day],gid=['1327'],mode=['profit']),'admin')
             self.assertEqual((code,value['error']),(503,'profit_orders_incomplete'))
-            shared.assert_called_with(dict(start=day,end=day,gid='1327',site_id='266'))
+            shared.assert_called_with(dict(start=day,end=day,gid='1327',site_id='266'), include_costs=False)
             native_read.assert_not_called();reexport.assert_not_called()
             self.assertFalse(any(Path(root).glob('*.json')))
 
