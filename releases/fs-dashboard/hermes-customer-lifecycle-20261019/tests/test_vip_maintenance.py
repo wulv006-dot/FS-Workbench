@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 PROJECT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT / 'hermes-customer-lifecycle-20261019' / 'source'))
+sys.path.insert(0, str(PROJECT / 'user-analytics-20261022' / 'source'))
 sys.path.insert(0, str(PROJECT / 'nightly-reschedule-20261025' / 'source'))
 
 from customer_tracking import SHANGHAI, Store
@@ -21,7 +22,7 @@ def moment(day, hour=0):
 
 def payment(index, date, refund='none_observed', amount='350.00'):
     return dict(siteId='266', orderNo=f'order-{index}', paidAtShanghai=date.isoformat(),
-                refundStatus=refund, afterSales='none_observed', amountUsd=amount,
+                refundStatus=refund, afterSales='none_observed', amountUsd=amount, orderState='已完成',
                 knownSettledRefundUsd=None, payStatus='1')
 
 
@@ -40,12 +41,18 @@ class FakeSource:
         self.archive_complete = self.live_complete = True
         self.entries = [buyer(1, payment(1, moment(1))), buyer(2, payment(2, moment(1)))]
         self.updated = {}
+        self.preferred = []
+        self.preferred_complete = True
         self.requests = []
 
     def read_cohort(self, *, anchor, now):
         self.archive_calls += 1
         return dict(coverage={'complete': self.archive_complete, 'datesComplete': self.archive_complete},
                     buyers=self.entries)
+
+    def read_preferred_cohort(self, *, anchor, now):
+        return dict(coverage={'complete': self.preferred_complete, 'datesComplete': self.preferred_complete},
+                    buyers=self.preferred)
 
     def refresh_buyers(self, buyers, *, since, now, recheck_orders):
         self.live_calls += 1
@@ -104,6 +111,68 @@ class VipWorkflows(unittest.TestCase):
         self.vip.refresh()
         self.assertEqual({item['uid']: item['owner'] for item in self.vip.queue()['items']},
                          {'1': 'operator', '2': None})
+
+    def test_preferred_scope_shares_claim_preserves_scope_clock_and_includes_watch(self):
+        original = self.source.entries[0]
+        self.source.entries = [original]
+        recent = dict(payment(10, moment(15)), afterSales='problem')
+        raw = original['history'][0]
+        self.source.preferred = [
+            dict(original, scope='global_preferred', history=[raw, recent], lastOrder=raw,
+                 lastObservedOrder=recent, checksBeforeContact=['latest_payment_or_after_sales_needs_review'],
+                 quality={'effectivePurchaseDays': 2}),
+            dict(buyer(3, payment(11, moment(12))), scope='global_preferred', quality={'effectivePurchaseDays': 2})]
+        self.vip.refresh()
+        british = self.vip.queue(actor='operator')['items'][0]
+        preferred = self.vip.queue(actor='operator', scope='global_preferred')
+        first, watch = preferred['items']
+        self.assertEqual(british['case_id'], first['case_id'])
+        self.assertEqual((first['guidance']['band'], watch['cycle']['status']), ('P2', 'normal'))
+        self.assertEqual((first['can_update'], watch['can_update']), (True, False))
+        with self.assertRaisesRegex(ValueError, 'vip_not_due'):
+            self.write(watch, 'claim', 3, scope='global_preferred')
+        with self.assertRaisesRegex(ValueError, 'vip_not_due'):
+            self.write(watch, 'claim', 4)
+        self.write(first, 'claim', 5, scope='global_preferred')
+        self.assertEqual(self.vip.queue()['items'][0]['owner'], 'operator')
+        self.write(british, 'feedback', 6, reason='no_reply')
+        preferred = self.vip.queue(scope='global_preferred')
+        self.assertEqual(preferred['items'][0]['reason'], 'no_reply')
+        self.assertEqual((preferred['summary']['p2_people'], preferred['summary']['normal_cycle_people']), (1, 1))
+        self.vip.refresh()
+        aggregate = json.loads((self.report_root/'vip-maintenance-2026-11-16.json').read_bytes())
+        self.assertEqual(aggregate['scopes']['global_preferred']['summary']['people'], 2)
+        self.assertNotIn('@example.test', json.dumps(aggregate))
+
+    def test_preferred_new_week_carries_only_owned_or_requalified_cases(self):
+        self.source.entries = []
+        self.source.preferred = [
+            dict(buyer(n, payment(n, moment(1))), scope='global_preferred') for n in (1, 2, 3)]
+        self.vip.refresh()
+        first_week = {item['uid']: item for item in self.vip.queue(scope='global_preferred')['items']}
+        self.write(first_week['1'], 'claim', 1, scope='global_preferred')
+        retained = self.source.preferred[2]
+        new_windows = {key: dict(window, salesUsd='500.00') if key == 'month' else window
+                       for key, window in retained['windows'].items()}
+        self.source.preferred = [dict(retained, windows=new_windows)]
+        self.now = moment(23, 7)
+        self.vip.refresh()
+        second_week = {item['uid']: item for item in self.vip.queue(scope='global_preferred')['items']}
+        self.assertEqual(set(second_week), {'1', '3'})
+        self.assertTrue(second_week['1']['carried_over'])
+        self.assertFalse(second_week['3']['carried_over'])
+        self.assertEqual(second_week['3']['case_id'], first_week['3']['case_id'])
+        self.assertEqual(second_week['3']['windows']['month']['salesUsd'], '500.00')
+        past = {item['uid']: item for item in self.vip.queue('2026-11-16', scope='global_preferred')['items']}
+        self.assertEqual(set(past), {'1', '2', '3'})
+        self.assertEqual(past['3']['windows']['month']['salesUsd'], '350.00')
+
+    def test_scope_failure_leaves_original_queue_available(self):
+        self.source.preferred_complete = False
+        result = self.vip.refresh()
+        self.assertEqual(result['scope_status'], {'uk_us': 'ready', 'global_preferred': 'partial'})
+        self.assertEqual(self.vip.queue()['summary']['people'], 2)
+        self.assertIsNone(self.vip.queue(scope='global_preferred')['summary'])
 
     def test_natural_and_contacted_payments_maturity_and_later_full_refund(self):
         self.vip.refresh()

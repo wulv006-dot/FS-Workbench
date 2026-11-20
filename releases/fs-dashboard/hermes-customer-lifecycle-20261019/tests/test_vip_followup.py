@@ -9,7 +9,8 @@ HERE = Path(__file__).resolve()
 sys.path.insert(0, str(HERE.parents[1] / 'source'))
 sys.path.insert(0, str(HERE.parents[2] / 'user-analytics-20261022' / 'source'))
 
-from vip_followup import SHANGHAI, midnight, project_order, read_cohort, read_period, refresh_buyers, refresh_period, snapshot_evidence
+from vip_followup import (SHANGHAI, midnight, project_order, read_cohort, read_period, read_preferred_cohort,
+                          read_preferred_period, refresh_buyers, refresh_period, snapshot_evidence)
 
 ANCHOR = date(2026, 11, 16)
 NOW = midnight(ANCHOR) + timedelta(hours=9)
@@ -30,6 +31,67 @@ def cohort(rows, *, missing=()):
 
 
 class VipFollowupTests(unittest.TestCase):
+    def test_preferred_all_payment_countries_use_clean_original_amount_and_four_gates(self):
+        rows = []
+        groups = (
+            [('300', -30, '已完成'), ('199', -16, '已完成'), ('1', -15, '已完成'),
+             ('400', -1, '调查中'), ('20', -2, '已退款·部分退款')],
+            [('300', -21, '已完成'), ('200', -7, '已完成'), ('30', -6, '问题订单'), ('10', -2, '已退款')],
+            [('250', -21, '已完成'), ('250', -7, '已完成')],
+            [('300', -20, '已完成'), ('200', -20, '已完成')],
+        )
+        for identifier, group in enumerate(groups, 1):
+            rows.extend(order(identifier * 10 + i, day, usd, country='FR' if i else None,
+                              uid=str(identifier), address=f'only{identifier}@example.test', state=state)
+                        for i, (usd, day, state) in enumerate(group))
+        result = read_preferred_cohort(anchor=ANCHOR, now=NOW, archive_reader=lambda *_: (
+            rows, dict(nativeMissingDays=[], esCoverage={'complete': False})))
+        buyer, = result['buyers']
+        self.assertEqual((result['scope'], result['status'], result['coverage']['datesComplete']),
+                         ('global_preferred', 'partial', True))
+        self.assertEqual(buyer['windows']['month']['salesUsd'], '500.00')
+        self.assertEqual(buyer['windows']['firstHalf']['salesUsd'], '499.00')
+        self.assertEqual(buyer['quality']['problemSharePct'], '40.00')
+        self.assertEqual(buyer['quality']['effectivePurchaseDays'], 3)
+        self.assertEqual(buyer['quality']['excludedProblemOriginalPaidUsd'], '420.00')
+        self.assertEqual(buyer['lastOrder']['orderNo'], 'example-12')
+        self.assertEqual(buyer['lastObservedOrder']['orderNo'], 'example-13')
+        self.assertIn('latest_payment_or_after_sales_needs_review', buyer['checksBeforeContact'])
+        with self.assertRaisesRegex(ValueError, 'vip_preferred_requires_30_closed_days'):
+            read_preferred_period(start=ANCHOR - timedelta(days=3), end=ANCHOR - timedelta(days=1), now=NOW)
+
+    def test_only_same_day_effective_payment_resets_preferred_recency(self):
+        closed = [order(1, -25, '301', country='FR'), order(2, -16, '201', country='DE')]
+        buyer, = read_preferred_cohort(anchor=ANCHOR, now=NOW, archive_reader=lambda *_: (
+            closed, dict(nativeMissingDays=[], esCoverage={'complete': True})))['buyers']
+        recent_problem = order(3, 0, '900', state='问题订单')
+        pending, = refresh_buyers([buyer], since=midnight(ANCHOR), now=NOW,
+                                  live_reader=lambda *_: [recent_problem])['buyers']
+        self.assertEqual((pending['followUpStatus'], pending['lastObservedOrder']['orderNo']), ('due', 'example-3'))
+        clean = order(4, 0, '50', country='CA')
+        returned, = refresh_buyers([buyer], since=midnight(ANCHOR), now=NOW,
+                                   live_reader=lambda *_: [recent_problem, clean])['buyers']
+        self.assertEqual((returned['followUpStatus'], returned['daysSinceLastPaid']), ('recent', 0))
+        self.assertEqual(returned['windows'], buyer['windows'])
+
+    def test_preferred_recheck_drops_refunded_payments_and_retains_last_observed(self):
+        closed = [order(1, -25, '301', country='FR'), order(2, -10, '201', country='DE')]
+        buyer, = read_preferred_cohort(anchor=ANCHOR, now=NOW, archive_reader=lambda *_: (
+            closed, dict(nativeMissingDays=[], esCoverage={'complete': True})))['buyers']
+        first, = refresh_buyers([buyer], since=midnight(ANCHOR), now=NOW, live_reader=lambda *_: [],
+                                recheck_orders=closed[1:], recheck_reader=lambda *_: [
+                                    order(2, -10, '201', country='DE', state='已退款·全额退款', pay='2')
+                                ])['buyers']
+        self.assertEqual((first['followUpStatus'], first['lastOrder']['orderNo']), ('due', 'example-1'))
+        self.assertEqual(first['lastObservedOrder']['preferredDisposition'], 'problem')
+        later, = refresh_buyers([first], since=midnight(ANCHOR), now=NOW, live_reader=lambda *_: [],
+                                recheck_orders=closed[:1], recheck_reader=lambda *_: [
+                                    order(1, -25, '301', country='FR', state='申请退款')
+                                ])['buyers']
+        self.assertIsNone(later['lastOrder'])
+        self.assertEqual(later['followUpStatus'], 'unknown')
+        self.assertEqual(later['lastObservedOrder']['orderNo'], 'example-2')
+
     def test_full_window_paid_usd_qualifies_when_each_half_is_below_threshold(self):
         rows = [order(1, -30, '125.55', country='GB'), order(2, -15, '174.45', country='US',
                 state='已退款·部分退款', pay='2'), order(3, -14, '20', country='CA')]

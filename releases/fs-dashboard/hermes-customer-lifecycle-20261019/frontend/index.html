@@ -10,10 +10,10 @@
   <title>智体客单追踪 · FS</title>
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
-  <link rel="stylesheet" href="page.css?v=vip-maintenance-20261120">
+  <link rel="stylesheet" href="page.css?v=vip-maintenance-20261120-global">
   <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
   <script defer src="/__hub/hubnav.js?v=3dda7cae"></script>
-  <script defer src="page.js?v=vip-maintenance-20261120"></script>
+  <script defer src="page.js?v=vip-maintenance-20261120-global"></script>
 <link rel="stylesheet" href="/__hub/hermes-nav.css?v=hermes-nav-20261019-v2">
 <script defer src="/__hub/nav.js?v=hermes-nav-20261019-v1"></script>
 </head>
@@ -49,10 +49,14 @@
   <a class="skip" href="#main">跳到主内容</a>
   <header class="page-head"><a href="/dashboard/">FS / MMOEXP</a><nav aria-label="当前位置"><a href="/dashboard/modules/hermes/">Hermes 智体</a><span aria-hidden="true"> / </span><span aria-current="page">智体客单追踪</span></nav><label>显示主题 <select id="theme"><option value="system">跟随系统</option><option value="light">浅色主题</option><option value="dark">深色主题</option></select></label></header>
   <main id="main" tabindex="-1">
-    <div class="intro"><h1>智体客单追踪</h1><p>查看 FC27 每周优先维护名单，记录私域跟进和回购结果。</p></div>
+    <div class="intro"><h1>智体客单追踪</h1><p>FC27 每周客户维护与回购</p></div>
     <p id="status" class="status" role="status" aria-live="polite">正在核对管理员权限…</p><button id="reconcile-write" class="fs-btn" type="button" hidden>核对上次操作</button>
     <div id="app" hidden>
       <section class="panel vip-queue" aria-labelledby="vip-title">
+        <div id="vip-scopes" class="vip-scopes" role="group" aria-label="维护名单范围">
+          <button class="fs-btn" type="button" data-vip-scope="uk_us" aria-pressed="true" aria-controls="vip-list">英美队列</button>
+          <button class="fs-btn" type="button" data-vip-scope="global_preferred" aria-pressed="false" aria-controls="vip-list">全国家优选</button>
+        </div>
         <div class="section-head vip-head">
           <div>
             <h2 id="vip-title">本周优先跟进</h2>
@@ -69,14 +73,19 @@
           </form>
         </div>
         <p id="vip-state" class="vip-state" role="status" aria-live="polite">正在读取维护名单…</p>
+        <p id="vip-cycle-overview" class="vip-cycle-overview" hidden></p>
+        <p id="vip-list-count" class="vip-list-count" role="status"></p>
         <div id="vip-tools" class="vip-tools" hidden>
           <label>搜索客户 <input id="vip-search" type="search" placeholder="邮箱或会员 UID" maxlength="180" autocomplete="off"></label>
           <label>跟进状态 <select id="vip-filter">
             <option value="all">全部客户</option><option value="queued">待领取</option>
             <option value="mine">我负责</option><option value="needs_feedback">已联系待反馈</option>
           </select></label>
+          <label id="vip-cycle-control" hidden>复核周期 <select id="vip-cycle-filter">
+            <option value="all">全部周期</option><option value="due">到期复核</option>
+            <option value="normal">正常周期</option><option value="unknown">周期待核</option>
+          </select></label>
         </div>
-        <p id="vip-list-count" class="vip-list-count" role="status"></p>
         <div id="vip-list" aria-busy="true"></div>
       </section>
       <section class="panel vip-performance" aria-labelledby="vip-performance-title" hidden id="vip-performance">

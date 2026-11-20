@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'user-analytics-20261022'/'source'))
 from vip_query import query
 
 NOW = datetime(2026,11,20,12,tzinfo=timezone(timedelta(hours=8)))
@@ -29,7 +30,19 @@ class VipQueryTest(unittest.TestCase):
         self.assertEqual(last['status'],'partial')
     def test_reject_future_naive_and_unknown_filter(self):
         for extra in [{'as_of':['2030-12-01T00:00:00+08:00']},{'as_of':['2026-11-19']},{'segment':['foo']},
-                      {'offset':['-1']},{'queue_write':['true']}]:
+                      {'offset':['-1']},{'scope':['all']},{'queue_write':['true']}]:
             source=reader()
             with self.assertRaises(ValueError):query(source,{**BASE,**extra},NOW)
             source.assert_not_called()
+
+    def test_preferred_projection_retains_latest_negative_evidence_and_leaves_default_alone(self):
+        source, preferred = reader(), reader()
+        buyer = preferred.return_value['buyers'][0]
+        buyer.update(quality={'effectivePurchaseDays':2}, lastObservedOrder={'observedRefund':True,'credentials':'private'})
+        result = query(source, {**BASE, 'scope':['global_preferred'], 'segment':['refund']}, NOW, preferred)
+        source.assert_not_called()
+        preferred.assert_called_once()
+        self.assertEqual((result['scope'], result['total']), ('global_preferred', 1))
+        self.assertEqual(result['items'][0]['quality']['effectivePurchaseDays'], 2)
+        self.assertNotIn('credentials', result['items'][0]['lastObservedOrder'])
+        self.assertEqual(query(source, BASE, NOW)['scope'], 'uk_us')

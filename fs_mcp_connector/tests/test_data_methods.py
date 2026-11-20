@@ -17,6 +17,9 @@ class DataMethodsTests(unittest.TestCase):
         listing = catalog.list(self.principal)
         self.assertEqual(len(listing['operations']), 119)
         self.assertIn('customer_tracking.vip_period', catalog.operations)
+        vip_schema = catalog.operation('customer_tracking.vip_period')['input_schema']
+        self.assertEqual(vip_schema['properties']['scope']['enum'], ['uk_us', 'global_preferred'])
+        self.assertEqual(vip_schema['required'], ['start', 'end'])
         self.assertIn('channels.facts', {row['name'] for row in listing['operations']})
         self.assertIn('business.fc_project_review', {row['name'] for row in listing['operations']})
         self.assertFalse(any(name.startswith(('conversations.', 'reports.')) for name in catalog.operations))

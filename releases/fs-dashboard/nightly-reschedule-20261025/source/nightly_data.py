@@ -90,5 +90,6 @@ def report_context(now,kind='daily',warnings=()):
             context['vip_maintenance'] = read_weekly_report(VIP_REPORT_ROOT, start, end_exclusive)
         context['rule'] += (' FC27 大客维护章节使用服务端 vip_maintenance 聚合。报告已联系、自然回流、'
                             '联系后七天付款人数及已核美元金额，交代未满七天、覆盖缺口及反馈原因。'
+                            '英美与全国家优选分别列示，客户可能重叠，不将两个范围相加。'
                             '以成熟且有覆盖的被联系人作七天比例分母。只有先后顺序，不能归因为维护挽回。')
     return context

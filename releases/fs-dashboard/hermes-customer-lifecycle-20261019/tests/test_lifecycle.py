@@ -34,6 +34,16 @@ class Tests(unittest.TestCase):
  def track(self):
   r=self.s.track('b'*32,'1'*32,now=NOW,owner='tester');self.id=r['tracking_id'];return r
  def observe(self,complete=True):return self.s.observe(self.id,[self.row],observed_at=NOW.isoformat(),coverage={'complete':complete})
+ def test_vip_week_scope_requires_current_actor_and_defaults_to_uk_us(self):
+  import tracking_controller
+  target=Mock()
+  params={'mode':['hermes'],'structure':['customer_tracking'],'view':['vip_week']}
+  for scope,extra in [('uk_us',{}),('global_preferred',{'scope':['global_preferred']})]:
+   tracking_controller.TrackingController.get(target,'DY',{**params,**extra})
+   target.vip.queue.assert_called_with(week=None,actor='DY',scope=scope)
+  with self.assertRaises(ValueError):tracking_controller.TrackingController.get(target,'DY',{**params,'scope':['other']})
+  target.admin._admin.side_effect=PermissionError
+  with self.assertRaises(PermissionError):tracking_controller.TrackingController.get(target,'guest',params)
  def test_buyer_evidence_and_authorized_identifiers_survive_refresh(self):
   self.row['es_identity']={'buyer_id':'private-buyer-1','uid':None,'status':'verified'}
   with self.s.db() as db:db.execute('UPDATE candidates SET latest_body=?,first_body=?',(json.dumps(self.row),json.dumps(self.row)))

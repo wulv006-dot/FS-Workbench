@@ -24,11 +24,11 @@ STAGE_BASE_TAG = False
 VIP = "customer_tracking.vip_period"
 RELEASES = {
     OPERATION: (BASE, BASE_TAG, ACTIVE_CATALOG_SHA, UNIT_SHA, COVERAGE_MODULE, GUIDE, BACKUP_PREFIX, STAGE_BASE_TAG),
-    VIP: ("sha256:279e289912c9aeded0bd28350cc668de885ffab016d7595e566e881d4e9fd138",
-          "fs-data-connector:vip-base-279e289912c9",
-          "089880f8e586f1900798e285a149e3b690007cc59c9cb1aa9875e33baabecccb",
-          "9935f915e6354643218499f58ab5cec9e77bd3549f4e07914afa46ceea2ddc1f",
-          "customer-tracking", "customer_business_details", "customer-vip-", True),
+    VIP: ("sha256:df7460f18eb00e12e7b9bec49d3532ea84a5d1fa5a218a3857350bbfc1c0f964",
+          "fs-data-connector:vip-base-df7460f18eb0",
+          "0d89dbf057d9445ad16d4305acc9b73fd51a6793cd0c19ebf6470bdafcb826cd",
+          "839f863a54ec3150d8b1c0850b6f6ccf6ca17c004fa2fbe785e5cb4ee560ecd5",
+          "customer-tracking", "customer_business_details", "customer-vip-preferred-", True),
 }
 PUBLISHER = REPO / "docs/planning/fs-data-connector-20261109/deploy/connector"
 PUBLISHER_FILES = ("update_connector_image_187.py", "install_connector_187.py",
@@ -48,6 +48,15 @@ def verify_catalog(active, proposed):
     additions = [operation for operation in expected["operations"] if operation["name"] == OPERATION]
     if len(additions) != 1 or additions[0]["module"] != COVERAGE_MODULE:
         raise ValueError("one_new_operation_required")
+    if OPERATION == VIP:
+        prior = [operation for operation in active["operations"] if operation["name"] == OPERATION]
+        properties = additions[0]["input_schema"]["properties"]
+        if len(prior) != 1 or properties.pop("scope", None) != {"type": "string", "enum": ["uk_us", "global_preferred"]}:
+            raise ValueError("one_optional_vip_scope_required")
+        additions[0]["description"] = prior[0]["description"]
+        if expected != active:
+            raise ValueError("unrelated_catalog_change")
+        return
     expected["operations"].remove(additions[0])
     modules = [module for module in expected["coverage"] if module["module"] == COVERAGE_MODULE]
     if len(modules) != 1:

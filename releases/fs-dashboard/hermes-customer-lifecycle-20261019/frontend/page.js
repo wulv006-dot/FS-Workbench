@@ -366,9 +366,17 @@
   $('refresh-pool').onclick=loadPoolReports;
   function shanghaiDay(at = Date.now()) { const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(at); const field = type => parts.find(part => part.type === type)?.value; return field('year') + '-' + field('month') + '-' + field('day'); }
 
-  let vipAbort = null, vipEditor = null, vipItems = [];
+  let vipAbort = null, vipEditor = null, vipItems = [], vipScope = 'uk_us';
   const vipStatuses = {queued:'待领取',assigned:'已领取',contacted:'已联系',closed:'已结案',returned:'已回购'};
   const vipPriorities = {after_sales:'售后优先',due:'到期复核',review:'优先维护'};
+  const vipCycles = {due:'到期复核',normal:'正常周期',unknown:'周期待核'};
+  const vipBands = {P1:'P1',P2:'P2',watch:'优先级待核'};
+  const vipLead = {after_sales:'优先核对售后进展',due:'已到复核时间',review:'先核对付款、身份和退款'};
+  const vipChecks = {missing_verified_order_email:'订单邮箱尚未核实',missing_verified_uid:'会员 UID 尚未核实',
+    payment_country_unknown:'付款国家尚未核实',known_problem_orders:'核对已有问题订单',
+    order_eligibility_unknown:'部分订单仍待确认是否计入',identity_evidence_conflict:'客户身份资料存在冲突',
+    qualification_source_coverage_partial:'部分筛选数据尚不完整',
+    latest_payment_or_after_sales_needs_review:'复核当天付款和售后处理情况'};
   const vipEvents = {claim:'领取',contacted:'联系',feedback:'反馈',close:'结案'};
   const vipReasons = {early_stock:'已提前备货',game_demand:'游戏需求变化',platform_change:'更换平台',price:'价格',
     payment:'支付',fulfillment:'交付或售后',no_reply:'未回复',resolved:'维护完成',no_contact:'无需联系',other:'其他'};
@@ -383,11 +391,13 @@
     vipEditor = null;
     vipItems = [];
     $('vip-tools').hidden = true;
+    $('vip-cycle-overview').hidden = true;
     $('vip-list-count').textContent = '';
     $('vip-performance-link').hidden = true;
     if (resetFilters) {
       $('vip-search').value = '';
       $('vip-filter').value = 'all';
+      $('vip-cycle-filter').value = 'all';
     }
     $('vip-list').replaceChildren();
     $('vip-metrics').replaceChildren();
@@ -441,7 +451,9 @@
       await reconcile();
       return;
     }
-    const result = await write('vip_feedback', {case_id:item.case_id,...fields}, button);
+    const payload = {case_id:item.case_id,...fields};
+    if (vipScope === 'global_preferred') payload.scope = vipScope;
+    const result = await write('vip_feedback', payload, button);
     if (!result) {
       message.textContent = $('status').textContent;
       if (pendingWrite?.action === 'vip_feedback') {
@@ -509,6 +521,41 @@
     };
     (contact || reason).focus();
   }
+  function renderVipGuidance(host, item) {
+    const guidance = item.guidance || {};
+    const globalView = vipScope === 'global_preferred';
+    const band = guidance.band === 'watch' && item.cycle?.status === 'normal' ? '观察中' : vipBands[guidance.band];
+    const priority = vipPriorities[guidance.priority];
+    if (band && globalView) vipPill(host, band, guidance.band === 'P1' ? 'warn' : 'info');
+    if (priority && (!globalView || guidance.priority === 'after_sales')) {
+      vipPill(host, priority, guidance.priority === 'after_sales' ? 'warn' : 'info');
+    }
+    const reason = guidance.reason || '';
+    const headline = guidance.headline || (reason.length <= 44 ? reason : vipLead[guidance.priority]) || '优先理由待核实。';
+    node('p', headline, host, 'vip-line vip-guidance-headline');
+    const evidence = Array.isArray(guidance.evidence) ? guidance.evidence : [guidance.evidence];
+    const shortEvidence = evidence.filter(value => typeof value === 'string' && value.trim() && value.length <= 52);
+    if (shortEvidence.length) vipRowValue(host, shortEvidence.slice(0,2).join(' · '), true);
+    const detail = [...new Set([guidance.detail, reason, ...evidence.slice(2), ...evidence.filter(value => value?.length > 52)])]
+      .filter(value => typeof value === 'string' && value.trim() && value !== headline && !shortEvidence.slice(0,2).includes(value));
+    const checks = (item.checks_before_contact || []).map(code => vipChecks[code] || '核对其他待确认资料');
+    if (checks.length) vipRowValue(host, '联系前需核对 ' + checks.length + ' 项', true);
+    if (detail.length || guidance.question || checks.length) {
+      const disclosure = node('details', undefined, host, 'vip-row-details vip-guidance-detail');
+      node('summary', detail.length || guidance.question ? '背景与建议问法' : '查看待核资料', disclosure);
+      if (checks.length) {
+        const pending = node('ul', undefined, disclosure);
+        for (const check of checks) node('li', check, pending);
+      }
+      for (const entry of detail) vipRowValue(disclosure, entry);
+      if (guidance.question) {
+        vipRowValue(disclosure, '建议问法', true);
+        vipRowValue(disclosure, guidance.question);
+      }
+    }
+    if (item.carried_over) vipRowValue(host, '上周延续', true);
+  }
+
   function renderVipRow(list, item) {
     const row = node('li', undefined, list, 'vip-row');
     if (idPattern.test(item.case_id || '')) row.dataset.caseId = item.case_id;
@@ -519,17 +566,16 @@
     if (item.country) vipRowValue(person, item.country, true);
     if (item.last_paid_at) vipRowValue(person, '最近付款 ' + timeText(item.last_paid_at), true);
 
-    const guidance = node('div', undefined, main);
-    const priority = item.guidance?.priority;
-    if (priority && vipPriorities[priority]) vipPill(guidance, vipPriorities[priority], priority === 'after_sales' ? 'warn' : 'info');
-    vipRowValue(guidance, item.guidance?.reason || '优先理由待核实。');
-    if (item.carried_over) vipRowValue(guidance, '上周延续', true);
+    renderVipGuidance(node('div', undefined, main), item);
 
     const progress = node('div', undefined, main, 'vip-progress');
     vipPill(progress, vipStatuses[item.status] || '状态待核实', item.status === 'returned' ? 'ok' : item.status === 'contacted' ? 'info' : '');
     vipRowValue(progress, vipOutcome(item));
     if (item.owner) vipRowValue(progress, '领取人 ' + item.owner, true);
+    if (vipScope === 'global_preferred') vipRowValue(progress, vipCycles[item.cycle?.status] || vipCycles.unknown, true);
     if (item.next_review_day) vipRowValue(progress, '下次复核 ' + item.next_review_day, true);
+    else if (vipScope === 'global_preferred' && item.cycle?.review_day) vipRowValue(progress, '建议复核 ' + item.cycle.review_day, true);
+    else if (vipScope === 'global_preferred') vipRowValue(progress, '复核日期待核', true);
 
     const canAct = item.can_update && (item.status === 'queued' || (item.owner && item.status !== 'closed'));
     if (row.dataset.caseId && canAct) {
@@ -620,23 +666,29 @@
     host.replaceChildren();
     const search = $('vip-search').value.trim().toLowerCase();
     const filter = $('vip-filter').value;
+    const cycleFilter = vipScope === 'global_preferred' ? $('vip-cycle-filter').value : 'all';
     const active = [], regular = [], history = [];
     for (const item of vipItems) {
       if (vipHistory(item)) history.push(item);
       else if (item.guidance?.priority === 'review' && item.status === 'queued') regular.push(item);
       else active.push(item);
     }
-    const count = active.filter(item => ['after_sales','due'].includes(item.guidance?.priority) &&
-      (item.status !== 'contacted' || vipNeedsFeedback(item))).length;
+    const count = active.filter(item => {
+      const priority = vipScope === 'global_preferred'
+        ? item.cycle?.status === 'due' && ['P1','P2'].includes(item.guidance?.band)
+        : ['after_sales','due'].includes(item.guidance?.priority);
+      return priority && (item.status !== 'contacted' || vipNeedsFeedback(item));
+    }).length;
     const visible = vipItems.filter(item => {
       if (search && !String(item.email || '').toLowerCase().includes(search) &&
           (item.uid == null || !String(item.uid).includes(search))) return false;
+      if (cycleFilter !== 'all' && (item.cycle?.status || 'unknown') !== cycleFilter) return false;
       if (filter === 'queued') return item.status === 'queued' && !vipHistory(item);
       if (filter === 'mine') return !!item.owner && item.can_update && !vipHistory(item);
       if (filter === 'needs_feedback') return vipNeedsFeedback(item) && !vipHistory(item);
       return true;
     });
-    const filtered = search || filter !== 'all';
+    const filtered = search || filter !== 'all' || cycleFilter !== 'all';
     $('vip-list-count').textContent = '优先待跟进 ' + count + ' 人 · 本周名单 ' + vipItems.length +
       ' 人' + (filtered ? ' · 找到 ' + visible.length + ' 人' : '');
     if (!visible.length) {
@@ -666,6 +718,15 @@
     else node('p', '当周待跟进事项已处理。', host, 'empty');
     foldRows('已回购与已结案', history);
   }
+  function showVipCycleOverview(summary) {
+    const overview = $('vip-cycle-overview');
+    overview.hidden = vipScope !== 'global_preferred' || !summary;
+    if (overview.hidden) return;
+    overview.textContent = [
+      ['到期复核', summary.due_people], ['正常周期', summary.normal_cycle_people],
+      ['周期待核', summary.unknown_cycle_people], ['P1', summary.p1_people], ['P2', summary.p2_people],
+    ].map(([label, count]) => label + ' ' + (Number.isInteger(count) ? count + ' 人' : '待核')).join(' · ');
+  }
   async function loadVip(week = currentWeek(), focusCase = null) {
     if (!config || disposed || document.hidden) return;
     const form = $('vip-week-form');
@@ -681,10 +742,12 @@
     const controller = new AbortController();
     vipAbort = controller;
     try {
-      const result = await get('vip_week', {week}, controller.signal);
+      const result = await get('vip_week', {week,scope:vipScope}, controller.signal);
       if (controller.signal.aborted || !config) return;
       const host = $('vip-list');
-      if (result.week !== week || !Array.isArray(result.items)) throw Error('名单日期或格式异常。');
+      if (result.week !== week || (result.scope && result.scope !== vipScope) || !Array.isArray(result.items)) {
+        throw Error('名单范围、日期或格式异常。');
+      }
       const partial = result.status !== 'ready';
       const updated = result.as_of || result.coverage?.as_of;
       const freshness = updated ? '最近更新 ' + timeText(updated) + '（北京时间）' : result.frozen_at ? '名单生成 ' + timeText(result.frozen_at) + '（北京时间）' : '';
@@ -699,6 +762,7 @@
       } else {
         node('p', partial ? '暂无可确认的维护客户，可稍后点击“查看”刷新。' : '本周暂无需要维护的客户。', host, 'empty');
       }
+      showVipCycleOverview(result.summary);
       renderVipPerformance(result.summary);
       if (focusCase && idPattern.test(focusCase)) {
         const row = host.querySelector('[data-case-id="' + focusCase + '"]');
@@ -727,6 +791,20 @@
   $('vip-week-form').onsubmit = event => { event.preventDefault(); loadVip($('vip-week-date').value); };
   $('vip-week-prev').onclick = () => loadVip(dayOffset($('vip-week-date').value || currentWeek(), -7));
   $('vip-week-next').onclick = () => loadVip(dayOffset($('vip-week-date').value || currentWeek(), 7));
+  for (const button of $('vip-scopes').querySelectorAll('button')) {
+    button.onclick = () => {
+      if (button.dataset.vipScope === vipScope || writeInFlight) return;
+      vipScope = button.dataset.vipScope;
+      for (const scope of $('vip-scopes').querySelectorAll('button')) {
+        scope.setAttribute('aria-pressed', String(scope === button));
+      }
+      $('vip-cycle-control').hidden = vipScope !== 'global_preferred';
+      $('vip-tools').classList.toggle('vip-tools--global', vipScope === 'global_preferred');
+      clearVip(true);
+      loadVip($('vip-week-date').value || currentWeek());
+    };
+  }
+  $('vip-cycle-filter').onchange = () => renderVipList();
   $('vip-search').oninput = () => renderVipList();
   $('vip-filter').onchange = () => renderVipList();
   $('legacy-tools').ontoggle = loadLegacy;

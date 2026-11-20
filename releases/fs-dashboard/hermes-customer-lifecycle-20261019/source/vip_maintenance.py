@@ -4,6 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 from statistics import median
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -15,6 +16,12 @@ from customer_tracking import ID, SHANGHAI, payment_moment
 
 TRACKING_DB = Path('/var/lib/fs-hermes-fc/fs/customer-tracking/tracking.db')
 REPORT_ROOT = Path('/var/lib/fs-hermes-fc/native')
+UK_US = 'uk_us'
+PREFERRED = 'global_preferred'
+SCOPE_TABLES = {
+    UK_US: ('vip_weeks', 'vip_week_cases', 'vip_cases', 'vip_refresh'),
+    PREFERRED: ('vip_preferred_weeks', 'vip_preferred_week_cases', 'vip_preferred_cases', 'vip_preferred_refresh'),
+}
 EVENTS = {'claim', 'contacted', 'feedback', 'close'}
 RETRY_DELAY = timedelta(minutes=30)
 OBSERVATION = timedelta(days=7)
@@ -35,6 +42,20 @@ CREATE TABLE IF NOT EXISTS vip_events (
 );
 CREATE INDEX IF NOT EXISTS vip_case_events ON vip_events(case_id);
 CREATE TABLE IF NOT EXISTS vip_refresh (
+    id INTEGER PRIMARY KEY CHECK(id=1), attempted_at TEXT NOT NULL, status TEXT NOT NULL,
+    updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS vip_preferred_weeks (
+    week TEXT PRIMARY KEY, frozen_at TEXT, coverage TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS vip_preferred_week_cases (
+    week TEXT NOT NULL, case_id TEXT NOT NULL, baseline TEXT, PRIMARY KEY(week, case_id)
+);
+CREATE TABLE IF NOT EXISTS vip_preferred_cases (
+    id TEXT PRIMARY KEY, week TEXT NOT NULL, opened_at TEXT NOT NULL,
+    baseline TEXT NOT NULL, observation TEXT, observed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS vip_preferred_refresh (
     id INTEGER PRIMARY KEY CHECK(id=1), attempted_at TEXT NOT NULL, status TEXT NOT NULL,
     updated_at TEXT
 );
@@ -68,6 +89,26 @@ def checked_week(value):
     return week
 
 
+def checked_scope(scope):
+    if not isinstance(scope, str) or scope not in SCOPE_TABLES:
+        raise ValueError('vip_scope')
+    return scope
+
+
+def scoped_rows(db, scope, week=None):
+    _, memberships, cases, _ = SCOPE_TABLES[scope]
+    owner_join = ' JOIN vip_cases AS common ON common.id=c.id' if scope == PREFERRED else ''
+    owner = ',common.owner' if owner_join else ''
+    if week is not None:
+        baseline = ',w.baseline AS week_baseline' if scope == PREFERRED else ''
+        return db.execute(f'SELECT c.*{owner}{baseline} FROM {cases} AS c{owner_join} '
+                          f'JOIN {memberships} AS w ON w.case_id=c.id WHERE w.week=? ORDER BY c.opened_at,c.id',
+                          (week,)).fetchall()
+    current_scope = (' WHERE c.id NOT IN (SELECT id FROM vip_preferred_cases) '
+                     'OR c.id IN (SELECT case_id FROM vip_week_cases)') if scope == UK_US else ''
+    return db.execute(f'SELECT c.*{owner} FROM {cases} AS c{owner_join}{current_scope} ORDER BY c.opened_at,c.id').fetchall()
+
+
 def events_for(db, case_id, cutoff=None):
     events = [dict(json.loads(row['payload']), actor=row['actor'], at=row['at'])
               for row in db.execute('SELECT actor,payload,at FROM vip_events WHERE case_id=? ORDER BY rowid', (case_id,))]
@@ -95,16 +136,30 @@ def refund_or_exception(order):
             or order.get('refundReadback', {}).get('status') in {'missing', 'unavailable'})
 
 
+def disposition(buyer, order):
+    if buyer.get('scope') == PREFERRED:
+        from vip_followup import preferred_disposition
+        if order.get('refundReadback', {}).get('status') in {'missing', 'unavailable'}:
+            return 'unknown'
+        return preferred_disposition(order)
+    if refund_or_exception(order):
+        return ('problem' if order.get('refundStatus') == 'full_observed'
+                and order.get('refundReadback', {}).get('status') not in {'missing', 'unavailable'} else 'unknown')
+    if str(order.get('payStatus')) == '1' or order.get('refundStatus') == 'partial_observed':
+        return 'effective'
+    return 'problem'
+
+
 def returned_orders(buyer, opened, through):
     result, unresolved = [], False
     for order in buyer['history']:
         paid_at = local(order.get('paidAtShanghai'))
         if not paid_at or not opened <= paid_at < through or order['siteId'] != buyer['siteId']:
             continue
-        if refund_or_exception(order):
-            unresolved |= (order.get('refundStatus') != 'full_observed'
-                           or order.get('refundReadback', {}).get('status') in {'missing', 'unavailable'})
-        elif str(order.get('payStatus')) == '1' or order.get('refundStatus') == 'partial_observed':
+        result_kind = disposition(buyer, order)
+        if result_kind == 'unknown':
+            unresolved = True
+        elif result_kind == 'effective':
             result.append((paid_at, order))
     return sorted(result, key=lambda row: row[0]), unresolved
 
@@ -151,11 +206,12 @@ def outcome_for(case, buyer, events, cutoff=None):
 def case_view(case, events, week, actor=None, cutoff=None):
     base = json.loads(case['baseline'])
     buyer = json.loads(case['observation']) if case['observation'] else base
+    week_baseline = json.loads(case['week_baseline']) if 'week_baseline' in case.keys() and case['week_baseline'] else None
+    frozen = week_baseline or base
     outcome = outcome_for(case, buyer, events, cutoff)
-    recent = buyer.get('lastOrder') or base.get('lastOrder') or {}
-    effective = [order for order in buyer['history']
-                 if not refund_or_exception(order)
-                 and (str(order.get('payStatus')) == '1' or order.get('refundStatus') == 'partial_observed')]
+    preferred = base.get('scope') == PREFERRED
+    recent = buyer.get('lastObservedOrder') or buyer.get('lastOrder') or base.get('lastOrder') or {}
+    effective = [order for order in buyer['history'] if disposition(buyer, order) == 'effective']
     latest_valid = max(effective, key=lambda order: local(order['paidAtShanghai']), default={})
     last_paid = local(latest_valid.get('paidAtShanghai'))
     observed = local(case['observed_at']) or local(case['opened_at'])
@@ -173,11 +229,11 @@ def case_view(case, events, week, actor=None, cutoff=None):
               'marked_amount_unknown': '已标记退款，金额待核'}.get(recent.get('refundStatus'))
     may_be_due = (days_since_paid is not None and days_since_paid >= 15
                   and buyer.get('paymentCoverage', {}).get('complete') is True
-                  and recent.get('refundStatus') not in {'marked_amount_unknown', 'unknown'})
+                  and (preferred or recent.get('refundStatus') not in {'marked_amount_unknown', 'unknown'}))
     purchase_days = sorted({local(order['paidAtShanghai']).date() for order in effective})
     gaps = [(right - left).days for left, right in zip(purchase_days, purchase_days[1:])]
     cadence = median(gaps) if gaps else None
-    windows = base['windows']
+    windows = frozen['windows']
     first = Decimal(windows['firstHalf']['salesUsd'])
     second = Decimal(windows['secondHalf']['salesUsd'])
     month = Decimal(windows['month']['salesUsd'])
@@ -208,16 +264,30 @@ def case_view(case, events, week, actor=None, cutoff=None):
         priority, ask = 'due', '联系前复核当日付款。最近游戏需求或购买方式有变化吗？'
     else:
         priority, ask = 'review', '复核当天付款、身份和退款情况；确认到期再联系'
+    cycle = 'normal' if days_since_paid is not None and days_since_paid <= 14 else 'due' if may_be_due else 'unknown'
+    band = 'P1' if cycle == 'due' and days_since_paid >= 22 else 'P2' if cycle == 'due' else 'watch'
+    review_day = (last_paid.date() + timedelta(days=15)).isoformat() if last_paid else None
+    if preferred and cycle == 'normal':
+        ask = '仍在正常复购周期，观察后续付款'
+    quality = frozen.get('quality')
+    checks = sorted(set((quality or {}).get('checksBeforeContact', ())) | set(buyer.get('checksBeforeContact', ())))
+    if preferred and cycle == 'due' and 'latest_payment_or_after_sales_needs_review' in checks:
+        ask = '先核最近一单付款与售后，再决定是否联系'
     reason = '。'.join(evidence) + '。' + ask
     return dict(case_id=case['id'], week=case['week'], site_id=buyer['siteId'], email=buyer.get('email'),
                 uid=buyer.get('uid'), country=buyer.get('country'),
                 last_paid_at=last_paid.isoformat() if last_paid else None,
                 days_since_last_paid=days_since_paid,
-                first_review_day=(last_paid.date() + timedelta(days=15)).isoformat() if last_paid else None,
-                owner=owner, status=status, can_update=bool(actor and not closed and owner in (None, actor)),
-                carried_over=case['week'] != week, windows=windows,
+                first_review_day=review_day, cycle={'status': cycle, 'review_day': review_day},
+                owner=owner, status=status,
+                can_update=bool(actor and not closed and owner in (None, actor) and (not preferred or cycle == 'due' or owner == actor)),
+                carried_over=case['week'] != week and (not preferred or week_baseline is None or owner is not None),
+                windows=windows, quality=quality,
+                checks_before_contact=checks,
                 guidance={'priority': priority, 'reason': reason, 'purchase_days': len(purchase_days),
-                          'median_gap_days': cadence}, events=events, outcome=outcome, **updates)
+                          'median_gap_days': cadence, 'band': band, 'headline': evidence[1] if days_since_paid is not None else '末次有效付款待核',
+                          'evidence': evidence, 'detail': reason, 'question': ask},
+                events=events, outcome=outcome, **updates)
 
 
 def summarize(items):
@@ -245,38 +315,44 @@ def summarize(items):
                                             and item['outcome']['kind'] != 'natural' for item in contacted),
                 mature_post_contact_people=sum(row['status'] == 'mature' for row in after),
                 closed_people=sum(item['status'] == 'closed' for item in items), feedback_reasons=reasons,
+                due_people=sum(item['cycle']['status'] == 'due' for item in items),
+                normal_cycle_people=sum(item['cycle']['status'] == 'normal' for item in items),
+                unknown_cycle_people=sum(item['cycle']['status'] == 'unknown' for item in items),
+                p1_people=sum(item['guidance']['band'] == 'P1' for item in items),
+                p2_people=sum(item['guidance']['band'] == 'P2' for item in items),
                 natural_usd=amount(natural), post_contact_usd=amount(after))
 
 
-def queue_view(db, week, actor=None, cutoff=None):
-    frozen = db.execute('SELECT frozen_at,coverage FROM vip_weeks WHERE week=?', (week,)).fetchone()
+def queue_view(db, week, actor=None, cutoff=None, scope=UK_US):
+    weeks, _, _, _ = SCOPE_TABLES[scope]
+    frozen = db.execute(f'SELECT frozen_at,coverage FROM {weeks} WHERE week=?', (week,)).fetchone()
     coverage = json.loads(frozen['coverage']) if frozen else None
-    records = db.execute('''SELECT c.* FROM vip_cases c JOIN vip_week_cases w ON c.id=w.case_id
-                            WHERE w.week=? ORDER BY c.opened_at,c.id''', (week,))
-    items = [case_view(row, events_for(db, row['id'], cutoff), week, actor, cutoff) for row in records]
+    items = [case_view(row, events_for(db, row['id'], cutoff), week, actor, cutoff)
+             for row in scoped_rows(db, scope, week)]
     order = {'after_sales': 0, 'due': 1, 'review': 2}
     def rank(item):
         windows, guidance = item['windows'], item['guidance']
         gap = (item['days_since_last_paid'] or 0) - (guidance['median_gap_days'] or 14)
         decline = Decimal(windows['firstHalf']['salesUsd']) - Decimal(windows['secondHalf']['salesUsd'])
-        return (item['status'] in {'closed', 'returned'}, order[guidance['priority']],
+        band = {'P1': 0, 'P2': 1, 'watch': 2}[guidance['band']] if scope == PREFERRED else 0
+        return (item['status'] in {'closed', 'returned'}, band, order[guidance['priority']],
                 -gap, -decline, -Decimal(windows['month']['salesUsd']), -guidance['purchase_days'])
 
     items.sort(key=rank)
-    return dict(week=week, frozen_at=frozen['frozen_at'] if frozen else None, coverage=coverage,
+    return dict(scope=scope, week=week, frozen_at=frozen['frozen_at'] if frozen else None, coverage=coverage,
                 status='ready' if frozen and frozen['frozen_at'] and coverage['complete'] is True
                 else 'partial' if frozen else 'pending',
                 items=items, summary=summarize(items) if frozen and frozen['frozen_at'] else None)
 
 
-def vip_weekly_report(path, week, cutoff):
+def vip_weekly_report(path, week, cutoff, scope=UK_US):
     """Read the frozen report cohort without touching customer history or contacting its source."""
     connection = None
     try:
         connection = sqlite3.connect(Path(path).resolve().as_uri() + '?mode=ro', uri=True, timeout=2)
         connection.row_factory = sqlite3.Row
         connection.execute('BEGIN')
-        view = queue_view(connection, checked_week(week).isoformat(), cutoff=cutoff)
+        view = queue_view(connection, checked_week(week).isoformat(), cutoff=cutoff, scope=checked_scope(scope))
     except (OSError, sqlite3.Error, ValueError, TypeError, KeyError):
         return dict(status='unavailable', week=week, reason='vip_week_evidence_unavailable')
     finally:
@@ -343,15 +419,15 @@ class VipMaintenance:
         with store.db() as db:
             db.executescript(SCHEMA)
 
-    def queue(self, week=None, *, actor=None):
+    def queue(self, week=None, *, actor=None, scope=UK_US):
         if week is None:
             week = week_for(self.clock().astimezone(SHANGHAI).date())
         with self.store.db() as db:
             db.execute('BEGIN')
-            return queue_view(db, checked_week(week).isoformat(), actor)
+            return queue_view(db, checked_week(week).isoformat(), actor, scope=checked_scope(scope))
 
-    def weekly_summary(self, week, cutoff):
-        return vip_weekly_report(self.store.path, week, cutoff)
+    def weekly_summary(self, week, cutoff, scope=UK_US):
+        return vip_weekly_report(self.store.path, week, cutoff, scope)
 
     def lookup_receipt(self, actor, request_id):
         if not isinstance(request_id, str) or not ID.fullmatch(request_id):
@@ -372,11 +448,12 @@ class VipMaintenance:
         fields = {'claim': set(), 'contacted': {'contacted_at', 'reason', 'notes', 'next_review_day'},
                   'feedback': {'reason', 'notes', 'next_review_day'}, 'close': {'reason', 'notes'}}
         if (type(body) is not dict or not common <= set(body) or not isinstance(body['event'], str)
-                or body['event'] not in EVENTS or set(body) - common - fields[body['event']]
+                or body['event'] not in EVENTS or set(body) - common - fields[body['event']] - {'scope'}
                 or not all(isinstance(body[key], str) and ID.fullmatch(body[key]) for key in ('case_id', 'request_id'))):
             raise ValueError('vip_feedback_fields')
         event, case_id, request_id = body['event'], body['case_id'], body['request_id']
-        if event == 'feedback' and set(body) == common:
+        scope = checked_scope(body.get('scope', UK_US))
+        if event == 'feedback' and set(body) - {'scope'} == common:
             raise ValueError('vip_feedback_fields')
         for key, limit in (('reason', 100), ('notes', 1000)):
             if key in body and (not isinstance(body[key], str) or not body[key].strip() or len(body[key]) > limit
@@ -416,6 +493,14 @@ class VipMaintenance:
             if case['owner'] not in (None, actor) or case['owner'] is None and event != 'claim':
                 raise PermissionError('vip_owner_required')
             events = events_for(db, case_id)
+            preferred = db.execute('SELECT * FROM vip_preferred_cases WHERE id=?', (case_id,)).fetchone()
+            has_uk = db.execute('SELECT 1 FROM vip_week_cases WHERE case_id=?', (case_id,)).fetchone()
+            if scope == PREFERRED and not preferred:
+                raise LookupError('vip_case_not_found')
+            if event == 'claim' and preferred and (scope == PREFERRED or not has_uk):
+                view = case_view(dict(preferred, owner=case['owner']), events, preferred['week'], actor)
+                if view['cycle']['status'] != 'due' or view['status'] == 'returned':
+                    raise ValueError('vip_not_due')
             if any(item['event'] == 'close' for item in events):
                 raise ValueError('vip_case_closed')
             if event == 'claim' and case['owner'] is not None:
@@ -436,63 +521,69 @@ class VipMaintenance:
         week = checked_week(week) if week is not None else current
         if week != current:
             raise ValueError('vip_refresh_current_week')
-        week = week.isoformat()
+        results = {scope: self._run_scope(scope, week.isoformat(), now) for scope in SCOPE_TABLES}
+        self._publish_weekly(current)
+        return dict(results[UK_US], scope_status={scope: value['status'] for scope, value in results.items()})
+
+    def _run_scope(self, scope, week, now):
+        _, _, _, refresh = SCOPE_TABLES[scope]
         stamp = now.isoformat()
         with self.store.db() as db:
             db.execute('BEGIN IMMEDIATE')
-            prior = db.execute('SELECT * FROM vip_refresh WHERE id=1').fetchone()
+            prior = db.execute(f'SELECT * FROM {refresh} WHERE id=1').fetchone()
             reused = bool(prior and (prior['status'] == 'ready' and local(prior['updated_at']).date() == now.date()
                                     or now - local(prior['attempted_at']) < RETRY_DELAY))
-            if not reused:
-                db.execute("INSERT OR REPLACE INTO vip_refresh VALUES(1,?,'pending',NULL)", (stamp,))
-        if not reused:
-            try:
-                if self.source is None:
-                    import vip_followup
-                    self.source = vip_followup
-                status = self._refresh(week, now)
-            except Exception:
-                with self.store.db() as db:
-                    db.execute("UPDATE vip_refresh SET status='failed' WHERE attempted_at=?", (stamp,))
-                raise
-            with self.store.db() as db:
-                db.execute('UPDATE vip_refresh SET status=?,updated_at=? WHERE attempted_at=?', (status, stamp, stamp))
-        else:
-            status = prior['status']
-        self._publish_weekly(current)
-        return dict(status=status, week=week, reused=reused)
+            if reused:
+                return dict(status=prior['status'], week=week, reused=True)
+            db.execute(f"INSERT OR REPLACE INTO {refresh} VALUES(1,?,'pending',NULL)", (stamp,))
+        try:
+            if self.source is None:
+                import vip_followup
+                self.source = vip_followup
+            status = self._refresh(week, now, scope)
+        except Exception as error:
+            logging.getLogger(__name__).error('VIP %s refresh failed: %s', scope, type(error).__name__)
+            status = 'failed'
+        with self.store.db() as db:
+            db.execute(f'UPDATE {refresh} SET status=?,updated_at=? WHERE attempted_at=?', (status, stamp, stamp))
+        return dict(status=status, week=week, reused=False)
 
     def _publish_weekly(self, current):
         if self.report_root is None:
             return
         with self.store.db() as db:
-            latest = db.execute('SELECT updated_at FROM vip_refresh WHERE id=1').fetchone()
+            latest = tuple(db.execute(f'SELECT updated_at FROM {tables[3]} WHERE id=1').fetchone()['updated_at']
+                           for tables in SCOPE_TABLES.values())
             event_revision = db.execute('SELECT max(rowid) FROM vip_events').fetchone()[0]
-        revision = (current, latest['updated_at'], event_revision)
+        revision = (current, latest, event_revision)
         if revision == self.report_revision:
             return
         for week in (current - OBSERVATION, current):
             cutoff = start_of(week + OBSERVATION)
-            value = self.weekly_summary(week.isoformat(), cutoff)
+            week_text = week.isoformat()
+            value = self.weekly_summary(week_text, cutoff)
+            value['scopes'] = {UK_US: dict(value), PREFERRED: self.weekly_summary(week_text, cutoff, PREFERRED)}
+            value['scope_overlap'] = '同一客户可能同时属于两个范围，人数和金额按范围分别展示。'
             write_weekly_report(self.report_root, week, value)
         self.report_revision = revision
 
-    def _refresh(self, week, now):
+    def _refresh(self, week, now, scope):
+        weeks, _, cases_table, _ = SCOPE_TABLES[scope]
         with self.store.db() as db:
-            frozen = db.execute('SELECT frozen_at FROM vip_weeks WHERE week=?', (week,)).fetchone()
-            cases = db.execute('SELECT * FROM vip_cases ORDER BY opened_at,id').fetchall()
+            frozen = db.execute(f'SELECT frozen_at FROM {weeks} WHERE week=?', (week,)).fetchone()
+            cases = scoped_rows(db, scope)
         if not frozen or not frozen['frozen_at']:
-            cohort = self.source.read_cohort(anchor=checked_week(week), now=now)
-            self._freeze(week, now, cohort, cases)
+            reader = self.source.read_preferred_cohort if scope == PREFERRED else self.source.read_cohort
+            cohort = reader(anchor=checked_week(week), now=now)
+            self._freeze(week, now, cohort, scope)
             with self.store.db() as db:
-                known = {row['id'] for row in cases}
-                cases += [row for row in db.execute('SELECT * FROM vip_cases WHERE week=?', (week,)) if row['id'] not in known]
+                cases = scoped_rows(db, scope)
         # Previously closed cases remain eligible for refund corrections within the source window.
         source_start = now - timedelta(days=365)
         active = [row for row in cases if local(row['opened_at']) >= source_start]
         if not active:
             with self.store.db() as db:
-                frozen = db.execute('SELECT frozen_at FROM vip_weeks WHERE week=?', (week,)).fetchone()
+                frozen = db.execute(f'SELECT frozen_at FROM {weeks} WHERE week=?', (week,)).fetchone()
             return 'ready' if frozen and frozen['frozen_at'] else 'partial'
         buyers_by_id, cutoffs, recheck_orders = {}, [], {}
         with self.store.db() as db:
@@ -535,51 +626,76 @@ class VipMaintenance:
                 observed = local(buyer['paymentCoverage'].get('observedThrough'))
                 if observed and observed > source_as_of:
                     raise ValueError('vip_observation_time')
-                db.execute('UPDATE vip_cases SET observation=?,observed_at=? WHERE id=?',
+                db.execute(f'UPDATE {cases_table} SET observation=?,observed_at=? WHERE id=?',
                            (encoded(buyer), observed.isoformat() if observed else case['observed_at'], case['id']))
-            frozen = db.execute('SELECT frozen_at FROM vip_weeks WHERE week=?', (week,)).fetchone()
+            frozen = db.execute(f'SELECT frozen_at FROM {weeks} WHERE week=?', (week,)).fetchone()
             return 'ready' if complete and frozen and frozen['frozen_at'] else 'partial'
 
-    def _freeze(self, week, now, cohort, active):
+    def _freeze(self, week, now, cohort, scope):
+        weeks, memberships, _, _ = SCOPE_TABLES[scope]
+        other_scope = PREFERRED if scope == UK_US else UK_US
         coverage = cohort['coverage']
         frozen = coverage.get('datesComplete', coverage['complete']) is True
         with self.store.db() as db:
             db.execute('BEGIN IMMEDIATE')
-            existing = db.execute('SELECT frozen_at FROM vip_weeks WHERE week=?', (week,)).fetchone()
+            existing = db.execute(f'SELECT frozen_at FROM {weeks} WHERE week=?', (week,)).fetchone()
             if existing and existing['frozen_at']:
                 return
-            db.execute('INSERT OR REPLACE INTO vip_weeks VALUES(?,?,?)',
+            db.execute(f'INSERT OR REPLACE INTO {weeks} VALUES(?,?,?)',
                        (week, now.isoformat() if frozen else None, encoded(coverage)))
-            previous = []
-            for case in active:
-                buyer = json.loads(case['observation'] or case['baseline'])
-                current = case_view(case, events_for(db, case['id']), week)
-                previous.append((case, buyer, current))
-                if current['status'] not in {'closed', 'returned'} and current['outcome']['kind'] not in {'natural', 'post_contact'}:
-                    db.execute('INSERT OR IGNORE INTO vip_week_cases VALUES(?,?)', (week, case['id']))
+            previous, other = [], []
+            other_current = {row['id'] for row in scoped_rows(db, other_scope, week)}
+            for target_scope, rows in ((scope, previous), (other_scope, other)):
+                for case in scoped_rows(db, target_scope):
+                    buyer = json.loads(case['observation'] or case['baseline'])
+                    view = case_view(case, events_for(db, case['id']), week)
+                    active = view['status'] not in {'closed', 'returned'} and view['outcome']['kind'] not in {'natural', 'post_contact'}
+                    rows.append((case, buyer, view, active))
+                    if target_scope == scope and active and (scope == UK_US or view['owner']):
+                        db.execute(f'INSERT OR IGNORE INTO {memberships}(week,case_id) VALUES(?,?)', (week, case['id']))
             if not frozen:
                 return
             opened = start_of(checked_week(week))
             for buyer in cohort['buyers']:
                 last_order = buyer.get('lastOrder') or {}
                 last_paid = local(last_order.get('paidAtShanghai'))
-                if (last_paid and (opened.date() - last_paid.date()).days < 9
+                if (scope == UK_US and last_paid and (opened.date() - last_paid.date()).days < 9
                         and buyer.get('followUpStatus') == 'recent'
                         and last_order.get('afterSales') not in {'problem', 'fraud', 'dispute', 'after_sales'}
                         and last_order.get('refundStatus') in {'none_observed', 'partial_observed'}):
                     continue
-                matching = [record for record in previous if same_buyer(buyer, record[1])]
-                if any(current['reason'] == 'no_contact' and current['status'] == 'closed'
-                       or current['status'] not in {'closed', 'returned'} and current['outcome']['kind'] not in {'natural', 'post_contact'}
-                       or (json.loads(case['baseline']).get('lastOrder') or {}).get('orderNo') == last_order.get('orderNo')
-                       for case, _, current in matching):
+                matching = [entry for entry in previous if same_buyer(buyer, entry[1])]
+                cross_scope = [entry for entry in other if same_buyer(buyer, entry[1])]
+                if any(view['reason'] == 'no_contact' and view['status'] == 'closed'
+                       for _, _, view, _ in matching + cross_scope):
                     continue
-                if matching:
-                    prior = matching[-1][1]
-                    buyer = dict(buyer, buyerId=prior['buyerId'], identity={
-                        key: sorted(set(buyer['identity'][key]) | set(prior['identity'][key]))
+                same_cycle = next((case for case, _, _, active in reversed(matching)
+                                   if active or (json.loads(case['baseline']).get('lastOrder') or {}).get('orderNo') == last_order.get('orderNo')), None)
+                if same_cycle:
+                    if scope == PREFERRED:
+                        db.execute(f'INSERT OR REPLACE INTO {memberships}(week,case_id,baseline) VALUES(?,?,?)',
+                                   (week, same_cycle['id'], encoded(buyer)))
+                    continue
+                shared = next((case for case, prior_buyer, _, active in reversed(cross_scope)
+                               if active or case['id'] in other_current
+                               or (prior_buyer.get('lastOrder') or {}).get('orderNo') == last_order.get('orderNo')), None)
+                prior = matching or cross_scope
+                if prior:
+                    identity = prior[-1][1]
+                    buyer = dict(buyer, buyerId=identity['buyerId'], identity={
+                        key: sorted(set(buyer['identity'][key]) | set(identity['identity'][key]))
                         for key in buyer['identity']})
-                ident = uuid.uuid4().hex
-                db.execute('INSERT INTO vip_cases VALUES(?,?,?,?,NULL,NULL,NULL)',
-                           (ident, week, opened.isoformat(), encoded(buyer)))
-                db.execute('INSERT INTO vip_week_cases VALUES(?,?)', (week, ident))
+                ident = shared['id'] if shared else uuid.uuid4().hex
+                if shared is None:
+                    db.execute('INSERT INTO vip_cases VALUES(?,?,?,?,NULL,NULL,NULL)',
+                               (ident, week, opened.isoformat(), encoded(buyer)))
+                if scope == PREFERRED:
+                    db.execute('INSERT INTO vip_preferred_cases VALUES(?,?,?,?,NULL,NULL)',
+                               (ident, week, opened.isoformat(), encoded(buyer)))
+                if scope == UK_US and shared:
+                    db.execute('UPDATE vip_cases SET week=?,opened_at=?,baseline=?,observation=NULL,observed_at=NULL WHERE id=?',
+                               (week, min(local(shared['opened_at']), opened).isoformat(), encoded(buyer), ident))
+                if scope == PREFERRED:
+                    db.execute(f'INSERT INTO {memberships}(week,case_id,baseline) VALUES(?,?,?)', (week, ident, encoded(buyer)))
+                else:
+                    db.execute(f'INSERT INTO {memberships}(week,case_id) VALUES(?,?)', (week, ident))

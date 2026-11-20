@@ -242,8 +242,11 @@ class TrackingController:
             raise ValueError('tracking_query')
         view=params.get('view',[''])[0]
         allowed={'mode','structure','view'}
-        if view == 'vip_week' and set(params) <= allowed | {'week'}:
-            return 200, self.vip.queue(week=params.get('week', [None])[0], actor=user)
+        if view == 'vip_week' and set(params) <= allowed | {'week','scope'}:
+            scope = params.get('scope', ['uk_us'])[0]
+            if scope not in ('uk_us', 'global_preferred'):
+                raise ValueError('vip_scope')
+            return 200, self.vip.queue(week=params.get('week', [None])[0], actor=user, scope=scope)
         if view == 'vip_period':
             from vip_query import query
             from vip_followup import read_period
