@@ -10,10 +10,10 @@
   <title>智体客单追踪 · FS</title>
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
-  <link rel="stylesheet" href="page.css?v=vip-maintenance-20261120-global">
+  <link rel="stylesheet" href="page.css?v=vip-maintenance-20261120-bulk">
   <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
   <script defer src="/__hub/hubnav.js?v=3dda7cae"></script>
-  <script defer src="page.js?v=vip-maintenance-20261120-global"></script>
+  <script defer src="page.js?v=vip-maintenance-20261120-bulk"></script>
 <link rel="stylesheet" href="/__hub/hermes-nav.css?v=hermes-nav-20261019-v2">
 <script defer src="/__hub/nav.js?v=hermes-nav-20261019-v1"></script>
 </head>
@@ -85,6 +85,18 @@
             <option value="all">全部周期</option><option value="due">到期复核</option>
             <option value="normal">正常周期</option><option value="unknown">周期待核</option>
           </select></label>
+        </div>
+        <div id="vip-bulk" class="vip-bulk" hidden>
+          <div class="vip-bulk-actions" role="group" aria-label="客户批量操作">
+            <label><input id="vip-select-all" type="checkbox" aria-describedby="vip-selection-status"> 全选当前筛选</label>
+            <button id="vip-clear-selection" class="fs-btn" type="button" disabled>取消选择</button>
+            <button id="vip-bulk-claim" class="fs-btn fs-btn--primary" type="button" disabled>领取给我</button>
+            <button id="vip-export" class="fs-btn" type="button" disabled>导出所选 CSV</button>
+            <button id="vip-bulk-reconcile" class="fs-btn" type="button" hidden>核对待核批次</button>
+            <button id="vip-bulk-stop" class="fs-btn" type="button" hidden>停止剩余领取</button>
+          </div>
+          <p id="vip-selection-status" class="vip-small" role="status"></p>
+          <p id="vip-bulk-status" class="vip-state" role="status"></p>
         </div>
         <div id="vip-list" aria-busy="true"></div>
       </section>

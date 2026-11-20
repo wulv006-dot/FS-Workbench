@@ -1,5 +1,7 @@
 """Browser regression for the original FS tracking entry and weekly follow-up workflow."""
+import csv
 from datetime import datetime, timezone
+import io
 import json
 from pathlib import Path
 import sys
@@ -62,9 +64,25 @@ SUMMARY = {
 }
 
 
-def install(page, *, admin=True):
+def install(page, *, admin=True, bulk=False):
     items = json.loads(json.dumps(CUSTOMERS))
-    state = {"events": [], "receipt": {}, "queries": [], "deny_week": False, "errors": []}
+    state = {"events": [], "receipt": {}, "queries": [], "deny_week": False, "errors": [],
+             "viewer": "wulv", "bulk_requests": [], "bad_bulk_read": False, "first_bulk_unknown": True}
+    if bulk:
+        items = [
+            dict(case_id=f"{i + 1000:032x}", email=f"bulk-{i}@example.invalid", uid=f"{i + 2000}",
+                 country="United States", status="queued", guidance={"priority": "due", "reason": "测试复核"},
+                 can_update=True, can_bulk_claim=i < 103, events=[], outcome={"kind": "unknown"})
+            for i in range(107)
+        ]
+        items[0].update(email=' =SUM(1,2)', uid='0000000123', country='United "States", test',
+                        days_since_last_paid=0, last_paid_at="2026-11-20T02:15:00Z",
+                        windows={"month":{"salesUsd":"31.25"}, "firstHalf":{"salesUsd":"31.25"},
+                                 "secondHalf":{"salesUsd":"0.00"}})
+        items[0]["guidance"].update(reason='第一行含"引号",逗号\n第二行', purchase_days=0, median_gap_days=4.5)
+        items[1]["uid"] = "12345678901234567"
+        items[2]["uid"] = None
+        items[-1].update(status="returned", outcome={"kind": "natural"})
 
     def route(request):
         url = urlparse(request.request.url)
@@ -83,8 +101,31 @@ def install(page, *, admin=True):
             return request.fulfill(status=403, json={"error": "admin_required"})
         if request.request.method == "POST":
             body = request.request.post_data_json
-            assert body["kind"] == "hermes_customer_tracking" and body["action"] == "vip_feedback"
+            assert body["kind"] == "hermes_customer_tracking"
             assert request.request.headers["x-fs-advisor-action"] == "submit"
+            if body["action"] == "vip_bulk_claim":
+                state["bulk_requests"].append(body)
+                assert body["week"] == WEEK and body["scope"] == "global_preferred"
+                assert len(body["request_id"]) == 32 and len(body["case_ids"]) <= 100
+                assert len(set(body["case_ids"])) == len(body["case_ids"])
+                found = {item["case_id"]: item for item in items}
+                assert all(found[case_id]["can_bulk_claim"] for case_id in body["case_ids"])
+                results = []
+                for case_id in body["case_ids"]:
+                    target = found[case_id]
+                    skipped = case_id == items[0]["case_id"]
+                    target.update(status="assigned", owner="DY" if skipped else state["viewer"], can_bulk_claim=False)
+                    results.append({"case_id": case_id, "status": "skipped" if skipped else "claimed",
+                                    "reason_code": "assigned_to_other" if skipped else "claimed"})
+                claimed = sum(row["status"] == "claimed" for row in results)
+                receipt = {"status": "recorded", "action": body["action"], "request_id": body["request_id"],
+                           "week": WEEK, "scope": body["scope"], "claimed": claimed,
+                           "skipped": len(results) - claimed, "items": results}
+                state["receipt"][body["request_id"]] = {"status": "available", "action": body["action"], "result": receipt}
+                if len(state["bulk_requests"]) == 1 and state["first_bulk_unknown"]:
+                    return request.fulfill(status=503, json={"error": "uncertain"})
+                return request.fulfill(json=receipt)
+            assert body["action"] == "vip_feedback"
             assert body["case_id"] == CASE_ID and len(body["request_id"]) == 32
             state["events"].append(body)
             item = items[0]
@@ -123,12 +164,20 @@ def install(page, *, admin=True):
                                   guidance=dict(item["guidance"], band="P2" if index in (3, 4) else "watch"))
                         for index, item in enumerate(items)]
                 summary = dict(SUMMARY, due_people=3, normal_cycle_people=23, unknown_cycle_people=1, p1_people=1, p2_people=2)
-            value = {"status": "ready", "week": WEEK, "scope": scope,
+            if bulk:
+                data = [dict(item, cycle={"status": "due" if i < 103 else "normal",
+                                          "review_day": "2026-11-19"},
+                             guidance=dict(item["guidance"], band="P1" if i < 103 else "watch"))
+                        for i, item in enumerate(items)]
+                summary = dict(SUMMARY, people=len(data))
+            value = {"status": "ready", "week": WEEK, "scope": scope, "viewer": state["viewer"],
                      "items": data, "summary": summary, "as_of": NOW} if week == WEEK else {
-                "status": "pending", "week": week, "scope": scope, "items": [], "summary": None,
+                "status": "pending", "week": week, "scope": scope, "viewer": state["viewer"], "items": [], "summary": None,
             }
         elif view == "request":
             value = state["receipt"].get(query["request_id"][0], {"status": "unknown"})
+            if state["bad_bulk_read"] and value.get("action") == "vip_bulk_claim":
+                value = dict(value, result=dict(value["result"], request_id="d" * 32))
         else:
             value = {"status": "available", "items": []}
         return request.fulfill(json=value)
@@ -276,10 +325,112 @@ def check_narrow_and_denied(browser):
     assert not denied["queries"] and not denied["events"] and not denied["errors"]
 
 
+def check_bulk_selection_and_csv(browser):
+    page = browser.new_page(viewport={"width":1440,"height":900})
+    state = install(page, bulk=True)
+    selected = page.locator("#vip-selection-status")
+    progress = page.locator("#vip-bulk-status")
+    choose_all = page.locator("#vip-select-all")
+    bulk_claim = page.locator("#vip-bulk-claim")
+    first = page.locator("#vip-list > ol > li").first
+    expect(first).to_be_visible()
+    first.locator("[data-vip-select]").check()
+    expect(selected).to_contain_text("已选 1 人 · 可领取 1 人")
+    page.locator("#vip-clear-selection").click()
+    expect(selected).to_contain_text("已选 0 人")
+    choose_all.check()
+    expect(selected).to_contain_text("当前筛选 107 人（含折叠及后续行） · 已选 107 人 · 可领取 103 人")
+    expect(page.locator("#vip-list > ol > li")).to_have_count(8)
+    page.get_by_role("button",name="显示更多",exact=False).click()
+    expect(page.locator("#vip-list > ol > li").nth(8).locator("[data-vip-select]")).to_be_checked()
+    search = page.locator("#vip-search")
+    search.fill("bulk-103@")
+    expect(selected).to_contain_text("当前筛选 1 人（含折叠及后续行） · 已选 1 人 · 可领取 0 人")
+    expect(bulk_claim).to_be_disabled()
+    search.clear()
+    expect(selected).to_contain_text("已选 1 人")
+    choose_all.check()
+    with page.expect_download() as event:
+        page.locator("#vip-export").click()
+    download = event.value
+    assert download.suggested_filename == "FC27-uk_us-2026-11-16.csv"
+    raw = download.path().read_bytes()
+    assert raw.startswith(b"\xef\xbb\xbf") and raw.endswith(b"\r\n")
+    csv_rows = list(csv.DictReader(io.StringIO(raw.decode("utf-8-sig"), newline="")))
+    assert len(csv_rows) == 107 and not state["bulk_requests"]
+    assert csv_rows[0]["客户邮箱"] == "' =SUM(1,2)"
+    assert csv_rows[0]["付款国家"] == 'United "States", test'
+    assert csv_rows[0]["优先理由"] == '第一行含"引号",逗号\n第二行'
+    assert csv_rows[0]["会员 UID"] == "'0000000123"
+    assert csv_rows[1]["会员 UID"] == "'12345678901234567"
+    assert csv_rows[2]["会员 UID"] == ""
+    structured = {"距末购天数":"0", "最近有效付款时间（北京时间）":"2026-11-20 10:15",
+                  "入组30日实付 USD":"31.25", "入组窗口前15日实付 USD":"31.25", "入组窗口后15日实付 USD":"0.00",
+                  "观察购买日数":"0", "本人购买间隔中位数（天）":"4.5"}
+    assert all(csv_rows[0][field] == expected and csv_rows[1][field] == "" for field, expected in structured.items())
+    assert csv_rows[-1]["跟进状态"] == "已回购"
+    page.get_by_role("button",name="全国家优选",exact=True).click()
+    expect(selected).to_contain_text("全国家优选 · 2026-11-16 周")
+    expect(selected).to_contain_text("已选 0 人")
+    choose_all.check()
+    page.get_by_role("button",name="上一周",exact=True).click()
+    expect(choose_all).to_be_hidden()
+    page.get_by_role("button",name="下一周",exact=True).click()
+    expect(selected).to_contain_text("已选 0 人")
+    choose_all.check()
+    state["viewer"] = "DY"
+    page.locator("#vip-week-form button[type=submit]").click()
+    expect(selected).to_contain_text("已选 0 人")
+    state["viewer"] = "wulv"
+    page.locator("#vip-week-form button[type=submit]").click()
+    choose_all.check()
+    if CAPTURE:
+        page.screenshot(path=CAPTURE / "vip-bulk-scope-selection.png")
+    bulk_claim.click()
+    expect(progress).to_contain_text("待核 100 人 · 未发送 3 人")
+    expect(bulk_claim).to_be_disabled()
+    assert [len(row["case_ids"]) for row in state["bulk_requests"]] == [100]
+    original = state["bulk_requests"][0]["request_id"]
+    state["bad_bulk_read"] = True
+    page.locator("#vip-bulk-reconcile").click()
+    expect(progress).to_contain_text("原批次仍待核对")
+    assert len(state["bulk_requests"]) == 1
+    state["bad_bulk_read"] = False
+    page.locator("#vip-bulk-reconcile").click()
+    expect(progress).to_contain_text("已确认领取 99 人 · 已跳过 1 人 · 未发送 3 人")
+    assert [query["request_id"][0] for view, query in state["queries"] if view == "request"] == [original,original]
+    assert len(state["bulk_requests"]) == 1
+    search.fill("bulk-102@")
+    expect(bulk_claim).to_be_disabled()
+    search.clear()
+    expect(bulk_claim).to_have_text("继续领取剩余（3 人）")
+    bulk_claim.click()
+    expect(progress).to_contain_text("已确认领取 102 人 · 已跳过 1 人")
+    assert "已由其他同事领取 1 人" in progress.inner_text()
+    assert [len(row["case_ids"]) for row in state["bulk_requests"]] == [100,3]
+    assert state["bulk_requests"][1]["request_id"] != original
+    assert not set(state["bulk_requests"][0]["case_ids"]) & set(state["bulk_requests"][1]["case_ids"])
+    assert not state["errors"], state["errors"]
+
+    mobile = browser.new_page(viewport={"width":390,"height":844}, is_mobile=True, has_touch=True)
+    direct = install(mobile, bulk=True)
+    direct["first_bulk_unknown"] = False
+    mobile.get_by_role("button",name="全国家优选",exact=True).click()
+    mobile.locator("#vip-select-all").check()
+    assert mobile.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    if CAPTURE:
+        mobile.screenshot(path=CAPTURE / "vip-bulk-mobile.png")
+    mobile.locator("#vip-bulk-claim").click()
+    expect(mobile.locator("#vip-bulk-status")).to_contain_text("已确认领取 102 人 · 已跳过 1 人")
+    assert [len(row["case_ids"]) for row in direct["bulk_requests"]] == [100,3]
+    assert not direct["errors"], direct["errors"]
+
+
 if __name__ == "__main__":
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         check_desktop(browser)
         check_narrow_and_denied(browser)
+        check_bulk_selection_and_csv(browser)
         browser.close()
     print("VIP tracking browser checks passed")

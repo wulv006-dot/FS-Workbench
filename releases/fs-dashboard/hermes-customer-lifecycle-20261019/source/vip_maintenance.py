@@ -23,6 +23,8 @@ SCOPE_TABLES = {
     PREFERRED: ('vip_preferred_weeks', 'vip_preferred_week_cases', 'vip_preferred_cases', 'vip_preferred_refresh'),
 }
 EVENTS = {'claim', 'contacted', 'feedback', 'close'}
+BULK_CLAIM = 'vip_bulk_claim'
+MAX_BULK_CLAIMS = 100
 RETRY_DELAY = timedelta(minutes=30)
 OBSERVATION = timedelta(days=7)
 SCHEMA = """
@@ -290,6 +292,37 @@ def case_view(case, events, week, actor=None, cutoff=None):
                 events=events, outcome=outcome, **updates)
 
 
+def claim_blocker(view, actor, scope, *, ready_only):
+    if view['status'] == 'closed':
+        return 'closed'
+    if ready_only and view['status'] == 'returned':
+        return 'returned'
+    owner = view['owner']
+    if owner is not None:
+        return 'already_claimed' if owner == actor else 'assigned_to_other'
+    if not ready_only:
+        return None
+    if view['status'] == 'contacted':
+        return 'already_claimed'
+    cycle = view['cycle']['status']
+    if cycle == 'due' or scope == UK_US and view['guidance']['priority'] == 'after_sales':
+        return None
+    return 'not_due' if cycle == 'normal' else 'payment_unverified'
+
+
+def record_event(db, request_id, case_id, actor, payload, stamp):
+    event = payload['event']
+    if event == 'claim':
+        updated = db.execute('UPDATE vip_cases SET owner=? WHERE id=? AND owner IS NULL', (actor, case_id))
+        if updated.rowcount != 1:
+            raise ValueError('vip_already_assigned')
+    receipt = dict(status='recorded', case_id=case_id, event=event, owner=actor,
+                   request_id=request_id, recorded_at=stamp, reused=False)
+    db.execute('INSERT INTO vip_events VALUES(?,?,?,?,?,?)',
+               (request_id, case_id, actor, encoded(payload), stamp, encoded(receipt)))
+    return receipt
+
+
 def summarize(items):
     outcomes = [item['outcome'] for item in items]
     natural = [row for row in outcomes if row['kind'] == 'natural']
@@ -420,11 +453,17 @@ class VipMaintenance:
             db.executescript(SCHEMA)
 
     def queue(self, week=None, *, actor=None, scope=UK_US):
-        if week is None:
-            week = week_for(self.clock().astimezone(SHANGHAI).date())
+        current = week_for(self.clock().astimezone(SHANGHAI).date())
+        week = checked_week(week) if week is not None else current
+        scope = checked_scope(scope)
         with self.store.db() as db:
             db.execute('BEGIN')
-            return queue_view(db, checked_week(week).isoformat(), actor, scope=checked_scope(scope))
+            result = queue_view(db, week.isoformat(), actor, scope=scope)
+        result['viewer'] = actor
+        for item in result['items']:
+            item['can_bulk_claim'] = bool(actor and week == current and
+                                          claim_blocker(item, actor, scope, ready_only=True) is None)
+        return result
 
     def weekly_summary(self, week, cutoff, scope=UK_US):
         return vip_weekly_report(self.store.path, week, cutoff, scope)
@@ -433,12 +472,65 @@ class VipMaintenance:
         if not isinstance(request_id, str) or not ID.fullmatch(request_id):
             raise ValueError('vip_feedback_fields')
         with self.store.db() as db:
-            record = db.execute('SELECT actor,receipt FROM vip_events WHERE request_id=?', (request_id,)).fetchone()
+            record = db.execute('SELECT case_id,actor,receipt FROM vip_events WHERE request_id=?', (request_id,)).fetchone()
         if record is None:
             return None
         if record['actor'] != actor:
             raise PermissionError('vip_owner_required')
-        return dict(status='available', action='vip_feedback', result=json.loads(record['receipt']))
+        return dict(status='available', action='vip_feedback' if record['case_id'] else BULK_CLAIM,
+                    result=json.loads(record['receipt']))
+
+    def bulk_claim(self, actor, body):
+        if not isinstance(actor, str) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,64}', actor):
+            raise PermissionError('vip_owner_required')
+        if type(body) is not dict or set(body) != {'week', 'scope', 'request_id', 'case_ids'}:
+            raise ValueError('vip_bulk_claim_fields')
+        request_id, case_ids = body['request_id'], body['case_ids']
+        if (not isinstance(request_id, str) or not ID.fullmatch(request_id)
+                or type(case_ids) is not list or not 1 <= len(case_ids) <= MAX_BULK_CLAIMS
+                or not all(isinstance(value, str) and ID.fullmatch(value) for value in case_ids)
+                or len(case_ids) != len(set(case_ids)) or not isinstance(body['week'], str)):
+            raise ValueError('vip_bulk_claim_fields')
+        week, scope = checked_week(body['week']).isoformat(), checked_scope(body['scope'])
+        payload = dict(week=week, scope=scope, case_ids=case_ids)
+        now = self.clock().astimezone(SHANGHAI)
+        stamp = now.isoformat()
+        with self.store.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            prior = db.execute('SELECT * FROM vip_events WHERE request_id=?', (request_id,)).fetchone()
+            if prior:
+                if prior['actor'] != actor:
+                    raise PermissionError('vip_owner_required')
+                if prior['case_id'] or json.loads(prior['payload']) != payload:
+                    raise ValueError('vip_bulk_claim_conflict')
+                return dict(json.loads(prior['receipt']), reused=True)
+            if db.execute('SELECT 1 FROM requests WHERE request_id=?', (request_id,)).fetchone():
+                raise ValueError('vip_bulk_claim_conflict')
+            if week != week_for(now.date()).isoformat():
+                raise ValueError('vip_bulk_claim_current_week')
+            members = {row['id']: row for row in scoped_rows(db, scope, week)}
+            items = []
+            claimed = 0
+            for case_id in case_ids:
+                case = members.get(case_id)
+                reason = 'not_member'
+                if case is not None:
+                    view = case_view(case, events_for(db, case_id), week, actor)
+                    reason = claim_blocker(view, actor, scope, ready_only=True)
+                if reason is None:
+                    record_event(db, f'{request_id}:{case_id}', case_id, actor,
+                                 dict(event='claim', scope=scope), stamp)
+                    claimed += 1
+                items.append(dict(case_id=case_id, status='skipped' if reason else 'claimed',
+                                  reason_code=reason or 'claimed'))
+            receipt = dict(status='recorded', action=BULK_CLAIM, request_id=request_id, week=week, scope=scope,
+                           claimed=claimed, skipped=len(items) - claimed, items=items, reused=False)
+            # Reserve the original ID in the legacy namespace. Its public record contains no case data.
+            db.execute('INSERT INTO requests VALUES(?,?,?,?)', (request_id, BULK_CLAIM, '',
+                                                              encoded({'status':'private_receipt'})))
+            db.execute('INSERT INTO vip_events VALUES(?,?,?,?,?,?)',
+                       (request_id, '', actor, encoded(payload), stamp, encoded(receipt)))
+            return receipt
 
     def feedback(self, actor, body):
         now = self.clock().astimezone(SHANGHAI)
@@ -497,23 +589,20 @@ class VipMaintenance:
             has_uk = db.execute('SELECT 1 FROM vip_week_cases WHERE case_id=?', (case_id,)).fetchone()
             if scope == PREFERRED and not preferred:
                 raise LookupError('vip_case_not_found')
-            if event == 'claim' and preferred and (scope == PREFERRED or not has_uk):
-                view = case_view(dict(preferred, owner=case['owner']), events, preferred['week'], actor)
-                if view['cycle']['status'] != 'due' or view['status'] == 'returned':
-                    raise ValueError('vip_not_due')
             if any(item['event'] == 'close' for item in events):
                 raise ValueError('vip_case_closed')
-            if event == 'claim' and case['owner'] is not None:
-                raise ValueError('vip_already_assigned')
+            if event == 'claim':
+                ready_only = bool(preferred and (scope == PREFERRED or not has_uk))
+                if ready_only:
+                    view = case_view(dict(preferred, owner=case['owner']), events, preferred['week'], actor)
+                else:
+                    view = {'owner':case['owner'], 'status':'queued'}
+                reason = claim_blocker(view, actor, PREFERRED if ready_only else scope, ready_only=ready_only)
+                if reason:
+                    raise ValueError('vip_already_assigned' if reason == 'already_claimed' else 'vip_not_due')
             if contacted_at and not local(case['opened_at']) <= contacted_at <= now:
                 raise ValueError('vip_feedback_fields')
-            if event == 'claim':
-                db.execute('UPDATE vip_cases SET owner=? WHERE id=?', (actor, case_id))
-            receipt = dict(status='recorded', case_id=case_id, event=event, owner=actor,
-                           request_id=request_id, recorded_at=now.isoformat(), reused=False)
-            db.execute('INSERT INTO vip_events VALUES(?,?,?,?,?,?)',
-                       (request_id, case_id, actor, encoded(payload), now.isoformat(), encoded(receipt)))
-            return receipt
+            return record_event(db, request_id, case_id, actor, payload, now.isoformat())
 
     def refresh(self, week=None):
         now = self.clock().astimezone(SHANGHAI)

@@ -1,8 +1,10 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
+from threading import Barrier
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -76,6 +78,114 @@ class VipWorkflows(unittest.TestCase):
 
     def write(self, case, event, number, actor='operator', **fields):
         return self.vip.feedback(actor, dict(case_id=case['case_id'], request_id=f'{number:032x}', event=event, **fields))
+
+    def batch(self, *case_ids, number=101, scope='uk_us', week='2026-11-16'):
+        return dict(week=week, scope=scope, case_ids=list(case_ids), request_id=f'{number:032x}')
+
+    def test_bulk_claim_keeps_scope_week_eligibility_owner_and_per_item_receipts(self):
+        self.source.entries = [
+            buyer(1, payment(1, moment(1))),
+            buyer(2, payment(2, moment(9))),
+            buyer(3, dict(payment(3, moment(9)), afterSales='problem')),
+            buyer(4, payment(4, moment(1))),
+            buyer(5, payment(5, moment(1))),
+            buyer(6, payment(6, moment(1))),
+            buyer(7, payment(7, moment(1))),
+            buyer(8, payment(8, moment(1))),
+        ]
+        self.source.preferred = [dict(buyer(9, payment(9, moment(1))), scope='global_preferred')]
+        self.vip.refresh()
+        self.source.updated['buyer-6'] = [payment(6, moment(1)), payment(10, moment(16, 8))]
+        self.now = moment(17, 7)
+        self.vip.refresh()
+        cases = {int(case['uid']): case for case in self.vip.queue(actor='operator')['items']}
+        self.write(cases[4], 'claim', 1, actor='someone_else')
+        self.write(cases[5], 'claim', 2)
+        self.write(cases[5], 'close', 3)
+        self.write(cases[8], 'claim', 4)
+        with self.store.db() as db:
+            observed = db.execute('SELECT observation FROM vip_cases WHERE id=?', (cases[7]['case_id'],)).fetchone()
+            snapshot = json.loads(observed[0])
+            snapshot['paymentCoverage']['complete'] = False
+            db.execute('UPDATE vip_cases SET observation=? WHERE id=?', (json.dumps(snapshot), cases[7]['case_id']))
+        preferred_case = self.vip.queue(scope='global_preferred')['items'][0]
+        cases[9] = preferred_case
+        queue = self.vip.queue(actor='operator')
+        self.assertEqual(queue['viewer'], 'operator')
+        self.assertEqual({int(row['uid']) for row in queue['items'] if row['can_bulk_claim']}, {1, 3})
+        body = self.batch(*(cases[index]['case_id'] for index in range(1,10)), 'f' * 32)
+        receipt = self.vip.bulk_claim('operator', body)
+        self.assertEqual((receipt['status'], receipt['claimed'], receipt['skipped'], receipt['reused']), ('recorded', 2, 8, False))
+        self.assertEqual([item['reason_code'] for item in receipt['items']], [
+            'claimed', 'not_due', 'claimed', 'assigned_to_other', 'closed', 'returned',
+            'payment_unverified', 'already_claimed', 'not_member', 'not_member',
+        ])
+        self.assertNotIn('someone_else', json.dumps(receipt))
+        request = self.vip.lookup_receipt('operator', body['request_id'])
+        self.assertEqual(request, dict(status='available', action='vip_bulk_claim', result=receipt))
+        self.assertEqual(self.vip.bulk_claim('operator', body), dict(receipt, reused=True))
+        with self.assertRaisesRegex(ValueError, 'vip_bulk_claim_conflict'):
+            self.vip.bulk_claim('operator', dict(body, case_ids=body['case_ids'][:1]))
+        for owner_only in (lambda: self.vip.bulk_claim('someone_else', body),
+                           lambda: self.vip.lookup_receipt('someone_else', body['request_id'])):
+            with self.assertRaises(PermissionError):
+                owner_only()
+        self.assertEqual(self.store.request(body['request_id'])['result'], {'status':'private_receipt'})
+        claimed = next(row for row in self.vip.queue(actor='operator')['items'] if row['case_id'] == cases[1]['case_id'])
+        self.assertEqual(claimed['events'][0]['event'], 'claim')
+        self.assertFalse(claimed['can_bulk_claim'])
+        with self.assertRaisesRegex(ValueError, 'vip_already_assigned'):
+            self.write(claimed, 'claim', 7)
+        self.assertEqual(self.write(claimed, 'feedback', 8, notes='fixture')['owner'], 'operator')
+        self.now = moment(23, 8)
+        self.assertTrue(self.vip.bulk_claim('operator', body)['reused'])
+        with self.assertRaisesRegex(ValueError, 'vip_bulk_claim_current_week'):
+            self.vip.bulk_claim('operator', dict(body, request_id='e' * 32))
+        self.assertFalse(any(row['can_bulk_claim'] for row in self.vip.queue('2026-11-16', actor='operator')['items']))
+
+    def test_bulk_claim_race_and_original_authenticated_request_route(self):
+        from tracking_controller import TrackingController
+
+        self.vip.refresh()
+        case, *_ = self.vip.queue(actor='operator')['items']
+        controller = TrackingController(self.store.path.parent, lambda actor: actor in ('operator', 'other'), auto_start=False)
+        controller.vip = self.vip
+        barrier = Barrier(2)
+
+        def claim(actor, number):
+            body = self.batch(case['case_id'], number=number)
+            barrier.wait(timeout=5)
+            return controller.post(actor, dict(kind='hermes_customer_tracking', action='vip_bulk_claim', **body))
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            attempts = [executor.submit(claim, actor, number) for actor, number in [('operator', 101), ('other', 102)]]
+            outcomes = [(actor, task.result(timeout=10)) for actor, task in zip(('operator', 'other'), attempts)]
+        self.assertEqual(sorted(data['claimed'] for _, (_, data) in outcomes), [0, 1])
+        for actor, (status, data) in outcomes:
+            self.assertEqual(status, 200)
+            self.assertEqual(data['items'][0]['reason_code'], 'claimed' if data['claimed'] else 'assigned_to_other')
+            params = dict(mode=['hermes'], structure=['customer_tracking'], view=['request'], request_id=[data['request_id']])
+            self.assertEqual(controller.get(actor, params)[1]['result'], data)
+            with self.assertRaises(PermissionError):
+                controller.get('other' if actor == 'operator' else 'operator', params)
+        with self.assertRaises(PermissionError):
+            controller.post('unauthorized', dict(kind='hermes_customer_tracking', action='vip_bulk_claim',
+                                                 **self.batch(case['case_id'])))
+
+    def test_bulk_limit_and_unknown_marked_only_after_authenticated_valid_request(self):
+        ids = [f'{number:032x}' for number in range(100)]
+        payload = self.batch(*ids)
+        wire = dict(kind='hermes_customer_tracking', action='vip_bulk_claim', **payload)
+        self.assertLess(len(json.dumps(wire).encode()), 16384)
+        self.assertIsNone(self.vip.lookup_receipt('operator', payload['request_id']))
+        for invalid in (dict(payload, case_ids=[]), dict(payload, case_ids=[*ids, 'f' * 32]),
+                        dict(payload, case_ids=['f' * 32, 'f' * 32]), dict(payload, owner='other')):
+            with self.assertRaisesRegex(ValueError, 'vip_bulk_claim_fields'):
+                self.vip.bulk_claim('operator', invalid)
+            self.assertIsNone(self.vip.lookup_receipt('operator', payload['request_id']))
+        result = self.vip.bulk_claim('operator', payload)
+        self.assertEqual((result['claimed'], result['skipped']), (0, 100))
+        self.assertTrue(all(row['reason_code'] == 'not_member' for row in result['items']))
 
     def test_rollover_preserves_owner_feedback_and_idempotent_receipt(self):
         self.assertEqual(self.vip.refresh()['status'], 'ready')

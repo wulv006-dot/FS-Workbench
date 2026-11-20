@@ -291,6 +291,9 @@ class TrackingController:
         if body.get('action') == 'vip_feedback':
             data = {key: val for key, val in body.items() if key not in ('kind', 'action')}
             return 200, self.vip.feedback(user, data)
+        if body.get('action') == 'vip_bulk_claim':
+            data = {key: val for key, val in body.items() if key not in ('kind', 'action')}
+            return 200, self.vip.bulk_claim(user, data)
         if body.get('action')=='scan' and set(body)=={'kind','action','day','request_id'}:
             day=body['day'];request_id=body['request_id']
             if date.fromisoformat(day)>datetime.now(SHANGHAI).date():raise ValueError('future_scan')
