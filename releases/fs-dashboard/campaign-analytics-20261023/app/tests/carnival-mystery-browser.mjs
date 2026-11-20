@@ -99,6 +99,8 @@ for(const [platform,{aid,goods,skuIds}] of Object.entries(lobbyCatalog)){
    await card.locator('.buybtn').click();
    await page.waitForSelector('#mysteryFlowMask.show [data-carnival-buy]');
    assert.ok((await page.locator('#mysteryFlowMask .mystery-flow-box').textContent()).includes('$'+offer.price+' →'));
+   // A price-only update keeps the advertised cart line valid.
+   if(!index)site.firstLobbySku={price:'4.25'};
    await page.locator('#mysteryFlowMask.show [data-carnival-buy]').click();
    await page.waitForURL('**/Cart.html');
    assert.deepEqual(site.cart.adds,[{category:'new_items',id:String(goods),group:'1',num:'1',attr:skuIds[index]+'-'+offer.name,aid:String(aid)}]);
@@ -125,27 +127,33 @@ test('a missing lobby SKU does not use the parent price or modify the cart',asyn
  assert.deepEqual(site.cart.adds,[]);
 });
 
-test('a lobby SKU that sells out after the quote leaves the existing cart untouched',async t=>{
- const {page,site,carnival}=await open(t);
- carnival.draw({uid:'123456',game:'codmw4',items:[0,1,3]});
- await page.reload();
- await page.locator('a[href="#mystery"]').first().click();
- await page.locator('.gtab.game-codmw4').click();
- const offer=lobbyOffers[0],card=page.locator('#msResult .fcard').filter({hasText:offer.name});
- await card.getByText('$'+offer.price,{exact:true}).first().waitFor();
- await card.locator('.buybtn').click();
- const checkout=page.locator('#mysteryFlowMask.show [data-carnival-buy]');
- await checkout.waitFor();
- const existingLine={category:'new_items',id:'185981107',group:'1',num:'1',attr:'',aid:'19835'};
- site.cart.adds.push(existingLine);
- site.soldOutLobbySku=lobbyCatalog.PC.skuIds[0];
- const unavailable=page.locator('#toast.show').getByText('This item cannot be added right now. Please try again in a moment.');
- await checkout.click();
- await Promise.race([unavailable.waitFor(),page.waitForURL('**/Cart.html')]);
- assert.equal(site.cart.clears,0);
- assert.deepEqual(site.cart.adds,[existingLine]);
- assert.equal(await unavailable.isVisible(),true);
-});
+for(const [change,catalogChange] of [
+ ['sells out',{firstLobbySku:{stock:0}}],
+ ['requires a higher purchase quantity',{lobbyMinQty:5}],
+ ['changes to a same-name replacement SKU',{firstLobbySku:{id:999999}}],
+]){
+ test(`a lobby offer that ${change} after the quote leaves the existing cart untouched`,async t=>{
+  const {page,site,carnival}=await open(t);
+  carnival.draw({uid:'123456',game:'codmw4',items:[0,1,3]});
+  await page.reload();
+  await page.locator('a[href="#mystery"]').first().click();
+  await page.locator('.gtab.game-codmw4').click();
+  const offer=lobbyOffers[0],card=page.locator('#msResult .fcard').filter({hasText:offer.name});
+  await card.getByText('$'+offer.price,{exact:true}).first().waitFor();
+  await card.locator('.buybtn').click();
+  const checkout=page.locator('#mysteryFlowMask.show [data-carnival-buy]');
+  await checkout.waitFor();
+  const existingLine={category:'new_items',id:'185981107',group:'1',num:'1',attr:'',aid:'19835'};
+  site.cart.adds.push(existingLine);
+  Object.assign(site,catalogChange);
+  const unavailable=page.locator('#toast.show').getByText('This item cannot be added right now. Please try again in a moment.');
+  await checkout.click();
+  await Promise.race([unavailable.waitFor(),page.waitForURL('**/Cart.html')]);
+  assert.equal(site.cart.clears,0);
+  assert.deepEqual(site.cart.adds,[existingLine]);
+  assert.equal(await unavailable.isVisible(),true);
+ });
+}
 
 test('a localized formatted price cannot be quoted as USD or reach the cart',async t=>{
  const {page,site,carnival}=await open(t);

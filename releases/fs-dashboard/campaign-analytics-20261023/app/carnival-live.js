@@ -136,10 +136,12 @@ async function claimSlot(slot,couponId){
  * it), the exact goods row is added once, and the cart page opens with the coupon selected.
  * Each request is sent once; any failure stops with a "try again" message. */
 const postForm=(url,form)=>fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',...xhr},body:new URLSearchParams(form)}).then(r=>{if(!r.ok)throw Error('HTTP_'+r.status);return r.json().catch(()=>({}));});
-async function buyNow(spec,memberCouponId){
+async function buyNow(spec,memberCouponId,quotedLine){
   let offer;try{offer=spec&&(await resolveOffer(spec,{fresh:true})).offer;}catch{}
   if(!offer)return {state:'unavailable'};
   const {line}=offer;
+  // The final price can change, but the buyer chose this exact product, SKU and quantity.
+  if(quotedLine&&Object.entries(quotedLine).some(([key,value])=>line[key]!==value))return {state:'unavailable'};
   try{const c=await postForm('/Cart/clear',{});if(Number(c?.code)===0||c?.status===false)return {state:'clear_failed'};}catch{return {state:'clear_failed'};}
   let res;try{res=await postForm('/Cart/add.html',line);}catch{return {state:'unknown'};}
   const value=res?.data?.cart?.add||res?.cart?.add;
@@ -151,11 +153,11 @@ async function buyNow(spec,memberCouponId){
 function buyNowBlock(){
   return `<button type="button" class="buybtn" data-carnival-buy>${say('CHECKOUT NOW','立即结算')}</button>`;
 }
-function wireBuyNow(spec,memberCouponId){
+function wireBuyNow(spec,memberCouponId,quotedLine){
   const b=document.querySelector('#mysteryFlowMask [data-carnival-buy]');if(!b)return;
   b.addEventListener('click',async()=>{
     b.disabled=true;b.textContent=say('ADDING TO CART…','正在加入购物车…');
-    const r=await buyNow(spec,memberCouponId);
+    const r=await buyNow(spec,memberCouponId,quotedLine);
     if(r.state==='navigating')return;
     b.disabled=false;b.textContent=say('CHECKOUT NOW','立即结算');
     toast(r.state==='unknown'?say('We could not confirm the cart. Open your cart before trying again.','无法确认是否已加入购物车，请先打开购物车查看再重试。')
@@ -250,6 +252,7 @@ function offerFromRow(row,spec){
 }
 // spec: {game,top,cid,aid?,keyword?,goods?,area?,sid?,search?,qty,skuName?}
 function quoteKey(spec){return JSON.stringify(spec);}
+function quotedOffer(spec){return spec?quotes.get(quoteKey(spec))?.offer:null;}
 async function resolveOffer(spec,options){
   const find=rows=>{const m=spec.goods?rows.filter(r=>Number(r.id)===spec.goods)
     :rows.filter(r=>String(r.game_area_format||'').trim()===spec.area&&(!spec.sid||Number(r.sid)===spec.sid));return m.length===1?m[0]:null;};
@@ -273,24 +276,24 @@ function priceDiag(key,spec,state){
 }
 function cachedQuote(spec,rerender){
   if(!spec)return null;const key=quoteKey(spec),hit=quotes.get(key);
-  if(hit&&Date.now()-hit.at<LIST_TTL)return hit.price;
+  if(hit&&Date.now()-hit.at<LIST_TTL)return hit.offer?.price??null;
   if(!hit?.pending){
-    quotes.set(key,{...(hit||{price:null,at:0}),pending:true});
+    quotes.set(key,{...(hit||{offer:null,at:0}),pending:true});
     priceDiag(key,spec,'loading');
     resolveOffer(spec).then(({row,offer})=>{
       const price=offer?.price??null;
       priceDiag(key,spec,price!==null?'ok '+price:!row?'no row':'no price (status '+row.status+', off '+row.auto_off+', tiers '+Object.keys(row.goods_list||{}).join('/')+')');
-      quotes.set(key,{price,at:Date.now()});rerender();
+      quotes.set(key,{offer,at:Date.now()});rerender();
     }).catch(e=>{
       priceDiag(key,spec,'error '+String(e?.message||e).slice(0,80));
       // A failed read retries on its own (2s, 4s, 6s); waiting for an unrelated re-render left
       // a price pending for good when nothing else on the page changed.
       const fails=(hit?.fails||0)+1;
-      quotes.set(key,{price:hit?.price??null,at:fails<4?0:Date.now(),fails});
+      quotes.set(key,{offer:hit?.offer??null,at:fails<4?0:Date.now(),fails});
       if(fails<4)setTimeout(rerender,2000*fails);else rerender();
     });
   }
-  return hit?.price??null;
+  return hit?.offer?.price??null;
 }
 const amountOf=name=>{const m=/(\d+(?:\.\d+)?)\s*K\b/i.exec(name||'');return m?Number(m[1]):null;};
 function mysterySpec(it){
@@ -400,19 +403,20 @@ startMysteryPurchase=async function(index){
   const r=revealed?.[index];if(!r)return;
   if(account.state!=='signed_in'){requireLogin(null);return;}
   const spec=mysterySpec(r.it),game=gameItems(),slot=mystery[curGame]?.coupon_slot;if(!slot||!r.couponId){toast(say('This discount is not available right now.','这个折扣暂时不可用。'));return;}
+  const offer=quotedOffer(spec);
   mysteryBox(`<div class="mystery-flow-label">${say('ITEM COUPON','商品专属优惠券')}</div><h3 id="mysteryFlowTitle">${say('Getting your coupon…','正在领取优惠券…')}</h3>`);
   const result=await claimSlot(slot,r.couponId);
   if(result.state==='login_required'){closeMysteryFlow();requireLogin(null);return;}
   if(!couponOutcome(result,r.couponId,slot)){closeMysteryFlow();return;}
   handToCart(result.memberCouponId);
-  const price=cachedQuote(spec,rerenderMs);
+  const price=offer?.price??cachedQuote(spec,rerenderMs);
   mysteryBox(`<div class="mystery-flow-label">${say('ITEM COUPON','商品专属优惠券')}</div><h3 id="mysteryFlowTitle">${say('Your '+r.off+'% OFF coupon is in your account','你的 '+r.off+'% OFF 优惠券已到账')}</h3>
   ${couponCard({amount:r.off+'% OFF',description:esc(nm(r.it))})}
   <div class="mystery-flow-box"><p>${esc(nm(game))} · ${esc(nm(r.it))}</p>${price!==null?`<p>${say('Current price','当前价格')}: $${price.toFixed(2)} → <b>$${(price*(1-r.off/100)).toFixed(2)}</b></p>`:''}
   <p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Coupons cannot be combined with other coupons or codes.','最终价格以结算页为准；不能与其他优惠券或折扣码叠加。')}</p></div>
   ${buyNowBlock()}
   <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
-  wireBuyNow(spec,result.memberCouponId);
+  wireBuyNow(spec,result.memberCouponId,offer?.line);
 };
 tickMs=function(){syncMysteryCooldown();document.getElementById('msTimer').textContent=msDrawsLeft?say('READY','可以翻牌'):say('VERIFY AFTER PAYMENT TO UNLOCK','付款后点下方按钮校验解锁');};
 // A drawn round unlocks only when the member presses "verify" after paying: the order is
@@ -512,7 +516,7 @@ document.getElementById('flashGrid').addEventListener('click',async e=>{
       if(r.state==='login_required'){requireLogin(null);return;}
       if(couponOutcome(r,id,vb.dataset.slot))toast(say('Coupon added to your account.','优惠券已发到你的账户。'));return;}
     const p=s.products.find(x=>x.key===pb.dataset.carnivalProduct);if(!p)return;
-    const spec=flashSpec(p);
+    const spec=flashSpec(p),offer=quotedOffer(spec);
     const r=await claimSlot('bf_items',p.coupon_id);
     if(r.state==='login_required'){requireLogin(null);return;}
     if(!couponOutcome(r,p.coupon_id,'bf_items'))return;
@@ -523,7 +527,7 @@ document.getElementById('flashGrid').addEventListener('click',async e=>{
     <div class="mystery-flow-box"><p class="mystery-flow-disclaimer">${say('The final price is confirmed at checkout. Use it within 1 day.','最终价格以结算页为准。领取后 1 天内有效。')}</p></div>
     ${buyNowBlock()}
     <button type="button" class="btn-ghost coupon-close" onclick="closeMysteryFlow()">${say('Later','稍后')}</button>`);
-    wireBuyNow(spec,r.memberCouponId);
+    wireBuyNow(spec,r.memberCouponId,offer?.line);
   }finally{btn.disabled=false;}
 },true);
 
