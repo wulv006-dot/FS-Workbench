@@ -31,7 +31,9 @@ SHARED = {
 }
 CUSTOMERS = [
     {"case_id": CASE_ID, "email": EMAIL, "uid": 204800, "country": "United States", "owner": None,
-     "guidance": {"priority": "after_sales", "reason": "上一笔付款已有售后标记，优先核实交付进度。"},
+     "guidance": {"priority": "after_sales", "reason": "上一笔付款已有售后标记，优先核实交付进度。"
+                  "过去30天订单比较已归档，首轮维护需要保留订单、退款、时间、平台和站点的完整背景。"
+                  "确认客户得到协助后再考虑下一步。"},
      "status": "queued", "can_update": True, "last_paid_at": "2026-11-02T02:00:00Z",
      "events": [], "outcome": {"status": "immature", "kind": "unknown"}},
     {"case_id": "9" * 32, "email": "long-customer-identifier-for-layout@example.invalid", "uid": None,
@@ -103,8 +105,27 @@ def install(page, *, admin=True):
             if state["deny_week"]:
                 return request.fulfill(status=403, json={"error": "admin_required"})
             week = query["week"][0]
-            value = {"status": "ready", "week": WEEK, "items": items, "summary": SUMMARY, "as_of": NOW} if week == WEEK else {
-                "status": "pending", "week": week, "items": [], "summary": None,
+            scope = query["scope"][0]
+            assert scope in {"uk_us", "global_preferred"}
+            data = items
+            summary = SUMMARY
+            if scope == "global_preferred":
+                data = [dict(item, cycle={"status": "due", "review_day": "2026-11-19"},
+                             checks_before_contact=["known_problem_orders"],
+                             guidance=dict(item["guidance"], band="P1",
+                                           headline="先核实售后，再安排复核",
+                                           evidence=["末次付款距今23天", "上一单有售后标记"],
+                                           detail="长背景只在展开后显示",
+                                           question="上次交付目前解决了吗？")) if item["case_id"] == CASE_ID
+                        else dict(item, can_update=False,
+                                  cycle={"status": "unknown" if index == 1 else "due" if index in (3, 4) else "normal",
+                                         "review_day": None},
+                                  guidance=dict(item["guidance"], band="P2" if index in (3, 4) else "watch"))
+                        for index, item in enumerate(items)]
+                summary = dict(SUMMARY, due_people=3, normal_cycle_people=23, unknown_cycle_people=1, p1_people=1, p2_people=2)
+            value = {"status": "ready", "week": WEEK, "scope": scope,
+                     "items": data, "summary": summary, "as_of": NOW} if week == WEEK else {
+                "status": "pending", "week": week, "scope": scope, "items": [], "summary": None,
             }
         elif view == "request":
             value = state["receipt"].get(query["request_id"][0], {"status": "unknown"})
@@ -126,7 +147,10 @@ def check_desktop(browser):
     expect(card.get_by_text(EMAIL)).to_be_visible()
     expect(card.get_by_text("UID 204800")).to_be_visible()
     expect(card.get_by_text("售后优先")).to_be_visible()
+    expect(card.get_by_text("优先核对售后进展")).to_be_visible()
+    expect(card.get_by_text("过去30天订单比较", exact=False)).to_be_hidden()
     expect(page.get_by_text("UID 未取得")).to_be_visible()
+    expect(page.get_by_role("button", name="英美队列")).to_have_attribute("aria-pressed", "true")
     expect(page.locator("#vip-performance meter")).to_have_count(3)
     expect(page.get_by_text("已回购与已结案（1）")).to_be_visible()
     expect(page.get_by_text("returning-player@example.invalid")).to_be_hidden()
@@ -166,11 +190,41 @@ def check_desktop(browser):
     assert len(state["events"]) == 1
     assert any(view == "request" and query["request_id"] == [state["events"][0]["request_id"]]
                for view, query in state["queries"])
+    page.get_by_role("button", name="全国家优选").click()
+    expect(page.get_by_role("button", name="全国家优选")).to_have_attribute("aria-pressed", "true")
+    expect(card.get_by_text("领取人 wulv")).to_be_visible()
+    expect(card.get_by_text("P1", exact=True)).to_be_visible()
+    expect(card.get_by_text("末次付款距今23天", exact=False)).to_be_visible()
+    expect(card.get_by_text("联系前需核对 1 项")).to_be_visible()
+    expect(card.get_by_text("建议复核 2026-11-19")).to_be_visible()
+    expect(card.get_by_text("长背景只在展开后显示")).to_be_hidden()
+    card.get_by_text("背景与建议问法", exact=True).click()
+    expect(card.get_by_text("长背景只在展开后显示")).to_be_visible()
+    expect(card.get_by_text("核对已有问题订单")).to_be_visible()
+    expect(card.get_by_text("上次交付目前解决了吗？")).to_be_visible()
+    expect(page.locator("#vip-cycle-overview")).to_contain_text("到期复核 3 人 · 正常周期 23 人 · 周期待核 1 人 · P1 1 人 · P2 2 人")
+    cycle = page.get_by_label("复核周期")
+    cycle.select_option("due")
+    expect(visible_rows).to_have_count(3)
+    expect(visible_rows.nth(1).get_by_text("P2", exact=True)).to_be_visible()
+    cycle.select_option("unknown")
+    expect(visible_rows).to_have_count(1)
+    expect(visible_rows.first).to_contain_text("周期待核")
+    expect(visible_rows.first).to_contain_text("下次复核 2026-11-21")
+    cycle.select_option("all")
+    if CAPTURE:
+        page.screenshot(path=CAPTURE / "vip-maintenance-global-desktop.png")
+    assert len(state["events"]) == 1 and "scope" not in state["events"][0]
     card.get_by_role("button", name="记录联系").click()
     card.get_by_label("实际联系时间（北京时间）").fill("2026-11-20T09:30")
     card.get_by_role("button", name="保存联系").click()
     expect(card.get_by_text("已联系", exact=True)).to_be_visible()
     assert state["events"][-1]["contacted_at"] == "2026-11-20T09:30:00+08:00"
+    assert state["events"][-1]["scope"] == "global_preferred"
+    page.get_by_role("button", name="英美队列").click()
+    expect(card.get_by_text("领取人 wulv")).to_be_visible()
+    expect(card.get_by_text("已联系", exact=True)).to_be_visible()
+    expect(page.locator("#vip-cycle-overview")).to_be_hidden()
     card.get_by_role("button", name="填写反馈").click()
     card.get_by_label("维护反馈（可选）").fill("<b>已核对交付</b>")
     card.get_by_label("反馈原因（可选）").select_option("fulfillment")
@@ -202,14 +256,18 @@ def check_narrow_and_denied(browser):
     expect(page.locator("html")).to_have_attribute("data-fs-theme", "dark")
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     expect(page.locator("#vip-list > ol > li")).to_have_count(8)
+    page.get_by_role("button", name="全国家优选").click()
+    expect(page.get_by_label("复核周期")).to_be_visible()
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    expect(page.locator("#vip-list-count")).to_be_in_viewport()
     link = page.get_by_role("link", name="查看周维护效果")
     expect(link).to_be_visible()
     if CAPTURE:
-        page.screenshot(path=CAPTURE / "vip-maintenance-mobile.png")
+        page.screenshot(path=CAPTURE / "vip-maintenance-global-mobile.png")
     link.click()
     expect(page.locator("#vip-performance")).to_be_in_viewport()
     if CAPTURE:
-        page.screenshot(path=CAPTURE / "vip-maintenance-mobile-effect.png")
+        page.screenshot(path=CAPTURE / "vip-maintenance-global-mobile-effect.png")
     assert not state["errors"], state["errors"]
     page = browser.new_page()
     denied = install(page, admin=False)

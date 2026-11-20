@@ -5082,7 +5082,7 @@
       "path": "/dashboard/fs-home/advisor.json",
       "method": "GET",
       "permission_path": "/dashboard/fs-home/advisor.json",
-      "description": "按自选上海付款日期重算 MMOEXP FC27 英美大客，窗口累计实付至少300美元，第15天开始复购追踪。起止日期含首尾且为已结束的自然日。可选 as_of 为含时区的观察时点（晚于入组窗口），默认当前。按segment筛全部、到期、正常、未核或末单标退款。每页20人，有next_offset时续传相同as_of、条件及offset。返回订单联系邮箱、可核会员UID、付款和退款标记。只读；不会改动每周队列或触达客户。",
+      "description": "按自选上海付款日期读取 MMOEXP FC27 大客。默认英美 uk_us，窗口累计实付至少300美元；global_preferred 查全国家优选，限连续30个完整日，排除退款、问题和调查订单的原实付累计至少500美元，前后任一15日至少300美元，至少2个有效购买日，问题单少于50%。入组及后续观察按返回口径，第15天开始复购跟踪。日期含首尾，as_of 可传含时区的观察时点，默认当前。每页20人，按返回next_offset、as_of和原条件续查。只读，保留来源覆盖、订单联系邮箱、可核UID、付款及退款标记。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5099,6 +5099,10 @@
           "as_of": {
             "type": "string",
             "maxLength": 40
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["uk_us", "global_preferred"]
           },
           "segment": {
             "type": "string",

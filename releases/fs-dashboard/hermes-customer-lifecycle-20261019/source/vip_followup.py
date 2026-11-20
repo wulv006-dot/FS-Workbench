@@ -16,6 +16,8 @@ SITE, GAME = '266', '1327'
 COUNTRIES = ('GB', 'US')
 DAY = timedelta(days=1)
 THRESHOLD = Decimal('300.00')
+PREFERRED_THRESHOLD = Decimal('500.00')
+PREFERRED = 'global_preferred'
 SCHEMA = 'fs-fc27-vip-followup-v1'
 IDENTITY_FIELDS = ('customerIds', 'uids', 'emails', 'esBuyerIds')
 
@@ -238,42 +240,83 @@ def order_key(row):
     return row['paidAtShanghai'], int(row['adminOrderId'])
 
 
-def window_summary(orders):
+def window_summary(orders, threshold=THRESHOLD):
     amounts = [Decimal(r['amountUsd']) for r in orders if r['amountUsd'] is not None]
     paid = sum(amounts, Decimal('0.00'))
     marked = [r for r in orders if r['observedRefund']]
     marked_amount = sum((Decimal(r['amountUsd']) for r in marked if r['amountUsd'] is not None), Decimal('0.00'))
-    return dict(orders=len(orders), salesUsd=format(paid, '.2f'), qualified=paid >= THRESHOLD,
+    return dict(orders=len(orders), salesUsd=format(paid, '.2f'), qualified=paid >= threshold,
                 ordersWithoutUsd=len(orders) - len(amounts), refundMarkedOrders=len(marked),
                 refundMarkedOriginalPaidUsd=format(marked_amount, '.2f'), knownSettledRefundUsd=None)
 
 
+def preferred_disposition(order):
+    state = order.get('orderState') or ''
+    if (order.get('observedRefund') or order.get('afterSales') in ('problem', 'fraud', 'dispute')
+            or state.startswith(('CB(', 'CB·'))
+            or any(flag in state for flag in ('调查', '拒付', '投诉', '骗子', '申请退款', '退款中', '验证·未通过'))
+            or 'under investigation' in state.casefold()):
+        return 'problem'
+    if (order.get('amountUsd') is None or order.get('refundStatus') == 'unknown' or not state
+            or order.get('afterSales') == 'after_sales'):
+        return 'unknown'
+    if order['payStatus'] == '1' and Decimal(order['amountUsd']) > 0:
+        return 'effective'
+    return 'other'
+
+
+def latest_payment(buyer, history):
+    if buyer.get('scope') == PREFERRED:
+        history = (row for row in history if preferred_disposition(row) == 'effective')
+    return max(history, key=order_key, default=None)
+
+
 def observed_buyer(buyer, history, now, complete, *, through=None, observed_through=None):
     history = sorted(history, key=order_key)
-    last = history[-1] if history else buyer.get('lastOrder')
+    last = latest_payment(buyer, history) if history else buyer.get('lastOrder')
     elapsed = (now.date() - stamp(last['paidAtShanghai']).date()).days if last else None
     status = 'recent' if elapsed is not None and elapsed <= 14 else 'due' if complete and last else 'unknown'
+    if buyer.get('scope') == PREFERRED:
+        observed = history[-1] if history else buyer.get('lastObservedOrder')
+        checks = set(buyer.get('quality', {}).get('checksBeforeContact', ()))
+        if observed:
+            disposition = preferred_disposition(observed)
+            observed = dict(observed, preferredDisposition=disposition)
+            if disposition in ('problem', 'unknown'):
+                checks.add('latest_payment_or_after_sales_needs_review')
+        buyer = dict(buyer, lastObservedOrder=observed, checksBeforeContact=sorted(checks))
     return dict(buyer, history=history, lastOrder=last, daysSinceLastPaid=elapsed,
                 followUpStatus=status, paymentCoverage=dict(
                     complete=complete, through=through, observedThrough=observed_through))
 
 
-def read_cohort(*, anchor, now, archive_reader=None):
+def read_cohort(*, anchor, now, archive_reader=None, scope=None):
     """Freeze the latest 30 full Shanghai days as two consecutive 15-day windows."""
     now = clock(now)
     if not isinstance(anchor, date) or isinstance(anchor, datetime) or anchor.weekday() != 0 or anchor > now.date():
         raise ValueError('vip_cohort_anchor')
-    return read_population(anchor - 30 * DAY, anchor, now, archive_reader)
+    return read_population(anchor - 30 * DAY, anchor, now, archive_reader, scope=scope)
 
 
-def read_period(*, start, end, now, archive_reader=None, activity_reader=None):
+def read_preferred_cohort(*, anchor, now, archive_reader=None):
+    return read_cohort(anchor=anchor, now=now, archive_reader=archive_reader, scope=PREFERRED)
+
+
+def read_preferred_period(*, start, end, now, archive_reader=None, activity_reader=None):
+    return read_period(start=start, end=end, now=now, archive_reader=archive_reader,
+                       activity_reader=activity_reader, scope=PREFERRED)
+
+
+def read_period(*, start, end, now, archive_reader=None, activity_reader=None, scope=None):
     """Read a closed inclusive Shanghai payment period and recency as of the specified instant."""
     now = clock(now)
     if (not isinstance(start, date) or isinstance(start, datetime)
             or not isinstance(end, date) or isinstance(end, datetime) or not start <= end < now.date()
             or (end - start).days >= 365 or (now.date() - end).days > 365):
         raise ValueError('vip_period_dates')
-    result = read_population(start, end + DAY, now, archive_reader)
+    if scope == PREFERRED and (end - start).days != 29:
+        raise ValueError('vip_preferred_requires_30_closed_days')
+    result = read_population(start, end + DAY, now, archive_reader, scope=scope)
     result['orderStateBasis'] = 'current source evidence for payments through asOfShanghai'
     if result['status'] == 'unavailable':
         return result
@@ -318,7 +361,34 @@ def refresh_period(buyers, *, since, now, archive_reader=None, live_reader=None)
     return result
 
 
-def read_population(start, anchor, now, archive_reader):
+def preferred_history(history, ranges):
+    eligible, problem, unknown = [], [], []
+    for row in history:
+        status = preferred_disposition(row)
+        if status == 'effective':
+            eligible.append(row)
+        elif status == 'problem':
+            problem.append(row)
+        elif status == 'unknown':
+            unknown.append(row)
+    windows = {name: window_summary([r for r in eligible if a.isoformat() <= r['paidAtShanghai'][:10] < b.isoformat()],
+                                    PREFERRED_THRESHOLD if name == 'month' else THRESHOLD)
+               for name, (a,b) in ranges.items()}
+    purchase_days = len({row['paidAtShanghai'][:10] for row in eligible})
+    if (not windows['month']['qualified'] or not (windows['firstHalf']['qualified'] or windows['secondHalf']['qualified'])
+            or purchase_days < 2 or 2 * len(problem) >= len(history)):
+        return None
+    original_excluded = sum((Decimal(r['amountUsd']) for r in problem if r['amountUsd'] is not None), Decimal('0.00'))
+    return eligible, windows, dict(originalPaidOrders=len(history), effectivePurchaseDays=purchase_days,
+                                   effectiveOrders=len(eligible), problemOrders=len(problem),
+                                   problemSharePct=format(100 * Decimal(len(problem)) / len(history), '.2f'),
+                                   excludedProblemOriginalPaidUsd=format(original_excluded, '.2f'),
+                                   excludedProblemUsdUnknown=sum(r['amountUsd'] is None for r in problem),
+                                   unknownEligibilityOrders=len(unknown))
+
+
+def read_population(start, anchor, now, archive_reader, *, scope=None):
+    preferred = scope == PREFERRED
     duration = (anchor - start).days
     midpoint = start + ((duration + 1) // 2) * DAY
     ranges = dict(month=(start, anchor), firstHalf=(start, midpoint), secondHalf=(midpoint, anchor))
@@ -326,6 +396,9 @@ def read_population(start, anchor, now, archive_reader):
                   splitMethod='closed Shanghai calendar days; the first half gets the extra odd day',
                   windows={name: dict(start=a.isoformat(), endExclusive=b.isoformat()) if a < b else None
                            for name, (a, b) in ranges.items()})
+    if preferred:
+        result['scope'] = PREFERRED
+        result['splitMethod'] = '30 closed Shanghai calendar days split into two consecutive 15-day windows'
     try:
         rows, coverage = (archive_reader or archive_orders)(start, anchor, now)
     except (OSError, sqlite3.Error, ValueError, KeyError, TypeError) as error:
@@ -345,31 +418,52 @@ def read_population(start, anchor, now, archive_reader):
         counts['unknownCountryOrders'] += row['country'] is None
         counts['unknownIdentityOrders'] += not any(row['identity'].values())
         counts['identityConflictOrders'] += row['identityConflict']
-        counts['unknownQualifyingUsdOrders'] += row['country'] in COUNTRIES and row['amountUsd'] is None
+        counts['unknownQualifyingUsdOrders'] += (preferred or row['country'] in COUNTRIES) and row['amountUsd'] is None
+        if preferred:
+            counts['unknownEligibilityOrders'] += preferred_disposition(row) == 'unknown'
         if not any(row['identity'].values()) and not row.get('scopedIdentityConflict'):
             latest_unidentified = max(latest_unidentified, row['paidAtShanghai'])
-    dates_complete = not coverage['nativeMissingDays'] and coverage['esCoverage'].get('complete') is True
-    complete = dates_complete and not any(counts[key] for key in (
-        'unknownCountryOrders', 'unknownIdentityOrders', 'identityConflictOrders', 'unknownQualifyingUsdOrders'))
+    es_complete = coverage['esCoverage'].get('complete') is True
+    dates_complete = not coverage['nativeMissingDays'] and (preferred or es_complete)
+    complete = dates_complete and es_complete and not any(counts[key] for key in (
+        'unknownCountryOrders', 'unknownIdentityOrders', 'identityConflictOrders', 'unknownQualifyingUsdOrders',
+        'unknownEligibilityOrders'))
     buyers = []
     for history in groups:
-        matching = [r for r in history if r['country'] in COUNTRIES]
-        month = window_summary(matching)
-        if not month['qualified']:
-            continue
+        if preferred:
+            selection = preferred_history(history, ranges)
+            if selection is None:
+                continue
+            matching, windows, quality = selection
+        else:
+            matching = [r for r in history if r['country'] in COUNTRIES]
+            if not window_summary(matching)['qualified']:
+                continue
+            windows = {name: window_summary([r for r in matching if a <= stamp(r['paidAtShanghai']).date() < b])
+                       if a < b else None for name, (a, b) in ranges.items()}
         aliases = {field: sorted({value for r in history for value in r['identity'][field]})
                    for field in IDENTITY_FIELDS}
         field = next(field for field in IDENTITY_FIELDS if aliases[field])
         buyer_id = 'vip_' + sha256(f'{SITE}:{field}:{aliases[field][0]}'.encode()).hexdigest()[:32]
         contact = next((r['identity']['emails'][0] for r in sorted(history, key=order_key, reverse=True)
                         if r['identity']['emails']), None)
-        latest = max(history, key=order_key)
+        latest = max(matching if preferred else history, key=order_key)
         buyer = dict(buyerId=buyer_id, siteId=SITE, identity=aliases, email=contact,
                      uid=latest['identity']['uids'][0] if latest['identity']['uids'] else
                          aliases['uids'][0] if len(aliases['uids']) == 1 else None,
-                     country=max(matching, key=order_key)['country'], paymentCountries=sorted({r['country'] for r in matching}),
-                     windows={name: window_summary([r for r in matching if a <= stamp(r['paidAtShanghai']).date() < b])
-                              if a < b else None for name, (a, b) in ranges.items()})
+                     country=max(matching, key=order_key)['country'],
+                     paymentCountries=sorted({r['country'] for r in matching if r['country'] is not None}),
+                     windows=windows)
+        if preferred:
+            checks = [code for code, flag in (
+                ('missing_verified_order_email', contact is None), ('missing_verified_uid', buyer['uid'] is None),
+                ('payment_country_unknown', any(r['country'] is None for r in history)),
+                ('known_problem_orders', quality['problemOrders']),
+                ('order_eligibility_unknown', quality['unknownEligibilityOrders']),
+                ('identity_evidence_conflict', any(r['identityConflict'] for r in history)),
+                ('qualification_source_coverage_partial', not complete),
+            ) if flag]
+            buyer.update(scope=PREFERRED, quality=dict(quality, checksBeforeContact=checks))
         native_complete = (latest_unidentified < latest['paidAtShanghai']
                            and not any(r['identityConflict'] for r in history)
                            and not any(day >= latest['paidAtShanghai'][:10] for day in coverage['nativeMissingDays']))
@@ -572,7 +666,9 @@ def refresh_buyers(buyers, *, since, now, live_reader=None, recheck_orders=(), r
             status = 'verified' if number in exact else 'unavailable' if refund_error else 'missing'
             history[number] = dict(history[number], refundReadback=dict(status=status, asOfShanghai=now.isoformat()))
         cutoff = buyer.get('paymentCoverage', {}).get('through')
-        latest = max(history.values(), key=order_key, default=buyer.get('lastOrder'))
+        latest = latest_payment(buyer, history.values())
+        if not latest and buyer.get('scope') != PREFERRED:
+            latest = buyer.get('lastOrder')
         gap_after_last = bool(latest) and any(day >= latest['paidAtShanghai'][:10] for day in missing_days)
         # A replay that starts after the last observed cutoff leaves an unchecked interval.
         complete = (failed is None and not counts['unidentifiedOrders'] and buyer_id not in conflicts
