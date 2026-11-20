@@ -372,6 +372,26 @@ def check_bulk_selection_and_csv(browser):
     page.get_by_role("button",name="全国家优选",exact=True).click()
     expect(selected).to_contain_text("全国家优选 · 2026-11-16 周")
     expect(selected).to_contain_text("已选 0 人")
+    search.fill("bulk-1")
+    page.locator("#vip-filter").select_option("queued")
+    expected = [f"bulk-{i}@example.invalid" for i in range(106) if str(i).startswith("1")]
+    expect(selected).to_contain_text(f"当前筛选 {len(expected)} 人")
+    rows = page.locator("#vip-list > ol > li")
+    expect(rows).to_have_count(8)
+    choose_all.check()
+    # Keep the same filters as the list expands through its last page.
+    more = page.get_by_role("button", name="显示更多", exact=False)
+    for _ in range((len(expected) - 1) // 8):
+        more.click()
+    expect(more).to_have_count(0)
+    expect(rows).to_have_count(len(expected))
+    expect(rows.last.locator("[data-vip-select]")).to_be_checked()
+    with page.expect_download() as event:
+        page.locator("#vip-export").click()
+    exported = event.value.path().read_text(encoding="utf-8-sig")
+    assert [row["客户邮箱"] for row in csv.DictReader(io.StringIO(exported))] == expected
+    search.clear()
+    page.locator("#vip-filter").select_option("all")
     choose_all.check()
     page.get_by_role("button",name="上一周",exact=True).click()
     expect(choose_all).to_be_hidden()

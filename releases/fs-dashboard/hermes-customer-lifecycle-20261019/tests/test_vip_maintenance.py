@@ -277,6 +277,44 @@ class VipWorkflows(unittest.TestCase):
         self.assertEqual(set(past), {'1', '2', '3'})
         self.assertEqual(past['3']['windows']['month']['salesUsd'], '350.00')
 
+    def test_shared_customer_requalifies_after_repurchase_without_losing_next_cohort(self):
+        original, peer = self.source.entries
+        self.source.preferred = [dict(record, scope='global_preferred') for record in (original, peer)]
+        self.vip.refresh()
+        previous = {item['uid']: item for item in self.vip.queue(scope='global_preferred')['items']}
+        self.assertIn(previous['1']['case_id'], {item['case_id'] for item in self.vip.queue()['items']})
+        self.write(previous['1'], 'claim', 1, scope='global_preferred')
+
+        later = dict(buyer(1, *original['history'], payment(101, moment(20, 8))), followUpStatus='recent')
+        self.source.updated[original['buyerId']] = later['history']
+        self.now = moment(20, 12)
+        refresh_buyers = self.source.refresh_buyers
+
+        def observation_with_last_order(*args, **kwargs):
+            result = refresh_buyers(*args, **kwargs)
+            for item in result['buyers']:
+                item['lastOrder'] = item['history'][-1]
+            return result
+
+        with patch.object(self.source, 'refresh_buyers', side_effect=observation_with_last_order):
+            self.vip.refresh()
+        returned = next(item for item in self.vip.queue()['items'] if item['uid'] == '1')
+        self.assertEqual(returned['outcome']['kind'], 'natural')
+
+        self.source.entries = [later, peer]
+        self.source.preferred = [dict(record, scope='global_preferred') for record in (later, peer)]
+        self.now = moment(23, 7)
+        refresh = self.vip.refresh()
+        self.assertEqual(refresh['scope_status']['global_preferred'], 'ready')
+        next_week = {item['uid']: item for item in self.vip.queue('2026-11-23', scope='global_preferred')['items']}
+        self.assertEqual(set(next_week), {'1', '2'})
+        self.assertNotEqual(next_week['1']['case_id'], previous['1']['case_id'])
+        self.assertEqual((next_week['1']['cycle']['status'], next_week['1']['owner']), ('normal', None))
+        self.assertEqual(next_week['2']['case_id'], previous['2']['case_id'])
+        history = {item['uid']: item for item in self.vip.queue('2026-11-16', scope='global_preferred')['items']}
+        self.assertEqual(history['1']['case_id'], previous['1']['case_id'])
+        self.assertEqual((history['1']['outcome']['kind'], history['1']['owner']), ('natural', 'operator'))
+
     def test_scope_failure_leaves_original_queue_available(self):
         self.source.preferred_complete = False
         result = self.vip.refresh()
