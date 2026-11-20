@@ -348,4 +348,20 @@ class PermissionRecovery(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'es_incomplete'):self.resume()
   self.client.permission_scan_recovery.assert_not_called()
 
+class ActiveVipScriptRelease(unittest.TestCase):
+ def test_existing_alias_and_original_order_review_links(self):
+  release=Path(__file__).resolve().parents[1]
+  with patch.object(sys,'path',[str(release/'deploy'),*sys.path]):
+   import vip_active_script_release as patched
+  active=f'location = {patched.ROUTE} {{\n    auth_request /__nav_formal_native_session;\n    alias {patched.TARGET};\n}}'
+  patched.check_route(active)
+  with self.assertRaisesRegex(ValueError,'vip_active_alias_or_guard_drift'):
+   patched.check_route(active.replace(patched.TARGET,patched.TARGET.replace('4f4a56f7a335','346f59eea565')))
+  with self.assertRaisesRegex(ValueError,'vip_active_route_drift'):
+   patched.check_route(active+'\n'+active)
+  source=(release/'frontend/page.js').read_text(encoding='utf-8')
+  self.assertIn('orderReview(actions, item.order_no);',source)
+  self.assertIn("orderReview(node('td', undefined, r), order.order_no);",source)
+  self.assertIn("review.referrerPolicy = 'no-referrer';",source)
+
 if __name__=='__main__':unittest.main()

@@ -114,6 +114,12 @@
     } catch (error) { if (error.status === 403) denied(); else { clearPrivate(); config = null; setStatus('配置读取失败：' + error.message, true); } }
   }
   function detailRow(list, label, value) { const box = node('div', undefined, list); node('dt', label, box); node('dd', asText(value), box); }
+  function orderReview(host, orderNo) {
+    if (typeof orderNo !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(orderNo)) return;
+    const review = node('a', 'Order 复核订单与日志 ↗', host, 'fs-btn');
+    review.href = 'https://order.p2pah.cn/order/admin_order/index.html?' + new URLSearchParams({status:'all', sn:orderNo});
+    review.target = '_blank'; review.rel = 'noopener noreferrer'; review.referrerPolicy = 'no-referrer';
+  }
   function candidateCard(item) {
     const card = node('article', undefined, $('candidate-list'), 'record');
     node('h3', '订单 ' + asText(item.order_no), card);
@@ -129,6 +135,7 @@
     detailRow(dl, '支付时间（北京时间）', timeText(item.paid_at));
     if (item.amount_conflict) node('p', item.order_usd_source === 'ES_candidate_export' ? 'Admin 与 ES 金额不一致，本次按 ES 金额筛选；请复核差异。' : 'Admin 与 ES 金额不一致，列表按 Admin 优先；请复核差异。', card, 'error');
     const actions = node('div', undefined, card, 'actions');
+    orderReview(actions, item.order_no);
     const add = node('button', '加入持续观察', actions, 'fs-btn fs-btn--primary'); add.type = 'button';
     const verified = item.identity_status === 'verified' && typeof item.email === 'string' && item.email.includes('@');
     add.disabled = !verified || !idPattern.test(item.candidate_id || '');
@@ -309,7 +316,7 @@
       else if (value.history_coverage && value.history_coverage.complete !== true) node('p', '历史订单覆盖尚未完整，请勿将下列订单当作客户全部记录。', summary, 'error');
       const orders = node('section', undefined, host); node('h3', '订单状态变化', orders);
       if (!Array.isArray(value.orders) || !value.orders.length) node('p', '暂无可核实订单。', orders, 'empty');
-      else { const wrap = node('div', undefined, orders, 'table-wrap'), table = node('table', undefined, wrap), head = node('thead', undefined, table), row = node('tr', undefined, head); for (const text of ['订单号','支付时间（北京时间）','订单金额','折扣','状态']) node('th', text, row); const body = node('tbody', undefined, table); for (const order of value.orders) { const r = node('tr', undefined, body); for (const text of [asText(order.order_no),timeText(order.paid_at),money(order.order_usd),money(order.discount_usd),orderStatus(order.status)]) node('td', text, r); } }
+      else { const wrap = node('div', undefined, orders, 'table-wrap'), table = node('table', undefined, wrap), head = node('thead', undefined, table), row = node('tr', undefined, head); for (const text of ['订单号','支付时间（北京时间）','订单金额','折扣','状态','复核']) node('th', text, row); const body = node('tbody', undefined, table); for (const order of value.orders) { const r = node('tr', undefined, body); for (const text of [asText(order.order_no),timeText(order.paid_at),money(order.order_usd),money(order.discount_usd),orderStatus(order.status)]) node('td', text, r); orderReview(node('td', undefined, r), order.order_no); } }
       const milestoneHost = node('section', undefined, host); node('h3', '历史单人报告（已退役，不再自动生成）', milestoneHost);
       for (const milestone of (value.milestones || []).filter(item=>item.state!=='cancelled')) {
         const card = node('article', undefined, milestoneHost, 'record');
