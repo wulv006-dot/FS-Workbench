@@ -13,6 +13,12 @@ class ResponseViewTests(unittest.TestCase):
         return dict(operation='fixture.read', status_code=206, data=data,
                     provenance={'source': 'fixture', 'method': 'GET'})
 
+    def test_live_same_order_display_does_not_offer_archive_continuation(self):
+        result = dict(self.result({"revision": "a" * 64, "period": {"start": "2026-11-19"}, "daily": [1]}),
+                      operation="business.fc_project_review")
+        shown = present(result, "/daily")
+        self.assertEqual(shown["data_context"][""], {"period": {"start": "2026-11-19"}})
+
     def test_small_response_is_preserved_exactly(self):
         result = self.result({'complete': False, 'coverage': {'received': 2}, 'rows': [1, 2]})
         self.assertIs(present(result), result)

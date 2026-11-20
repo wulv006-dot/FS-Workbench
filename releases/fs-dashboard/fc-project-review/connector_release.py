@@ -107,7 +107,8 @@ def revision_response_view(active, reviewed):
     anchor = b"        for key in CONTEXT_FIELDS:\n"
     revision_context = (
         b"        fields = CONTEXT_FIELDS\n"
-        b"        if not ancestor_path and result.get('operation') == 'business.fc_project_review':\n"
+        b"        if (not ancestor_path and result.get('operation') == 'business.fc_project_review'\n"
+        b"                and 'archivedAt' in ancestor and 'packets' in ancestor):\n"
         b"            fields = ('revision', 'archivedAt') + fields\n"
         b"        for key in fields:\n"
     )

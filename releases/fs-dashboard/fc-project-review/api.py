@@ -189,18 +189,18 @@ def publish(result, root=ROOT, *, captured_from=None):
     if any(str(date.fromisoformat(value)) != value for value in (start, end)):
         raise ValueError("invalid archive dates")
     with archive_lock(root):
-        if captured_from is not None and "sameOrder" in result:
-            target = root / game / (start + "_" + end + ".json")
-            if target.is_file():
-                latest = read_archive(target, game, start, end)
-                previous = latest["packets"][0]
-                section = previous.get("sameOrder", {})
-                if section.get("status") in ("complete", "partial") and (
-                        latest["revision"] != captured_from
-                        or same_order_archive_update(previous, result["sameOrder"]) is None):
-                    # A long full capture can overlap a newer selective publication.
-                    coverage = [item for item in result["coverage"] if item != UNAVAILABLE_NOTE]
-                    result = dict(result, sameOrder=section, coverage=coverage)
+        target = root / game / (start + "_" + end + ".json")
+        if target.is_file():
+            latest = read_archive(target, game, start, end)
+            previous = latest["packets"][0]
+            section = previous.get("sameOrder", {})
+            incoming = result.get("sameOrder") or {"status":"unavailable"}
+            overlapped = captured_from is not None and latest["revision"] != captured_from
+            if section.get("status") in ("complete", "partial") and (
+                    overlapped or same_order_archive_update(previous, incoming) is None):
+                # Full captures and imported legacy packets can lack the latest evidence.
+                coverage = [item for item in result["coverage"] if item != UNAVAILABLE_NOTE]
+                result = dict(result, sameOrder=section, coverage=coverage)
         return _publish(result, root)
 
 
@@ -235,14 +235,18 @@ def read_archive(path, game, start, end, revision=None):
     return doc
 
 
-def refresh_same_order_archive(doc, target, game, start, end, actor, authorizer, root):
+def refresh_same_order_archive(doc, target, pointer_before, game, start, end, actor, authorizer, root):
     try:
         result = same_order_archive_update(doc["packets"][0], same_order_review(game, start, end))
     except (ImportError, OSError, RuntimeError, ValueError, KeyError, TypeError, sqlite3.Error) as exc:
         LOG.warning("FC archived same-order facts: %s", type(exc).__name__)
         result = None
     if result is None:
-        return (200, doc) if authorizer(actor) else (403, {"error":"admin_required"})
+        if not authorizer(actor):
+            return 403, {"error":"admin_required"}
+        if target.stat() != pointer_before:
+            doc = read_archive(target, game, start, end)
+        return 200, doc
     with archive_lock(root):
         if not authorizer(actor):
             return 403, {"error":"admin_required"}
@@ -286,12 +290,13 @@ def get(params, actor, get_range, order_facts, authorizer, root=ROOT):
     if revision is not None:
         target=root/game/"versions"/(base+"_"+revision+".json")
     if target.is_file() and "refresh" not in params:
+        pointer_before = target.stat()
         doc = read_archive(target, game, start, end, revision)
         if revision is not None:
             return 200, doc
-        if reusable(doc, end, target.stat().st_mtime, 300):
+        if reusable(doc, end, pointer_before.st_mtime, 300):
             if len(dates) <= 3 and date.fromisoformat(end) < datetime.now(TZ).date():
-                return refresh_same_order_archive(doc, target, game, start, end, actor, authorizer, root)
+                return refresh_same_order_archive(doc, target, pointer_before, game, start, end, actor, authorizer, root)
             return 200, doc
     if revision is not None:
         return 404,{"error":"revision_not_found"}

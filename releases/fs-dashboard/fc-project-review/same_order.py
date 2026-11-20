@@ -73,12 +73,37 @@ def same_order_archive_update(packet, reviewed):
     before, after = previous.get("coverage", {}), reviewed["coverage"]
     if set(after["missingDays"]) - set(before.get("missingDays", after["missingDays"])):
         return None
-    previous_receipts = previous.get("revisions", {}).get("completedStatus", {})
-    new_receipts = reviewed["revisions"]["completedStatus"]
+    old_revisions, new_revisions = previous.get("revisions", {}), reviewed["revisions"]
+    old_admin = old_revisions.get("admin", {}).get("captured_at")
+    new_admin = new_revisions.get("admin", {}).get("captured_at")
+    if old_admin and new_admin and (
+            datetime.fromisoformat(new_admin.replace("Z", "+00:00"))
+            < datetime.fromisoformat(old_admin.replace("Z", "+00:00"))):
+        return None
+
+    previous_receipts = old_revisions.get("completedStatus", {})
+    new_receipts = new_revisions["completedStatus"]
     observations = {day: datetime.fromisoformat(receipt["observedAt"]) for day, receipt in previous_receipts.items()}
     if any(day not in new_receipts or datetime.fromisoformat(new_receipts[day]["observedAt"]) < observed
            for day, observed in observations.items()):
         return None
+    new_daily = {item["date"]: item for item in reviewed.get("daily", [])}
+    for old in previous.get("daily", []):
+        day = old["date"]
+        fresh = new_daily[day]
+        if (fresh["coveredOrders"] >= old["coveredOrders"]
+                or fresh["missingCostOrders"] <= old["missingCostOrders"] or day not in observations):
+            continue
+        if (new_receipts[day] == previous_receipts[day]
+                and new_revisions.get("completedStatusRevision") != old_revisions.get("completedStatusRevision")):
+            # Reconstructing the same receipt can lose witnesses when its undo history expires.
+            return None
+        old_bound = observations[day].astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")
+        new_bound = datetime.fromisoformat(new_receipts[day]["observedAt"]).astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")
+        if old_bound < new_bound and not any(lo <= old_bound <= new_bound <= hi for lo, hi in after["costWindows"]):
+            # The new completed-order observation needs matching delivery coverage.
+            return None
+
     # A verified replacement can correct or remove costs. Rotation cannot prove an older shipment vanished.
     start = packet["start"] + " 00:00:00"
     end = (max(observations.values()).astimezone(TZ).strftime("%Y-%m-%d %H:%M:%S")

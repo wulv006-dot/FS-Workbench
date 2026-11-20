@@ -147,6 +147,39 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(current["coverage"], ["full capture updated"])
         self.assertEqual(current["sameOrder"], fresh)
 
+    def test_archive_import_preserves_the_verified_same_order_section(self):
+        fresh = dict(status="complete", totals=dict(coveredOrders=1))
+        with patch.object(api, "datetime", wraps=api.datetime) as clock:
+            clock.now.return_value = api.datetime(2026, 11, 19, tzinfo=api.TZ)
+            legacy = api.packet(core())
+            first = api.publish(dict(legacy, sameOrder=fresh), self.root)
+            revised = api.publish(dict(legacy, coverage=["verified aggregate import"]), self.root)
+            self.assertNotEqual(revised["revision"], first["revision"])
+            self.assertEqual(revised["packets"][0]["sameOrder"], fresh)
+            self.assertEqual(revised["packets"][0]["coverage"], ["verified aggregate import"])
+            self.assertEqual(self.get(revision=[first["revision"]]), (200, first))
+
+    def test_no_update_read_returns_concurrently_published_current_archive(self):
+        started, finish = Event(), Event()
+
+        def unavailable(*args):
+            started.set()
+            self.assertTrue(finish.wait(5))
+            raise OSError
+
+        with patch.object(api, "datetime", wraps=api.datetime) as clock, \
+                patch.object(api, "same_order_review", side_effect=unavailable), ThreadPoolExecutor(1) as pool:
+            clock.now.return_value = api.datetime(2026, 11, 19, tzinfo=api.TZ)
+            packet = api.packet(core())
+            api.publish(packet, self.root)
+            inflight = pool.submit(self.get)
+            try:
+                self.assertTrue(started.wait(5))
+                newer = api.publish(dict(packet, coverage=["concurrent source update"]), self.root)
+            finally:
+                finish.set()
+            self.assertEqual(inflight.result(timeout=5), (200, newer))
+
     def test_completed_report_exposes_authorized_same_order_aggregate(self):
         source=core();admin=source["admin"]
         admin.update(status="available",normalisedScope="all-websites",effective_scope=admin.pop("scope"))

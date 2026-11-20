@@ -57,7 +57,8 @@ class SameOrderArchiveTests(unittest.TestCase):
             first = api.publish(packet, self.root)
             self.assertEqual(first["packets"][0]["sameOrder"]["status"], "unavailable")
 
-            coverage.update(admin_complete=True, missing_days=[], source_revision="pay-v1")
+            coverage.update(admin_complete=True, missing_days=[], source_revision="pay-v1",
+                            captured_at="2026-11-17T09:00:00+08:00")
             rows.append(dict(id=1, gid=1327, site_id=266, order_no="TEST-ORDER", pay_status=1,
                 paytime=self.day + " 01:00:00", status_format="已完成", amount_usd_format="100",
                 amount_rmb_format="700", site=dict(full_title=same_order.MAIN)))
@@ -118,11 +119,49 @@ class SameOrderArchiveTests(unittest.TestCase):
             self.assertEqual(self.get()[1]["revision"], updated["revision"])
             receipts[self.day] = receipt
 
+            publish_delivery([delivery], stamp="2026-11-17T11:00:00+08:00")
+            with self.subTest("older Admin snapshot"):
+                coverage["captured_at"] = "2026-11-17T00:45:00Z"
+                rows[0]["amount_usd_format"] = "90"
+                self.assertEqual(self.get()[1]["revision"], updated["revision"])
+            coverage["captured_at"] = "2026-11-18T09:00:00+08:00"
+            rows[0]["amount_usd_format"] = "100"
+            api.publish(persisted, self.root)
+
+            with self.subTest("advanced completion receipt without matching delivery cutoff"):
+                receipts[self.day] = dict(receipt, revision=2, observedAt="2026-11-17T10:00:00+08:00")
+                self.assertEqual(self.get()[1]["revision"], updated["revision"])
+
+            receipts[self.day] = receipt
+
+            with self.subTest("same completion receipt without reconstructable witness"):
+                witness = orders.pop((self.day, "TEST-ORDER"))
+                self.assertEqual(self.get()[1]["revision"], updated["revision"])
+            orders[self.day, "TEST-ORDER"] = witness
+            api.publish(persisted, self.root)
+
             # An authoritative replacement of the same trade window can revoke evidence.
             publish_delivery([], stamp="2026-11-17T11:00:00+08:00")
             status, corrected = self.get()
             self.assertEqual((status, corrected["packets"][0]["sameOrder"]["totals"]["coveredOrders"]), (200, 0))
             self.assertNotEqual(corrected["revision"], updated["revision"])
+
+            with self.subTest("delivery coverage catches up to the newer completion receipt"):
+                receipts[self.day] = dict(receipt, revision=2, observedAt="2026-11-17T10:00:00+08:00")
+                extended = dict(period, until="2026-11-17 10:00:00")
+                publish_delivery([dict(delivery, cost_total="410")], bounds=extended,
+                                 stamp="2026-11-17T11:30:00+08:00")
+                status, revised = self.get()
+                self.assertEqual((status, revised["packets"][0]["sameOrder"]["totals"]["actualCostCny"]), (200, 410))
+
+            with self.subTest("new publication confirms the order no longer completed"):
+                coverage["captured_at"] = "2026-11-18T10:00:00+08:00"
+                receipts[self.day] = dict(receipt, revision=3, observedAt="2026-11-17T12:00:00+08:00")
+                rows[0]["status_format"] = "待发货"
+                del orders[self.day, "TEST-ORDER"]
+                status, removed = self.get()
+                self.assertEqual((status, removed["packets"][0]["sameOrder"]["totals"]["completedOrders"]), (200, 0))
+
             submit.assert_not_called()
             self.upstream.assert_not_called()
 
