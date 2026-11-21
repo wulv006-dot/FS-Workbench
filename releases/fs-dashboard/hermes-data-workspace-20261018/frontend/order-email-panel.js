@@ -188,10 +188,13 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   status.setAttribute('aria-atomic', 'true'); panel.append(status); root.append(panel);
   let sequence = 0, controller = null, payload = null, blobUrl = null, disposed = false;
   let run = null, paused = false, retryAt = 0;
+  let retryTimer = null, autoRetries = 0;
+  const cancelRetry = () => { clearTimeout(retryTimer); retryTimer = null; };
   const csv = result => result.traversal_exhausted ? orderEmailTraversalCsv(result) : orderEmailCsv(result);
   const revoke = () => { if (blobUrl !== null) win.URL.revokeObjectURL(blobUrl); blobUrl = null; };
   const clear = () => {
     sequence++; controller?.abort(); controller = null; payload = null; revoke();
+    cancelRetry(); autoRetries = 0;
     run?.clear(); run = null; paused = false;
     if (paged) pause.disabled = resume.disabled = true;
     download.disabled = true; query.disabled = !metadataReady; panel.removeAttribute('aria-busy');
@@ -314,7 +317,8 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
     return `已接受 ${s.accepted_pages} 页；已完成窗口 ${s.exhausted_windows}/${s.total_windows}。`;
   };
   const onPause = () => {
-    if (disposed || !run || paused || run.snapshot().state !== 'active') return;
+    if (disposed || !run || run.snapshot().state !== 'active') return;
+    cancelRetry();
     if (!paged) throw new Error('Traversal interrupted');
     sequence++; controller?.abort(); controller = null; paused = true;
     pause.disabled = true; resume.disabled = false; query.disabled = false;
@@ -325,10 +329,17 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   // pending request. Source/JSON/authorization errors erase the entire run.
   const readPages = async () => {
     if (disposed || !run || controller) return;
-    if (Date.now() < retryAt) {
-      status.textContent = `${progress()} 冷却中，请等待 ${Math.ceil((retryAt - Date.now()) / 1000)} 秒后手动重试。`;
+    const remaining = retryAt - Date.now();
+    if (remaining > 0) {
+      if (retryTimer !== null) {
+        cancelRetry();
+        retryTimer = setTimeout(readPages, Math.min(remaining, 2147483647));
+      } else {
+        status.textContent = `${progress()} 冷却中，请等待 ${Math.ceil(remaining / 1000)} 秒后手动重试。`;
+      }
       return;
     }
+    cancelRetry();
     paused = false; if (paged) { resume.disabled = true; pause.disabled = false; } query.disabled = true;
     const current = ++sequence;
     const activeRun = run;
@@ -365,6 +376,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
           else if (response.status === 403) failure = '当前账号无权读取所选站点的订单邮箱';
           else if (code === 'source_changed' || code === 'source_changed_restart_required') failure = '分页期间订单数据已变化';
           else if (response.status === 422) failure = '服务未接受查询条件或续页凭据，请核对日期范围及筛选';
+          else if (code === 'source_response_too_large') failure = '本页 Admin 原始订单数据超出单页读取上限';
           else if (code === 'source_auth') failure = 'Admin 数据源鉴权失败';
           else if (code === 'source_schema_changed' || code === 'export_source_schema_changed') failure = 'Admin 分页响应或字段不符合导出要求';
           else failure = `服务未返回预期的分页结果（HTTP ${response.status}）`;
@@ -375,14 +387,26 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
           const deadline = Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Date.parse(header);
           // Unknown/terminal source failures are not permission to retain PII.
           const transient = new Set(['source_busy', 'source_rate_limited', 'source_timeout', 'source_unavailable', 'live_source_unavailable', 'export_source_unavailable']);
-          if (guidance?.error && !transient.has(guidance.error)) throw new Error();
+          // The session verifier reports slot contention as HTTP 429 session_denied.
+          const sessionBusy = response.status === 429 && guidance?.error === 'session_denied';
+          const sessionUnavailable = response.status === 503 && guidance?.error === 'session_unavailable';
+          if (guidance?.error && !transient.has(guidance.error) && !sessionBusy && !sessionUnavailable) throw new Error();
           const bodySeconds = guidance?.retryAfter;
           const bodyDeadline = Number.isSafeInteger(bodySeconds) && bodySeconds >= 0
             ? Date.now() + bodySeconds * 1000 : NaN;
           const deadlines = [deadline, bodyDeadline].filter(Number.isFinite);
           retryAt = deadlines.length ? Math.max(Date.now(), ...deadlines) : Date.now() + 60000;
           onPause();
-          status.textContent = `${progress()} ${guidance?.error === 'source_timeout' ? '本页读取超时' : '服务暂不可用'}，已暂停；请等待 ${Math.ceil((retryAt - Date.now()) / 1000)} 秒后手动重试。`;
+          const delay = Math.max(0, retryAt - Date.now());
+          const reason = guidance?.error === 'source_timeout' ? '本页读取超时' : '服务暂不可用';
+          if (autoRetries < 3 && delay <= 2147483647) {
+            autoRetries++;
+            pause.disabled = false; query.disabled = true;
+            status.textContent = `${progress()} ${reason}，${Math.ceil(delay / 1000)} 秒后自动重试本页（${autoRetries}/3）。`;
+            retryTimer = setTimeout(readPages, delay);
+          } else {
+            status.textContent = `${progress()} ${reason}，已暂停；请等待 ${Math.ceil(delay / 1000)} 秒后手动重试。`;
+          }
           return;
         }
         if (!response.ok || response.status !== 206) throw new Error();
@@ -402,6 +426,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
         }
         if (stale()) return;
         activeRun.acceptPage(page);
+        autoRetries = 0;
       }
       const result = activeRun.result();
       csv(result);

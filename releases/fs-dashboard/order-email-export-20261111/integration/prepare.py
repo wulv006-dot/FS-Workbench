@@ -14,13 +14,17 @@ RANGE_ANCHOR = """    live_query=private_live_body(raw)
      return LIVE_ADMIN.run(checked,timeout)
     status,data=get_live_orders(live_query,actor,run_source=run_scoped);self.reply(status,data)
 """
-RANGE_REPLACEMENT = """    def run_scoped(operation,timeout):
+RANGE_REPLACEMENT = """    body=json.loads(raw.decode('utf8'))
+    is_email_page=isinstance(body,dict) and body.get('kind')=='order_email_export_page'
+    def run_scoped(operation,timeout):
      def checked():
       next_status,next_actor=verify_live_session(cookie)
+      if is_email_page and next_status in (429,503):
+       from admin_live_page import LivePageError
+       raise LivePageError('source_busy' if next_status==429 else 'session_unavailable')
       if next_status!=200 or next_actor!=actor:raise PermissionError('session_changed')
       return operation()
      return LIVE_ADMIN.run(checked,timeout)
-    body=json.loads(raw.decode('utf8'))
     if isinstance(body,dict) and body.get('kind') in ('order_email_export_page','order_email_export_options','order_buyer_email_lookup'):
      from admin_order_email_export import lookup_buyer_emails,parse_page_body,page_get
      from admin_email_export_source import options_get
