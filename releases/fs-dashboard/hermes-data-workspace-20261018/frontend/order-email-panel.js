@@ -329,8 +329,14 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
   // pending request. Source/JSON/authorization errors erase the entire run.
   const readPages = async () => {
     if (disposed || !run || controller) return;
-    if (Date.now() < retryAt) {
-      status.textContent = `${progress()} 冷却中，请等待 ${Math.ceil((retryAt - Date.now()) / 1000)} 秒后手动重试。`;
+    const remaining = retryAt - Date.now();
+    if (remaining > 0) {
+      if (retryTimer !== null) {
+        cancelRetry();
+        retryTimer = setTimeout(readPages, Math.min(remaining, 2147483647));
+      } else {
+        status.textContent = `${progress()} 冷却中，请等待 ${Math.ceil(remaining / 1000)} 秒后手动重试。`;
+      }
       return;
     }
     cancelRetry();
@@ -397,7 +403,7 @@ export function mountOrderEmailExport(root, { endpoint, sites, games, fetch: fet
             autoRetries++;
             pause.disabled = false; query.disabled = true;
             status.textContent = `${progress()} ${reason}，${Math.ceil(delay / 1000)} 秒后自动重试本页（${autoRetries}/3）。`;
-            retryTimer = setTimeout(() => { retryTimer = null; void readPages(); }, delay);
+            retryTimer = setTimeout(readPages, delay);
           } else {
             status.textContent = `${progress()} ${reason}，已暂停；请等待 ${Math.ceil(delay / 1000)} 秒后手动重试。`;
           }

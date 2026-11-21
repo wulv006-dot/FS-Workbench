@@ -33,7 +33,7 @@ class Element {
 }
 const walk = node => [node, ...node.children.flatMap(walk)];
 const text = node => walk(node).map(item => item.textContent).join(' ');
-async function setup(endpoint = '/test-only-page', excel = false) {
+async function setup(endpoint = '/test-only-page', excel = false, directories = { sites, games }) {
   const panel = await modulePromise;
   const mountOrderEmailExport = excel ? panel.mountOrderEmailExcelExport : panel.mountOrderEmailExport;
   const requests = [], blobs = new Map(), revoked = [];
@@ -46,7 +46,7 @@ async function setup(endpoint = '/test-only-page', excel = false) {
     },
   } };
   const root = new Element('root', doc);
-  const widget = mountOrderEmailExport(root, { endpoint, sites, games, paged: true,
+  const widget = mountOrderEmailExport(root, { endpoint, ...directories, paged: true,
     fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })) });
   const nodes = walk(root), form = nodes.find(node => node.tag === 'form');
   const fields = Object.fromEntries(nodes.filter(node => node.name).map(node => [node.name, node]));
@@ -245,31 +245,44 @@ test('source_timeout retains accepted windows and retries only the pending page'
 for (const [status, error] of [[503, 'session_unavailable'], [429, 'session_denied']]) {
   test(`HTTP ${status} ${error} resumes from page 71 and finishes all 13 windows`, async t => {
     t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1800000000000 });
-    const h = await setup(undefined, true);
+    const h = await setup(undefined, true, { sites: [{ value: '320', label: 'RSOrders' }],
+      games: [{ value: '506', label: 'RS' }] });
     try {
       h.fields.start.value = '2025-11-22'; h.fields.end.value = '2026-02-20';
+      h.fields.site_id.value = '320'; h.fields.game_ids.children[0].selected = true;
+      h.fields.progress.value = '10'; h.fields.status.value = '101';
+      h.fields.progress.disabled = h.fields.status.disabled = false;
       const pending = h.form.fire('submit');
-      // First window ends on page 69. Fail after accepting the next window's first page.
-      for (let i = 0; i < 70; i++) {
-        const r = await requested(h, i + 1);
-        const total = i < 69 ? 1380 : 21;
-        h.respond(i, page(r, i * 20, 20, total, i === 68 ? null : `next-${i}`));
-      }
-      const failed = await requested(h, 71);
-      failed.resolve({ ok: false, status, json: async () => ({ error, retryAfter: 3 }) });
-      await pending;
-      assert.match(text(h.root), /70 页.*1\/13.*自动重试/);
-      assert.equal(h.buttons[2].disabled, true);
-      t.mock.timers.tick(2999); assert.equal(h.requests.length, 71);
-      t.mock.timers.tick(1);
-      const retry = await requested(h, 72);
-      assert.equal(retry.options.body, failed.options.body);
-      h.respond(71, page(retry, 1400, 1, 21));
-      for (let i = 72; i < 83; i++) {
-        const r = await requested(h, i + 1); h.respond(i, page(r, 1401 + i));
+      // Match the observed first two RS window totals. Rows and cursors are synthetic.
+      const totals = [863, 991, ...Array(11).fill(1)];
+      let rows = 0, requestIndex = 0;
+      for (const total of totals) {
+        for (let offset = 0; offset < total; offset += 20) {
+          let request = await requested(h, ++requestIndex);
+          const body = JSON.parse(request.options.body);
+          assert.equal(body.site_id, '320'); assert.equal(body.game_id, '506');
+          assert.deepEqual(body.filters, { progress: '10', status: '101' });
+          if (requestIndex === 71) {
+            assert.equal(body.start, '2025-11-29'); assert.equal(offset, 520);
+            request.resolve({ ok: false, status, json: async () => ({ error, retryAfter: 3 }) });
+            await pending;
+            assert.match(text(h.root), /70 页.*1\/13.*自动重试/);
+            assert.equal(h.buttons[2].disabled, true);
+            t.mock.timers.tick(2999); await h.buttons[4].click();
+            assert.match(text(h.root), /自动重试/); assert.equal(h.requests.length, 71);
+            t.mock.timers.tick(1);
+            const retry = await requested(h, ++requestIndex);
+            assert.equal(retry.options.body, request.options.body);
+            request = retry;
+          }
+          const size = Math.min(20, total - offset);
+          const response = page(request, rows, size, total, offset + size < total ? `next-${rows}` : null);
+          h.respond(requestIndex - 1, { ...response, filters: body.filters });
+          rows += size;
+        }
       }
       await tick();
-      assert.match(text(h.root), /82 页.*13\/13/);
+      assert.match(text(h.root), /105 页.*13\/13/);
       await h.buttons[2].click();
       assert.equal(h.doc.downloads[0].name, 'order-user-emails.xlsx');
       const workbook = Buffer.from(await [...h.blobs.values()][0].arrayBuffer());
@@ -277,8 +290,8 @@ for (const [status, error] of [[503, 'session_unavailable'], [429, 'session_deni
       const xml = workbook.toString('utf8'); // The workbook writer stores uncompressed entries.
       const cells = Array.from(xml.matchAll(/<t(?: [^>]*)?>([^<]*)<\/t>/g), match => match[1]);
       assert.equal(cells[0], 'email');
-      assert.equal(cells.length, 1413);
-      assert.equal(new Set(cells.slice(1)).size, 1412);
+      assert.equal(cells.length, 1866);
+      assert.equal(new Set(cells.slice(1)).size, 1865);
       assert.doesNotMatch(xml, /<f[ >]/);
     } finally { h.widget.dispose(); }
   });
