@@ -5,8 +5,11 @@ const { join } = require('node:path');
 const dataUrl = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
 const serializer = dataUrl(readFileSync(join(__dirname, 'order-email-csv.js')));
 const coordinator = dataUrl(readFileSync(join(__dirname, 'order-email-run.js')));
+const excelWriter = dataUrl(readFileSync(join(__dirname, 'order-email-xlsx.js'), 'utf8')
+  .replace("'./order-email-csv.js'", JSON.stringify(serializer)));
 const modulePromise = import(dataUrl(readFileSync(join(__dirname, 'order-email-panel.js'), 'utf8')
   .replace("'./order-email-csv.js'", JSON.stringify(serializer))
+  .replace("'./order-email-xlsx.js'", JSON.stringify(excelWriter))
   .replace("'./order-email-run.js'", JSON.stringify(coordinator))));
 // Fixture directories only; the production module contains no directory defaults.
 const sites = [{ value: '266', label: 'Fixture site' }];
@@ -30,8 +33,9 @@ class Element {
 }
 const walk = node => [node, ...node.children.flatMap(walk)];
 const text = node => walk(node).map(item => item.textContent).join(' ');
-async function setup(endpoint = '/test-only-page') {
-  const { mountOrderEmailExport } = await modulePromise;
+async function setup(endpoint = '/test-only-page', excel = false) {
+  const panel = await modulePromise;
+  const mountOrderEmailExport = excel ? panel.mountOrderEmailExcelExport : panel.mountOrderEmailExport;
   const requests = [], blobs = new Map(), revoked = [];
   let nextUrl = 0;
   const doc = { downloads: [], createElement(tag) { return new Element(tag, this); }, defaultView: {
@@ -236,4 +240,85 @@ test('source_timeout retains accepted windows and retries only the pending page'
     assert.match(csv, /Customer22@example.com/);
     assert.equal(csv.split('\r\n').length - 2, 24);
   } finally { h.widget.dispose(); Date.now = original; }
+});
+
+for (const [status, error] of [[503, 'session_unavailable'], [429, 'session_denied']]) {
+  test(`HTTP ${status} ${error} resumes from page 71 and finishes all 13 windows`, async t => {
+    t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1800000000000 });
+    const h = await setup(undefined, true);
+    try {
+      h.fields.start.value = '2025-11-22'; h.fields.end.value = '2026-02-20';
+      const pending = h.form.fire('submit');
+      // First window ends on page 69. Fail after accepting the next window's first page.
+      for (let i = 0; i < 70; i++) {
+        const r = await requested(h, i + 1);
+        const total = i < 69 ? 1380 : 21;
+        h.respond(i, page(r, i * 20, 20, total, i === 68 ? null : `next-${i}`));
+      }
+      const failed = await requested(h, 71);
+      failed.resolve({ ok: false, status, json: async () => ({ error, retryAfter: 3 }) });
+      await pending;
+      assert.match(text(h.root), /70 页.*1\/13.*自动重试/);
+      assert.equal(h.buttons[2].disabled, true);
+      t.mock.timers.tick(2999); assert.equal(h.requests.length, 71);
+      t.mock.timers.tick(1);
+      const retry = await requested(h, 72);
+      assert.equal(retry.options.body, failed.options.body);
+      h.respond(71, page(retry, 1400, 1, 21));
+      for (let i = 72; i < 83; i++) {
+        const r = await requested(h, i + 1); h.respond(i, page(r, 1401 + i));
+      }
+      await tick();
+      assert.match(text(h.root), /82 页.*13\/13/);
+      await h.buttons[2].click();
+      assert.equal(h.doc.downloads[0].name, 'order-user-emails.xlsx');
+      const workbook = Buffer.from(await [...h.blobs.values()][0].arrayBuffer());
+      assert.equal(workbook.readUInt32LE(0), 0x04034b50);
+      const xml = workbook.toString('utf8'); // The workbook writer stores uncompressed entries.
+      const cells = Array.from(xml.matchAll(/<t(?: [^>]*)?>([^<]*)<\/t>/g), match => match[1]);
+      assert.equal(cells[0], 'email');
+      assert.equal(cells.length, 1413);
+      assert.equal(new Set(cells.slice(1)).size, 1412);
+      assert.doesNotMatch(xml, /<f[ >]/);
+    } finally { h.widget.dispose(); }
+  });
+}
+
+test('automatic retries stop on pause, cancellation, changed filters or disposal', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1800000000000 });
+  for (const action of ['pause', 'cancel', 'change', 'dispose']) {
+    const h = await setup();
+    try {
+      const pending = h.form.fire('submit'), r = await requested(h, 1);
+      r.resolve({ ok: false, status: 503, json: async () => ({ error: 'session_unavailable', retryAfter: 1 }) });
+      await pending;
+      if (action === 'dispose') h.widget.dispose();
+      else if (action === 'change') h.form.fire('change');
+      else h.buttons[action === 'pause' ? 3 : 1].click();
+      t.mock.timers.tick(1000); await tick();
+      assert.equal(h.requests.length, 1);
+      assert.equal(h.buttons[2].disabled, true);
+      assert.equal(h.buttons[4].disabled, action !== 'pause');
+    } finally { h.widget.dispose(); }
+  }
+});
+
+test('three unsuccessful automatic retries leave the same page available for manual retry', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1800000000000 });
+  const h = await setup();
+  try {
+    const initial = h.form.fire('submit');
+    for (let i = 0; i <= 3; i++) {
+      const r = await requested(h, i + 1);
+      assert.equal(r.options.body, h.requests[0].options.body);
+      r.resolve({ ok: false, status: 503, json: async () => ({ error: 'session_unavailable', retryAfter: 1 }) });
+      await tick(); t.mock.timers.tick(1000);
+    }
+    await initial; await tick();
+    assert.equal(h.requests.length, 4);
+    assert.match(text(h.root), /手动重试/);
+    const manual = h.buttons[4].click();
+    const last = await requested(h, 5); h.respond(4, page(last)); await manual;
+    assert.equal(h.buttons[2].disabled, false);
+  } finally { h.widget.dispose(); }
 });

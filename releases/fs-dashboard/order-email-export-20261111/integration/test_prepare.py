@@ -9,7 +9,7 @@ import subprocess
 import sys
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib.parse import urlsplit
 
 import prepare
@@ -29,7 +29,7 @@ def candidates():
 
 
 class Backend(unittest.TestCase):
-    def request(self, body, sessions=None, headers=None):
+    def request(self, body, sessions=None, headers=None, *, page_impl=None):
         tree = ast.parse(candidates()['range_api.py'])
         handler = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Handler')
         method = next(n for n in handler.body if isinstance(n, ast.FunctionDef) and n.name == 'do_POST')
@@ -45,6 +45,8 @@ class Backend(unittest.TestCase):
             return run_source(lambda: (calls.append(('source', actor)) or (206, {'actor': actor})), 10)
         def page(request, actor, run_source):
             calls.append(('export', request, actor))
+            if page_impl is not None:
+                return page_impl(request, actor, run_source=run_source)
             return get(request, actor, run_source)
         ns = dict(urlsplit=urlsplit, re=re, json=json, LIVE_ADMIN=types.SimpleNamespace(run=lambda op, timeout: op()),
                   verify_live_session=lambda cookie: next(sessions), private_live_body=private, get_live_orders=get)
@@ -117,6 +119,28 @@ class Backend(unittest.TestCase):
             reply, calls = self.request(self.export_body(), [(200, 'real-actor'), session])
             self.assertEqual(reply[0], 503)
             self.assertNotIn('source', [c[0] for c in calls])
+
+    def test_export_page_recheck_distinguishes_unavailable_busy_and_denied_sessions(self):
+        authorize = Mock(return_value=True)
+        fetch = Mock()
+        config = dict(activation_status='W0_verified', live_admin_single_page=True)
+        deps = dict(load_config=lambda: config, load_policy=dict,
+                    rbac=types.SimpleNamespace(validate=lambda policy: policy), authorize=authorize, fetch=fetch)
+        with patch.dict(sys.modules, {'user_runtime': types.SimpleNamespace(authorize=authorize)}), \
+                patch.object(export_source, 'dependencies', return_value=deps):
+            for session, expected in [
+                    ((503, None), (503, 'session_unavailable')),
+                    ((429, None), (429, 'source_busy')),
+                    ((401, None), (403, 'permission_denied')),
+                    ((403, None), (403, 'permission_denied')),
+                    ((200, 'other'), (403, 'permission_denied'))]:
+                with self.subTest(session=session):
+                    status, error = expected
+                    reply, calls = self.request(self.export_body(), [(200, 'real-actor'), session],
+                                                page_impl=exporter.page_get)
+                    self.assertEqual(reply, (status, {'error': error, 'complete': False}))
+                    self.assertEqual([kind for kind, *_ in calls], ['export'])
+        fetch.assert_not_called()
 
     def test_session_denied_before_body(self):
         for code in [401,403,429,503]:
