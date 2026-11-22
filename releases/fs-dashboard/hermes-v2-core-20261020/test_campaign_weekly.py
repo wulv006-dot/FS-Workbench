@@ -62,6 +62,42 @@ class WeeklyTests(unittest.TestCase):
         result=self.weekly.lookup(key,'alice','session-private');self.assertEqual(result['status'],'completed');self.assertFalse(result['publication']);self.assertEqual(self.paid,1)
         self.assertEqual([c['action'] for c in self.calls],['prepare','prepare','apply_draft']);self.assertEqual(self.calls[-1]['owner'],'alice');self.assertTrue(self.calls[-1]['evidence_sources'])
         self.assertEqual(result['external_status'],'partial');self.assertNotIn('session-private',Path(self.host.tasks.path).read_bytes().decode('latin1'))
+    def test_manual_trio_review_pins_one_card_and_carries_version_evidence_to_original_draft(self):
+        from unittest.mock import Mock
+        original = self.weekly.evidence
+        self.weekly.evidence = Mock(wraps=original)
+        evidence = dict(url='https://www.fut.gg/tier-list/fixture/', title='Fixture Team 1',
+                        observed_at=self.at[0].isoformat(), metric='tier_votes', sample=100,
+                        cards=[
+                            dict(model_id='213', item_id='1001', rating=90, version='Test', value='S'),
+                            dict(model_id='214', item_id='1002', rating=90, version='Test', value='A'),
+                            dict(model_id='215', item_id='1003', rating=90, version='Test', value='S'),
+                        ])
+        review = dict(keep_model_id='212', exclude_model_ids=['216','217'], evidence=[evidence])
+        original_cli = self.weekly.cli
+        def cli(body):
+            prepared = original_cli(body)
+            if body['action']=='prepare':
+                prepared['trio_players'] = [dict(name=name+'/90/CM/Test',model_id=str(212+i),key='fc-'+name+'-ps')
+                                            for i,name in enumerate('defghi')]
+            return prepared
+        self.weekly.cli = cli
+        key = str(uuid.uuid4())
+        self.weekly.run(key,'alice','session-private',trio_review=review)
+        self.finish()
+        result = self.weekly.lookup(key,'alice','session-private')
+        self.assertEqual(result['status'],'completed')
+        self.assertFalse(result['publication'])
+        self.assertFalse(self.weekly.evidence.called)
+        self.assertEqual(result['evidence_coverage']['categories'],['card_version'])
+        value = json.loads(self.weekly._record(key,'alice')['model_input'])
+        self.assertIn('keep Admin model 212',value['sbc_update']['context'])
+        self.assertIn('item 1001',value['sbc_update']['context'])
+        self.assertEqual(len(self.calls[-1]['evidence_sources']),1)
+        self.assertEqual(self.weekly.run(key,'alice','session-private',trio_review=review)['status'],'completed')
+        with self.assertRaisesRegex(ValueError,'campaign_request_conflict'):
+            self.weekly.run(key,'alice','session-private',trio_review=dict(review,keep_model_id='213'))
+
     def test_sunday_noon_uses_revocable_authenticated_owner_once_without_session(self):
         self.weekly.tick();self.assertEqual(self.calls,[]);grant=self.configure();self.weekly.tick();self.assertEqual(self.calls,[])
         self.at[0]+=timedelta(minutes=1);self.weekly.tick();self.finish();self.weekly.tick()
