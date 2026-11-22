@@ -173,7 +173,8 @@
 .fca-core-modes .fca-check:has(input:checked) { border-color: #0875ff; background: #f0f6ff; }
 .fca-lineup { position: relative; align-items: stretch; background: #eff7ff; border-radius: 14px; padding: 25px; margin-bottom: 30px; gap: 20px; }
 .fca-lineup .fca-card { background: #ffffffde; border-color: #cfdeef; }
-.fca-lineup .fca-card-art { height: 206px; }
+.fca-lineup .fca-card-art { height: 230px; }
+#sbc-lineup .fca-card-art { height: 206px; }
 .fca-core { border-color: #86b6fc; background: #f2f8ff; }
 .fca-core .fca-subbadge { background: #dcecff; color: #0056be; }
 .fca-companion-options { grid-template-columns: repeat(2,minmax(0,1fr)); margin-bottom: 30px; gap: 20px; }
@@ -359,20 +360,34 @@
   .fca-check { font-size: 12px; }
   .fca-check small { font-size: 11px; }
   .fca-inline-note { font-size: 11px; line-height: 1.75; padding: 11px 12px; }
-  .fca-lineup, .fca-product-grid { gap: 12px; }
-  .fca-lineup { padding: 0; background: transparent; margin-bottom: 12px; }
-  :is(.fca-product-grid, .fca-lineup) .fca-card {
+  .fca-lineup:not(#sbc-lineup) { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; padding: 10px; }
+  .fca-lineup:not(#sbc-lineup) .fca-card { padding: 10px 7px; }
+  .fca-lineup:not(#sbc-lineup) .fca-card-heading { grid-template-rows: 28px 40px 38px; gap: 5px; }
+  .fca-lineup:not(#sbc-lineup) .fca-card h3 { font-size: 14px; letter-spacing: -.25px; line-height: 1.35; }
+  .fca-lineup:not(#sbc-lineup) .fca-card .fca-eyebrow { font-size: 9px; letter-spacing: 0; }
+  .fca-lineup:not(#sbc-lineup) .fca-card-art { height: 135px; margin: 4px auto 8px; }
+  .fca-lineup:not(#sbc-lineup) .fca-card p { font-size: 9px; }
+  .fca-lineup:not(#sbc-lineup) .fca-card .fca-price { font-size: 15px; letter-spacing: 0; min-height: 23px; }
+  .fca-lineup:not(#sbc-lineup) .fca-card .fca-subbadge { font-size: 9px; padding: 4px; }
+  .fca-lineup:not(#sbc-lineup) .fca-selected::before { width: 17px; height: 17px; right: 3px; top: 3px; font-size: 10px; }
+  .fca-lineup:not(#sbc-lineup) .fca-core .fca-price { font-size: 12px; line-height: 1.5; }
+  .fca-lineup:not(#sbc-lineup) .fca-card-picker { min-height: 56px; margin-top: 6px; }
+  .fca-lineup:not(#sbc-lineup) .fca-card-picker label { font-size: 9px; margin-bottom: 4px; }
+  .fca-lineup:not(#sbc-lineup) .fca-card-picker select { min-height: 34px; padding: 4px; font-size: 11px; }
+  #sbc-lineup, #product-grid { gap: 12px; }
+  #sbc-lineup { padding: 0; background: transparent; margin-bottom: 12px; }
+  :is(#product-grid, #sbc-lineup) .fca-card {
     display: grid;
     grid-template-columns: minmax(0, 1fr) clamp(72px, 25%, 108px);
     align-content: start;
     gap: 4px 12px;
     padding: 14px;
   }
-  :is(.fca-product-grid, .fca-lineup) .fca-card-heading { grid-area: 1 / 1; grid-template-rows: auto; gap: 3px; }
-  :is(.fca-product-grid, .fca-lineup) .fca-card-heading > * { display: block; overflow: visible; }
-  :is(.fca-product-grid, .fca-lineup) .fca-card h3 { font-size: 18px; }
-  :is(.fca-product-grid, .fca-lineup) .fca-card > p { grid-area: 2 / 1; margin: 0; }
-  :is(.fca-product-grid, .fca-lineup) .fca-card-art {
+  :is(#product-grid, #sbc-lineup) .fca-card-heading { grid-area: 1 / 1; grid-template-rows: auto; gap: 3px; }
+  :is(#product-grid, #sbc-lineup) .fca-card-heading > * { display: block; overflow: visible; }
+  :is(#product-grid, #sbc-lineup) .fca-card h3 { font-size: 18px; }
+  :is(#product-grid, #sbc-lineup) .fca-card > p { grid-area: 2 / 1; margin: 0; }
+  :is(#product-grid, #sbc-lineup) .fca-card-art {
     grid-area: 1 / 2 / 5;
     height: auto;
     max-height: 132px;
@@ -380,11 +395,11 @@
     align-self: center;
     margin: 0;
   }
-  :is(.fca-product-grid, .fca-lineup) .fca-price-origin { grid-area: 3 / 1; margin: 0; }
-  :is(.fca-product-grid, .fca-lineup) .fca-card .fca-price { grid-area: 4 / 1; margin: 0; font-size: 19px; }
-  .fca-lineup .fca-card-picker { grid-area: 5 / 1 / auto / -1; min-height: 0; margin: 6px 0 0; }
-  .fca-lineup .fca-card-picker-spacer { display: none; }
-  :is(.fca-product-grid, .fca-lineup) .fca-card > :is(button, .fca-subbadge) { grid-area: 6 / 1 / auto / -1; margin-top: 5px; }
+  :is(#product-grid, #sbc-lineup) .fca-price-origin { grid-area: 3 / 1; margin: 0; }
+  :is(#product-grid, #sbc-lineup) .fca-card .fca-price { grid-area: 4 / 1; margin: 0; font-size: 19px; }
+  #sbc-lineup .fca-card-picker { grid-area: 5 / 1 / auto / -1; min-height: 0; margin: 6px 0 0; }
+  #sbc-lineup .fca-card-picker-spacer { display: none; }
+  :is(#product-grid, #sbc-lineup) .fca-card > :is(button, .fca-subbadge) { grid-area: 6 / 1 / auto / -1; margin-top: 5px; }
   .fca-companion-options { gap: 15px; margin-bottom: 24px; }
   .fca-companion-options .fca-card-art { height: 225px; }
   .fca-bundles { padding: 28px 0 32px; }
