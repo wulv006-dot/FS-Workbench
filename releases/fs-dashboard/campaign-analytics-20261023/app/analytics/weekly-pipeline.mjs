@@ -75,10 +75,16 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
    if(source.evidence?.newest_complete!==true||!source.evidence.newest_tag_id||source.evidence.newest_normal_count!==trio.length||trio.some(key=>!normal.has(catalog.find(p=>p.key===key).product_ref.model_id)))fail('WEEKLY_NEWEST_POOL_UNVERIFIED');
    if(cores.length<1||cores.length>9||new Set(cores).size!==cores.length)fail('WEEKLY_SBC_CORE_COVERAGE_INCOMPLETE');
    if(players.length<2*cores.length)fail('WEEKLY_SBC_COMPANION_POOL_INSUFFICIENT');
+   const native_candidates=nativeCandidateProvider(source);
+   const contracts=native_candidates?.native_catalog_candidate?.model_contracts;
+   const trio_admin_max_usd_minor={};
+   for(const mid of source.trio_player_ids){
+    const amounts=contracts?.[mid]?.combinations.map(combination=>combination.price.base_minor);
+    if(amounts?.length)trio_admin_max_usd_minor[representative(mid)]=Math.max(...amounts);
+   }
    const input={source_revision:String(current.revision),sbc_update:{id:operation_id,observed_at:source.observed_at,expires_at:null,context:'Current FC27 Admin model identities. The complete Trio candidate pool comes from the active Newest tag, filtered to observed normal Players. Choose three popular players using supplied external market, social and specialist-site evidence plus model judgment; Newest membership and candidate order do not prove popularity. Missing market evidence must remain explicit, and external popularity must not be described as our sales. Scout preserves the supplied Popular source order. SBC/core ordering may use model ID descending where creation timestamps are not provided. The SBC Player pool is restricted to observed normal Player types. Assign exactly 2 different players to each supplied SBC core, using distinct Player models across all assignments; do not output extra alternatives. The application makes the shared dropdown from these assignments. Preserve real card versions; do not assert prices or checkout readiness. Actual game SBC expiry is not supplied.',sources:[]},
     pages:[{page_id:'fc27-trio',product_keys:trio},{page_id:'fc27-weekly',product_keys:scout},{page_id:'fc27-sbc',product_keys:[...cores,...players],core_product_keys:cores}],catalog,
-    rules:{version:'fc27_weekly_selection_v1',scout_top_keys:scout}};
-   const native_candidates=nativeCandidateProvider(source);
+    rules:{version:'fc27_weekly_selection_v1',scout_top_keys:scout,trio_admin_max_usd_minor}};
    const plan={operation_id,owner,trigger,created_at:new Date(now()).toISOString(),base_revision:current.revision,draft:current.draft,layout:context.effective_fc_layout,source,models,input,native_candidates,
     checks:{goods_identity:'observed_per_platform',quote:'pending',native_checkout:'pending',coupon:'pending',publication:false,...(native_candidates?{native_candidate_status:native_candidates.status,model_mapping:native_candidates.models}:{})}};
    // First writer retains its frozen source; a duplicate prepare never replaces it.

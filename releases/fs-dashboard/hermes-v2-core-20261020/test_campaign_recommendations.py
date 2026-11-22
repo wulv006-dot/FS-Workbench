@@ -129,6 +129,18 @@ class CampaignTests(unittest.TestCase):
     with self.assertRaisesRegex(ValueError,'campaign_weekly_selection'):checked_result(result,value)
   with self.assertRaisesRegex(ValueError,'campaign_input_fields'):checked_input(legacy_input())
 
+ def test_trio_price_preference_keeps_high_price_as_model_context(self):
+  from campaign_recommendations import checked_result
+  value=input_data()
+  trio=next(p['product_keys'] for p in value['pages'] if p['page_id']=='fc27-trio')
+  prices={trio[0]:999900,trio[1]:50000}
+  value['rules']['trio_admin_max_usd_minor']=prices
+  checked=checked_input(value)
+  self.assertEqual(checked['rules']['trio_admin_max_usd_minor'],prices)
+  self.assertIn('US$500 or less each',PROMPT)
+  result=current_selection(checked)
+  self.assertEqual(checked_result(result,checked),result)
+
  def test_weekly_input_requires_one_to_nine_distinct_cores_and_enough_companions(self):
   from test_campaign_weekly import pool_input
   for core_count in (0,10):

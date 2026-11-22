@@ -16,6 +16,8 @@ PROMPT=('Recommend FC27 campaign candidates using the supplied catalog and evide
         'Every product must belong to its page.product_keys pool; preserve platform identity. '
         'Apply fc27_weekly_selection_v1 to every new recommendation: return exactly 3 fc27-weekly products in rules.scout_top_keys order; '
         'For fc27-trio choose exactly 3 popular normal Player cards with different product_ref.model_id values from the supplied complete Newest-tag pool. '
+        'Default to Trio cards priced at US$500 or less each. rules.trio_admin_max_usd_minor gives the highest observed one-card Admin price across platforms in US cents, before the activity coupon, keyed by product_key. '
+        'When enough priced cards qualify, choose only from those cards. A missing entry means the price is unknown. If the preferred pool is too small, explain the gap and favor the lowest observed prices available. This preference applies only to Trio. '
         'Weigh the supplied external market/price signals, social and specialist-site interest, and squad fit; the Newest tag and candidate order are not popularity rankings. '
         'Do not mechanically take the first three or rank by model ID. External popularity is not our sales. If market evidence is absent or partial, state the gap and label the selection as model judgment from available metadata, without inventing sales, prices or popularity ranks. '
         'For every supplied core in fc27-sbc.core_product_keys return exactly 2 different normal Player companions, each with that core_product_key. '
@@ -79,9 +81,13 @@ def checked_input(value):
             rows=page[name]
             if type(rows) is not list or len(rows)>2000 or any(type(k) is not str or k not in keys for k in rows) or len(set(rows))!=len(rows):raise ValueError('campaign_page_keys')
         if not set(page.get('core_product_keys',())).issubset(page['product_keys']):raise ValueError('campaign_core_keys')
-    rules=value['rules'];fields(rules,('version','scout_top_keys'))
+    rules=value['rules']
+    fields(rules,('version','scout_top_keys','trio_admin_max_usd_minor') if type(rules) is dict and 'trio_admin_max_usd_minor' in rules else ('version','scout_top_keys'))
     weekly=next(p for p in value['pages'] if p['page_id']=='fc27-weekly')['product_keys']
     if rules['version']!='fc27_weekly_selection_v1' or type(rules['scout_top_keys']) is not list or len(rules['scout_top_keys'])!=3 or len(set(rules['scout_top_keys']))!=3 or any(k not in weekly for k in rules['scout_top_keys']):raise ValueError('campaign_weekly_rules')
+    prices=rules.get('trio_admin_max_usd_minor',{})
+    trio_keys=set(next(p['product_keys'] for p in value['pages'] if p['page_id']=='fc27-trio'))
+    if type(prices) is not dict or any(k not in trio_keys or type(n) is not int or n<0 for k,n in prices.items()):raise ValueError('campaign_weekly_rules')
     sbc=next(p for p in value['pages'] if p['page_id']=='fc27-sbc');catalog={p['key']:p for p in value['catalog']}
     core_count=len(sbc['core_product_keys'])
     core_models={catalog[k]['product_ref'].get('model_id') for k in sbc['core_product_keys']}
