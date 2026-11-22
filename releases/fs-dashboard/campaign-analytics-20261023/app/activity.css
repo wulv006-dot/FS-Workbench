@@ -287,6 +287,9 @@
   #sbc-lineup > .fca-card:first-child { grid-area: 3 / 1; }
   #sbc-lineup > .fca-card:nth-child(2) { grid-area: 2 / 2 / span 2; }
   #sbc-lineup > .fca-card:nth-child(3) { grid-area: 2 / 3 / span 2; }
+  #sbc-lineup > .fca-card { align-self: start; }
+  #sbc-lineup > .fca-card:first-child .fca-card-heading { grid-template-rows: auto; }
+  #sbc-lineup .fca-card-picker-spacer { display: none; }
   #sbc-lineup > .fca-card:first-child .fca-card-art { height: 144px; }
 }
 @media (max-width: 1050px) and (min-width: 701px) {
