@@ -100,9 +100,30 @@ def checked_input(value):
 
 
 def output_schema(value):
-    keys=[p['key'] for p in value['catalog']];cores=next(p['core_product_keys'] for p in value['pages'] if p['page_id']=='fc27-sbc')
+    cores=next(page['core_product_keys'] for page in value['pages'] if page['page_id']=='fc27-sbc')
+    catalog={row['key']:row for row in value['catalog']}
+    core_models={catalog[key]['product_ref'].get('model_id') for key in cores}
     count=6+2*len(cores)
-    properties=dict(model={'type':'string','enum':[MODEL]},source_revision={'type':'string','enum':[value['source_revision']]},sbc_update_id={'type':'string','enum':[value['sbc_update']['id']]},recommendations={'type':'array','minItems':count,'maxItems':count,'items':{'type':'object','additionalProperties':False,'required':['page_id','product_key','core_product_key','reason','evidence_indices'],'properties':dict(page_id={'type':'string','enum':list(PAGES)},product_key={'type':'string','enum':keys},core_product_key={'anyOf':[{'type':'string','enum':cores},{'type':'null'}]},reason={'type':'string','maxLength':800},evidence_indices={'type':'array','items':{'type':'integer'},'maxItems':20})}})
+    branches=[]
+    for page in value['pages']:
+        page_id=page['page_id']
+        keys=page['product_keys']
+        if page_id=='fc27-sbc':
+            keys=[key for key in keys if catalog[key]['product_ref'].get('model_id') not in core_models]
+        fields=dict(
+            page_id={'type':'string','enum':[page_id]},
+            product_key={'type':'string','enum':keys},
+            core_product_key={'type':'string','enum':cores} if page_id=='fc27-sbc' else {'type':'null'},
+            reason={'type':'string','maxLength':800},
+            evidence_indices={'type':'array','items':{'type':'integer'},'maxItems':20},
+        )
+        branches.append({'type':'object','additionalProperties':False,'required':list(fields),'properties':fields})
+    properties=dict(
+        model={'type':'string','enum':[MODEL]},
+        source_revision={'type':'string','enum':[value['source_revision']]},
+        sbc_update_id={'type':'string','enum':[value['sbc_update']['id']]},
+        recommendations={'type':'array','minItems':count,'maxItems':count,'items':{'anyOf':branches}},
+    )
     return {'type':'object','additionalProperties':False,'required':list(properties),'properties':properties}
 
 

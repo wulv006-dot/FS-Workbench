@@ -106,9 +106,25 @@ class CampaignTests(unittest.TestCase):
   def execute(scope,request):scope.mark_dispatch();self.auth=False;return dict(model='gpt-6.2-sol',source_revision='7',sbc_update_id='update-7',recommendations=[])
   self.service.execute=execute;self.service.submit(self.body,'alice','private-session');self.finish();self.auth=True
   self.assertEqual(self.service.lookup(self.body['operation_id'],'alice','private-session')['status'],'unknown')
+ def test_schema_cannot_assign_a_trio_only_item_to_an_sbc_core(self):
+  from test_campaign_weekly import pool_input
+  value=pool_input(8)
+  next(p for p in value['pages'] if p['page_id']=='fc27-sbc')['product_keys'].remove('fc-d-ps')
+  schema=output_schema(checked_input(value))
+  branches=schema['properties']['recommendations']['items']['anyOf']
+  options={branch['properties']['page_id']['enum'][0]:branch['properties'] for branch in branches}
+  self.assertIn('fc-d-ps',options['fc27-trio']['product_key']['enum'])
+  self.assertNotIn('fc-d-ps',options['fc27-sbc']['product_key']['enum'])
+  self.assertNotIn('fc-core-ps',options['fc27-sbc']['product_key']['enum'])
+
  def test_input_and_strict_schema_have_no_foreign_scope_or_empty_enums(self):
   value=checked_input(input_data());schema=output_schema(value)
-  item=schema['properties']['recommendations']['items'];self.assertEqual(set(item['required']),set(item['properties']));self.assertEqual(item['properties']['core_product_key']['anyOf'][1],{'type':'null'});self.assertEqual(len(item['properties']['core_product_key']['anyOf'][0]['enum']),9)
+  for branch in schema['properties']['recommendations']['items']['anyOf']:
+   fields=branch['properties'];self.assertEqual(set(branch['required']),set(fields));self.assertTrue(fields['product_key']['enum'])
+   if fields['page_id']['enum']==['fc27-sbc']:
+    self.assertEqual(len(fields['core_product_key']['enum']),9)
+   else:
+    self.assertEqual(fields['core_product_key'],{'type':'null'})
   value['catalog'][0]['product_ref']['game_id']='999'
   with self.assertRaises(ValueError):checked_input(value)
 
@@ -122,7 +138,8 @@ class CampaignTests(unittest.TestCase):
     value=pool_input(cores);schema=output_schema(checked_input(value))
     recommendations=schema['properties']['recommendations']
     self.assertEqual((recommendations['minItems'],recommendations['maxItems']),(6+2*cores,)*2)
-    self.assertEqual(len(recommendations['items']['properties']['core_product_key']['anyOf'][0]['enum']),cores)
+    sbc=next(branch['properties'] for branch in recommendations['items']['anyOf'] if branch['properties']['page_id']['enum']==['fc27-sbc'])
+    self.assertEqual(len(sbc['core_product_key']['enum']),cores)
     result=current_selection(value)
     self.assertEqual(len(checked_result(result,value)['recommendations']),6+2*cores)
     result['recommendations'].pop()
