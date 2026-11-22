@@ -1463,7 +1463,7 @@ def main():
         elif group=="fc-sbc-security":
             units("releases/fc-sbc/security-20261015/tests",["test_security","test_publisher"])
         elif group=="fc-sbc-reprice-receipt":
-            units("releases/fc-sbc/reprice-receipt-contract-20261122", ["test_reprice_receipt"])
+            units("releases/fc-sbc/reprice-receipt-contract-20261122", ["test_reprice_receipt", "test_shadow_verify", "test_site_binding", "test_reprice_plan", "test_site_reprice"])
         elif group=="news-weekly-schedule":
             units("releases/fs-dashboard/news-weekly-schedule-20261016/tests",["test_weekly","test_release_backend"])
             node("releases/fs-dashboard/news-weekly-schedule-20261016/tests/test_weekly_ui.cjs")
