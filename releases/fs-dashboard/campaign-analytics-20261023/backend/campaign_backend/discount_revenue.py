@@ -86,7 +86,7 @@ def summarize(rows, start, end, game, activity='mmoexp-seasonal'):
     buckets = {code: dict(native_id=native, code=code, game_id=gid, off_percent=off,
                           paid_orders=0, paid_usd_minor=0, refunded_orders=0)
                for native, code, gid, off in bindings if game in ('all', gid)}
-    currencies, seen = defaultdict(Decimal), {}
+    currencies, seen, daily = defaultdict(Decimal), {}, defaultdict(int)
     completed = dict(orders=0, usd_minor=0, unknown_orders=0) if activity == 'fc27-season2' else None
     fields = ('site_id', 'gid', 'pay_status', 'paytime', 'discount_code',
               'amount_usd_format', 'currency_code', 'pay_money_format2')
@@ -129,6 +129,7 @@ def summarize(rows, start, end, game, activity='mmoexp-seasonal'):
         bucket['refunded_orders'] += int(state in (2, '2'))
         if completed is not None:
             track_completion(completed, row, state, usd)
+            daily[paid_at.astimezone(timezone.utc).date().isoformat()] += 1
         currencies[currency] += paid
     totals = {k: sum(b[k] for b in buckets.values()) for k in ('paid_orders', 'paid_usd_minor', 'refunded_orders')}
     if totals['paid_usd_minor'] > 9007199254740991:
@@ -137,7 +138,8 @@ def summarize(rows, start, end, game, activity='mmoexp-seasonal'):
                 attribution_level='shared_activity_group' if activity == 'fc27-season2' else 'activity_group',
                 page_allocation='not_available',
                 totals=totals, codes=list(buckets.values()),
-                **({'completed': completed} if completed is not None else {}),
+                **({'completed': completed, 'daily': [dict(date=day, paid_orders=daily[day]) for day in sorted(daily)]}
+                   if completed is not None else {}),
                 paid_currencies=[dict(currency=k, amount=format(v, 'f')) for k, v in sorted(currencies.items())],
                 refund_amount=None, net_amount=None, product_allocation='not_available', visitor_join='not_available',
                 coverage=dict(complete=True, source_rows=len(rows), unique_orders=len(seen), excluded_unpaid=excluded_unpaid),

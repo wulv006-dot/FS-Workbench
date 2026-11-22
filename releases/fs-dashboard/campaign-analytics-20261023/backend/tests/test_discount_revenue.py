@@ -119,6 +119,7 @@ class DiscountRevenueTests(unittest.TestCase):
                 order(**common, order_no='pending', status_format='待发货'), order(**common, order_no='unknown')]
         result = summarize(rows, self.start, self.end, self.game, 'fc27-season2')
         self.assertEqual(result['totals']['paid_orders'], 4)
+        self.assertEqual(result['daily'], [dict(date='2026-10-30', paid_orders=4)])
         self.assertEqual(result['completed'], dict(orders=1, usd_minor=15691, unknown_orders=1))
 
     def test_fc_shared_code_actual_paid_orders_not_single_page_conversion(self):

@@ -110,7 +110,10 @@ test('FC snapshot retains confirmed completion data and tolerates old reads',()=
  const value=fcValues().revenue;
  assert.equal(compactSource('revenue',value,'fc27-season2').data.completed,null);
  value.body.completed={orders:1,usd_minor:200,unknown_orders:0};
- assert.deepEqual(compactSource('revenue',value,'fc27-season2').data.completed,value.body.completed);
+ value.body.daily=[{date:'2026-10-30',paid_orders:2}];
+ const summary=compactSource('revenue',value,'fc27-season2').data;
+ assert.deepEqual(summary.completed,value.body.completed);
+ assert.deepEqual(summary.daily,value.body.daily);
 });
 test('FC rejects seasonal/duplicated/wrong-native/incomplete sales evidence without making zero totals',()=>{for(const mutate of [v=>delete v.activity_id,v=>v.codes.push(v.codes[0]),v=>v.codes[0].native_id='6051',v=>v.coverage.complete=false]){const v=fcValues().revenue;mutate(v.body);assert.throws(()=>compactSource('revenue',v,'fc27-season2'),/INVALID_AGGREGATE/);}});
 test('missing FC campaign start never blocks today/yesterday; registry is an explicit fallback only',async t=>{const p=structuredClone(fcPublished);for(const page of p.pages)delete page.starts_at;const dir=folder(t),seen=[];const r=readers(fcValues());for(const name of Object.keys(r)){const fn=r[name];r[name]=w=>{seen.push(w.kind);return fn(w);};}const result=await runStatisticsRefresh({directory:dir,published:p,activity:'fc27-season2',readers:r,now:()=>at});assert.equal(result.status,'partial');assert.equal(seen.length,6);assert(!seen.includes('campaign'));const campaign=readStatisticsSnapshot({directory:dir,published:p,activity:'fc27-season2',kind:'campaign',at});assert.equal(campaign.sources.revenue.lastAttempt.reason,'CAMPAIGN_START_UNKNOWN');assert.equal(campaign.sources.revenue.lastSuccess,null);assert.equal(readStatisticsSnapshot({directory:dir,published:p,activity:'fc27-season2',kind:'today',at}).sources.revenue.lastSuccess.summary.paidOrders,2);p.registry=[{id:'fc27-weekly',startAt:'2026-10-29T00:00:00Z'}];assert.equal(refreshPlan(p,{},at,'fc27-season2').campaignStartsAt,'2026-10-29T00:00:00.000Z');});
