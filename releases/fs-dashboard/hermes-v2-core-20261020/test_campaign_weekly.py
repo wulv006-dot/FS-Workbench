@@ -57,7 +57,7 @@ class WeeklyTests(unittest.TestCase):
         self.weekly=CampaignWeekly(self.host,self.base,cli=cli,evidence=evidence)
     def configure(self,enabled=True):return self.weekly.configure(dict(action='configure',operation_id=str(uuid.uuid4()),revision=self.weekly.config()['revision'],enabled=enabled),'alice','session-private')
     def finish(self):self.pool.shutdown(wait=True)
-    def test_manual_and_scheduled_use_same_pipeline_only_save_draft_and_never_persist_cookie(self):
+    def test_manual_only_saves_draft_and_never_persists_cookie(self):
         self.assertFalse(self.weekly.config()['enabled']);key=str(uuid.uuid4());self.weekly.run(key,'alice','session-private');self.finish()
         result=self.weekly.lookup(key,'alice','session-private');self.assertEqual(result['status'],'completed');self.assertFalse(result['publication']);self.assertEqual(self.paid,1)
         self.assertEqual([c['action'] for c in self.calls],['prepare','prepare','apply_draft']);self.assertEqual(self.calls[-1]['owner'],'alice');self.assertTrue(self.calls[-1]['evidence_sources'])
@@ -104,6 +104,36 @@ class WeeklyTests(unittest.TestCase):
         self.assertEqual(self.paid,1);self.assertEqual(self.weekly.config()['owner'],'alice')
         with self.host.tasks.db() as db:row=db.execute('SELECT trigger,grant_revision FROM campaign_weekly_runs').fetchone()
         self.assertEqual(row['trigger'],'scheduled');self.assertEqual(row['grant_revision'],grant['revision'])
+
+    def check_automatic_source_receipt(self, scheduled):
+        self.weekly.evidence=None
+        engine=dict(name='scrapling',version='0.5.1')
+        stamp=self.at[0].isoformat()
+        source=dict(url='https://www.ea.com/games/ea-sports-fc/fc-27/news/fixture',
+                    title='Official news',observed_at=stamp)
+        evidence=dict(status='partial',sources=[source],context='Source 0: Official news',
+                      coverage=dict(scrapling=dict(engine=engine,sources=[dict(url=source['url'],fetched_at=stamp)])))
+        with patch('campaign_evidence.collect_weekly_evidence',return_value=evidence) as collect:
+            if scheduled:
+                self.configure()
+                self.at[0]+=timedelta(minutes=1)
+                self.weekly.tick()
+            else:
+                self.weekly.run(str(uuid.uuid4()),'alice','session-private')
+            self.finish()
+            collect.assert_called_once()
+        key=next(iter(self.saved))
+        result=self.weekly.lookup(key,'alice','session-private')
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['evidence_coverage']['scrapling']['engine'],engine)
+        self.assertEqual(self.calls[-1]['evidence_sources'],[source])
+        self.assertFalse(result['publication'])
+
+    def test_manual_run_keeps_automatic_source_receipt_with_draft(self):
+        self.check_automatic_source_receipt(scheduled=False)
+
+    def test_scheduled_run_keeps_automatic_source_receipt_with_draft(self):
+        self.check_automatic_source_receipt(scheduled=True)
     def test_eight_verified_cores_complete_with_sixteen_companions_and_one_draft_save(self):
         self.core_count=8
         key=str(uuid.uuid4());self.weekly.run(key,'alice','session-private');self.finish()

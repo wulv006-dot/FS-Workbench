@@ -17,7 +17,7 @@ function setError(message){$('error').textContent=message||'';$('error').hidden=
 function remember(record){const recommendation=record.request_kind==='recommend';sessionStorage.setItem(storageKey+(recommendation?':recommend':''),JSON.stringify(record));if(recommendation)recommendationPending=record;else pending=record;}
 function clearPending(recommendation=false){sessionStorage.removeItem(storageKey+(recommendation?':recommend':''));if(recommendation)recommendationPending=null;else pending=null;}
 function lock(){lockRun();lockWorkflow();for(const id of ['create-fields','update-fields','approval-fields','evidence-fields','review-fields'])$(id).disabled=busy||!state?.canEdit||!!pending||id!=='create-fields'&&!selectedWeek();$('reconcile-recommendation').hidden=!recommendationOperation();$('reconcile-recommendation').disabled=busy||!state?.canEdit||!!pending||!recommendationOperation();$('candidate-fields').disabled=busy||candidateBusy||!state?.canEdit;$('candidate-prev').disabled=busy||candidateBusy||!state?.canEdit||!candidateQuery||candidatePage<=1;$('candidate-next').disabled=busy||candidateBusy||!state?.canEdit||!candidateQuery||!candidateHasMore;$('hermes-toggle').disabled=busy||!state?.canEdit||!!pending;$('refresh').disabled=busy;$('recover').disabled=busy||!state?.canEdit;$('recovery').hidden=!pending;$('pending-detail').textContent=pending?'operationId：'+pending.operation_id+'；动作：'+(pending.request_kind||pending.action)+'。请先恢复原请求。':'';}
-async function request(body,endpoint='api/weekly',csrfToken=state?.csrf){const response=await fetch(endpoint,{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(endpoint.startsWith('api/weekly/workflow')?300000:body?.action==='supplement_sources'?35000:20000),...(body?{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{throw Error('服务器响应无法确认，请保留原操作并重试核对。');}if(!response.ok)throw Object.assign(Error(data.message||data.code||'读取失败'),{status:response.status});return data;}
+async function request(body,endpoint='api/weekly',csrfToken=state?.csrf){const response=await fetch(endpoint,{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(endpoint.startsWith('api/weekly/workflow')?300000:20000),...(body?{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{throw Error('服务器响应无法确认，请保留原操作并重试核对。');}if(!response.ok)throw Object.assign(Error(data.message||data.code||'读取失败'),{status:response.status});return data;}
 function updateUrl(){const url=new URL(location.href);for(const [id,param]of [['page-filter','page'],['status-filter','status'],['week-filter','week']]){const v=$(id).value;if(v&&v!=='all')url.searchParams.set(param,v);else url.searchParams.delete(param);}if(selected)url.searchParams.set('selected',selected);else url.searchParams.delete('selected');history.replaceState(null,'',url);}
 function renderChecks(checks){return '<ul class="check-list">'+(checks||[]).map(c=>'<li><strong>'+esc(c.label||c.key)+'</strong>'+badge(c.status,c.status==='pass'?'通过':c.status==='fail'?'未通过':'待核实')+'<p class="muted">'+esc(c.detail||'尚无核验资料')+'</p></li>').join('')+'</ul>';}
 function render(){if(!state)return;const pages=state.pages||[];$('overview').setAttribute('aria-busy','false');$('overview').innerHTML=pages.map(p=>{const current=state.weeks.filter(w=>w.page_id===p.page_id).sort((a,b)=>b.id.localeCompare(a.id))[0],gaps=(p.checks||[]).filter(c=>c.status!=='pass').length;return '<article class="overview-item"><h3>'+esc(names[p.page_id]||p.title)+'</h3><p>配置版本 <strong>'+esc(value(p.activity_revision))+'</strong></p><p>'+esc(current?current.id+' '+(states[current.status]||current.status):'尚未创建周更工作单')+'</p><p class="muted">'+esc(gaps?'有 '+gaps+' 项检查待核对':'当前已返回检查无缺项；不代表生产验收')+'</p>'+pageActions(p.page_id)+'<button class="fs-btn" type="button" data-page="'+esc(p.page_id)+'">查看此页周次</button></article>';}).join('')||'<p>活动系统尚未返回三页配置，请刷新或核对原活动接口。</p>';
@@ -84,7 +84,7 @@ $('theme').addEventListener('click',()=>{const dark=document.documentElement.dat
 for(const form of Object.values(actionForm))$(form).addEventListener('input',()=>editedForms.add(form));
 
 const runUnresolved=r=>r&&['pending','unknown','awaiting_apply'].includes(r.status);
-function lockRun(){lockSources();if($('commerce-read'))$('commerce-read').disabled=commerceBusy||!state?.canEdit;const blocked=runBusy||!state?.canEdit;for(const id of ['schedule-toggle','run-start','run-read','run-reconcile','run-resume'])$(id).disabled=blocked; $('schedule-toggle').disabled=blocked||!runConfig||!!runPending; $('run-start').disabled=blocked||!!runPending||runUnresolved(runResult)||!state?.hermes.enabled; $('run-reconcile').hidden=!runResult?.operation_id||!runUnresolved(runResult);$('run-resume').hidden=!runResult?.operation_id||runResult.can_resume!==true;}
+function lockRun(){if($('commerce-read'))$('commerce-read').disabled=commerceBusy||!state?.canEdit;const blocked=runBusy||!state?.canEdit;for(const id of ['schedule-toggle','run-start','run-read','run-reconcile','run-resume'])$(id).disabled=blocked; $('schedule-toggle').disabled=blocked||!runConfig||!!runPending; $('run-start').disabled=blocked||!!runPending||runUnresolved(runResult)||!state?.hermes.enabled; $('run-reconcile').hidden=!runResult?.operation_id||!runUnresolved(runResult);$('run-resume').hidden=!runResult?.operation_id||runResult.can_resume!==true;}
 function renderRun(){
  $('schedule-status').textContent=runConfig?(runConfig.enabled?'计划已启用':'计划未启用；启用须人工批准')+'；计划版本 '+value(runConfig.revision)+'；执行身份 '+value(runConfig.owner)+'。Hermes 辅助'+(state?.hermes.enabled?'已允许。':'已关闭，计划不能绕过辅助开关执行。'):'计划状态待核实，不能当成已批准或已启用。';
  $('schedule-toggle').textContent=runConfig?.enabled?'暂停周更计划':'人工批准并启用周更计划';
@@ -106,54 +106,6 @@ $('run-result').addEventListener('click',async event=>{
 });
 async function loadRuns(){if(runBusy)return;runBusy=true;lockRun();try{const data=await request(undefined,'api/weekly/run');runConfig=data.config;const latest=(data.runs||[])[0];if(runPending?.action==='configure'){const original=await request(undefined,'api/weekly/run?operation_id='+encodeURIComponent(runPending.operation_id));if(original.status!=='configured'||original.operation_id!==runPending.operation_id||original.revision!==runPending.revision+1||original.enabled!==runPending.enabled)throw Error('原计划设置回执不匹配');$('run-message').textContent='已核对原计划设置 '+original.operation_id+'（版本 '+original.revision+'）；下方显示最新计划版本，不重放旧设置。';runPending=null;sessionStorage.removeItem(storageKey+':run');}else if(runPending){runResult=await request(undefined,'api/weekly/run?operation_id='+encodeURIComponent(runPending.operation_id));if(!runUnresolved(runResult)){runPending=null;sessionStorage.removeItem(storageKey+':run');}}else if(requestedRun)runResult=await request(undefined,'api/weekly/run?operation_id='+encodeURIComponent(requestedRun));else if(latest)runResult=latest.result||{status:latest.state,operation_id:latest.operation_id,stage:latest.stage};renderRun();}catch(e){$('run-message').textContent='运行状态读取失败：'+e.message+'。原任务记录保留，其他工作单仍可维护。';}finally{runBusy=false;lockRun();}}
 async function runAction(action){if(runBusy||!state?.canEdit)return;const recovery=['reconcile','resume'].includes(action);if(action==='configure'&&!runConfig||recovery&&!runResult?.operation_id)return;const body={action,operation_id:recovery?runResult.operation_id:crypto.randomUUID(),...(action==='configure'?{revision:runConfig.revision,enabled:!runConfig.enabled}:{})};if(!recovery&&runPending)return;if(action==='run'){requestedRun=null;workflowChecked=null;workflow=null;workflowRun=null;const url=new URL(location.href);url.searchParams.delete('run_operation_id');history.replaceState(null,'',url);}runBusy=true;lockRun();$('run-message').textContent='正在提交，保留原操作编号…';try{if(!recovery){sessionStorage.setItem(storageKey+':run',JSON.stringify(body));runPending=body;}const result=await request(body,'api/weekly/run');if(action==='configure'){runConfig=result;runPending=null;sessionStorage.removeItem(storageKey+':run');}else{runResult=result;if(!runUnresolved(result)){runPending=null;sessionStorage.removeItem(storageKey+':run');}}renderRun();$('run-message').textContent=action==='configure'?'已记录当前管理员的计划设置。':'已返回原任务状态；未自动发布活动。';}catch(e){if(!recovery&&e.status&&e.status<500){runPending=null;sessionStorage.removeItem(storageKey+':run');}else if(!recovery&&action!=='configure')runResult={status:'unknown',operation_id:body.operation_id};$('run-message').textContent='操作未能确认：'+e.message+'。原 operationId：'+body.operation_id+'；请读取状态并沿原编号核对，不换 ID 重发。';renderRun();}finally{runBusy=false;lockRun();}}
-
-let sourceBusy=false,sourcePending=sessionStorage.getItem(storageKey+':public-sources');
-if(sourcePending)$('public-source-id').value=sourcePending;
-function lockSources(){
- const blocked=sourceBusy||!state?.canEdit;
- $('public-source-fields').disabled=blocked||Boolean(sourcePending);
- $('public-source-read').disabled=blocked;
-}
-async function publicSources(event){
- const submit=event.type==='submit';
- if(submit)event.preventDefault();
- if(sourceBusy||!state?.canEdit||submit&&sourcePending)return;
- const id=submit?crypto.randomUUID():$('public-source-id').value.trim();
- if(!/^[0-9a-f-]{36}$/i.test(id)){
-  $('public-source-status').textContent='请输入原操作编号。';
-  return;
- }
- const urls=$('public-source-urls').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
- if(submit&&(urls.length<1||urls.length>4||new Set(urls).size!==urls.length)){
-  $('public-source-status').textContent='请填入 1–4 条不同的公开链接。';
-  return;
- }
- const body=submit?{action:'supplement_sources',operation_id:id,sources:{purpose:$('public-source-purpose').value,urls}}:undefined;
- if(submit){
-  sourcePending=id;sessionStorage.setItem(storageKey+':public-sources',id);$('public-source-id').value=id;
- }
- sourceBusy=true;lockSources();$('public-source-result').hidden=true;$('public-source-status').textContent='正在'+(submit?'补抓公开资料':'读取原回执')+'…';
- try{
-  const result=await request(body,'api/weekly/run'+(submit?'':'?operation_id='+encodeURIComponent(id)));
-  if(result.kind!=='public_sources'||result.operation_id!==id)throw Error('回执编号或类型不符');
-  if(result.status!=='pending'&&sourcePending===id){
-   sourcePending=null;sessionStorage.removeItem(storageKey+':public-sources');
-  }
-  $('public-source-status').textContent=result.status==='pending'?'原请求仍在执行。'
-    :result.status==='failed'?'补抓未完成，查看原回执。'
-    :'已读回 '+(result.sources||[]).length+' 条来源。'+({complete:'资料齐全。',partial:'部分字段或来源缺失。',unavailable:'未取得可用字段。'}[result.coverage]||'');
-  $('public-source-output').textContent=JSON.stringify(result,null,2);
-  $('public-source-result').hidden=false;
- }catch(error){
-  if(submit&&[400,403,422].includes(error.status)&&sourcePending===id){
-   sourcePending=null;sessionStorage.removeItem(storageKey+':public-sources');
-  }
-  $('public-source-status').textContent='补抓回执读取失败。原操作编号 '+id+'。'+(error.status===422?'请检查链接和用途。':'请沿该编号读取回执。');
- }finally{sourceBusy=false;lockSources();}
-}
-$('public-source-form').addEventListener('submit',publicSources);
-$('public-source-read').addEventListener('click',publicSources);
-
 $('run-start').addEventListener('click',()=>runAction('run'));$('schedule-toggle').addEventListener('click',()=>runAction('configure'));$('run-read').addEventListener('click',loadRuns);$('run-reconcile').addEventListener('click',()=>runAction('reconcile'));$('run-resume').addEventListener('click',()=>runAction('resume'));
 
 const workflowFieldNames={fc_layout:'球员编排',copy:'文案',benefit_refs:'优惠绑定',title:'页面标题',description:'页面说明',media:'图片素材',product_keys:'商品选择',product_roles:'商品角色',sbc_companions:'SBC 搭档',starts_at:'开始时间',ends_at:'结束时间',preview_enabled:'预览设置',default_language:'页面语言',social_image:'分享图片',path:'页面地址',fc_models:'球员资料'};

@@ -4,7 +4,8 @@ import sys
 import unittest
 
 sys.path.insert(0,str(Path(__file__).parent/'source'))
-from campaign_evidence import collect_player_evidence
+from campaign_evidence import collect_player_evidence, collect_weekly_evidence
+from campaign_public_sources import EA_NEWS_INDEX
 
 AT=datetime(2026,11,9,5,tzinfo=timezone.utc)
 
@@ -22,6 +23,63 @@ class Client:
         return {'content':'FC 27 Aleix García Serrano has useful midfield links. Community opinion, not a verified chemistry calculation.'}
 
 class EvidenceTests(unittest.TestCase):
+    def test_weekly_reuses_complete_primary_evidence_without_scrapling(self):
+        players=[dict(name='Aleix García Serrano/90/CM/Test',model_id='123')]
+        client=Client()
+        def read(_):
+            self.fail('Complete research must not start a Scrapling request')
+        result=collect_weekly_evidence(players,AT,source_limit=20,context_limit=7000,
+                                      primary=lambda rows,at:collect_player_evidence(rows,at,client),read=read)
+        self.assertEqual(result['status'],'available')
+        self.assertNotIn('scrapling',result['coverage'])
+
+    def test_weekly_keeps_original_sources_and_only_passes_matching_card_versions(self):
+        players=[dict(name='Aleix García Serrano/90/CM/Test',model_id='123')]
+        client=Client()
+        bin_url='https://www.futbin.com/27/player/1/test'
+        gg_url='https://www.fut.gg/players/123-aleix-garcia-serrano/27-456/'
+        news=EA_NEWS_INDEX+'/fc-27-bf-thunderstruck'
+        search=client.search
+        client.search=lambda query:{'results':search(query)['results']+[dict(url=gg_url)]}
+        original_fetch=client.fetch
+        client.fetch=lambda url:original_fetch(url) if url==bin_url else dict(content='FC 26')
+        data={
+            EA_NEWS_INDEX:('ea_news_index',dict(article_url=news)),
+            bin_url:('futbin_card',dict(title='Aleix García Serrano Test 91',usage='23%')),
+            gg_url:('futgg_card',dict(title='Aleix García Serrano Test 90',games_played='1,234')),
+            news:('ea_news',dict(title='Thunderstruck',published_at='2026-11-20',article_summary='Official event article.')),
+        }
+        calls=[]
+        def read(request):
+            calls.append(request)
+            return dict(sources=[
+                dict(url=url,source_kind=data[url][0],status='observed',fetched_at=AT.isoformat(),
+                     fields={key:dict(value=value,selector='fixture selector') for key,value in data[url][1].items()})
+                for url in request['urls']])
+        result=collect_weekly_evidence(players,AT,source_limit=20,context_limit=7000,
+                                      primary=lambda rows,at:collect_player_evidence(rows,at,client),read=read)
+        self.assertEqual([call['urls'] for call in calls],[[EA_NEWS_INDEX,bin_url,gg_url],[news]])
+        self.assertEqual([source['url'] for source in result['sources']],[bin_url,gg_url,news])
+        self.assertIn('games_played: 1,234',result['context'])
+        self.assertNotIn('23%',result['context'])
+        self.assertEqual(result['coverage']['scrapling']['sources'][1]['matched_model_ids'],[])
+        self.assertEqual(result['coverage']['scrapling']['sources'][2]['matched_model_ids'],['123'])
+
+    def test_scrapling_unavailable_preserves_original_research_and_records_attempt(self):
+        client=Client()
+        client.fetch=lambda url:dict(content='FC 26')
+        def read(_):
+            raise TimeoutError('private request detail')
+        result=collect_weekly_evidence([dict(name='Aleix García Serrano/90/CM/Test',model_id='123')],AT,
+                                      source_limit=20,context_limit=7000,
+                                      primary=lambda rows,at:collect_player_evidence(rows,at,client),read=read)
+        self.assertEqual(result['status'],'unavailable')
+        self.assertEqual(result['coverage']['scrapling']['error'],'public_source_worker_unavailable')
+        self.assertEqual(result['coverage']['scrapling']['sources'][0]['url'],EA_NEWS_INDEX)
+        self.assertEqual(result['coverage']['scrapling']['sources'][0]['status'],'worker_unavailable')
+        self.assertTrue(result['coverage']['scrapling']['sources'][0]['attempted_at'])
+        self.assertNotIn('private request detail',str(result))
+
     def test_fetches_only_allowed_sources_and_freezes_real_text_and_hash(self):
         client=Client();result=collect_player_evidence([{'name':'Aleix García Serrano','model_id':'123'}],AT,client)
         self.assertEqual(result['status'],'available');self.assertEqual(len(client.fetched),2)

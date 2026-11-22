@@ -155,7 +155,7 @@ class CampaignWeekly:
     def __init__(self,host,recommendations,*,cli=node_cli,evidence=None):
         self.host,self.recommendations,self.cli=host,recommendations,cli
         self.evidence=evidence
-        self.public_sources=PublicSources(host.tasks,clock=host.clock)
+        self.public_sources=PublicSources(host.tasks)
         with host.tasks.db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS campaign_weekly_grant(id INTEGER PRIMARY KEY,revision INTEGER,owner TEXT,enabled INTEGER,operation_id TEXT,granted_at TEXT)')
             db.execute('CREATE TABLE IF NOT EXISTS campaign_weekly_changes(owner TEXT,operation_id TEXT,request_hash TEXT,result TEXT,PRIMARY KEY(owner,operation_id))')
@@ -243,8 +243,11 @@ class CampaignWeekly:
             if trio_review is not None:
                 evidence=reviewed_trio_evidence(trio_review,players)
             elif self.evidence is None:
-                from campaign_evidence import collect_player_evidence
-                evidence=collect_player_evidence([dict(name=p['name'].split('/',1)[0].strip(),model_id=p['model_id']) for p in players],self.host.clock())
+                from campaign_evidence import collect_weekly_evidence
+                update=value['sbc_update']
+                evidence=collect_weekly_evidence(
+                    players,self.host.clock(),source_limit=20-len(update['sources']),
+                    context_limit=7700-len(update['context']))
             else:evidence=self.evidence(players,self.host.clock())
             prepared['research']=dict(status=evidence.get('status'),coverage=evidence.get('coverage'))
             self._update(key,prepared=prepared)
@@ -283,15 +286,6 @@ class CampaignWeekly:
             model_record=self.recommendations._record(key,owner)
             model_result=json.loads(model_record['result']) if model_record and model_record['result'] else {}
             self._update(key,state=state,result=dict(status=state,operation_id=key,stage=stage,error=str(error) if type(error) in (ValueError,RuntimeError,PermissionError) and str(error) in codes else 'campaign_weekly_failed',error_type=type(error).__name__,publication=False,evidence_coverage=evidence.get('coverage') if evidence else None,receipt=model_result.get('receipt')))
-    def supplement_sources(self,key,owner,cookie,request):
-        operation(key)
-        self.recommendations.authorized(owner,cookie)
-        with self.host.tasks.db() as db:
-            if any(db.execute('SELECT 1 FROM '+table+' WHERE operation_id=?',(key,)).fetchone()
-                   for table in ('campaign_weekly_runs','campaign_weekly_changes')):
-                raise ValueError('campaign_request_conflict')
-        return self.public_sources.submit(key,owner,request)
-
     def reconcile(self,key,owner,authority):
         self.recommendations.authorized(owner,authority)
         source_receipt=self.public_sources.lookup(operation(key),owner)
@@ -380,9 +374,7 @@ def handle(handler,method,uri,service):
         elif method=='POST':
             if uri.query or handler.headers.get('X-FS-Advisor-Action')!='submit' or handler.headers.get('Sec-Fetch-Site')!='same-origin':raise PermissionError('campaign_weekly_origin')
             body=read_json(handler,maximum=6500)
-            if body.get('action')=='supplement_sources' and set(body)=={'action','operation_id','sources'}:
-                result=service.supplement_sources(body['operation_id'],owner,cookie,body['sources'])
-            elif body.get('action')=='configure':result=service.configure(body,owner,cookie)
+            if body.get('action')=='configure':result=service.configure(body,owner,cookie)
             elif body.get('action')=='run' and set(body) in ({'action','operation_id'},{'action','operation_id','trio_review'}):
                 if 'trio_review' in body and body['trio_review'] is None:raise ValueError('campaign_trio_review')
                 result=service.run(body['operation_id'],owner,cookie,trio_review=body.get('trio_review'))
