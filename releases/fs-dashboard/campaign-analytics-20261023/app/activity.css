@@ -514,5 +514,42 @@
 .fca-hero-scope a{display:flex;align-items:center;min-height:20px;color:inherit;text-decoration:underline;text-decoration-color:#ffffffa6;text-underline-offset:2px}
 .fca-hero-scope a:hover,.fca-hero-scope a:focus-visible{text-decoration-color:#fff}
 .fca-hero-scope a:focus-visible{outline:2px solid #fff;outline-offset:2px}
-@media(min-width:701px){.fc-activity[data-view="weekly"] .fca-hero-content{padding-top:28px;padding-bottom:24px}.fc-activity[data-view="weekly"] .fca-hero h1{font-size:clamp(39px,4vw,56px);margin-bottom:16px}.fc-activity[data-view="weekly"] .fca-hero-preview{margin-bottom:16px}}
-@media(max-width:700px){.fc-activity[data-view="weekly"] .fca-hero-content{padding-top:18px;padding-bottom:18px}.fc-activity[data-view="weekly"] .fca-hero-kicker{margin-bottom:8px}.fc-activity[data-view="weekly"] .fca-hero h1{font-size:clamp(27px,7vw,34px);margin-bottom:12px}.fc-activity[data-view="weekly"] .fca-hero-preview{margin-bottom:2px;padding:8px 14px;min-height:84px;width:min(100%,330px)}.fc-activity[data-view="weekly"] .fca-hero-discount{font-size:31px}.fc-activity[data-view="weekly"] .fca-hero-discount span{font-size:14px}.fc-activity[data-view="weekly"] .fca-hero-scope a{min-height:44px}}
+@media (min-width: 701px) {
+  .fc-activity[data-view="weekly"] .fca-hero-content { padding-block: 24px; }
+  .fc-activity[data-view="weekly"] .fca-hero h1 {
+    max-width: 70%;
+    font-size: clamp(31px, 2.85vw, 40px);
+    line-height: 1.1;
+    margin-bottom: 14px;
+  }
+  .fc-activity[data-view="weekly"] .fca-hero-preview { margin-bottom: 0; }
+}
+
+@media (max-width: 700px) {
+  .fc-activity[data-view="weekly"] .fca-hero-content { padding-block: 16px; }
+  .fc-activity[data-view="weekly"] .fca-hero-kicker { margin-bottom: 8px; }
+  .fc-activity[data-view="weekly"] .fca-hero h1 { font-size: clamp(22px, 6.2vw, 32px); margin-bottom: 10px; }
+  .fca-hero-preview {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(100%, 360px);
+    min-height: 0;
+    margin-bottom: 0;
+    padding: 10px 12px 6px;
+    gap: 2px;
+  }
+  .fca-hero-preview::after { display: none; }
+  .fca-hero-discount { font-size: 23px; }
+  .fca-hero-discount span { font-size: 13px; }
+  .fca-hero-scope {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    margin: 0;
+    font-size: 12px;
+  }
+  .fca-hero-scope a {
+    justify-content: center;
+    min-height: 44px;
+    padding-inline: 2px;
+    text-align: center;
+  }
+}
