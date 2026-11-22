@@ -69,13 +69,29 @@ def amount(row):
     return usd, parts[0], Decimal(parts[1])
 
 
+def track_completion(totals, order, pay_status, usd):
+    if pay_status in (2, '2'):
+        return
+    status = order.get('status_format') if order else None
+    if not isinstance(status, str) or not status.strip():
+        totals['unknown_orders'] += 1
+    elif status.strip() == '已完成':
+        totals['orders'] += 1
+        totals['usd_minor'] += usd
+
+
 def summarize(rows, start, end, game, activity='mmoexp-seasonal'):
     bindings = campaign_bindings(activity)
     codes = {code.casefold(): (native, code, gid, off) for native, code, gid, off in bindings}
     buckets = {code: dict(native_id=native, code=code, game_id=gid, off_percent=off,
                           paid_orders=0, paid_usd_minor=0, refunded_orders=0)
                for native, code, gid, off in bindings if game in ('all', gid)}
-    currencies, seen = defaultdict(Decimal), {}
+    currencies, seen, daily = defaultdict(Decimal), {}, defaultdict(int)
+    completed = dict(orders=0, usd_minor=0, unknown_orders=0) if activity == 'fc27-season2' else None
+    fields = ('site_id', 'gid', 'pay_status', 'paytime', 'discount_code',
+              'amount_usd_format', 'currency_code', 'pay_money_format2')
+    if completed is not None:
+        fields += ('status_format',)
     excluded_unpaid = 0
     for row in rows:
         code = row.get('discount_code')
@@ -91,8 +107,7 @@ def summarize(rows, start, end, game, activity='mmoexp-seasonal'):
         except (KeyError, TypeError, ValueError):
             raise ContractError('PAYMENT_TIME_SCOPE_MISMATCH') from None
         number = identity(row.get('order_no'))
-        signature = canonical({k: row.get(k) for k in ('site_id', 'gid', 'pay_status', 'paytime', 'discount_code',
-                                                      'amount_usd_format', 'currency_code', 'pay_money_format2')})
+        signature = canonical({k: row.get(k) for k in fields})
         if number in seen:
             if seen[number] != signature:
                 raise ContractError('CONFLICTING_DUPLICATE_ORDER')
@@ -112,6 +127,9 @@ def summarize(rows, start, end, game, activity='mmoexp-seasonal'):
         bucket['paid_usd_minor'] += usd
         # Refunded orders retain their payment observation; no unverified refund amount is invented.
         bucket['refunded_orders'] += int(state in (2, '2'))
+        if completed is not None:
+            track_completion(completed, row, state, usd)
+            daily[paid_at.astimezone(timezone.utc).date().isoformat()] += 1
         currencies[currency] += paid
     totals = {k: sum(b[k] for b in buckets.values()) for k in ('paid_orders', 'paid_usd_minor', 'refunded_orders')}
     if totals['paid_usd_minor'] > 9007199254740991:
@@ -120,6 +138,8 @@ def summarize(rows, start, end, game, activity='mmoexp-seasonal'):
                 attribution_level='shared_activity_group' if activity == 'fc27-season2' else 'activity_group',
                 page_allocation='not_available',
                 totals=totals, codes=list(buckets.values()),
+                **({'completed': completed, 'daily': [dict(date=day, paid_orders=daily[day]) for day in sorted(daily)]}
+                   if completed is not None else {}),
                 paid_currencies=[dict(currency=k, amount=format(v, 'f')) for k, v in sorted(currencies.items())],
                 refund_amount=None, net_amount=None, product_allocation='not_available', visitor_join='not_available',
                 coverage=dict(complete=True, source_rows=len(rows), unique_orders=len(seen), excluded_unpaid=excluded_unpaid),
@@ -262,7 +282,10 @@ def coupon_record(row, expected=FC_COUPON):
 def summarize_coupon_usage(coupon, logs, orders, start, end, coupon_ids=(FC_COUPON['id'],), *, game_totals=None):
     """logs: MemberCouponLog rows in the window; orders: whichever Admin orders exist for those logs."""
     by_order, ambiguous_games = {}, set()
+    completed = dict(orders=0, usd_minor=0, unknown_orders=0) if game_totals is None else None
     fields = ('pay_status', 'paytime', 'amount_usd_format')
+    if completed is not None:
+        fields += ('status_format',)
     for row in orders:
         number = identity(str(row.get('order_no')))
         if str(row.get('site_id')) != FC_COUPON['site_id']:
@@ -327,6 +350,8 @@ def summarize_coupon_usage(coupon, logs, orders, start, end, coupon_ids=(FC_COUP
         else:
             usd = coupon_money(logged.get('amount'), 'COUPON_LOG_AMOUNT_INVALID')
             coverage['amounts_from_log'] += 1
+        if completed is not None:
+            track_completion(completed, order, state, usd)
         bucket['paid_orders'] += 1
         bucket['paid_usd_minor'] += usd
         member = log.get('member_id')
@@ -363,6 +388,7 @@ def summarize_coupon_usage(coupon, logs, orders, start, end, coupon_ids=(FC_COUP
     paid_per_use = round(totals['paid_orders'] / totals['used_orders'], 6) if totals['used_orders'] else None
     return dict(status='available', basis='activity_coupon_use_log', activity_id='fc27-season2',
                 coupon=coupon, totals=totals, daily=[daily[k] for k in sorted(daily)],
+                **({'completed': completed} if completed is not None else {}),
                 conversion=dict(claim_to_use=claim_to_use, claim_to_use_scope='cumulative',
                                 paid_per_use=paid_per_use, issued_in_window='not_available'),
                 coverage=coverage, page_allocation='not_available', visitor_join='not_available',
