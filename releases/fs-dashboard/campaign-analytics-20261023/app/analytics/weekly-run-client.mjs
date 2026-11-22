@@ -5,10 +5,12 @@ const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3
 export async function weeklyRunCall({method,body,operation_id,cookie,actor,fetchImpl=fetch}){
  if(!['GET','POST'].includes(method)||typeof cookie!=='string'||!cookie||typeof actor!=='string'||!actor||/[\r\n]/.test(cookie+actor))fail('WEEKLY_SESSION_REQUIRED',403);
  if(method==='POST'){
-  if(!body||Object.keys(body).some(k=>!['action','operation_id','revision','enabled','trio_review'].includes(k))||!['run','configure','reconcile','resume'].includes(body.action)||!uuid(body.operation_id))fail('WEEKLY_RUN_REQUEST_INVALID');
+  if(!body||Object.keys(body).some(k=>!['action','operation_id','revision','enabled','trio_review','sources'].includes(k))||!['run','configure','reconcile','resume','supplement_sources'].includes(body.action)||!uuid(body.operation_id))fail('WEEKLY_RUN_REQUEST_INVALID');
   if(body.action==='configure'&&(!Number.isSafeInteger(body.revision)||body.revision<0||typeof body.enabled!=='boolean'))fail('WEEKLY_RUN_REQUEST_INVALID');
   if(body.action!=='run'&&Object.hasOwn(body,'trio_review'))fail('WEEKLY_RUN_REQUEST_INVALID');
-  if(body.action!=='configure'&&Object.keys(body).some(k=>!['action','operation_id','trio_review'].includes(k)))fail('WEEKLY_RUN_REQUEST_INVALID');
+  if(body.action==='supplement_sources'){
+   if(!body.sources||Object.keys(body).some(k=>!['action','operation_id','sources'].includes(k)))fail('WEEKLY_RUN_REQUEST_INVALID');
+  }else if(Object.hasOwn(body,'sources')||body.action!=='configure'&&Object.keys(body).some(k=>!['action','operation_id','trio_review'].includes(k)))fail('WEEKLY_RUN_REQUEST_INVALID');
   operation_id=body.operation_id;
  }else if(operation_id!=null&&!uuid(operation_id))fail('INVALID_OPERATION_ID');
  let response;
