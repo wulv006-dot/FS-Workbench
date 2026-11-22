@@ -112,6 +112,15 @@ class DiscountRevenueTests(unittest.TestCase):
                 read_revenue(reader,self.request)
             self.assertFalse(any('Order' in route for route,p in reader.calls))
 
+    def test_fc_tracks_completed_orders_separately_from_payment(self):
+        common = dict(gid=1327, discount_code='FCSCOUT10')
+        done = order(**common, status_format='已完成')
+        rows = [done, done, order(**common, order_no='refunded', pay_status=2, status_format='已完成'),
+                order(**common, order_no='pending', status_format='待发货'), order(**common, order_no='unknown')]
+        result = summarize(rows, self.start, self.end, self.game, 'fc27-season2')
+        self.assertEqual(result['totals']['paid_orders'], 4)
+        self.assertEqual(result['completed'], dict(orders=1, usd_minor=15691, unknown_orders=1))
+
     def test_fc_shared_code_actual_paid_orders_not_single_page_conversion(self):
         class Reader:
             def __init__(self): self.calls = []

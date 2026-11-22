@@ -36,6 +36,12 @@
  function renderFcRevenueCard(){if(!fcActivity())return;const card=$('metrics').children[3];if(!card)return;card.innerHTML='<span>活动订单销售额 · USD</span><strong>'+(fcRevenue?.status==='available'?usd(fcRevenue.totals.paid_usd_minor):'—')+'</strong><small>FCSCOUT10 已付款整单金额 · 三页合计；未扣退款'+(fcRevenue?.status==='loading'?' · 正在读取':fcRevenue?.status==='unavailable'?' · 当前缺测':'')+'</small>';}
 
  const usd=minor=>'$'+(minor/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ function completionSummary(completed){
+  if(!completed)return '<p class="muted">已完成订单 · 暂无状态数据。</p>';
+  const {orders,usd_minor,unknown_orders}=completed;
+  return '<p>已完成订单 <strong>'+num(orders)+' 单</strong> · '+usd(usd_minor)
+   +(unknown_orders?' · '+num(unknown_orders)+' 单状态待核':'')+'</p>';
+ }
  async function loadRevenue(filter,force=false){
   const generation=++revenueGeneration;
   let section=$('discount-revenue');if(!section){section=document.createElement('section');section.id='discount-revenue';section.className='panel';$('metrics').after(section);}
@@ -51,7 +57,7 @@
    if(!response.ok||r.status!=='available'||r.coverage?.complete!==true)throw Error(r.message||'付款订单读取未完成');
    if(fc){fcRevenue=r;renderFcRevenueCard();renderCouponPanel();}
    section.innerHTML='<h2 id="revenue-title">'+(fc?'FC三页合计用码付款':'活动码付款收入')+'</h2><p class="muted">'+(fc?'FCSCOUT10 已付款用码订单为三页合计；不归给当前单页，不与单页访客漏斗相除。':'只统计 MMOEXP 的 12 个活动专属码。')+'按上方 UTC 付款日期和游戏筛选；不按访客设备、渠道拆分，不计算访客付款转化率。</p><div class="metrics">'+[['用码付款订单',num(r.totals.paid_orders)],['付款订单金额 · USD',usd(r.totals.paid_usd_minor)],['含退款的付款订单',num(r.totals.refunded_orders)]].map(([k,v])=>'<article class="metric"><span>'+k+'</span><strong>'+v+'</strong></article>').join('')+'</div><p>后台付款显示金额：'+esc(r.paid_currencies.map(x=>x.currency+' '+x.amount).join(' · ')||'当前窗口无付款')+'</p><p class="muted">整单金额采用 Admin 付款订单美元口径；混合购物车不分摊到商品。退款保留原付款记录并另列笔数；退款金额和净收入尚未核实，不按 0 计算。更新时间：'+esc(bjt(r.generated_at))+'（北京时间），最多缓存 10 分钟。</p><div class="report-table-wrap" tabindex="0" role="region" aria-labelledby="revenue-title"><table><thead><tr>'+['游戏','活动专属码','折扣','付款订单','订单金额 · USD','含退款订单'].map(x=>'<th scope="col">'+x+'</th>').join('')+'</tr></thead><tbody>'+r.codes.map(x=>'<tr><th scope="row">'+esc(gameNames[x.game_id]||x.game_id)+'</th><td>'+esc(x.code)+'</td><td>'+num(x.off_percent)+'% OFF</td><td>'+num(x.paid_orders)+'</td><td>'+usd(x.paid_usd_minor)+'</td><td>'+num(x.refunded_orders)+'</td></tr>').join('')+'</tbody></table></div>';
-   if(fc)section.insertAdjacentHTML('beforeend',productSalesHtml(r.product_sales));
+   if(fc){section.querySelector('.metrics').insertAdjacentHTML('afterend',completionSummary(r.completed));section.insertAdjacentHTML('beforeend',productSalesHtml(r.product_sales));}
    if($('payment-read-state'))$('payment-read-state').textContent='活动码付款收入已接入；逐访客结账、付款回传未接入';
   }catch(error){if(generation!==revenueGeneration)return;if(fc){fcRevenue={status:'unavailable'};renderFcRevenueCard();}section.innerHTML='<h2>活动码付款收入</h2><p role="status">'+esc(error.name==='TimeoutError'?'付款订单查询超时，请更新分析重试；未完成不记为零。':error.message)+'</p>';}
  }
@@ -89,7 +95,7 @@
   const cards=[['已领取券 · 累计',num(cp.issued_total)],['已使用券 · 累计',num(cp.used_total)],['领取→使用 · 累计',pctText(rate.claim_to_use)],['窗口内用券订单',num(t.used_orders)],['其中已付款',num(t.paid_orders)],['用券订单付款率',pctText(rate.paid_per_use)],['用券付款金额 · USD',usd(t.paid_usd_minor)],['券抵扣金额 · USD',usd(t.discount_usd_minor)],['用券付款买家',num(t.unique_buyers)],['含退款订单',num(t.refunded_orders)],['用券后90天复购订单',num(t.repurchase_orders)],['90天复购金额 · USD',usd(t.repurchase_usd_minor)]];
   const compare=code?'<p>优惠码（保留）：'+(code.paid_orders==null?'':num(code.paid_orders)+' 单 · ')+usd(code.paid_usd_minor)+'；优惠券：'+num(t.paid_orders)+' 单 · '+usd(t.paid_usd_minor)+'；两者合计：'+(code.paid_orders==null?'':num(code.paid_orders+t.paid_orders)+' 单 · ')+usd(code.paid_usd_minor+t.paid_usd_minor)+'。优惠码与优惠券互斥，不会同时用在一张订单上。</p>':'';
   const rows=c.daily.map(d=>'<tr><th>'+esc(d.date)+'</th><td>'+num(d.used_orders)+'</td><td>'+num(d.paid_orders)+'</td><td>'+usd(d.paid_usd_minor)+'</td></tr>').join('');
-  section.innerHTML='<h2>活动券使用与转化 · FC三页合计</h2><p class="muted">三页共用一张统一券（'+esc(cp.title||'')+'，ID '+esc(cp.coupon_id)+'），不按页面拆分；与优惠码并行统计，原优惠码数据不变。发放与使用累计来自券记录，窗口内使用来自用户优惠券使用记录。</p><div class="metrics">'+cards.map(([k,v])=>'<article class="metric"><span>'+k+'</span><strong>'+v+'</strong></article>').join('')+'</div>'+compare+(rows?'<div class="report-table-wrap"><table><thead><tr><th>日期（UTC）</th><th>用券订单</th><th>已付款</th><th>付款金额 · USD</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p class="muted">当前窗口没有券使用记录。</p>')+'<p class="muted">'+esc(c.note||'')+(c.coverage?.orders_unmatched?' 其中 '+num(c.coverage.orders_unmatched)+' 笔订单在订单列表里未找到，付款状态与金额按用券记录。':'')+'</p>';
+  section.innerHTML='<h2>活动券使用与转化 · FC三页合计</h2><p class="muted">三页共用一张统一券（'+esc(cp.title||'')+'，ID '+esc(cp.coupon_id)+'），不按页面拆分；与优惠码并行统计，原优惠码数据不变。发放与使用累计来自券记录，窗口内按 UTC 用券日统计，完成状态取自 Admin 当前订单。</p><div class="metrics">'+cards.map(([k,v])=>'<article class="metric"><span>'+k+'</span><strong>'+v+'</strong></article>').join('')+'</div>'+completionSummary(c.completed)+compare+(rows?'<div class="report-table-wrap"><table><thead><tr><th>日期（UTC）</th><th>用券订单</th><th>已付款</th><th>付款金额 · USD</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p class="muted">当前窗口没有券使用记录。</p>')+'<p class="muted">'+esc(c.note||'')+(c.coverage?.orders_unmatched?' 其中 '+num(c.coverage.orders_unmatched)+' 笔订单在订单列表里未找到，付款状态与金额按用券记录。':'')+'</p>';
  }
  async function loadCouponUsage(filter,force=false){
   const generation=++couponGeneration;
@@ -251,7 +257,7 @@
   $('mode-notice').textContent='三页共用一份活动汇总 · 服务器按北京时间00:00 / 08:00 / 16:00汇总；页面每10分钟读取快照，手动更新分析读取当前区间最新来源。';
   scheduleStatus.innerHTML='<h2>活动数据更新</h2><p>统计区间：'+esc(v.window.from)+' 至 '+esc(v.window.to)+'（UTC） · 下次计划 '+esc(bjt(v.nextScheduledAt))+'（北京时间）</p>'+Object.entries({behavior:'已授权行为',revenue:'活动订单销售',traffic:'页面请求估算'}).map(([key,label])=>{const source=v.sources?.[key];return '<p>'+label+'：'+(source?.lastSuccess?'本区间已保存 · '+esc(bjt(source.lastSuccess.at)):'本区间尚无完整结果')+(source?.lastAttempt?.status&&source.lastAttempt.status!=='available'?' · 最近读取未完整完成':'')+'</p>';}).join('')+'<p class="muted">Player Trio、Weekly Scout、SBC Core 不重复相加。付款来自FCSCOUT10订单，未扣退款；行为事件不作销量。</p>';
   let section=$('discount-revenue');if(!section){section=document.createElement('section');section.id='discount-revenue';section.className='panel';$('metrics').after(section);}section.hidden=false;
-  section.innerHTML='<h2>FC27三页活动订单销售</h2>'+(revenue?'<div class="metrics">'+[['已付款订单',num(revenue.paidOrders)],['订单销售额 · USD',usd(revenue.paidUsdMinor)],['含退款订单',revenue.refundedOrders==null?'—':num(revenue.refundedOrders)]].map(([label,value])=>'<article class="metric"><span>'+label+'</span><strong>'+value+'</strong></article>').join('')+'</div>':'<p>当前区间付款数据不可用，未记为零。</p>')+'<p class="muted">FCSCOUT10已付款整单金额，混合购物车不分摊到商品；不作为逐访客付款转化率。最后完整读取 '+esc(bjt(v.sources?.revenue?.lastSuccess?.at))+'（北京时间）。</p>'+productSalesHtml(revenue?.product_sales);
+  section.innerHTML='<h2>FC27三页活动订单销售</h2>'+(revenue?'<div class="metrics">'+[['已付款订单',num(revenue.paidOrders)],['订单销售额 · USD',usd(revenue.paidUsdMinor)],['含退款订单',revenue.refundedOrders==null?'—':num(revenue.refundedOrders)]].map(([label,value])=>'<article class="metric"><span>'+label+'</span><strong>'+value+'</strong></article>').join('')+'</div>'+completionSummary(revenue.completed):'<p>当前区间付款数据不可用，未记为零。</p>')+'<p class="muted">按 UTC 付款日筛选，完成状态取自 Admin 当前订单。FCSCOUT10已付款整单金额，混合购物车不分摊到商品；不作为逐访客付款转化率。最后完整读取 '+esc(bjt(v.sources?.revenue?.lastSuccess?.at))+'（北京时间）。</p>'+productSalesHtml(revenue?.product_sales);
   $('feedback').textContent='FC27三页统一快照已读取；完整零值与来源缺测分别显示。';
  }
  async function refreshScheduled(gen){

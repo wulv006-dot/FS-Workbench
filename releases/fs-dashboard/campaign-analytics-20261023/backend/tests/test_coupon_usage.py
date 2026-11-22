@@ -287,5 +287,18 @@ class CouponUsageTests(unittest.TestCase):
         self.assertNotIn('member_id', str(value))
 
 
+
+class FcCouponCompletionTests(unittest.TestCase):
+    def test_only_admin_completed_orders_count(self):
+        request = dict(action='coupon_usage', site_id='266', activity='fc27-season2',
+                       **{'from': '2026-11-16', 'to': '2026-11-16'})
+        reader = Reader(logs=[log(), log('D2'), log('D3'), log('D4')],
+                        orders=[order(status_format='已完成'), order('D2', status_format='待发货'),
+                                order('D3', pay_status=2, status_format='已完成')])
+        result = read_coupon_usage(reader, request)
+        self.assertEqual(result['totals']['paid_orders'], 4)
+        self.assertEqual(result['completed'], dict(orders=1, usd_minor=11952, unknown_orders=1))
+
+
 if __name__ == '__main__':
     unittest.main()
