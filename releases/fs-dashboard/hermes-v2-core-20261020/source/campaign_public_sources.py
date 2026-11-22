@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 import json
 import re
 import subprocess
@@ -13,6 +13,7 @@ import tempfile
 RUNTIME = '/opt/fs-hermes-fc-public-research-0.5.1/bin/python3.12'
 VERSION = '0.5.1'
 SOURCE_LIMIT = 4
+EA_NEWS_INDEX = 'https://www.ea.com/games/ea-sports-fc/fc-27/news'
 PUBLIC_CONFIG = 'https://www.mmoexp.com/events/api/campaign/config'
 STORE_PAGES = {'Player-Trio.html':'fc27-trio','Weekly-Scout.html':'fc27-weekly','Sbc-Companions.html':'fc27-sbc'}
 SOURCE_PATTERNS = {
@@ -24,6 +25,8 @@ SOURCE_PATTERNS = {
 
 
 def source_kind(url):
+    if url == EA_NEWS_INDEX:
+        return 'ea_news_index'
     if not isinstance(url, str) or len(url) > 300 or not url.isascii() or re.search(r'[\x00-\x20\x7f\\]', url):
         raise ValueError('campaign_public_source_url')
     parts = urlsplit(url)
@@ -41,7 +44,7 @@ def validate_request(body):
         raise ValueError('campaign_public_source_request')
     for url in body['urls']:
         kind = source_kind(url)
-        if body['purpose'] == 'pricing_display' and kind == 'ea_news':
+        if body['purpose'] == 'pricing_display' and kind in ('ea_news', 'ea_news_index'):
             raise ValueError('campaign_public_source_purpose')
     if len(set(body['urls'])) != len(body['urls']):
         raise ValueError('campaign_public_source_request')
@@ -51,7 +54,7 @@ def validate_request(body):
 def field(root, name, selectors, fields, limit=240):
     for selector in selectors:
         result = root.css(selector).getall()
-        value = ' '.join(' '.join(result).split())[:limit]
+        value = ' '.join(re.sub(r'[\x00-\x1f\x7f]', ' ', ' '.join(result)).split())[:limit]
         if value:
             fields[name] = {'value': value, 'selector': selector}
             return
@@ -59,7 +62,21 @@ def field(root, name, selectors, fields, limit=240):
 
 def extract(page, kind, purpose, url):
     fields = {}
-    field(page, 'title', ('h1 ::text', 'head title::text'), fields)
+    field(page, 'title', ('h1 ::text', 'h1::text', 'head title::text'), fields)
+    if kind == 'ea_news_index':
+        selector = 'a[href*="/fc-27/news/"]'
+        for link in page.css(selector):
+            href = urljoin(url, link.attrib['href'])
+            try:
+                if source_kind(href) != 'ea_news':
+                    continue
+            except ValueError:
+                continue
+            label = ' '.join(link.get_all_text(separator=' ',strip=True).split())
+            if re.search(r'\bFootball Ultimate Team\b', label, re.I):
+                fields['article_url'] = dict(value=href, selector=selector+'::attr(href)')
+                break
+        return fields, sorted({'title', 'article_url'} - set(fields))
     if kind == 'ea_news':
         field(page, 'published_at', ('meta[property="article:published_time"]::attr(content)', 'time::attr(datetime)'), fields)
         field(page, 'article_summary', ('meta[name="description"]::attr(content)', 'article p ::text', 'main p ::text'), fields, 420)
@@ -69,6 +86,15 @@ def extract(page, kind, purpose, url):
         if 'title' in fields:
             fields['source_card_id'] = {'value':item,'selector':'URL path'}
             field(page, 'card_summary', ('meta[name="description"]::attr(content)',), fields)
+            if purpose=='activity':
+                # Only preserve explicitly labelled counts. Generic ratings and descriptions are not usage.
+                for selector in ('dl > div', 'tr'):
+                    for row in page.css(selector):
+                        label = ' '.join(row.get_all_text(separator=' ',strip=True).split())
+                        matched = re.fullmatch(r'(Games Played|Usage|Votes)\s*:?\s*([0-9][0-9,]*(?:\.[0-9]+)?%?)',label,re.I)
+                        if matched:
+                            key = matched[1].casefold().replace(' ', '_')
+                            fields[key] = dict(value=matched[2],selector=selector+' / '+matched[1])
     missing = ({'title','published_at','article_summary'} if kind=='ea_news'
                else {'title','source_card_id','card_summary'})
     if purpose == 'pricing_display' and kind in ('futgg_card','futbin_card'):
@@ -194,6 +220,15 @@ def worker(request):
     return json.loads(raw)
 
 
+def read_sources(request, read=worker):
+    data=read(validate_request(request))
+    if (type(data) is not dict or data.get('purpose')!=request['purpose']
+            or [source.get('url') for source in data.get('sources',[])]!=request['urls']
+            or data.get('coverage') not in ('complete','partial','unavailable')):
+        raise ValueError('public_source_worker_contract')
+    return data
+
+
 class PublicSources:
     def __init__(self,tasks,*,worker=worker,clock=lambda:datetime.now(timezone.utc)):
         self.tasks,self.worker,self.clock=tasks,worker,clock
@@ -234,11 +269,7 @@ class PublicSources:
         if row:
             return self.lookup(key,owner)
         try:
-            data=self.worker(request)
-            if (type(data) is not dict or data.get('purpose')!=request['purpose']
-                    or [source.get('url') for source in data.get('sources',[])]!=request['urls']
-                    or data.get('coverage') not in ('complete','partial','unavailable')):
-                raise ValueError('public_source_worker_contract')
+            data=read_sources(request,self.worker)
             result=dict(data,status='completed',kind='public_sources',operation_id=key,
                         engine={'name':'scrapling','version':VERSION},started_at=started,completed_at=self.clock().isoformat())
         except (OSError,RuntimeError,ValueError,TypeError,subprocess.TimeoutExpired):
