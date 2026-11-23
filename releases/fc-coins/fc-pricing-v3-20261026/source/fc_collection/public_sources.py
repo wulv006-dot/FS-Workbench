@@ -19,6 +19,53 @@ REGISTRY['ArabUT']['quote_pc'] = dict(host='www.arab-ut.com', path='/en/coins/qu
 REGISTRY['ArabUT']['prices_table'] = ARAB_PRICE_TABLE
 
 
+# Both observers use fixed public GETs and the existing per-origin permit for each request.
+from .package_reader import IGGM, U4GM, LABELS, parse_packages
+VERSIONS.update(U4GM='u4gm-native-packages-v1', IGGM='iggm-native-packages-v1')
+REGISTRY['IGGM'] = {'cards':dict(host='www.iggm.com',path='/ea-sports-fc/fc-27-coins',max_bytes=2097152)}
+REGISTRY['U4GM'] = {platform:dict(host='www.u4gm.com',path='/fc-27/coins',max_bytes=2097152)
+                    for platform in LABELS}
+for platform, code in (('XBOX','xbox_one_series'),('PC','pc')):
+    REGISTRY['U4GM'][platform]['query']={'server_code':code}
+
+
+def package_adapter(task, transport):
+    from .adapters import SourceUnavailable
+    try:
+        from scrapling import Selector
+    except ImportError:
+        raise ValueError('scrapling_runtime_unavailable') from None
+    source = task['source_id']
+    wanted = task['quantity_scope']['slots']
+    pages = [('cards',IGGM)] if source=='IGGM' else [
+        (p,U4GM+LABELS[p][2]) for p in task['requested_platforms']]
+    offers = []
+    for template, url in pages:
+        try:
+            html = transport.get(template)
+            observed = instant(transport.clock()).isoformat()
+            rows = parse_packages(source, Selector(html), url, wanted, observed)
+        except (SourceUnavailable, OSError, ValueError, ArithmeticError) as exc:
+            if not offers:
+                raise
+            reason = str(exc) if isinstance(exc, SourceUnavailable) else (
+                'transport_unavailable' if isinstance(exc, OSError) else 'adapter_contract_invalid')
+            result = dict(status='partial', reason_code=reason, offers=offers, evidence_hash=fingerprint(offers))
+            if getattr(exc, 'retry_after_seconds', 0):
+                result['retry_after_seconds'] = exc.retry_after_seconds
+            return result
+        for row in rows:
+            size, gift = row['purchase_k'], row['bonus_k']
+            offers.append(dict(platform=row['platform'],region_id=0,currency='USD',settlement_currency='USD',
+                conversion_source='not_required',purchase_quantity=size,bonus_quantity=gift,quantity_unit='K',
+                delivered_quantity=str(Decimal(size)+Decimal(gift)),amount=row['regular_price'],
+                price_basis='ordinary_native_package',delivery_method='comfort_trade',discount_source='public_no_coupon',
+                coupon_excluded=True,auth_state='public',conditional=False,comparable=True,observed_at=observed,
+                selection_verified=True,sanitized_evidence_ref='sha256:'+fingerprint(row)))
+    return dict(status='ok' if len(offers)==len(wanted) else 'partial' if offers else 'failed',
+                reason_code=None if offers else 'ordinary_package_missing',offers=offers,evidence_hash=fingerprint(offers))
+
+
 class ArabPriceTables(HTMLParser):
     sections = {'coins-prices-console': ('PS','XBOX'), 'coins-prices-pc': ('PC',)}
 

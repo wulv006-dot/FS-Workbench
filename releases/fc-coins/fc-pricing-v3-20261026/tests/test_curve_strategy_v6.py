@@ -61,7 +61,27 @@ def position_offers(at, lootbar, u7buy, *, arabut=None, platform='PS'):
 
 
 class FixedCurveCandidates(unittest.TestCase):
-    def test_market_anchor_accepts_the_actual_collector_merchandise_and_arabut_contracts(self):
+    def test_market_anchor_uses_ordinary_package_price_at_each_purchase_quantity(self):
+        from fc_pricing_v3.curve_strategy_v6 import market_anchor_targets
+
+        now = datetime.now(timezone.utc)
+        current, _, _ = fixture()
+        offers = position_offers(now, '7.50', '8.12')
+        large = dict(offers[0], purchase_k='1000', bonus_k='50', regular_price='70')
+        selected = market_anchor_targets('PS', current, offers + [large], now)
+        self.assertEqual(selected['anchors'], {'small': '8.10', 'large': '74.20'})
+        self.assertEqual(selected['market_bands']['large']['current_quotes']['Lootbar']['basis'], 'native')
+        self.assertEqual(selected['market_bands']['large']['current_quotes']['U7Buy']['basis'], 'linear_from_100k')
+
+    def test_ambiguous_large_package_falls_back_to_same_round_small(self):
+        from fc_pricing_v3.curve_strategy_v6 import _position_quotes
+        now = datetime.now(timezone.utc)
+        small = position_offers(now, None, '8')[0]
+        large = dict(small, purchase_k='1000', regular_price='75')
+        quote = _position_quotes('PS', [small, large, dict(large, regular_price='78')], now, '1000')['U7Buy']
+        self.assertEqual((quote['price_usd'], quote['basis']), ('80', 'linear_from_100k'))
+
+    def test_market_anchor_accepts_the_actual_collector_merchandise_and_retires_arabut(self):
         from fc_pricing_v3.curve_strategy_v6 import market_anchor_targets
 
         now = datetime.now(timezone.utc)
@@ -71,27 +91,27 @@ class FixedCurveCandidates(unittest.TestCase):
         offers[2].update(delivery_method='normal')
         result = market_anchor_targets('PS', current, offers, now)
         self.assertEqual(result['fallback'], 'direct')
-        self.assertEqual(result['anchors'], {'small': '8.10', 'large': '81.89'})
-        self.assertIn('ArabUT', result['current_quotes'])
+        self.assertEqual(result['anchors'], {'small': '8.10', 'large': '79.50'})
+        self.assertNotIn('ArabUT', result['current_quotes'])
         offers[0]['comparability_basis'] = 'unknown'
         self.assertTrue(market_anchor_targets('PS', current, offers, now)['floor_only'])
 
-    def test_market_anchor_outages_use_evidenced_ratio_or_floor_only_and_arabut_stays_observation(self):
+    def test_market_anchor_outages_use_evidenced_ratio_or_floor_only_and_ignores_arabut(self):
         from fc_pricing_v3.curve_strategy_v6 import market_anchor_targets
 
         now = datetime.now(timezone.utc)
         current, _, _ = fixture()
         alone = market_anchor_targets('PS', current, position_offers(now, '7.5', None, arabut='1'), now)
-        self.assertEqual(alone['anchors'], {'small': '8.10', 'large': '81.89'})
+        self.assertEqual(alone['anchors'], {'small': '8.10', 'large': '79.50'})
         self.assertEqual(alone['fallback'], 'lootbar_only')
-        self.assertEqual(alone['reference_usd_per_100k']['ArabUT'], '1')
+        self.assertNotIn('ArabUT', alone['reference_usd_per_100k'])
         missing = market_anchor_targets('PS', current, position_offers(now, None, None, arabut='1'), now)
         self.assertEqual(missing['anchors'], {})
         self.assertTrue(missing['floor_only'])
         past = now-timedelta(hours=1)
         history = [dict(round_id='prior', as_of=past.isoformat(), offers=position_offers(past, '6', '8'))]
         replaced = market_anchor_targets('PS', current, position_offers(now, None, '10'), now, history=history)
-        self.assertEqual(replaced['anchors'], {'small': '7.29', 'large': '73.70'})
+        self.assertEqual(replaced['anchors'], {'small': '7.29', 'large': '71.55'})
         self.assertEqual(replaced['ratio_r'], '0.75')
         self.assertEqual(replaced['fallback'], 'u7_ratio')
         unproven = market_anchor_targets('PS', current, position_offers(now, None, '10'), now)
@@ -107,7 +127,7 @@ class FixedCurveCandidates(unittest.TestCase):
                         offers=position_offers(now-timedelta(hours=age), loot, u7))
                    for age, loot, u7 in ((2, '7', '10'), (3, '100', '100'), (1, '6', '8'), (-1, '1', '1'))]
         result = market_anchor_targets('PS', current, position_offers(now, '8', '9'), now, history=history)
-        self.assertEqual(result['anchors'], {'small': '7.56', 'large': '76.43'})
+        self.assertEqual(result['anchors'], {'small': '7.56', 'large': '74.20'})
         self.assertEqual(result['reference_usd_per_100k']['Lootbar'], '7')
         self.assertEqual(result['reference_usd_per_100k']['U7Buy'], '9')
 
@@ -123,15 +143,15 @@ class FixedCurveCandidates(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'market_anchor_parameters_invalid'):
                     market_anchor_targets('PS', current, [], datetime.now(timezone.utc), parameters=parameters)
 
-    def test_market_anchor_initial_parameters_price_the_actual_delivered_quantity(self):
+    def test_market_anchor_initial_parameters_price_the_purchased_quantity(self):
         from fc_pricing_v3.curve_strategy_v6 import market_anchor_targets
 
         now = datetime.now(timezone.utc)
         current, _, _ = fixture()
         for platform, lootbar, u7buy, expected in (
-                ('PS', '7.875', '8.12', {'small': '8.10', 'large': '81.89'}),
-                ('XBOX', '7.875', '8.12', {'small': '8.10', 'large': '81.89'}),
-                ('PC', '6.8775', '7.72', {'small': '7.34', 'large': '74.21'})):
+                ('PS', '7.875', '8.12', {'small': '8.12', 'large': '81.20'}),
+                ('XBOX', '7.875', '8.12', {'small': '8.12', 'large': '81.20'}),
+                ('PC', '6.8775', '7.72', {'small': '7.49', 'large': '74.88'})):
             offers = [dict(platform=platform, source=source, purchase_k='100', currency='USD',
                 promotion_eligibility='all_customers', conditional=False, comparable=True, region_id=0,
                 delivery_method='comfort_trade', captured_at=now.isoformat(), regular_price=price, bonus_k=bonus)

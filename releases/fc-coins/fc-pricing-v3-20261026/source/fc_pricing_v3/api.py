@@ -284,17 +284,30 @@ def manual_execution_progress(db, operations):
     return progress
 
 
-def _curve_market_quotes(snapshot):
-    from .competitor_offers import CURRENT_QUANTITIES, POLICY, quantity_coverage
-
+def _curve_market_quotes(snapshot, observation=None):
+    from .competitor_offers import (CURRENT_QUANTITIES, FOUR_SOURCE_POLICY, LEGACY_POLICY, LEGACY_SOURCES,
+                                    POLICY, PRICING_SOURCES, SOURCES, quantity_coverage)
+    policy = snapshot['evidence'].get('competitor_policy', LEGACY_POLICY)
+    requested = CURRENT_QUANTITIES if policy in (POLICY, FOUR_SOURCE_POLICY) else ('100',)
+    sources = {POLICY: PRICING_SOURCES, FOUR_SOURCE_POLICY: SOURCES}.get(policy, LEGACY_SOURCES)
+    def public_quote(row):
+        return {key:row.get(key) for key in ('source','platform','purchase_k','bonus_k','currency',
+                'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier','captured_at')}
     offers = [row for row in snapshot['evidence'].get('competitor_offers') or []
-              if row.get('purchase_k') in CURRENT_QUANTITIES]
-    return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY,
+              if row.get('purchase_k') in requested and row.get('source') in sources]
+    monitoring, monitoring_status = {}, {}
+    if policy == POLICY:
+        same_run = observation if observation and observation.get('run_id') == snapshot['snapshot_id'] else {}
+        for source in ('IGGM','U4GM'):
+            status = (same_run.get('package_status', {}).get(source) or {}).get('status')
+            monitoring_status[source] = status if status in ('captured','partial','missing') else 'pending'
+            monitoring[source] = [public_quote(r) for r in same_run.get('package_offers', [])
+                                  if r.get('source') == source and r.get('run_id') == snapshot['snapshot_id']
+                                  and r.get('purchase_k') in requested]
+    return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=policy, monitoring=monitoring, monitoring_status=monitoring_status,
                 snapshot_id=snapshot['snapshot_id'], captured_at=snapshot['created_at'],
-                competitor_coverage=quantity_coverage(offers, requested=CURRENT_QUANTITIES),
-                competitor_offers=[{key:row.get(key) for key in ('source','platform','purchase_k','bonus_k','currency',
-                    'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier',
-                    'captured_at')} for row in offers])
+                competitor_coverage=quantity_coverage(offers, requested=requested, sources=sources),
+                  competitor_offers=[public_quote(row) for row in offers])
 
 
 def read(path):
@@ -449,7 +462,9 @@ def read(path):
                 selection = selections.get(platform, {})
                 rows[platform].update({key: selection[key] for key in ('reference_anchors', 'normal_anchors',
                     'final_anchors', 'cost_protection', 'large_market_reference') if key in selection})
-            return dict(_curve_market_quotes(current), price_basis={'rows': rows}, catalogue_samples=catalogues)
+                rows[platform]['market_observations'] = (selection.get('market_anchor') or {}).get('observations', [])
+            observation = db.get('market_observations',current['snapshot_id'])
+            return dict(_curve_market_quotes(current,observation), price_basis={'rows': rows}, catalogue_samples=catalogues)
         from .engine import price_basis
         original=db.get('pricing_snapshots',snapshot['snapshot_id']) if snapshot else None
         try:basis=price_basis(original['evidence'],instant(original['created_at'])) if original else dict(status='unavailable')

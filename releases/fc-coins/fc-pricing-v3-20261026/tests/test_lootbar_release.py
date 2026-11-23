@@ -26,6 +26,19 @@ import build_stage
 import prepare_manifest as prepare
 
 
+def previous_lootbar_bundle(path, role):
+    # The Lootbar-only updater accepts its own historical inventory.
+    files = {name: ('# fixture ' + name + '\n').encode()
+             for name in updater.LOOTBAR_ROLE_FILES[role] if name != 'manifest.json'}
+    manifest = dict(schema_version=1, role='limited_fc_collector' if role=='node' else 'fc_collection_controller',
+                    production_consume=False, sources=['ArabUT','Lootbar'], credentials=[], business_runtime=False,
+                    sha256={name:hashlib.sha256(body).hexdigest() for name,body in files.items()})
+    with zipfile.ZipFile(path, 'x') as archive:
+        for name, body in files.items():
+            archive.writestr(name, body)
+        archive.writestr('manifest.json', json.dumps(manifest))
+
+
 class LootbarRelease(unittest.TestCase):
     def test_renderer_process_query_keeps_pid_and_counts_only_actual_workers(self):
         container=dict(Id='original-container',Image=updater.LOOTBAR_RENDERER_IMAGE,
@@ -63,7 +76,7 @@ class LootbarRelease(unittest.TestCase):
 
     def role_fixture(self,folder,stack,role,*,arab_table=False):
         root=Path(folder)/role;(root/'code/fc_collection').mkdir(parents=True);stage=Path(folder)/'stage';stage.mkdir()
-        bundle=stage/(role+'.zip');builder.build(bundle,role)
+        bundle=stage/(role+'.zip');previous_lootbar_bundle(bundle,role)
         with zipfile.ZipFile(bundle) as z:
             new_digest=hashlib.sha256(z.read('manifest.json')).hexdigest()
             old_files={n:z.read(n) for n in z.namelist() if n!='manifest.json'}
@@ -162,9 +175,13 @@ class LootbarRelease(unittest.TestCase):
     def test_role_bundle_exact_lists_and_manifest_not_a_renderer_package(self):
         with tempfile.TemporaryDirectory() as folder:
             for role in ('node','control'):
-                p=Path(folder)/(role+'.zip');builder.build(p,role)
+                p=Path(folder)/(role+'.zip');previous_lootbar_bundle(p,role)
                 files=updater.read_lootbar_bundle(p,hashlib.sha256(p.read_bytes()).hexdigest(),role)
                 self.assertEqual(set(files),updater.LOOTBAR_ROLE_FILES[role])
+                newer = Path(folder)/(role+'-market.zip')
+                builder.build(newer, role)
+                with self.assertRaisesRegex(ValueError, 'files'):
+                    updater.read_lootbar_bundle(newer, hashlib.sha256(newer.read_bytes()).hexdigest(), role)
                 self.assertIn('fc_collection/lootbar.py',files)
                 self.assertNotIn('fc_collection/lootbar_browser.py',files)
             with self.assertRaisesRegex(ValueError,'files'):

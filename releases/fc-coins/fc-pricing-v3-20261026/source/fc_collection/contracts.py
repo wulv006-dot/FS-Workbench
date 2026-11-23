@@ -6,7 +6,8 @@ import hashlib
 import json
 import re
 
-SOURCES = {'ItemD2R', 'Lootbar', 'ArabUT'}
+PACKAGE_ORIGINS = {'U4GM':'https://www.u4gm.com','IGGM':'https://www.iggm.com'}
+SOURCES = {'ItemD2R', 'Lootbar', 'ArabUT'} | set(PACKAGE_ORIGINS)
 ARAB_CONSOLE_DELIVERIES = ('normal', 'fast')
 ARAB_WARM_PATHS = {'warm':'/', 'warm_en':'/en', 'warm_en_slash':'/en/', 'warm_ar':'/ar', 'warm_ar_slash':'/ar/'}
 ARAB_PRICE_TABLE = dict(host='arab-ut.com', path='/en/coins/prices', max_bytes=2097153)
@@ -91,7 +92,16 @@ def build_job(parent_run, source_id, context, deadline_at):
         raise ValueError('scope_invalid')
     q = context['quantity_scope']
     table = source_id == 'ArabUT' and q == ARAB_TABLE_SCOPE
-    if table:
+    if source_id in PACKAGE_ORIGINS:
+        slots = q.get('slots') if isinstance(q,dict) else None
+        if (not isinstance(slots,list) or not 0 < len(slots) <= 6 or set(q) != {'slots','quantity_unit'}
+                or q['quantity_unit'] != 'K' or regions != [0]
+                or any(not isinstance(pair,list) or len(pair)!=2 or pair[0] not in platforms
+                       or pair[1] not in ('100','1000') for pair in slots)
+                or slots != sorted([list(pair) for pair in set(map(tuple, slots))])
+                or set(platforms) != {p for p,_ in slots}):
+            raise ValueError('package_slots_invalid')
+    elif table:
         if regions != [21] or context['total_request_budget'] != 1 or context['total_attempt_limit'] != 1:
             raise ValueError('arab_price_table_scope_invalid')
     else:
@@ -146,7 +156,7 @@ def validate_observation(body, task, now):
         raise ValueError('observation_status_invalid')
     if 'platform_errors' in body:
         errors = body['platform_errors']
-        if (task['source_id'] not in ('ArabUT', 'Lootbar') or not isinstance(errors, dict) or not errors
+        if (task['source_id'] not in SOURCES - {'ItemD2R'} or not isinstance(errors, dict) or not errors
                 or set(errors) - set(task['requested_platforms'])):
             raise ValueError('platform_errors_invalid')
         for reason in errors.values():
@@ -233,7 +243,14 @@ def validate_observation(body, task, now):
                 and row.get('source_metadata', {}).get('original_delivery') != 'fast'):
             raise ValueError('source_metadata_invalid')
         key = row['platform'], row['region_id']
-        if table:
+        if task['source_id'] in PACKAGE_ORIGINS:
+            if ([row['platform'], row['purchase_quantity']] not in task['quantity_scope']['slots']
+                    or row['price_basis'] != 'ordinary_native_package' or row['discount_source'] != 'public_no_coupon'
+                    or row['delivery_method'] != 'comfort_trade' or row['auth_state'] != 'public'
+                    or row['coupon_excluded'] is not True or row['conditional'] is not False or row['comparable'] is not True):
+                raise ValueError('package_offer_invalid')
+            key += (row['purchase_quantity'],)
+        elif table:
             key += (row['purchase_quantity'], row['delivery_method'])
         if (row['platform'] not in task['requested_platforms'] or type(row['region_id']) is not int
                 or row['region_id'] not in task['region_scope'] or key in seen):
@@ -252,6 +269,8 @@ def validate_observation(body, task, now):
         delivered = quantity(row['delivered_quantity'], row['quantity_unit'])
         valid_quantity = (row['quantity_unit'] == 'K' and row['purchase_quantity'] in ARAB_TABLE_QUANTITIES
                           if table else purchase == 100)
+        if task['source_id'] in PACKAGE_ORIGINS:
+            valid_quantity = row['quantity_unit'] == 'K' and purchase in (100, 1000)
         if not valid_quantity or delivered != purchase + bonus:
             raise ValueError('quantity_identity_invalid')
         decimal(row['amount'])
@@ -283,6 +302,8 @@ def to_fc_quote_rows(accepted, expected_context, now):
         validate_observation(body, expected_context, now)
         for offer in body['offers']:
             key = offer['platform'], offer['region_id']
+            if body['source_id'] in PACKAGE_ORIGINS:
+                key += (offer['purchase_quantity'],)
             if key in seen:
                 raise ValueError('offer_duplicate')
             seen.add(key)
@@ -301,7 +322,11 @@ def to_fc_quote_rows(accepted, expected_context, now):
                 price_basis=offer['price_basis'], discount_source=offer['discount_source'],
                 selection_verified=True, observation_id=body['observation_id'])
             row.update(settlement_currency=offer['settlement_currency'], conversion_source=offer['conversion_source'])
-            if body['source_id'] == 'ArabUT':
+            if body['source_id'] in PACKAGE_ORIGINS:
+                row.update(delivery_tier=None, source_metadata={'price_basis':'ordinary_native_package'},
+                           url=PACKAGE_ORIGINS[body['source_id']]+('/fc-27/coins' if body['source_id']=='U4GM'
+                               else '/ea-sports-fc/fc-27-coins'))
+            elif body['source_id'] == 'ArabUT':
                 expected_deliveries = ('standard',) if offer['platform'] == 'PC' else ARAB_CONSOLE_DELIVERIES
                 if offer['delivery_method'] not in expected_deliveries:
                     continue

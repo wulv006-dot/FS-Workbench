@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 SOURCE=Path(__file__).resolve().parents[1]/'source'
 REPO=SOURCE.parents[3]
 sys.path.insert(0,str(SOURCE))
-from fc_pricing_v3.competitor_offers import POLICY, QUANTITIES, normalize_offers, quantity_coverage, legacy_100k_projection, select_offer
+from fc_pricing_v3.competitor_offers import FOUR_SOURCE_POLICY, LEGACY_POLICY, POLICY, QUANTITIES, normalize_offers, quantity_coverage, legacy_100k_projection, select_offer
 from fc_pricing_v3.selective_sources import source_plan, planned_source_coverage, economic_source_signature
 NOW=datetime.now(timezone.utc)
 
@@ -34,6 +34,40 @@ def snapshot_module():
 
 
 class CompetitorOffersV6(unittest.TestCase):
+    def test_market_cards_keep_pricing_coverage_and_observer_rounds_separate(self):
+        from fc_pricing_v3.api import _curve_market_quotes
+        from fc_pricing_v3.competitor_offers import FOUR_SOURCE_POLICY
+        observer = raw('1000', source='IGGM', regular_price='60')
+        evidence = dict(competitor_policy=POLICY, competitor_offers=[raw(), observer])
+        snapshot = dict(snapshot_id='same', created_at=NOW.isoformat(), evidence=evidence)
+        observation = dict(run_id='same', package_offers=[observer, dict(observer, run_id='older')])
+        market = _curve_market_quotes(snapshot, observation)
+        self.assertEqual(market['competitor_coverage']['optional_sources'], ['Lootbar', 'U7Buy'])
+        self.assertEqual([r['source'] for r in market['competitor_offers']], ['U7Buy'])
+        self.assertEqual([r['regular_price'] for r in market['monitoring']['IGGM']], ['60'])
+        self.assertNotIn('run_id', market['monitoring']['IGGM'][0])
+        self.assertFalse(_curve_market_quotes(snapshot, dict(observation, run_id='older'))['monitoring']['IGGM'])
+        historical = _curve_market_quotes(dict(snapshot, evidence=dict(evidence, competitor_policy=FOUR_SOURCE_POLICY)))
+        self.assertEqual([r['source'] for r in historical['competitor_offers']], ['U7Buy', 'IGGM'])
+        self.assertEqual(historical['monitoring'], {})
+
+    def test_lootbar_public_skus_project_only_small_packages_and_reject_foreign_receipts(self):
+        module = snapshot_module()
+        rows = [raw(q, source='Lootbar', platform='PC', delivery_method=None, delivery_tier=None,
+                    auth_state='public', selection_verified=True, price_basis='public_platform_sku',
+                    discount_source='public_no_coupon', source_metadata=dict(spu_id=1461, platform='PC',
+                    selected_currency='USD', asset_name=name)) for q,name in
+                [('100','100K Safe Coins'), ('1000','1M Safe Coins')]]
+        event = dict(stage='public_sku_complete', run_id='same', source='Lootbar', read_only=True, offers=rows)
+        small, large = module.public_lootbar_packages('same', event)
+        self.assertEqual([(r['platform'],r['purchase_k']) for r in small if r['status']=='valid'], [('PC','100')])
+        self.assertEqual({r['platform'] for r in small if r['status']=='missing'}, {'PS','XBOX'})
+        self.assertEqual([(r['platform'],r['purchase_k']) for r in large], [('PC','1000')])
+        for invalid in (dict(event, run_id='earlier'), dict(event, offers=rows+rows),
+                        dict(event, offers=[dict(rows[0],source='IGGM')])):
+            with self.assertRaises(ValueError):
+                module.public_lootbar_packages('same', invalid)
+
     def test_arab_adapters_preserve_official_100k_quote_identity(self):
         from test_collection_bidirectional import BidirectionalCollection, NOW as source_now, native
         from fc_pricing_v3 import market_registry
@@ -49,7 +83,7 @@ class CompetitorOffersV6(unittest.TestCase):
                 patch.object(market_registry, 'datetime', SimpleNamespace(now=lambda _: source_now)):
             local = market_registry.arab_normal()
         remote, _ = BidirectionalCollection().collect()
-        plan = source_plan('smart', dict(competitor_policy=POLICY))
+        plan = source_plan('smart', dict(competitor_policy=LEGACY_POLICY))
         for status in (local, remote):
             coverage = planned_source_coverage(dict(run_id='three-platform', competitor_offers=[],
                 arab_ut_status=status), plan, source_now)
@@ -169,18 +203,21 @@ class CompetitorOffersV6(unittest.TestCase):
         self.assertIn('ItemD2R',old['auxiliary_markets'])
         self.assertIn('U7Buy',old['retired_automatic_sources'])
         plan=source_plan('smart',dict(competitor_policy=POLICY))
-        self.assertEqual(plan['required_markets'],['Lootbar','U7Buy','ArabUT'])
+        self.assertEqual(plan['required_markets'],['Lootbar','U7Buy'])
         self.assertEqual(plan['auxiliary_markets'],[])
         self.assertNotIn('U7Buy',plan['retired_automatic_sources'])
         coverage=planned_source_coverage(dict(run_id='same',competitors=[]),plan,NOW)
         self.assertTrue(coverage['ready']);self.assertEqual(coverage['missing'],[])
-        self.assertEqual(len(coverage['optional_missing']),9)
+        self.assertEqual(len(coverage['optional_missing']),12)
+        historical=source_plan('smart',dict(competitor_policy=FOUR_SOURCE_POLICY))
+        old_coverage=planned_source_coverage(dict(run_id='same',competitors=[]),historical,NOW)
+        self.assertEqual(len(old_coverage['optional_missing']),24)
         self.assertNotIn('floor',coverage['pricing_source_policy'])
         with_one=planned_source_coverage(dict(run_id='same',competitor_offers=[raw(),raw('5000')]),plan,NOW)
-        self.assertEqual(len(with_one['optional_missing']),8)
+        self.assertEqual(len(with_one['optional_missing']),11)
         self.assertEqual(len(with_one['normalized_offers']),1)
         self.assertEqual(with_one['normalized_offers'][0]['purchase_k'],'100')
-        self.assertTrue(all(r['purchase_k']=='100' for r in with_one['optional_missing']))
+        self.assertTrue(all(r['purchase_k'] in ('100','1000') for r in with_one['optional_missing']))
 
     def test_quantity_snapshot_keeps_native_rows_and_rejects_forged_scope(self):
         module=snapshot_module()
@@ -217,7 +254,7 @@ class CompetitorOffersV6(unittest.TestCase):
             summary,ready=module.collect_once('00000000-0000-4000-8000-000000000099',POLICY)
         self.assertTrue(ready)
         public_call = next(call for call in run.call_args_list if call.args[0][0] == str(module.PUBLIC_COLLECTOR))
-        self.assertEqual(public_call.args[0][-2:],['U7Buy','100'])
+        self.assertEqual(public_call.args[0][-2:],['U7Buy','100,1000'])
         self.assertNotIn('ItemD2R',str(run.call_args_list))
         cost_call = next(call for call in run.call_args_list if call.args[0][0] == str(module.COST_COLLECTOR))
         self.assertEqual(json.loads(cost_call.kwargs['env']['FC_V6_COST_REFERENCES']),
@@ -260,6 +297,7 @@ class CompetitorOffersV6(unittest.TestCase):
                     return (rate if recovered else missing), second_failure
 
                 with patch.object(module, 'ROOT', Path(folder)), \
+                        patch('fc_collection.package_routes.read_node', side_effect=AssertionError('observer in pricing path')), \
                         patch.object(module, 'collect_market_sources', return_value=([], market_rows, list(warnings))) as market, \
                         patch.object(module, 'collect_order_cost', side_effect=collect_cost) as cost, \
                         patch.object(module, 'collect_fx', side_effect=collect_fx), \
@@ -276,6 +314,8 @@ class CompetitorOffersV6(unittest.TestCase):
                 self.assertEqual(stored['fx_retry'], dict(first_failure=timeout, retry_failure=second_failure))
                 self.assertEqual(stored['fx_retry'], summary['fx_retry'])
                 self.assertEqual(stored['source_warnings'], warnings)
+                self.assertNotIn('package_attempts',stored)
+                self.assertEqual(stored['source_coverage']['optional_sources'], ['Lootbar','U7Buy'])
                 self.assertEqual(ready, recovered)
                 self.assertEqual(summary['reason'], second_failure)
 
@@ -302,7 +342,7 @@ class CompetitorOffersV6(unittest.TestCase):
                 fx.assert_called_once()
                 self.assertNotIn('fx_retry', save.call_args.args[1])
 
-    def test_snapshot_only_requests_and_records_100k_lootbar_rows(self):
+    def test_snapshot_records_verified_1000k_and_keeps_the_legacy_100k_view(self):
         module=snapshot_module()
         offers={p:dict(platform=p,base_k='100',bonus_k='5',usd_price='9',coupon_excluded=False) for p in module.PLATFORMS}
         events=[dict(stage='ps_restored'),dict(stage='complete',read_only=True,checked_at=NOW.isoformat(),
@@ -330,11 +370,11 @@ class CompetitorOffersV6(unittest.TestCase):
             _,ready=module.collect_once('00000000-0000-4000-8000-000000000099',POLICY)
         self.assertTrue(ready)
         lootbar_call = next(call for call in run.call_args_list if call.args[0][0] == str(module.COLLECTOR))
-        self.assertNotIn('--native-quantities',lootbar_call.args[0])
+        self.assertIn('--native-quantities',lootbar_call.args[0])
         stored=save.call_args.args[1]
         self.assertEqual([row['purchase_k'] for row in stored['competitors']],['100']*3)
-        self.assertEqual([row['purchase_k'] for row in stored['competitor_offers']],['100']*3)
-        self.assertEqual(stored['source_coverage']['quantity_scope'],['100'])
+        self.assertCountEqual([row['purchase_k'] for row in stored['competitor_offers']], ['100']*3+['1000'])
+        self.assertEqual(stored['source_coverage']['quantity_scope'],['100','1000'])
 
     def test_u7_reader_requests_each_platform_once_preserves_absent_quantities(self):
         file=REPO/'fc27_cloud_browser/collect_competitor_browser.py'
@@ -426,6 +466,42 @@ class CompetitorOffersV6(unittest.TestCase):
             self.assertIn('ItemD2R',result['retired_automatic_sources'])
             self.assertNotIn('U7Buy',result['retired_automatic_sources'])
 
+    def test_observer_keeps_monitoring_quotes_outside_the_price_snapshot(self):
+        from fc_pricing_v3 import observations,runtime
+        from fc_pricing_v3.ledger import Ledger
+        run_id = '00000000-0000-4000-8000-000000000099'
+        snapshot = dict(created_at=NOW.isoformat(), evidence=dict(run_id=run_id, competitor_policy=POLICY,
+                        competitor_offers=[], source_plan=source_plan('smart',dict(competitor_policy=POLICY))))
+        def read(node, request, started):
+            source = request['source']
+            if source == 'U4GM':
+                return dict(request, offers=[], errors=['http_403'])
+            offers = [raw(q, source=source, run_id=run_id, platform=p) for p,q in request['wanted']]
+            return dict(request, offers=offers, errors=[])
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'db')
+            db.put('pricing_snapshots',run_id,snapshot)
+            with patch.object(runtime,'ledger',return_value=db),patch('fc_collection.package_routes.read_node',side_effect=read) as reader:
+                result=observations.observe(run_id)
+                self.assertEqual(observations.observe(run_id),result)
+            self.assertEqual(reader.call_count,2)
+            self.assertEqual(result['package_status']['IGGM']['status'],'captured')
+            self.assertEqual(result['package_status']['U4GM']['status'],'missing')
+            self.assertEqual(len(result['package_offers']),6)
+            self.assertEqual(db.get('pricing_snapshots',run_id),snapshot)
+
+    def test_unexpected_reader_failure_keeps_the_other_site_result(self):
+        from fc_pricing_v3.observations import collect_package_observations
+        def read(node, req, started):
+            if req['source'] == 'U4GM':
+                raise RuntimeError('reader failed')
+            return dict(req, offers=[raw(q, source='IGGM', platform=p) for p,q in req['wanted']],errors=[])
+        with patch('fc_collection.package_routes.read_node',side_effect=read):
+            result = collect_package_observations('same', NOW.isoformat())
+        self.assertEqual(result['package_status']['U4GM'],{'status':'missing','errors':['RuntimeError']})
+        self.assertEqual(result['package_status']['IGGM']['status'],'captured')
+        self.assertEqual(len(result['package_offers']),6)
+
     def test_worker_passes_v6_to_snapshot_and_skips_item_without_hiding_cost_failure(self):
         from fc_pricing_v3 import runtime
         tree=ast.parse((SOURCE/'fc27_cloud_worker.py').read_text(encoding='utf-8'))
@@ -440,6 +516,12 @@ class CompetitorOffersV6(unittest.TestCase):
         self.assertEqual(scope['run'].call_args.args[0][-1],POLICY)
         scope['collect_reference_market'].assert_not_called()
         self.assertEqual(job['error_detail'],'P2PAH:missing')
+
+    def test_observer_quotes_do_not_change_the_economic_condition(self):
+        anchors = [raw()]
+        signature = economic_source_signature(dict(competitor_offers=anchors))
+        observed = [raw(source='U4GM', gross_usd='10000'), raw(source='IGGM', gross_usd='.01')]
+        self.assertEqual(economic_source_signature(dict(competitor_offers=anchors + observed)), signature)
 
     def test_economic_signature_includes_high_tiers_eligibility_delivery_and_original_money(self):
         rows=normalize_offers([raw(q) for q in QUANTITIES],'same',NOW)

@@ -106,34 +106,51 @@ def _promotion_guard_parameters(value):
         raise ValueError(invalid) from None
 
 
-def _position_quotes(platform, offers, at):
-    quotes = {}
-    for source in ('Lootbar', 'U7Buy', 'ArabUT'):
-        rows = []
-        for row in offers:
-            if row.get('source') != source:
-                continue
-            method = row.get('delivery_method')
-            merchandise = (source == 'Lootbar' and method in (None, 'standard')
-                and row.get('comparability_basis') == 'lootbar_observed_100k_merchandise_no_delivery_tier')
-            if not (method == 'comfort_trade' or merchandise or source == 'ArabUT' and method in ('normal', 'standard')):
-                continue
-            reference = _linear_market_reference(platform, row, at, '21' if source == 'ArabUT' else '0')
-            if reference:
-                rows.append(reference)
-        if not rows:
+def _position_quotes(platform, offers, at, quantity):
+    """Choose an ordinary same-size package, estimating only a missing 1M tier."""
+    candidates = {}
+    for row in offers:
+        source, size = row.get('source'), row.get('purchase_k')
+        if (source not in ('Lootbar', 'U7Buy') or size not in ('100', quantity)
+                or row.get('platform') != platform or row.get('currency') != 'USD'
+                or str(row.get('region_id') or 0) != '0' or row.get('comparable') is not True
+                or row.get('conditional') is not False or row.get('promotion_eligibility') != 'all_customers'
+                or row.get('extra_bonus_tier') is True):
             continue
-        latest = max(instant(row['captured_at']) for row in rows)
-        rows = [row for row in rows if instant(row['captured_at']) == latest]
-        if len({Decimal(row['usd_per_delivered_100k']) for row in rows}) == 1:
-            quotes[source] = rows[0]
+        merchandise = source == 'Lootbar' and row.get('comparability_basis') in (
+            'lootbar_observed_100k_merchandise_no_delivery_tier', 'lootbar_observed_native_merchandise_no_delivery_tier')
+        if row.get('delivery_method') != 'comfort_trade' and not merchandise:
+            continue
+        try:
+            captured = instant(row['captured_at'])
+            price = Decimal(row['regular_price'])
+            if not price.is_finite() or price <= 0 or not 0 <= (at-captured).total_seconds() <= 900:
+                continue
+        except (ArithmeticError, KeyError, TypeError, ValueError):
+            continue
+        candidates.setdefault(source, {}).setdefault(size, []).append((captured, price, row))
+
+    quotes = {}
+    for source, sizes in candidates.items():
+        for observed in dict.fromkeys((quantity, '100')):
+            if observed not in sizes:
+                continue
+            rows = sizes[observed]
+            latest = max(stamp for stamp, _, _ in rows)
+            latest_rows = [(price, row) for stamp, price, row in rows if stamp == latest]
+            if len({(price, row.get('bonus_k')) for price, row in latest_rows}) != 1:
+                continue
+            price, row = latest_rows[0]
+            quotes[source] = dict(source=source, purchase_k=quantity, observed_purchase_k=observed,
+                price_usd=str(price * (Decimal(quantity) / Decimal(observed))), captured_at=row['captured_at'],
+                basis='native' if quantity == observed else 'linear_from_100k',
+                observation_id=row.get('observation_id'), bonus_k=row.get('bonus_k'))
+            break
     return quotes
 
 
-def market_anchor_targets(platform, current, offers, now, *, parameters=None, history=()):
-    """Compute native anchors from comparable per-delivered-100K market positions."""
-    parameters = market_anchor_parameters(parameters)
-    quotes = _position_quotes(platform, offers, now)
+def _band_market_position(platform, quantity, offers, now, history):
+    quotes = _position_quotes(platform, offers, now, quantity)
     previous = {}
     for row in history:
         try:
@@ -142,11 +159,11 @@ def market_anchor_targets(platform, current, offers, now, *, parameters=None, hi
             continue
         if now - timedelta(days=7) <= at < now and row.get('round_id'):
             if row['round_id'] not in previous or previous[row['round_id']]['at'] < at:
-                previous[row['round_id']] = dict(row, at=at, quotes=_position_quotes(platform, row.get('offers') or [], at))
+                previous[row['round_id']] = dict(row, at=at, quotes=_position_quotes(platform, row.get('offers') or [], at, quantity))
     recent = sorted((row for row in previous.values() if row.get('automatic', True)),
                     key=lambda row: row['at'], reverse=True)[:2]
-    prices = {source: median([Decimal(quote['usd_per_delivered_100k'])] +
-                            [Decimal(row['quotes'][source]['usd_per_delivered_100k'])
+    prices = {source: median([Decimal(quote['price_usd'])] +
+                            [Decimal(row['quotes'][source]['price_usd'])
                              for row in recent if source in row['quotes']])
               for source, quote in quotes.items()}
     pairs = {}
@@ -155,8 +172,8 @@ def market_anchor_targets(platform, current, offers, now, *, parameters=None, hi
             continue
         pair = [observed[source] for source in ('Lootbar', 'U7Buy')]
         if all(instant(row['captured_at']) >= now - timedelta(days=7) for row in pair):
-            key = tuple((row['captured_at'], row['usd_per_delivered_100k']) for row in pair)
-            pairs[key] = Decimal(pair[0]['usd_per_delivered_100k']) / Decimal(pair[1]['usd_per_delivered_100k'])
+            key = tuple((row['captured_at'], row['price_usd']) for row in pair)
+            pairs[key] = Decimal(pair[0]['price_usd']) / Decimal(pair[1]['price_usd'])
     ratio = median(list(pairs.values())) if pairs else None
     gaps = []
     fallback = 'direct' if {'Lootbar', 'U7Buy'} <= prices.keys() else 'lootbar_only'
@@ -168,24 +185,37 @@ def market_anchor_targets(platform, current, offers, now, *, parameters=None, hi
             fallback = 'floor_only'
             if 'U7Buy' in prices:
                 gaps.append('market_anchor_ratio_unavailable')
-    tiers = {row['purchase_k']: row for row in current['tiers']}
-    anchors, low_anchors = {}, {}
-    for band, quantity in (ANCHORS.items() if fallback != 'floor_only' else ()):
-        terms = parameters[platform][band]
-        target = prices['Lootbar'] * (1 + Decimal(terms['p']))
+    return dict(prices=prices, current_quotes=quotes, fallback=fallback, gaps=gaps,
+                ratio_r=str(ratio) if ratio is not None else None, ratio_pairs=len(pairs),
+                median_round_ids=[row['round_id'] for row in recent])
+
+
+def market_anchor_targets(platform, current, offers, now, *, parameters=None, history=()):
+    """Compare ordinary ticket prices at the same purchased quantity."""
+    terms = market_anchor_parameters(parameters)[platform]
+    anchors, low_anchors, bands = {}, {}, {}
+    for band, quantity in ANCHORS.items():
+        position = _band_market_position(platform, quantity, offers, now, history)
+        prices = position.pop('prices')
+        position['reference_package_usd'] = {source: str(price) for source, price in prices.items()}
+        bands[band] = position
+        if position['fallback'] == 'floor_only':
+            continue
+        target = prices['Lootbar'] * (1 + Decimal(terms[band]['p']))
         if 'U7Buy' in prices:
-            target = min(target, prices['U7Buy'] * (1 + Decimal(terms['u'])))
-        delivered = Decimal(quantity) + Decimal(tiers[quantity]['promised_bonus_k'])
-        anchors[band] = str((target * delivered / 100).quantize(CENT, rounding=ROUND_HALF_UP))
-        if 'p_low' in terms:
-            low = prices['Lootbar'] * (1 + Decimal(terms['p_low']))
-            low_anchors[band] = str((low * delivered / 100).quantize(CENT, rounding=ROUND_HALF_UP))
-    result = dict(source='market_anchor', anchors=anchors, parameters=parameters[platform],
-                reference_usd_per_100k={source: str(value) for source, value in prices.items()},
-                median_round_ids=[row['round_id'] for row in recent], current_quotes=quotes,
-                fallback=fallback, floor_only=fallback == 'floor_only', gaps=gaps,
-                ratio_r=str(ratio) if ratio is not None else None, ratio_pairs=len(pairs))
-    if any('p_low' in terms for terms in parameters[platform].values()):
+            target = min(target, prices['U7Buy'] * (1 + Decimal(terms[band]['u'])))
+        anchors[band] = str(target.quantize(CENT, rounding=ROUND_HALF_UP))
+        if 'p_low' in terms[band]:
+            low = prices['Lootbar'] * (1 + Decimal(terms[band]['p_low']))
+            low_anchors[band] = str(low.quantize(CENT, rounding=ROUND_HALF_UP))
+    small = bands['small']
+    result = dict(source='market_anchor', comparison_basis='ordinary_purchase_package',
+                  anchors=anchors, parameters=terms, market_bands=bands,
+                  reference_usd_per_100k=small['reference_package_usd'],
+                  floor_only=not anchors, gaps=sorted({gap for band in bands.values() for gap in band['gaps']}))
+    for key in ('fallback', 'ratio_r', 'ratio_pairs', 'median_round_ids', 'current_quotes'):
+        result[key] = small[key]
+    if any('p_low' in term for term in terms.values()):
         result['low_anchors'] = low_anchors
     return result
 
@@ -200,7 +230,7 @@ def large_market_reference(platform, offers, now, *, region_id, delivery_method)
         return []
     references = []
     for row in offers:
-        if row.get('delivery_method') != delivery_method:
+        if row.get('source') in ('IGGM', 'U4GM') or row.get('delivery_method') != delivery_method:
             continue
         reference = _linear_market_reference(platform, row, now, region_id)
         if reference:

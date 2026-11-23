@@ -99,7 +99,7 @@ def run(config_path, state, run_id, *, recheck_of=None):
     for index in range(2):
         with Session(command) as session:
             current = session.health('183', config['worker_digest'], margin=2)
-        if current['adapters'] != VERSIONS:
+        if current['adapters'].get('ArabUT') != VERSIONS['ArabUT']:
             raise ValueError('pilot_adapter_version_invalid')
         if health and current['node_boot_id'] != health['node_boot_id']:
             raise ValueError('pilot_node_unstable')

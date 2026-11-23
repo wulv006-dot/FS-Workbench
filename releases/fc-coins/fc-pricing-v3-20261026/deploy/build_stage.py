@@ -21,7 +21,7 @@ from target_map import CURVE_INSURANCE_SCOPE, CURVE_INSURANCE_TARGET_COUNT, curv
 from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEKLY_NEW, curve_weekly_targets
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, curve_arab_quote_targets
-from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
+from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS, MARKET_PACKAGE_REPOSITORY_SOURCES
 from target_map import HOURLY_COST_CHANNEL_BASE, HOURLY_COST_CHANNEL_OVERLAY, hourly_cost_channel_overlay
 from target_map import (ORDER_COST_CHANNEL_INSERT, ORDER_COST_CHANNEL_OVERLAY,
                         ORDER_COST_CHANNEL_REPOSITORY, order_cost_channel_overlay)
@@ -78,7 +78,9 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
     if lootbar:paths.extend(LOOTBAR_CALLER_REPOSITORY_SOURCES.values())
     if three_platform:paths.extend(THREE_PLATFORM_REPOSITORY_SOURCES.values())
     if curve_stability:paths.extend(CURVE_STABILITY_REPOSITORY_SOURCES.values())
-    if curve_v6:paths.extend(CURVE_V6_REPOSITORY_SOURCES.values())
+    repository_sources = (MARKET_PACKAGE_REPOSITORY_SOURCES if curve_recovery == 'market-packages'
+                          else CURVE_V6_REPOSITORY_SOURCES if curve_v6 else {})
+    paths.extend(repository_sources.values())
     if channel_overlay is not None:paths.append(ORDER_COST_CHANNEL_REPOSITORY)
     dirty = subprocess.check_output(['git', 'status', '--porcelain', '--', *paths],
                                     cwd=checkout, text=True).strip()
@@ -122,8 +124,8 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             if lootbar and 'source/'+name in LOOTBAR_CALLER_REPOSITORY_SOURCES:original=checkout/LOOTBAR_CALLER_REPOSITORY_SOURCES['source/'+name]
             if three_platform and 'source/'+name in THREE_PLATFORM_REPOSITORY_SOURCES:
                 original=checkout/THREE_PLATFORM_REPOSITORY_SOURCES['source/'+name]
-            if curve_v6 and 'source/'+name in CURVE_V6_REPOSITORY_SOURCES:
-                original=checkout/CURVE_V6_REPOSITORY_SOURCES['source/'+name]
+            if 'source/' + name in repository_sources:
+                original = checkout / repository_sources['source/' + name]
             if curve_stability and 'source/'+name in CURVE_STABILITY_REPOSITORY_SOURCES:
                 original=checkout/CURVE_STABILITY_REPOSITORY_SOURCES['source/'+name]
             destination = candidate / name
@@ -162,6 +164,8 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             provenance['scope'] = CURVE_ARAB_QUOTE_SCOPE
         if curve_recovery:
             provenance['scope'] = CURVE_RECOVERY_SCOPES[curve_recovery]
+        if curve_recovery == 'market-packages':
+            provenance['repositorySources'] = repository_sources
         if curve_recovery == 'hourly-order-cost':
             provenance.update(sourceBaseCommit=HOURLY_COST_CHANNEL_BASE,
                               repositorySources={HOURLY_COST_CHANNEL_OVERLAY['candidate']: ORDER_COST_CHANNEL_REPOSITORY},

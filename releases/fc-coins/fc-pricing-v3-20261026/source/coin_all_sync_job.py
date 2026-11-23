@@ -229,8 +229,7 @@ def curve_price_insurance(before, target, context, *, restore=False):
 
     observed, requested = band_anchors(before), band_anchors(target)
     day = context.get('day_anchors') or {}
-    market = [Decimal(value) for value in context.get('market_per_100k', [])]
-    market = median(market) if market else None
+    market_by_band = context.get('market_per_100k_by_band', {})
     anchors, clipped = {}, {}
     for band, raw in requested.items():
         current, price = Decimal(observed[band]), Decimal(raw)
@@ -248,6 +247,8 @@ def curve_price_insurance(before, target, context, *, restore=False):
         quantity = '100' if band == 'small' else '1000'
         tier = next(row for row in target['tiers'] if row['purchase_k'] == quantity)
         unit = price * 100 / (Decimal(quantity) + Decimal(tier['promised_bonus_k']))
+        values = market_by_band.get(band, context.get('market_per_100k', []))
+        market = median(Decimal(value) for value in values) if values else None
         if market is not None:
             low, high = market * Decimal('.5'), market * 2
             tested = unit

@@ -77,7 +77,7 @@ button:focus-visible,summary:focus-visible,a:focus-visible,input:focus-visible,s
 #v3-panel .market-quote .quote-meta{margin:2px 0}
 #v3-panel .candidate-caption{margin:0 0 8px;color:var(--fs-muted);font-size:13px}
 @media(max-width:640px){#v3-panel .price-strip{grid-template-columns:1fr}}
-</style></head><body class="fs-ui-page"><script src="/__hub/hubnav.js?v=navigation-seo-20261105-c5278648b6dd"></script><main>
+</style></head><body class="fs-ui-page"><script src="/__hub/hubnav.js?v=nav-unified-20261120-d05bb14f7406"></script><main>
 <a href="/dashboard/">← FS经营工作台</a>
 <header class="hero"><div><div class="eyebrow">FC COINS · 自动改价</div><h1>FC 自动改价总控制台</h1><p class="sub">人工干预优先；关闭人工干预后，按经营策略定价，再按开关叠加临时涨幅。</p></div></header>
 <p id="v3-result" role="status"></p>
@@ -131,7 +131,7 @@ button:focus-visible,summary:focus-visible,a:focus-visible,input:focus-visible,s
 </div>
 <p class="footnote">经营重点为全天累计利润和利润率。状态每 5 分钟更新。</p><p id="v3-catalogue-status" class="footnote"></p><p id="v3-public-status" class="footnote">公开价格读回中。</p><details><summary>最近操作与审核依据</summary><p id="v3-review-source" class="break">正在核对执行来源…</p></details></section>
 
-<section class="panel" aria-labelledby="v3-market-title"><div class="head"><h2 id="v3-market-title">竞品 100K 报价</h2><span class="tag">Lootbar 无券 · ItemD2R · Saudi Arabia 普通发货</span></div><p id="v3-market-status" class="quote-state" role="status">正在读取最近采集的价格…</p><p id="v3-market-activity" class="quote-state" role="status" hidden></p><div id="v3-market-cards" class="market-grid" aria-busy="true"></div><details id="v3-market-reference" hidden><summary>采集快照</summary><p id="v3-market-snapshot" class="break"></p></details><p class="footnote">按网站和平台展示购买 100K 的报价，赠送数量单独列出。我方大额段独立核算。页面读取已保存的采集快照。</p></section>
+<section class="panel" aria-labelledby="v3-market-title"><div class="head"><h2 id="v3-market-title">竞品普通档报价</h2><span class="tag">普通购买档</span></div><p id="v3-market-status" class="quote-state" role="status">正在读取最近采集的价格…</p><p id="v3-market-activity" class="quote-state" role="status" hidden></p><div id="v3-market-cards" class="market-grid" aria-busy="true"></div><details id="v3-market-reference" hidden><summary>采集快照</summary><p id="v3-market-snapshot" class="break"></p></details><p class="footnote">按平台比较相同购买量的普通档售价。商品自带赠币单列，额外加赠档不参与比较。</p></section>
 
 
 
@@ -148,4 +148,4 @@ button:focus-visible,summary:focus-visible,a:focus-visible,input:focus-visible,s
 <details><summary>采集连接与来源位置</summary><span id="local-version" class="muted"></span><div class="actions"><fieldset id="collection-location" class="collection-choice" aria-describedby="collection-location-status" disabled><legend>全部原价格来源</legend><label><input type="radio" name="collection-location" value="server"><span>服务器</span></label><label><input type="radio" name="collection-location" value="local"><span>本机 Chrome</span></label></fieldset><button id="collection-location-save" class="secondary" type="button" disabled>保存位置 / 连接此本机</button><a href="/dashboard/fc27-local-collector.zip">本机只读采集组件</a></div><p id="collection-location-status" role="status">读取中…</p><p class="footnote">来源位置不静默回退；本机模式须保持 Chrome、工作台与电脑运行。</p></details>
 <details><summary>既有 Players 公式联动</summary><form id="player-form" class="v2-form"><fieldset><legend>金币确认后计算请求</legend><label><input id="player-enabled" type="checkbox"> 保留原自动金币确认后的 Players 计算请求</label><button type="submit" class="secondary">保存联动开关</button><p id="player-state" role="status"></p><p class="footnote">SBC / Players / Packs 固定公式保持，不新增球员价格抽查。</p></fieldset></form></details></details></section>
 </section><section class="panel" aria-labelledby="v3-daily-title"><h2 id="v3-daily-title">Hermes 每日效果复盘</h2><p>每天 02:20 汇总前一日分时段订单和保存的日常、冲额影子。定价专用通道独立于常规调查和报告；当前阶段只评估和建议。</p><p id="v3-daily-status" role="status">尚未读取每日复盘</p><details><summary>阅读每日复盘全文（以报告日期和当时规则为准）</summary><div id="v3-daily-result" class="hermes-analysis"></div></details></section><footer class="panel"><p>观察顺序：真实执行与公开读回 → 成交与履约成本 → 同范围广告后贡献。历史回执保留原时点，不当作当前新报价。</p><a href="/dashboard/fs-home/brain/index.html">打开 Hermes 真实会话与报告</a><p id="version" class="footnote"></p></footer>
-</main><script src="/dashboard/fc27-local-client.js?v=20261017-switch" defer></script><script src="/dashboard/fc-pricing-v3.js?v=20261117-weekly-ladder" defer></script></body></html>
+</main><script src="/dashboard/fc27-local-client.js?v=20261017-switch" defer></script><script src="/dashboard/fc-pricing-v3.js?v=20261124-package-monitor" defer></script></body></html>

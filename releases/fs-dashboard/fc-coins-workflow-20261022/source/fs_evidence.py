@@ -78,8 +78,12 @@ def current_pricing_market(args, owner, request, legacy):
     if isinstance(market, dict) and market.get('write_protocol') == 'fc27_curve_v6':
         fields = ('write_protocol', 'snapshot_id', 'captured_at', 'competitor_policy',
                   'competitor_coverage', 'competitor_offers', 'price_basis', 'catalogue_samples')
+        policy = market.get('competitor_policy')
+        packages = policy in ('v6_four_source_purchase_packages_v1', 'v6_pricing_packages_observers_separate_v2')
+        if policy == 'v6_pricing_packages_observers_separate_v2':
+            fields += ('monitoring', 'monitoring_status')
         result = {key: market[key] for key in fields if key in market}
-        result.update(http_status=200, profile='FC27', basis='active_plan_100k_market',
+        result.update(http_status=200, profile='FC27', basis='active_plan_package_market' if packages else 'active_plan_100k_market',
                       execution_authorized=False, write_performed=False)
         if not market.get('snapshot_id'):
             return dict(result, status='unavailable', reason='active_curve_snapshot_missing')

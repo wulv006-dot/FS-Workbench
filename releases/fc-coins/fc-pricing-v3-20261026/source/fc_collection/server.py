@@ -14,7 +14,7 @@ import uuid
 
 from .adapters import RestrictedHTTP
 from .protocol import read_message, serve_replay, serve_task, utc, write_message
-from .public_sources import REGISTRY, VERSIONS, arab_adapter
+from .public_sources import REGISTRY, VERSIONS, arab_adapter, package_adapter
 
 
 class Collector:
@@ -23,12 +23,18 @@ class Collector:
             raise ValueError('node_invalid')
         self.identity = dict(node_id=node_id, node_boot_id=uuid.uuid4().hex)
         self.spool, self.digest = Path(spool), digest
+        self.versions = dict(VERSIONS)
+        try:
+            from scrapling import Selector
+        except ImportError:
+            for source in ('U4GM', 'IGGM'):
+                self.versions.pop(source)
 
     def handle(self, reader, writer):
         message = read_message(reader)
         if message == {'method': 'health'}:
             write_message(writer, dict(kind='health', protocol=1, **self.identity,
-                worker_digest=self.digest, adapters=VERSIONS, clock_utc=utc().isoformat(),
+                worker_digest=self.digest, adapters=self.versions, clock_utc=utc().isoformat(),
                 uid=os.getuid() if hasattr(os, 'getuid') else None))
         elif message == {'method': 'resend'}:
             serve_replay(self.identity, self.spool, reader, writer)
@@ -38,7 +44,7 @@ class Collector:
             task = message['task']
             def fetch(source, template, timeout):
                 return render_fetch(task, template, timeout) if source == 'Lootbar' else transport.fetch(source, template, timeout)
-            serve_task(task, self.identity, {'ArabUT': arab_adapter, 'Lootbar': lootbar_adapter}, VERSIONS,
+            serve_task(task, self.identity, {'ArabUT': arab_adapter, 'Lootbar': lootbar_adapter, 'U4GM':package_adapter, 'IGGM':package_adapter}, self.versions,
                        self.spool, fetch, reader, writer)
         else:
             raise ValueError('method_not_allowed')
@@ -48,7 +54,7 @@ def verified_manifest(root):
     raw = (root / 'manifest.json').read_bytes()
     manifest = json.loads(raw)
     expected = {'fc_collection/' + name for name in ('__init__.py', 'contracts.py', 'worker.py',
-        'adapters.py', 'protocol.py', 'public_sources.py', 'server.py', 'lootbar.py')} | {'entry.py'}
+        'adapters.py', 'protocol.py', 'public_sources.py', 'server.py', 'lootbar.py','package_reader.py')} | {'entry.py'}
     if set(manifest.get('sha256', {})) != expected:
         raise ValueError('worker_manifest_invalid')
     for relative, digest in manifest['sha256'].items():
@@ -143,6 +149,10 @@ def main(root):
     if set(config) != {'node_id', 'spool', 'socket'}:
         raise ValueError('node_config_invalid')
     digest = verified_manifest(root)
+    if sys.argv[1] == 'service':
+        python = root.parent / 'venv/bin/python'
+        if python.is_file() and Path(sys.executable) != python:
+            os.execv(str(python), [str(python), '-I', '-B', str(root / 'entry.py'), 'service'])
     if sys.argv[1] == 'relay':
         relay(config['socket'])
     else:

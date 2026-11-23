@@ -30,6 +30,10 @@ class CurrentDashboardBaselineTest(unittest.TestCase):
             "周更只选品和保存草稿",
         ):
             self.assertIn(entry, text)
+        package_rule = next(line for line in canonical.decode("utf-8").splitlines()
+                            if line.startswith("`fc27_curve_v6` 按 PS、Xbox、PC 各自全球统一价"))
+        self.assertIn("U4GM、IGGM 仅作观察", package_rule)
+        self.assertIn(package_rule, text.splitlines())
         provenance = json.loads(RUNTIME.with_suffix(".provenance.json").read_text(encoding="utf-8"))
         self.assertEqual(provenance["canonical_sha256"], hashlib.sha256(canonical).hexdigest())
         self.assertEqual(provenance["after_sha256"], hashlib.sha256(runtime).hexdigest())

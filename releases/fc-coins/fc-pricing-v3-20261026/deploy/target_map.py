@@ -311,7 +311,23 @@ def order_cost_channel_overlay(source):
     return source.replace(anchor, anchor + ORDER_COST_CHANNEL_INSERT, 1)
 
 
+MARKET_PACKAGE_BROWSER_FILES = ('collect_lootbar.sh', 'collect_competitor.sh', 'collector/collect_competitor_browser.py')
+MARKET_HERMES_MODULES = ('research.py', 'fs_evidence.py')
+MARKET_PACKAGE_REPOSITORY_SOURCES = {
+    **CURVE_V6_REPOSITORY_SOURCES,
+    **{'source/' + name: 'releases/fs-dashboard/fc-coins-workflow-20261022/source/' + name
+       for name in MARKET_HERMES_MODULES},
+}
 CURVE_RECOVERY_TARGETS = {
+    'market-packages': {
+        **{name: '/opt/fs-hermes-fc/' + name for name in MARKET_HERMES_MODULES},
+        **{name: '/opt/fc27-cloud-browser/' + name for name in
+           ('snapshot_layer.py', 'fc27_cloud_worker.py', 'coin_all_sync_job.py', *MARKET_PACKAGE_BROWSER_FILES)},
+        'fc-pricing-v3.js': '/var/www/dashboard/fc-pricing-v3.js',
+        'fc27-coins.html': '/var/www/dashboard/fc27-coins.html',
+        **module_targets(('api.py', 'competitor_offers.py', 'curve_strategy_v6.py', 'observations.py', 'runtime.py',
+                          'selective_sources.py', 'sources.py', 'weekly_ladder.py'))},
+
     'order-cost': {
         'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
         'channel_source.py': ORDER_COST_CHANNEL_OVERLAY['target'],
@@ -353,6 +369,7 @@ CURVE_RECOVERY_TARGETS = {
 }
 CURVE_RECOVERY_SCOPES = {name: 'fc-pricing-v6-recovery-' + name + '-20261119'
                          for name in CURVE_RECOVERY_TARGETS}
+CURVE_RECOVERY_SCOPES['market-packages'] = 'fc-pricing-v6-market-packages-20261124'
 CURVE_RECOVERY_SCOPES['shared-evidence'] = 'fc-pricing-v6-recovery-shared-evidence-20261120'
 
 

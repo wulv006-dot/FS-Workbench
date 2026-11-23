@@ -275,6 +275,22 @@ class Wiring(unittest.TestCase):
   self.assertFalse(result['write_performed'])
   complete = dict(source, competitor_coverage=dict(source['competitor_coverage'], quantity_coverage_complete=True))
   self.assertEqual(read(args,'real-owner',lambda *_: complete,legacy)['status'],'available')
+  self.assertEqual(result['basis'],'active_plan_100k_market')
+  current = dict(complete, competitor_policy='v6_pricing_packages_observers_separate_v2',
+      competitor_offers=[dict(source='Lootbar',platform='PS',purchase_k='1000',regular_price='57.30')],
+      monitoring={'IGGM':[],'U4GM':[dict(source='U4GM',platform='PC',purchase_k='100')]},
+      monitoring_status={'IGGM':{'status':'missing'},'U4GM':{'status':'partial'}})
+  packages = read(args,'real-owner',lambda *_: current,legacy)
+  self.assertEqual(packages['basis'],'active_plan_package_market')
+  self.assertEqual(packages['competitor_offers'],current['competitor_offers'])
+  self.assertEqual(packages['monitoring'],current['monitoring'])
+  self.assertEqual(packages['monitoring_status'],current['monitoring_status'])
+  self.assertEqual(packages['status'],'available')
+  self.assertNotIn('monitoring',result)
+  former = read(args,'real-owner',lambda *_: dict(current, competitor_policy='v6_four_source_purchase_packages_v1'),legacy)
+  self.assertEqual(former['basis'],'active_plan_package_market')
+  self.assertNotIn('monitoring',former)
+  self.assertNotIn('monitoring_status',former)
   self.assertEqual(read(args,'real-owner',lambda *_: {'global_offers':None},legacy)['legacy'],True)
   self.assertEqual(read(args,'real-owner',lambda *_: {'write_protocol':'fc27_curve_v6','snapshot_id':None},legacy)['status'],'unavailable')
   def unavailable(*_):raise OSError('loopback unavailable')

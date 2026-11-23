@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 
 from fc_pricing_v3 import adapters, runtime, smart
+from fc_pricing_v3.competitor_offers import POLICY
 from fc_pricing_v3.dispatch import CURVE_REJECTED, CURVE_WRITE_PROTOCOL, prewrite_refusal
 from fc_pricing_v3.financial import fingerprint
 from fc_pricing_v3.ledger import Ledger
@@ -20,6 +21,59 @@ from test_price_curve_v6 import EDITOR_CONTRACT
 
 
 class CurveRuntime(unittest.TestCase):
+
+    def test_observation_sites_cannot_supply_price_insurance_or_authorization_evidence(self):
+        from test_curve_strategy_v6 import position_offers
+
+        self.prepare()
+        now = datetime.now(timezone.utc)
+        market = position_offers(now, '8', '10')
+        observers = [dict(market[0], source='IGGM', regular_price='10000'),
+                     dict(market[0], source='U4GM', regular_price='.01')]
+        def insurance(offers):
+            return runtime._curve_insurance_context(self.db, 'PS', {'competitor_offers': offers}, now)
+
+        self.assertEqual(insurance(market + observers), insurance(market))
+        self.assertEqual(insurance(observers), insurance([]))
+
+    def test_new_market_policy_requires_existing_plan_revision_for_execution(self):
+        from fc_pricing_v3.competitor_offers import POLICY, LEGACY_POLICY
+
+        self.prepare()
+        plan = self.db.get('pricing_plans', 'plan')
+        plan.update(write_protocol=CURVE_WRITE_PROTOCOL, parameters={'competitor_policy': LEGACY_POLICY})
+        self.db.put('pricing_plans', 'plan', plan)
+        path = self.root / 'jobs' / 'run.json'
+        policy_stub = patch('automation_policy.load_policy', return_value={'revision': 7, 'interval_minutes': 60})
+        policy_stub.start()
+        self.addCleanup(policy_stub.stop)
+        request = dict(v3_plan_id='plan', natural_curve_cycle=True)
+        path.write_text(json.dumps(dict(kind='v3_cycle', request=request)))
+        with self.assertRaisesRegex(ValueError, 'pricing_curve_market_policy_revision_required'):
+            runtime.collection_scope(self.db, 'run')
+        with self.assertRaisesRegex(ValueError, 'pricing_curve_market_policy_revision_required'):
+            runtime.calculate_curve_cycle(self.db, {'run_id': 'old'}, plan, {'v3_operation_id': 'job'}, runtime.clock())
+        path.write_text(json.dumps(dict(kind='collect', request=dict(write_protocol=CURVE_WRITE_PROTOCOL))))
+        self.assertEqual(runtime.collection_scope(self.db, 'run')['scope']['competitor_policy'], POLICY)
+
+    def test_old_market_receipts_can_be_read_but_cannot_authorize_new_writes(self):
+        from fc_pricing_v3.competitor_offers import FOUR_SOURCE_POLICY, LEGACY_POLICY
+        from fc_pricing_v3.pricing_proof_v6 import CONTRACT
+
+        self.prepare()
+        for old_policy in (LEGACY_POLICY, FOUR_SOURCE_POLICY):
+            with self.subTest(policy=old_policy):
+                evidence = dict(run_id='historical', competitor_policy=old_policy)
+                quote = dict(evidence=evidence, result=dict(strategy_version=runtime.VERSION))
+                receipt = dict(self.bundle, schema_version=runtime.VERSION, financial_contract_version=CONTRACT,
+                               snapshot_id='historical', snapshot_sha256=fingerprint(evidence))
+                receipt.pop('sha256')
+                receipt['sha256'] = fingerprint(receipt)
+                args = (quote, receipt, {}, [PLATFORM], runtime.clock())
+                self.assertEqual(runtime.verify_curve_quote(*args, False, None), receipt)
+                with self.assertRaisesRegex(ValueError, 'pricing_curve_quote_identity_invalid'):
+                    runtime.verify_curve_quote(*args, True, None)
+
     def test_market_activation_requires_the_matching_live_shadow_and_forwards_the_authenticated_actor(self):
         from copy import deepcopy
         from fc_pricing_v3 import api
@@ -175,8 +229,8 @@ class CurveRuntime(unittest.TestCase):
                                        expected_cost_usd='40', safe_cost_usd='40', stress_cost_usd='40', known_fee_usd='0')
             return dict(baskets=baskets, evidence=evidence, domain=domain)
         now = datetime.now(timezone.utc)
-        for loot, u7, expected in (('7.5', '8.12', {'small': Decimal('8.5'), 'large': Decimal('81.89')}),
-                                    ('9.35', '11', {'small': Decimal('10'), 'large': Decimal('102.08')}),
+        for loot, u7, expected in (('7.5', '8.12', {'small': Decimal('8.5'), 'large': Decimal('80.75')}),
+                                    ('9.35', '11', {'small': Decimal('10'), 'large': Decimal('99.11')}),
                                     (None, None, {'small': Decimal('10'), 'large': Decimal('95')})):
             entry = dict(primary_curve=current, all_before=before, editor_contract=editor, native_route=None,
                 primary_inputs={}, all_inputs={}, all_targets={}, price_insurance=dict(
@@ -184,12 +238,12 @@ class CurveRuntime(unittest.TestCase):
             previous = dict(segments={'large': dict(normal='90', target='95', release_rounds=1)}) if loot is None else {}
             runtime._freeze_cost_protection(PLATFORM, entry, inputs, dict(reference=reference, episode=episode),
                 dict(mode='smart', smart_strategy_version='market-anchor-v1'),
-                dict(competitor_offers=position_offers(now, loot, u7, arabut='7')), now, previous)
+                dict(competitor_offers=position_offers(now, loot, u7) + [dict(position_offers(now, '7', None)[0], source='U4GM')]), now, previous)
             frozen = entry['temporary_cost_protection']
             self.assertEqual(frozen['status'], 'PROVEN', frozen)
             self.assertEqual({k: Decimal(v) for k, v in frozen['final_anchors'].items()}, expected)
             self.assertEqual(frozen['preference']['source'], 'market_anchor')
-            self.assertEqual({row['band'] for row in frozen['market_anchor']['observations']}, {'small', 'large'})
+            self.assertNotIn('U4GM', frozen['market_anchor']['current_quotes'])
             if loot is None:
                 self.assertEqual(frozen['segments']['large']['release_rounds'], 2)
                 later = dict(segments=frozen['segments'])
@@ -334,7 +388,8 @@ class CurveRuntime(unittest.TestCase):
         cost = dict(status='valid', platform='PS', source_platform='PS', selected_count=6,
                     sample_contract='latest_3h_valid_order_delivery_median_v1',
                     checked_at=(now - timedelta(minutes=2)).isoformat())
-        evidence = dict(run_id=run, costs={'PS': cost})
+        from fc_pricing_v3.competitor_offers import POLICY
+        evidence = dict(run_id=run, costs={'PS': cost}, competitor_policy=POLICY)
         data = dict(primary_curve=curve, primary_inputs={key: dict(evidence={'smoothed_delivery_cost': cost},
                     domain={'coverage_gaps': []})}, valid_until=(now + timedelta(minutes=10)).isoformat(),
                     readbacks=[dict(path='/admin/goods.Goods/edit?id=' + curve['identity']['id'],
@@ -369,6 +424,9 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(self.db.get('incidents', missing['incident_key'])['state'], 'OPEN')
         data['readbacks'][0]['received_at'] = (now + timedelta(seconds=4)).isoformat()
         collect(natural_curve_cycle=True)
+        with self.db.connect() as conn:
+            queued = {row[0] for row in conn.execute("SELECT id FROM durable_jobs WHERE kind='observe'")}
+        self.assertEqual(queued, {'observe:rejected','observe:superseded','observe:'+run})
         recover(now + timedelta(minutes=11))
         self.assertEqual(self.db.get('incidents', missing['incident_key'])['state'], 'OPEN')
         recover(now + timedelta(seconds=5))
@@ -836,7 +894,8 @@ class CurveRuntime(unittest.TestCase):
         bundle.pop('sha256')
         bundle['sha256'] = fingerprint(bundle)
         self.bundle = bundle
-        plan = dict(plan_id='plan', generation='generation', revision=4, state='ACTIVE', ends_at=None)
+        plan = dict(plan_id='plan', generation='generation', revision=4, state='ACTIVE', ends_at=None,
+                    parameters={'competitor_policy': POLICY})
         self.db.put('metadata', 'generation', {'id': 'generation'})
         self.db.put('pricing_plans', 'plan', plan)
         with self.db.transaction() as conn:

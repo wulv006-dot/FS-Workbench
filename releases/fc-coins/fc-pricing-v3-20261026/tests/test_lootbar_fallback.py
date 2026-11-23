@@ -54,6 +54,48 @@ class LootbarContract(unittest.TestCase):
                 with patch.object(client,'utc',return_value=NOW+timedelta(seconds=121)):
                     self.assertFalse(lootbar.primary_ready())
 
+    def test_empty_187_sku_then_pre_egress_cdp_failure_preserves_183_renderer_budget(self):
+        from fc_collection import client, lootbar, package_routes
+
+        with tempfile.TemporaryDirectory() as folder:
+            database = Path(folder) / 'collection.sqlite3'
+            route = Path(folder) / 'lootbar-routing.json'
+            route.write_text(json.dumps(dict(schema_version=1, remote_result_mode='consume', assignment_generation=1)))
+            route.chmod(0o600)
+            coordinator = Coordinator(database)
+            coordinator.configure_source('Lootbar', lootbar.source_policy(1))
+            with coordinator.package_requests('Lootbar', 'original-run', 3, NOW):
+                pass
+            current = [NOW + timedelta(seconds=8)]
+            coordinator.register_node(identity(), ['Lootbar'], NOW)
+
+            def advance(seconds):
+                current[0] += timedelta(seconds=seconds)
+
+            def reserve_renderer(parent, routing, trigger_hash):
+                self.assertEqual(parent['run_id'], 'original-run')
+                self.assertEqual(parent['created_at'], NOW.isoformat())
+                task = build_job(parent, 'Lootbar', dict(context(), adapter_version=lootbar.VERSION,
+                                 policy_version=lootbar.source_policy(1)['policy_version'],
+                                 total_attempt_limit=1, total_request_budget=128), parent['deadline_at'])
+                coordinator.enqueue(task)
+                lease = coordinator.claim_job(identity(), ['Lootbar'], current[0])
+                return coordinator.reserve_request(identity(), task['job_id'], lease['lease_epoch'],
+                                                   dict(count=128), current[0])
+
+            with patch.object(client, 'DATABASE', database), patch.object(lootbar, 'ROUTING', route), \
+                    patch.object(lootbar, 'datetime') as dt, patch('time.sleep', side_effect=advance) as sleep, \
+                    patch.object(lootbar, 'collect_remote', side_effect=reserve_renderer):
+                dt.now.side_effect = lambda _: current[0]
+                trace = Path(folder) / 'cdp-trace.jsonl'
+                trace.write_text('\n'.join(json.dumps(event) for event in trigger()))
+                with patch.object(client, 'utc', side_effect=lambda: current[0]):
+                    package_routes.wait_for_lootbar_renderer('original-run', trace)
+                permit = lootbar.after_primary_failure('original-run', trigger(), NOW)
+            sleep.assert_called_once_with(52)
+            self.assertEqual(permit['count'], 128)
+            self.assertEqual(current[0], NOW + timedelta(seconds=60))
+
     def test_same_original_trace_reuses_job_and_ACK_without_SSH_or_new_clock(self):
         from fc_collection import lootbar, client
         from fc_collection.lootbar import VERSION, REQUEST_BUDGET, lootbar_adapter

@@ -28,10 +28,10 @@ assert.equal((html.match(/class="price-strip"/g)||[]).length,1);
 for (const platform of ['ps','xbox','pc']) assert(ids.includes('v3-price-large-'+platform));
 assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261117-weekly-ladder/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261124-package-monitor/);
 assert.equal((html.match(/<article data-platform=/g)||[]).length,3);
-assert.match(html,/竞品 100K 报价/);
-assert.match(html,/我方大额段独立核算/);
+assert.match(html,/竞品普通档报价/);
+assert.match(html,/相同购买量的普通档售价.*额外加赠档不参与比较/);
 assert.match(script,/双20只按购买100K、实交100K这一档核算/);
 assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
 assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
@@ -444,6 +444,17 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(elements['v3-price-ps'].textContent,'$8.51');
   assert.match(elements['v3-price-source-ps'].textContent,/后台采样/);
   assert.equal(elements['v3-price-change-ps'].hidden,true);
+  const historicalMarket=curveMarket;
+  curveMarket={...historicalMarket,competitor_policy:'v6_pricing_packages_observers_separate_v2',
+    competitor_coverage:{optional_sources:['Lootbar','U7Buy']},
+    monitoring:{IGGM:[{platform:'PS',purchase_k:'100',regular_price:'10',captured_at:curveCapturedAt}],U4GM:[]},
+    monitoring_status:{IGGM:'partial',U4GM:'pending'}};
+  await elements['v3-refresh'].events.click();
+  const monitorCards=JSON.stringify(elements['v3-market-cards'].children[0]);
+  assert.match(monitorCards,/IGGM · 监控.*我方同档价差 -14.9%.*U4GM · 监控.*本轮尚无监控结果/);
+  assert.doesNotMatch(monitorCards,/Arab-UT/);
+  curveMarket=historicalMarket;
+  await elements['v3-refresh'].events.click();
   const decisionBeforeReadonly=elements['v3-decision-basis'].textContent;
   const sourceBeforeReadonly=elements['v3-source-time'].textContent;
   readonlyJob={job_id:readonlyMarketId,kind:'collect',status:'running'};

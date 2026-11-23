@@ -339,12 +339,15 @@ def run(db, plan_id, now):
             for p in PLATFORMS:
                 selected=selections.get(p) or {}
                 position=selected.get('market_anchor') or {}
-                if selected.get('source')!='market_anchor' or not position.get('reference_usd_per_100k'):
+                if selected.get('source')!='market_anchor' or not (position.get('market_bands') or position.get('reference_usd_per_100k')):
                     raise ValueError('weekly_current_position_unverified')
-                prices=position['reference_usd_per_100k'];terms=position['parameters']
+                terms=position['parameters']
                 blocked[p]={b:[] for b in ANCHORS}
                 for band in ANCHORS:
-                    if position.get('floor_only'):blocked[p][band].append('market_quotes_missing')
+                    market_band=(position.get('market_bands') or {}).get(band, {})
+                    prices=market_band.get('reference_package_usd', position.get('reference_usd_per_100k', {}))
+                    if market_band.get('fallback')=='floor_only' or position.get('floor_only'):
+                        blocked[p][band].append('market_quotes_missing')
                     if 'U7Buy' in prices and 'Lootbar' in prices and money(prices['Lootbar'])*(1+money(terms[band]['p'])) >= money(prices['U7Buy'])*(1+money(terms[band]['u'])):
                         blocked[p][band].append('u7_cap')
                     if band in ((selected.get('cost_protection') or {}).get('segments') or {}):blocked[p][band].append('financial_floor')

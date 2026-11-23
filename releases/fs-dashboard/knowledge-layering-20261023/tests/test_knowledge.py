@@ -46,7 +46,8 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_carnival_discount_20261119')
+        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_market_packages_observers_20261124')
+        self.assertIn('U4GM、IGGM 仅用于监控比价', v['entries'][0]['content'])
         self.assertIn('margin_band.promotion_guard', v['entries'][0]['content'])
         self.assertIn('合法单笔优惠仍可低毛利或亏损', v['entries'][0]['content'])
         for value in ('D-3 至 D-1','三个完整自然日','按金额加权','组合采购毛利率 18%',
