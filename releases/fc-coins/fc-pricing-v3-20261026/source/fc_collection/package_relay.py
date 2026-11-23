@@ -1,4 +1,4 @@
-"""One IGGM request/response per SSH forced-command connection."""
+"""One fixed-source ordinary package receipt per SSH forced-command connection."""
 from pathlib import Path
 import socket
 import subprocess
@@ -11,11 +11,14 @@ from .protocol import read_message, write_message
 
 ROOT = Path('/run/fs-fc-iggm-local')
 ALIAS = 'fs-fc-iggm-readback'
+LOCAL_SOURCES = ('IGGM', 'U4GM')
+WORKER_POLL_SECONDS = 30
+RECEIPT_TIMEOUT_SECONDS = 30  # Three sequential public GETs at up to seven seconds each.
 
 
 def request_local(request, *, root=ROOT, timeout=12):
-    if request['source'] != 'IGGM' or str(uuid.UUID(request['run_id'])) != request['run_id']:
-        raise ValueError('local_iggm_scope')
+    if request['source'] not in LOCAL_SOURCES or str(uuid.UUID(request['run_id'])) != request['run_id']:
+        raise ValueError('local_package_scope')
     if not hasattr(socket, 'AF_UNIX') or not root.is_dir():
         raise OSError('local_relay_unavailable')
     path = root / (request['run_id']+'.sock')
@@ -28,7 +31,7 @@ def request_local(request, *, root=ROOT, timeout=12):
             server.settimeout(timeout)
             conn, _ = server.accept()
             with conn, conn.makefile('rwb', buffering=0) as stream:
-                conn.settimeout(timeout)
+                conn.settimeout(RECEIPT_TIMEOUT_SECONDS)
                 write_message(stream, request)
                 return read_message(stream)
         finally:
@@ -37,11 +40,11 @@ def request_local(request, *, root=ROOT, timeout=12):
 
 def relay(root=ROOT):
     # No user-supplied paths, commands or source URLs on the 187 side.
-    deadline = time.monotonic()+30
+    deadline = time.monotonic()+WORKER_POLL_SECONDS
     while time.monotonic() < deadline:
         for path in sorted(root.glob('*.sock')):
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
-                conn.settimeout(12)
+                conn.settimeout(RECEIPT_TIMEOUT_SECONDS)
                 try:
                     conn.connect(str(path))
                 except (FileNotFoundError, ConnectionRefusedError):
@@ -62,22 +65,25 @@ def local_once(ssh_config=None):
         cmd[1:1] = ['-F', str(ssh_config)]
     with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)) as ssh:
-        watchdog = Timer(55, ssh.kill)
+        watchdog = Timer(7 + WORKER_POLL_SECONDS + RECEIPT_TIMEOUT_SECONDS + 8, ssh.kill)
         watchdog.start()
         try:
             task = read_message(ssh.stdout)
-            if task == {'status':'idle'}:
-                return
-            if task.get('source')!='IGGM':
-                raise ValueError('local_iggm_scope')
-            write_message(ssh.stdin, run_request(task))
+            if task != {'status':'idle'}:
+                if task.get('source') not in LOCAL_SOURCES:
+                    raise ValueError('local_package_scope')
+                write_message(ssh.stdin, run_request(task))
         finally:
             watchdog.cancel()
             ssh.stdin.close()
             try:
-                ssh.wait(timeout=4)
+                code = ssh.wait(timeout=4)
             except subprocess.TimeoutExpired:
                 ssh.kill()
+                ssh.wait()
+                raise
+        if code:
+            raise subprocess.CalledProcessError(code,cmd)
 
 
 if __name__ == '__main__':

@@ -195,13 +195,13 @@ def collect(source, wanted, get):
 
 def run_request(request):
     from scrapling.fetchers import Fetcher
+    if set(request) != {'source','run_id','wanted'} or request['source'] not in ('Lootbar','IGGM','U4GM'):
+        raise ValueError('invalid_package_request')
     run_id = request['run_id']
     wanted = [tuple(pair) for pair in request['wanted']]
     if (str(uuid.UUID(run_id)) != run_id or not wanted or len(wanted)>6 or len(set(wanted))!=len(wanted)
             or any(p not in LABELS or q not in QUANTITIES for p,q in wanted)):
         raise ValueError('invalid_package_request')
-    if request.get('receipt_only'):
-        return dict(run_id=run_id, source=request['source'], offers=[], errors=['source_access_restricted'])
     def get(url):
         return Fetcher.get(url, timeout=7, retries=0, follow_redirects=False, stealthy_headers=False,
                            impersonate=None, headers={'User-Agent':'FS-FC27-PublicPrices/1.0','Accept':'text/html'})
