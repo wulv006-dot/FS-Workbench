@@ -239,6 +239,30 @@ def collector_failure(pattern, before, source):
     return "collector_failed"
 
 
+def public_lootbar_packages(run_id, event):
+    from fc_pricing_v3.competitor_offers import CURRENT_QUANTITIES, legacy_100k_projection, normalize_offers
+    rows = event.get('offers')
+    if (event.get('run_id') != run_id or event.get('source') != 'Lootbar' or event.get('read_only') is not True
+            or not isinstance(rows, list) or not 1 <= len(rows) <= 6):
+        raise ValueError('public_lootbar_receipt_scope')
+    slots = set()
+    for row in rows:
+        if not isinstance(row, dict) or row.get('run_id') != run_id or row.get('source') != 'Lootbar':
+            raise ValueError('public_lootbar_offer_scope')
+        slot = row.get('platform'), row.get('purchase_k')
+        if (slot[0] not in PLATFORMS or slot[1] not in CURRENT_QUANTITIES or slot in slots
+                or row.get('price_basis') != 'public_platform_sku'):
+            raise ValueError('public_lootbar_offer_scope')
+        slots.add(slot)
+    selected = normalize_offers(rows, run_id, datetime.now(timezone.utc))
+    if len(selected) != len(rows) or any(not r['comparable'] for r in selected):
+        raise ValueError('public_lootbar_offer_invalid')
+    small = legacy_100k_projection(selected)
+    seen = {r['platform'] for r in small}
+    small.extend(r for r in missing_competitors(run_id, 'platform_quote_missing') if r['platform'] not in seen)
+    return small, [r for r in selected if r['purchase_k'] == '1000']
+
+
 def collect_market_sources(run_id, *, curve_v6):
     from fc_pricing_v3.competitor_offers import CURRENT_QUANTITIES, normalize_offers
 
@@ -257,9 +281,12 @@ def collect_market_sources(run_id, *, curve_v6):
                 raise ValueError("evidence_file_ambiguous")
             path = Path(after.pop())
             events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
-            valid = lootbar_snapshots(run_id, events)
-            snapshots = [row for row in snapshots if row["source"] != "Lootbar"] + valid
-            if curve_v6:
+            if curve_v6 and events and events[-1].get('stage') == 'public_sku_complete':
+                snapshots, large = public_lootbar_packages(run_id, events[-1])
+                quantity_offers.extend(large)
+            else:
+                snapshots = lootbar_snapshots(run_id, events)
+            if curve_v6 and events[-1].get('stage') != 'public_sku_complete':
                 final = events[-1]
                 for offer in final.get('quantity_offers') or []:
                     if str(offer.get('base_k')) != '1000':

@@ -5,6 +5,39 @@ from fc_collection.package_routes import collect_missing
 
 
 class PackageRouting(unittest.TestCase):
+    def test_direct_readers_share_the_origin_budget_with_each_other(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from fc_collection.coordinator import Coordinator
+        from fc_collection.pilot import source_policy
+        now = datetime.now(timezone.utc)
+        with TemporaryDirectory() as tmp:
+            ledger = Coordinator(Path(tmp) / 'collection.db')
+            ledger.configure_source('IGGM', dict(source_policy(), mode='consume', origin='https://www.iggm.com'))
+            with ledger.package_requests('IGGM', 'primary', 1, now):
+                with self.assertRaisesRegex(ValueError, 'request_budget_unavailable'):
+                    with ledger.package_requests('IGGM', 'concurrent', 1, now):
+                        self.fail('concurrency limit')
+            with ledger.package_requests('IGGM', 'readback', 1, now):
+                pass
+            with self.assertRaisesRegex(ValueError, 'request_budget_unavailable'):
+                with ledger.package_requests('IGGM', 'excess', 1, now):
+                    self.fail('origin budget')
+
+    def test_local_worker_uses_its_own_ssh_config_and_returns_on_idle(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        from fc_collection.package_relay import local_once
+        with patch('fc_collection.package_relay.subprocess.Popen') as launch:
+            process = launch.return_value.__enter__.return_value
+            process.stdout = BytesIO(b'{"status":"idle"}\n')
+            local_once('worker-ssh-config')
+        command = launch.call_args.args[0]
+        self.assertEqual(command[:3], ['ssh', '-F', 'worker-ssh-config'])
+        self.assertEqual(command[-1], 'fs-fc-iggm-readback')
+        self.assertIn('StrictHostKeyChecking=yes', command)
+        process.stdin.write.assert_not_called()
+
     def test_iggm_keeps_primary_and_supplement_and_tries_local_for_remaining_slots(self):
         now = datetime.now(timezone.utc)
         calls = []

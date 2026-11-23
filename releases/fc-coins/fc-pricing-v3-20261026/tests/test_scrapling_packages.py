@@ -8,6 +8,21 @@ from fc_collection.package_reader import parse_packages
 
 @unittest.skipUnless(find_spec('scrapling'), 'run in the separate market-package worker environment')
 class Packages(unittest.TestCase):
+    def test_lootbar_platform_sku_excludes_new_user_coupon_and_special_sale(self):
+        from fc_collection.package_reader import lootbar_rows, lootbar_url
+        stamp = datetime.now(timezone.utc).isoformat()
+        item = dict(id=2322450, info={'asset_name':'1M Safe Coins'}, tradable=True, gift={'gift_num':'50K'},
+                    sell_order={'display_price':{'currency':'USD','price':'72.50','real_price':'63.80','save_price':'8.70'}},
+                    discount_info={'coupon':{'name':'New User 12% OFF Coupon'}})
+        data = dict(msg='OK', data=dict(page_num=1,total_page=1,total_count=2,
+                    items=[item, dict(item, info={'asset_name':'1M Safe Coins Special Sale'})]))
+        rows = lootbar_rows(data, lootbar_url('PC'), {('PS','1000'),('PC','1000')}, stamp)
+        self.assertEqual([(r['platform'], r['regular_price'], r['bonus_k']) for r in rows],
+                         [('PC','72.50','50')])
+        self.assertEqual(lootbar_rows(data, lootbar_url('PS'), {('PS','1000')}, stamp), [])
+        item['discount_info'] = {}
+        self.assertEqual(lootbar_rows(data, lootbar_url('PC'), {('PC','1000')}, stamp), [])
+
     def test_iggm_uses_only_active_tier_and_visible_price_of_the_same_regular_card(self):
         from scrapling import Selector
         card = """<html><body><li class="item shippingCoins"><p class="item-title">FC 27 Coins PS Comfort Trade</p>
@@ -34,3 +49,15 @@ class Packages(unittest.TestCase):
                               [['PS', '100'], ['PS', '1000'], ['PC', '100']], datetime.now(timezone.utc).isoformat())
         self.assertEqual([(row['platform'], row['regular_price'], row['bonus_k']) for row in rows],
                          [('PS', '7.00', '5'), ('PS', '63.00', '0')])
+
+        from unittest.mock import Mock
+        from fc_collection.adapters import SourceUnavailable
+        from fc_collection.public_sources import package_adapter
+        transport = Mock()
+        transport.get.side_effect = [body.encode(), SourceUnavailable('http_429', 90)]
+        transport.clock.return_value = datetime.now(timezone.utc)
+        result = package_adapter(dict(source_id='U4GM', requested_platforms=['PS','PC'],
+            quantity_scope={'slots': [('PS','100'),('PC','100')]}), transport)
+        self.assertEqual((result['status'], result['reason_code'], result['retry_after_seconds']),
+                         ('partial','http_429',90))
+        self.assertEqual([(o['platform'],o['amount']) for o in result['offers']], [('PS','7.00')])

@@ -54,11 +54,14 @@ def relay(root=ROOT):
     write_message(sys.stdout.buffer, {'status':'idle'})
 
 
-def local_once():
+def local_once(ssh_config=None):
     from .package_reader import run_request
     cmd = ['ssh','-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=7',
            '-o','ServerAliveInterval=10','-o','ServerAliveCountMax=2','-o','ForwardAgent=no','-o','ClearAllForwardings=yes',ALIAS]
-    with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE) as ssh:
+    if ssh_config is not None:
+        cmd[1:1] = ['-F', str(ssh_config)]
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                          creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)) as ssh:
         watchdog = Timer(55, ssh.kill)
         watchdog.start()
         try:
@@ -80,10 +83,11 @@ def local_once():
 if __name__ == '__main__':
     if sys.argv[1:] == ['relay']:
         relay()
-    elif sys.argv[1:] == ['local']:
+    elif sys.argv[1:2] == ['local'] and len(sys.argv) in (2, 3):
+        config = Path(sys.argv[2]).resolve(strict=True) if len(sys.argv) == 3 else None
         while True:
             try:
-                local_once()
+                local_once(config)
             except (EOFError, OSError, ValueError, subprocess.SubprocessError):
                 time.sleep(10)
     else:

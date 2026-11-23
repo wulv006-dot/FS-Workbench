@@ -7,6 +7,7 @@ import json
 import re
 import sys
 import uuid
+from urllib.parse import urlencode
 
 IGGM = 'https://www.iggm.com/ea-sports-fc/fc-27-coins'
 U4GM = 'https://www.u4gm.com/fc-27/coins'
@@ -14,6 +15,57 @@ LABELS = {'PS': ('PS', 'PS 4/5', ''), 'XBOX': ('XBOX', 'Xbox One/Series', '?serv
           'PC': ('PC', 'PC', '?server_code=pc')}
 QUANTITIES = ('100', '1000')
 CENT = Decimal('.01')
+LOOTBAR_SKUS = {'PS': {'100': 2120124, '1000': 2322452},
+                'XBOX': {'100': 2120122, '1000': 2322451},
+                'PC': {'100': 2099779, '1000': 2322450}}
+
+
+def lootbar_url(platform):
+    return 'https://api.lootbar.com/api/v2/market/sku/price?' + urlencode(dict(
+        page_num=1, page_size=40, spu_id=1461, attribute=json.dumps(
+            {'platform':platform.lower()}, separators=(',', ':')), dispatch_seller=0, _l='en'))
+
+
+def lootbar_rows(payload, url, wanted, stamp):
+    platform = next((p for p in LABELS if url == lootbar_url(p)), None)
+    page = payload.get('data') or {}
+    items = page.get('items')
+    if (platform is None or payload.get('msg') != 'OK' or not isinstance(items, list)
+            or page.get('page_num') != 1 or page.get('total_page') != 1
+            or page.get('total_count') != len(items)):
+        return []
+    rows = {}
+    duplicates = set()
+    for item in items:
+        name = (item.get('info') or {}).get('asset_name')
+        qty = {'100K Safe Coins':'100', '1M Safe Coins':'1000', '1000K Safe Coins':'1000'}.get(name)
+        if ((platform, qty) not in wanted or item.get('tradable') is not True or item.get('region_error')
+                or item.get('id') != LOOTBAR_SKUS[platform][qty]):
+            continue
+        display = (item.get('sell_order') or {}).get('display_price') or {}
+        if display.get('currency') != 'USD':
+            continue
+        regular, net = amount(display['price']), amount(display['real_price'])
+        coupon = (item.get('discount_info') or {}).get('coupon') or {}
+        if not 0 < net <= regular:
+            continue
+        if regular != net and (not re.fullmatch(r'New User \d+(?:\.\d+)?% OFF Coupon', coupon.get('name',''), re.I)
+                               or regular-net != amount(display.get('save_price'))):
+            continue
+        gift = item.get('gift')
+        bonus = re.fullmatch(r'(\d+(?:\.\d+)?)K', gift.get('gift_num','') if isinstance(gift,dict) else '0K', re.I)
+        if not bonus or gift is not None and not isinstance(gift,dict):
+            continue
+        if qty in rows:
+            duplicates.add(qty)
+        rows[qty] = dict(source='Lootbar', platform=platform, purchase_k=qty, bonus_k=bonus[1],
+                         regular_price=str(regular), gross_usd=str(regular), currency='USD', region_id=0,
+                         effective_usd_per_k=str(regular/(Decimal(qty)+Decimal(bonus[1]))), captured_at=stamp,
+                         url=url, auth_state='public', conditional=False, comparable=True, status='valid',
+                         selection_verified=True, coupon_excluded=True, price_basis='public_platform_sku',
+                         discount_source='public_no_coupon', source_metadata=dict(spu_id=1461, platform=platform,
+                         asset_name=name, sku_id=item['id'], selected_currency='USD', coupon_excluded=regular!=net))
+    return [r for q,r in rows.items() if q not in duplicates]
 
 
 def amount(value):
@@ -101,7 +153,9 @@ def parse_packages(source, doc, url, wanted, stamp):
 
 
 def collect(source, wanted, get):
-    if source == 'IGGM':
+    if source == 'Lootbar':
+        urls = [lootbar_url(p) for p in LABELS if any(platform == p for platform, _ in wanted)]
+    elif source == 'IGGM':
         urls = [IGGM]
     elif source == 'U4GM':
         urls = [U4GM+details[2] for platform, details in LABELS.items() if any(p==platform for p,q in wanted)]
@@ -129,7 +183,11 @@ def collect(source, wanted, get):
             if any(marker in response.body.lower() for marker in (b'cf-chl-', b'challenge-platform', b'g-recaptcha')):
                 errors.append('challenge')
                 break
-            rows.extend(parse_packages(source, response, url, wanted, datetime.now(timezone.utc).isoformat()))
+            stamp = datetime.now(timezone.utc).isoformat()
+            if source == 'Lootbar':
+                rows.extend(lootbar_rows(json.loads(response.body), url, set(wanted), stamp))
+            else:
+                rows.extend(parse_packages(source, response, url, wanted, stamp))
         except (ValueError, TypeError, KeyError, InvalidOperation, OSError) as exc:
             errors.append(type(exc).__name__)
     return rows, errors, max(0, retry_after)

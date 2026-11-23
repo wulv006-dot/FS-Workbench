@@ -1,6 +1,6 @@
 """187-local collection ledger. Network waits never run inside a transaction."""
 from contextlib import contextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -219,6 +219,39 @@ class Coordinator:
             self._save_job(db, task, 'LEASED')
             return task
 
+    def _reserve_origin(self, db, policy, job, epoch, count, now, expires):
+        origin = policy['origin']
+        used = db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits WHERE origin=? AND created>?',
+            (origin, now.timestamp() - policy['window_seconds'])).fetchone()[0]
+        active = db.execute('SELECT COUNT(*) FROM collection_permits p LEFT JOIN collection_permit_completions c '
+            'ON p.id=c.id WHERE p.origin=? AND p.expires>? AND c.id IS NULL',
+            (origin, now.timestamp() - policy['clock_margin_seconds'])).fetchone()[0]
+        if used + count > policy['max_requests'] or active >= policy['concurrency']:
+            raise ValueError('request_budget_unavailable')
+        permit = uuid.uuid4().hex
+        db.execute('INSERT INTO collection_permits VALUES (?,?,?,?,?,?,?)',
+                   (permit, origin, job, epoch, expires.timestamp(), count, now.timestamp()))
+        return permit
+
+    @contextmanager
+    def package_requests(self, source, run_id, count, now):
+        from .contracts import PACKAGE_ORIGINS
+        if source not in {'Lootbar', *PACKAGE_ORIGINS} or type(count) != int or not 1 <= count <= 3:
+            raise ValueError('package_request_scope')
+        now = instant(now)
+        with self.transaction() as db:
+            policy = self._source_ready(db, source, now)
+            origin = 'https://www.lootbar.com' if source == 'Lootbar' else PACKAGE_ORIGINS[source]
+            if not policy or policy['mode'] != 'consume' or policy['origin'] != origin:
+                raise ValueError('collection_source_not_ready')
+            # The local relay and platform group have a 30-second outer deadline.
+            expires = now + timedelta(seconds=max(30, policy['request_timeout_seconds']))
+            permit = self._reserve_origin(db, policy, run_id, 0, count, now, expires)
+        yield
+        with self.transaction() as db:
+            db.execute('INSERT OR IGNORE INTO collection_permit_completions VALUES (?,?)',
+                       (permit, datetime.now(timezone.utc).timestamp()))
+
     def reserve_request(self, identity, job_id, lease_epoch, request_group, now):
         if set(request_group) != {'count'}:
             raise ValueError('request_group_invalid')
@@ -229,22 +262,14 @@ class Coordinator:
             if not task:
                 raise ValueError('lease_invalid')
             policy = self._lease(db, identity, task, lease_epoch, now)
-            origin = policy['origin']
-            used = db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits WHERE origin=? AND created>?',
-                (origin, now.timestamp() - policy['window_seconds'])).fetchone()[0]
-            active = db.execute('SELECT COUNT(*) FROM collection_permits p LEFT JOIN collection_permit_completions c '
-                'ON p.id=c.id WHERE p.origin=? AND p.expires>? AND c.id IS NULL',
-                (origin, now.timestamp() - policy['clock_margin_seconds'])).fetchone()[0]
-            if (used + count > policy['max_requests'] or active >= policy['concurrency']
-                    or task['request_budget_reserved'] + count > task['total_request_budget']):
+            if task['request_budget_reserved'] + count > task['total_request_budget']:
                 raise ValueError('request_budget_unavailable')
             expires = min(now + timedelta(seconds=policy['request_timeout_seconds']), instant(task['deadline_at']))
-            permit = dict(permit_id=uuid.uuid4().hex, job_id=job_id, lease_epoch=lease_epoch,
+            permit_id = self._reserve_origin(db, policy, job_id, lease_epoch, count, now, expires)
+            permit = dict(permit_id=permit_id, job_id=job_id, lease_epoch=lease_epoch,
                           node_id=identity['node_id'], node_boot_id=identity['node_boot_id'],
                           count=count, issued_at=now.isoformat(), expires_at=expires.isoformat(),
                           clock_margin_seconds=policy['clock_margin_seconds'])
-            db.execute('INSERT INTO collection_permits VALUES (?,?,?,?,?,?,?)',
-                (permit['permit_id'], origin, job_id, lease_epoch, expires.timestamp(), count, now.timestamp()))
             task['request_budget_reserved'] += count
             self._save_job(db, task, 'LEASED')
             return permit

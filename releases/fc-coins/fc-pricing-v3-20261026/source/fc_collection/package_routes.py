@@ -86,6 +86,40 @@ def record_restriction(request, receipt):
     return receipt
 
 
+def package_permit(request):
+    from .client import DATABASE, utc
+    from .coordinator import Coordinator
+    if not DATABASE.is_file() or DATABASE.is_symlink():
+        raise ValueError('collection_original_ledger_required')
+    count = 1 if request['source'] == 'IGGM' else len({p for p, _ in request['wanted']})
+    return Coordinator(DATABASE).package_requests(request['source'], request['run_id'], count, utc())
+
+
+def lootbar_primary(run_id):
+    """Called under the existing Lootbar lock before opening the browser."""
+    import json
+    from pathlib import Path
+    from .lootbar import primary_ready
+    if not primary_ready():
+        return 75
+    wanted = [(p, q) for p in ('PS', 'XBOX', 'PC') for q in ('100', '1000')]
+    request = dict(source='Lootbar', run_id=run_id, wanted=wanted)
+    worker = Path(__file__).with_name('package_reader.py')
+    python = '/opt/fs-hermes-fc-public-research-0.5.1/bin/python3.12'
+    if not Path(python).is_file():
+        return 2
+    with package_permit(request):
+        result = subprocess.run([python, '-I', '-B', str(worker)], input=json.dumps(request),
+                                capture_output=True, text=True, timeout=28, check=True)
+        receipt = record_restriction(request, json.loads(result.stdout))
+    restricted = any(code in ('http_401','http_403','http_429','challenge','captcha') for code in receipt['errors'])
+    rows = receipt['offers']
+    if not rows:
+        return 75 if restricted else 2
+    print(json.dumps(dict(stage='public_sku_complete', read_only=True, **receipt)))
+    return 0
+
+
 def read_node(node, request, started):
     import json
     from datetime import timedelta
@@ -93,16 +127,20 @@ def read_node(node, request, started):
     from .client import legacy_ready
     if not legacy_ready(request['source'], require_registered=True):
         request = dict(request, receipt_only=True)
-    if node == 'local':
-        from .package_relay import request_local
-        return record_restriction(request, request_local(request))
-    if node == '187':
-        runner = Path(__file__).with_name('package_reader.py')
-        python = '/opt/fs-hermes-fc-public-research-0.5.1/bin/python3.12'
-        process = subprocess.run([python,'-I','-B',str(runner)], input=json.dumps(request),
-                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                 check=True, timeout=30)
-        return record_restriction(request, json.loads(process.stdout))
+    if node in ('local', '187'):
+        from contextlib import nullcontext
+        with nullcontext() if request.get('receipt_only') else package_permit(request):
+            if node == 'local':
+                from .package_relay import request_local
+                receipt = request_local(request)
+            else:
+                runner = Path(__file__).with_name('package_reader.py')
+                python = '/opt/fs-hermes-fc-public-research-0.5.1/bin/python3.12'
+                process = subprocess.run([python,'-I','-B',str(runner)], input=json.dumps(request),
+                                         text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                         check=True, timeout=30)
+                receipt = json.loads(process.stdout)
+            return record_restriction(request, receipt)
     from .client import ROUTING, collect_remote, read_routing_file
     source = request['source']
     if request.get('receipt_only'):

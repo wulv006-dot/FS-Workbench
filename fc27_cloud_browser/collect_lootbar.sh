@@ -23,6 +23,18 @@ fi
 run_id=${1:-}
 if [ "${2:-}" = "--native-quantities" ]; then
   set -- --native-quantities
+  if [ -f /opt/fs-fc-control/code/fc_collection/package_routes.py ]; then
+    if /opt/python39/bin/python3 -I -B -c \
+        'import sys;sys.path[:0]=["/opt/fs-fc-control/code","/opt/fc27-cloud-browser"];from fc_collection.package_routes import lootbar_primary;sys.exit(lootbar_primary(sys.argv[1]))' "$run_id" > "$trace"; then
+      mv "$trace" "${trace%.tmp}.jsonl"
+      printf '%s\n' '{"status":"valid","read_only":true,"collection_node":"187"}'
+      exit 0
+    elif [ "$?" != 2 ]; then
+      mv "$trace" "${trace%.tmp}.failed.jsonl"
+      printf '%s\n' '{"status":"failed","read_only":true}'
+      exit 1
+    fi
+  fi
 else
   set --
 fi

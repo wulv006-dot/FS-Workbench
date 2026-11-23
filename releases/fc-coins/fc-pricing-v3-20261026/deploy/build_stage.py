@@ -78,7 +78,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
     if lootbar:paths.extend(LOOTBAR_CALLER_REPOSITORY_SOURCES.values())
     if three_platform:paths.extend(THREE_PLATFORM_REPOSITORY_SOURCES.values())
     if curve_stability:paths.extend(CURVE_STABILITY_REPOSITORY_SOURCES.values())
-    if curve_v6:paths.extend(CURVE_V6_REPOSITORY_SOURCES.values())
+    if curve_v6 or curve_recovery == 'market-packages':paths.extend(CURVE_V6_REPOSITORY_SOURCES.values())
     if channel_overlay is not None:paths.append(ORDER_COST_CHANNEL_REPOSITORY)
     dirty = subprocess.check_output(['git', 'status', '--porcelain', '--', *paths],
                                     cwd=checkout, text=True).strip()

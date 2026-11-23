@@ -311,7 +311,7 @@ def order_cost_channel_overlay(source):
     return source.replace(anchor, anchor + ORDER_COST_CHANNEL_INSERT, 1)
 
 
-MARKET_PACKAGE_BROWSER_FILES = ('collect_competitor.sh', 'collector/collect_competitor_browser.py')
+MARKET_PACKAGE_BROWSER_FILES = ('collect_lootbar.sh', 'collect_competitor.sh', 'collector/collect_competitor_browser.py')
 CURVE_RECOVERY_TARGETS = {
     'market-packages': {
         **{name: '/opt/fc27-cloud-browser/' + name for name in

@@ -149,6 +149,10 @@ def main(root):
     if set(config) != {'node_id', 'spool', 'socket'}:
         raise ValueError('node_config_invalid')
     digest = verified_manifest(root)
+    if sys.argv[1] == 'service':
+        python = root.parent / 'venv/bin/python'
+        if python.is_file() and Path(sys.executable) != python:
+            os.execv(str(python), [str(python), '-I', '-B', str(root / 'entry.py'), 'service'])
     if sys.argv[1] == 'relay':
         relay(config['socket'])
     else:

@@ -30,6 +30,7 @@ for platform, code in (('XBOX','xbox_one_series'),('PC','pc')):
 
 
 def package_adapter(task, transport):
+    from .adapters import SourceUnavailable
     try:
         from scrapling import Selector
     except ImportError:
@@ -40,9 +41,20 @@ def package_adapter(task, transport):
         (p,U4GM+LABELS[p][2]) for p in task['requested_platforms']]
     offers = []
     for template, url in pages:
-        html = transport.get(template)
-        observed = instant(transport.clock()).isoformat()
-        for row in parse_packages(source, Selector(html), url, wanted, observed):
+        try:
+            html = transport.get(template)
+            observed = instant(transport.clock()).isoformat()
+            rows = parse_packages(source, Selector(html), url, wanted, observed)
+        except (SourceUnavailable, OSError, ValueError, ArithmeticError) as exc:
+            if not offers:
+                raise
+            reason = str(exc) if isinstance(exc, SourceUnavailable) else (
+                'transport_unavailable' if isinstance(exc, OSError) else 'adapter_contract_invalid')
+            result = dict(status='partial', reason_code=reason, offers=offers, evidence_hash=fingerprint(offers))
+            if getattr(exc, 'retry_after_seconds', 0):
+                result['retry_after_seconds'] = exc.retry_after_seconds
+            return result
+        for row in rows:
             size, gift = row['purchase_k'], row['bonus_k']
             offers.append(dict(platform=row['platform'],region_id=0,currency='USD',settlement_currency='USD',
                 conversion_source='not_required',purchase_quantity=size,bonus_quantity=gift,quantity_unit='K',

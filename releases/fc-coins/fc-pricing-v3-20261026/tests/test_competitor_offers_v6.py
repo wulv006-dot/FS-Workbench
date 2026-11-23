@@ -34,6 +34,23 @@ def snapshot_module():
 
 
 class CompetitorOffersV6(unittest.TestCase):
+    def test_lootbar_public_skus_project_only_small_packages_and_reject_foreign_receipts(self):
+        module = snapshot_module()
+        rows = [raw(q, source='Lootbar', platform='PC', delivery_method=None, delivery_tier=None,
+                    auth_state='public', selection_verified=True, price_basis='public_platform_sku',
+                    discount_source='public_no_coupon', source_metadata=dict(spu_id=1461, platform='PC',
+                    selected_currency='USD', asset_name=name)) for q,name in
+                [('100','100K Safe Coins'), ('1000','1M Safe Coins')]]
+        event = dict(stage='public_sku_complete', run_id='same', source='Lootbar', read_only=True, offers=rows)
+        small, large = module.public_lootbar_packages('same', event)
+        self.assertEqual([(r['platform'],r['purchase_k']) for r in small if r['status']=='valid'], [('PC','100')])
+        self.assertEqual({r['platform'] for r in small if r['status']=='missing'}, {'PS','XBOX'})
+        self.assertEqual([(r['platform'],r['purchase_k']) for r in large], [('PC','1000')])
+        for invalid in (dict(event, run_id='earlier'), dict(event, offers=rows+rows),
+                        dict(event, offers=[dict(rows[0],source='IGGM')])):
+            with self.assertRaises(ValueError):
+                module.public_lootbar_packages('same', invalid)
+
     def test_arab_adapters_preserve_official_100k_quote_identity(self):
         from test_collection_bidirectional import BidirectionalCollection, NOW as source_now, native
         from fc_pricing_v3 import market_registry

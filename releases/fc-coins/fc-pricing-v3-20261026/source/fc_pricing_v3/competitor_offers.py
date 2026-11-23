@@ -42,11 +42,17 @@ def _lootbar_merchandise(raw, purchase, currency, tier):
     if (raw['source'] != 'Lootbar' or currency != 'USD' or tier is not None
             or raw.get('conditional') is True or raw.get('comparable') is False
             or raw.get('coupon_excluded') is not True
-            or raw.get('discount_source') not in ('visible_no_coupon', 'visible_coupon_excluded')):
+            or raw.get('discount_source') not in ('visible_no_coupon', 'visible_coupon_excluded','public_no_coupon')):
         return False
     evidence = raw.get('evidence_ref', raw.get('source_metadata'))
     if not isinstance(evidence, dict):
         return False
+    if raw.get('price_basis') == 'public_platform_sku':
+        return (raw.get('auth_state') == 'public' and raw.get('selection_verified') is True
+                and raw.get('discount_source') == 'public_no_coupon' and evidence.get('spu_id') == 1461
+                and evidence.get('platform') == raw.get('platform') and evidence.get('selected_currency') == 'USD'
+                and evidence.get('asset_name') in {'100':('100K Safe Coins',),
+                    '1000':('1M Safe Coins','1000K Safe Coins')}.get(purchase, ()))
     # The 187 reader validates the current no-coupon amount and exact card
     # selection. The 183 projection also reports its standard delivery method.
     return (

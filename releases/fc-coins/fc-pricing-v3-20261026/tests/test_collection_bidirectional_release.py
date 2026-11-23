@@ -143,10 +143,14 @@ class ArabUTActiveQuoteRelease(unittest.TestCase):
         return SimpleNamespace(role=role, root=root, files=files, manifest=manifest,
                                installed=hashlib.sha256(old_manifest).hexdigest())
 
-    def prepare(self, fixture, changes=CHANGED, **kwargs):
+    def prepare(self, fixture, changes=CHANGED, *, market=False, **kwargs):
         files = dict(fixture.files)
         files.update({name: b'# repaired quote\n' for name in changes})
         manifest = fixture.manifest(files)
+        if market:
+            metadata = json.loads(manifest)
+            metadata['sources'] += ['U4GM','IGGM']
+            manifest = json.dumps(metadata, sort_keys=True).encode()
         target = self.stage / f'{fixture.role}.zip'
         with zipfile.ZipFile(target, 'w') as archive:
             for name, body in dict(files, **{'manifest.json': manifest}).items():
@@ -155,7 +159,7 @@ class ArabUTActiveQuoteRelease(unittest.TestCase):
             self.next_worker = hashlib.sha256(manifest).hexdigest()
         return self.release.prepare_lootbar(
             fixture.role, target, hashlib.sha256(target.read_bytes()).hexdigest(),
-            'fixture', 'a' * 40, worker_digest=self.next_worker, arabut_active_quote=True, **kwargs,
+            'fixture', 'a' * 40, worker_digest=self.next_worker, arabut_active_quote=not market, market_packages=market, **kwargs,
         )
 
     def preview(self, manifest):
@@ -176,6 +180,15 @@ class ArabUTActiveQuoteRelease(unittest.TestCase):
         self.assertEqual(control['old_worker_digest'], self.node.installed)
         self.assertEqual(control['worker_digest'], node['after']['manifest.json'])
         self.assertEqual(json.loads(self.access.read_text())['worker_digest'], self.node.installed)
+
+    def test_market_packages_can_upgrade_the_existing_roles_without_changing_the_service_or_routing(self):
+        with patch.object(self.release, 'MARKET_BEFORE', {'node': self.node.installed, 'control': self.control.installed}):
+            for fixture, changed in ((self.node, ['server.py']), (self.control, ['pilot.py','coordinator.py','client.py'])):
+                files = self.CHANGED | self.release.MARKET_NEW[fixture.role] | {'fc_collection/'+n for n in changed}
+                manifest = self.prepare(fixture, files, market=True)
+                self.assertEqual(self.preview(manifest)['phase'], 'preview')
+                self.assertEqual(set(manifest['protected']), set(self.release.LOOTBAR_ROLE_PROTECTED[fixture.role]))
+                self.assertEqual({k for k,v in manifest['before'].items() if v is None}, self.release.MARKET_NEW[fixture.role])
 
     def test_new_scope_rejects_extra_files_and_missing_required_changes(self):
         with self.assertRaisesRegex(ValueError, 'arab_active_quote_exact_change_scope'):
