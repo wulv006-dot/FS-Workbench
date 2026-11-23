@@ -37,6 +37,8 @@ def row(source, platform, quantity, price, gift, url, stamp, basis):
 
 def iggm_rows(doc, url, wanted, stamp):
     for card in doc.css('li.item.shippingCoins'):
+        if re.search(r'newcomer|new (?:user|customer)|coupon|voucher|flash sale|limited.time|extra (?:bonus|gift)', content(card), re.I):
+            continue
         title = card.css('.item-title')
         chosen = card.css('[data-num].active')
         price = card.css('.item-price .price[lkr]')
@@ -44,9 +46,11 @@ def iggm_rows(doc, url, wanted, stamp):
             continue
         name = re.fullmatch(r'FC\s*27 Coins (PS(?:4/5)?|Xbox|PC) Comfort Trade', content(title[0]), re.I)
         quantity = chosen[0].attrib['data-num']
-        tier = re.fullmatch(r'(\d+)\s*K(?:\s*\+\s*(\d+)\s*K)?', content(chosen[0]), re.I)
+        tier = re.fullmatch(r'(\d+)\s*(K|M)(?:\s*\+\s*(\d+)\s*K)?', content(chosen[0]), re.I)
         value = re.fullmatch(r'\$\s*(\d+(?:\.\d{1,2})?)', content(price[0]))
-        if not (name and tier and tier[1] == quantity and value):
+        if not (name and tier and value and quantity in QUANTITIES):
+            continue
+        if int(tier[1]) * (1000 if tier[2].upper() == 'M' else 1) != int(quantity):
             continue
         platform = name[1].upper()
         platform = 'PS' if platform.startswith('PS') else platform
@@ -54,7 +58,7 @@ def iggm_rows(doc, url, wanted, stamp):
             continue
         visible = amount(value[1])
         if visible > 0 and amount(price[0].attrib['lkr']).quantize(CENT, rounding=ROUND_HALF_UP) == visible:
-            yield row('IGGM', platform, quantity, visible, tier[2] or '0', url, stamp, 'selected_native_price')
+            yield row('IGGM', platform, quantity, visible, tier[3] or '0', url, stamp, 'selected_native_price')
 
 
 def u4gm_rows(doc, url, wanted, stamp):

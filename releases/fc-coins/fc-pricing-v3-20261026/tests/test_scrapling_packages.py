@@ -12,12 +12,16 @@ class Packages(unittest.TestCase):
         from scrapling import Selector
         card = """<html><body><li class="item shippingCoins"><p class="item-title">FC 27 Coins PS Comfort Trade</p>
         <div class="item-price"><span class="price" lkr="70"><strong>$</strong><i>70.00</i></span></div>
-        <span data-num="100">100 K</span><span class="active" data-num="1000">1000 K +50 K</span>
+        <span data-num="100">100 K</span><span class="active" data-num="1000">1M +50 K</span>
         </li></body></html>"""
         rows = parse_packages('IGGM', Selector(card), 'https://www.iggm.com/ea-sports-fc/fc-27-coins',
                               [('PS', '100'), ('PS', '1000')], datetime.now(timezone.utc).isoformat())
         self.assertEqual([(row['purchase_k'], row['regular_price'], row['bonus_k']) for row in rows],
                          [('1000', '70.00', '50')])
+
+        restricted = card.replace('<div class="item-price">', '<b>Flash Sale</b><div class="item-price">')
+        self.assertFalse(parse_packages('IGGM', Selector(restricted), 'https://www.iggm.com/ea-sports-fc/fc-27-coins',
+                                        [('PS', '1000')], datetime.now(timezone.utc).isoformat()))
 
     def test_u4gm_applies_native_volume_discount_to_selected_platform_only(self):
         from scrapling import Selector
