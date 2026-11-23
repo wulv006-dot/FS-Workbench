@@ -372,6 +372,38 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assert_fc_revision_migration(builder.FC_V61_INSURANCE_REVISION,
                                           builder.FC_V61_MARGIN_BAND_REVISION, baseline_patch=True)
 
+    def test_market_predecessor_reconciliation_requires_exact_previous_transaction_and_current_bytes(self):
+        baseline = builder.BASELINE_TARGET
+        policy = builder.FS_RUNTIME_ROOT + 'knowledge-load-policy.json'
+        index = builder.FS_RUNTIME_ROOT + 'knowledge-releases/prior/index.json'
+        rows = [dict(target=path, sha256=sha) for path, sha in ((baseline,'installed'), (policy,'policy'), (index,'catalog'))]
+        manifest = dict(files=rows, baselinePatch=dict(before_sha256='previous', after_sha256='installed'))
+        raw = builder.encoded(manifest)
+        digest = builder.sha(raw)
+        journal = dict(approvedManifestSha256=digest, manifest=manifest,
+                       status='applied-awaiting-actual-http-role-acceptance', files=[dict(r,written=True) for r in rows])
+        previous = self.snapshot / 'previous-release'
+        write(previous / 'approved-manifest.json', raw)
+        write(previous / 'journal.json', builder.encoded(journal))
+        info = dict(protected={baseline:'installed', index:'catalog'})
+        proof = dict(before_sha256='installed', previous_provenance=manifest['baselinePatch'])
+        def reconcile(policy_hash='policy'):
+            return builder.reconcile_preceding_market_release(self.snapshot, info, policy_hash, proof)
+        with self.assertRaisesRegex(ValueError, 'market_predecessor_manifest_changed'):
+            reconcile()
+        with mock.patch.object(builder, 'MARKET_PREDECESSOR_MANIFEST_SHA', digest):
+            self.assertEqual(reconcile(), dict(mode='retain_full_baseline', sha256='previous'))
+            with self.assertRaisesRegex(ValueError, 'market_predecessor_target_drift'):
+                reconcile('changed')
+            info['protected'][index] = 'drift'
+            with self.assertRaisesRegex(ValueError, 'market_predecessor_target_drift'):
+                reconcile()
+            info['protected'][index] = 'catalog'
+            journal['files'][0]['written'] = False
+            write(previous / 'journal.json', builder.encoded(journal))
+            with self.assertRaisesRegex(ValueError, 'market_predecessor_target_drift'):
+                reconcile()
+
     def test_package_sources_update_pricing_reporting_and_direct_baseline(self):
         self.assert_fc_revision_migration(builder.FC_V61_CARNIVAL_REVISION,
                                           builder.FC_V61_MARKET_PACKAGES_REVISION, baseline_patch=True)

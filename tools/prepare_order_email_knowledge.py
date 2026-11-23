@@ -50,6 +50,7 @@ FC_V61_HOURLY_REVISION = 'fc_v61_margin_band_hourly_20261119'
 FC_V61_HOURLY_BASE = '27fe0962a8b51fcfb64a415603101ece8097dff8'
 FC_V61_CARNIVAL_REVISION = 'fc_v61_carnival_discount_20261119'
 FC_V61_CARNIVAL_BASE = '9295063b2c1ee4bfb15c175ecba19253d808e99a'
+MARKET_PREDECESSOR_MANIFEST_SHA = 'baad7565b53098d636eaf0901b0682800a048919face91aa5212cca6cc5f5d89'
 FC_V61_MARKET_PACKAGES_REVISION = 'fc_v61_market_packages_observers_20261124'
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
 FC_V61_LEARNING_ID = 'fs.learning.methods'
@@ -220,6 +221,32 @@ def shared_preflight(root, snapshot, commit, release, *, allow_baseline_patch=Fa
     return info, proof
 
 
+def reconcile_preceding_market_release(snapshot, preflight, policy_hash, baseline_proof):
+    # This one predecessor installed the direct baseline while its policy kept the old binding.
+    manifest_raw = bound(snapshot, 'previous-release/approved-manifest.json').read_bytes()
+    manifest_hash = sha(manifest_raw)
+    if manifest_hash != MARKET_PREDECESSOR_MANIFEST_SHA:
+        raise ValueError('market_predecessor_manifest_changed')
+    manifest = json.loads(manifest_raw)
+    journal = json.loads(bound(snapshot, 'previous-release/journal.json').read_bytes())
+    if (journal['approvedManifestSha256'] != manifest_hash or journal['manifest'] != manifest
+            or journal['status'] != 'applied-awaiting-actual-http-role-acceptance'):
+        raise ValueError('market_predecessor_journal_changed')
+    expected = {row['target']: row['sha256'] for row in manifest['files']}
+    written = {row['target']: row['sha256'] for row in journal['files'] if row.get('written') is True}
+    observed = dict(preflight['protected'])
+    observed[FS_RUNTIME_ROOT + 'knowledge-load-policy.json'] = policy_hash
+    if (len(journal['files']) != len(expected) or written != expected
+            or any(observed.get(path) != digest for path, digest in expected.items())):
+        raise ValueError('market_predecessor_target_drift')
+    patch = manifest['baselinePatch']
+    previous = baseline_proof['previous_provenance']
+    if (patch['after_sha256'] != expected[BASELINE_TARGET] or baseline_proof['before_sha256'] != patch['after_sha256']
+            or (previous['before_sha256'], previous['after_sha256']) != (patch['before_sha256'], patch['after_sha256'])):
+        raise ValueError('market_predecessor_baseline_drift')
+    return {'mode': 'retain_full_baseline', 'sha256': patch['before_sha256']}
+
+
 def verify_routes(catalog, mirror, snapshot, checks, shared_admin_es, current):
     for before, route in checks:
         selected = catalog.select(mirror, route['catalog'], route['sha256'], route['modules'], route.get('entry_ids'))
@@ -347,7 +374,12 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
             revision=constraints_revision if fc_v61 else None, retain_baseline=retain_baseline)
         compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
-            if not (fc_v61 and baseline_proof.get('retained_current_git') and all(
+            if fc_v61 and constraints_revision == FC_V61_MARKET_PACKAGES_REVISION:
+                preceding = reconcile_preceding_market_release(snapshot, preflight, sha(policy_raw), baseline_proof)
+                if any(r.get('baseline_compatibility', compatibility) not in (preceding, compatibility) for r in all_routes):
+                    raise ValueError('shared_admin_es_baseline_binding_drift')
+                baseline_proof['reconciled_previous_manifest_sha256'] = MARKET_PREDECESSOR_MANIFEST_SHA
+            elif not (fc_v61 and baseline_proof.get('retained_current_git') and all(
                     r.get('baseline_compatibility', compatibility).get('mode') == 'retain_full_baseline'
                     and re.fullmatch('[a-f0-9]{64}', r.get('baseline_compatibility', compatibility).get('sha256', ''))
                     for r in all_routes)):
@@ -418,8 +450,10 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 source = live['source']
                 data = normalized(payloads['artifact/' + sources + source['path']], source)
                 live_body = catalog.extract(data.decode('utf-8-sig'), source.get('selector'))
+                package_constraint = (constraints_revision == FC_V61_MARKET_PACKAGES_REVISION
+                                      and identity == 'fc.pricing.constraints' and live_body != prior_bodies[identity])
                 if (live['revision'] != margin_band_prior[identity]['revision']
-                        or not carnival and live_body != prior_bodies[identity]):
+                        or not (carnival or package_constraint) and live_body != prior_bodies[identity]):
                     raise ValueError('margin_band_live_entry_changed:' + identity)
             if shared_admin_es:
                 if not existing:
@@ -452,9 +486,9 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                         FC_V61_MARKET_ANCHOR_REVISION, FC_V61_WEEKLY_REVISION, FC_V61_INSURANCE_REVISION)):
                     # Retain the preceding snapshot's source at its original path.
                     overlay_root += row['revision'] + '/'
-                if carnival:
+                if carnival or margin_band_scope and package_constraint:
                     delta = contextual_changes(prior_bodies[identity], content)
-                    if len(delta) != 1 or not delta[0][0] or 'margin_band.promotion_guard' not in delta[0][1]:
+                    if carnival and (len(delta) != 1 or not delta[0][0] or 'margin_band.promotion_guard' not in delta[0][1]):
                         raise ValueError('carnival_constraints_delta_invalid')
                     row = copy.deepcopy(existing[0])
                     row['effective_at'] = template['effective_at']
