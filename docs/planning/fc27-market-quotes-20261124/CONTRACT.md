@@ -23,3 +23,5 @@ Lootbar 和 U7Buy 维持市场走廊与原报价缺失规则。U4GM、IGGM 分�
 7. 11 月 24 日 01:37，187 在原 Lootbar 采集锁内通过公开平台 SKU 接口读到六档。100K 普通价分别为 PS $6.88、Xbox $6.88、PC $7.25，1000K 分别为 $68.75、$68.75、$72.50。1000K 常规自带 50K。以捕获时刻回放，六档均进入对应平台的原生定位价。三次 HTTP 的合计采集时间为 2.137 秒，Linux 采集进程峰值 RSS 为 42,312 KiB；该读数仅覆盖 Lootbar，整轮同覆盖对比待测。
 
 8. 既有角色升级走 `update_collection_bidirectional.py lootbar-prepare --market-packages` 及原有预览、应用和回退流程。183 的独立环境路径为 `/opt/fs-fc-collector/venv`，使用 `requirements-market-packages.txt`；服务健康需同时报告 U4GM 和 IGGM。Windows 受限任务已安装。183 新角色、187 新定价入口与新策略自然轮均待现场验收。
+
+9. 183 已实机核对现役 FC 服务与两节点配置的 worker 摘要。独立 Debian 环境中的 18 项采集、解析、角色健康和发布回归通过。Python 3.9.18 无网容器内 350 项相关回归通过，另两项浏览器资源包用例在同机独立 Node 环境通过。183 当前活动角色仍为原版本。U4GM 和 IGGM 的普通公开请求此前返回 403，老回执不满足报价有效期。
