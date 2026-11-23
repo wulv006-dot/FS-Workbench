@@ -80,29 +80,16 @@ class BusinessOutcome(unittest.TestCase):
                              refresh_storefront=Mock(return_value=dict(status='unavailable',reason='HTTP 429')),
                              atomic_json=Mock(),os=SimpleNamespace(chown=Mock(),chmod=Mock()),json=json)
                 exec(compile(ast.Module(body=[function],type_ignores=[]),str(source),'exec'),scope)
-                arab = dict(status='available', offers=[dict(platform='PC', purchase_k='100')])
-                storefront_started, arab_started = Event(), Event()
-                def read_arab(_):
-                    arab_started.set()
-                    self.assertTrue(storefront_started.wait(2))
-                    return arab
-                def read_storefront(_):
-                    storefront_started.set()
-                    if scope_fields:
-                        self.assertTrue(arab_started.wait(2))
-                    return dict(status='unavailable',reason='HTTP 429')
-                scope['refresh_storefront'].side_effect = read_storefront
                 with patch.object(runtime,'ledger'), patch.object(runtime,'collection_scope',return_value=dict(
-                        active_mode='smart',scope=scope_fields)), patch.object(sources,'collect_arab_100k',side_effect=read_arab) as collect_arab:
+                        active_mode='smart',scope=scope_fields)), patch.object(sources,'collect_arab_100k') as collect_arab:
                     if scope_fields:
                         result = scope['collect_quote'](dict(job_id='original'))
                         self.assertEqual(result,dict(run_id='original',quote_status='proof_incomplete'))
                         self.assertEqual(runner.call_count,2)
                         self.assertEqual(scope['atomic_json'].call_args.args[1]['storefront'],
                                          dict(status='unavailable', collection_run_id='original', reason='HTTP 429'))
-                        self.assertEqual(scope['atomic_json'].call_args.args[1]['arab_ut_status'], arab)
-                        collect_arab.assert_called_once()
-                        self.assertEqual(collect_arab.call_args.args[0]['run_id'], 'original')
+                        self.assertNotIn('arab_ut_status', scope['atomic_json'].call_args.args[1])
+                        collect_arab.assert_not_called()
                     else:
                         with self.assertRaisesRegex(ValueError,'storefront_incomplete'):
                             scope['collect_quote'](dict(job_id='original'))

@@ -811,12 +811,14 @@
             const basis=observation.basis==='native'?'实采':'由 100K 估算';
             column.append(node('p',`${observation.source} · ${band} ${basis} · 我方价差 ${(Number(observation.difference_ratio)*100).toFixed(1)}%`));
           }
-          for(const source of market.competitor_coverage?.optional_sources||[]){
+          const legacyMarket=!market.competitor_policy||market.competitor_policy==='v6_1_three_source_quantity_v1';
+          const sources=market.competitor_coverage?.optional_sources||(legacyMarket?['Lootbar','U7Buy','ArabUT']:[]);
+          for(const source of sources){
             const card=node('section');card.className='market-quote';card.append(node('h4',source==='ArabUT'?'Arab-UT':source));
-            const offers=(market.competitor_offers||[]).filter(row=>row.source===source&&row.platform===platform);
+            const offers=(market.competitor_offers||[]).filter(row=>row.source===source&&row.platform===platform&&(!legacyMarket||Number(row.purchase_k)===100));
             if(!offers.length){
               card.dataset.state='failed';
-              const empty=node('p','该快照未取得报价');empty.className='quote-state';card.append(empty);
+              const empty=node('p',legacyMarket?'该快照未取得 100K 报价':'该快照未取得报价');empty.className='quote-state';card.append(empty);
             }
             for(const offer of offers){
               const amount=offer.regular_price;
@@ -832,7 +834,7 @@
               const detail=node('details');detail.className='market-details';
               const gift=offer.bonus_k==null?'赠送待核':`赠 ${offer.bonus_k}K`;
               const method=offer.delivery_tier||offer.delivery_method;
-              detail.append(node('summary','报价详情'),node('p',`购买 ${offer.purchase_k}K · ${gift}${method?` · ${method}`:''}`));
+              detail.append(node('summary','报价详情'),node('p',`购买 ${Number(offer.purchase_k)}K · ${gift}${method?` · ${method}`:''}`));
               card.append(price,evidence,timestamp,detail);
             }
             column.append(card);

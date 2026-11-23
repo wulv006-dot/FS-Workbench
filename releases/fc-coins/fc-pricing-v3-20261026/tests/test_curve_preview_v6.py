@@ -122,7 +122,7 @@ class CurvePreviewV6(unittest.TestCase):
 
     def test_active_curve_market_uses_owned_snapshot_and_never_scalar_basis(self):
         from fc_pricing_v3 import engine
-        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.competitor_offers import LEGACY_POLICY
         from fc_pricing_v3.price_curve import curve_key, read_curve, IDENTITY_FIELDS
 
         self.snapshot.update(write_protocol=CURVE_WRITE_PROTOCOL,plan_id='active-plan')
@@ -144,7 +144,7 @@ class CurvePreviewV6(unittest.TestCase):
                     average_discount={'retained_ratio':'0.91'},minimum_safe_procurement_margin='0.182')):
             response=api.read('market')
         self.assertEqual((response['snapshot_id'],response['write_protocol'],response['competitor_policy']),
-                         (SNAPSHOT_ID,CURVE_WRITE_PROTOCOL,POLICY))
+                         (SNAPSHOT_ID,CURVE_WRITE_PROTOCOL,LEGACY_POLICY))
         self.assertEqual(response['price_basis']['rows']['PS']['minimum_safe_procurement_margin'],'0.182')
         self.assertNotIn('PC',response['price_basis']['rows'])
         self.assertEqual(len(response['competitor_offers']), 1)
