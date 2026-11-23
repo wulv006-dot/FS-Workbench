@@ -122,7 +122,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             if lootbar and 'source/'+name in LOOTBAR_CALLER_REPOSITORY_SOURCES:original=checkout/LOOTBAR_CALLER_REPOSITORY_SOURCES['source/'+name]
             if three_platform and 'source/'+name in THREE_PLATFORM_REPOSITORY_SOURCES:
                 original=checkout/THREE_PLATFORM_REPOSITORY_SOURCES['source/'+name]
-            if curve_v6 and 'source/'+name in CURVE_V6_REPOSITORY_SOURCES:
+            if (curve_v6 or curve_recovery == 'market-packages') and 'source/'+name in CURVE_V6_REPOSITORY_SOURCES:
                 original=checkout/CURVE_V6_REPOSITORY_SOURCES['source/'+name]
             if curve_stability and 'source/'+name in CURVE_STABILITY_REPOSITORY_SOURCES:
                 original=checkout/CURVE_STABILITY_REPOSITORY_SOURCES['source/'+name]

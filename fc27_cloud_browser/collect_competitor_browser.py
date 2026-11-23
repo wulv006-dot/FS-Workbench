@@ -210,14 +210,16 @@ U7BUY_QUANTITIES_READ = """({label,quantities}) => {
   const method=/Delivery method:\\s*Comfort Trade\\./i.test(document.body.innerText)?'comfort_trade':null;
   const offers=[],missing=[];
   for(const quantity of quantities){
+    const names=[`${quantity}K Safe Coins ${label}`];
+    if(quantity==='1000')names.push(`1M Safe Coins ${label}`);
     const cards=[...document.querySelectorAll('.players-reactive-table-content-wrapper')].filter(card=>
-      [...card.querySelectorAll('.coins-name')].some(e=>e.innerText.trim()===`${quantity}K Safe Coins ${label}`));
+      [...card.querySelectorAll('.coins-name')].some(e=>names.includes(e.innerText.trim())));
     const content=cards.length===1?cards[0].innerText:'';
     const prices=[...content.matchAll(/([\\d,.]+)\\s*USD/g)].map(m=>m[1]);
     if(cards.length!==1||prices.length!==1){missing.push({purchase_k:quantity,reason:cards.length>1||prices.length>1?'native_card_ambiguous':'native_quantity_not_observed'});continue;}
     const gift=content.match(/Newcomer\\s*\\+\\s*(\\d+(?:\\.\\d+)?)K/i);
     const estimate=content.match(/Complete Time:\\s*([0-9]+(?:\\.[0-9]+)?(?:\\s*-\\s*[0-9]+(?:\\.[0-9]+)?)?\\s*Hours?)/i);
-    offers.push({purchase_k:quantity,price:prices[0],bonus:gift?.[1]||'0',conditional:!!gift,
+    offers.push({purchase_k:quantity,price:prices[0],bonus:gift?.[1]||'0',conditional:!!gift||/coupon|voucher|newcomer|new customer|flash sale|limited.time|extra bonus|extra gift/i.test(content),
       delivery_method:method,delivery_estimate:estimate?.[1]||null});
   }
   return {ready:active.length===1&&active[0]===label,active,offers,missing};

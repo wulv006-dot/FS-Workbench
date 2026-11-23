@@ -311,7 +311,15 @@ def order_cost_channel_overlay(source):
     return source.replace(anchor, anchor + ORDER_COST_CHANNEL_INSERT, 1)
 
 
+MARKET_PACKAGE_BROWSER_FILES = ('collect_competitor.sh', 'collector/collect_competitor_browser.py')
 CURVE_RECOVERY_TARGETS = {
+    'market-packages': {
+        **{name: '/opt/fc27-cloud-browser/' + name for name in
+           ('snapshot_layer.py', 'fc27_cloud_worker.py', 'coin_all_sync_job.py', *MARKET_PACKAGE_BROWSER_FILES)},
+        'fc-pricing-v3.js': '/var/www/dashboard/fc-pricing-v3.js',
+        **module_targets(('api.py', 'competitor_offers.py', 'curve_strategy_v6.py', 'runtime.py',
+                          'selective_sources.py', 'weekly_ladder.py'))},
+
     'order-cost': {
         'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
         'channel_source.py': ORDER_COST_CHANNEL_OVERLAY['target'],
@@ -353,6 +361,7 @@ CURVE_RECOVERY_TARGETS = {
 }
 CURVE_RECOVERY_SCOPES = {name: 'fc-pricing-v6-recovery-' + name + '-20261119'
                          for name in CURVE_RECOVERY_TARGETS}
+CURVE_RECOVERY_SCOPES['market-packages'] = 'fc-pricing-v6-market-packages-20261124'
 CURVE_RECOVERY_SCOPES['shared-evidence'] = 'fc-pricing-v6-recovery-shared-evidence-20261120'
 
 

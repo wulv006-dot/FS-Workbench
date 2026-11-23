@@ -175,8 +175,8 @@ class CurveRuntime(unittest.TestCase):
                                        expected_cost_usd='40', safe_cost_usd='40', stress_cost_usd='40', known_fee_usd='0')
             return dict(baskets=baskets, evidence=evidence, domain=domain)
         now = datetime.now(timezone.utc)
-        for loot, u7, expected in (('7.5', '8.12', {'small': Decimal('8.5'), 'large': Decimal('81.89')}),
-                                    ('9.35', '11', {'small': Decimal('10'), 'large': Decimal('102.08')}),
+        for loot, u7, expected in (('7.5', '8.12', {'small': Decimal('8.5'), 'large': Decimal('80.75')}),
+                                    ('9.35', '11', {'small': Decimal('10'), 'large': Decimal('99.11')}),
                                     (None, None, {'small': Decimal('10'), 'large': Decimal('95')})):
             entry = dict(primary_curve=current, all_before=before, editor_contract=editor, native_route=None,
                 primary_inputs={}, all_inputs={}, all_targets={}, price_insurance=dict(
@@ -184,7 +184,7 @@ class CurveRuntime(unittest.TestCase):
             previous = dict(segments={'large': dict(normal='90', target='95', release_rounds=1)}) if loot is None else {}
             runtime._freeze_cost_protection(PLATFORM, entry, inputs, dict(reference=reference, episode=episode),
                 dict(mode='smart', smart_strategy_version='market-anchor-v1'),
-                dict(competitor_offers=position_offers(now, loot, u7, arabut='7')), now, previous)
+                dict(competitor_offers=position_offers(now, loot, u7) + [dict(position_offers(now, '7', None)[0], source='U4GM')]), now, previous)
             frozen = entry['temporary_cost_protection']
             self.assertEqual(frozen['status'], 'PROVEN', frozen)
             self.assertEqual({k: Decimal(v) for k, v in frozen['final_anchors'].items()}, expected)

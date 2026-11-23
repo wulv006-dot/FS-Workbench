@@ -65,7 +65,7 @@ class ServiceBoundary(unittest.TestCase):
         import hashlib
         from fc_collection.server import verified_manifest
         files = {'fc_collection/' + name for name in ('__init__.py', 'contracts.py', 'worker.py',
-            'adapters.py', 'protocol.py', 'public_sources.py', 'server.py', 'lootbar.py')} | {'entry.py'}
+            'adapters.py', 'protocol.py', 'public_sources.py', 'server.py', 'lootbar.py', 'package_reader.py')} | {'entry.py'}
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             hashes = {}

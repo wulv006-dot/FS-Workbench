@@ -5,12 +5,14 @@ from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 
-POLICY = 'v6_1_three_source_quantity_v1'
-VERSION = 'fc27-competitor-offers-v6.1'
-SOURCES = ('Lootbar', 'U7Buy', 'ArabUT')
+POLICY = 'v6_four_source_purchase_packages_v1'
+LEGACY_POLICY = 'v6_1_three_source_quantity_v1'
+VERSION = 'fc27-ordinary-package-offers-v1'
+SOURCES = ('Lootbar', 'U7Buy', 'U4GM', 'IGGM')
+LEGACY_SOURCES = ('Lootbar', 'U7Buy', 'ArabUT')
 PLATFORMS = ('PS', 'XBOX', 'PC')
 QUANTITIES = ('100', '1000', '2000', '5000')
-CURRENT_QUANTITIES = ('100',)
+CURRENT_QUANTITIES = ('100', '1000')
 
 
 def decimal(value, *, zero=False):
@@ -69,7 +71,7 @@ def normalize_offers(rows, run_id, now, *, max_age=900):
     for raw in rows:
         if raw.get('status') != 'valid':continue
         source, platform = raw.get('source'), raw.get('platform')
-        if source not in SOURCES or platform not in PLATFORMS:raise ValueError('competitor_source_platform')
+        if source not in SOURCES + ('ArabUT',) or platform not in PLATFORMS:raise ValueError('competitor_source_platform')
         if raw.get('run_id', run_id) != run_id:raise ValueError('competitor_run_mismatch')
         captured = raw.get('captured_at') or raw.get('checked_at')
         try:stamp = datetime.fromisoformat(captured.replace('Z','+00:00'))
@@ -120,10 +122,14 @@ def normalize_offers(rows, run_id, now, *, max_age=900):
             'original_currency','original_amount_minor','price_version','priced_at',
             'original_platform','original_market','original_delivery','source_region_id',
             'reference_scope','observation_id','price_basis','discount_source','raw_coupon_excluded',
-            'delivery_estimate') if k in raw})
+            'delivery_estimate','extra_bonus_tier','collection_node') if k in raw})
+        package = (source in ('U4GM','IGGM') and raw.get('selection_verified') is True
+                   and raw.get('coupon_excluded') is True and conditional is False
+                   and row['delivery_method']=='comfort_trade' and isinstance(row['evidence_ref'],dict)
+                   and row['evidence_ref'].get('price_basis') in ('selected_native_price','native_volume_rule','ordinary_native_package'))
         row['comparable'] = (row['comparable'] and row['bonus_k'] is not None
             and (row['regular_price'] is not None or row['eligible_net_price'] is not None)
-            and (lootbar_merchandise or row['delivery_method'] not in (None,'unknown') and tier not in (None,'unknown')))
+            and (package or lootbar_merchandise or row['delivery_method'] not in (None,'unknown') and tier not in (None,'unknown')))
         row['comparability_basis'] = (('lootbar_observed_100k_merchandise_no_delivery_tier' if purchase == '100'
             else 'lootbar_observed_native_merchandise_no_delivery_tier') if lootbar_merchandise
             else 'merchandise_quote_only_fees_and_tax_separate')
@@ -134,12 +140,12 @@ def normalize_offers(rows, run_id, now, *, max_age=900):
     return list(output.values())
 
 
-def quantity_coverage(rows, platforms=PLATFORMS, requested=QUANTITIES):
+def quantity_coverage(rows, platforms=PLATFORMS, requested=QUANTITIES, *, sources=SOURCES):
     requested=quantities(requested)
     observed={(r['source'],r['platform'],r['purchase_k']) for r in rows}
     comparable={(r['source'],r['platform'],r['purchase_k']) for r in rows if r['comparable']}
-    expected={(s,p,q) for s in SOURCES for p in platforms for q in requested}
-    return dict(version=VERSION, ready=True, required_sources=[], optional_sources=list(SOURCES),
+    expected={(s,p,q) for s in sources for p in platforms for q in requested}
+    return dict(version=VERSION, ready=True, required_sources=[], optional_sources=list(sources),
         readiness_basis='optional_sources_do_not_block_not_quantity_completeness',
         pricing_source_policy='optional_market_signals_no_missing_source_price_action',
         observations=len(rows), quantity_scope=list(requested),
@@ -149,7 +155,7 @@ def quantity_coverage(rows, platforms=PLATFORMS, requested=QUANTITIES):
             status='comparable_merchandise' if (s,p,q) in comparable else 'observed_conditions_unverified' if (s,p,q) in observed else 'unknown')
             for s,p,q in sorted(expected)],
         optional_missing=[dict(source=s,platform=p,purchase_k=q,status='unknown',reason='native_quantity_not_observed')
-            for s in SOURCES for p in platforms for q in requested if (s,p,q) not in observed])
+            for s in sources for p in platforms for q in requested if (s,p,q) not in observed])
 
 
 def legacy_100k_projection(rows):

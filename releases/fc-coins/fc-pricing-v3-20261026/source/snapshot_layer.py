@@ -244,9 +244,10 @@ def collect_market_sources(run_id, *, curve_v6):
 
     snapshots = missing_competitors(run_id, "collector_not_connected")
     failures = []
+    quantity_offers = []
     before = {p for p in glob.glob(str(ROOT / "evidence/lootbar-*.jsonl"))}
     try:
-        command = [str(COLLECTOR), run_id]
+        command = [str(COLLECTOR), run_id] + (['--native-quantities'] if curve_v6 else [])
         result = subprocess.run(command, capture_output=True, timeout=230)
         if result.returncode:
             failures.append("Lootbar:" + collector_failure("lootbar-*.jsonl", before, "Lootbar"))
@@ -258,9 +259,18 @@ def collect_market_sources(run_id, *, curve_v6):
             events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
             valid = lootbar_snapshots(run_id, events)
             snapshots = [row for row in snapshots if row["source"] != "Lootbar"] + valid
+            if curve_v6:
+                final = events[-1]
+                for offer in final.get('quantity_offers') or []:
+                    if str(offer.get('base_k')) != '1000':
+                        continue
+                    try:
+                        raw = _lootbar_row(run_id, offer.get('platform'), offer, final['checked_at'], (1000,))
+                        quantity_offers.extend(normalize_offers([raw], run_id, datetime.now(timezone.utc)))
+                    except (KeyError, ValueError) as exc:
+                        failures.append('Lootbar:' + str(exc))
     except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
         failures.append("Lootbar:" + (str(exc) if isinstance(exc, ValueError) else type(exc).__name__))
-    quantity_offers=[]
     if curve_v6:
         for row in snapshots:
             if row.get('status')!='valid':continue
@@ -343,11 +353,27 @@ def collect_once(run_id=None, competitor_policy=None):
     started = datetime.now(timezone.utc).isoformat()
     if competitor_policy == POLICY:
         # Preserve source locks and deadlines while the current Order and market reads overlap.
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        control = Path('/opt/fs-fc-control/code')
+        if control.is_dir() and str(control) not in sys.path:
+            sys.path.insert(0, str(control))
+        from fc_collection.package_routes import collect_missing, read_node
+        slots = [(platform, quantity) for platform in PLATFORMS for quantity in CURRENT_QUANTITIES]
+        def observer(source):
+            start = datetime.fromisoformat(started)
+            return collect_missing(source,run_id,slots,lambda node,request:read_node(node,request,start),
+                                   lambda:datetime.now(timezone.utc))
+        with ThreadPoolExecutor(max_workers=2) as executor:
             order = executor.submit(collect_order_cost, run_id, curve_v6=True)
+            observers = executor.submit(lambda:[(source,observer(source)) for source in ('IGGM','U4GM')])
             snapshots, quantity_offers, failures = collect_market_sources(run_id, curve_v6=True)
             fx, fx_failure = collect_fx()
             costs, cost_failure, cost_failure_text = order.result()
+            package_attempts = {}
+            for source, (rows, attempts) in observers.result():
+                quantity_offers.extend(rows)
+                package_attempts[source] = attempts
+                if not rows:
+                    failures.append(source+':ordinary_package_missing')
     else:
         snapshots, quantity_offers, failures = collect_market_sources(run_id, curve_v6=False)
         costs, cost_failure, cost_failure_text = collect_order_cost(run_id, curve_v6=False)
@@ -377,13 +403,14 @@ def collect_once(run_id=None, competitor_policy=None):
                                   if failure.startswith(row["source"] + ":")), row["reason"])
     complete = coverage["ready"] and (cost_count == 3 or competitor_policy == POLICY) and fx["status"] == "valid"
     status = "ready_for_quote" if complete else "incomplete"
-    reason = None if complete else ";".join(failures) or "required_evidence_missing"
+    blocking_failures = [item for item in failures if item not in source_warnings] if coverage['ready'] else failures
+    reason = None if complete else ";".join(blocking_failures) or "required_evidence_missing"
     payload = {"run_id": run_id, "created_at": started, "status": status,
                "reason": reason, "competitors": snapshots, "costs": costs,
                "fx": fx, "quote_status": "PENDING" if complete else "NO_QUOTE",
                "source_coverage": coverage, "source_warnings": source_warnings}
     if competitor_policy==POLICY:
-        payload.update(competitor_policy=POLICY,competitor_offers=quantity_offers,
+        payload.update(competitor_policy=POLICY,competitor_offers=quantity_offers, package_attempts=package_attempts,
             legacy_competitor_scope='100k_observed_only')
     if cost_failure is not None:
         payload['cost_failure'] = cost_failure

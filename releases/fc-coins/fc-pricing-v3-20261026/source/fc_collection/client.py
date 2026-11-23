@@ -8,7 +8,7 @@ import sqlite3
 import stat
 import time
 
-from .contracts import ARAB_TABLE_SCOPE, build_job, instant, integer, to_arab_status, fingerprint
+from .contracts import PACKAGE_ORIGINS, ARAB_TABLE_SCOPE, build_job, instant, integer, to_arab_status, fingerprint
 from .coordinator import Coordinator
 from .public_sources import VERSIONS
 from .ssh_client import Session, ssh_command
@@ -59,14 +59,14 @@ def source_ready(coordinator, routing, *, consume_only=False, source_id='ArabUT'
         source = (coordinator._get(db, 'collection_sources', source_id) if consume_only
                   else coordinator._source_ready(db, source_id, utc()))
     if (not source or source['mode'] != 'consume' or source['generation'] != routing['assignment_generation']
-            or source['origin'] != {'ArabUT':'https://www.arab-ut.com','Lootbar':'https://www.lootbar.com'}[source_id]
+            or source['origin'] != {'ArabUT':'https://www.arab-ut.com','Lootbar':'https://www.lootbar.com',**PACKAGE_ORIGINS}[source_id]
             or source['nodes'][0] != '183' or source['adapter_version'] != VERSIONS[source_id]
-            or source_id == 'Lootbar' and source['nodes'] != ['183']):
+            or source_id != 'ArabUT' and source['nodes'] != ['183']):
         raise ValueError('collection_source_not_ready')
     return source
 
 
-def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None, price_table=False):
+def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None, price_table=False, wanted=None):
     if not isinstance(parent, dict) or set(parent) != {'run_id', 'created_at', 'deadline_at'}:
         raise ValueError('collection_parent_required')
     # Opening the candidate must never create a second ledger or reset pilot budgets.
@@ -76,6 +76,8 @@ def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None, 
     def ready(**kw):
         return source_ready(coordinator, routing, **kw, **({'source_id':source_id} if source_id != 'ArabUT' else {}))
     def routing_now():
+        if source_id in PACKAGE_ORIGINS:
+            return read_routing_file(ROUTING.with_name(source_id.lower()+'-routing.json'))
         if source_id == 'ArabUT':
             return read_routing()
         from .lootbar import ROUTING as path
@@ -86,8 +88,13 @@ def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None, 
             raise SourceUnavailable('collection_routing_changed')
     source = ready(consume_only=True)
     from .lootbar import REQUEST_BUDGET
-    task = build_job(parent, source_id, dict(requested_platforms=['PS', 'XBOX', 'PC'], region_scope=[0] if source_id == 'Lootbar' else [21],
-        quantity_scope=ARAB_TABLE_SCOPE if price_table else dict(purchase_quantity='100', quantity_unit='K'),
+    package = source_id in PACKAGE_ORIGINS
+    platforms = sorted({p for p,q in wanted}) if package else ['PS','XBOX','PC']
+    quantity_scope = ARAB_TABLE_SCOPE if price_table else dict(purchase_quantity='100', quantity_unit='K')
+    if package:
+        quantity_scope = dict(slots=sorted([p,q] for p,q in wanted),quantity_unit='K')
+    task = build_job(parent, source_id, dict(requested_platforms=platforms, region_scope=[21] if source_id=='ArabUT' else [0],
+        quantity_scope=quantity_scope,
         discount_scope='coupon_excluded', currency='native' if price_table else 'USD',
         policy_version=source['policy_version'], adapter_version=source['adapter_version'],
         assignment_generation=source['generation'], total_attempt_limit=2 if '187' in source['nodes'] and not price_table else 1,
@@ -127,13 +134,13 @@ def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None, 
                     raise ValueError('collection_parent_expired')
                 with Session(command, max_seconds=min(15, remaining)) as session:
                     health = session.health('183', access['worker_digest'], margin=source['clock_margin_seconds'])
-                if health['adapters'] != VERSIONS:
+                if health['adapters'].get(source_id) != VERSIONS[source_id]:
                     raise ValueError('collection_adapter_version_invalid')
                 current = {key:health[key] for key in ('node_id', 'node_boot_id')}
                 if principal and current != principal:
                     raise ValueError('collection_node_unstable')
                 principal = current
-                coordinator.register_node(principal, list(VERSIONS), utc())
+                coordinator.register_node(principal, [s for s,v in VERSIONS.items() if health['adapters'].get(s)==v], utc())
                 if index == 0:
                     if source['stable_seconds'] > min(10, remaining - 15):
                         raise ValueError('collection_parent_insufficient_time')
@@ -175,22 +182,27 @@ def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None, 
         task = coordinator._get(db, 'collection_jobs', task['job_id'])
     if utc() >= instant(task['deadline_at']):
         raise ValueError('collection_parent_expired')
-    if source_id == 'Lootbar':
+    if source_id == 'Lootbar' or package:
         from .contracts import to_fc_quote_rows
-        return to_fc_quote_rows(accepted, task, utc())
+        projection = to_fc_quote_rows(accepted, task, utc())
+        if package:
+            projection['errors']=[body['reason_code'] for body in accepted if body.get('reason_code')]
+        return projection
     return to_arab_status(accepted, task, utc())
 
 
-def legacy_ready(source_id='ArabUT'):
+def legacy_ready(source_id='ArabUT', *, require_registered=False):
     if not DATABASE.exists():
-        return True
+        return not require_registered
     if DATABASE.is_symlink():
         return False
     with closing(sqlite3.connect(DATABASE.as_uri() + '?mode=ro', uri=True, timeout=5)) as db:
         source = db.execute('SELECT body FROM collection_sources WHERE id=?', (source_id,)).fetchone()
         if source is None:
-            return True
+            return not require_registered
         source = json.loads(source[0])
+        if require_registered and (source['mode'] != 'consume' or source['origin'] != PACKAGE_ORIGINS[source_id]):
+            return False
         now = utc().timestamp()
         for row in db.execute('SELECT body FROM collection_sources'):
             shared = json.loads(row[0])

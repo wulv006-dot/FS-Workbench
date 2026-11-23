@@ -64,9 +64,10 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
     platforms=scope.get('platforms',['PS','XBOX','PC'])
     if not platforms or set(platforms)-{'PS','XBOX','PC'}:raise ValueError('selective_platform_scope_invalid')
     regions=sorted(set(int(value) for value in known_region_ids)|set(int(value) for value in scope.get('region_ids',[])))
-    from .competitor_offers import CURRENT_QUANTITIES, POLICY
-    v6=scope.get('competitor_policy')==POLICY
-    markets=['Lootbar','U7Buy','ArabUT'] if v6 else ['Lootbar','ArabUT']
+    from .competitor_offers import CURRENT_QUANTITIES, LEGACY_POLICY, LEGACY_SOURCES, POLICY, SOURCES
+    policy=scope.get('competitor_policy')
+    v6=policy in (POLICY, LEGACY_POLICY)
+    markets=list(SOURCES if policy==POLICY else LEGACY_SOURCES) if v6 else ['Lootbar','ArabUT']
     result=dict(version=VERSION,active_mode=active_mode,platforms=list(platforms),region_ids=regions,
         competitor_policy='lootbar_primary_arabut_secondary_v1',required_markets=markets,auxiliary_markets=['ItemD2R'],
         market_platforms={name:list(platforms) for name in markets},
@@ -76,7 +77,7 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
         refresh_monthly_target=active_mode in ('revenue_sprint','smart') and scope.get('catalog_only') is not True,online_observation_job='preserved_separate_incremental_pipeline',
         historical_orders_in_quote=False,long_window_collection=False)
     if v6:
-        result.update(version='fc27-selective-source-quantity-v6.1',competitor_policy=POLICY,
+        result.update(version='fc27-selective-source-quantity-v6.1',competitor_policy=policy,
             hard_evidence=['current_cost','current_FX','same_run_native_admin_catalogue','D8_D2_weighted_discount'],
             history='D_minus_8_through_D_minus_2_seven_closed_days_from_shared_ES',
             own_public_price='optional_independent_diagnostic',
@@ -84,16 +85,23 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
             quantity_scope=list(CURRENT_QUANTITIES),competitor_roles={'Lootbar':'core','U7Buy':'differentiation','ArabUT':'observation'},
             quantity_identity='source_platform_purchase_eligibility_delivery_currency',
             missing_source_policy='unknown_optional_signal_no_price_action')
+        if policy == POLICY:
+            result.update(version='fc27-ordinary-package-offers-v1',
+                retired_automatic_sources=['ArabUT','ELD','ItemD2R'],
+                competitor_roles={'Lootbar':'core','U7Buy':'differentiation','U4GM':'observation','IGGM':'observation'})
+        else:
+            result['quantity_scope']=['100']
     return result
 
 
 def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
     """Replacement adapter for the retired four-site grid; same-run/price/time rules remain."""
-    from .competitor_offers import POLICY, normalize_offers, quantity_coverage
-    if plan.get('competitor_policy')==POLICY:
+    from .competitor_offers import POLICY, LEGACY_POLICY, normalize_offers, quantity_coverage
+    if plan.get('competitor_policy') in (POLICY, LEGACY_POLICY):
         rows=list(snapshot.get('competitor_offers',snapshot.get('competitors') or []))
         arab = snapshot.get('arab_ut_status') or {}
-        rows+=list(arab.get('quantity_offers') or arab.get('offers') or [])
+        if 'ArabUT' in plan['required_markets']:
+            rows+=list(arab.get('quantity_offers') or arab.get('offers') or [])
         valid=[];gaps=[]
         for row in rows:
             if row.get('source') not in plan['required_markets']:continue
@@ -107,7 +115,7 @@ def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
             if key in seen and seen[key]!=row:conflicts.add(key)
             seen[key]=row
         valid=[r for k,r in seen.items() if k not in conflicts]
-        coverage=quantity_coverage(valid,plan['platforms'],plan['quantity_scope'])
+        coverage=quantity_coverage(valid,plan['platforms'],plan['quantity_scope'],sources=plan['required_markets'])
         return dict(coverage,ready=True,gaps=gaps,conflicting_offers=len(conflicts),normalized_offers=valid,
             retired_automatic_sources=plan['retired_automatic_sources'],missing=[],
             reference_sources={p:sorted({r['source'] for r in valid if r['platform']==p and r['source']!='Lootbar'}) for p in plan['platforms']})

@@ -195,7 +195,7 @@ class BidirectionalCollection(unittest.TestCase):
         self.assertEqual(rows['PC']['delivery'], 'standard')
         self.assertIsNone(rows['PC']['original_delivery'])
 
-        from fc_pricing_v3.competitor_offers import POLICY
+        from fc_pricing_v3.competitor_offers import LEGACY_POLICY as POLICY
         from fc_pricing_v3.selective_sources import planned_source_coverage, source_plan
         plan = source_plan('smart', dict(competitor_policy=POLICY))
         coverage = planned_source_coverage(dict(run_id='three-platform', competitor_offers=[],

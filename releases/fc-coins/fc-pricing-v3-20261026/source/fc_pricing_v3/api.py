@@ -285,13 +285,15 @@ def manual_execution_progress(db, operations):
 
 
 def _curve_market_quotes(snapshot):
-    from .competitor_offers import CURRENT_QUANTITIES, POLICY, quantity_coverage
-
+    from .competitor_offers import CURRENT_QUANTITIES, LEGACY_POLICY, LEGACY_SOURCES, POLICY, SOURCES, quantity_coverage
+    policy = snapshot['evidence'].get('competitor_policy', LEGACY_POLICY)
+    requested = CURRENT_QUANTITIES if policy == POLICY else ('100',)
+    sources = SOURCES if policy == POLICY else LEGACY_SOURCES
     offers = [row for row in snapshot['evidence'].get('competitor_offers') or []
-              if row.get('purchase_k') in CURRENT_QUANTITIES]
-    return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=POLICY,
+              if row.get('purchase_k') in requested and row.get('source') in sources]
+    return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=policy,
                 snapshot_id=snapshot['snapshot_id'], captured_at=snapshot['created_at'],
-                competitor_coverage=quantity_coverage(offers, requested=CURRENT_QUANTITIES),
+                competitor_coverage=quantity_coverage(offers, requested=requested, sources=sources),
                 competitor_offers=[{key:row.get(key) for key in ('source','platform','purchase_k','bonus_k','currency',
                     'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier',
                     'captured_at')} for row in offers])
@@ -449,6 +451,7 @@ def read(path):
                 selection = selections.get(platform, {})
                 rows[platform].update({key: selection[key] for key in ('reference_anchors', 'normal_anchors',
                     'final_anchors', 'cost_protection', 'large_market_reference') if key in selection})
+                rows[platform]['market_observations'] = (selection.get('market_anchor') or {}).get('observations', [])
             return dict(_curve_market_quotes(current), price_basis={'rows': rows}, catalogue_samples=catalogues)
         from .engine import price_basis
         original=db.get('pricing_snapshots',snapshot['snapshot_id']) if snapshot else None

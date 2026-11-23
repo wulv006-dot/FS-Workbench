@@ -797,20 +797,30 @@
             const percent=value=>`${Number(value)>0?'+':''}${Number(value).toFixed(1)}%`;
             for(const reference of references){
               const source=reference.source==='ArabUT'?'Arab-UT':reference.source;
+              if(reference.comparison_basis==='ordinary_purchase_package'){
+                const kind=reference.basis==='native'?'1000K 实采':'由 100K 估算 1000K';
+                details.append(node('p',`${source} · ${kind} ${usd(reference.price_usd)} · 目标价差 ${percent(reference.final_difference_pct)} · ${when(reference.captured_at)}`));
+                continue;
+              }
               details.append(node('p',`${source} · 由 100K 线性折算 ${usd(reference.price_usd)} / 1000K，赠 ${reference.bonus_k}K · ${when(reference.captured_at)}`),
                 node('p',`每实交 100K ${usd(reference.usd_per_delivered_100k)} · 候选价差 ${percent(reference.normal_difference_pct)} · 目标价差 ${percent(reference.final_difference_pct)}`));
             }
           }
-          for(const source of ['Lootbar','U7Buy','ArabUT']){
+          for(const observation of market.price_basis?.rows?.[platform]?.market_observations||[]){
+            const band=observation.band==='small'?'100K':'1000K';
+            const basis=observation.basis==='native'?'实采':'由 100K 估算';
+            column.append(node('p',`${observation.source} · ${band} ${basis} · 我方价差 ${(Number(observation.difference_ratio)*100).toFixed(1)}%`));
+          }
+          for(const source of market.competitor_coverage?.optional_sources||[]){
             const card=node('section');card.className='market-quote';card.append(node('h4',source==='ArabUT'?'Arab-UT':source));
-            const offers=(market.competitor_offers||[]).filter(row=>row.source===source&&row.platform===platform&&Number(row.purchase_k)===100);
+            const offers=(market.competitor_offers||[]).filter(row=>row.source===source&&row.platform===platform);
             if(!offers.length){
               card.dataset.state='failed';
-              const empty=node('p','该快照未取得 100K 报价');empty.className='quote-state';card.append(empty);
+              const empty=node('p','该快照未取得报价');empty.className='quote-state';card.append(empty);
             }
             for(const offer of offers){
-              const amount=offer.regular_price??offer.eligible_net_price??offer.display_price;
-              const price=node('p',amount==null?'价格待核':offer.currency==='USD'?usd(amount):offer.currency+' '+amount);
+              const amount=offer.regular_price;
+              const price=node('p',`${offer.purchase_k}K · ${amount==null?'价格待核':offer.currency==='USD'?usd(amount):offer.currency+' '+amount}`);
               price.className='market-amount';
               const age=Date.now()-Date.parse(offer.captured_at);
               const knownTime=Number.isFinite(age)&&age>=0;
@@ -822,7 +832,7 @@
               const detail=node('details');detail.className='market-details';
               const gift=offer.bonus_k==null?'赠送待核':`赠 ${offer.bonus_k}K`;
               const method=offer.delivery_tier||offer.delivery_method;
-              detail.append(node('summary','报价详情'),node('p',`购买 100K · ${gift}${method?` · ${method}`:''}`));
+              detail.append(node('summary','报价详情'),node('p',`购买 ${offer.purchase_k}K · ${gift}${method?` · ${method}`:''}`));
               card.append(price,evidence,timestamp,detail);
             }
             column.append(card);

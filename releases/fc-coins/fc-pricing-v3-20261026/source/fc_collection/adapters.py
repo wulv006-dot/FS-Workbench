@@ -105,6 +105,11 @@ class RestrictedHTTP:
                 if template == 'prices_table' and (source != 'ArabUT' or item != ARAB_PRICE_TABLE):
                     raise ValueError('arab_prices_table_endpoint_invalid')
                 if 'query' in item:
+                    if source=='U4GM' and item['host']=='www.u4gm.com' and item['path']=='/fc-27/coins':
+                        if template not in ('XBOX','PC') or item['query'] != {'server_code':{'XBOX':'xbox_one_series','PC':'pc'}[template]}:
+                            raise ValueError('template_query_invalid')
+                        integer(item['max_bytes'], 1, 2097153)
+                        continue
                     query = dict(platform='playstation', delivery='normal', quantity='100000')
                     if (source != 'ArabUT' or item['host'] != 'www.arab-ut.com'
                             or not ((template in ARAB_WARM_PATHS and item['path'] == ARAB_WARM_PATHS[template] and item['query'] == dict(query, currency='USD'))
