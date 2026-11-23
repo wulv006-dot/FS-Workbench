@@ -9,3 +9,11 @@ Lootbar 和 U7Buy 维持市场走廊与原报价缺失规则。U4GM、IGGM 分�
 保持现有小时节拍、财务零线和双篮 18%、经营目标及其计划参数、单轮和 24 小时保险、活动优惠保护、187 唯一 Order writer、Admin 写后核价及原 ID 对账。历史操作、冻结回执和来源范围保留原语义。
 
 上线验收使用新旧采集在相同有效覆盖下的整轮时长、峰值内存及浏览器启动次数，同时核对市场取价、财务证明、监控读回与首个自然轮。仓库中的实现和离线回归不能证明现场切换。
+
+## 部署位置与现场核验
+
+1. 定价发布沿用现有 `build_stage.py --curve-recovery market-packages`，同步采集入口、定价模块的两个活动副本及看板。183 使用 `build_collection_node.py` 的 node 包，187 使用 control 包；先读回新角色包的摘要与健康响应，再让定价入口消费。
+2. 采集角色使用 Python 3.10 以上的独立环境，依赖见 `deploy/requirements-market-packages.txt`。普通报价采集用 HTTP；187 保留已核验的 Lootbar 与 U7Buy 平台选择读取器。183 只有在运行服务的解释器能加载 Scrapling 时才报告新增站点。
+3. 187 通过原采集账本分别登记 U4GM 与 IGGM 的来源、请求预算和有效代次，使用对应站点的 routing 配置。403、挑战和 429 冷却经原账本共享。Windows 会领取受限回执任务，明确返回缺价。可恢复的采集错误由本机尝试实际读取。
+4. Windows 的 `fs-fc-iggm-readback` SSH 别名绑定专用身份与已核对的 187 主机指纹。187 用独立低权限用户和固定 forced command 调用 `fc_collection.package_relay.relay`。回传目录 `/run/fs-fc-iggm-local` 由采集控制进程持有，relay 组只可遍历和连接套接字。Windows 用户任务运行 `python -m fc_collection.package_relay local`。常驻安装涉及专用身份授权。
+5. 2026-11-24 现场只读核验：187→183 采集专线健康，183 回报 ArabUT 与 Lootbar。Windows→187 的合成 PC 1000K 缺项与同轮回执已在 187 低权限临时进程上往返。原链路最近 12 份就绪快照从开始到文件写入的中位耗时为 80.65 秒，范围 32.4–190.8 秒。待实测新来源有效覆盖、自然轮耗时及峰值内存。

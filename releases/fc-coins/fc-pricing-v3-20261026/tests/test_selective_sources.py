@@ -317,8 +317,8 @@ class SelectiveSourceTest(unittest.TestCase):
 
     def test_shared_runtime_collects_missing_sprint_Arab_once_and_returns_actual_quotes(self):
         from test_regional_sources import products,SKUS
-        from fc_pricing_v3 import region_source,market_registry
         import importlib
+        region_source=importlib.import_module('fc_pricing_v3.region_source')
         market_registry=importlib.import_module('fc_pricing_v3.market_registry')
         storefront=dict(rows={p:dict(sku_id=str(sku)) for p,sku in SKUS.items()})
         auth=SimpleNamespace(Session=Mock,admin_token_from_service=lambda:('fixture','ok'))
@@ -337,8 +337,8 @@ class SelectiveSourceTest(unittest.TestCase):
     def test_shared_daily_pc_context_reads_only_affected_region_and_keeps_independent_arab(self):
         sys.path.insert(0,str(HERE))
         from test_regional_sources import products,PublicOpener,InlinePool,SKUS
-        from fc_pricing_v3 import region_source,market_registry
         import importlib
+        region_source=importlib.import_module('fc_pricing_v3.region_source')
         market_registry=importlib.import_module('fc_pricing_v3.market_registry')
         storefront=dict(rows={p:dict(sku_id=str(sku)) for p,sku in SKUS.items()})
         rule=dict(id=1,site_id=266,lang_region_id=39,goods_id=0,gid=1327,top_cid=1,cid=0,sid=7645,aid=0,factor='.9100',status=1)

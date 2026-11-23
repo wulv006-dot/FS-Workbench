@@ -1,10 +1,12 @@
 """Ordinary FC27 price evidence through the public package reader."""
+from importlib.util import find_spec
 import unittest
 from datetime import datetime, timezone
 
 from fc_collection.package_reader import parse_packages
 
 
+@unittest.skipUnless(find_spec('scrapling'), 'run in the separate market-package worker environment')
 class Packages(unittest.TestCase):
     def test_iggm_uses_only_active_tier_and_visible_price_of_the_same_regular_card(self):
         from scrapling import Selector
