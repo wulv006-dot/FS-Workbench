@@ -372,6 +372,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assert_fc_revision_migration(builder.FC_V61_INSURANCE_REVISION,
                                           builder.FC_V61_MARGIN_BAND_REVISION, baseline_patch=True)
 
+    def test_package_sources_update_pricing_reporting_and_direct_baseline(self):
+        self.assert_fc_revision_migration(builder.FC_V61_CARNIVAL_REVISION,
+                                          builder.FC_V61_MARKET_PACKAGES_REVISION, baseline_patch=True)
+
     def test_hourly_margin_band_updates_only_constraints_and_parameter_identity(self):
         self.assert_fc_revision_migration(builder.FC_V61_MARGIN_BAND_REVISION,
                                           builder.FC_V61_HOURLY_REVISION, baseline_patch=True)
@@ -431,8 +435,8 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                     identity = 'fs.procurement.inputs'
                     entries.append(row(identity, old_revision, old_path, old_data))
                     route['entry_ids'].append(identity)
-                if new_revision == builder.FC_V61_MARGIN_BAND_REVISION:
-                    for identity in ('fc.reporting.business', 'fc.reporting.data'):
+                if 'fc.reporting.business' in overlay_ids:
+                    for identity in sorted(overlay_ids & {'fc.reporting.business', 'fc.reporting.data'}):
                         rev = 'newer-reporting' if drift_reporting else old_revision
                         updated = row(identity, rev, old_path, old_data)
                         if identity in route['entry_ids']:
