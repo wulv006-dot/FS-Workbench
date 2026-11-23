@@ -1127,6 +1127,15 @@ class Task(object):
         #    金币.进货成本.优先本机推送 / 仅本机推送。推来的成本已由 /api/dd373_cost
         #    落到 gold_cost 表，金币定价照常读它。无新鲜推送时才退回老逻辑：
         #    风控冷却中 → 等；冷却已过 → 服务器自抓。
+        # Zenith 走 DD373 普通挂单接口，与旧区网页采集的冷却分别处理。
+        zenith = next((s for s in cfg["金币"].get("服务区", [])
+                       if s.get("key") == "GOLD_MSCW_ZENITH" and s.get("跟价")), None)
+        if zenith:
+            game_name = zenith["游戏"]
+            params = game_parameters.cost_parameters(cfg, game_name)
+            result = core_dd373_cost.zenith_cost(core_gold.rate_of(cfg), params)
+            store.save_gold_cost(con, ts, {zenith["key"]: result}, {}, game=game_name)
+            log("  [成本] %s" % result["依据"])
         if not force:
             try:
                 _fb = float(cc.get("兜底窗口分钟") or 45)
@@ -1189,7 +1198,7 @@ class Task(object):
         _all_sv = (cfg.get("金币") or {}).get("服务区") or []
         _total = 0
         for game in _gs:
-            svs = [s for s in _all_sv if s.get("游戏") == game]
+            svs = [s for s in _all_sv if s.get("游戏") == game and s.get("key") != "GOLD_MSCW_ZENITH"]
             if not svs:
                 log("  [成本] config 里没有 %s 的金币服务区，跳过" % game)
                 continue
@@ -2648,6 +2657,9 @@ def task_collect(t, opts):
 
             for _g in _need_cost_games:
                 for _r in store.gold_cost_latest(con, game=_g):
+                    if _r.get("key") == "GOLD_MSCW_ZENITH" and (
+                            _r.get("ts") != ts or _r.get("dd_zone") != "北美Zenith"):
+                        continue
                     _dd_costs[_r.get("key")] = {
                         "ok": _r.get("ok"), "cny_per_wan": _r.get("cny_per_wan"),
                         "usd_per_m": _r.get("usd_per_m"), "n_items": _r.get("n_items"),

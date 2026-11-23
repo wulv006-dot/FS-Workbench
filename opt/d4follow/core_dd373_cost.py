@@ -1398,6 +1398,52 @@ def _collect_flat_game(game, rate, log=None, gap=1.3, parameters=None):
     return (rec, site)
 
 
+def zenith_cost(rate, parameters):
+    """核实北美 Zenith 普通游戏币挂单，沿用 MSCW 采样与离群规则。"""
+    game = "MapleStory Classic World"
+    zone = FLAT_ZONES[game]
+    target = float(parameters.get("目标万量", zone["target_wan"]))
+    minimum = int(parameters.get("最低条数", zone["min_quotes"]))
+    url = API_SHOP + "?" + urllib.parse.urlencode({
+        "GameId": "d73d3698cfd74ad3b5fc3df33ad0db29",
+        "GameOtherId": "c684ecb9baad433797592e87d4a7bb11_72fae5b70f9e4fae819a5af64c703685",
+        "GameShopTypeId": "518c50f480ea4b20b0263958553231f1",
+    })
+    rec = {"ok": False, "DD区": "北美Zenith", "DD游戏区": "北美Zenith",
+           "单位": "万金", "前端单位": "K", "URL": url}
+    try:
+        reply = json.loads(_get(url, tries=1))
+        status = reply["StatusData"]
+        rows = status["ResultData"]
+        if str(reply["StatusCode"]) != "0" or str(status["ResultCode"]) != "0" or not isinstance(rows, list):
+            raise ValueError("接口未返回有效挂单列表")
+        unique = {}
+        for row in rows:
+            if row.get("unit") != "万金" or not row.get("shopno"):
+                raise ValueError("挂单编号或单位未核实")
+            unique[row["shopno"]] = row
+        quotes, bad = _api_rows_to_quotes(unique.values())
+        if bad:
+            raise ValueError("挂单数量或单价无效")
+        book = orderbook_avg(quotes, target, skip_lowest=zone["skip_lowest"],
+                             breakout_ratio=zone.get("breakout_ratio", BREAKOUT_RATIO))
+        count = len(unique)
+        rec["商品条数"] = count
+        if not book:
+            rec["依据"] = "北美Zenith 无可用挂单"
+            return rec
+        rec["库存"] = "可买%g万金" % book["可供量"]
+        if not book["可用"] or count < minimum or not book["够量"]:
+            rec["依据"] = "北美Zenith 采样不足或触发离群保护（%s，%d条）" % (rec["库存"], count)
+            return rec
+        rec.update({"ok": True, "成本_元每万基纳": book["均价"],
+                    "成本_USD每M": to_usd_per_unit(book["均价"], rate, zone["wan_per_unit"]),
+                    "依据": "北美Zenith · %d条，跳过最低%d条，按%g万金加权" % (count, book["跳过条数"], target)})
+    except (KeyError, TypeError, ValueError, OSError) as exc:
+        rec["依据"] = "北美Zenith 报价读取失败（%s）" % type(exc).__name__
+    return rec
+
+
 def _fetch_costs_flat(servers, rate, log=None, gap=1.3, game=None, parameters=None):
     """扁平专区（MSCW）：整个游戏**共用一本订单簿**，结果写给该游戏全部服务区。"""
     g = game or (servers[0].get("游戏") if servers else None)
@@ -1408,8 +1454,16 @@ def _fetch_costs_flat(servers, rate, log=None, gap=1.3, game=None, parameters=No
     svs = [s for s in (servers or []) if s.get("key")]
     if not svs:
         return {}
-    rec, _site = _collect_flat_game(g, rate, log=log, gap=gap, parameters=parameters)
-    return {s.get("key"): dict(rec) for s in svs}
+    result = {}
+    for sv in svs:
+        key = sv["key"]
+        if key == "GOLD_MSCW_ZENITH":
+            result[key] = zenith_cost(rate, parameters or {})
+        elif key == "GOLD_MSCW_GLOBAL":
+            result[key], _ = _collect_flat_game(g, rate, log=log, gap=gap, parameters=parameters)
+        else:
+            result[key] = {"ok": False, "依据": "未登记的冒险岛区服"}
+    return result
 
 
 # ---------------------------------------------------------------------------
