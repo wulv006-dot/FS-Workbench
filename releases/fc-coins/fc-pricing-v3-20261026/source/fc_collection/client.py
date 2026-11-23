@@ -201,6 +201,8 @@ def legacy_ready(source_id='ArabUT', *, require_registered=False):
         if source is None:
             return not require_registered
         source = json.loads(source[0])
+        if source_id == 'ArabUT' and source['mode'] == 'off':
+            return False
         if require_registered and (source['mode'] != 'consume' or source['origin'] != PACKAGE_ORIGINS[source_id]):
             return False
         now = utc().timestamp()

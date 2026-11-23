@@ -238,11 +238,15 @@ class SupersededAllCodePublish(unittest.TestCase):
             with self.subTest(scope=kind):
                 process.run.reset_mock()
                 scope['restart_with_hermes_readiness'].reset_mock()
-                scope['restart']({'scope':kind})
+                scope['restart']({'scope':kind}, 'fence')
                 restarts=[c.args[0] for c in process.run.call_args_list if c.args[0][:2]==['systemctl','restart']]
                 self.assertEqual(restarts,[['systemctl','restart',name] for name in (
                     'fc27-cloud-api.service','fc27-cloud-worker.service','fc-pricing-v3.service')])
-                scope['restart_with_hermes_readiness'].assert_not_called()
+                if kind == CURVE_RECOVERY_SCOPES['market-packages']:
+                    scope['restart_with_hermes_readiness'].assert_called_once_with(
+                        scope['base'], scope['original_restart'], {'scope':kind}, 'fence')
+                else:
+                    scope['restart_with_hermes_readiness'].assert_not_called()
         process.run.reset_mock();scope['restart_with_hermes_readiness'].reset_mock()
         scope['restart']({'scope':'history-read'}, 'fence')
         process.run.assert_not_called()

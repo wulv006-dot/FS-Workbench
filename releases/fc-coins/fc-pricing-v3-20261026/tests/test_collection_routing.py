@@ -270,6 +270,18 @@ class Routing(unittest.TestCase):
 
 
 class SourceWiring(unittest.TestCase):
+    def test_original_ledger_is_consulted_when_routing_file_is_missing(self):
+        from fc_pricing_v3 import sources
+        config, ledger = Mock(), Mock()
+        config.exists.return_value = config.is_symlink.return_value = False
+        ledger.exists.return_value = True
+        with patch.object(sources,'Path',side_effect=[config,ledger]), patch.object(sources.sys,'path',list(sources.sys.path)), \
+                patch('fc_pricing_v3.market_registry.arab_normal') as legacy, \
+                patch('fc_collection.client.arab_normal',return_value='checked') as routed:
+            self.assertEqual(sources._read_arab({},None),'checked')
+            routed.assert_called_once_with(legacy,{},pinned=None)
+            legacy.assert_not_called()
+
     def test_original_branch_needs_no_controller_install_but_configured_route_receives_parent(self):
         from fc_pricing_v3 import sources
         config = Mock()

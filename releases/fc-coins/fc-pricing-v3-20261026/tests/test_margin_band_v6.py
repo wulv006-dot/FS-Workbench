@@ -371,6 +371,7 @@ class MarginBandRuntime(unittest.TestCase):
         from fc_pricing_v3 import runtime
         from test_curve_runtime_v6 import CurveRuntime
         from test_curve_strategy_v6 import fixture as curve_fixture
+        from fc_pricing_v3.competitor_offers import POLICY
 
         fixture = CurveRuntime()
         fixture.setUp()
@@ -383,7 +384,7 @@ class MarginBandRuntime(unittest.TestCase):
         hours = list(range(24))
         selected['margin_band']['decision_round'] = runtime.margin_band_round(started, hours)
         plan.update(mode='smart', write_protocol='fc27_curve_v6', smart_strategy_version='market-anchor-v1',
-                    activation_revision='fixture', resources=['base:PS'], parameters=self.margin_parameters(hours))
+                    activation_revision='fixture', resources=['base:PS'], parameters=dict(self.margin_parameters(hours), competitor_policy=POLICY))
         bundle = fixture.bundle
         primary, _, _ = curve_fixture()
         frozen = dict(plan_binding=runtime._curve_plan_binding(plan), primary_curve=primary,
@@ -696,6 +697,7 @@ class MarginBandWeekly(unittest.TestCase):
     def test_incomplete_round_stores_margin_band_for_monitoring_and_retry(self):
         from datetime import datetime, timedelta, timezone
         from fc_pricing_v3 import runtime
+        from fc_pricing_v3.competitor_offers import POLICY
         from test_curve_runtime_v6 import CurveRuntime
 
         fixture = CurveRuntime()
@@ -705,7 +707,7 @@ class MarginBandWeekly(unittest.TestCase):
         fixture.prepare()
         plan = fixture.db.get('pricing_plans', 'plan')
         plan.update(mode='smart', write_protocol='fc27_curve_v6', smart_strategy_version='market-anchor-v1',
-                    resources=['base:PS'], parameters=self.config())
+                    resources=['base:PS'], parameters=dict(self.config(), competitor_policy=POLICY))
         local = timezone(timedelta(hours=8))
         now = datetime(2026, 11, 18, 13, 38, tzinfo=local)
         result = runtime.calculate_curve_cycle(fixture.db, {'run_id': 'no-proof'}, plan,

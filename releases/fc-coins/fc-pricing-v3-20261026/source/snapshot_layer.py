@@ -272,7 +272,9 @@ def collect_market_sources(run_id, *, curve_v6):
     before = {p for p in glob.glob(str(ROOT / "evidence/lootbar-*.jsonl"))}
     try:
         command = [str(COLLECTOR), run_id] + (['--native-quantities'] if curve_v6 else [])
-        result = subprocess.run(command, capture_output=True, timeout=230)
+        # Native mode can spend 28 seconds probing SKU, 90 on CDP, then 115 on the original fallback.
+        # A budget wait ends 60 seconds after the SKU reservation, overlapping those first two steps.
+        result = subprocess.run(command, capture_output=True, timeout=245 if curve_v6 else 230)
         if result.returncode:
             failures.append("Lootbar:" + collector_failure("lootbar-*.jsonl", before, "Lootbar"))
         else:
@@ -380,32 +382,16 @@ def collect_once(run_id=None, competitor_policy=None):
     started = datetime.now(timezone.utc).isoformat()
     if competitor_policy == POLICY:
         # Preserve source locks and deadlines while the current Order and market reads overlap.
-        control = Path('/opt/fs-fc-control/code')
-        if control.is_dir() and str(control) not in sys.path:
-            sys.path.insert(0, str(control))
-        from fc_collection.package_routes import collect_missing, read_node
-        slots = [(platform, quantity) for platform in PLATFORMS for quantity in CURRENT_QUANTITIES]
-        def observer(source):
-            start = datetime.fromisoformat(started)
-            return collect_missing(source,run_id,slots,lambda node,request:read_node(node,request,start),
-                                   lambda:datetime.now(timezone.utc))
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             order = executor.submit(collect_order_cost, run_id, curve_v6=True)
-            observers = executor.submit(lambda:[(source,observer(source)) for source in ('IGGM','U4GM')])
             snapshots, quantity_offers, failures = collect_market_sources(run_id, curve_v6=True)
             fx, fx_failure = collect_fx()
             costs, cost_failure, cost_failure_text = order.result()
-            package_attempts = {}
-            for source, (rows, attempts) in observers.result():
-                quantity_offers.extend(rows)
-                package_attempts[source] = attempts
-                if not rows:
-                    failures.append(source+':ordinary_package_missing')
     else:
         snapshots, quantity_offers, failures = collect_market_sources(run_id, curve_v6=False)
         costs, cost_failure, cost_failure_text = collect_order_cost(run_id, curve_v6=False)
         fx, fx_failure = collect_fx()
-    coverage = (quantity_coverage(quantity_offers, requested=CURRENT_QUANTITIES) if competitor_policy == POLICY
+    coverage = (quantity_coverage(quantity_offers, requested=CURRENT_QUANTITIES, sources=('Lootbar','U7Buy')) if competitor_policy == POLICY
                 else dict(ready=True, required_sources=[], optional_sources=['Lootbar'],
                           pricing_source_policy='current_available_quote_or_100k_margin_floor'))
     fx_retry = None
@@ -423,7 +409,7 @@ def collect_once(run_id=None, competitor_policy=None):
     valid_count = sum(x["status"] == "valid" for x in snapshots)
     cost_count = sum(x["status"] == "valid" for x in costs)
     source_warnings = [failure for failure in failures
-                       if failure.split(":", 1)[0] in ("Lootbar", "IGGM", "U4GM", "U7Buy")]
+                       if failure.split(":", 1)[0] in ("Lootbar", "U7Buy")]
     for row in snapshots:
         if row["status"] == "missing":
             row["reason"] = next((failure for failure in failures
@@ -437,7 +423,7 @@ def collect_once(run_id=None, competitor_policy=None):
                "fx": fx, "quote_status": "PENDING" if complete else "NO_QUOTE",
                "source_coverage": coverage, "source_warnings": source_warnings}
     if competitor_policy==POLICY:
-        payload.update(competitor_policy=POLICY,competitor_offers=quantity_offers, package_attempts=package_attempts,
+        payload.update(competitor_policy=POLICY,competitor_offers=quantity_offers,
             legacy_competitor_scope='100k_observed_only')
     if cost_failure is not None:
         payload['cost_failure'] = cost_failure

@@ -5,10 +5,12 @@ from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 
-POLICY = 'v6_four_source_purchase_packages_v1'
+POLICY = 'v6_pricing_packages_observers_separate_v2'
+FOUR_SOURCE_POLICY = 'v6_four_source_purchase_packages_v1'
 LEGACY_POLICY = 'v6_1_three_source_quantity_v1'
 VERSION = 'fc27-ordinary-package-offers-v1'
-SOURCES = ('Lootbar', 'U7Buy', 'U4GM', 'IGGM')
+PRICING_SOURCES = ('Lootbar', 'U7Buy')
+SOURCES = PRICING_SOURCES + ('U4GM', 'IGGM')
 LEGACY_SOURCES = ('Lootbar', 'U7Buy', 'ArabUT')
 PLATFORMS = ('PS', 'XBOX', 'PC')
 QUANTITIES = ('100', '1000', '2000', '5000')

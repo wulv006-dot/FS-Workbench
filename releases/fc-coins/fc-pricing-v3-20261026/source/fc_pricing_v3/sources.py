@@ -92,7 +92,8 @@ def _read_arab(collection_context, collection_mode):
     from .market_registry import arab_normal
 
     routing=Path('/var/lib/fc27-cloud/collection-access/routing.json')
-    if not routing.exists() and not routing.is_symlink():
+    registry=Path('/var/lib/fc27-cloud/collection-shadow/collection.sqlite3')
+    if not routing.exists() and not routing.is_symlink() and not registry.exists() and not registry.is_symlink():
         return arab_normal()
     sys.path.insert(0,'/opt/fs-fc-control/code')
     from fc_collection.client import arab_normal as routed

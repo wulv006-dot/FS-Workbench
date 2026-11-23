@@ -11,25 +11,22 @@ def collect_missing(source, run_id, wanted, read, clock):
         raise ValueError('package_route_source')
     remaining = set(wanted)
     accepted, attempts = [], []
-    nodes = ('187', '183', 'local') if source == 'IGGM' else ('187', '183')
-    receipt_only = False
-    for node in nodes:
+    for node in ('187', '183', 'local'):
         if not remaining:
             break
         requested = sorted(remaining)
-        request = dict(source=source, run_id=run_id, wanted=requested, receipt_only=receipt_only)
+        request = dict(source=source, run_id=run_id, wanted=requested)
         result = dict(node=node, requested=requested, accepted=[], errors=[])
         attempts.append(result)
         try:
             receipt = read(node, request)
-            if (not isinstance(receipt, dict) or receipt.get('run_id') != run_id or receipt.get('source') != source
-                    or not isinstance(receipt.get('offers'), list) or len(receipt['offers']) > 64):
+            if not isinstance(receipt, dict) or receipt.get('run_id') != run_id or receipt.get('source') != source:
                 raise ValueError('package_receipt_scope')
             result['errors'].extend(reason for reason in receipt.get('errors', [])
                                     if isinstance(reason,str) and reason.isascii() and reason.replace('_','').isalnum()
                                     and len(reason)<=64)
-            receipt_only = receipt_only or any(reason in ('http_401','http_403','http_429','challenge','captcha','source_access_restricted')
-                                               for reason in result['errors'])
+            if not isinstance(receipt.get('offers'), list) or len(receipt['offers']) > 64:
+                raise ValueError('package_receipt_scope')
             slots = defaultdict(list)
             for raw in receipt['offers']:
                 if not isinstance(raw, dict) or raw.get('source') != source or raw.get('run_id') != run_id:
@@ -52,10 +49,22 @@ def collect_missing(source, run_id, wanted, read, clock):
                 accepted.append(dict(rows[0], collection_node=node))
                 remaining.remove(slot)
                 result['accepted'].append(slot)
+        except SourceRestricted as exc:
+            result['errors'].append(str(exc))
+            break
         except (OSError, ValueError, EOFError, TypeError, sqlite3.Error, subprocess.SubprocessError) as exc:
             result['errors'].append(type(exc).__name__)
+        except Exception as exc:
+            result['errors'].append(type(exc).__name__)
+            break
+        if set(result['errors']) & {'http_401','http_403','http_429','challenge','captcha','source_access_restricted'}:
+            break
     return accepted, attempts
 
+
+
+class SourceRestricted(ValueError):
+    pass
 
 
 def record_restriction(request, receipt):
@@ -86,13 +95,43 @@ def record_restriction(request, receipt):
     return receipt
 
 
-def package_permit(request):
+def package_permit(request, *, subprocess_owned=False):
     from .client import DATABASE, utc
     from .coordinator import Coordinator
     if not DATABASE.is_file() or DATABASE.is_symlink():
         raise ValueError('collection_original_ledger_required')
     count = 1 if request['source'] == 'IGGM' else len({p for p, _ in request['wanted']})
-    return Coordinator(DATABASE).package_requests(request['source'], request['run_id'], count, utc())
+    return Coordinator(DATABASE).package_requests(request['source'], request['run_id'], count, utc(),
+                                                 subprocess_owned=subprocess_owned)
+
+
+def wait_for_lootbar_renderer(run_id, trace):
+    from contextlib import closing
+    import json
+    import time
+    from .client import DATABASE, utc
+    from .lootbar import REQUEST_BUDGET, eligible_trigger
+
+    if not DATABASE.is_file() or DATABASE.is_symlink() or trace.stat().st_size > 1048576:
+        return
+    events = [json.loads(line) for line in trace.read_bytes().splitlines() if line.strip()]
+    if not eligible_trigger(events):
+        return
+    with closing(sqlite3.connect(DATABASE.as_uri() + '?mode=ro', uri=True)) as db:
+        record = db.execute("SELECT body FROM collection_sources WHERE id='Lootbar'").fetchone()
+        if not record:
+            return
+        policy = json.loads(record[0])
+        cutoff = utc().timestamp() - policy['window_seconds']
+        permit = db.execute('SELECT MAX(created), SUM(count) FROM collection_permits '
+                            'WHERE origin=? AND job=? AND epoch=0 AND created>?',
+                            (policy['origin'], run_id, cutoff)).fetchone()
+    if permit[0] is not None and permit[1] + REQUEST_BUDGET > policy['max_requests']:
+        remaining = permit[0] + policy['window_seconds'] - utc().timestamp()
+        if remaining > 60:
+            raise ValueError('request_budget_unavailable')
+        if remaining > 0:
+            time.sleep(remaining)
 
 
 def lootbar_primary(run_id):
@@ -108,7 +147,7 @@ def lootbar_primary(run_id):
     python = '/opt/fs-hermes-fc-public-research-0.5.1/bin/python3.12'
     if not Path(python).is_file():
         return 2
-    with package_permit(request):
+    with package_permit(request, subprocess_owned=True):
         result = subprocess.run([python, '-I', '-B', str(worker)], input=json.dumps(request),
                                 capture_output=True, text=True, timeout=28, check=True)
         receipt = record_restriction(request, json.loads(result.stdout))
@@ -126,10 +165,9 @@ def read_node(node, request, started):
     from pathlib import Path
     from .client import legacy_ready
     if not legacy_ready(request['source'], require_registered=True):
-        request = dict(request, receipt_only=True)
+        raise SourceRestricted('source_access_restricted')
     if node in ('local', '187'):
-        from contextlib import nullcontext
-        with nullcontext() if request.get('receipt_only') else package_permit(request):
+        with package_permit(request, subprocess_owned=node == '187'):
             if node == 'local':
                 from .package_relay import request_local
                 receipt = request_local(request)
@@ -140,11 +178,12 @@ def read_node(node, request, started):
                                          text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                          check=True, timeout=30)
                 receipt = json.loads(process.stdout)
-            return record_restriction(request, receipt)
+            try:
+                return record_restriction(request, receipt)
+            except (OSError, ValueError, sqlite3.Error) as exc:
+                raise SourceRestricted('source_receipt_not_recorded') from exc
     from .client import ROUTING, collect_remote, read_routing_file
     source = request['source']
-    if request.get('receipt_only'):
-        return dict(source=source, run_id=request['run_id'], offers=[], errors=['source_access_restricted'])
     routing = read_routing_file(ROUTING.with_name(source.lower()+'-routing.json'))
     if routing['remote_result_mode'] != 'consume':
         return dict(source=source, run_id=request['run_id'], offers=[], errors=['collection_route_unavailable'])

@@ -430,6 +430,9 @@ def load_base():
 
     def restart(manifest, admission_fence=None):
         if manifest.get('scope') in (CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE, CURVE_MARKET_SCOPE, CURVE_WEEKLY_SCOPE, CURVE_REVIEW_SCOPE, CURVE_MARGIN_BAND_SCOPE, *CURVE_RECOVERY_SCOPES.values()):
+            if manifest['scope'] == CURVE_RECOVERY_SCOPES['market-packages']:
+                # The frozen history scope reloads both Hermes consumers under the existing admission fence.
+                restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
             for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service', 'fc-pricing-v3.service'):
                 subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)
                 subprocess.run(['systemctl', 'is-active', '--quiet', name], check=True, timeout=10)

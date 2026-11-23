@@ -108,6 +108,9 @@ def collection_scope(db,run_id):
     from automation_policy import load_policy
     parameters=dict((plan or {}).get('parameters',{}))
     if _curve_run_requested(job, plan):
+        preview = job.get('kind') == 'collect' and request.get('write_protocol') == CURVE_WRITE_PROTOCOL
+        if not preview and parameters.get('competitor_policy') != CURVE_COMPETITOR_POLICY:
+            raise ValueError('pricing_curve_market_policy_revision_required')
         parameters.update(competitor_policy=CURVE_COMPETITOR_POLICY, region_pricing='global')
     elif (plan or {}).get('write_protocol') == CURVE_WRITE_PROTOCOL:
         # Original scalar recovery/maintenance uses its original market contract.
@@ -126,7 +129,7 @@ def _curve_run_requested(job, plan):
 
 
 def latest_collection(root, *, curve):
-    from .competitor_offers import LEGACY_POLICY, POLICY as CURVE_COMPETITOR_POLICY
+    from .competitor_offers import FOUR_SOURCE_POLICY, LEGACY_POLICY, POLICY as CURVE_COMPETITOR_POLICY
 
     # A diagnostic V6 run cannot supersede an active scalar writer's run.
     for path in sorted((root/'runs').glob('*.json'), key=lambda p:p.stat().st_mtime, reverse=True):
@@ -134,7 +137,7 @@ def latest_collection(root, *, curve):
             continue
         value = json.loads(path.read_text(encoding='utf-8'))
         policy = value.get('competitor_policy') or (value.get('source_plan') or {}).get('competitor_policy')
-        if policy == CURVE_COMPETITOR_POLICY if curve else policy not in (LEGACY_POLICY, CURVE_COMPETITOR_POLICY):
+        if policy == CURVE_COMPETITOR_POLICY if curve else policy not in (LEGACY_POLICY, FOUR_SOURCE_POLICY, CURVE_COMPETITOR_POLICY):
             return path
     return None
 
@@ -233,7 +236,7 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
     from .admin_readback import GID_FC27, MID_FC27_COINS, SITE_MAIN
     from .price_curve import curve_key, quote_native, read_curve
     from .pricing_proof_v6 import CONTRACT, INCOMPLETE
-    from .competitor_offers import CURRENT_QUANTITIES, LEGACY_POLICY, LEGACY_SOURCES, SOURCES, POLICY as CURVE_COMPETITOR_POLICY, quantity_coverage
+    from .competitor_offers import CURRENT_QUANTITIES, FOUR_SOURCE_POLICY, LEGACY_POLICY, LEGACY_SOURCES, PRICING_SOURCES, SOURCES, POLICY as CURVE_COMPETITOR_POLICY, quantity_coverage
 
     gaps = ['customer_checkout_unverified', 'offer_path_unverified', 'necessary_fee_unverified',
             'validation_domain_unverified', 'ordinary_delivery_cost_unverified', 'planning_baskets_unverified']
@@ -261,13 +264,14 @@ def preview_curve(snapshot, platform, *, requested_snapshot_id=None, strategy_st
         gaps.append('pricing_snapshot_scope_unverified')
         return result
     result.update(snapshot_id=snapshot['snapshot_id'], snapshot_captured_at=snapshot['created_at'])
-    if evidence.get('competitor_policy') in (LEGACY_POLICY, CURVE_COMPETITOR_POLICY):
-        current_policy = evidence['competitor_policy'] == CURVE_COMPETITOR_POLICY
-        requested = CURRENT_QUANTITIES if current_policy else ('100',)
+    if evidence.get('competitor_policy') in (LEGACY_POLICY, FOUR_SOURCE_POLICY, CURVE_COMPETITOR_POLICY):
+        market_policy = evidence['competitor_policy']
+        requested = ('100',) if market_policy == LEGACY_POLICY else CURRENT_QUANTITIES
+        sources = {LEGACY_POLICY: LEGACY_SOURCES, FOUR_SOURCE_POLICY: SOURCES, CURVE_COMPETITOR_POLICY: PRICING_SOURCES}[market_policy]
         offers = [row for row in evidence.get('competitor_offers', [])
-                  if row['platform'] == platform and row['purchase_k'] in requested]
+                  if row['platform'] == platform and row['purchase_k'] in requested and row.get('source') in sources]
         decision['competitor_quantity_coverage'] = quantity_coverage(offers, platforms=(platform,),
-                                                                     requested=requested, sources=SOURCES if current_policy else LEGACY_SOURCES)
+                                                                     requested=requested, sources=sources)
         decision['competitor_offers'] = [{k: row.get(k) for k in (
             'source', 'purchase_k', 'bonus_k', 'currency', 'regular_price', 'eligible_net_price',
             'comparable', 'delivery_method', 'delivery_tier', 'promotion_eligibility', 'captured_at',
@@ -1658,15 +1662,6 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
                 frozen['gaps'].append('pricing_curve_margin_exception_exhausted')
             return
     normal_prices, final_prices = band_anchors(normal), band_anchors(final)
-    if position:
-        position['observations'] = []
-        for band, market_band in position['market_bands'].items():
-            for source in ('U4GM', 'IGGM'):
-                quote = market_band['current_quotes'].get(source)
-                if quote:
-                    difference = Decimal(final_prices[band]) / Decimal(quote['price_usd']) - 1
-                    position['observations'].append(dict(source=source, band=band, basis=quote['basis'],
-                        difference_ratio=str(difference), observation_id=quote.get('observation_id')))
     if not insurance and any(Decimal(final_prices[band]) < Decimal(price) and band not in holds
                              for band, price in normal_prices.items()):
         frozen.update(status=FAILED, gaps=['curve_cost_protection_below_normal_candidate'])
@@ -2376,11 +2371,14 @@ def _curve_cost_recovery_evidence(platform, decision, data, evidence):
 
 
 def calculate_curve_cycle(db, evidence, plan, request, now):
+    from .competitor_offers import POLICY as CURVE_COMPETITOR_POLICY
     from .cost_inputs_v6 import CURVE_COST_GAPS
     from .pricing_proof_v6 import CONTRACT, FAILED
 
     active = bool(request.get('v3_operation_id') and plan and plan.get('write_protocol') == CURVE_WRITE_PROTOCOL
                   and plan['state'] == 'ACTIVE')
+    if active and (plan.get('parameters') or {}).get('competitor_policy') != CURVE_COMPETITOR_POLICY:
+        raise ValueError('pricing_curve_market_policy_revision_required')
     platforms = ([p for p in PLATFORMS if 'base:' + p in plan['resources']] if active else list(PLATFORMS))
     control = db.price_control()
     frozen = {} if control['manual_enabled'] or control['uplift_enabled'] else _curve_proof_inputs(db, evidence)
@@ -2513,6 +2511,9 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
             curve_round_id=request.get('v3_operation_id'))
         recovery = {}
         if active and not restore_id and not request.get('manual_requested') and request.get('natural_curve_cycle'):
+            from .competitor_offers import POLICY
+            if evidence.get('competitor_policy') == POLICY:
+                db.enqueue('observe', 'observe:'+evidence['run_id'], now, dict(snapshot_id=evidence['run_id']), conn)
             for platform, decision in decisions.items():
                 try:
                     candidate = _curve_cost_recovery_evidence(platform, decision, frozen.get(platform), evidence)
@@ -3034,7 +3035,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
 
 
 def verify_curve_quote(quote, receipt, policy, selected, now, for_execution, purpose):
-    from .competitor_offers import LEGACY_POLICY, POLICY as CURVE_COMPETITOR_POLICY
+    from .competitor_offers import FOUR_SOURCE_POLICY, LEGACY_POLICY, POLICY as CURVE_COMPETITOR_POLICY
     from .pricing_proof_v6 import CONTRACT
 
     evidence = quote.get('evidence') or {}
@@ -3042,7 +3043,7 @@ def verify_curve_quote(quote, receipt, policy, selected, now, for_execution, pur
             or bool(receipt.get('curve_restore_preview_id')) != bool(receipt.get('restore_source_execution_id'))
             or quote['result'].get('strategy_version') != VERSION
             or receipt.get('financial_contract_version') != CONTRACT
-            or evidence.get('competitor_policy') not in ((CURVE_COMPETITOR_POLICY,) if for_execution else (LEGACY_POLICY, CURVE_COMPETITOR_POLICY))
+            or evidence.get('competitor_policy') not in ((CURVE_COMPETITOR_POLICY,) if for_execution else (LEGACY_POLICY, FOUR_SOURCE_POLICY, CURVE_COMPETITOR_POLICY))
             or receipt.get('snapshot_id') != evidence.get('run_id')
             or receipt.get('snapshot_sha256') != fingerprint(evidence)
             or receipt.get('sha256') != fingerprint({k: v for k, v in receipt.items() if k != 'sha256'})):
@@ -3068,6 +3069,7 @@ def verify_curve_quote(quote, receipt, policy, selected, now, for_execution, pur
         conn.execute('BEGIN')
         plan = db.get('pricing_plans', receipt['plan_id'], conn)
         if (not plan or plan['state'] != 'ACTIVE' or plan.get('write_protocol') != CURVE_WRITE_PROTOCOL
+                or (plan.get('parameters') or {}).get('competitor_policy') != CURVE_COMPETITOR_POLICY
                 or plan.get('activation_revision') != receipt['activation_revision']
                 or plan['revision'] != receipt['revision'] or plan['generation'] != receipt['engine_generation']):
             raise ValueError('pricing_curve_plan_revision_changed')

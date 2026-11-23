@@ -23,6 +23,27 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_market_packages_stage_binds_both_hermes_market_readers_to_the_same_commit(self):
+        origin = 'releases/fs-dashboard/fc-coins-workflow-20261022/source/'
+        commit = 'a' * 40
+        names = ('research.py', 'fs_evidence.py')
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'market.tar.gz'
+            with patch.object(build_stage.subprocess, 'check_output', side_effect=[commit, '']) as git, \
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, rev: path.read_bytes().replace(b'\r\n', b'\n')) as blob:
+                build_stage.build(ROOT, output, curve_recovery='market-packages')
+            with tarfile.open(output) as bundle:
+                prefix = 'fc-pricing-v3-20261026/'
+                provenance = json.load(bundle.extractfile(prefix + 'source-manifest.json'))
+                for name in names:
+                    candidate = 'source/' + name
+                    self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']].get(candidate), '/opt/fs-hermes-fc/' + name)
+                    self.assertEqual(provenance['repositorySources'][candidate], origin + name)
+                    self.assertIn(origin + name, git.call_args.args[0])
+                    blob.assert_any_call(ROOT, ROOT / (origin + name), commit)
+                    self.assertEqual(bundle.extractfile(prefix + 'candidate/' + candidate).read(),
+                                     (ROOT / (origin + name)).read_bytes().replace(b'\r\n', b'\n'))
+
     def test_recovery_scope_only_packages_each_fix_and_rejects_mirror_drift(self):
         modules_by_fix = {
             'live-order-cost': (),

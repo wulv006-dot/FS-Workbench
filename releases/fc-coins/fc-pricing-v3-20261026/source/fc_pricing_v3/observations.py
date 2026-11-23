@@ -2,6 +2,31 @@
 from datetime import datetime,timezone
 import re
 
+
+def collect_package_observations(run_id, snapshot_time):
+    import sys
+    from pathlib import Path
+    from .competitor_offers import CURRENT_QUANTITIES, PLATFORMS
+    from .financial import instant
+    control = Path('/opt/fs-fc-control/code')
+    if control.is_dir() and str(control) not in sys.path:
+        sys.path.insert(0, str(control))
+    from fc_collection.package_routes import collect_missing, read_node
+    wanted = [(p,q) for p in PLATFORMS for q in CURRENT_QUANTITIES]
+    offers, status = [], {}
+    for source in ('U4GM','IGGM'):
+        started = datetime.now(timezone.utc)
+        if not 0 <= (started - instant(snapshot_time)).total_seconds() <= 900:
+            status[source] = dict(status='missing', reason='snapshot_expired')
+            continue
+        rows, attempts = collect_missing(source, run_id, wanted, lambda node, req:read_node(node,req,started),
+                                        lambda:datetime.now(timezone.utc))
+        offers.extend(rows)
+        status[source] = dict(status='captured' if len(rows)==len(wanted) else 'partial' if rows else 'missing',
+                              errors=sorted({error for attempt in attempts for error in attempt['errors']}))
+    return dict(package_offers=offers, package_status=status)
+
+
 def collect_reference_market(run_id):
     """Reuse the ItemD2R reader; auxiliary observations never authorize a price."""
     from itemd2r_reader import public_read
@@ -23,6 +48,7 @@ def collect_reference_market(run_id):
 def observe(run_id):
     from .runtime import ledger
     from .financial import fingerprint
+    from .competitor_offers import POLICY
     db=ledger();existing=db.get('market_observations',run_id)
     if existing and existing.get('status')=='observed':return existing
     snapshot=db.get('pricing_snapshots',run_id)
@@ -35,6 +61,8 @@ def observe(run_id):
     reference=evidence.get('reference_market')
     if 'ItemD2R' in (evidence.get('source_plan') or {}).get('auxiliary_markets',[]):
         reference=collect_reference_market(run_id)
+    if evidence.get('competitor_policy') == POLICY:
+        result.update(collect_package_observations(run_id, snapshot['created_at']))
     result.update(retired_automatic_sources=(evidence.get('source_plan') or {}).get('retired_automatic_sources',['ELD','U4GM','IGGM','U7Buy']),reference_market=reference,
                   arab_ut_status=evidence.get('arab_ut_status'),status='observed',completed_at=datetime.now(timezone.utc).isoformat(),
                   authority='independent_observation_only_no_old_weighted_scenarios')

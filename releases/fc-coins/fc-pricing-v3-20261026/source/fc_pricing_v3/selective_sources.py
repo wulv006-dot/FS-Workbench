@@ -64,10 +64,11 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
     platforms=scope.get('platforms',['PS','XBOX','PC'])
     if not platforms or set(platforms)-{'PS','XBOX','PC'}:raise ValueError('selective_platform_scope_invalid')
     regions=sorted(set(int(value) for value in known_region_ids)|set(int(value) for value in scope.get('region_ids',[])))
-    from .competitor_offers import CURRENT_QUANTITIES, LEGACY_POLICY, LEGACY_SOURCES, POLICY, SOURCES
+    from .competitor_offers import CURRENT_QUANTITIES, FOUR_SOURCE_POLICY, LEGACY_POLICY, LEGACY_SOURCES, POLICY, PRICING_SOURCES, SOURCES
     policy=scope.get('competitor_policy')
-    v6=policy in (POLICY, LEGACY_POLICY)
-    markets=list(SOURCES if policy==POLICY else LEGACY_SOURCES) if v6 else ['Lootbar','ArabUT']
+    market_sources={POLICY:PRICING_SOURCES, FOUR_SOURCE_POLICY:SOURCES, LEGACY_POLICY:LEGACY_SOURCES}
+    v6=policy in market_sources
+    markets=list(market_sources.get(policy, ('Lootbar','ArabUT')))
     result=dict(version=VERSION,active_mode=active_mode,platforms=list(platforms),region_ids=regions,
         competitor_policy='lootbar_primary_arabut_secondary_v1',required_markets=markets,auxiliary_markets=['ItemD2R'],
         market_platforms={name:list(platforms) for name in markets},
@@ -85,7 +86,7 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
             quantity_scope=list(CURRENT_QUANTITIES),competitor_roles={'Lootbar':'core','U7Buy':'differentiation','ArabUT':'observation'},
             quantity_identity='source_platform_purchase_eligibility_delivery_currency',
             missing_source_policy='unknown_optional_signal_no_price_action')
-        if policy == POLICY:
+        if policy in (POLICY, FOUR_SOURCE_POLICY):
             result.update(version='fc27-ordinary-package-offers-v1',
                 retired_automatic_sources=['ArabUT','ELD','ItemD2R'],
                 competitor_roles={'Lootbar':'core','U7Buy':'differentiation','U4GM':'observation','IGGM':'observation'})
@@ -96,8 +97,8 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
 
 def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
     """Replacement adapter for the retired four-site grid; same-run/price/time rules remain."""
-    from .competitor_offers import POLICY, LEGACY_POLICY, normalize_offers, quantity_coverage
-    if plan.get('competitor_policy') in (POLICY, LEGACY_POLICY):
+    from .competitor_offers import POLICY, FOUR_SOURCE_POLICY, LEGACY_POLICY, normalize_offers, quantity_coverage
+    if plan.get('competitor_policy') in (POLICY, FOUR_SOURCE_POLICY, LEGACY_POLICY):
         rows=list(snapshot.get('competitor_offers',snapshot.get('competitors') or []))
         arab = snapshot.get('arab_ut_status') or {}
         if 'ArabUT' in plan['required_markets']:
@@ -382,7 +383,8 @@ def economic_source_signature(evidence):
             'necessary_fees','tax_bearer','delivery_method','delivery_tier','conditional','comparable',
             'selection_verified','fx','settlement_currency','conversion_source','original_currency',
             'original_amount_minor','original_platform','original_market','original_delivery')
-        rows=[{k:economic(row.get(k)) for k in fields} for row in evidence['competitor_offers']]
+        rows=[{k:economic(row.get(k)) for k in fields} for row in evidence['competitor_offers']
+              if row.get('source') not in ('U4GM', 'IGGM')]
         source['competitor_offers']=sorted(rows,key=fingerprint)
     envelope=evidence.get('promotion_envelope') or {}
     source['promotions']={key:envelope.get(key) for key in ('contract','minimum_retained_ratio','packages','coupons','vip_contract')}

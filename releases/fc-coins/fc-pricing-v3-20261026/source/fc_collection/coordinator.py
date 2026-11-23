@@ -234,7 +234,7 @@ class Coordinator:
         return permit
 
     @contextmanager
-    def package_requests(self, source, run_id, count, now):
+    def package_requests(self, source, run_id, count, now, *, subprocess_owned=False):
         from .contracts import PACKAGE_ORIGINS
         if source not in {'Lootbar', *PACKAGE_ORIGINS} or type(count) != int or not 1 <= count <= 3:
             raise ValueError('package_request_scope')
@@ -244,13 +244,21 @@ class Coordinator:
             origin = 'https://www.lootbar.com' if source == 'Lootbar' else PACKAGE_ORIGINS[source]
             if not policy or policy['mode'] != 'consume' or policy['origin'] != origin:
                 raise ValueError('collection_source_not_ready')
-            # The local relay and platform group have a 30-second outer deadline.
-            expires = now + timedelta(seconds=max(30, policy['request_timeout_seconds']))
+            # A local relay can wait 12 seconds for pickup and 30 seconds for three page reads.
+            minimum = 30 if source == 'Lootbar' else 45
+            expires = now + timedelta(seconds=max(minimum, policy['request_timeout_seconds']))
             permit = self._reserve_origin(db, policy, run_id, 0, count, now, expires)
-        yield
-        with self.transaction() as db:
-            db.execute('INSERT OR IGNORE INTO collection_permit_completions VALUES (?,?)',
-                       (permit, datetime.now(timezone.utc).timestamp()))
+        # subprocess.run waits for the primary child even when it fails. An SSH relay
+        # that disconnects may still have a live reader until its permit expires.
+        finished = subprocess_owned
+        try:
+            yield
+            finished = True
+        finally:
+            if finished:
+                with self.transaction() as db:
+                    db.execute('INSERT OR IGNORE INTO collection_permit_completions VALUES (?,?)',
+                               (permit, datetime.now(timezone.utc).timestamp()))
 
     def reserve_request(self, identity, job_id, lease_epoch, request_group, now):
         if set(request_group) != {'count'}:

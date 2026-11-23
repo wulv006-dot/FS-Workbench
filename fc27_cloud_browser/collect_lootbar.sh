@@ -21,6 +21,7 @@ if [ -f /opt/fs-fc-control/code/fc_collection/lootbar.py ] && ! /opt/python39/bi
   exit 1
 fi
 run_id=${1:-}
+sku_probe_missing=0
 if [ "${2:-}" = "--native-quantities" ]; then
   set -- --native-quantities
   if [ -f /opt/fs-fc-control/code/fc_collection/package_routes.py ]; then
@@ -33,6 +34,8 @@ if [ "${2:-}" = "--native-quantities" ]; then
       mv "$trace" "${trace%.tmp}.failed.jsonl"
       printf '%s\n' '{"status":"failed","read_only":true}'
       exit 1
+    else
+      sku_probe_missing=1
     fi
   fi
 else
@@ -43,6 +46,14 @@ if ! timeout 90s docker exec -u fc27chrome \
   fc27-cloud-browser python3 /opt/fc27-collector/lootbar_server_collector.py "$@" > "$trace"; then
   # fd9 stays held across both nodes. The controller only accepts the exact
   # pre-egress CDP failure, never a site denial or a partially read page.
+  if [ "$sku_probe_missing" = 1 ]; then
+    if ! timeout 65s /opt/python39/bin/python3 -I -B -c \
+        'import sys;from pathlib import Path;sys.path[:0]=["/opt/fs-fc-control/code","/opt/fc27-cloud-browser"];from fc_collection.package_routes import wait_for_lootbar_renderer;wait_for_lootbar_renderer(sys.argv[1],Path(sys.argv[2]))' "$run_id" "$trace"; then
+      mv "$trace" "${trace%.tmp}.failed.jsonl"
+      printf '%s\n' '{"status":"failed","read_only":true}'
+      exit 1
+    fi
+  fi
   fallback=$(mktemp "$evidence/lootbar-${stamp}-fallback-XXXXXX.tmp")
   if [ -n "$run_id" ] && timeout 115s /opt/python39/bin/python3 -I -B -c \
       'import sys;sys.path.insert(0,"/opt/fs-fc-control/code");from fc_collection.lootbar import main;main()' \

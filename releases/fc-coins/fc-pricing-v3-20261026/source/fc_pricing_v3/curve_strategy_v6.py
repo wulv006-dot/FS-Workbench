@@ -111,7 +111,7 @@ def _position_quotes(platform, offers, at, quantity):
     candidates = {}
     for row in offers:
         source, size = row.get('source'), row.get('purchase_k')
-        if (source not in ('Lootbar', 'U7Buy', 'U4GM', 'IGGM') or size not in ('100', quantity)
+        if (source not in ('Lootbar', 'U7Buy') or size not in ('100', quantity)
                 or row.get('platform') != platform or row.get('currency') != 'USD'
                 or str(row.get('region_id') or 0) != '0' or row.get('comparable') is not True
                 or row.get('conditional') is not False or row.get('promotion_eligibility') != 'all_customers'
@@ -230,7 +230,7 @@ def large_market_reference(platform, offers, now, *, region_id, delivery_method)
         return []
     references = []
     for row in offers:
-        if row.get('delivery_method') != delivery_method:
+        if row.get('source') in ('IGGM', 'U4GM') or row.get('delivery_method') != delivery_method:
             continue
         reference = _linear_market_reference(platform, row, now, region_id)
         if reference:
