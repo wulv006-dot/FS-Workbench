@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect MLB26 Stubs quotes and preview prices every hour
+
+[Timer]
+OnCalendar=hourly
+Persistent=false
+Unit=fs-mlb26-stubs-preview.service
+
+[Install]
+WantedBy=timers.target

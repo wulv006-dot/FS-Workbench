@@ -218,6 +218,9 @@ def selfcheck():
         raise RuntimeError("fc_review_u4gm_recovery_mapping_missing")
     if select(['tools/hermes_review_archive.py', 'knowledge/reviewed/fixture/record.json']) != ['hermes-review-archive']:
         raise RuntimeError('review_archive_mapping_missing')
+    if select(["releases/ops/mlb26-stubs-pricing-20261123/fs-mlb26-stubs-preview.timer",
+               "releases/ops/mlb26-stubs-pricing-20261123/source/cli.py"]) != ["mlb-stubs-preview"]:
+        raise RuntimeError("mlb_stubs_preview_scope_selfcheck")
     if select(["releases/ops/madden-browser-isolation-20261023/source/browser_runtime.py"]) != ["madden-browser-isolation"]:
         raise RuntimeError("madden_browser_isolation_mapping_missing")
     if select(["releases/ops/fc-reference-observer-ui-20261023/ui/source/fc27_cloud_api.py","releases/ops/fc-reference-observer-ui-20261023/trigger/source/observe.py"]) != ["fc-reference-observer-ui"]:
@@ -554,6 +557,8 @@ def select(paths):
             groups.add("fc-players-history-five");continue
         if name == 'tools/hermes_review_archive.py' or name.startswith(('releases/fs-dashboard/hermes-review-archive-20261024/', 'knowledge/reviewed/')):
             groups.add('hermes-review-archive');continue
+        if name.startswith("releases/ops/mlb26-stubs-pricing-20261123/") and name.endswith((".py", ".sh", ".service", ".timer")):
+            groups.add("mlb-stubs-preview");continue
         if name.startswith("releases/ops/madden-browser-isolation-20261023/"):
             groups.add("madden-browser-isolation");continue
         if name.startswith('releases/fs-dashboard/hermes-memory-approval-20261022/'):
@@ -1021,6 +1026,9 @@ def main():
         if group=="fc-review-u4gm-recovery":
             units("releases/fc-coins/fc-review-u4gm-recovery-20261025/tests",["test_recovery"])
             continue
+        if group=="mlb-stubs-preview":
+            units("releases/ops/mlb26-stubs-pricing-20261123",
+                  ["test_hourly", "test_iggm", "test_order_preview", "test_pricing", "test_quotes", "test_runtime_units"])
         if group=="madden-browser-isolation":
             units("releases/ops/madden-browser-isolation-20261023",["test_recovery","test_linux_runtime","test_publish","test_resource_boundaries","test_fc_isolation"])
             continue

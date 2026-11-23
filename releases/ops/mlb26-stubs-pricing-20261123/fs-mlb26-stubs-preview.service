@@ -1,0 +1,9 @@
+[Unit]
+Description=MLB26 Stubs hourly pricing preview
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/fs-mlb26-stubs-pricing
+EnvironmentFile=/etc/fs-mlb26-stubs-preview.env
+ExecStart=/bin/sh /opt/fs-mlb26-stubs-pricing/bin/run-preview.sh
+TimeoutStartSec=150
