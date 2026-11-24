@@ -240,8 +240,10 @@ class SupersededAllCodePublish(unittest.TestCase):
                 scope['restart_with_hermes_readiness'].reset_mock()
                 scope['restart']({'scope':kind}, 'fence')
                 restarts=[c.args[0] for c in process.run.call_args_list if c.args[0][:2]==['systemctl','restart']]
-                self.assertEqual(restarts,[['systemctl','restart',name] for name in (
-                    'fc27-cloud-api.service','fc27-cloud-worker.service','fc-pricing-v3.service')])
+                expected = ('fc27-cloud-api.service', 'fc27-cloud-worker.service', 'fc-pricing-v3.service')
+                if kind == CURVE_RECOVERY_SCOPES['observer-cache']:
+                    expected = ('fc-pricing-v3.service',)
+                self.assertEqual(restarts, [['systemctl', 'restart', name] for name in expected])
                 if kind == CURVE_RECOVERY_SCOPES['market-packages']:
                     scope['restart_with_hermes_readiness'].assert_called_once_with(
                         scope['base'], scope['original_restart'], {'scope':kind}, 'fence')
