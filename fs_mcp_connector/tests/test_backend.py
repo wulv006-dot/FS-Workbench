@@ -30,6 +30,7 @@ class BackendTests(unittest.TestCase):
         self.assertFalse(out['data']['complete'])
         self.assertEqual(out['data']['next_cursor'], 'next')
         self.assertNotIn('MMOEXP_AUTH', json.dumps(out))
+        self.assertEqual(self.calls[-1][-1]['timeout_seconds'], 20)
 
     def test_users_summary_continuation_uses_original_connectors_route(self):
         query_id = 'a' * 32
