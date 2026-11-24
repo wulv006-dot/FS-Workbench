@@ -44,10 +44,33 @@ def _without_replay_paths(value):
     return value
 
 
-def public_artifact(payload, include_quote_sha=False):
+def public_artifact(payload, include_quote_sha=False, *, preserve_positions=False):
+    def visible_rows(rows):
+        return [None if retired(row) else row for row in rows if preserve_positions or not retired(row)]
+
+    def retired(row):
+        return isinstance(row, dict) and row.get('source') == 'IGGM'
+
     evidence = payload.get("evidence") if isinstance(payload, dict) else None
+    if isinstance(payload, dict) and isinstance(payload.get('competitors'), list):
+        result = dict(payload, competitors=visible_rows(payload['competitors']))
+    else:
+        result = payload
     if isinstance(evidence, dict):
         safe = {key: value for key, value in evidence.items() if key != "historical_orders"}
+        for key in ('competitor_offers', 'competitors'):
+            if isinstance(safe.get(key), list):
+                safe[key] = visible_rows(safe[key])
+        if isinstance(safe.get('source_plan'), dict):
+            plan = safe['source_plan'].copy()
+            for key in ('required_markets', 'auxiliary_markets', 'retired_automatic_sources'):
+                if isinstance(plan.get(key), list):
+                    plan[key] = [None if name == 'IGGM' else name for name in plan[key]
+                                 if preserve_positions or name != 'IGGM']
+            for key in ('competitor_roles', 'market_platforms'):
+                if isinstance(plan.get(key), dict):
+                    plan[key] = {name: value for name, value in plan[key].items() if name != 'IGGM'}
+            safe['source_plan'] = plan
         if isinstance(safe.get("history_replay"), dict):
             safe["history_replay"] = _without_replay_paths(safe["history_replay"])
         for collection in ("region_rules", "regional_controls"):
@@ -55,12 +78,12 @@ def public_artifact(payload, include_quote_sha=False):
                 safe[collection] = [dict(row, history={key: value for key, value in row["history"].items() if key != "replay_paths"})
                     if isinstance(row, dict) and isinstance(row.get("history"), dict) else row
                     for row in safe[collection]]
-        result = dict(payload, evidence=safe)
+        result = dict(result, evidence=safe)
         if include_quote_sha:
             result["original_quote_sha256"] = hashlib.sha256(json.dumps(payload, ensure_ascii=False,
                 sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
         return result
-    return payload
+    return result
 
 
 def quote_fragment(payload, path):
@@ -149,7 +172,7 @@ def health():
               "price_writer": writer_status(),
               "https_certificate": certificate_health(),
               "queue_depth": 0, "tab_count": None, "disk_free_gb": None,
-              "sources": {name: "missing" for name in ("lootbar", "iggm", "u4gm", "u7buy", "p2pah_cost", "fx")},
+              "sources": {name: "missing" for name in ("lootbar", "u4gm", "u7buy", "p2pah_cost", "fx")},
               "last_successful_run": None, "incomplete_executions": 0}
     result['queue_protocol'] = 'existing-tick-inode-v4'
     result['api_pid'] = os.getpid()
@@ -193,7 +216,7 @@ def health():
                               "status": payload.get("status"),
                               "created_at": payload.get("created_at")}
         if payload.get("status") == "ready_for_quote":
-            source_names = {"Lootbar": "lootbar", "IGGM": "iggm", "U4GM": "u4gm", "U7Buy": "u7buy"}
+            source_names = {"Lootbar": "lootbar", "U4GM": "u4gm", "U7Buy": "u7buy"}
             for source, key in source_names.items():
                 matches = [row for row in payload.get("competitors", []) if row.get("source") == source]
                 result["sources"][key] = "ok" if len(matches) == 3 and all(row.get("status") == "valid" for row in matches) else "missing"
@@ -834,7 +857,8 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 payload = read_json(path)
                 if parts[0] in {"quotes", "snapshots"}:
-                    payload = public_artifact(payload, include_quote_sha=parts[0] == "quotes")
+                    payload = public_artifact(payload, include_quote_sha=parts[0] == "quotes",
+                                              preserve_positions=parts[0]=='quotes' and bool(parsed.query))
                 if parts[0]=='quotes' and parsed.query:
                     try:
                         query=parse_qs(parsed.query,keep_blank_values=True)

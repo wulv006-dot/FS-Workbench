@@ -46,8 +46,9 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_market_observation_receipts_20261124')
-        self.assertIn('U4GM、IGGM 仅用于监控比价', v['entries'][0]['content'])
+        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_u4gm_only_observation_20261125')
+        self.assertIn('U4GM 仅用于监控比价', v['entries'][0]['content'])
+        self.assertNotIn('IGGM', v['entries'][0]['content'])
         self.assertIn('缺领取证据则尝试待核', v['entries'][0]['content'])
         self.assertIn('margin_band.promotion_guard', v['entries'][0]['content'])
         self.assertIn('合法单笔优惠仍可低毛利或亏损', v['entries'][0]['content'])

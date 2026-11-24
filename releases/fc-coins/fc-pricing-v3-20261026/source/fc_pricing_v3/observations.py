@@ -6,7 +6,7 @@ import re
 def collect_package_observations(run_id, snapshot_time):
     import sys
     from pathlib import Path
-    from .competitor_offers import CURRENT_QUANTITIES, PLATFORMS
+    from .competitor_offers import CURRENT_QUANTITIES, MONITORING_SOURCES, PLATFORMS
     from .financial import instant
     control = Path('/opt/fs-fc-control/code')
     if control.is_dir() and str(control) not in sys.path:
@@ -14,7 +14,7 @@ def collect_package_observations(run_id, snapshot_time):
     from fc_collection.package_routes import collect_missing, read_node
     wanted = [(p,q) for p in PLATFORMS for q in CURRENT_QUANTITIES]
     offers, status = [], {}
-    for source in ('U4GM','IGGM'):
+    for source in MONITORING_SOURCES:
         started = datetime.now(timezone.utc)
         if not 0 <= (started - instant(snapshot_time)).total_seconds() <= 900:
             status[source] = dict(status='missing', reason='snapshot_expired')
@@ -68,7 +68,8 @@ def observe(run_id):
         reference=collect_reference_market(run_id)
     if evidence.get('competitor_policy') == POLICY:
         result.update(collect_package_observations(run_id, snapshot['created_at']))
-    result.update(retired_automatic_sources=(evidence.get('source_plan') or {}).get('retired_automatic_sources',['ELD','U4GM','IGGM','U7Buy']),reference_market=reference,
+    result.update(retired_automatic_sources=[name for name in (evidence.get('source_plan') or {}).get(
+                      'retired_automatic_sources',['ELD','U4GM','U7Buy']) if name != 'IGGM'],reference_market=reference,
                   arab_ut_status=evidence.get('arab_ut_status'),status='observed',completed_at=datetime.now(timezone.utc).isoformat(),
                   authority='independent_observation_only_no_old_weighted_scenarios')
     db.put('market_observations',run_id,result)

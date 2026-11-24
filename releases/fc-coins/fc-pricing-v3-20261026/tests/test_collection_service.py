@@ -59,7 +59,7 @@ class ServiceBoundary(unittest.TestCase):
             expected = {'ArabUT': 'arab-public-quote-collection-v3', 'Lootbar':'lootbar-public-browser-v1'}
             from importlib.util import find_spec
             if find_spec('scrapling') is not None:
-                expected.update(U4GM='u4gm-native-packages-v1', IGGM='iggm-native-packages-v1')
+                expected.update(U4GM='u4gm-native-packages-v1')
             self.assertEqual(answers[0]['adapters'], expected)
             request = BytesIO(b'{"method":"shell","command":"id"}\n')
             with self.assertRaises(ValueError):

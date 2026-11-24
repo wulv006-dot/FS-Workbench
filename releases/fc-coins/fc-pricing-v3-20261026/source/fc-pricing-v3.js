@@ -855,6 +855,7 @@
             column.append(card);
           }
           for(const [source,quotes] of Object.entries(market.monitoring||{})){
+            if(source!=='U4GM')continue;
             const card=node('section');card.className='market-quote';card.append(node('h4',source+' · 监控'));
             const observed=quotes.filter(row=>row.platform===platform);
             if(observed.length<2){
@@ -943,8 +944,8 @@
     const plan=chosenPlan(),active=(state.active_plans||[]).find(p=>p.plan_id===selectedPlanId)||state.active_plans?.[0]||state.plan;
     if(state.plan?.write_protocol===curveProtocol){
       const policy=state.plan.parameters?.competitor_policy;
-      marketTag.textContent=policy==='v6_pricing_packages_observers_separate_v2'?'Lootbar、U7Buy 定位 · IGGM、U4GM 监控'
-        :policy==='v6_four_source_purchase_packages_v1'?'四站普通购买档':'Lootbar、U7Buy、Arab-UT · 100K';
+      marketTag.textContent=policy==='v6_pricing_packages_observers_separate_v2'?'Lootbar、U7Buy 定位 · U4GM 监控'
+        :policy==='v6_four_source_purchase_packages_v1'?'历史普通购买档':'Lootbar、U7Buy、Arab-UT · 100K';
     }else{
       marketTag.textContent=primaryPolicy(plan)?'Lootbar 主锚 · Arab-UT 次锚（主机Normal / PC标准）· ItemD2R 辅助':legacyMarketTag;
     }

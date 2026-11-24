@@ -55,7 +55,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -180,7 +180,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -261,7 +261,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -344,7 +344,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -414,19 +414,19 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_market_observation_receipts_20261124",
+      "revision": "fc_v61_u4gm_only_observation_20261125",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-24",
+      "effective_at": "2026-11-25",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "549359bc85751d81ba4e4cd529799fd601743178069129120ac4966d0af1076a",
+        "sha256": "e57fe452c729caec8c103d70fc7010afa376ca09690da5de8105d3374fc8575d",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -452,7 +452,8 @@
         "fc.pricing.constraints@fc_v61_margin_band_20261118",
         "fc.pricing.constraints@fc_v61_margin_band_hourly_20261119",
         "fc.pricing.constraints@fc_v61_carnival_discount_20261119",
-        "fc.pricing.constraints@fc_v61_market_packages_observers_20261124"
+        "fc.pricing.constraints@fc_v61_market_packages_observers_20261124",
+        "fc.pricing.constraints@fc_v61_market_observation_receipts_20261124"
       ],
       "provenance": [
         {
@@ -577,6 +578,9 @@
         {
           "kind": "clarify_observation_receipts_and_source_restrictions",
           "date": "2026-11-24",
+          "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
+        },
+        {
           "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
         }
       ],
@@ -720,7 +724,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -834,7 +838,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -902,21 +906,21 @@
     },
     {
       "id": "fs.pricing.parameter-identity",
-      "revision": "fc_v61_market_observation_receipts_20261124",
+      "revision": "fc_v61_u4gm_only_observation_20261125",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-11-24",
+      "effective_at": "2026-11-25",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -931,7 +935,8 @@
         "fs.pricing.parameter-identity@fc_v61_insurance_15_40_20261117",
         "fs.pricing.parameter-identity@fc_v61_margin_band_20261118",
         "fs.pricing.parameter-identity@fc_v61_margin_band_hourly_20261119",
-        "fs.pricing.parameter-identity@fc_v61_market_packages_observers_20261124"
+        "fs.pricing.parameter-identity@fc_v61_market_packages_observers_20261124",
+        "fs.pricing.parameter-identity@fc_v61_market_observation_receipts_20261124"
       ],
       "provenance": [
         {
@@ -1010,6 +1015,9 @@
           "kind": "clarify_observation_receipts_and_source_restrictions",
           "date": "2026-11-24",
           "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
+        },
+        {
+          "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
         }
       ],
       "effective_at_basis": "2026-11-24 吴律确认监控比价来源与定价来源的职责，是否启用以实际计划修订为准",
@@ -1032,7 +1040,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -1164,7 +1172,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1355,20 +1363,20 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc_v61_market_observation_receipts_20261124",
+      "revision": "fc_v61_u4gm_only_observation_20261125",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-24",
+      "effective_at": "2026-11-25",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "549359bc85751d81ba4e4cd529799fd601743178069129120ac4966d0af1076a",
+        "sha256": "e57fe452c729caec8c103d70fc7010afa376ca09690da5de8105d3374fc8575d",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "### 每周定位溢价修复（2026-11-17）"
@@ -1401,7 +1409,8 @@
         "fc.pricing.v3@fc_v61_market_anchor_weekly_20261117",
         "fc.pricing.v3@fc_v61_insurance_15_40_20261117",
         "fc.pricing.v3@fc_v61_quarter_past_20261120",
-        "fc.pricing.v3@fc_v61_market_packages_observers_20261124"
+        "fc.pricing.v3@fc_v61_market_packages_observers_20261124",
+        "fc.pricing.v3@fc_v61_market_observation_receipts_20261124"
       ],
       "provenance": [
         {
@@ -1549,6 +1558,9 @@
         {
           "kind": "clarify_observation_receipts_and_source_restrictions",
           "date": "2026-11-24",
+          "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
+        },
+        {
           "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
         }
       ],
@@ -1801,21 +1813,21 @@
     },
     {
       "id": "fc.reporting.business",
-      "revision": "fc_v61_market_observation_receipts_20261124",
+      "revision": "fc_v61_u4gm_only_observation_20261125",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-24",
+      "effective_at": "2026-11-25",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/BUSINESS.md",
-        "sha256": "0ecf8dc4c10ea181f7c09c225d938cadad0107f319f91fc0bb8a676872303551",
+        "sha256": "c38db901acb8b4c649670c30bcde7a51bc5c17f2c785bc7058f9564a25625d49",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1828,7 +1840,8 @@
         "fc.reporting.business@fc_v61_temporary_cost_protection_20261114",
         "fc.reporting.business@fc_v61_market_anchor_review_business_20261117",
         "fc.reporting.business@fc_v61_margin_band_20261118",
-        "fc.reporting.business@fc_v61_market_packages_observers_20261124"
+        "fc.reporting.business@fc_v61_market_packages_observers_20261124",
+        "fc.reporting.business@fc_v61_market_observation_receipts_20261124"
       ],
       "provenance": [
         {
@@ -1892,6 +1905,9 @@
         {
           "kind": "clarify_observation_receipts_and_source_restrictions",
           "date": "2026-11-24",
+          "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
+        },
+        {
           "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
         }
       ],

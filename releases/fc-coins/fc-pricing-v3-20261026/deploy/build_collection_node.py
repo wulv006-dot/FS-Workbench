@@ -32,7 +32,7 @@ def role_files(role, read_module):
              for name in (MODULES if role == 'node' else CONTROL_MODULES)}
     files['entry.py'] = ENTRY if role == 'node' else CONTROL_ENTRY
     manifest = dict(schema_version=1, role='limited_fc_collector' if role == 'node' else 'fc_collection_controller', production_consume=False,
-        sources=['ArabUT','Lootbar','U4GM','IGGM'], credentials=[], business_runtime=False,
+        sources=['ArabUT','Lootbar','U4GM'], credentials=[], business_runtime=False,
         sha256={name: hashlib.sha256(body).hexdigest() for name, body in files.items()})
     files['manifest.json'] = json.dumps(manifest, sort_keys=True, indent=2).encode('utf-8')
     return files, manifest

@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 
-PACKAGE_ORIGINS = {'U4GM':'https://www.u4gm.com','IGGM':'https://www.iggm.com'}
+PACKAGE_ORIGINS = {'U4GM':'https://www.u4gm.com'}
 SOURCES = {'ItemD2R', 'Lootbar', 'ArabUT'} | set(PACKAGE_ORIGINS)
 ARAB_CONSOLE_DELIVERIES = ('normal', 'fast')
 ARAB_WARM_PATHS = {'warm':'/', 'warm_en':'/en', 'warm_en_slash':'/en/', 'warm_ar':'/ar', 'warm_ar_slash':'/ar/'}

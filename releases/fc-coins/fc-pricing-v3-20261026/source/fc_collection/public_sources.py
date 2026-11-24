@@ -19,10 +19,8 @@ REGISTRY['ArabUT']['quote_pc'] = dict(host='www.arab-ut.com', path='/en/coins/qu
 REGISTRY['ArabUT']['prices_table'] = ARAB_PRICE_TABLE
 
 
-# Both observers use fixed public GETs and the existing per-origin permit for each request.
-from .package_reader import IGGM, U4GM, LABELS, parse_packages
-VERSIONS.update(U4GM='u4gm-native-packages-v1', IGGM='iggm-native-packages-v1')
-REGISTRY['IGGM'] = {'cards':dict(host='www.iggm.com',path='/ea-sports-fc/fc-27-coins',max_bytes=2097152)}
+from .package_reader import U4GM, LABELS, parse_packages
+VERSIONS.update(U4GM='u4gm-native-packages-v1')
 REGISTRY['U4GM'] = {platform:dict(host='www.u4gm.com',path='/fc-27/coins',max_bytes=2097152)
                     for platform in LABELS}
 for platform, code in (('XBOX','xbox_one_series'),('PC','pc')):
@@ -37,8 +35,7 @@ def package_adapter(task, transport):
         raise ValueError('scrapling_runtime_unavailable') from None
     source = task['source_id']
     wanted = task['quantity_scope']['slots']
-    pages = [('cards',IGGM)] if source=='IGGM' else [
-        (p,U4GM+LABELS[p][2]) for p in task['requested_platforms']]
+    pages = [(p,U4GM+LABELS[p][2]) for p in task['requested_platforms']]
     offers = []
     for template, url in pages:
         try:

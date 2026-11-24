@@ -8,7 +8,7 @@ import re
 
 ROOT = Path('/var/lib/fc27-cloud')
 PLATFORMS = ('PS', 'XBOX', 'PC')
-SOURCES = ('Lootbar', 'IGGM', 'U4GM', 'U7Buy')
+SOURCES = ('Lootbar', 'U4GM', 'U7Buy')
 # Existing capture contract, not a new pricing or collection policy.
 MAX_CAPTURE_SECONDS = 3600
 MISSING = ('delivery_method', 'coupon_code', 'coupon_eligibility', 'mandatory_fees_usd', 'offer_expires_at')
@@ -75,7 +75,7 @@ def offer(row, now, own=False):
         price = number(row.get('package_usd') if own else row.get('gross_usd'))
         stamp = row.get('checked_at') if own else row.get('captured_at')
         timestamp(stamp)
-        urls = {'https://www.lootbar.com/game-coins/fc27', 'https://www.iggm.com/ea-sports-fc/fc-27-coins',
+        urls = {'https://www.lootbar.com/game-coins/fc27',
                 'https://www.u4gm.com/fc-27/coins', 'https://www.u4gm.com/fc-27/coins?server_code=xbox_one_series',
                 'https://www.u4gm.com/fc-27/coins?server_code=pc', 'https://www.u7buy.com/fc27/coins',
                 'https://www.mmoexp.com/Fc-27/Coins.html'}

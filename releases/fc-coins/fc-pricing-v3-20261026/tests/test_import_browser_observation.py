@@ -21,7 +21,7 @@ class BrowserObservationImport(unittest.TestCase):
         self.run_id = '00000000-0000-4000-8000-000000000001'
         self.now = datetime(2026, 11, 24, 9, 17, tzinfo=timezone.utc)
         self.batch = dict(run_id=self.run_id, captured_at=self.now.isoformat(), offers=[
-            dict(source='IGGM', platform='PS', purchase_k='100', regular_price='6.50', bonus_k='5'),
+            dict(source='U4GM', platform='PS', purchase_k='100', regular_price='6.50', bonus_k='5'),
             dict(source='U4GM', platform='PC', purchase_k='1000', regular_price='73.00', bonus_k='50')])
         self.snapshot = dict(origin='live_collector', created_at=self.now.isoformat(),
                              evidence=dict(competitor_policy=POLICY, competitor_offers=[], checked_at=self.now.isoformat()))
@@ -29,7 +29,7 @@ class BrowserObservationImport(unittest.TestCase):
                                 source_snapshot_sha256=fingerprint(self.snapshot['evidence']),
                                 package_status={source: dict(status='missing', errors=['source_blocked'], attempts=[
                                     dict(node='187', errors=['source_blocked'], response_received=False)])
-                                                for source in ('IGGM', 'U4GM')})
+                                                for source in ('U4GM',)})
         with sqlite3.connect(self.db) as conn:
             conn.execute('CREATE TABLE pricing_snapshots(id TEXT PRIMARY KEY, body TEXT NOT NULL)')
             conn.execute('CREATE TABLE market_observations(id TEXT PRIMARY KEY, body TEXT NOT NULL)')
@@ -50,9 +50,9 @@ class BrowserObservationImport(unittest.TestCase):
             data = json.loads(conn.execute('SELECT body FROM market_observations').fetchone()[0])
             self.assertEqual(data['package_offers'][0]['regular_price'], '6.5')
             self.assertEqual(data['package_offers'][0]['collection_node'], 'local')
-            status = data['package_status']['IGGM']
-            self.assertEqual(status['attempts'], self.observation['package_status']['IGGM']['attempts'])
-            self.assertEqual(status['browser_readbacks'][0]['accepted'], [['PS', '100']])
+            status = data['package_status']['U4GM']
+            self.assertEqual(status['attempts'], self.observation['package_status']['U4GM']['attempts'])
+            self.assertEqual(status['browser_readbacks'][0]['accepted'], [['PS', '100'], ['PC', '1000']])
             self.assertEqual(json.loads(conn.execute('SELECT body FROM pricing_snapshots').fetchone()[0]),
                              self.snapshot)
 
@@ -61,6 +61,7 @@ class BrowserObservationImport(unittest.TestCase):
             import_quotes(self.db, dict(self.batch, captured_at='2026-11-24T08:00:00+00:00'), self.now, True)
         with self.assertRaisesRegex(ValueError, 'browser_observation_original_round_required'):
             import_quotes(self.db, dict(self.batch, captured_at='2026-11-24T09:16:59+00:00'), self.now, True)
-        self.batch['offers'][0]['source'] = 'Lootbar'
-        with self.assertRaisesRegex(ValueError, 'browser_observation_offer_scope'):
-            import_quotes(self.db, self.batch, self.now, True)
+        for source in ('Lootbar', 'IGGM'):
+            self.batch['offers'][0]['source'] = source
+            with self.assertRaisesRegex(ValueError, 'browser_observation_offer_scope'):
+                import_quotes(self.db, self.batch, self.now, True)

@@ -8,6 +8,7 @@ from pathlib import Path
 import runpy
 from threading import Thread
 import time
+from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 from .u4gm_browser import BROWSER_PLATFORMS, run_request, validate
@@ -65,6 +66,24 @@ def read_snapshot(payload, latest, now):
 
 def handler(base):
     class LocalQuoteHandler(base):
+        def do_GET(self):
+            query = parse_qs(urlsplit(self.path).query)
+            sites = {site.strip().casefold() for key in ('site', 'sites')
+                     for value in query.get(key, []) for site in value.split(',')}
+            if 'iggm' in sites:
+                return self._send({'error': 'unknown_site'}, 404)
+            return super().do_GET()
+
+        def _send(self, data, code=200):
+            if isinstance(data, dict) and isinstance(data.get('routes'), dict):
+                routes = {path.replace('|iggm', ''): label for path, label in data['routes'].items()
+                          if 'site=iggm' not in path}
+                data = dict(data, routes=routes)
+            if isinstance(data, dict) and isinstance(data.get('rows'), list):
+                rows = [row for row in data['rows'] if row.get('site') != 'iggm']
+                data = dict(data, rows=rows, n=len(rows))
+            return super()._send(data, code)
+
         def do_POST(self):
             if self.path != OBSERVATION_PATH:
                 return self._send({'error': 'not_found'}, 404)
@@ -91,6 +110,15 @@ def main():
     parser.add_argument('--port', type=int, default=8790)
     args = parser.parse_args()
     original = runpy.run_path(str(args.legacy_api.resolve(strict=True)))
+    legacy = original['Handler'].do_GET.__globals__
+    load_snapshot = legacy['load_snapshot']
+
+    def active_snapshot():
+        value = load_snapshot()
+        return dict(value, **{key: {site: rows for site, rows in value[key].items() if site != 'iggm'}
+                              for key in ('sites', 'counts') if isinstance(value.get(key), dict)})
+
+    legacy['load_snapshot'] = active_snapshot
     with ThreadingHTTPServer(('127.0.0.1', args.port), handler(original['Handler'])) as server:
         Thread(target=refresh_on_schedule, daemon=True, name='u4gm-browser-observation').start()
         server.serve_forever()

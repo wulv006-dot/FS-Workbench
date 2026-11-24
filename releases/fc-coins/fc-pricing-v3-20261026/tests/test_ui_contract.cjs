@@ -28,7 +28,7 @@ assert.equal((html.match(/class="price-strip"/g)||[]).length,1);
 for (const platform of ['ps','xbox','pc']) assert(ids.includes('v3-price-large-'+platform));
 assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261124-observer-status/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261125-observer-retirement/);
 assert.equal((html.match(/<article data-platform=/g)||[]).length,3);
 assert.match(html,/竞品普通档报价/);
 assert.match(html,/相同购买量的普通档售价.*额外加赠档不参与比较/);
@@ -451,17 +451,15 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
     monitoring_status:{IGGM:'partial',U4GM:'pending'}};
   await elements['v3-refresh'].events.click();
   const monitorCards=JSON.stringify(elements['v3-market-cards'].children[0]);
-  assert.match(monitorCards,/IGGM · 监控.*我方同档价差 -14.9%.*U4GM · 监控.*本轮尚无监控结果/);
-  assert.doesNotMatch(monitorCards,/Arab-UT/);
-  curveMarket={...curveMarket,monitoring_status:{IGGM:'partial',U4GM:'missing'},
-    monitoring:{...curveMarket.monitoring,IGGM:[...curveMarket.monitoring.IGGM,
-      {platform:'PS',purchase_k:'1000',regular_price:'90',captured_at:curveCapturedAt,collection_node:'local'}]},
-    monitoring_attempts:{IGGM:[{node:'local',errors:[],response_received:true,requested:[['PS','1000'],['PC','1000']]}],
-      U4GM:[{node:'187',errors:['source_blocked'],response_received:false}]}};
+  assert.match(monitorCards,/U4GM · 监控.*本轮尚无监控结果/);
+  assert.doesNotMatch(monitorCards,/IGGM|Arab-UT/);
+  curveMarket={...curveMarket,monitoring_status:{U4GM:'partial'},
+    monitoring:{U4GM:[{platform:'PS',purchase_k:'1000',regular_price:'90',captured_at:curveCapturedAt,collection_node:'local'}]},
+    monitoring_attempts:{U4GM:[{node:'local',errors:[],response_received:true,requested:[['PS','1000'],['PC','1000']]}]}};
   await elements['v3-refresh'].events.click();
   const diagnosedCards=JSON.stringify(elements['v3-market-cards'].children[0]);
-  assert.match(diagnosedCards,/IGGM · 监控.*1000K .*Windows 本机采集.*U4GM · 监控.*187 的来源账本已阻断本站，采集停派，本轮未派给本机/);
-  assert.match(JSON.stringify(elements['v3-market-cards'].children[2]),/IGGM · 监控.*Windows 本机已回传，仍有普通档缺价/);
+  assert.match(diagnosedCards,/U4GM · 监控.*1000K .*Windows 本机采集/);
+  assert.match(JSON.stringify(elements['v3-market-cards'].children[2]),/U4GM · 监控.*Windows 本机已回传，仍有普通档缺价/);
   curveMarket=historicalMarket;
   await elements['v3-refresh'].events.click();
   const decisionBeforeReadonly=elements['v3-decision-basis'].textContent;

@@ -27,8 +27,7 @@ class Collector:
         try:
             from scrapling import Selector
         except ImportError:
-            for source in ('U4GM', 'IGGM'):
-                self.versions.pop(source)
+            self.versions.pop('U4GM')
 
     def handle(self, reader, writer):
         message = read_message(reader)
@@ -44,7 +43,7 @@ class Collector:
             task = message['task']
             def fetch(source, template, timeout):
                 return render_fetch(task, template, timeout) if source == 'Lootbar' else transport.fetch(source, template, timeout)
-            serve_task(task, self.identity, {'ArabUT': arab_adapter, 'Lootbar': lootbar_adapter, 'U4GM':package_adapter, 'IGGM':package_adapter}, self.versions,
+            serve_task(task, self.identity, {'ArabUT': arab_adapter, 'Lootbar': lootbar_adapter, 'U4GM':package_adapter}, self.versions,
                        self.spool, fetch, reader, writer)
         else:
             raise ValueError('method_not_allowed')

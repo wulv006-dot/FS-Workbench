@@ -37,18 +37,20 @@ class CompetitorOffersV6(unittest.TestCase):
     def test_market_cards_keep_pricing_coverage_and_observer_rounds_separate(self):
         from fc_pricing_v3.api import _curve_market_quotes
         from fc_pricing_v3.competitor_offers import FOUR_SOURCE_POLICY
-        observer = raw('1000', source='IGGM', regular_price='60')
-        evidence = dict(competitor_policy=POLICY, competitor_offers=[raw(), observer])
+        observer = raw('1000', source='U4GM', regular_price='60')
+        retired = dict(observer, source='IGGM')
+        evidence = dict(competitor_policy=POLICY, competitor_offers=[raw(), retired])
         snapshot = dict(snapshot_id='same', created_at=NOW.isoformat(), evidence=evidence)
-        observation = dict(run_id='same', package_offers=[observer, dict(observer, run_id='older')])
+        observation = dict(run_id='same', package_offers=[observer, retired, dict(observer, run_id='older')])
         market = _curve_market_quotes(snapshot, observation)
         self.assertEqual(market['competitor_coverage']['optional_sources'], ['Lootbar', 'U7Buy'])
         self.assertEqual([r['source'] for r in market['competitor_offers']], ['U7Buy'])
-        self.assertEqual([r['regular_price'] for r in market['monitoring']['IGGM']], ['60'])
-        self.assertNotIn('run_id', market['monitoring']['IGGM'][0])
-        self.assertFalse(_curve_market_quotes(snapshot, dict(observation, run_id='older'))['monitoring']['IGGM'])
+        self.assertEqual([r['regular_price'] for r in market['monitoring']['U4GM']], ['60'])
+        self.assertNotIn('run_id', market['monitoring']['U4GM'][0])
+        self.assertNotIn('IGGM', market['monitoring'])
+        self.assertFalse(_curve_market_quotes(snapshot, dict(observation, run_id='older'))['monitoring']['U4GM'])
         historical = _curve_market_quotes(dict(snapshot, evidence=dict(evidence, competitor_policy=FOUR_SOURCE_POLICY)))
-        self.assertEqual([r['source'] for r in historical['competitor_offers']], ['U7Buy', 'IGGM'])
+        self.assertEqual([r['source'] for r in historical['competitor_offers']], ['U7Buy'])
         self.assertEqual(historical['monitoring'], {})
 
     def test_lootbar_public_skus_project_only_small_packages_and_reject_foreign_receipts(self):
@@ -474,19 +476,16 @@ class CompetitorOffersV6(unittest.TestCase):
         snapshot = dict(created_at=NOW.isoformat(), evidence=dict(run_id=run_id, competitor_policy=POLICY,
                         competitor_offers=[], source_plan=source_plan('smart',dict(competitor_policy=POLICY))))
         def read(node, request, started):
-            source = request['source']
-            if source == 'U4GM':
-                return dict(request, offers=[], errors=['http_403'] if node == '187' else ['browser_snapshot_unavailable'])
-            offers = [raw(q, source=source, run_id=run_id, platform=p) for p,q in request['wanted']]
-            return dict(request, offers=offers, errors=[])
+            self.assertEqual(request['source'], 'U4GM')
+            return dict(request, offers=[], errors=['http_403'] if node == '187' else ['browser_snapshot_unavailable'])
         with tempfile.TemporaryDirectory() as folder:
             db=Ledger(Path(folder)/'db')
             db.put('pricing_snapshots',run_id,snapshot)
             with patch.object(runtime,'ledger',return_value=db),patch('fc_collection.package_routes.read_node',side_effect=read) as reader:
                 result=observations.observe(run_id)
                 self.assertEqual(observations.observe(run_id),result)
-            self.assertEqual(reader.call_count,3)
-            self.assertEqual(result['package_status']['IGGM']['status'],'captured')
+            self.assertEqual(reader.call_count,2)
+            self.assertNotIn('IGGM',result['package_status'])
             self.assertEqual(result['package_status']['U4GM']['status'],'missing')
             market = _curve_market_quotes(dict(snapshot, snapshot_id=run_id), result)
             attempt, cached = market['monitoring_attempts']['U4GM']
@@ -494,21 +493,20 @@ class CompetitorOffersV6(unittest.TestCase):
             self.assertEqual((attempt['node'], attempt['response_received'], attempt['errors']), ('187', True, ['http_403']))
             self.assertIn(['PC', '1000'], attempt['requested'])
             self.assertEqual(attempt['accepted'], [])
-            self.assertEqual(len(result['package_offers']),6)
+            self.assertEqual(result['package_offers'],[])
             self.assertEqual(db.get('pricing_snapshots',run_id),snapshot)
 
-    def test_unexpected_reader_failure_keeps_the_other_site_result(self):
+    def test_observer_reader_failure_records_only_the_active_source(self):
         from fc_pricing_v3.observations import collect_package_observations
         def read(node, req, started):
-            if req['source'] == 'U4GM':
-                raise RuntimeError('reader failed')
-            return dict(req, offers=[raw(q, source='IGGM', platform=p) for p,q in req['wanted']],errors=[])
+            self.assertEqual(req['source'], 'U4GM')
+            raise RuntimeError('reader failed')
         with patch('fc_collection.package_routes.read_node',side_effect=read):
             result = collect_package_observations('same', NOW.isoformat())
         self.assertEqual(result['package_status']['U4GM']['errors'], ['RuntimeError'])
         self.assertEqual(result['package_status']['U4GM']['status'], 'missing')
-        self.assertEqual(result['package_status']['IGGM']['status'],'captured')
-        self.assertEqual(len(result['package_offers']),6)
+        self.assertEqual(set(result['package_status']),{'U4GM'})
+        self.assertEqual(result['package_offers'],[])
 
     def test_worker_passes_v6_to_snapshot_and_skips_item_without_hiding_cost_failure(self):
         from fc_pricing_v3 import runtime

@@ -14,7 +14,7 @@ class PackageRouting(unittest.TestCase):
         from fc_collection.pilot import source_policy
         with TemporaryDirectory() as tmp, patch('fc_collection.client.DATABASE',Path(tmp)/'db'):
             ledger = Coordinator(Path(tmp)/'db')
-            for source in ('IGGM','U4GM'):
+            for source in ('U4GM',):
                 origin = 'https://www.'+source.lower()+'.com'
                 ledger.configure_source(source,dict(source_policy(),mode='consume',origin=origin))
                 req = dict(source=source,run_id='prior')
@@ -27,11 +27,8 @@ class PackageRouting(unittest.TestCase):
                     self.assertFalse(rows)
                     for entry in (child, remote):
                         entry.assert_not_called()
-                    if source == 'U4GM':
-                        local.assert_called_once_with(dict(source='U4GM', run_id='next', wanted=[('PC','100')],
-                                                          mode='cached_u4gm'))
-                    else:
-                        local.assert_not_called()
+                    local.assert_called_once_with(dict(source='U4GM', run_id='next', wanted=[('PC','100')],
+                                                      mode='cached_u4gm'))
 
     def test_primary_process_failure_releases_its_permit_for_the_next_node(self):
         from pathlib import Path
@@ -43,22 +40,22 @@ class PackageRouting(unittest.TestCase):
         from fc_collection.pilot import source_policy
         with TemporaryDirectory() as tmp, patch('fc_collection.client.DATABASE',Path(tmp)/'db'):
             ledger = Coordinator(Path(tmp)/'db')
-            ledger.configure_source('IGGM',dict(source_policy(),mode='consume',origin='https://www.iggm.com'))
-            req = dict(source='IGGM',run_id='round',wanted=[('PS','100')])
+            ledger.configure_source('U4GM',dict(source_policy(),mode='consume',origin='https://www.u4gm.com'))
+            req = dict(source='U4GM',run_id='round',wanted=[('PS','100')])
             with patch('fc_collection.package_routes.subprocess.run',side_effect=FileNotFoundError), self.assertRaises(FileNotFoundError):
                 read_node('187',req,datetime.now(timezone.utc))
-            self.assertTrue(legacy_ready('IGGM',require_registered=True))
+            self.assertTrue(legacy_ready('U4GM',require_registered=True))
 
     def test_late_reader_crash_preserves_previous_node_quotes(self):
         now = datetime.now(timezone.utc)
         def read(node,request):
             if node != '187':
                 raise RuntimeError('reader failed')
-            offer = dict(source='IGGM',platform='PC',purchase_k='100',bonus_k='0',regular_price='6',
+            offer = dict(source='U4GM',platform='PC',purchase_k='100',bonus_k='0',regular_price='6',
                          captured_at=now.isoformat(),run_id='round',status='valid',currency='USD',
                          comparable=True,conditional=False,coupon_excluded=True,delivery_method='comfort_trade',delivery_tier='standard')
             return dict(request,offers=[offer],errors=[])
-        rows,attempts = collect_missing('IGGM','round',[('PC','100'),('PS','100')],read,lambda:now)
+        rows,attempts = collect_missing('U4GM','round',[('PC','100'),('PS','100')],read,lambda:now)
         self.assertEqual([r['platform'] for r in rows],['PC'])
         self.assertEqual(attempts[-1]['errors'],['RuntimeError'])
 
@@ -97,10 +94,10 @@ class PackageRouting(unittest.TestCase):
                 calls = []
                 def read(node, req):
                     calls.append(node)
-                    malformed = dict(source='IGGM', run_id='round', platform=[], purchase_k='100')
+                    malformed = dict(source='U4GM', run_id='round', platform=[], purchase_k='100')
                     return dict(req, offers=[malformed], errors=[reason])
-                rows, attempts = collect_missing('IGGM','round',[('PC','100')],read,lambda:datetime.now(timezone.utc))
-                self.assertEqual(calls,['187'])
+                rows, attempts = collect_missing('U4GM','round',[('PC','100')],read,lambda:datetime.now(timezone.utc))
+                self.assertEqual(calls,['187','local'])
                 self.assertIn(reason,attempts[0]['errors'])
                 self.assertFalse(rows)
 
@@ -115,7 +112,7 @@ class PackageRouting(unittest.TestCase):
                 patch('fc_collection.package_relay.socket.socket') as listen:
             server = listen.return_value.__enter__.return_value
             server.accept.side_effect = socket.timeout
-            request = dict(source='IGGM', run_id='00000000-0000-4000-8000-000000000001', wanted=[('PC','100')])
+            request = dict(source='U4GM', run_id='00000000-0000-4000-8000-000000000001', wanted=[('PC','100')])
             with patch.object(Path, 'chmod'), self.assertRaises(LocalWorkerUnavailable):
                 request_local(request, root=Path(tmp))
 
@@ -139,15 +136,15 @@ class PackageRouting(unittest.TestCase):
         now = datetime.now(timezone.utc)
         with TemporaryDirectory() as tmp:
             ledger = Coordinator(Path(tmp) / 'collection.db')
-            ledger.configure_source('IGGM', dict(source_policy(), mode='consume', origin='https://www.iggm.com'))
-            with ledger.package_requests('IGGM', 'primary', 1, now):
+            ledger.configure_source('U4GM', dict(source_policy(), mode='consume', origin='https://www.u4gm.com'))
+            with ledger.package_requests('U4GM', 'primary', 1, now):
                 with self.assertRaisesRegex(ValueError, 'request_budget_unavailable'):
-                    with ledger.package_requests('IGGM', 'concurrent', 1, now):
+                    with ledger.package_requests('U4GM', 'concurrent', 1, now):
                         self.fail('concurrency limit')
-            with ledger.package_requests('IGGM', 'readback', 1, now):
+            with ledger.package_requests('U4GM', 'readback', 1, now):
                 pass
             with self.assertRaisesRegex(ValueError, 'request_budget_unavailable'):
-                with ledger.package_requests('IGGM', 'excess', 1, now):
+                with ledger.package_requests('U4GM', 'excess', 1, now):
                     self.fail('origin budget')
 
     def test_local_worker_uses_its_own_ssh_config_and_returns_on_idle(self):
@@ -165,7 +162,7 @@ class PackageRouting(unittest.TestCase):
         self.assertIn('StrictHostKeyChecking=yes', command)
         process.stdin.write.assert_not_called()
 
-    def test_iggm_keeps_primary_and_supplement_and_tries_local_for_remaining_slots(self):
+    def test_u4gm_keeps_primary_and_supplement_and_tries_local_for_remaining_slots(self):
         now = datetime.now(timezone.utc)
         calls = []
         def read(node, request):
@@ -173,13 +170,13 @@ class PackageRouting(unittest.TestCase):
             platform, quantity = request['wanted'][-1]
             if node == '183':
                 raise ValueError('template_changed')
-            offer = dict(source='IGGM', platform=platform, purchase_k=quantity, bonus_k='0',
+            offer = dict(source='U4GM', platform=platform, purchase_k=quantity, bonus_k='0',
                          regular_price='7', currency='USD', status='valid', conditional=False,
                          coupon_excluded=True, comparable=True, promotion_eligibility='all_customers',
                          delivery_method='comfort_trade', delivery_tier='standard',
                          captured_at=now.isoformat(), run_id='round')
-            return dict(source='IGGM', run_id='round', offers=[offer], errors=[])
-        rows, attempts = collect_missing('IGGM', 'round', [('PS','100'),('PC','1000')], read, lambda:now)
+            return dict(source='U4GM', run_id='round', offers=[offer], errors=[])
+        rows, attempts = collect_missing('U4GM', 'round', [('PS','100'),('PC','1000')], read, lambda:now)
         self.assertEqual([node for node, _ in calls], ['187','183','local'])
         self.assertEqual(calls[1][1], [('PC','1000')])
         self.assertEqual(calls[2][1], [('PC','1000')])
@@ -196,12 +193,12 @@ class PackageRouting(unittest.TestCase):
         from fc_collection.pilot import source_policy
         with TemporaryDirectory() as tmp, patch('fc_collection.client.DATABASE', Path(tmp) / 'db.sqlite'):
             ledger = Coordinator(Path(tmp) / 'db.sqlite')
-            policy = dict(source_policy(1), origin='https://www.iggm.com', mode='consume')
-            ledger.configure_source('IGGM', policy)
-            self.assertTrue(legacy_ready('IGGM', require_registered=True))
-            request = dict(source='IGGM', run_id='round')
+            policy = dict(source_policy(1), origin='https://www.u4gm.com', mode='consume')
+            ledger.configure_source('U4GM', policy)
+            self.assertTrue(legacy_ready('U4GM', require_registered=True))
+            request = dict(source='U4GM', run_id='round')
             record_restriction(request, dict(request, errors=['http_429'], retry_after_seconds=7200))
-            self.assertFalse(legacy_ready('IGGM', require_registered=True))
+            self.assertFalse(legacy_ready('U4GM', require_registered=True))
             with ledger.transaction() as db:
-                expiry = ledger._get(db, 'collection_sources', 'IGGM')['cooldown_until']
+                expiry = ledger._get(db, 'collection_sources', 'U4GM')['cooldown_until']
             self.assertGreater(expiry, datetime.now(timezone.utc).timestamp() + 7100)

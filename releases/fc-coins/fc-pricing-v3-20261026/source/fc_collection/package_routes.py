@@ -7,7 +7,7 @@ from fc_pricing_v3.competitor_offers import normalize_offers
 
 
 def collect_missing(source, run_id, wanted, read, clock):
-    if source not in ('U4GM', 'IGGM'):
+    if source != 'U4GM':
         raise ValueError('package_route_source')
     remaining = set(wanted)
     accepted, attempts = [], []
@@ -58,7 +58,7 @@ def collect_missing(source, run_id, wanted, read, clock):
         except SourceRestricted as exc:
             result['errors'].append(str(exc))
             nodes.clear()
-            if source == 'U4GM' and node != 'local':
+            if node != 'local':
                 nodes.append('local')
         except (OSError, ValueError, EOFError, TypeError, sqlite3.Error, subprocess.SubprocessError) as exc:
             result['errors'].append(type(exc).__name__)
@@ -67,7 +67,7 @@ def collect_missing(source, run_id, wanted, read, clock):
             break
         if set(result['errors']) & {'http_401','http_403','http_429','challenge','captcha','source_access_restricted'}:
             nodes.clear()
-            if source == 'U4GM' and node != 'local':
+            if node != 'local':
                 nodes.append('local')
     return accepted, attempts
 
@@ -110,7 +110,7 @@ def package_permit(request, *, subprocess_owned=False):
     from .coordinator import Coordinator
     if not DATABASE.is_file() or DATABASE.is_symlink():
         raise ValueError('collection_original_ledger_required')
-    count = 1 if request['source'] == 'IGGM' else len({p for p, _ in request['wanted']})
+    count = len({p for p, _ in request['wanted']})
     return Coordinator(DATABASE).package_requests(request['source'], request['run_id'], count, utc(),
                                                  subprocess_owned=subprocess_owned)
 
@@ -174,7 +174,9 @@ def read_node(node, request, started):
     from datetime import timedelta
     from pathlib import Path
     from .client import source_hold_reason
-    if request['source'] == 'U4GM' and node == 'local':
+    if request['source'] != 'U4GM':
+        raise ValueError('package_route_source')
+    if node == 'local':
         from .package_relay import request_local
         receipt = request_local(dict(request, mode='cached_u4gm'))
         if receipt.get('provider') != 'windows_u4gm_snapshot':
@@ -183,18 +185,14 @@ def read_node(node, request, started):
     hold_reason = source_hold_reason(request['source'], require_registered=True)
     if hold_reason:
         raise SourceRestricted(hold_reason)
-    if node in ('local', '187'):
-        with package_permit(request, subprocess_owned=node == '187'):
-            if node == 'local':
-                from .package_relay import request_local
-                receipt = request_local(request)
-            else:
-                runner = Path(__file__).with_name('package_reader.py')
-                python = '/opt/fs-hermes-fc-public-research-0.5.1/bin/python3.12'
-                process = subprocess.run([python,'-I','-B',str(runner)], input=json.dumps(request),
-                                         text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                         check=True, timeout=30)
-                receipt = json.loads(process.stdout)
+    if node == '187':
+        with package_permit(request, subprocess_owned=True):
+            runner = Path(__file__).with_name('package_reader.py')
+            python = '/opt/fs-hermes-fc-public-research-0.5.1/bin/python3.12'
+            process = subprocess.run([python,'-I','-B',str(runner)], input=json.dumps(request),
+                                     text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                     check=True, timeout=30)
+            receipt = json.loads(process.stdout)
             try:
                 return record_restriction(request, receipt)
             except (OSError, ValueError, sqlite3.Error) as exc:

@@ -74,6 +74,18 @@ class QuoteFragment(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'pricing_native_reply_too_large'):
                 tools.call(Mock(),'original-owner','turn','lease',dict(action='read_quote',run_id=self.run,path='/evidence'))
 
+    def test_retired_competitor_does_not_shift_frozen_quote_paths(self):
+        offers = [{'source':'IGGM'}, {'source':'U4GM'}]
+        self.quote['evidence']['competitor_offers'] = offers
+        self.file.write_text(json.dumps(self.quote), encoding='utf-8')
+        full = self.get('')
+        self.assertEqual(full['evidence']['competitor_offers'], [offers[1]])
+        first = self.get('?'+urlencode({'path':'/evidence/competitor_offers/0'}))
+        second = self.get('?'+urlencode({'path':'/evidence/competitor_offers/1'}))
+        self.assertIsNone(first['value'])
+        self.assertEqual(second['value'], offers[1])
+        self.assertEqual(first['original_quote_sha256'], full['original_quote_sha256'])
+
     def test_existing_full_route_and_public_filter_are_preserved(self):
         full=self.get('');self.assertGreater(len(json.dumps(full)),1024*1024)
         self.assertNotIn('historical_orders',full['evidence'])
