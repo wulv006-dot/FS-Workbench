@@ -160,6 +160,34 @@ class V4Snapshot(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'v4_cohort_type'):
             selection({'cohort_type': 'everyone'}, config, cutoff)
 
+    def test_fc_series_merges_editions_into_one_customer_base(self):
+        from user_query_v4 import selection
+
+        config = dict(projects={'1327': {'label': 'FC27', 'series': 'FC', 'policy': 'fc-v1'},
+                                '833': {'label': 'FC26', 'series': 'FC'}, '456': {'label': 'Diablo 4'}},
+                      history_backfill_start='2026-01-01T00:00:00+08:00')
+        query = selection({'game': 'series:FC', 'cohort_start': '2026-01', 'cohort_end': '2026-01',
+                           'windows': '30', 'return_after': 2, 'return_within': 40}, config, stamp('2026-11-24'))
+        self.assertEqual((query['scope'], query['scope_id'], query['games'], query['policy_game']),
+                         ('series', 'FC', ['1327', '833'], '1327'))
+        with self.assertRaisesRegex(ValueError, 'v4_game'):
+            selection({'game': 'series:Nope'}, config, stamp('2026-11-24'))
+        orders = [
+            purchase(1, 'carried', '2026-01-02', game='833'),   # FC26 first order, FC27 repeat
+            purchase(2, 'carried', '2026-01-20', game='1327'),
+            purchase(3, 'fc26-only', '2026-01-03', game='833'),
+            purchase(4, 'other-game', '2026-01-04', game='456'),
+            purchase(5, 'other-game', '2026-01-10', game='833'),
+        ]
+        flags = {json.loads(o['body'])['order_no_hash']: 'new' for o in orders}
+        jobs = [covering('2026-01-01', '2026-11-24')]
+        merged, _ = analyze_cohorts(orders, jobs, query, stamp('2026-11-24'), flags)
+        window = merged['batches'][0]['windows'][0]
+        self.assertEqual((window['denominator'], window['numerator']), (2, 1))
+        fc27, _ = analyze_cohorts(orders, jobs, dict(query, game='1327', games=(), policy_game='1327'),
+                                  stamp('2026-11-24'), flags)
+        self.assertEqual(fc27['batches'][0]['windows'][0]['denominator'], 0)
+
     def test_frozen_result_is_shared_and_a_retired_snapshot_cannot_be_reinterpreted(self):
         from unittest.mock import Mock
         from user_query import Service

@@ -932,11 +932,26 @@ async function initialize() {
     if (catalog.contract_version !== 'fs-users-v4' || !found) throw new Error('当前用户分析数据尚未发布。');
     dates = {...found, origin};
     const form = filters.elements;
+    // Annual editions (FC26, FC27…) share one customer base: offer each series as a merged choice first.
+    const series = {};
+    for (const game of Object.values(catalog.projects)) if (game.series) (series[game.series] ||= []).push(game.label);
+    const merged = element('optgroup');
+    merged.label = '系列（历代合并）';
+    for (const [name, labels] of Object.entries(series)) {
+      if (labels.length < 2) continue;
+      const option = element('option', name + ' 系列（' + labels.sort().join(' + ') + '）');
+      option.value = 'series:' + name;
+      merged.append(option);
+    }
+    const single = element('optgroup');
+    single.label = '单款游戏';
     for (const [gid, game] of Object.entries(catalog.projects)) {
       const option = element('option', game.label);
       option.value = gid;
-      form.game.append(option);
+      single.append(option);
     }
+    if (merged.children.length) form.game.append(merged);
+    form.game.append(single);
     form.cohort_start.value = found.firstMonth;
     form.cohort_end.value = found.lastMonth;
     for (const name of ['cohort_start', 'cohort_end']) {
