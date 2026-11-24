@@ -318,3 +318,122 @@ class V4Snapshot(unittest.TestCase):
             allowed.clear()
             self.assertEqual(get(service, '/users/private', dict(params, action=['export']), 'reader')[0], 403)
             self.assertEqual(search(service, {'snapshot_id': ident, 'email': email}, 'reader')[0], 403)
+
+
+@unittest.skipIf(sys.platform == 'win32', 'requires POSIX private-store permissions')
+class PublishedCohortArchive(unittest.TestCase):
+    def test_warm_page_reuses_disk_after_restart_and_advances_month_with_the_publication(self):
+        from tempfile import TemporaryDirectory
+        from time import perf_counter
+        from unittest.mock import patch
+        from test_users import order
+        from user_http import get
+        from user_query import Service
+        from user_store import Store
+
+        config = json.loads((ROOT / 'source/user_config.json').read_text(encoding='utf-8'))
+        main = [
+            order(1, '2026-01-02', email='cohort-a@example.test'),
+            order(2, '2026-01-03', email='cohort-a@example.test'),
+            order(3, '2026-11-02', email='cohort-b@example.test'),
+        ]
+        flags = {hashlib.sha256(f'test-{n}'.encode()).hexdigest(): 'new' for n in (1, 3)}
+        with TemporaryDirectory() as folder, patch(
+                'user_customer_types.read_pinned_flags', return_value=(flags, {'status': 'complete'})):
+            store = Store(Path(folder) / 'facts', b'a' * 32, config)
+
+            def publication(label, cutoff, rows):
+                store.replace_window('266', '2026-01-01', cutoff, rows, stamp(cutoff).isoformat())
+                return dict(data_version=store.revision(), jobs=store.coverage(), cutoff=cutoff,
+                            publication_id=label, flag_manifests=[])
+
+            def service(published):
+                current = Service(store, lambda u, _q, private: u == 'reader' and not private)
+                cutoff = stamp(published['cutoff'])
+                current.v4.read_context = lambda: (config, published, cutoff)
+                self.addCleanup(current.v4.jobs.pool.shutdown)
+                return current, cutoff
+
+            first = publication('fixture-november', '2026-11-25', main)
+            engine, cutoff = service(first)
+            started = perf_counter()
+            self.assertEqual(engine.v4.prewarm(config, first, cutoff)['prepared'], 8)
+            prepared = perf_counter() - started
+            args = {'game': ['all'], 'start': ['2026-08-27'], 'cohort_type': ['new'],
+                    'cohort_start': ['2026-01'], 'cohort_end': ['2026-10'], 'windows': ['30,90,180']}
+            with patch.object(store, 'read_at', side_effect=AssertionError('warm query scanned facts')):
+                started = perf_counter()
+                status, value = get(engine, '/users', args, 'reader')
+                promoted = perf_counter() - started
+                self.assertEqual(status, 200)
+                restarted, _ = service(first)
+                with restarted.summary_slot:
+                    started = perf_counter()
+                    self.assertEqual(get(restarted, '/users', args, 'reader'), (200, value))
+                    hot = perf_counter() - started
+                # Grant checks still run for persisted cache hits.
+                self.assertEqual(get(restarted, '/users', args, 'viewer')[0], 403)
+            # A damaged derived payload must fall back to the original calculation.
+            import gzip
+            warm_path = store.root / 'v4-cache/warm-0-old.json.gz'
+            with gzip.open(warm_path, 'rb') as stream:
+                header = stream.readline()
+            warm_path.write_bytes(gzip.compress(header + b'{}'))
+            with patch.object(store, 'read_at', wraps=store.read_at) as replay:
+                status, old = get(engine, '/users', dict(args, cohort_type=['old']), 'reader')
+                replay.assert_called_once()
+            self.assertEqual((status, old['cohorts']['segment']), (200, 'old'))
+            january = value['cohorts']['batches'][0]
+            self.assertEqual(january['windows'][0]['numerator'], 1)
+            self.assertEqual(value['cohorts']['batches'][-1]['month'], '2026-10')
+            self.assertEqual(value['observation_date'], '2026-11-24')
+            print(f'fixture archive prepare={prepared:.3f}s promote={promoted:.3f}s hot-after-restart={hot:.3f}s')
+
+            december = publication('fixture-december', '2026-12-01', main)
+            next_engine, next_cutoff = service(december)
+            with patch('user_query_v4.analyze_cohorts', wraps=analyze_cohorts) as calculate:
+                next_engine.v4.prewarm(config, december, next_cutoff)
+                self.assertNotIn('2026-01', [call.args[2]['cohort_start'] for call in calculate.call_args_list])
+            args.update(start=['2026-09-02'], cohort_end=['2026-11'])
+            with patch.object(store, 'read_at', side_effect=AssertionError('month close was not prepared')):
+                status, current = get(next_engine, '/users', args, 'reader')
+            self.assertEqual(status, 200)
+            self.assertEqual(current['cohorts']['batches'][0], january)
+            self.assertEqual(current['cohorts']['batches'][-1]['month'], '2026-11')
+            self.assertEqual(current['observation_date'], '2026-11-30')
+            self.assertNotEqual(current['snapshot_id'], value['snapshot_id'])
+
+            corrected = publication('fixture-corrected', '2026-12-01', [main[0], main[2]])
+            corrected_engine, _ = service(corrected)
+            status, current = get(corrected_engine, '/users', args, 'reader')
+            self.assertEqual(status, 200)
+            self.assertEqual(current['cohorts']['batches'][0]['windows'][0]['numerator'], 0)
+
+            recovery = dict(corrected, publication_id='fixture-flags-recovery')
+            recovering, recovery_cutoff = service(recovery)
+            with patch('user_customer_types.read_pinned_flags',
+                       return_value=({}, {'status': 'partial', 'parse_complete': False})):
+                warm = recovering.v4.prewarm(config, recovery, recovery_cutoff)
+                self.assertEqual(warm['status'], 'waiting_for_customer_flags')
+                status, incomplete = get(recovering, '/users', args, 'reader')
+            self.assertEqual(status, 200)
+            self.assertEqual(incomplete['cohorts']['customer_type_source'], 'partial')
+
+            recovered, _ = service(recovery)
+            status, complete = get(recovered, '/users', args, 'reader')
+            self.assertEqual((status, complete['cohorts']['customer_type_source']), (200, 'complete'))
+            self.assertNotEqual(complete['snapshot_id'], incomplete['snapshot_id'])
+            self.assertEqual(get(recovered, '/users', {'snapshot_id': [incomplete['snapshot_id']]}, 'reader'),
+                             (200, incomplete))
+
+    def test_scheduled_preheat_stops_a_slow_read_and_releases_its_lock(self):
+        from tempfile import TemporaryDirectory
+        from time import sleep
+        from unittest.mock import patch
+        from user_jobs import prewarm_published_users
+
+        with TemporaryDirectory() as folder, patch('user_jobs.ROOT', Path(folder)):
+            with patch('user_jobs.load_store', side_effect=lambda: sleep(1)):
+                self.assertEqual(prewarm_published_users(0.02), {'status': 'partial', 'reason': 'prewarm_budget'})
+            with patch('user_jobs.load_store'), patch('user_weekly.stored_publication', return_value=None):
+                self.assertEqual(prewarm_published_users(1), {'status': 'waiting_for_publication'})

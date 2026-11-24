@@ -1,12 +1,15 @@
 """Private durable purchase facts and frozen snapshots, independent of short-lived caches."""
 import hmac
+import gzip
 import hashlib
 import json
 import os
 import re
 import sqlite3
+import tempfile
 import stat
 import uuid
+from zlib import error as GzipError
 from contextlib import contextmanager, closing
 from pathlib import Path
 
@@ -631,6 +634,62 @@ class Store:
             finally:
                 target.close()
         return dict(path=destination.name, revision=revision)
+
+    def cached_v4_snapshot(self, key):
+        with self.db() as db:
+            row = db.execute("SELECT value FROM meta WHERE key='v4_query_cache'").fetchone()
+        return dict(json.loads(row[0])).get(key) if row else None
+
+    def remember_v4_snapshot(self, key, ident):
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute("SELECT value FROM meta WHERE key='v4_query_cache'").fetchone()
+            items = dict(json.loads(row[0])) if row else {}
+            items.pop(key, None)
+            items[key] = ident
+            db.execute("INSERT OR REPLACE INTO meta VALUES ('v4_query_cache',?)",
+                       (canonical(list(items.items())[-64:]),))
+
+    def v4_archive(self, slot, key, *, check_only=False):
+        path = self.root / 'v4-cache' / (slot + '.json.gz')
+        safe(path)
+        try:
+            with gzip.open(path, 'rb') as stream:
+                if stream.readline(66) != key.encode('ascii') + b'\n':
+                    return None
+                if check_only:
+                    return True
+                raw = stream.read(64 * 1024 * 1024 + 1)
+            if len(raw) <= 64 * 1024 * 1024:
+                value = json.loads(raw)
+                parts = 3 if slot.startswith('warm-') else 2
+                if isinstance(value, list) and len(value) == parts and all(isinstance(part, dict) for part in value):
+                    return value
+            return None
+        except (OSError, EOFError, ValueError, GzipError):
+            return None  # Rebuild an absent or incomplete derived archive.
+
+    def write_v4_archive(self, slot, key, value, *, max_bytes):
+        path = self.root / 'v4-cache' / (slot + '.json.gz')
+        safe(path)
+        raw = canonical(value).encode()
+        if len(raw) > 64 * 1024 * 1024:
+            return False
+        compressed = gzip.compress(key.encode('ascii') + b'\n' + raw, compresslevel=3, mtime=0)
+        if len(compressed) > max_bytes:
+            return False
+        path.parent.mkdir(mode=0o700, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=path.parent)
+        try:
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(compressed)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+        return True
 
     def save_snapshot(self, query, public, members):
         ident = 'us_' + digest({'query': query, 'data': public})[:32]

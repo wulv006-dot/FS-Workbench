@@ -11,7 +11,7 @@ from datetime import timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 BASE = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(BASE / 'source'))
+sys.path[:0] = [str(BASE / 'source'), str(BASE.parent / 'customer-segments-20261124/source')]
 try:
     ZoneInfo('Asia/Shanghai')
 except ZoneInfoNotFoundError:
@@ -72,6 +72,28 @@ class A2Context(unittest.TestCase):
         for context in self.contexts:
             if context.service and context.service.private_cache_timer:
                 context.service.private_cache_timer.cancel()
+
+    def test_v4_cohort_section_uses_frozen_v4_evidence_with_the_host_scope(self):
+        catalog = self.context.catalog()['current_aggregate']
+        self.assertIn('cohorts', catalog['sections'])
+        self.assertIn('cohort_type', catalog['query_fields'])
+        self.assertNotIn('scope', catalog['query_fields'])
+        scoped = dict(contract_version='fs-users-v4', cohort_start='2026-10',
+                      cohort_end='2026-10', cohort_type='compare')
+        result = self.context.aggregate(scoped, section='cohorts')
+        self.assertEqual(result['source']['contract_version'], 'fs-users-v4')
+        self.assertEqual(result['source']['query']['game'], '1327')
+        self.assertEqual(result['data']['cohorts']['compare']['segment'], 'old')
+        origin = result['source']['snapshot_id']
+        same = self.context.aggregate(snapshot_id=origin, section='cohorts')
+        self.assertEqual(result['data'], same['data'])
+        self.assertEqual(same['load']['service_calls'], 2)
+        self.assertNotIn('stages', same['data'])
+        with self.assertRaises(ValueError):
+            self.context.aggregate(dict(scoped, game='series:FC'), section='cohorts')
+        self.host_allowed = False
+        with self.assertRaises(PermissionError):
+            self.context.aggregate(snapshot_id=origin)
 
     def make(self, scope=None, observation=None):
         context = context_factory(self.original, 'operator', SCOPE if scope is None else scope,

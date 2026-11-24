@@ -1,18 +1,21 @@
 """Frozen user-analysis queries for the dashboard and authorized model consumers."""
 from bisect import bisect_right
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import csv
 from datetime import date, time, timedelta
 from io import StringIO
 import json
+import logging
 import re
+from sqlite3 import OperationalError
 from threading import RLock
+from time import monotonic
 
-from user_contract import TZ, aggregate_only, digest, stamp
+from user_contract import (TZ, aggregate_only, digest, game_match, policy_game, scope_for_game, series_members, stamp,
+                           v4_game_scope, v4_game_selection)
 from user_lifecycle import (analyze_cohorts, analyze_stages, complete_coverage,
-                            amount_summary, customer_orders, stage_events)
+                            amount_summary, coverage_runs, customer_orders, stage_events)
 from user_summary_jobs import SummaryJobs
-from user_lifecycle import SERIES_PREFIX, game_match, policy_game, series_members, series_policy_game
 from user_member_index import IndexUnavailable, build as build_member_index, member_record, page as indexed_member_page
 
 VERSION = 'fs-users-v4'
@@ -23,6 +26,17 @@ FIELDS = {'scope', 'scope_id', 'game', 'start', 'end_exclusive', 'cohort_start',
 # Cohort population: ES new customers (default), ES old customers, everyone, or new and old side by side.
 COHORT_TYPES = ('new', 'old', 'all', 'compare')
 SEGMENTS_PATH = '/var/lib/fs-customer-segments/segments.json'
+CACHE_VERSION = 1
+WARM_GAMES = ('all', 'series:FC')
+DEFAULT_WINDOWS = (30, 90, 180)
+LOGGER = logging.getLogger(__name__)
+
+
+def reusable_flags(source):
+    # A pinned coverage gap stays partial until a new publication. A parser
+    # failure may recover with the same pinned inputs and must be retried.
+    return source.get('status') == 'complete' or (
+        source.get('status') == 'partial' and source.get('parse_complete') is True)
 
 
 class SnapshotVersionRetired(ValueError):
@@ -36,44 +50,10 @@ def month(text):
     return date.fromisoformat(text + '-01')
 
 
-def project_scope(game):
-    if game.startswith(SERIES_PREFIX):
-        return dict(scope='series', scope_id=game[len(SERIES_PREFIX):])
-    if game != 'all':
-        return dict(scope='project', scope_id=game)
-    return dict(scope='global', scope_id='')
-
-
-def authorization_scope(args, game):
-    if args.get('scope') == 'site':
-        return dict(scope='site', scope_id='266')
-    if args.get('scope') == 'global':
-        return dict(scope='global', scope_id='')
-    return project_scope(game)
-
-
 def selection(args, config, cutoff):
     if not isinstance(args, dict) or set(args) - FIELDS:
         raise ValueError('v4_query_fields')
-    game = args.get('game', 'all')
-    scope, ident = args.get('scope'), args.get('scope_id')
-    if scope == 'project' and isinstance(ident, str) and ident in config['projects']:
-        if 'game' in args and game != ident:
-            raise ValueError('game_scope_mismatch')
-        game = ident
-    elif scope == 'series' and game == SERIES_PREFIX + str(ident):
-        pass  # a normalized series query being validated again by the summary job
-    elif (scope, ident) not in ((None, None), ('global', ''), ('global', None), ('site', '266')):
-        raise ValueError('v4_scope')
-    if not isinstance(game, str) or game != 'all' and game not in config['projects'] and not (
-            game.startswith(SERIES_PREFIX) and series_members(game[len(SERIES_PREFIX):], config)):
-        raise ValueError('v4_game')
-    series = {}
-    if game.startswith(SERIES_PREFIX):
-        members = series_members(game[len(SERIES_PREFIX):], config)
-        series = dict(games=members, policy_game=series_policy_game(members, config))
-    if any(key in args and args[key] != series.get(key) for key in ('games', 'policy_game')):
-        raise ValueError('v4_query_fields')
+    game = v4_game_selection(args, config)
     origin = stamp(config['history_backfill_start'])
     start = stamp(args.get('start', max(origin, cutoff - timedelta(days=7)).isoformat()))
     end = stamp(args.get('end_exclusive', cutoff.isoformat()))
@@ -84,7 +64,7 @@ def selection(args, config, cutoff):
     cohort_end = args.get('cohort_end', max(cohort_start, previous_month))
     if not origin.date().replace(day=1) <= month(cohort_start) <= month(cohort_end) <= (cutoff.date()-timedelta(days=1)).replace(day=1):
         raise ValueError('v4_cohort_period')
-    windows = args.get('windows', '30,90,180')
+    windows = args.get('windows', list(DEFAULT_WINDOWS))
     if isinstance(windows, str) and re.fullmatch(r'[0-9]{1,3}(,[0-9]{1,3}){0,4}', windows):
         windows = [int(value) for value in windows.split(',')]
     if not isinstance(windows, list) or not 1 <= len(windows) <= 5 or any(type(v) is not int or not 2 <= v <= 365 for v in windows) or sorted(set(windows)) != windows:
@@ -98,10 +78,10 @@ def selection(args, config, cutoff):
     cohort_type = args.get('cohort_type', 'new')
     if cohort_type not in COHORT_TYPES:
         raise ValueError('v4_cohort_type')
-    return dict(authorization_scope(args, game), game=game, start=start.isoformat(), end_exclusive=end.isoformat(),
+    return dict(game, start=start.isoformat(), end_exclusive=end.isoformat(),
                 cohort_start=cohort_start, cohort_end=cohort_end, windows=windows,
                 return_after=after, return_within=within, customer_type=customer_type, repeat_status=repeat_status,
-                cohort_type=cohort_type, **series)
+                cohort_type=cohort_type)
 
 
 def section_result(value, section):
@@ -166,7 +146,7 @@ class UsersV4:
 
     def snapshot(self, snapshot_id, user, private=False):
         query, public = self.store.snapshot_public(snapshot_id)
-        self.authorize(user, query or project_scope('all'), private)
+        self.authorize(user, query or scope_for_game('all'), private)
         if public.get('contract_version') != VERSION:
             raise SnapshotVersionRetired()
         return query, public
@@ -177,16 +157,22 @@ class UsersV4:
         if not isinstance(args, dict):
             raise ValueError('v4_query_fields')
         if 'snapshot_id' not in args and 'query_id' not in args:
-            game = args.get('game', args.get('scope_id') if args.get('scope') == 'project' else 'all')
-            self.authorize(user, authorization_scope(args, game))
-            config, _, cutoff = self.read_context()
+            _, scope = v4_game_scope(args)
+            self.authorize(user, scope)
+            config, publication, cutoff = self.read_context()
             args = selection(args, config, cutoff)
             self.authorize(user, args)
+            if publication is not None:
+                segments, _, source = self.segment_context()
+                key = self.cache_key(args, config, publication, publication['data_version'], segments, source)
+                found = self.cached(key, user, published=True)
+                if found is not None:
+                    return 200, section_result(found, section)
         status, value = self.jobs.read(args, user, wait_seconds=wait_seconds)
         return status, section_result(value, section) if status == 200 else value
 
     def catalog(self, user, *, admin=False):
-        self.authorize(user, project_scope('all'))
+        self.authorize(user, scope_for_game('all'))
         original = self.service.catalog(user)
         return dict(contract_version=VERSION, sites=original['sites'], projects=original['projects'],
                     history_backfill_start=original['history_backfill_start'],
@@ -205,37 +191,108 @@ class UsersV4:
         cutoff = stamp(publication['cutoff']) if publication else self.service.clock().astimezone(TZ).replace(hour=0, minute=0, second=0, microsecond=0)
         return config, publication, cutoff
 
+    @staticmethod
+    def segment_context():
+        from customer_segments import load_config
+        return load_config(SEGMENTS_PATH)
+
+    @staticmethod
+    def cache_key(query, config, publication, revision, segments, source):
+        return digest([CACHE_VERSION, query, config, revision,
+                       publication['publication_id'] if publication else None, segments, source])
+
+    def cached(self, key, user, *, published):
+        with self.lock:
+            ident = self.cache.get(key)
+            if ident is not None:
+                self.cache.move_to_end(key)
+        if ident is None and published:
+            ident = self.store.cached_v4_snapshot(key)
+        if ident is not None:
+            try:
+                return self.snapshot(ident, user)[1]
+            except LookupError:
+                pass
+        return None
+
+    @staticmethod
+    def warm_slot(query):
+        game = query['game']
+        if game in WARM_GAMES:
+            return f'warm-{WARM_GAMES.index(game)}-{query["cohort_type"]}'
+        return None
+
+    def archive(self, slot, key, value, max_bytes):
+        try:
+            return self.store.write_v4_archive(slot, key, value, max_bytes=max_bytes)
+        except OSError as error:
+            LOGGER.warning('User analysis archive unavailable: %s', type(error).__name__)
+            return False
+
     def query(self, args, user):
         if 'snapshot_id' in args:
             if set(args) != {'snapshot_id'}:
                 raise ValueError('snapshot_or_query')
             return self.snapshot(args['snapshot_id'], user)[1]
-        from customer_segments import load_config as load_segments
 
         config, publication, cutoff = self.read_context()
         query = selection(args, config, cutoff)
         self.authorize(user, query)
-        segments, version, source = load_segments(SEGMENTS_PATH)
+        segments, version, source = self.segment_context()
         revision = publication['data_version'] if publication else self.store.revision()
-        cache_key = digest([query, revision, publication['publication_id'] if publication else None, segments, source])
-        with self.lock:
-            ident = self.cache.get(cache_key)
-            if ident is not None:
-                self.cache.move_to_end(cache_key)
-        if ident is not None:
-            return self.snapshot(ident, user)[1]
+        key = self.cache_key(query, config, publication, revision, segments, source)
+        found = self.cached(key, user, published=publication is not None)
+        if found is not None:
+            return found
 
         if not self.service.summary_slot.acquire(blocking=False):
             from user_query import SummaryBusy
             raise SummaryBusy('users_summary_busy')
         try:
-            return self.materialize(query, config, cutoff, publication, revision, segments, version, source, cache_key)
+            slot = self.warm_slot(query) if publication else None
+            result = self.store.v4_archive(slot, key) if slot else None
+            if result is None:
+                facts = self.read_facts(config, cutoff, publication, revision)
+                result = self.calculate(query, config, cutoff, publication, revision, segments, version, source, facts)
+            frozen_query, public, private = result
+            self.authorize(user, frozen_query)
+            return self.save_result(frozen_query, public, private, key)
         finally:
             self.service.summary_slot.release()
 
-    def materialize(self, query, config, cutoff, publication, revision, segments, version, source, cache_key):
-        from customer_segments import stage, thresholds
+    def prewarm(self, config, publication, cutoff, *, budget_seconds=90):
+        # The existing low-priority tick calls this after the publication lock is released.
+        segments, version, source = self.segment_context()
+        revision = publication['data_version']
+        deadline = monotonic() + budget_seconds
+        facts, stage_cache = None, {}
+        written = pending = 0
+        games = WARM_GAMES if series_members('FC', config) else WARM_GAMES[:1]
+        for cohort_type in COHORT_TYPES:
+            for game in games:
+                # Match the dashboard's 90-day stage pane as well as the default cohorts.
+                start = max(stamp(config['history_backfill_start']), cutoff - timedelta(days=90))
+                query = selection(dict(game=game, cohort_type=cohort_type, start=start.isoformat()), config, cutoff)
+                key = self.cache_key(query, config, publication, revision, segments, source)
+                slot = self.warm_slot(query)
+                if self.store.cached_v4_snapshot(key) or self.store.v4_archive(slot, key, check_only=True):
+                    continue
+                if monotonic() >= deadline:
+                    pending += 1
+                    continue
+                if facts is None:
+                    facts = self.read_facts(config, cutoff, publication, revision)
+                    if not reusable_flags(facts[3]):
+                        return dict(status='waiting_for_customer_flags', prepared=written)
+                result = self.calculate(query, config, cutoff, publication, revision, segments, version, source,
+                                        facts, stage_cache=stage_cache)
+                if self.archive(slot, key, result, 16 * 1024 * 1024):
+                    written += 1
+                else:
+                    pending += 1
+        return dict(status='partial' if pending else 'ready', prepared=written, pending=pending)
 
+    def read_facts(self, config, cutoff, publication, revision):
         origin = config['history_backfill_start']
         flag_query = dict(start=origin, end_exclusive=cutoff.isoformat())
         try:
@@ -257,17 +314,87 @@ class UsersV4:
             if read_revision != revision:
                 from user_query import SummaryBusy
                 raise SummaryBusy('users_publication_changed')
-        people = customer_orders(orders, cutoff)
-        cohort_type = query.get('cohort_type', 'new')
+        return orders, jobs, flags, flag_source, customer_orders(orders, cutoff)
+
+    def archived_cohorts(self, orders, jobs, query, cutoff, flags, people, segment):
+        if (query['game'] not in WARM_GAMES or tuple(query['windows']) != DEFAULT_WINDOWS
+                or (query['return_after'], query['return_within']) != (60, 180)):
+            return analyze_cohorts(orders, jobs, query, cutoff, flags, people=people, segment=segment)
+
+        monthly = defaultdict(dict)
+        first_month, last_month = query['cohort_start'], query['cohort_end']
+        for ident, purchases in people.items():
+            first = purchases[0]
+            label = first[0].strftime('%Y-%m')
+            if first_month <= label <= last_month and game_match(query, first[2]):
+                monthly[label][ident] = purchases
+
+        runs = coverage_runs(jobs, ['266'])['266']
+        scope = WARM_GAMES.index(query['game'])
+        batches, members = [], {}
+        beginning, end = month(first_month), month(last_month)
+        current = cutoff.year * 12 + cutoff.month
+        while beginning <= end:
+            following = (beginning.replace(day=28) + timedelta(days=4)).replace(day=1)
+            label = beginning.strftime('%Y-%m')
+            selected = monthly[label]
+            number = beginning.year * 12 + beginning.month
+            # Each scope and population uses 24 rolling slots.
+            recent = current - number < 24
+            archived = None
+            if recent:
+                start = stamp(beginning.isoformat())
+                through = min(cutoff, stamp(following.isoformat()) + timedelta(days=180))
+                intervals = [(max(lo, start).isoformat(), min(hi, through).isoformat())
+                             for lo, hi in runs if lo < through and hi > start]
+                inputs = {
+                    ident: (flags.get(purchases[0][3]['order_no_hash']),
+                            [(paid.isoformat(), body.get('amount_usd'))
+                             for paid, _, gid, body in purchases if paid < through and game_match(query, gid)])
+                    for ident, purchases in selected.items()
+                }
+                key = digest([CACHE_VERSION, label, through.isoformat(), intervals, inputs])
+                slot = f'cohort-{scope}-{segment}-{number % 24}'
+                archived = self.store.v4_archive(slot, key)
+            if archived is None:
+                fixed = dict(query, cohort_start=label, cohort_end=label)
+                result, rows = analyze_cohorts(orders, jobs, fixed, cutoff, flags, people=selected, segment=segment)
+                archived = (result['batches'][0], rows)
+                if recent:
+                    self.archive(slot, key, archived, 2 * 1024 * 1024)
+            batch, rows = archived
+            batches.append(batch)
+            members.update(rows)
+            beginning = following
+        return dict(batches=batches), members
+
+    def calculate(self, query, config, cutoff, publication, revision, segments, version, source, facts, *, stage_cache=None):
+        from customer_segments import stage, thresholds
+
+        orders, jobs, flags, flag_source, people = facts
+        origin = config['history_backfill_start']
+        cohort_type = query['cohort_type']
         primary = 'new' if cohort_type == 'compare' else cohort_type
-        cohorts, cohort_members = analyze_cohorts(orders, jobs, query, cutoff, flags, people=people, segment=primary)
+
+        def for_segment(segment):
+            if publication and reusable_flags(flag_source):
+                return self.archived_cohorts(orders, jobs, query, cutoff, flags, people, segment)
+            return analyze_cohorts(orders, jobs, query, cutoff, flags, people=people, segment=segment)
+
+        cohorts, cohort_members = for_segment(primary)
         cohorts['segment'] = primary
         if cohort_type == 'compare':
-            # Old customers alongside new ones; their member groups carry the 'cohort:old:' prefix.
-            old, old_members = analyze_cohorts(orders, jobs, query, cutoff, flags, people=people, segment='old')
+            old, old_members = for_segment('old')
             cohorts['compare'] = dict(segment='old', batches=old['batches'])
             cohort_members = {**cohort_members, **old_members}
-        stages, stage_members, records = analyze_stages(orders, jobs, query, cutoff, flags, segments, people=people)
+        game = query['game']
+        fixed_stages = stage_cache.get(game) if stage_cache is not None else None
+        if fixed_stages is None:
+            fixed_stages = analyze_stages(orders, jobs, query, cutoff, flags, segments, people=people)
+            if stage_cache is not None:
+                stage_cache[game] = fixed_stages
+        stages, stage_members, records = fixed_stages
+        stages, records = dict(stages), dict(records)
         covered = complete_coverage(jobs)
         day = stamp(origin)
         gaps = 0
@@ -294,7 +421,7 @@ class UsersV4:
             flag = flags.get(purchases[0][3]['order_no_hash'])
             if flag in ('new', 'old') and any(game_match(query, order[2]) for order in purchases):
                 detail_customer_types[cid] = flag
-        query['as_of'] = cutoff.isoformat()
+        query = dict(query, as_of=cutoff.isoformat())
         period_complete = covered(stamp(query['start']), stamp(query['end_exclusive']))
         flag_status = flag_source.get('status')
         if flag_status not in ('complete', 'partial', 'unavailable'):
@@ -326,14 +453,22 @@ class UsersV4:
                        jobs=[{key: job[key] for key in ('site', 'start', 'end', 'state')} for job in jobs])
         if detail_customer_types:
             private['detail_customer_types'] = detail_customer_types
+        return query, public, private
+
+    def save_result(self, query, public, private, key):
         result = self.store.save_snapshot(query, public, private)
         if self.store.config.get('member_keyset_index') is True:
             build_member_index(self.store, result, private)
-        if flag_status != 'unavailable':
+        if reusable_flags(public['coverage']['new_customer_flags']):
+            if public['publication_id'] is not None:
+                try:
+                    self.store.remember_v4_snapshot(key, result['snapshot_id'])
+                except OperationalError as error:
+                    LOGGER.warning('User analysis snapshot index unavailable: %s', type(error).__name__)
             with self.lock:
                 if len(self.cache) >= 8:
                     self.cache.popitem(last=False)
-                self.cache[cache_key] = result['snapshot_id']
+                self.cache[key] = result['snapshot_id']
         return result
 
     def private(self, ident, user, admin):

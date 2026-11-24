@@ -230,6 +230,9 @@ main{max-width:1280px;margin:auto;padding:24px 20px 64px}.intro{margin-bottom:18
 #phase-remove-dialog:modal { overscroll-behavior: contain; }
 #phase-remove-dialog h2 { margin: 0; font-size: 1.2rem; }
 #phase-remove-dialog::backdrop { background: color-mix(in srgb, var(--fs-text) 35%, transparent); overflow: hidden; overscroll-behavior: contain; }
+#phase-panel .phase-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-block: .75rem; }
+#phase-panel .phase-pagination [aria-current="page"] { font-weight: 700; border-color: var(--fs-focus); }
+#phase-panel .phase-group-count { font-variant-numeric: tabular-nums; }
 #phase-panel :focus-visible, #phase-manual :focus-visible { outline: 2px solid var(--fs-focus); outline-offset: 2px; }
 #phase-panel .phase-table:focus-visible, #phase-manual .phase-table:focus-visible { outline-offset: -2px; }
 #phase-panel .status:empty { display: none; }

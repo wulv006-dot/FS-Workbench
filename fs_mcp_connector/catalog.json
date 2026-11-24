@@ -398,7 +398,7 @@
       "path": "/dashboard/users/data.json",
       "method": "GET",
       "permission_path": "/dashboard/users/data.json",
-      "description": "读取 v4 新客复购队列与客户阶段。未完成返回 202，续查只传 query_id。已完成结果可用 snapshot_id 重读。",
+      "description": "读取 v4 新客复购队列与客户阶段。未完成返回 202，续查只传 query_id。FC 系列用 game=series:FC，新老客批次切换用 cohort_type。已完成结果可用 snapshot_id 重读。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -418,7 +418,7 @@
           "game": {
             "type": "string",
             "maxLength": 20,
-            "pattern": "all|[0-9]+"
+            "pattern": "all|[0-9]+|series:FC"
           },
           "start": {
             "type": "string",
@@ -452,6 +452,16 @@
             "type": "integer",
             "minimum": 3,
             "maximum": 365
+          },
+          "cohort_type": {
+            "type": "string",
+            "maxLength": 7,
+            "enum": [
+              "new",
+              "old",
+              "all",
+              "compare"
+            ]
           },
           "customer_type": {
             "type": "string",
@@ -3602,7 +3612,7 @@
       "path": "/dashboard/users/data.json",
       "method": "GET",
       "permission_path": "/dashboard/users/data.json",
-      "description": "读取同一 v4 快照的指定部分。202 时续查只传 query_id 和 section。",
+      "description": "读取同一 v4 快照的指定部分。游戏与批次口径和 users.summary 一致，支持 game=series:FC 和 cohort_type。202 时续查只传 query_id 和 section。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3622,7 +3632,7 @@
           "game": {
             "type": "string",
             "maxLength": 20,
-            "pattern": "all|[0-9]+"
+            "pattern": "all|[0-9]+|series:FC"
           },
           "start": {
             "type": "string",
@@ -3656,6 +3666,16 @@
             "type": "integer",
             "minimum": 3,
             "maximum": 365
+          },
+          "cohort_type": {
+            "type": "string",
+            "maxLength": 7,
+            "enum": [
+              "new",
+              "old",
+              "all",
+              "compare"
+            ]
           },
           "customer_type": {
             "type": "string",

@@ -244,18 +244,96 @@
     overview.replaceChildren(node('p', stamp, 'phase-meta'), kpis, flow, matrix);
   }
   function pageGroups(data) {
-    const groups = data.groups.map(row =>
-      [label(row.tier), label(row.stage), label(row.customer_type), row.count]);
-    const list = data.items.map(row => {
-      const open = button(row.email || row.customer_id, () => customer(row.customer_id));
-      return [open, label(row.override_tier || row.tier), label(row.stage), label(row.customer_type),
-        '$' + row.amount_usd + (row.unknown_amount_orders ? ' · ' + row.unknown_amount_orders + ' 笔金额未知' : ''),
-        row.case_status === 'pending_identity' ? '身份待核' : row.owner || '未分配',
-        row.alert ? node('span', '待跟进', 'phase-alert') : '—'];
+    const results = node('section');
+    const groupStatus = node('p', '', 'hint');
+    groupStatus.setAttribute('role', 'status');
+    const listHost = node('div');
+    results.append(groupStatus, listHost);
+    let group = {};
+    let request = 0;
+
+    function showPage(page, focus = false) {
+      const title = Object.keys(group).length
+        ? [group.tier, group.stage, group.customer_type].map(label).join('、')
+        : '待跟进名单';
+      const current = Math.floor(page.offset / page.page_size) + 1;
+      const last = Math.max(1, Math.ceil(page.total / page.page_size));
+      groupStatus.textContent = title + '，共 ' + count(page.total) + ' 人' +
+        (page.total ? '，第 ' + current + ' / ' + last + ' 页' : '');
+      const list = page.items.map(row => {
+        const open = button(row.email || row.customer_id, () => customer(row.customer_id));
+        return [open, label(row.override_tier || row.tier), label(row.stage), label(row.customer_type),
+          '$' + row.amount_usd + (row.unknown_amount_orders ? ' · ' + row.unknown_amount_orders + ' 笔金额未知' : ''),
+          row.case_status === 'pending_identity' ? '身份待核' : row.owner || '未分配',
+          row.alert ? node('span', '待跟进', 'phase-alert') : '—'];
+      });
+      const heading = node('h3', title);
+      heading.tabIndex = -1;
+      listHost.replaceChildren(heading, list.length
+        ? table(['客户邮箱', '名单档位', '阶段', '新老客', '有效消费', '负责人', '提醒'], list, title)
+        : node('p', '当前页没有符合条件的客户。', 'empty'));
+      if (Object.keys(group).length) {
+        listHost.append(button('返回待跟进名单', () => fetchPage({}, 1)));
+      }
+      let active;
+      if (last > 1) {
+        const pager = node('nav', undefined, 'phase-pagination');
+        pager.setAttribute('aria-label', '客户名单分页');
+        const pageButton = (text, selected) => {
+          const item = button(text, () => fetchPage(group, selected));
+          item.setAttribute('aria-label', /^\d+$/.test(text) ? '第 ' + selected + ' 页'
+            : text + '，第 ' + selected + ' 页');
+          return item;
+        };
+        if (current > 1) pager.append(pageButton('上一页', current - 1));
+        const pages = [...new Set([1, current - 1, current, current + 1, last])]
+          .filter(number => number >= 1 && number <= last).sort((a, b) => a - b);
+        let previous = 0;
+        for (const number of pages) {
+          if (previous && number > previous + 1) pager.append(node('span', '…'));
+          const item = pageButton(String(number), number);
+          if (number === current) {
+            item.setAttribute('aria-current', 'page');
+            active = item;
+          }
+          pager.append(item);
+          previous = number;
+        }
+        if (current < last) pager.append(pageButton('下一页', current + 1));
+        listHost.append(pager);
+      }
+      listHost.append(node('div', undefined, 'phase-detail'));
+      if (focus) (active || heading).focus();
+    }
+
+    async function fetchPage(filter, requested) {
+      const id = ++request;
+      const offsetFor = number => (number - 1) * data.page_size;
+      groupStatus.textContent = '正在读取名单…';
+      listHost.setAttribute('aria-busy', 'true');
+      try {
+        let page = await read('groups', {...filter, offset: offsetFor(requested)});
+        if (id !== request || !results.isConnected) return;
+        const last = Math.max(1, Math.ceil(page.total / page.page_size));
+        if (requested > last) page = await read('groups', {...filter, offset: offsetFor(last)});
+        if (id !== request || !results.isConnected) return;
+        group = filter;
+        showPage(page, true);
+      } catch (error) {
+        if (id === request && results.isConnected) groupStatus.textContent = '名单读取失败。' + error.message;
+      } finally {
+        if (id === request) listHost.removeAttribute('aria-busy');
+      }
+    }
+
+    const groups = data.groups.map(({tier, stage, customer_type, count: total}) => {
+      const names = [tier, stage, customer_type].map(label);
+      const open = button(count(total), () => fetchPage({tier, stage, customer_type}, 1), 'fs-btn phase-group-count');
+      open.setAttribute('aria-label', names.join('、') + '，查看 ' + count(total) + ' 人名单');
+      return [...names, open];
     });
-    content.replaceChildren(table(['价值档', '阶段', '新老客', '人数'], groups),
-      table(['客户', '名单档位', '阶段', '新老客', '有效消费', '负责人', '提醒'], list),
-      node('div', undefined, 'phase-detail'));
+    content.replaceChildren(table(['价值档', '阶段', '新老客', '人数'], groups, '分组名单'), results);
+    showPage(data);
   }
   async function customer(id) {
     const target = content.querySelector('.phase-detail');
@@ -709,7 +787,7 @@
       else if (current === 'ready') pageReady(data);
       else pageQueue(data);
       next = data.next_offset ?? null;
-      more.hidden = next === null;
+      more.hidden = current === 'groups' || next === null;
       if (parts.some(part => part.status === 'rejected')) {
         status.textContent = [status.textContent, '概览有资料未能读取，请刷新。'].filter(Boolean).join(' ');
       }
@@ -739,9 +817,5 @@
       offset = 0;
       load();
     });
-    window.addEventListener('fs-phase-open', () => get('phase-scope').click());
-    if (window.fsCustomerPrivateReady && get('phase-scope').getAttribute('aria-pressed') === 'true') {
-      get('phase-scope').click();
-    }
   }
 })();

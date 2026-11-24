@@ -78,6 +78,87 @@ def state(last, observation, points):
     return STATES[sum(days >= p for p in policy(points))]
 
 
+SERIES_PREFIX = 'series:'
+
+
+def series_members(name, config):
+    return sorted(gid for gid in config['projects'] if project_series(gid, config) == name)
+
+
+def project_series(ident, config):
+    return config['projects'].get(ident, {}).get('series')
+
+
+def scope_series(query, config):
+    scope, ident = query['scope'], query['scope_id']
+    if scope == 'series':
+        return ident
+    if scope == 'project':
+        return project_series(ident, config)
+    return None
+
+
+def scope_for_game(game):
+    if not isinstance(game, str):
+        raise ValueError('v4_game')
+    if game.startswith(SERIES_PREFIX):
+        return dict(scope='series', scope_id=game[len(SERIES_PREFIX):])
+    if game != 'all':
+        return dict(scope='project', scope_id=game)
+    return dict(scope='global', scope_id='')
+
+
+def game_match(query, gid):
+    return query['game'] == 'all' or gid == query['game'] or gid in query.get('games', ())
+
+
+def policy_game(query):
+    return query.get('policy_game', query['game'])
+
+
+def in_scope(row, query, config):
+    scope, ident = query['scope'], query['scope_id']
+    if scope == 'site':
+        return row['site'] == ident
+    if scope == 'series':
+        return project_series(row['gid'], config) == ident
+    return scope == 'global' or scope == 'project' and game_match({'game': ident}, row['gid'])
+
+
+def v4_game_scope(args):
+    game = args.get('game', args.get('scope_id') if args.get('scope') == 'project' else 'all')
+    selected = scope_for_game(game)
+    scope = args.get('scope')
+    if scope in ('site', 'global'):
+        selected = dict(scope=scope, scope_id='266' if scope == 'site' else '')
+    return game, selected
+
+
+def v4_game_selection(args, config):
+    game, selected = v4_game_scope(args)
+    scope, ident = args.get('scope'), args.get('scope_id')
+    if scope in ('project', 'series'):
+        expected = ident if scope == 'project' else SERIES_PREFIX + str(ident)
+        if game != expected:
+            raise ValueError('game_scope_mismatch')
+    elif (scope, ident) not in ((None, None), ('global', ''), ('global', None), ('site', '266')):
+        raise ValueError('v4_scope')
+
+    fields = {}
+    if game.startswith(SERIES_PREFIX):
+        members = series_members(game[len(SERIES_PREFIX):], config)
+        if not members:
+            raise ValueError('v4_game')
+        # Prefer the latest edition with a configured lifecycle policy.
+        explicit = [gid for gid in members if config['projects'][gid].get('policy')]
+        fields = dict(games=members, policy_game=max(explicit or members, key=int))
+    elif game != 'all' and game not in config['projects']:
+        raise ValueError('v4_game')
+    if any(key in args and args[key] != fields.get(key) for key in ('games', 'policy_game')):
+        raise ValueError('v4_query_fields')
+    return dict(selected, game=game, **fields)
+
+
 def checked_query(args, config, now=None):
     fields = {'view', 'scope', 'scope_id', 'start', 'end_exclusive', 'as_of', 'state_basis', 'policy_version', 'policy_mode', 'snapshot_id', 'H'}
     if not isinstance(args, dict) or set(args) - fields or any(type(v) not in (str, int) for v in args.values()):
@@ -123,9 +204,9 @@ def checked_query(args, config, now=None):
         raise ValueError('site_not_connected')
     if scope == 'project' and (not sid.isdigit() or len(sid) > 10):
         raise ValueError('invalid_project_id')
-    if scope == 'series' and sid not in {p.get('series') for p in config['projects'].values()}:
+    if scope == 'series' and not series_members(sid, config):
         raise ValueError('series_not_mapped')
-    fc_scope = scope == 'project' and config['projects'].get(sid, {}).get('series') == 'FC' or scope == 'series' and sid == 'FC'
+    fc_scope = scope_series(dict(scope=scope, scope_id=sid), config) == 'FC'
     pv = args.get('policy_version', 'fc-v1' if fc_scope else 'common-v1')
     if pv not in config['policies']:
         raise ValueError('unknown_policy')

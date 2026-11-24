@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+from time import sleep
 import sys
 from urllib.parse import parse_qs, urlparse
 
@@ -93,9 +94,9 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
         if url.path == ROUTE + 'reconcile/':
             return request.fulfill(body=(ASSETS / 'reconcile.html').read_bytes(), content_type='text/html')
         if url.path.startswith(ROUTE) and name == "phase.js" and late_phase:
-            # Simulate phase.js finishing after page.js has already loaded the config.
-            body = b"setTimeout(function(){" + (ASSETS / name).read_bytes() + b"\n}, 600);"
-            return request.fulfill(body=body, content_type="text/javascript")
+            # Delay the script response while preserving the browser's ordered defer execution.
+            sleep(0.6)
+            return request.fulfill(body=(ASSETS / name).read_bytes(), content_type="text/javascript")
         if url.path.startswith(ROUTE) and name in ("page.js", "page.css", "phase.js"):
             return request.fulfill(body=(ASSETS / name).read_bytes(),
                                    content_type="text/javascript" if name.endswith(".js") else "text/css")
@@ -159,11 +160,16 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
             value = CONFIG
         elif view == 'phase_groups':
             ids = {ident for post in state['phase_posts'] if post['action'] == 'phase_decide' for ident in post['ids']}
-            value = dict(status='ready', items=[],
+            offset = int(query.get('offset', ['0'])[0])
+            group = query.get('tier') == ['high'] and query.get('stage') == ['lost'] and query.get('customer_type') == ['old']
+            group_items = [dict(customer_id=f'group-{index}', email=f'group-{index}@example.invalid',
+                          tier='high', stage='lost', customer_type='old', amount_usd='501')
+                     for index in range(offset, min(21, offset + 20))] if group else []
+            value = dict(status='ready', items=group_items, offset=offset, page_size=20, total=21 if group else 0,
                          last_run=dict(day='2026-11-23', config_version=1),
                          groups=[dict(tier='ultra', stage='silent', customer_type='new', count=12),
                                  dict(tier='ultra', stage='recent', customer_type='old', count=6),
-                                 dict(tier='high', stage='lost', customer_type='old', count=20)],
+                                 dict(tier='high', stage='lost', customer_type='old', count=21)],
                          queue_counts=dict(ready=3-len(ids), reviewing=2, confirmed=1, issued=4))
         elif view == 'phase_rules':
             value = dict(items=[
@@ -516,7 +522,7 @@ def check_bulk_selection_and_csv(browser):
 def check_phase_default_view(browser):
     page = browser.new_page(viewport={'width': 1440, 'height': 900})
     state = install(page, late_phase=True)
-    # phase.js arrives after the config: it must still open the default stage view.
+    # The default stage view must open even when its script response is slow.
     expect(page.locator('#phase-panel')).to_be_visible()
     expect(page.locator('#phase-overview')).to_contain_text('客户分层与对应动作')
     expect(page.locator('#vip-week-panel')).to_be_hidden()
@@ -560,6 +566,18 @@ def check_phase(browser):
     page.locator('#phase-view').select_option('groups')
     expect(matrix.locator('.phase-offer[title="券 #124"]')).to_contain_text('最多减 $30.25，14 天有效')
     expect(page.locator('#vip-week-panel')).to_be_hidden()
+    expect(page.locator('#phase-content')).to_contain_text('待跟进名单')
+    page.get_by_role('button', name='高、流失、老客，查看 21 人名单').click()
+    expect(page.locator('#phase-content')).to_contain_text('共 21 人，第 1 / 2 页')
+    pager = page.get_by_role('navigation', name='客户名单分页')
+    pager.get_by_role('button', name='第 2 页', exact=True).filter(has_text='2').click()
+    expect(page.locator('#phase-content')).to_contain_text('第 2 / 2 页')
+    expect(page.get_by_role('button', name='group-20@example.invalid')).to_be_visible()
+    expect(pager.locator('[aria-current="page"]')).to_be_focused()
+    assert [query['offset'][0] for view, query in state['queries'] if view == 'phase_groups'
+            and query.get('tier') == ['high']] == ['0', '20']
+    page.get_by_role('button', name='返回待跟进名单').click()
+    expect(page.locator('#phase-content')).to_contain_text('待跟进名单')
     page.locator('#phase-view').select_option('review')
     review = page.locator('#phase-content')
     expect(review).to_contain_text('案件归属待核：UID 关联到另一未结案件')
