@@ -158,7 +158,7 @@
     card.append(node('span', title), node('strong', count(value)), node('small', note));
     return card;
   }
-  function renderOverview(groups, rules, config) {
+  function renderOverview(groups, rules, config, coupons) {
     const snapshot = groups?.last_run;
     const stamp = groups?.status === 'waiting'
       ? '等待 ' + groups.waiting_for + ' 日数据' + (snapshot ? '，当前显示 ' + snapshot.day : '')
@@ -209,9 +209,11 @@
           if (matches?.length) {
             for (const rule of matches) {
               const actions = [rule.alert && '待跟进', rule.owner && '分配给 ' + rule.owner,
-                rule.coupon_id && '发券 #' + rule.coupon_id].filter(Boolean);
-              cell.append(node('small', (rule.customer_type ? label(rule.customer_type) + ' · ' : '') +
-                (actions.join(' · ') || '无配置动作')));
+                rule.coupon_id && (coupons.get(rule) || '发券（条款读取失败）')].filter(Boolean);
+              const summary = node('small', (rule.customer_type ? label(rule.customer_type) + ' · ' : '') +
+                (actions.join(' · ') || '无配置动作'));
+              if (rule.coupon_id) summary.title = '券 #' + rule.coupon_id;
+              cell.append(summary);
             }
           } else {
             const text = stage === 'recent' ? '近期观察' : stage === 'unverified' ? '等待覆盖核对' :
@@ -420,31 +422,73 @@
       [row.rule_id, row.trigger_events, percent(row.trigger_rate), row.issued_events, percent(row.issued_rate),
         row.issued_orders, row.coupon_uses, row.coupon_paid_uses, percent(row.baseline?.rate), row.unknown, row.deferred])));
   }
-  const validNumber = value => value != null && value !== '' && Number.isFinite(Number(value));
+  const validNumber = value => (typeof value === 'number' || (typeof value === 'string' && value.trim())) &&
+    Number.isFinite(Number(value));
+  const compactAmount = value => amount(value).replace(/\.00$/, '');
   function shanghaiTime(value) {
     const milliseconds = Date.parse(value);
     return Number.isFinite(milliseconds) ? dateFormat.format(milliseconds) : '—';
   }
-  function couponDetails(coupon, ruleId) {
-    const host = node('div');
-    const mode = Number(coupon?.mode_type);
+  function couponTerms(coupon, formatAmount = amount) {
+    const mode = validNumber(coupon?.mode_type) ? Number(coupon.mode_type) : null;
     const value = Number(coupon?.reduce);
-    let discount = '折扣待核';
-    if (validNumber(coupon?.reduce) && mode === 1 && value >= 0) discount = '立减 ' + amount(value);
-    if (validNumber(coupon?.reduce) && mode === 2 && value >= 0 && value <= 100) {
-      discount = '减 ' + numberFormat.format(100 - value) + '%';
+    let discount;
+    if (validNumber(coupon?.reduce) && value >= 0) {
+      if (mode === 1) discount = formatAmount(value);
+      if (mode === 2 && value <= 100) discount = numberFormat.format(100 - value) + '%';
     }
     const max = Number(coupon?.max_reduce);
-    const cap = mode === 1 && validNumber(coupon?.reduce) && value >= 0 ? '最多减 ' + amount(value)
-      : validNumber(coupon?.max_reduce) && max > 0 ? '最多减 ' + amount(max)
-      : validNumber(coupon?.max_reduce) && max === 0 ? '无封顶金额' : '封顶金额待核';
-    const date = raw => raw ? shanghaiTime(raw.replace(' ', 'T') + (/([+-]\d\d:\d\d|Z)$/i.test(raw) ? '' : '+08:00')) : '—';
-    const validity = Number(coupon?.time_effect) === 2 && validNumber(coupon?.days) && Number(coupon.days) > 0
-      ? count(coupon.days) + ' 天有效'
-      : Number(coupon?.time_effect) === 1 && coupon.end_time
-        ? '有效期 ' + date(coupon.start_time) + ' 至 ' + date(coupon.end_time) + '（北京时间）' : '有效期待核';
-    host.append(node('strong', discount), node('small', cap), node('small', validity), node('small', '规则 ' + ruleId, 'hint'));
+    const cap = mode === 1 && discount ? '最多减 ' + discount
+      : validNumber(coupon?.max_reduce) && max > 0 ? '最多减 ' + formatAmount(max)
+      : validNumber(coupon?.max_reduce) && max === 0 ? '无封顶金额' : null;
+    const date = raw => typeof raw === 'string' && raw
+      ? shanghaiTime(raw.replace(' ', 'T') + (/([+-]\d\d:\d\d|Z)$/i.test(raw) ? '' : '+08:00')) : '—';
+    const timeEffect = validNumber(coupon?.time_effect) ? Number(coupon.time_effect) : null;
+    const days = validNumber(coupon?.days) ? Number(coupon.days) : null;
+    let validity;
+    if (timeEffect === 2 && Number.isInteger(days) && days > 0) {
+      validity = count(days) + ' 天有效';
+    } else if (timeEffect === 1) {
+      const start = date(coupon.start_time);
+      const end = date(coupon.end_time);
+      if (end !== '—') validity = (start === '—' ? '有效期至 ' : '有效期 ' + start + ' 至 ') + end + '（北京时间）';
+    }
+    return {mode, discount, cap, validity};
+  }
+  function couponDetails(coupon, ruleId) {
+    const host = node('div');
+    const {mode, discount, cap, validity} = couponTerms(coupon);
+    host.append(node('strong', discount ? (mode === 1 ? '立减 ' : '减 ') + discount : '折扣待核'),
+      node('small', cap || '封顶金额待核'), node('small', validity || '有效期待核'),
+      node('small', '规则 ' + ruleId, 'hint'));
     return host;
+  }
+  function matrixCoupon(coupon) {
+    const {mode, discount, cap, validity} = couponTerms(coupon, compactAmount);
+    if (discount && cap && validity) {
+      return '发 ' + (mode === 1 ? '立减 ' : '') + discount + ' 券 · ' + cap + ' · ' + validity;
+    }
+    return null;
+  }
+  async function readMatrixCoupons(rules, readyResult) {
+    const coupons = new Map();
+    const missing = [];
+    for (const rule of rules) {
+      if (!rule.enabled || !rule.coupon_id) continue;
+      const summary = matrixCoupon(rule.template);
+      if (summary) coupons.set(rule, summary);
+      else if (Number.isInteger(rule.version)) missing.push(rule);
+    }
+    if (!missing.length) return coupons;
+
+    const ready = readyResult ? readyResult.value : await readReady().catch(() => null);
+    for (const row of ready?.items ?? []) {
+      const rule = missing.find(rule => rule.id === row.rule_id && rule.version === row.rule_version);
+      if (!rule || coupons.has(rule)) continue;
+      const summary = matrixCoupon(row.coupon);
+      if (summary) coupons.set(rule, summary);
+    }
+    return coupons;
   }
   function updateCountdown(row, clock, at = Date.now()) {
     const remaining = Date.parse(row.ready_at) + 72 * 60 * 60 * 1000 - at;
@@ -639,7 +683,10 @@
       if (request !== sequence) return;
       status.textContent = '';
       if (overview) {
-        renderOverview(...parts.map(part => part.value));
+        const [groups, rules, config] = parts.map(part => part.value);
+        const coupons = await readMatrixCoupons(rules?.items ?? [], current === 'ready' ? res : null);
+        if (request !== sequence) return;
+        renderOverview(groups, rules, config, coupons);
         overview.setAttribute('aria-busy', 'false');
       }
       if (res.status === 'rejected') throw res.reason;
