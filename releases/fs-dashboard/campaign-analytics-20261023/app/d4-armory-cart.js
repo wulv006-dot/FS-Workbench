@@ -41,9 +41,14 @@
       payload:{category:'new_items', id:line.id, group:String(group), num:String(line.quantity), attr:'', aid:realm}};
   }
   function receipt(data) {
-    const add = data?.data?.cart?.add || data?.cart?.add;
-    if (data?.code === 0 || data?.code === '0' || data?.status === false || add?.status === false || add?.status === 0) return 'rejected';
-    if (Number(data?.code) === 1 || (add && (add.details || add.cart || add.total != null))) return 'confirmed';
+    const entries = [data, data?.data, data?.data?.cart?.add, data?.cart?.add].filter(x=>x && typeof x==='object');
+    const no = [false,0,'0','false'], yes = [true,1,'1'];
+    if (entries.some(x=>no.includes(x.code) || no.includes(x.status) || no.includes(x.success))) return 'rejected';
+    const add = data?.data?.cart?.add ?? data?.cart?.add;
+    if (no.includes(add)) return 'rejected';
+    if (add && [add.code,add.status,add.success].some(x=>x!=null && !yes.includes(x))) return 'unknown';
+    if (add && (yes.includes(add.status) || add.details || add.cart || add.total != null)) return 'confirmed';
+    if (data?.code===1 || data?.code==='1') return 'confirmed';
     return 'unknown';
   }
   if (typeof module === 'object' && module.exports) {module.exports = {checkList,nativeOffer,receipt};return;}

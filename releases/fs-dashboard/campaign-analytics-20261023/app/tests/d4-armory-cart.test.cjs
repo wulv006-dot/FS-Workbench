@@ -21,16 +21,18 @@ test('limited equipment and unlimited socket goods use native stock and exact pr
 });
 test('explicit failure takes precedence over top-level success; malformed data stays uncertain',()=>{
   assert.equal(receipt({code:1,cart:{add:{status:false}}}),'rejected');
+  for(const no of [0,'0',false]) { assert.equal(receipt({code:1,data:{cart:{add:{status:no}}}}),'rejected');assert.equal(receipt({status:no,code:1}),'rejected'); }
+  assert.equal(receipt({code:1,data:{cart:{add:{status:'pending'}}}}),'unknown');
   assert.equal(receipt({}),'unknown');assert.equal(receipt({code:1}),'confirmed');
 });
 const script=fs.readFileSync(require.resolve('../d4-armory-cart.js'),'utf8');
-async function browser({storage=new Map(),answers=[],latePrice=false}={}) {
+async function browser({storage=new Map(),answers=[],latePrice=false,hash='#list=8e3e6910-6d42-4c35-8e31-0ab16199a807'}={}) {
   const nodes=new Map(),requests=[],navigations=[];let lookups=0;
   const element=()=>({children:[],textContent:'',append(...c){this.children.push(...c);},replaceChildren(...c){this.children=c;},addEventListener(k,f){this[k]=f;}});
   for(const id of ['confirm','status','lines','subtotal']) nodes.set(id,element());
   const document={getElementById:id=>nodes.get(id),createDocumentFragment:element,
     createElement:tag=>tag==='template'?{content:{querySelector:()=>({})}}:element()};
-  const location={origin:'https://www.mmoexp.com',hash:'#list=8e3e6910-6d42-4c35-8e31-0ab16199a807',assign:url=>navigations.push(url)};
+  const location={origin:'https://www.mmoexp.com',hash,assign:url=>navigations.push(url)};
   const fetch=async(url,init)=>{
     requests.push([url,String(init.body||'')]);
     if (url.includes('/api/loadouts/')) return {ok:true,json:async()=>list()};
@@ -59,3 +61,4 @@ test('reprice requires a new explicit click; ambiguous partial batch cannot be r
   assert.deepEqual(Object.values(JSON.parse([...b.storage.values()][0])).sort(),['confirmed','unknown']);
   const reopened=await browser({storage:b.storage});assert.ok(reopened.button.hidden);assert.equal(reopened.button.click,undefined);
 });
+test('a direct visit offers a return link without requesting products or altering the cart',async()=>{const b=await browser({hash:''});assert.ok(b.button.hidden);assert.equal(b.requests.length,0);assert.match(b.nodes.get('status').textContent,/Open a selection/);});
