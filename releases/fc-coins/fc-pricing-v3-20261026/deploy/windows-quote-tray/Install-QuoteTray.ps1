@@ -15,7 +15,11 @@ try {
     & $compiler /nologo /codepage:65001 /optimize+ /target:winexe "/out:$build" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Net.Http.dll $source
     if ($LASTEXITCODE -ne 0) { throw 'Failed to compile the Windows tray viewer.' }
     if ($existing -and $existing.State -eq 'Running') {
+        $oldProcesses = @(Get-Process -Name FsQuoteTray -ErrorAction SilentlyContinue | Where-Object Path -EQ $program)
         Stop-ScheduledTask -TaskName $taskName
+        foreach ($process in $oldProcesses) {
+            if (-not $process.WaitForExit(10000)) { throw 'Previous tray instance is still running.' }
+        }
         for ($i = 0; $i -lt 40 -and (Get-ScheduledTask -TaskName $taskName).State -eq 'Running'; $i++) {
             Start-Sleep -Milliseconds 250
         }
@@ -31,6 +35,15 @@ try {
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
     Start-ScheduledTask -TaskName $taskName
+    $started = $false
+    for ($i = 0; $i -lt 20; $i++) {
+        Start-Sleep -Milliseconds 250
+        $instances = @(Get-Process -Name FsQuoteTray -ErrorAction SilentlyContinue | Where-Object Path -EQ $program)
+        if ($instances.Count -eq 1 -and (Get-ScheduledTask -TaskName $taskName).State -eq 'Running') {
+            if (-not $instances[0].WaitForExit(1000)) { $started = $true; break }
+        }
+    }
+    if (-not $started) { throw 'Tray task started but its windowless viewer did not stay running.' }
     Write-Output "$taskName  $program"
 } finally {
     if (Test-Path -LiteralPath $build) { Remove-Item -LiteralPath $build }
