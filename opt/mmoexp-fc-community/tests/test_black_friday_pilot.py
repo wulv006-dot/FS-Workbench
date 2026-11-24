@@ -13,7 +13,17 @@ def action(uid, channel=pilot.CHANNEL):
 
 
 class PilotFlow(unittest.IsolatedAsyncioTestCase):
-    async def test_private_join_verify_reveal_and_repeat(self):
+    async def test_replay_locks_reels_in_sequence_without_claiming(self):
+        it = action(10)
+        with patch.object(pilot.asyncio, 'sleep', AsyncMock()) as wait, patch.object(pilot, 'ClaimStore') as store:
+            await pilot.Replay(10, 'bonus').children[0].callback(it)
+            cards = [call.kwargs['embed'] for call in it.edit_original_response.await_args_list]
+            self.assertEqual([card.description.count('🔄') for card in cards], [3, 2, 1, 0])
+            self.assertGreaterEqual(sum(call.args[0] for call in wait.await_args_list), 5)
+            self.assertIn(pilot.REWARDS['bonus'], cards[-1].description)
+            store.assert_not_called()
+
+    async def test_private_club_and_email_reveal_without_code_and_repeat(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(pilot,'STATE',Path(tmp)), patch.object(pilot.asyncio,'sleep',AsyncMock()):
             for uid,profile,tier in [(10,'new','one'),(11,'return','two'),(12,'four','two'),(13,'five','bonus')]:
                 for attempt in (0,1):
@@ -27,14 +37,8 @@ class PilotFlow(unittest.IsolatedAsyncioTestCase):
                     self.assertLessEqual(len(email.address.label), 45)
                     email.address._value = f'{profile}+tester@example.test'
                     await email.on_submit(it)
-                    inbox = it.response.send_message.await_args.kwargs['view']
-                    await inbox.children[0].callback(it)
-                    modal = it.response.send_modal.await_args.args[0]
-                    modal.code._value = '000000'
-                    await modal.on_submit(it)
-                    it.response.defer.assert_not_awaited()
-                    modal.code._value = inbox.pin
-                    await modal.on_submit(it)
+                    it.response.send_modal.assert_awaited_once()
+                    it.response.defer.assert_awaited_once_with(ephemeral=True, thinking=True)
                     result = it.edit_original_response.await_args.kwargs['embed']
                     self.assertIn(pilot.REWARDS[tier],result.description)
                     self.assertIn('original' if attempt else 'Black Friday',result.title)

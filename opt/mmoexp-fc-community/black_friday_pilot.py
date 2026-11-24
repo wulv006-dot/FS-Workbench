@@ -1,11 +1,9 @@
 """D4 VIP interactive fixture pilot. Never calls Admin or delivers real mail/coupons."""
 import asyncio
 import hashlib
-import hmac
 import os
 from pathlib import Path
 import re
-import secrets
 from datetime import datetime, timezone
 
 import discord
@@ -18,7 +16,7 @@ STATE = Path(os.environ.get('BF_PILOT_STATE', '/var/lib/fc27-black-friday-pilot'
 CLUBS = ('Manchester City', 'Real Madrid', 'Barcelona', 'Bayern Munich', 'Paris Saint-Germain')
 REWARDS = {'one':'**$1 OFF**', 'two':'**$2 OFF**', 'bonus':'**$2 OFF**  +  🏆 **20% OFF**'}
 TERMS = 'FC27 only · 7 days from claim · One coupon per order · No minimum spend.'
-FOOT = 'D4 VIP playtest · Simulated member, inbox and coupons'
+FOOT = 'D4 VIP playtest · Demo accounts and coupons'
 PROFILES = {'new':(0, 0), 'return':(1, 0), 'four':(5, 4), 'five':(5, 5)}
 
 
@@ -49,53 +47,43 @@ async def allowed(interaction, owner=None):
     return ok
 
 
-class Verify(discord.ui.Modal, title='Unlock your test drop'):
-    code = discord.ui.TextInput(label='Code from the test inbox', min_length=6, max_length=6)
+async def show_spin(interaction, owner, tier, first):
+    last = {'one': '🪙', 'two': '🎁', 'bonus': '🏆'}[tier]
+    frames = (
+        ('🔄  │  🔄  │  🔄', 'Kick-off!', 1.6),
+        ('⚽  │  🔄  │  🔄', 'First reel locked', 1.7),
+        ('⚽  │  ⭐  │  🔄', 'One more to go…', 1.9),
+    )
+    for reels, caption, delay in frames:
+        await interaction.edit_original_response(embed=embed('🎰  Black Friday spin',
+            f'## {reels}\n{caption}'), view=None)
+        await asyncio.sleep(delay)
+    title = '🎁  Your Black Friday drop' if first else '🧾  Your original drop'
+    await interaction.edit_original_response(embed=embed(title,
+        f'## ⚽  │  ⭐  │  {last}\n{REWARDS[tier]}\n\n{TERMS} The 20% coupon has no discount cap.\n\n'
+        '**Demo receipt** · Replay shows this same reward.'), view=Replay(owner, tier))
 
-    def __init__(self, session):
+
+class Replay(discord.ui.View):
+    def __init__(self, owner, tier):
         super().__init__(timeout=180)
-        self.session = session
+        self.owner, self.tier = owner, tier
 
-    async def on_submit(self, interaction):
-        session = self.session
-        if not await allowed(interaction, session.owner):
+    @discord.ui.button(label='Replay spin', emoji='🔁', style=discord.ButtonStyle.secondary)
+    async def replay(self, interaction, button):
+        if not await allowed(interaction, self.owner):
             return
-        if session.is_finished() or not hmac.compare_digest(str(self.code).encode(),session.pin.encode()):
-            await interaction.response.send_message('Code incorrect or expired. Reopen the test card.', ephemeral=True)
+        await interaction.response.defer()
+        if self.is_finished():
             return
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        try:
-            member, rows = fixture(session.address)
-            tier, first = ClaimStore(STATE / 'claims.sqlite3').claim(
-                session.owner, member, reward_tier(rows, datetime.now(timezone.utc)))
-        except ValueError:
-            await interaction.edit_original_response(content='One drop per Discord account and test member. Reopen with your original test email.')
-            return
-        session.stop()
-        if first:
-            await interaction.edit_original_response(embed=embed('🎰  Revealing your drop…', '⚽   ·   🎁   ·   ✨'))
-            await asyncio.sleep(1.2)
-        title = '🎁  Your Black Friday drop' if first else '🧾  Your original drop'
-        await interaction.edit_original_response(embed=embed(title,
-            f'{REWARDS[tier]}\n\n{TERMS} The 20% coupon has no discount cap.\n\n**Demo receipt** · No coupon was issued.'))
-
-
-class Inbox(discord.ui.View):
-    def __init__(self, owner, address, club):
-        super().__init__(timeout=180)
-        self.owner, self.address, self.club = owner, address, club
-        self.pin = str(secrets.randbelow(900000)+100000)
-
-    @discord.ui.button(label='Enter code & reveal', emoji='🎰', style=discord.ButtonStyle.primary)
-    async def verify(self, interaction, button):
-        if await allowed(interaction, self.owner):
-            await interaction.response.send_modal(Verify(self))
+        self.stop()
+        await show_spin(interaction, self.owner, self.tier, False)
 
 
 class Email(discord.ui.Modal, title='Test member email'):
     def __init__(self, owner, club):
-        super().__init__(timeout=180)
-        self.owner, self.club = owner, club
+        super().__init__(title=f'{club} · Enter email & spin', timeout=180)
+        self.owner = owner
         self.address = discord.ui.TextInput(label='Test email (new, return, four or five)',
             default=f'five+{owner}@example.test', max_length=64)
         self.add_item(self.address)
@@ -105,13 +93,19 @@ class Email(discord.ui.Modal, title='Test member email'):
             return
         address = str(self.address).strip().lower()
         try:
-            fixture(address)
+            member, rows = fixture(address)
         except ValueError as ex:
             await interaction.response.send_message(str(ex), ephemeral=True)
             return
-        inbox = Inbox(self.owner, address, self.club)
-        await interaction.response.send_message(embed=embed('✉️  Test inbox',
-            f'⚽ {self.club} · Your demo code is **{inbox.pin}**. Enter it within 3 minutes.\nThis inbox simulates email delivery.'), view=inbox, ephemeral=True)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            tier, first = ClaimStore(STATE / 'claims.sqlite3').claim(
+                self.owner, member, reward_tier(rows, datetime.now(timezone.utc)))
+        except ValueError:
+            await interaction.edit_original_response(content='One drop per Discord account and test member. Reopen with your original test email.')
+            return
+        await show_spin(interaction, self.owner, tier, first)
+
 
 
 class ChooseClub(discord.ui.View):

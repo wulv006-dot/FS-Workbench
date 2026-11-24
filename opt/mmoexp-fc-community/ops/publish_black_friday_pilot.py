@@ -40,7 +40,7 @@ def main():
             with pending.open('x') as f:
                 f.write('D4 VIP pilot')
             card = {'title':TITLE, 'color':0xE4AF45,
-                    'description':('Support a club. Verify your test email. Reveal your reward.\n\n'
+                    'description':('Support a club. Enter your test email and spin.\n\n'
                     '**$1 OFF  ·  $2 OFF  ·  $2 + 20% OFF**\n'
                     'Your MMOEXP orders across all games since Oct 1 determine your drop. '
                     'Five completed orders unlock the extra 20% coupon.'),
