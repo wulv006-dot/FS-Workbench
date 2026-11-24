@@ -18,7 +18,7 @@ def require_success(result):
     if result.testsRun <= 0 or not result.wasSuccessful() or result.skipped:
         raise RuntimeError("required_tests_failed_or_empty_or_skipped")
 
-def units(directory, names, root_owned=False, python=None):
+def units(directory, names, root_owned=False, python=None, env=None):
     # Each group runs in a fresh interpreter: avoid module-name/path collisions.
     code = """
 import io,json,socket,subprocess,sys,unittest
@@ -52,7 +52,7 @@ sys.exit(0 if r.testsRun>0 and r.wasSuccessful() and not r.skipped else 1)
         # The publisher requires root-owned staging; reproduce it inside the disposable CI checkout.
         subprocess.run(["sudo","chown","-R","0:0",str(ROOT/directory)],check=True,timeout=30)
         prefix=["sudo"]
-    subprocess.run(prefix+[python or sys.executable,"-I","-B","-c",code,str(ROOT),directory]+names,check=True,timeout=90,cwd=ROOT)
+    subprocess.run(prefix+[python or sys.executable,"-I","-B","-c",code,str(ROOT),directory]+names,check=True,timeout=90,cwd=ROOT,env=env)
 
 def hermes_native_publisher_remaining():
     """Unittest suite factory: keep the real loader, excluding only the separate heavy case."""
@@ -1546,14 +1546,23 @@ def main():
         elif group=="fc-wait-sort":
             units("releases/fs-dashboard/fc-order-wait-sort-20261020/tests",["test_wait_sort"])
         elif group=="customer-lifecycle":
+            legacy = os.environ.get("FS_MAINTENANCE_SQLITE_317")
+            env = None
+            if legacy:
+                library_paths = [legacy, os.environ.get("LD_LIBRARY_PATH")]
+                env = dict(os.environ, LD_LIBRARY_PATH=os.pathsep.join(filter(None, library_paths)))
+                subprocess.run([sys.executable, "-I", "-B", "-c",
+                                "import sqlite3; print(sqlite3.sqlite_version, flush=True); "
+                                "assert sqlite3.sqlite_version == '3.7.17'"],
+                               cwd=ROOT, env=env, check=True, timeout=10)
             units("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests",["test_lifecycle","test_readonly","test_vip_followup","test_vip_maintenance","test_vip_query","test_vip_paging_patch",
                    "test_maintenance_dispatch","test_maintenance_ledger","test_maintenance_review","test_maintenance_stages",
-                   "test_maintenance_integration","test_maintenance_release"])
+                   "test_maintenance_integration","test_maintenance_release"], env=env)
             node("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests/test_maintenance_coupon_bridge.cjs")
             # This fixed fixture calls Node with a stubbed Admin response, outside the process-free unit runner.
             subprocess.run([sys.executable, "-B", str(ROOT/"releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests/test_maintenance_bridge_ledger.py")],
-                           cwd=ROOT, check=True, timeout=30)
-            units("releases/fs-dashboard/hermes-customer-tracking-20261018/tests",["test_private_tracking"])
+                           cwd=ROOT, env=env, check=True, timeout=30)
+            units("releases/fs-dashboard/hermes-customer-tracking-20261018/tests",["test_private_tracking"], env=env)
         elif group=="hermes-navigation-range":
             units("releases/fs-dashboard/hermes-navigation-range-20261019/tests",["test_contract"])
             node("releases/fs-dashboard/hermes-navigation-range-20261019/tests/range.cjs")

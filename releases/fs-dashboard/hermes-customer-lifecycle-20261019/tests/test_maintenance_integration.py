@@ -1,10 +1,12 @@
 """Exercise the stage-maintenance entry points with offline source adapters."""
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
 import subprocess
+import tracemalloc
 import sys
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -17,7 +19,7 @@ sys.path[:0] = [
     str(ROOT.parent / 'customer-segments-20261124' / 'source'),
     str(ROOT.parent / 'user-analytics-20261022' / 'source'),
 ]
-from customer_segments import ConfigCommitUnknown, write_config
+from customer_segments import ConfigCommitUnknown, load_config, write_config
 from customer_tracking import Store
 from maintenance_sources import AdminFacts, Facts, UserProjection
 from maintenance_service import Maintenance
@@ -252,7 +254,7 @@ class Integration(unittest.TestCase):
         self.admin_rows(usage=lambda: [self.coupon_use(order_no='after-cutoff'),
                                       self.coupon_use(id=8, order_no='unverified-order', member_id=100)])
         with patch('user_customer_types.read_pinned_flags', return_value=({}, {})):
-            self.assertEqual(['a'], [row['order_no'] for row in projection.read(self.now).orders])
+            self.assertEqual(['a'], [row['order_no'] for row in projection.read(self.now).customer_orders('customer-A')])
             self.service.update()
         review, = self.service.ledger.reviews(entry['id'])
         self.assertEqual(['manual_coupons'], review['reasons'])
@@ -790,9 +792,85 @@ class Integration(unittest.TestCase):
                 projection = UserProjection(path)
                 with patch('user_customer_types.read_pinned_flags', return_value=({}, {})):
                     for latest in (False, True):
-                        rows = projection.read(self.now, latest=latest).orders
+                        rows = projection.read(self.now, latest=latest).customer_orders('customer-A')
                         self.assertEqual(['first'], [row['order_no'] for row in rows])
                         self.assertEqual('Buyer@example.net', rows[0]['email'])
+
+    def test_stage_refresh_streams_projection_and_keeps_as_of_first_purchase(self):
+        path = self.path.with_name('customers.sqlite3')
+        cutoff = self.source.current.isoformat()
+        publication = dict(contract=PUBLICATION_CONTRACT, cadence='daily', cutoff=cutoff,
+                           published_at=self.now.isoformat(), captured_at=self.now.isoformat(),
+                           refresh_health={}, coverage_context={}, source_status_rule_versions=[],
+                           data_version='1', config=dict(sites=['266']), flag_manifests=[],
+                           jobs=[dict(site='266', state='complete', start='2026-01-01T00:00:00+08:00',
+                                      end=cutoff, body='{}')])
+        publication['publication_id'] = 'uw_' + publication_digest(publication)[:32]
+        with closing(sqlite3.connect(path)) as db, db:
+            db.executescript('''
+                CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
+                INSERT INTO meta VALUES ('revision', '1');
+                CREATE TABLE orders(order_key TEXT PRIMARY KEY,site TEXT,gid TEXT,customer_id TEXT,
+                                    paid_at TEXT,valid INTEGER,body TEXT,revision INTEGER);
+                CREATE TABLE identities(customer_id TEXT,email TEXT);
+                INSERT INTO identities VALUES ('customer-A', 'buyer@example.net');
+            ''')
+            db.execute('INSERT INTO meta VALUES (?,?)', (PUBLICATION_META, json.dumps(publication)))
+
+            def insert(number, customer, gid, paid_at, amount, *, valid=True, padding=''):
+                body = json.dumps(dict(order_no=number, uid=100, amount_usd=amount, padding=padding))
+                db.execute('INSERT INTO orders VALUES(?,?,?,?,?,?,?,?)',
+                           ('admin:266:' + number, '266', gid, customer, paid_at, valid, body, 1))
+
+            date1 = '2026-10-01T12:00:00+08:00'
+            insert('first', 'customer-A', '42', '2026-09-01T12:00:00+08:00', '700')
+            insert('known', 'customer-A', '1327', date1, '500')
+            insert('unknown', 'customer-A', '1327', date1, None)
+            insert('invalid', 'customer-A', '1327', date1, '1000', valid=False)
+            insert('future', 'customer-A', '1327', cutoff, '1000')
+            padding = 'x' * (128 * 1024)
+            for index in range(160):
+                insert(f'small-{index}', f'small-{index}', '1327', date1, '1', padding=padding)
+
+        self.service.source = UserProjection(path)
+        labels = {hashlib.sha256(b'first').hexdigest(): 'old', hashlib.sha256(b'known').hexdigest(): 'new'}
+        with patch('user_customer_types.read_pinned_flags', return_value=(labels, {})):
+            tracemalloc.start()
+            try:
+                self.service.update()
+                _, peak = tracemalloc.get_traced_memory()
+            finally:
+                tracemalloc.stop()
+        customer = self.service.customer_view('customer-A')['customer']
+        self.assertEqual(('high', 'old', '500.00', 1, 'admin:266:unknown'),
+                         tuple(customer[key] for key in ('tier', 'customer_type', 'amount_usd',
+                                                       'unknown_amount_orders', 'last_order_key')))
+        self.assertEqual(1, sum(group['count'] for group in self.service.group_view()['groups']))
+        self.assertLess(peak, 10 * 1024 * 1024)
+
+        config, _, _ = load_config(self.service.config_path)
+        first_pin = self.service.source.read(self.now)
+        with closing(sqlite3.connect(path)) as db, db:
+            db.row_factory = sqlite3.Row
+            previous = dict(db.execute('SELECT * FROM orders WHERE order_key=?', ('admin:266:known',)).fetchone())
+            db.execute('CREATE TABLE revisions(id INTEGER PRIMARY KEY,body TEXT)')
+            db.execute('INSERT INTO revisions VALUES(?,?)', (2, json.dumps([previous])))
+            db.execute("UPDATE meta SET value='2' WHERE key='revision'")
+            db.execute("UPDATE orders SET revision=2,valid=0 WHERE order_key=?", (previous['order_key'],))
+
+        with self.assertRaisesRegex(LookupError, 'maintenance_projection_changed'):
+            first_pin.stage_cohort(first_pin.day, config)
+        with patch('user_customer_types.read_pinned_flags', return_value=(labels, {})):
+            pinned = self.service.source.read(self.now)
+            self.assertEqual('high', pinned.stage_cohort(pinned.day, config)['customer-A']['tier'])
+            latest = self.service.source.read(self.now, latest=True)
+            self.assertEqual({}, latest.stage_cohort(latest.day, config))
+            import user_version_index
+            with closing(sqlite3.connect(path)) as db, db:
+                db.row_factory = sqlite3.Row
+                self.assertTrue(user_version_index.build_batch(db)['ready'])
+            indexed = self.service.source.read(self.now)
+            self.assertEqual(pinned.stage_cohort(pinned.day, config), indexed.stage_cohort(indexed.day, config))
 
     def test_verified_uid_query_has_no_start_time_search(self):
         request = []

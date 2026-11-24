@@ -1,6 +1,8 @@
 """SQLite state machine for maintenance coupon entries and reservations."""
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from heapq import nsmallest
+from itertools import islice
 import json
 import re
 import sqlite3
@@ -13,7 +15,6 @@ AWAITING = ('confirmed', 'auto_confirmed', 'deferred')
 REVOCABLE = ('reviewing', 'ready') + AWAITING
 RESERVED = ('dispatching', 'issued', 'pending_register', 'unknown')
 IN_FLIGHT = ('dispatching', 'pending_register', 'unknown')
-RECEIPT_CONFLICT = "json_extract(result,'$.identity_conflicts') IS NOT NULL"
 ALLOWED = {
     'reviewing': {'ready', 'held', 'void'},
     'ready': {'confirmed', 'removed', 'expired', 'auto_confirmed', 'void'},
@@ -114,17 +115,27 @@ def transition(db, row, state, actor, at, details=None, **fields):
 
 def enqueue_entry(db, event, customer, email, rule, at):
     ident = 'm_' + digest([customer, rule['id'], event])
-    db.execute('''INSERT INTO maintenance_entries
-                  (id,event_id,customer_id,email,rule_id,rule_version,rule_body,state,created_at)
-                  VALUES(?,?,?,?,?,?,?,'reviewing',?) ON CONFLICT(customer_id,rule_id,event_id) DO NOTHING''',
-               (ident, event, customer, email, rule['id'], rule['version'], canonical(rule), stamp(at)))
+    if not db.execute('SELECT 1 FROM maintenance_entries WHERE customer_id=? AND rule_id=? AND event_id=?',
+                      (customer, rule['id'], event)).fetchone():
+        db.execute('INSERT INTO maintenance_entries '
+                   '(id,event_id,customer_id,email,rule_id,rule_version,rule_body,state,created_at) '
+                   "VALUES(?,?,?,?,?,?,?,'reviewing',?)",
+                   (ident, event, customer, email, rule['id'], rule['version'], canonical(rule), stamp(at)))
     return ident
 
 
+def dispatch_check(db, ident):
+    return db.execute('SELECT 1 FROM maintenance_dispatch_checks WHERE entry_id=?', (ident,)).fetchone()
+
+
 def record_dispatch_identity(db, ident, at, reason=None):
-    db.execute('INSERT INTO maintenance_dispatch_checks(entry_id,identity_checked_at,identity_reason) VALUES(?,?,?) '
-               'ON CONFLICT(entry_id) DO UPDATE SET identity_checked_at=excluded.identity_checked_at,'
-               'identity_reason=excluded.identity_reason', (ident, stamp(at), reason))
+    values = (stamp(at), reason, ident)
+    if dispatch_check(db, ident):
+        db.execute('UPDATE maintenance_dispatch_checks SET identity_checked_at=?,identity_reason=? WHERE entry_id=?',
+                   values)
+    else:
+        db.execute('INSERT INTO maintenance_dispatch_checks(identity_checked_at,identity_reason,entry_id) VALUES(?,?,?)',
+                   values)
 
 
 def active_customer(db, customer, at):
@@ -158,10 +169,11 @@ class Ledger:
             enabled_at = previous['enabled_at'] if previous and previous['enabled'] else None
             if body['enabled'] and not enabled_at:
                 enabled_at = stamp(at)
-            db.execute('INSERT INTO maintenance_rules VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET '
-                       'version=excluded.version, body=excluded.body, enabled_at=excluded.enabled_at',
-                       (ident, version + 1, canonical(body), enabled_at))
-            if not previous:
+            values = (version + 1, canonical(body), enabled_at, ident)
+            if previous:
+                db.execute('UPDATE maintenance_rules SET version=?,body=?,enabled_at=? WHERE id=?', values)
+            else:
+                db.execute('INSERT INTO maintenance_rules(version,body,enabled_at,id) VALUES(?,?,?,?)', values)
                 db.execute('INSERT INTO maintenance_auto_history(rule_id,at,actor,enabled) VALUES(?,?,?,0)',
                            (ident, stamp(at), actor))
             if not body['enabled']:
@@ -225,10 +237,11 @@ class Ledger:
                 checked_digest = checked_digest(db, row)
             if result['digest'] != checked_digest:
                 return False
-            if not db.execute('INSERT INTO maintenance_reviews VALUES(?,?,?,?,?) '
-                              'ON CONFLICT(entry_id,digest) DO NOTHING',
-                              (ident, result['digest'], REVIEW_ACTOR, stamp(at), canonical(result))).rowcount:
+            if db.execute('SELECT 1 FROM maintenance_reviews WHERE entry_id=? AND digest=?',
+                          (ident, result['digest'])).fetchone():
                 return False
+            db.execute('INSERT INTO maintenance_reviews VALUES(?,?,?,?,?)',
+                       (ident, result['digest'], REVIEW_ACTOR, stamp(at), canonical(result)))
             return transition(db, row, state, REVIEW_ACTOR, at, result,
                               ready_at=stamp(at) if state == 'ready' else None)
 
@@ -386,43 +399,52 @@ class Ledger:
             if not row or row['state'] not in AWAITING:
                 return
             retry_at = stamp(at + timedelta(minutes=1))
-            db.execute('INSERT INTO maintenance_dispatch_checks(entry_id,retry_at) VALUES(?,?) '
-                       'ON CONFLICT(entry_id) DO UPDATE SET retry_at=excluded.retry_at', (ident, retry_at))
+            if dispatch_check(db, ident):
+                db.execute('UPDATE maintenance_dispatch_checks SET retry_at=? WHERE entry_id=?', (retry_at, ident))
+            else:
+                db.execute('INSERT INTO maintenance_dispatch_checks(entry_id,retry_at) VALUES(?,?)', (ident, retry_at))
             if identity_reason:
                 record_dispatch_identity(db, ident, at, identity_reason)
 
     def dispatch_queue(self, at):
         day = at.astimezone(SHANGHAI).date().isoformat()
-        # Rank before filtering by retry time so a lower-priority rule cannot overtake
-        # a rule for the same event that is waiting for fresh evidence.
+        now = stamp(at)
+        # Choose the first rule per event before checking its retry time.
         with self.db() as db:
+            db.execute('BEGIN')
             rows = db.execute(f"""
-                WITH pending AS (
-                    SELECT e.id,c.retry_at,ROW_NUMBER() OVER (
-                        PARTITION BY e.event_id ORDER BY json_extract(e.rule_body,'$.priority'),e.created_at,e.id
-                    ) AS event_rank
-                    FROM maintenance_entries e LEFT JOIN maintenance_dispatch_checks c ON c.entry_id=e.id
-                    WHERE e.state IN ({marks(AWAITING)}) AND (e.deferred_day IS NULL OR e.deferred_day<?)
-                )
-                SELECT e.* FROM pending p JOIN maintenance_entries e ON e.id=p.id
-                WHERE p.event_rank=1 AND (p.retry_at IS NULL OR p.retry_at<=?)
-                ORDER BY COALESCE(p.retry_at,e.created_at),json_extract(e.rule_body,'$.priority'),e.id
-                LIMIT 100
-            """, (*AWAITING, day, stamp(at)))
-            return [entry_view(row) for row in rows]
+                SELECT e.id,e.event_id,e.rule_body,e.created_at,c.retry_at
+                FROM maintenance_entries e LEFT JOIN maintenance_dispatch_checks c ON c.entry_id=e.id
+                WHERE e.state IN ({marks(AWAITING)}) AND (e.deferred_day IS NULL OR e.deferred_day<?)
+            """, (*AWAITING, day))
+            heads = {}
+            for ident, event, body, created, retry in rows:
+                priority = json.loads(body)['priority']
+                rank = (priority, created, ident)
+                if event not in heads or rank < heads[event][0]:
+                    heads[event] = (rank, retry)
+            ready = ((retry or created, priority, ident)
+                     for (priority, created, ident), retry in heads.values() if retry is None or retry <= now)
+            return [fetch_entry(db, ident) for _, _, ident in nsmallest(100, ready)]
 
     def manual_queue(self, *, limit=100, offset=0):
-        return self.queue(('pending_register', 'unknown'), limit=limit, offset=offset,
-                          sql_filter=f'AND (job_id IS NULL OR {RECEIPT_CONFLICT})')
+        with self.db() as db:
+            rows = db.execute("SELECT * FROM maintenance_entries WHERE state IN ('pending_register','unknown') "
+                              'ORDER BY created_at,id')
+            entries = (entry_view(row) for row in rows)
+            manual = (entry for entry in entries if entry['job_id'] is None or
+                      (entry['result'] or {}).get('identity_conflicts') is not None)
+            return list(islice(manual, offset, offset + limit))
 
     def reconcile_queue(self):
         with self.db() as db:
             rows = db.execute(f'SELECT e.* FROM maintenance_entries e '
                               'LEFT JOIN maintenance_reconcile_checks c ON c.entry_id=e.id '
                               f'WHERE e.state IN ({marks(IN_FLIGHT)}) AND e.job_id IS NOT NULL '
-                              f'AND NOT ({RECEIPT_CONFLICT}) ORDER BY c.sequence,e.created_at,e.id LIMIT 100',
-                              IN_FLIGHT)
-            return [entry_view(row) for row in rows]
+                              'ORDER BY c.sequence,e.created_at,e.id', IN_FLIGHT)
+            entries = (entry_view(row) for row in rows)
+            automatic = (entry for entry in entries if (entry['result'] or {}).get('identity_conflicts') is None)
+            return list(islice(automatic, 100))
 
     def recover_dispatches(self, at, maximum_age):
         rows = self.queue(('dispatching',), sql_filter='AND job_id IS NULL AND dispatch_at<=?',
