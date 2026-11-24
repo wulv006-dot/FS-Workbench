@@ -54,11 +54,13 @@ def get(service, path, params, user):
         if action == 'tool':
             from user_tools import invoke
             return 200, invoke(service, user, args)
+        if action == 'connector_summary':
+            return service.summary_jobs.read(args, user)
         if action != 'summary':
             raise ValueError('public_action')
         return 200, service.query(args, user)
     except SummaryBusy:
-        return 429, {'error': 'users_summary_busy', 'retryable': True}
+        return 429, {'error': 'users_summary_busy', 'retryable': True, 'retryAfter': 5}
     except PermissionError:
         return 403, {'error': 'scope_or_admin_required'}
     except IndexUnavailable:

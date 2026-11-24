@@ -654,13 +654,14 @@ class PinnedFlags(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)/'archive'; self.root.mkdir(mode=0o700)
-        self.order = hashlib.sha256(b'pinned-fixture-order').hexdigest()
+        self.order = ' pinned-fixture-order '
+        self.order_hash = hashlib.sha256(self.order.encode()).hexdigest()
         from types import SimpleNamespace
         def parse(files):
             return [row for data in files for row in json.loads(data)], [hashlib.sha256(data).hexdigest() for data in files], 0
         es = SimpleNamespace(MAX_FILE=32*1024*1024, archive_access=lambda root:nullcontext(),
                              excel_path=lambda root, ident:root/(ident+'.xlsx'), parse_files=parse,
-                             make_dataset=lambda rows, *args:dict(rows=rows),
+                             make_dataset=Mock(side_effect=AssertionError('full dataset projection is unnecessary for flags')),
                              archived_dataset=Mock(side_effect=AssertionError('newest export must not be selected')),
                              COLUMNS=dict(time='time', order='order', new_customer='new'))
         self.patch = patch.dict(sys.modules, {'es_order_structure':es}); self.patch.start(); self.addCleanup(self.patch.stop)
@@ -668,8 +669,8 @@ class PinnedFlags(unittest.TestCase):
         self.add_manifest('\u662f', '2026-11-01T02:00:00+08:00')
         self.inventory = types.manifest_inventory(self.root)
 
-    def add_manifest(self, label, captured, declared=1, extras=None):
-        raw = json.dumps([dict(order=self.order, time='2026-10-21', new=label, **(extras or {}))]).encode()
+    def add_manifest(self, label, captured, declared=1, extras=None, extra_rows=()):
+        raw = json.dumps([dict(order=self.order, time='2026-10-21', new=label, **(extras or {})), *extra_rows]).encode()
         ident = hashlib.sha256(raw).hexdigest(); path = self.root/(ident+'.xlsx'); path.write_bytes(raw); path.chmod(0o600)
         value = dict(query=dict(profile='ALL', start='2026-10-01', end='2026-10-31'), captured_at=captured,
                      file_sha256=[ident], file_set=dict(declared_files=declared, failed_files=0))
@@ -691,9 +692,20 @@ class PinnedFlags(unittest.TestCase):
         self.add_manifest('\u5426', '2026-11-02T02:00:00+08:00')
         query = dict(start='2026-10-19', end_exclusive='2026-10-26')
         flags, info = types.read_pinned_flags(query, self.inventory, self.root)
-        self.assertEqual(flags[self.order], 'new'); self.assertEqual(info['status'], 'complete')
+        self.assertEqual(flags, {self.order_hash: 'new'}); self.assertEqual(info['status'], 'complete')
         fresh, _ = types.read_pinned_flags(query, types.manifest_inventory(self.root), self.root)
-        self.assertEqual(fresh[self.order], 'old'); self.es.archived_dataset.assert_not_called()
+        self.assertEqual(fresh, {self.order_hash: 'old'}); self.es.archived_dataset.assert_not_called()
+
+    def test_distinct_raw_labels_still_conflict_but_outside_period_rows_do_not(self):
+        self.add_manifest('是', '2026-11-02T02:00:00+08:00', extra_rows=[
+            dict(order=self.order, time='2026/10/22 12:00:00', new='否'),
+            dict(order='outside', time='2026/10/26 00:00:00', new='是'),
+        ])
+        query = dict(start='2026-10-19', end_exclusive='2026-10-26')
+        flags, info = types.read_pinned_flags(query, types.manifest_inventory(self.root), self.root)
+        self.assertEqual(flags, {self.order_hash: 'conflict'})
+        self.assertEqual(info['status'], 'complete')
+        self.es.make_dataset.assert_not_called()
 
     def test_manifest_or_workbook_corruption_refuses(self):
         name = self.inventory[0]['name']; path = self.root/name; original = path.read_bytes()
