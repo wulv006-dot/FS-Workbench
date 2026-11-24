@@ -147,6 +147,23 @@ class NativeUserRelay(unittest.TestCase):
         finally:
             complete.set()
 
+    def test_describe_retains_frozen_es_first_purchase_outside_result_groups(self):
+        from hashlib import sha256
+
+        self.data()
+        flag = sha256(b'synthetic-1').hexdigest()
+        self.original.customer_type_reader = lambda query: ({flag: 'new'}, {'status': 'complete'})
+        cid = self.cid(self.current_snapshot())
+        args = dict(fixtures.SCOPE, cohort_start='2026-09', cohort_end='2026-09',
+                    start='2026-10-24', end_exclusive='2026-10-25')
+        snapshot = self.call('fs_query_user_analytics', args)['snapshot_id']
+        self.assertEqual(self.call('fs_customer_candidates', {'snapshot_id': snapshot})['total'], 0)
+
+        self.original.customer_type_reader = lambda query: ({flag: 'old'}, {'status': 'complete'})
+        result = self.call('fs_describe_customer', {'snapshot_id': snapshot, 'customer_id': cid})
+        self.assertEqual(result['facts']['first_paid_at'], '2026-10-02T00:00:00+08:00')
+        self.assertNotIn('historical_first_purchase_unverified', result['limitations'])
+
     def test_public_customer_tools_retire_legacy_snapshot(self):
         self.data()
         snapshot = self.snapshot(self.summary())

@@ -258,6 +258,14 @@ class UsersV4:
             records[cid] = dict(customer_id=cid, first_paid_at=first.isoformat(), customer_type='new',
                                 last_paid_at=last.isoformat(),
                                 stage=stage(last, observation, query['game'], segments, covered(last, cutoff)))
+        detail_customer_types = {}
+        game = query['game']
+        for cid, purchases in people.items():
+            if cid in records:
+                continue
+            flag = flags.get(purchases[0][3]['order_no_hash'])
+            if flag in ('new', 'old') and (game == 'all' or any(order[2] == game for order in purchases)):
+                detail_customer_types[cid] = flag
         query['as_of'] = cutoff.isoformat()
         period_complete = covered(stamp(query['start']), stamp(query['end_exclusive']))
         flag_status = flag_source.get('status')
@@ -280,11 +288,16 @@ class UsersV4:
                                     state_data_through=cutoff.isoformat(),
                                     new_customer_flags=flag_source),
                       publication_id=publication['publication_id'] if publication else None)
+        if detail_customer_types:
+            # Bind the new private evidence to its own immutable snapshot ID.
+            public['detail_customer_type_revision'] = digest(detail_customer_types)
         aggregate_only(public)
         members = {group: sorted(ids) for group, ids in {**cohort_members, **stage_members}.items()}
         private = dict(members=members, records=records, segments=segments,
                        cohort_memberships=cohort_members,
                        jobs=[{key: job[key] for key in ('site', 'start', 'end', 'state')} for job in jobs])
+        if detail_customer_types:
+            private['detail_customer_types'] = detail_customer_types
         result = self.store.save_snapshot(query, public, private)
         if self.store.config.get('member_keyset_index') is True:
             build_member_index(self.store, result, private)
@@ -414,6 +427,8 @@ class UsersV4:
         customer = dict(private['records'].get(cid, {}), customer_id=cid, first_paid_at=first[0].isoformat(),
                         last_paid_at=last.isoformat(),
                         stage=stage(last, public['observation_date'], game, config, covered(last, cutoff)))
+        if 'customer_type' not in customer:
+            customer['customer_type'] = private.get('detail_customer_types', {}).get(cid, 'unknown')
         begin, end = stamp(query['start']), stamp(query['end_exclusive'])
         for label, matching in (('period', [order for order in scoped if begin <= order[0] < end]),
                                 ('covered_history', scoped)):
