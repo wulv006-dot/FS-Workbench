@@ -56,9 +56,9 @@
     <div id="app" hidden>
       <section class="panel vip-queue" aria-labelledby="vip-title">
         <div id="vip-scopes" class="vip-scopes" role="group" aria-label="维护名单范围">
-          <button class="fs-btn" type="button" data-vip-scope="uk_us" aria-pressed="true" aria-controls="vip-list">英美队列</button>
+          <button class="fs-btn" id="phase-scope" type="button" aria-pressed="true" aria-controls="phase-panel">阶段维护</button>
+          <button class="fs-btn" type="button" data-vip-scope="uk_us" aria-pressed="false" aria-controls="vip-list">英美队列</button>
           <button class="fs-btn" type="button" data-vip-scope="global_preferred" aria-pressed="false" aria-controls="vip-list">全国家优选</button>
-          <button class="fs-btn" id="phase-scope" type="button" aria-pressed="false" aria-controls="phase-panel">阶段维护</button>
         </div>
         <div id="vip-week-panel">
         <div class="section-head vip-head">

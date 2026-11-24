@@ -204,16 +204,26 @@
         ...displayStages.map(stage => {
           const cell = node('div', undefined, 'phase-cell');
           cell.dataset.stage = stage;
-          cell.append(node('strong', count(membership(tier, row => row.stage === stage)) + ' 人'));
+          const total = node('div', undefined, 'phase-count');
+          total.append(node('strong', count(membership(tier, row => row.stage === stage))), node('span', '人'));
+          cell.append(total);
           const matches = activeRules?.filter(rule => rule.tier === tier && rule.stage === stage);
           if (matches?.length) {
             for (const rule of matches) {
-              const actions = [rule.alert && '待跟进', rule.owner && '分配给 ' + rule.owner,
-                rule.coupon_id && (coupons.get(rule) || '发券（条款读取失败）')].filter(Boolean);
-              const summary = node('small', (rule.customer_type ? label(rule.customer_type) + ' · ' : '') +
-                (actions.join(' · ') || '无配置动作'));
-              if (rule.coupon_id) summary.title = '券 #' + rule.coupon_id;
-              cell.append(summary);
+              if (rule.coupon_id) {
+                const terms = coupons.get(rule);
+                const offer = node('div', undefined, terms ? 'phase-offer' : 'phase-offer phase-offer-missing');
+                offer.title = '券 #' + rule.coupon_id;
+                if (terms) offer.append(node('strong', terms.headline), node('span', terms.detail));
+                else offer.append(node('strong', '发券'), node('span', '条款读取失败'));
+                cell.append(offer);
+              }
+              const chips = node('div', undefined, 'phase-chips');
+              if (rule.customer_type) chips.append(node('span', '仅' + label(rule.customer_type), 'phase-chip'));
+              if (rule.alert) chips.append(node('span', '预警', 'phase-chip phase-chip-alert'));
+              if (rule.owner) chips.append(node('span', '分配 ' + rule.owner, 'phase-chip'));
+              if (!rule.coupon_id && !rule.alert && !rule.owner) chips.append(node('span', '无配置动作', 'phase-chip'));
+              cell.append(chips);
             }
           } else {
             const text = stage === 'recent' ? '近期观察' : stage === 'unverified' ? '等待覆盖核对' :
@@ -458,15 +468,16 @@
   function couponDetails(coupon, ruleId) {
     const host = node('div');
     const {mode, discount, cap, validity} = couponTerms(coupon);
-    host.append(node('strong', discount ? (mode === 1 ? '立减 ' : '减 ') + discount : '折扣待核'),
-      node('small', cap || '封顶金额待核'), node('small', validity || '有效期待核'),
-      node('small', '规则 ' + ruleId, 'hint'));
+    host.className = discount ? 'phase-offer' : 'phase-offer phase-offer-missing';
+    host.title = '规则 ' + ruleId;
+    host.append(node('strong', discount ? (mode === 1 ? '立减 ' + discount : discount + ' OFF') : '折扣待核'),
+      node('span', (cap || '封顶金额待核') + '，' + (validity || '有效期待核')));
     return host;
   }
   function matrixCoupon(coupon) {
     const {mode, discount, cap, validity} = couponTerms(coupon, compactAmount);
     if (discount && cap && validity) {
-      return '发 ' + (mode === 1 ? '立减 ' : '') + discount + ' 券 · ' + cap + ' · ' + validity;
+      return {headline: mode === 1 ? '立减 ' + discount : discount + ' OFF', detail: cap + '，' + validity};
     }
     return null;
   }
@@ -728,5 +739,9 @@
       offset = 0;
       load();
     });
+    window.addEventListener('fs-phase-open', () => get('phase-scope').click());
+    if (window.fsCustomerPrivateReady && get('phase-scope').getAttribute('aria-pressed') === 'true') {
+      get('phase-scope').click();
+    }
   }
 })();

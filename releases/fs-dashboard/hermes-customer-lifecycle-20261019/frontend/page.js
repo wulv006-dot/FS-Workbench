@@ -32,7 +32,7 @@
   }
   const get = (view, extra, signal) => fetchJson(params(view, extra), null, signal);
   const post = (action, fields) => fetchJson(api, {kind:'hermes_customer_tracking',action,...fields});
-  const clearPrivate = () => { clearVip(true); candidateAbort?.abort(); detailAbort?.abort(); clearTimeout(detailTimer); $('candidate-list').replaceChildren(); $('tracked-list').replaceChildren(); $('detail').replaceChildren(); $('detail-section').hidden = true; $('pool-reports').replaceChildren(); $('app').hidden = true; };
+  const clearPrivate = () => { clearVip(true); candidateAbort?.abort(); detailAbort?.abort(); clearTimeout(detailTimer); $('candidate-list').replaceChildren(); $('tracked-list').replaceChildren(); $('detail').replaceChildren(); $('detail-section').hidden = true; $('pool-reports').replaceChildren(); $('phase-overview')?.replaceChildren(); $('phase-content')?.replaceChildren(); $('app').hidden = true; };
   const denied = () => { clearPrivate(); config = null; setStatus('当前账号没有智体客单追踪权限。请返回智体决策报告查看获准内容。', true); };
   function renderConfig(value) {
     if (!Number.isInteger(value?.version) || !Array.isArray(value?.product_types) || !Array.isArray(value?.customer_flags)) throw Error('配置格式异常。');
@@ -1006,7 +1006,11 @@
     loadConfig().then(() => {
       if (!config || document.hidden || disposed) return;
       if (pendingWrite) reconcile();
-      loadVip($('vip-week-date').value || currentWeek());
+      // Reload whichever tab is selected; stage maintenance is selected by default.
+      // phase.js may load after this point, so it also checks the ready flag on start.
+      window.fsCustomerPrivateReady = true;
+      if ($('phase-scope').getAttribute('aria-pressed') === 'true') window.dispatchEvent(new Event('fs-phase-open'));
+      else loadVip($('vip-week-date').value || currentWeek());
       loadLegacy();
     });
   }
