@@ -12,12 +12,14 @@ from user_contract import TZ, aggregate_only, digest, stamp
 from user_lifecycle import (analyze_cohorts, analyze_stages, complete_coverage,
                             amount_summary, customer_orders, stage_events)
 from user_summary_jobs import SummaryJobs
+from user_lifecycle import SERIES_PREFIX, game_match, policy_game, series_members, series_policy_game
 from user_member_index import IndexUnavailable, build as build_member_index, member_record, page as indexed_member_page
 
 VERSION = 'fs-users-v4'
 SECTIONS = ('summary', 'cohorts', 'stages', 'coverage')
 FIELDS = {'scope', 'scope_id', 'game', 'start', 'end_exclusive', 'cohort_start', 'cohort_end',
-          'windows', 'return_after', 'return_within', 'customer_type', 'repeat_status', 'cohort_type'}
+          'windows', 'return_after', 'return_within', 'customer_type', 'repeat_status', 'cohort_type',
+          'games', 'policy_game'}  # series fields are derived; accepted only when they match the recomputation
 # Cohort population: ES new customers (default), ES old customers, everyone, or new and old side by side.
 COHORT_TYPES = ('new', 'old', 'all', 'compare')
 SEGMENTS_PATH = '/var/lib/fs-customer-segments/segments.json'
@@ -35,6 +37,8 @@ def month(text):
 
 
 def project_scope(game):
+    if game.startswith(SERIES_PREFIX):
+        return dict(scope='series', scope_id=game[len(SERIES_PREFIX):])
     if game != 'all':
         return dict(scope='project', scope_id=game)
     return dict(scope='global', scope_id='')
@@ -57,10 +61,19 @@ def selection(args, config, cutoff):
         if 'game' in args and game != ident:
             raise ValueError('game_scope_mismatch')
         game = ident
+    elif scope == 'series' and game == SERIES_PREFIX + str(ident):
+        pass  # a normalized series query being validated again by the summary job
     elif (scope, ident) not in ((None, None), ('global', ''), ('global', None), ('site', '266')):
         raise ValueError('v4_scope')
-    if not isinstance(game, str) or game != 'all' and game not in config['projects']:
+    if not isinstance(game, str) or game != 'all' and game not in config['projects'] and not (
+            game.startswith(SERIES_PREFIX) and series_members(game[len(SERIES_PREFIX):], config)):
         raise ValueError('v4_game')
+    series = {}
+    if game.startswith(SERIES_PREFIX):
+        members = series_members(game[len(SERIES_PREFIX):], config)
+        series = dict(games=members, policy_game=series_policy_game(members, config))
+    if any(key in args and args[key] != series.get(key) for key in ('games', 'policy_game')):
+        raise ValueError('v4_query_fields')
     origin = stamp(config['history_backfill_start'])
     start = stamp(args.get('start', max(origin, cutoff - timedelta(days=7)).isoformat()))
     end = stamp(args.get('end_exclusive', cutoff.isoformat()))
@@ -88,7 +101,7 @@ def selection(args, config, cutoff):
     return dict(authorization_scope(args, game), game=game, start=start.isoformat(), end_exclusive=end.isoformat(),
                 cohort_start=cohort_start, cohort_end=cohort_end, windows=windows,
                 return_after=after, return_within=within, customer_type=customer_type, repeat_status=repeat_status,
-                cohort_type=cohort_type)
+                cohort_type=cohort_type, **series)
 
 
 def section_result(value, section):
@@ -268,19 +281,18 @@ class UsersV4:
         for cid in cohort_customers - records.keys():
             orders = people[cid]
             first = orders[0][0]
-            last = next(order[0] for order in reversed(orders) if query['game'] in ('all', order[2]))
+            last = next(order[0] for order in reversed(orders) if game_match(query, order[2]))
             flag = flags.get(orders[0][3]['order_no_hash'])
             records[cid] = dict(customer_id=cid, first_paid_at=first.isoformat(),
                                 customer_type=flag if flag in ('new', 'old') else 'unknown',
                                 last_paid_at=last.isoformat(),
-                                stage=stage(last, observation, query['game'], segments, covered(last, cutoff)))
+                                stage=stage(last, observation, policy_game(query), segments, covered(last, cutoff)))
         detail_customer_types = {}
-        game = query['game']
         for cid, purchases in people.items():
             if cid in records:
                 continue
             flag = flags.get(purchases[0][3]['order_no_hash'])
-            if flag in ('new', 'old') and (game == 'all' or any(order[2] == game for order in purchases)):
+            if flag in ('new', 'old') and any(game_match(query, order[2]) for order in purchases):
                 detail_customer_types[cid] = flag
         query['as_of'] = cutoff.isoformat()
         period_complete = covered(stamp(query['start']), stamp(query['end_exclusive']))
@@ -294,7 +306,7 @@ class UsersV4:
         public = dict(contract_version=VERSION, query=query,
                       status='partial' if 'partial' in (cohorts['status'], stages['status']) else 'available',
                       scope_version=config['scope_version'], identity_version=config['identity_version'],
-                      policy_version=version, lifecycle_policy={'thresholds_days': list(thresholds(query['game'], segments))},
+                      policy_version=version, lifecycle_policy={'thresholds_days': list(thresholds(policy_game(query), segments))},
                       data_version=revision, observation_date=observation.isoformat(),
                       config_version=version, config_source=source, timezone='Asia/Shanghai',
                       cohorts=cohorts, stages=stages,
@@ -426,8 +438,8 @@ class UsersV4:
         raw_rows = [row for row in self.store.orders_at(public['data_version'], cid)
                     if row['valid'] and row['site'] == '266' and stamp(public['coverage']['history_start']) <= stamp(row['paid_at']) < cutoff]
         purchases = customer_orders([self.store.analytics_row_v1(row) for row in raw_rows], cutoff).get(cid)
-        game = query['game']
-        scoped = [order for order in purchases or () if game in ('all', order[2])]
+        game = policy_game(query)
+        scoped = [order for order in purchases or () if game_match(query, order[2])]
         if not scoped:
             raise LookupError('customer_not_in_snapshot_scope')
         config = private['segments']
@@ -439,7 +451,7 @@ class UsersV4:
             kind = 'first_order' if key == first[1] else 'repeat' if is_repeat(first[0], paid) else 'purchase'
             timeline.append(dict(at=paid.isoformat(), kind=kind))
         orders = [dict(paid_at=row['paid_at'], project_id=row['gid'], site=row['site'], **json.loads(row['body']))
-                  for row in raw_rows if game in ('all', row['gid'])]
+                  for row in raw_rows if game_match(query, row['gid'])]
         customer = dict(private['records'].get(cid, {}), customer_id=cid, first_paid_at=first[0].isoformat(),
                         last_paid_at=last.isoformat(),
                         stage=stage(last, public['observation_date'], game, config, covered(last, cutoff)))
