@@ -48,11 +48,15 @@ async def allowed(interaction, owner=None):
 
 
 async def show_spin(interaction, owner, tier, first):
-    last = {'one': '🪙', 'two': '🎁', 'bonus': '🏆'}[tier]
+    left, middle, right = {
+        'one': ('⚽', '⭐', '🪙'),
+        'two': ('⚽', '⚽', '⭐'),
+        'bonus': ('🏆', '🏆', '🏆'),
+    }[tier]
     frames = (
         ('🔄  │  🔄  │  🔄', 'Kick-off!', 1.6),
-        ('⚽  │  🔄  │  🔄', 'First reel locked', 1.7),
-        ('⚽  │  ⭐  │  🔄', 'One more to go…', 1.9),
+        (f'{left}  │  🔄  │  🔄', 'First reel locked', 1.7),
+        (f'{left}  │  {middle}  │  🔄', 'One more to go…', 1.9),
     )
     for reels, caption, delay in frames:
         await interaction.edit_original_response(embed=embed('🎰  Black Friday spin',
@@ -60,7 +64,7 @@ async def show_spin(interaction, owner, tier, first):
         await asyncio.sleep(delay)
     title = '🎁  Your Black Friday drop' if first else '🧾  Your original drop'
     await interaction.edit_original_response(embed=embed(title,
-        f'## ⚽  │  ⭐  │  {last}\n{REWARDS[tier]}\n\n{TERMS} The 20% coupon has no discount cap.\n\n'
+        f'## {left}  │  {middle}  │  {right}\n{REWARDS[tier]}\n\n{TERMS} The 20% coupon has no discount cap.\n\n'
         '**Demo receipt** · Replay shows this same reward.'), view=Replay(owner, tier))
 
 

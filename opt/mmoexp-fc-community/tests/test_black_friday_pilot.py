@@ -13,6 +13,22 @@ def action(uid, channel=pilot.CHANNEL):
 
 
 class PilotFlow(unittest.IsolatedAsyncioTestCase):
+    async def test_only_bonus_has_three_matches_and_locked_reels_stay_put(self):
+        for tier, distinct in [('one', 3), ('two', 2), ('bonus', 1)]:
+            with self.subTest(tier=tier), patch.object(pilot.asyncio, 'sleep', AsyncMock()):
+                it = action(10)
+                await pilot.show_spin(it, 10, tier, True)
+                lines = [call.kwargs['embed'].description.splitlines()[0]
+                         for call in it.edit_original_response.await_args_list]
+                reels = [line.removeprefix('## ').split('  │  ') for line in lines]
+                final = reels[-1]
+                self.assertEqual(len(final), 3)
+                self.assertEqual(len(set(final)), distinct)
+                if tier == 'bonus':
+                    self.assertEqual(final, ['🏆'] * 3)
+                for n, frame in enumerate(reels):
+                    self.assertEqual(frame, final[:n] + ['🔄'] * (3-n))
+
     async def test_replay_locks_reels_in_sequence_without_claiming(self):
         it = action(10)
         with patch.object(pilot.asyncio, 'sleep', AsyncMock()) as wait, patch.object(pilot, 'ClaimStore') as store:
