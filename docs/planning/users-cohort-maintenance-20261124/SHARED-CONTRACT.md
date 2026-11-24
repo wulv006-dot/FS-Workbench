@@ -65,14 +65,15 @@
 
 **代码**：`releases/fs-dashboard/customer-segments-20261124/source/customer_segments.py`，提供：
 
-- `thresholds(gid | "all", config)`、`stage(last_paid_at, observation_date, gid | "all", config, covered)`：第 5 节。
+- `thresholds(gid | "all", config)`、`stage(last_paid_at, observation_date, gid | "all", config, covered)`：第 5 节。调用方须先把订单截断到观察日；末购晚于观察日时 `stage()` 报错。
 - `tier(cumulative_usd, gid, config)`：第 6 节。
 - `is_repeat(first_paid_at, paid_at)`：第 3 节。
 - `load_config(path)`：读取并校验配置，返回 `(config, version, source)`。
+- `write_config(path, config, expected_version)`：新版本必须恰好为 `expected_version + 1`，当前版本不符抛 `ConfigVersionConflict`；替换已完成但落盘确认失败时抛 `ConfigCommitUnknown`，调用方用 `load_config` 读回核对版本与内容后再决定是否重试。
 
 **部署位置**：与用户分析、客户追踪同一运行目录 `/opt/fs-hermes-fc/customer_segments.py`（两者现均从该目录导入）。由共享 PR 的发布单独装入，一期、二期的发布清单只引用、不再携带该文件。
 
-**配置文件**：`/var/lib/fs-customer-segments/segments.json`，字段 `version`（单调递增整数）、`stages`（gid → `[A,C,L]`）、`tiers`（gid → `{ultra, high}`）。
+**配置文件**：`/var/lib/fs-customer-segments/segments.json`，字段 `version`、`stages`（gid → `[A,C,L]`）、`tiers`（gid → `{ultra, high}`）。版本 0 专指模块内置默认值，不能出现在文件中；文件版本从 1 开始单调递增。首次写入时把内置默认值归档为 `history/0.json`。目录 `/var/lib/fs-customer-segments`（权限 0700）在共享模块部署时预建。
 
 - 写入方：只有二期客户维护页的管理员设置；写入为「临时文件 + fsync + rename」原子替换，旧版本另存 `history/<version>.json`。
 - 读取方：每次查询或每日运行开始时读取一次，并把 `version` 写进结果和快照；同一快照内不换版本。
