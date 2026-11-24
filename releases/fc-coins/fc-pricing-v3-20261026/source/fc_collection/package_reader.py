@@ -9,7 +9,6 @@ import sys
 import uuid
 from urllib.parse import urlencode
 
-IGGM = 'https://www.iggm.com/ea-sports-fc/fc-27-coins'
 U4GM = 'https://www.u4gm.com/fc-27/coins'
 LABELS = {'PS': ('PS', 'PS 4/5', ''), 'XBOX': ('XBOX', 'Xbox One/Series', '?server_code=xbox_one_series'),
           'PC': ('PC', 'PC', '?server_code=pc')}
@@ -87,32 +86,6 @@ def row(source, platform, quantity, price, gift, url, stamp, basis):
                 captured_at=stamp, status='valid', evidence_ref={'price_basis':basis})
 
 
-def iggm_rows(doc, url, wanted, stamp):
-    for card in doc.css('li.item.shippingCoins'):
-        if re.search(r'newcomer|new (?:user|customer)|coupon|voucher|flash sale|limited.time|extra (?:bonus|gift)', content(card), re.I):
-            continue
-        title = card.css('.item-title')
-        chosen = card.css('[data-num].active')
-        price = card.css('.item-price .price[lkr]')
-        if len(title) != 1 or len(chosen) != 1 or len(price) != 1:
-            continue
-        name = re.fullmatch(r'FC\s*27 Coins (PS(?:4/5)?|Xbox|PC) Comfort Trade', content(title[0]), re.I)
-        quantity = chosen[0].attrib['data-num']
-        tier = re.fullmatch(r'(\d+)\s*(K|M)(?:\s*\+\s*(\d+)\s*K)?', content(chosen[0]), re.I)
-        value = re.fullmatch(r'\$\s*(\d+(?:\.\d{1,2})?)', content(price[0]))
-        if not (name and tier and value and quantity in QUANTITIES):
-            continue
-        if int(tier[1]) * (1000 if tier[2].upper() == 'M' else 1) != int(quantity):
-            continue
-        platform = name[1].upper()
-        platform = 'PS' if platform.startswith('PS') else platform
-        if (platform, quantity) not in wanted:
-            continue
-        visible = amount(value[1])
-        if visible > 0 and amount(price[0].attrib['lkr']).quantize(CENT, rounding=ROUND_HALF_UP) == visible:
-            yield row('IGGM', platform, quantity, visible, tier[3] or '0', url, stamp, 'selected_native_price')
-
-
 def u4gm_rows(doc, url, wanted, stamp):
     titles, units, levels = doc.css('h1'), doc.css('[data-unit-price]'), doc.css('.js-product-level')
     if len(titles) != 1 or len(units) != 1 or len(levels) != 1:
@@ -148,15 +121,14 @@ def u4gm_rows(doc, url, wanted, stamp):
 
 
 def parse_packages(source, doc, url, wanted, stamp):
-    parse = {'IGGM': iggm_rows, 'U4GM': u4gm_rows}[source]
-    return list(parse(doc, url, {tuple(slot) for slot in wanted}, stamp))
+    if source != 'U4GM':
+        raise ValueError('unknown_package_source')
+    return list(u4gm_rows(doc, url, {tuple(slot) for slot in wanted}, stamp))
 
 
 def collect(source, wanted, get):
     if source == 'Lootbar':
         urls = [lootbar_url(p) for p in LABELS if any(platform == p for platform, _ in wanted)]
-    elif source == 'IGGM':
-        urls = [IGGM]
     elif source == 'U4GM':
         urls = [U4GM+details[2] for platform, details in LABELS.items() if any(p==platform for p,q in wanted)]
     else:
@@ -195,7 +167,7 @@ def collect(source, wanted, get):
 
 def run_request(request):
     from scrapling.fetchers import Fetcher
-    if set(request) != {'source','run_id','wanted'} or request['source'] not in ('Lootbar','IGGM','U4GM'):
+    if set(request) != {'source','run_id','wanted'} or request['source'] not in ('Lootbar','U4GM'):
         raise ValueError('invalid_package_request')
     run_id = request['run_id']
     wanted = [tuple(pair) for pair in request['wanted']]

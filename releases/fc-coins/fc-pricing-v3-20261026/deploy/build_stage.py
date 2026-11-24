@@ -21,7 +21,8 @@ from target_map import CURVE_INSURANCE_SCOPE, CURVE_INSURANCE_TARGET_COUNT, curv
 from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEKLY_NEW, curve_weekly_targets
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, curve_arab_quote_targets
-from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS, MARKET_PACKAGE_REPOSITORY_SOURCES, OBSERVER_CONTROL_FILES
+from target_map import (CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS, MARKET_PACKAGE_REPOSITORY_SOURCES,
+                        OBSERVER_CONTROL_FILES, OBSERVER_RETIREMENT_REPOSITORY_SOURCES)
 from target_map import HOURLY_COST_CHANNEL_BASE, HOURLY_COST_CHANNEL_OVERLAY, hourly_cost_channel_overlay
 from target_map import (ORDER_COST_CHANNEL_INSERT, ORDER_COST_CHANNEL_OVERLAY,
                         ORDER_COST_CHANNEL_REPOSITORY, order_cost_channel_overlay)
@@ -79,6 +80,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
     if three_platform:paths.extend(THREE_PLATFORM_REPOSITORY_SOURCES.values())
     if curve_stability:paths.extend(CURVE_STABILITY_REPOSITORY_SOURCES.values())
     repository_sources = (MARKET_PACKAGE_REPOSITORY_SOURCES if curve_recovery == 'market-packages'
+                          else OBSERVER_RETIREMENT_REPOSITORY_SOURCES if curve_recovery == 'observer-retirement'
                           else CURVE_V6_REPOSITORY_SOURCES if curve_v6 else {})
     paths.extend(repository_sources.values())
     if channel_overlay is not None:paths.append(ORDER_COST_CHANNEL_REPOSITORY)
@@ -170,7 +172,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
             provenance['scope'] = CURVE_ARAB_QUOTE_SCOPE
         if curve_recovery:
             provenance['scope'] = CURVE_RECOVERY_SCOPES[curve_recovery]
-        if curve_recovery == 'market-packages':
+        if curve_recovery in ('market-packages', 'observer-retirement'):
             provenance['repositorySources'] = repository_sources
         if curve_recovery == 'hourly-order-cost':
             provenance.update(sourceBaseCommit=HOURLY_COST_CHANNEL_BASE,

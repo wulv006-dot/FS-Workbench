@@ -17,7 +17,7 @@ class CurrentDashboardBaselineTest(unittest.TestCase):
         spec.loader.exec_module(module)
         module.__file__ = str(RUNTIME.with_name("coins_evidence.py"))
         self.assertEqual(module.baseline_identity(), {
-            "version": "business-baseline-fc-v6-20261124",
+            "version": "business-baseline-fc-v6-20261125",
             "sha256": hashlib.sha256(RUNTIME.read_bytes()).hexdigest(),
         })
 
@@ -44,7 +44,7 @@ class CurrentDashboardBaselineTest(unittest.TestCase):
             self.assertIn(entry, text)
         package_rule = next(line for line in canonical.decode("utf-8").splitlines()
                             if line.startswith("`fc27_curve_v6` 按 PS、Xbox、PC 各自全球统一价"))
-        self.assertIn("U4GM、IGGM 仅作观察", package_rule)
+        self.assertIn("U4GM 仅作观察", package_rule)
         self.assertIn("缺领取或回执时，尝试或结果待核", package_rule)
         self.assertIn(package_rule, text.splitlines())
         provenance = json.loads(RUNTIME.with_suffix(".provenance.json").read_text(encoding="utf-8"))

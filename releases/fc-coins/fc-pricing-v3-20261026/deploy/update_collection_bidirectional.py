@@ -164,6 +164,7 @@ LOOTBAR_SCOPE='fc-lootbar-183-fallback-20261111'
 ARAB_PRICE_TABLE_SCOPE='fc-arabut-price-table-20261113'
 ARAB_ACTIVE_QUOTE_SCOPE='fc-arabut-active-quote-20261119'
 MARKET_SCOPE='fc-market-packages-20261124'
+MARKET_RETIRE_SCOPE='fc-retire-iggm-20261125'
 MARKET_BEFORE={'node':'15ebddc9e4ae1ef6318c01c92f21dbf11f73fda92f4383ebb52f56ec4cfc563d',
                'control':'568292e9cbbfc71670092734da7f2fc39543eca2985bccde741bcc3797085773'}
 MARKET_NEW={'node':{'fc_collection/package_reader.py'},
@@ -219,13 +220,13 @@ def _lootbar_access_read():
     return p.read_bytes()
 
 
-def read_lootbar_bundle(path,digest,role,*,market=False):
+def read_lootbar_bundle(path,digest,role,*,market=False,retire_iggm=False):
     if role not in LOOTBAR_ROLE_FILES and role!='renderer':raise ValueError('lootbar_role_invalid')
     path=Path(path)
     if path.is_symlink() or not path.is_file() or path.stat().st_size>8388608 or _lootbar_sha(path)!=digest:
         raise ValueError('lootbar_bundle_hash_invalid')
     allowed=LOOTBAR_RENDERER_FILES if role=='renderer' else LOOTBAR_ROLE_FILES[role]
-    if market:
+    if market or retire_iggm:
         allowed=allowed | MARKET_NEW[role]
     with zipfile.ZipFile(path) as z:
         info=z.infolist()
@@ -238,7 +239,8 @@ def read_lootbar_bundle(path,digest,role,*,market=False):
         m=json.loads(files['manifest.json'])
         if (set(m)!={'schema_version','role','production_consume','sources','credentials','business_runtime','sha256'} or m.get('schema_version')!=1
                 or m.get('role')!=('limited_fc_collector' if role=='node' else 'fc_collection_controller')
-                or m.get('sources')!=(['ArabUT','Lootbar','U4GM','IGGM'] if market else ['ArabUT','Lootbar'])
+                or m.get('sources')!=(['ArabUT','Lootbar','U4GM'] if retire_iggm else
+                                      ['ArabUT','Lootbar','U4GM','IGGM'] if market else ['ArabUT','Lootbar'])
                 or m.get('credentials')!=[] or m.get('business_runtime') is not False or m.get('production_consume') is not False
                 or set(m.get('sha256',{}))!=allowed-{'manifest.json'} or any(hashlib.sha256(files[k]).hexdigest()!=v for k,v in m['sha256'].items())):
             raise ValueError('lootbar_role_manifest_invalid')
@@ -255,9 +257,11 @@ def lootbar_access_bytes(raw,expected_sha,old_digest,new_digest):
     return updated
 
 
-def _lootbar_old_role(code,role,*,existing_role=False):
+def _lootbar_old_role(code,role,*,existing_role=False,retire_iggm=False):
     manifest=json.loads((code/'manifest.json').read_text())
     expected=LOOTBAR_ROLE_FILES[role]-({'manifest.json'} if existing_role else {'manifest.json','fc_collection/lootbar.py'})
+    if retire_iggm:
+        expected |= MARKET_NEW[role]
     actual={p.relative_to(code).as_posix() for p in code.rglob('*') if p.is_file()}
     if (actual!=expected|{'manifest.json'} or set(manifest.get('sha256',{}))!=expected
             or any(p.is_symlink() for p in code.rglob('*'))
@@ -304,7 +308,7 @@ def _lootbar_restart_renderer():
         time.sleep(.2)
 
 
-def _lootbar_role_health(digest, *, market=False):
+def _lootbar_role_health(digest, *, market=False, retire_iggm=False):
     deadline=time.monotonic()+5
     while True:
         try:
@@ -316,7 +320,9 @@ def _lootbar_role_health(digest, *, market=False):
             if time.monotonic()>=deadline:raise
             time.sleep(.1)
     if value.get('worker_digest')!=digest or value.get('uid')!=999:raise ValueError('lootbar_node_health_failed')
-    if market and not {'U4GM','IGGM'} <= set(value.get('adapters', {})):
+    package_adapters=set(value.get('adapters', {})) & {'U4GM','IGGM'}
+    if (market and package_adapters != {'U4GM','IGGM'}) or (retire_iggm and (
+            package_adapters != {'U4GM'} or not {'ArabUT','Lootbar'} <= set(value.get('adapters', {})))):
         raise ValueError('market_package_runtime_unavailable')
 
 
@@ -327,15 +333,26 @@ def _arab_role_changed(scope, role, before, after):
         allowed |= MARKET_NEW[role] | {'fc_collection/'+n for n in role_changes}
     if scope==ARAB_PRICE_TABLE_SCOPE and role=='control':
         allowed.add('fc_collection/client.py')
+    if scope==MARKET_RETIRE_SCOPE:
+        changed=('contracts.py','public_sources.py','package_reader.py')
+        changed+=('server.py',) if role=='node' else ('package_relay.py','package_routes.py')
+        allowed={'manifest.json', *('fc_collection/'+name for name in changed)}
     if {name for name in before if before[name]!=after[name]} != allowed:
         raise ValueError('arab_active_quote_exact_change_scope' if scope==ARAB_ACTIVE_QUOTE_SCOPE
                          else 'arab_price_table_exact_change_scope')
 
 
 def prepare_lootbar(role,bundle,digest,release_id,source_commit,worker_digest=None,original_task=None,
-                    installed_manifest=None,installed_worker=None,*,arabut_active_quote=False,market_packages=False):
+                    installed_manifest=None,installed_worker=None,*,arabut_active_quote=False,market_packages=False,
+                    retire_iggm=False):
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}',release_id or '') or not re.fullmatch('[a-f0-9]{40}',source_commit or ''):raise ValueError('lootbar_release_identity_invalid')
     scope=ARAB_PRICE_TABLE_SCOPE if installed_manifest is not None else LOOTBAR_SCOPE
+    if retire_iggm:
+        if arabut_active_quote or market_packages or role not in ('node','control') or installed_manifest is None:
+            raise ValueError('market_retirement_existing_role_required')
+        scope=MARKET_RETIRE_SCOPE
+        if role=='control' and worker_digest==installed_worker:
+            raise ValueError('market_retirement_requires_new_worker')
     if arabut_active_quote or market_packages:
         pins=MARKET_BEFORE if market_packages else ARAB_ACTIVE_QUOTE_BEFORE_MANIFEST
         if (role not in pins or installed_manifest is not None or installed_worker is not None
@@ -345,7 +362,7 @@ def prepare_lootbar(role,bundle,digest,release_id,source_commit,worker_digest=No
         installed_manifest=pins[role]
         if role=='control':
             installed_worker=pins['node']
-    files=read_lootbar_bundle(bundle,digest,role,market=market_packages);root=LOOTBAR_ROOTS[role];code=root if role=='renderer' else root/'code'
+    files=read_lootbar_bundle(bundle,digest,role,market=market_packages,retire_iggm=retire_iggm);root=LOOTBAR_ROOTS[role];code=root if role=='renderer' else root/'code'
     existing_role=scope!=LOOTBAR_SCOPE
     if (existing_role and (role=='renderer' or not re.fullmatch('[a-f0-9]{64}',installed_manifest)
                    or role=='control' and not re.fullmatch('[a-f0-9]{64}',installed_worker or ''))
@@ -358,7 +375,7 @@ def prepare_lootbar(role,bundle,digest,release_id,source_commit,worker_digest=No
         if before['manifest.json']!=(installed_manifest if existing_role else LOOTBAR_BEFORE_MANIFEST[role]):raise ValueError('lootbar_original_manifest_drift')
         actual={p.relative_to(code).as_posix() for p in code.rglob('*') if p.is_file()}
         if actual!=set(files)-missing:raise ValueError('lootbar_original_role_files_drift')
-        _lootbar_old_role(code,role,existing_role=existing_role)
+        _lootbar_old_role(code,role,existing_role=existing_role,retire_iggm=retire_iggm)
     else:_lootbar_renderer_before(before)
     protected=LOOTBAR_RENDERER_PROTECTED if role=='renderer' else LOOTBAR_ROLE_PROTECTED[role]
     m=dict(schema_version=1,scope=scope,release_id=release_id,role=role,source_commit=source_commit,
@@ -385,10 +402,10 @@ def update_lootbar(manifest_path,apply=False,manifest_sha256=None):
     if not re.fullmatch('[a-f0-9]{64}',manifest_sha256 or '') or _lootbar_sha(manifest_path)!=manifest_sha256:raise ValueError('lootbar_manifest_sha256_required')
     m=json.loads(Path(manifest_path).read_text());role=m.get('role')
     scope=m.get('scope');existing_role=scope!=LOOTBAR_SCOPE
-    if scope not in (LOOTBAR_SCOPE,ARAB_PRICE_TABLE_SCOPE,ARAB_ACTIVE_QUOTE_SCOPE,MARKET_SCOPE) or existing_role and role not in ('node','control') or m.get('schema_version')!=1 or m.get('publisher_sha256')!=_lootbar_sha(__file__):raise ValueError('lootbar_frozen_manifest_required')
+    if scope not in (LOOTBAR_SCOPE,ARAB_PRICE_TABLE_SCOPE,ARAB_ACTIVE_QUOTE_SCOPE,MARKET_SCOPE,MARKET_RETIRE_SCOPE) or existing_role and role not in ('node','control') or m.get('schema_version')!=1 or m.get('publisher_sha256')!=_lootbar_sha(__file__):raise ValueError('lootbar_frozen_manifest_required')
     bundle=Path(manifest_path).parent/m['bundle_name']
     if Path(m['bundle_name']).name!=m['bundle_name']:raise ValueError('lootbar_bundle_path_invalid')
-    files=read_lootbar_bundle(bundle,m['bundle_sha256'],role,market=scope==MARKET_SCOPE)
+    files=read_lootbar_bundle(bundle,m['bundle_sha256'],role,market=scope==MARKET_SCOPE,retire_iggm=scope==MARKET_RETIRE_SCOPE)
     if set(m['before'])!=set(files) or m['after']!={n:hashlib.sha256(b).hexdigest() for n,b in files.items()}:raise ValueError('lootbar_exact_manifest_files_required')
     root=LOOTBAR_ROOTS[role];code=root if role=='renderer' else root/'code'
     if any(p.is_symlink() for p in (root,code,*root.parents)):raise ValueError('lootbar_role_path_link')
@@ -413,7 +430,7 @@ def update_lootbar(manifest_path,apply=False,manifest_sha256=None):
             if role=='control' and hashlib.sha256(_lootbar_access_read()).hexdigest()!=old.get('access_after_sha256'):raise ValueError('lootbar_access_after_drift')
             return dict(old,phase='already_updated')
         raise ValueError('lootbar_original_receipt_requires_reconciliation')
-    if role!='renderer':_lootbar_old_role(code,role,existing_role=existing_role)
+    if role!='renderer':_lootbar_old_role(code,role,existing_role=existing_role,retire_iggm=scope==MARKET_RETIRE_SCOPE)
     for name,h in m['before'].items():
         if _lootbar_sha(code/name)!=h:raise ValueError('lootbar_target_cas_drift:'+name)
         if h is not None and not _lootbar_root_owned(code/name):raise ValueError('lootbar_target_owner_drift')
@@ -459,6 +476,8 @@ def update_lootbar(manifest_path,apply=False,manifest_sha256=None):
                 subprocess.run(['systemctl','start','fs-fc-collector.service'],check=True,timeout=15)
                 if scope==MARKET_SCOPE:
                     _lootbar_role_health(m['worker_digest'],market=True)
+                elif scope==MARKET_RETIRE_SCOPE:
+                    _lootbar_role_health(m['worker_digest'],retire_iggm=True)
                 else:
                     _lootbar_role_health(m['worker_digest'])
         if any(_lootbar_sha(code/n)!=h for n,h in m['after'].items()) or any(_lootbar_sha(n)!=h for n,h in m['protected'].items()):raise ValueError('lootbar_postwrite_readback_failed')
@@ -495,7 +514,8 @@ if __name__ == '__main__' and len(sys.argv)>1 and sys.argv[1]=='lootbar-prepare'
     p.add_argument('--installed-manifest');p.add_argument('--installed-worker')
     p.add_argument('--arabut-active-quote',action='store_true')
     p.add_argument('--market-packages',action='store_true')
-    a=p.parse_args(sys.argv[2:]);print(json.dumps(prepare_lootbar(a.role,a.bundle,a.bundle_sha256,a.release_id,a.source_commit,a.worker_digest,a.original_task,a.installed_manifest,a.installed_worker,arabut_active_quote=a.arabut_active_quote,market_packages=a.market_packages),sort_keys=True))
+    p.add_argument('--retire-iggm',action='store_true')
+    a=p.parse_args(sys.argv[2:]);print(json.dumps(prepare_lootbar(a.role,a.bundle,a.bundle_sha256,a.release_id,a.source_commit,a.worker_digest,a.original_task,a.installed_manifest,a.installed_worker,arabut_active_quote=a.arabut_active_quote,market_packages=a.market_packages,retire_iggm=a.retire_iggm),sort_keys=True))
 elif __name__ == '__main__' and len(sys.argv)>1 and sys.argv[1]=='lootbar':
     p=argparse.ArgumentParser(description='Exact Lootbar source-role/renderer update; legacy 11/7 mode unchanged')
     p.add_argument('--manifest',required=True);p.add_argument('--manifest-sha256',required=True);p.add_argument('--apply',action='store_true')

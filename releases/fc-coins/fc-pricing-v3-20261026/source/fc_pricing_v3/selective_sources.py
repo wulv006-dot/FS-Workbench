@@ -89,7 +89,7 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
         if policy in (POLICY, FOUR_SOURCE_POLICY):
             result.update(version='fc27-ordinary-package-offers-v1',
                 retired_automatic_sources=['ArabUT','ELD','ItemD2R'],
-                competitor_roles={'Lootbar':'core','U7Buy':'differentiation','U4GM':'observation','IGGM':'observation'})
+                competitor_roles={'Lootbar':'core','U7Buy':'differentiation','U4GM':'observation'})
         else:
             result['quantity_scope']=['100']
     return result

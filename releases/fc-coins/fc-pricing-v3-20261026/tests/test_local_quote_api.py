@@ -13,6 +13,21 @@ def request(source='U4GM', wanted=None):
 
 
 class LocalQuoteAPI(unittest.TestCase):
+    def test_legacy_routes_refuse_retired_site_and_hide_its_rows(self):
+        class Legacy:
+            def do_GET(self):
+                return self._send({'n': 2, 'rows': [{'site': 'iggm'}, {'site': 'u4gm'}]})
+
+            def _send(self, result, code):
+                return result, code
+
+        local = local_quote_api.handler(Legacy)()
+        for path in ('/price?site=IGGM', '/history?site=iggm', '/refresh?sites=u4gm%2Ciggm'):
+            local.path = path
+            self.assertEqual(local.do_GET(), ({'error': 'unknown_site'}, 404))
+        local.path = '/history'
+        self.assertEqual(local.do_GET(), ({'n': 1, 'rows': [{'site': 'u4gm'}]}, 200))
+
     def test_offer_binds_visible_platform_quantity_price_and_gift(self):
         stamp = '2026-11-24T14:15:00+00:00'
         row = u4gm_browser.preview_offer('XBOX', '1000', 'Xbox One/Series', '1000 K\n+50K Free', '$ 65.00', stamp)

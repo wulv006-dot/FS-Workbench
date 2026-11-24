@@ -180,6 +180,8 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         next_role = json.loads((candidate_role / 'manifest.json').read_bytes())
         prior_hashes = prior_role.pop('sha256')
         next_hashes = next_role.pop('sha256')
+        if curve_recovery == 'observer-retirement' and prior_role['sources'] == ['ArabUT','Lootbar','U4GM','IGGM']:
+            prior_role['sources'] = ['ArabUT','Lootbar','U4GM']
         if prior_role != next_role or prior_hashes.keys() != next_hashes.keys():
             raise ValueError('observer_control_role_manifest_changed')
         for name, prior_hash in prior_hashes.items():

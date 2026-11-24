@@ -13,7 +13,7 @@ from .protocol import read_message, write_message
 
 ROOT = Path('/run/fs-fc-iggm-local')
 ALIAS = 'fs-fc-iggm-readback'
-LOCAL_SOURCES = ('IGGM', 'U4GM')
+LOCAL_SOURCES = ('U4GM',)
 WORKER_POLL_SECONDS = 30
 RECEIPT_TIMEOUT_SECONDS = 30  # Three sequential public GETs at up to seven seconds each.
 
@@ -72,7 +72,6 @@ def relay(root=ROOT):
 
 
 def local_once(ssh_config=None):
-    from .package_reader import run_request
     cmd = ['ssh','-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=7',
            '-o','ServerAliveInterval=10','-o','ServerAliveCountMax=2','-o','ForwardAgent=no','-o','ClearAllForwardings=yes',ALIAS]
     if ssh_config is not None:
@@ -86,10 +85,7 @@ def local_once(ssh_config=None):
             if task != {'status':'idle'}:
                 if task.get('source') not in LOCAL_SOURCES:
                     raise ValueError('local_package_scope')
-                if task['source'] == 'U4GM':
-                    receipt = local_quote_api({k: task[k] for k in ('source', 'run_id', 'wanted')})
-                else:
-                    receipt = run_request(task)
+                receipt = local_quote_api({k: task[k] for k in ('source', 'run_id', 'wanted')})
                 write_message(ssh.stdin, receipt)
         finally:
             watchdog.cancel()

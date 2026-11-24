@@ -13,12 +13,12 @@ MAX_INPUT = 8192
 
 
 def import_quotes(db, batch, now, apply):
-    from fc_collection.package_reader import IGGM, U4GM, amount, row
+    from fc_collection.package_reader import U4GM, amount, row
     from fc_pricing_v3.competitor_offers import CURRENT_QUANTITIES, PLATFORMS, POLICY, normalize_offers
     from fc_pricing_v3.financial import fingerprint, instant
 
     if (not isinstance(batch, dict) or set(batch) != {'run_id', 'captured_at', 'offers'}
-            or not isinstance(batch['offers'], list) or not 1 <= len(batch['offers']) <= 12):
+            or not isinstance(batch['offers'], list) or not 1 <= len(batch['offers']) <= 6):
         raise ValueError('browser_observation_batch_scope')
     run_id, captured_at = batch['run_id'], batch['captured_at']
     if str(UUID(run_id)) != run_id:
@@ -26,7 +26,7 @@ def import_quotes(db, batch, now, apply):
     stamp = instant(captured_at)
     if not 0 <= (now - stamp).total_seconds() <= 900:
         raise ValueError('browser_observation_stale')
-    urls = {'IGGM': IGGM, 'U4GM': U4GM}
+    urls = {'U4GM': U4GM}
     slots = set()
     raw = []
     for offer in batch['offers']:

@@ -159,9 +159,22 @@ def _curve_preview_history(conn, snapshot, as_of, *, require_snapshot_binding=Tr
 
 
 def recent_market_observations(db):
+    from .competitor_offers import MONITORING_SOURCES
     with closing(db.connect()) as conn:
-        return [json.loads(row[0]) for row in conn.execute(
-            'SELECT body FROM market_observations ORDER BY rowid DESC LIMIT 5')]
+        results = []
+        for (raw,) in conn.execute('SELECT body FROM market_observations ORDER BY rowid DESC LIMIT 5'):
+            result = json.loads(raw)
+            if 'package_offers' in result:
+                result['package_offers'] = [row for row in result['package_offers']
+                                            if row.get('source') in MONITORING_SOURCES]
+            if 'package_status' in result:
+                result['package_status'] = {source: info for source, info in result['package_status'].items()
+                                            if source in MONITORING_SOURCES}
+            if 'retired_automatic_sources' in result:
+                result['retired_automatic_sources'] = [source for source in result['retired_automatic_sources']
+                                                       if source != 'IGGM']
+            results.append(result)
+        return results
 
 
 def strategy_summary(decisions):
@@ -286,10 +299,11 @@ def manual_execution_progress(db, operations):
 
 def _curve_market_quotes(snapshot, observation=None):
     from .competitor_offers import (CURRENT_QUANTITIES, FOUR_SOURCE_POLICY, LEGACY_POLICY, LEGACY_SOURCES,
-                                    POLICY, PRICING_SOURCES, SOURCES, quantity_coverage)
+                                    MONITORING_SOURCES, POLICY, PRICING_SOURCES, quantity_coverage)
     policy = snapshot['evidence'].get('competitor_policy', LEGACY_POLICY)
     requested = CURRENT_QUANTITIES if policy in (POLICY, FOUR_SOURCE_POLICY) else ('100',)
-    sources = {POLICY: PRICING_SOURCES, FOUR_SOURCE_POLICY: SOURCES}.get(policy, LEGACY_SOURCES)
+    sources = {POLICY: PRICING_SOURCES, FOUR_SOURCE_POLICY: PRICING_SOURCES + MONITORING_SOURCES}.get(
+        policy, LEGACY_SOURCES)
     def public_quote(row):
         return {key:row.get(key) for key in ('source','platform','purchase_k','bonus_k','currency',
                 'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier','captured_at')}
@@ -298,7 +312,7 @@ def _curve_market_quotes(snapshot, observation=None):
     monitoring, monitoring_status, monitoring_attempts = {}, {}, {}
     if policy == POLICY:
         same_run = observation if observation and observation.get('run_id') == snapshot['snapshot_id'] else {}
-        for source in ('IGGM','U4GM'):
+        for source in MONITORING_SOURCES:
             result = same_run.get('package_status', {}).get(source) or {}
             status = result.get('status')
             monitoring_status[source] = status if status in ('captured','partial','missing') else 'pending'

@@ -117,12 +117,12 @@ namespace FsQuoteTray {
             Text="FC27 本机报价";
             AutoScaleMode=AutoScaleMode.Dpi; StartPosition=FormStartPosition.CenterScreen;
             FormBorderStyle=FormBorderStyle.FixedDialog; MaximizeBox=false; MinimizeBox=false;
-            ClientSize=new Size(370,350); ShowInTaskbar=true;
+            ClientSize=new Size(370,315); ShowInTaskbar=true;
             Font=new Font("Microsoft YaHei UI",9F);
-            layout=new TableLayoutPanel { Dock=DockStyle.Fill, Padding=new Padding(16,10,16,10), ColumnCount=3, RowCount=9 };
+            layout=new TableLayoutPanel { Dock=DockStyle.Fill, Padding=new Padding(16,10,16,10), ColumnCount=3, RowCount=8 };
             Controls.Add(layout);
             foreach (int w in new[]{34,33,33}) layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,w));
-            foreach (int h in new[]{40,23,26,44,44,44,26,30,25}) layout.RowStyles.Add(new RowStyle(SizeType.Percent,h));
+            foreach (int h in new[]{40,23,26,44,44,44,26,25}) layout.RowStyles.Add(new RowStyle(SizeType.Percent,h));
             Add("U4GM 普通购买价",0,0,3,true);
             status=Add("",0,1,3);
             Add("平台",0,2,1,false,true); Add("100K",1,2,1,false,true); Add("1000K",2,2,1,false,true);
@@ -131,8 +131,7 @@ namespace FsQuoteTray {
                 for(int c=0;c<2;c++) cells[r,c]=Add("—",c+1,r+3,1);
             }
             time=Add("",0,6,3,false,true);
-            Add("IGGM　当前本机接口未接入",0,7,3,false,true);
-            Add("USD   上次采价超过 15 分钟标为过期",0,8,3,false,true);
+            Add("USD   上次采价超过 15 分钟标为过期",0,7,3,false,true);
         }
         Label Add(string text,int column,int row,int span,bool title=false,bool muted=false) {
             var label = new Label { Text=text, Dock=DockStyle.Fill, TextAlign=ContentAlignment.MiddleLeft, Margin=Padding.Empty };

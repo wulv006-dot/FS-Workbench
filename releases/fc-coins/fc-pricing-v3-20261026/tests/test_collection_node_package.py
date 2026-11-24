@@ -54,7 +54,7 @@ class NodePackage(unittest.TestCase):
                 result = session.health('187', digest)
                 self.assertEqual(result['adapters']['ArabUT'], 'arab-public-quote-collection-v3')
                 self.assertEqual(result['adapters']['Lootbar'], 'lootbar-public-browser-v1')
-                self.assertEqual('U4GM' in result['adapters'], 'IGGM' in result['adapters'])
+                self.assertNotIn('IGGM', result['adapters'])
                 session.send(dict(method='shell', command='must-not-execute'))
                 message = session.read()
                 self.assertEqual(message['kind'], 'error')

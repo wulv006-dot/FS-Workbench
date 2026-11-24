@@ -817,11 +817,17 @@ class RuntimeContracts(unittest.TestCase):
             db=Ledger(Path(folder) / 'control.db')
             for index in range(7):
                 db.put('market_observations',str(index),dict(run_id=str(index),status='observed',
+                    package_offers=[{'source':'U4GM'}, {'source':'IGGM'}],
+                    package_status={'U4GM':{'status':'captured'}, 'IGGM':{'status':'missing'}},
                     eldorado=dict(status='partial',platforms=[])))
             with patch.object(api,'ledger',return_value=db):
                 state=api.read('state')
             self.assertEqual([item['run_id'] for item in state['latest_market_observations']],
                              ['6','5','4','3','2'])
+            item = state['latest_market_observations'][0]
+            self.assertEqual(item['package_offers'], [{'source':'U4GM'}])
+            self.assertEqual(set(item['package_status']), {'U4GM'})
+            self.assertIn('IGGM', db.get('market_observations','6')['package_status'])
 
     def test_restore_preview_only_reads_confirmed_original_before_prices(self):
         ident='00000000-0000-4000-8000-000000000020'

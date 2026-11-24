@@ -318,10 +318,16 @@ MARKET_PACKAGE_REPOSITORY_SOURCES = {
     **{'source/' + name: 'releases/fs-dashboard/fc-coins-workflow-20261022/source/' + name
        for name in MARKET_HERMES_MODULES},
 }
+OBSERVER_RETIREMENT_REPOSITORY_SOURCES = {
+    'source/research.py': 'releases/fs-dashboard/fc-coins-workflow-20261022/source/research.py',
+    'source/market_snapshot.py': 'releases/fs-dashboard/hermes-market-sources-20261015/source/market_snapshot.py',
+}
 OBSERVER_CACHE_CONTROL_FILES = ('manifest.json', 'fc_collection/package_routes.py', 'fc_collection/package_relay.py')
 OBSERVER_CONTROL_FILES = {
     'observer-cache': OBSERVER_CACHE_CONTROL_FILES,
     'observer-status': (*OBSERVER_CACHE_CONTROL_FILES, 'fc_collection/client.py'),
+    'observer-retirement': (*OBSERVER_CACHE_CONTROL_FILES, 'fc_collection/contracts.py',
+                            'fc_collection/package_reader.py', 'fc_collection/public_sources.py'),
 }
 CURVE_RECOVERY_TARGETS = {
     'observer-cache': {
@@ -331,6 +337,15 @@ CURVE_RECOVERY_TARGETS = {
         **{'control-role/' + name: '/opt/fs-fc-control/code/' + name for name in OBSERVER_CONTROL_FILES['observer-status']},
         **{name: '/var/www/dashboard/' + name for name in ('fc-pricing-v3.js', 'fc27-coins.html')},
         **module_targets(('api.py', 'observations.py')),
+    },
+    'observer-retirement': {
+        **{'control-role/' + name: '/opt/fs-fc-control/code/' + name
+           for name in OBSERVER_CONTROL_FILES['observer-retirement']},
+        **{name: '/var/www/dashboard/' + name for name in ('fc-pricing-v3.js','fc27-coins.html')},
+        'fc27_cloud_api.py': '/opt/fc27-cloud-browser/fc27_cloud_api.py',
+        'research.py': '/opt/fs-hermes-fc/research.py',
+        'market_snapshot.py': '/opt/fs-hermes-fc/market_snapshot.py',
+        **module_targets(('api.py', 'competitor_offers.py', 'observations.py', 'selective_sources.py')),
     },
     'market-packages': {
         **{name: '/opt/fs-hermes-fc/' + name for name in MARKET_HERMES_MODULES},
@@ -385,6 +400,7 @@ CURVE_RECOVERY_SCOPES = {name: 'fc-pricing-v6-recovery-' + name + '-20261119'
 CURVE_RECOVERY_SCOPES['market-packages'] = 'fc-pricing-v6-market-packages-20261124'
 CURVE_RECOVERY_SCOPES['observer-status'] = 'fc-pricing-v6-observer-status-20261124'
 CURVE_RECOVERY_SCOPES['observer-cache'] = 'fc-pricing-v6-observer-cache-20261124'
+CURVE_RECOVERY_SCOPES['observer-retirement'] = 'fc-pricing-v6-observer-retirement-20261125'
 CURVE_RECOVERY_SCOPES['shared-evidence'] = 'fc-pricing-v6-recovery-shared-evidence-20261120'
 
 
