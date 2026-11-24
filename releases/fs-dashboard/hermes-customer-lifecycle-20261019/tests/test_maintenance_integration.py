@@ -476,6 +476,26 @@ class Integration(unittest.TestCase):
                 self.service.update()
                 self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
                 self.assertEqual([], self.service.ledger.reviews(entry['id']))
+                controller = TrackingController(self.path.parent / 'auth', lambda user: user == 'operator',
+                                                auto_start=False)
+                controller.maintenance = self.service
+                query = dict(mode=['hermes'], structure=['customer_tracking'], view=['phase_review'])
+                status, payload = controller.get('operator', query)
+                self.assertEqual(200, status)
+                item, = payload['items']
+                self.assertEqual('pending_identity', item['identity_status'])
+                self.assertEqual('uid_case_conflict', item['identity_reason'])
+                self.assertEqual(self.now, datetime.fromisoformat(item['identity_checked_at']))
+
+                self.admin.exceptions = lambda orders: []
+                self.source.orders = [order()]
+                self.tick()
+                self.assertEqual([], controller.get('operator', query)[1]['items'])
+                query['view'] = ['phase_ready']
+                item, = controller.get('operator', query)[1]['items']
+                self.assertEqual(entry['id'], item['id'])
+                self.assertNotIn('identity_reason', item)
+                self.assertNotIn('identity_checked_at', item)
 
     def test_ambiguous_cases_keep_review_pending_until_admin_selection(self):
         first, second = 'a'*32, 'b'*32

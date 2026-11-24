@@ -13,13 +13,14 @@ AWAITING = ('confirmed', 'auto_confirmed', 'deferred')
 REVOCABLE = ('reviewing', 'ready') + AWAITING
 RESERVED = ('dispatching', 'issued', 'pending_register', 'unknown')
 IN_FLIGHT = ('dispatching', 'pending_register', 'unknown')
+RECEIPT_CONFLICT = "json_extract(result,'$.identity_conflicts') IS NOT NULL"
 ALLOWED = {
     'reviewing': {'ready', 'held', 'void'},
     'ready': {'confirmed', 'removed', 'expired', 'auto_confirmed', 'void'},
     **{state: {'dispatching', 'deferred', 'recheck_failed', 'void'} for state in AWAITING},
     'dispatching': {'dispatching', 'issued', 'pending_register', 'limited', 'rejected', 'unknown'},
-    'pending_register': {'issued', 'limited', 'rejected', 'manually_closed'},
-    'unknown': {'issued', 'limited', 'rejected', 'manually_closed'},
+    'pending_register': {'issued', 'limited', 'rejected', 'manually_closed', 'unknown'},
+    'unknown': {'issued', 'limited', 'rejected', 'manually_closed', 'unknown'},
 }
 for terminal in ('held', 'removed', 'expired', 'void', 'recheck_failed', 'issued',
                  'limited', 'rejected', 'manually_closed'):
@@ -208,6 +209,12 @@ class Ledger:
             return [json.loads(row['result']) for row in db.execute(
                 'SELECT result FROM maintenance_reviews WHERE entry_id=? ORDER BY at', (ident,))]
 
+    def defer_review_identity(self, ident, at, reason):
+        with self.db(write=True) as db:
+            details = dict(identity_reason=reason, identity_checked_at=stamp(at))
+            db.execute("UPDATE maintenance_entries SET result=? WHERE id=? AND state='reviewing'",
+                       (canonical(details), ident))
+
     def commit_review(self, ident, result, checked_digest, at):
         state = {'pass': 'ready', 'hold': 'held'}[result['decision']]
         with self.db(write=True) as db:
@@ -323,12 +330,17 @@ class Ledger:
         coupon_id = str(receipt.get('member_coupon_id') or '')
         with self.db(write=True) as db:
             row = fetch_entry(db, ident)
-            if not row or row['state'] != expected:
+            if (not row or row['state'] != expected
+                    or (row['result'] or {}).get('identity_conflicts')):
                 return False
+            conflicts = receipt.get('identity_conflicts')
+            if row['job_id'] and job and row['job_id'] != job:
+                conflicts = [*(conflicts or ()), 'job_id']
+            if conflicts:
+                return transition(db, row, 'unknown', source, at,
+                                  {'identity_conflicts': conflicts, 'bridge_state': 'unknown'})
             if reconciled and row['job_id']:
                 db.execute('INSERT OR REPLACE INTO maintenance_reconcile_checks(entry_id) VALUES(?)', (ident,))
-            if row['job_id'] and job and row['job_id'] != job:
-                return False
             job = row['job_id'] or job
             state = {
                 'confirmed': 'issued' if re.fullmatch(r'[1-9][0-9]*', coupon_id) else 'unknown',
@@ -357,7 +369,8 @@ class Ledger:
             raise ValueError('maintenance_manual_result')
         with self.db(write=True) as db:
             row = fetch_entry(db, ident)
-            return bool(row and not row['job_id'] and row['state'] in ('unknown', 'pending_register')
+            return bool(row and row['state'] in ('unknown', 'pending_register')
+                        and (not row['job_id'] or (row['result'] or {}).get('identity_conflicts'))
                         and transition(db, row, state, actor, at, {'admin_batch_evidence': proof}))
 
     def queue(self, states, *, limit=100, offset=0, sql_filter='', params=()):
@@ -400,14 +413,15 @@ class Ledger:
 
     def manual_queue(self, *, limit=100, offset=0):
         return self.queue(('pending_register', 'unknown'), limit=limit, offset=offset,
-                          sql_filter='AND job_id IS NULL')
+                          sql_filter=f'AND (job_id IS NULL OR {RECEIPT_CONFLICT})')
 
     def reconcile_queue(self):
         with self.db() as db:
             rows = db.execute(f'SELECT e.* FROM maintenance_entries e '
                               'LEFT JOIN maintenance_reconcile_checks c ON c.entry_id=e.id '
                               f'WHERE e.state IN ({marks(IN_FLIGHT)}) AND e.job_id IS NOT NULL '
-                              'ORDER BY c.sequence,e.created_at,e.id LIMIT 100', IN_FLIGHT)
+                              f'AND NOT ({RECEIPT_CONFLICT}) ORDER BY c.sequence,e.created_at,e.id LIMIT 100',
+                              IN_FLIGHT)
             return [entry_view(row) for row in rows]
 
     def recover_dispatches(self, at, maximum_age):

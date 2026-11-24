@@ -34,6 +34,29 @@ async function submit({coupon_id, email, batch, job, overrides = {}}) {
   }
 }
 
+async function readReceipt({email, batch, job, overrides = {}}) {
+  const originalFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async (url, options) => {
+    calls++;
+    assert.equal(url, 'http://127.0.0.1:8911/admin/market.CouponGrant/jobStatus?job_id=' + job);
+    assert.equal(options.method, 'GET');
+    assert.equal(options.body, undefined);
+    const data = {
+      job_id: job, grant_batch_no: batch, status: 'done', success: 0, failed: 1,
+      total: 1, processed: 1, rows: [{email}], ...overrides,
+    };
+    return {ok: true, text: async () => JSON.stringify({code: 1, data})};
+  };
+  try {
+    const result = await readJob({job_id: job, email, batch}, grantResult);
+    assert.equal(calls, 1);
+    return result;
+  } finally {
+    global.fetch = originalFetch;
+  }
+}
+
 if (require.main === module) {
   test('keeps the scoped native job even when classification is pending registration', async () => {
     const args = {coupon_id: 123, email: 'buyer@example.net', batch: 'FCSM_' + 'A'.repeat(32)};
@@ -74,6 +97,24 @@ if (require.main === module) {
     assert.equal(malformed.job_id, undefined);
   });
 
+  test('an incomplete receipt cannot release quotas', async () => {
+    const args = {email: 'buyer@example.net', batch: 'FCSM_' + 'F'.repeat(32), job: 'job-88'};
+    for (const overrides of [
+      {grant_batch_no: undefined},
+      {job_id: undefined},
+      {grant_batch_no: undefined, failed: 0, skipped_limit: 1},
+    ]) {
+      assert.equal((await readReceipt({...args, overrides})).state, 'unknown');
+    }
+    const rejection = {pending_register: 0, failed: 1, rows: [{email: args.email}]};
+    const grant = {...args, coupon_id: 123};
+    const unbound = await submit({...grant, overrides: {...rejection, batch_no: undefined}});
+    assert.equal(unbound.state, 'unknown');
+    assert.equal(unbound.job_id, args.job);
+    const matched = await submit({...grant, overrides: {...rejection, job_id: null}});
+    assert.equal(matched.state, 'rejected');
+  });
+
   test('reconciliation uses only GET by the original job and verifies recipient', async () => {
     const batch = 'FCSM_' + 'B'.repeat(32);
     const email = 'buyer@example.net';
@@ -91,9 +132,9 @@ if (require.main === module) {
     };
     try {
       const request = {job_id: 'job-88', email, batch};
-      assert.equal((await readJob(request, coupon.reconcile)).member_coupon_id, '222');
-      assert.equal((await readJob({...request, email: 'other@example.net'}, coupon.reconcile)).state, 'unknown');
-      await assert.rejects(readJob({...request, job_id: ''}, coupon.reconcile), /invalid_reconcile_scope/);
+      assert.equal((await readJob(request, grantResult)).member_coupon_id, '222');
+      assert.equal((await readJob({...request, email: 'other@example.net'}, grantResult)).state, 'unknown');
+      await assert.rejects(readJob({...request, job_id: ''}, grantResult), /invalid_reconcile_scope/);
       assert.equal(requests, 2);
     } finally {
       global.fetch = originalFetch;
@@ -101,4 +142,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = {submit};
+module.exports = {submit, readReceipt};

@@ -149,6 +149,11 @@ def install(page, *, admin=True, bulk=False):
             value = CONFIG
         elif view == 'phase_groups':
             value = dict(status='waiting', waiting_for='2026-11-23', items=[], groups=[])
+        elif view == 'phase_review':
+            row = dict(id='review-entry', email=EMAIL, rule_id='rule-A', state='reviewing',
+                       identity_status='pending_identity', identity_reason='uid_case_conflict',
+                       identity_checked_at='2026-11-24T02:35:00+00:00')
+            value = dict(items=[] if state.get('phase_review_resolved') else [row])
         elif view == 'phase_delivery':
             value = dict(items=[dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state='confirmed',
                                      identity_status='pending_identity', identity_reason='email_conflict')])
@@ -157,6 +162,8 @@ def install(page, *, admin=True, bulk=False):
             mode = 'ready' if view == 'phase_ready' else 'unknown'
             row = dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state=mode, batch='FCSM_'+'A'*32,
                        review=dict(manual_coupon_notice='人工券：仅核对已使用记录；另有 1 条用券记录无法归属客户'))
+            if view == 'phase_manual':
+                row.update(job_id='original-job', result=dict(identity_conflicts=['grant_batch_no']))
             value = dict(items=[] if any(post['action']==action for post in state['phase_posts']) else [row])
         elif view == "vip_week":
             if state["deny_week"]:
@@ -469,6 +476,16 @@ def check_phase(browser):
     phase.click()
     expect(page.locator('#phase-status')).to_contain_text('等待 2026-11-23 日数据')
     expect(page.locator('#vip-week-panel')).to_be_hidden()
+    page.locator('#phase-view').select_option('review')
+    review = page.locator('#phase-content')
+    expect(review).to_contain_text('案件归属待核：UID 关联到另一未结案件')
+    checked = review.locator('time')
+    expect(checked).to_have_attribute('datetime', '2026-11-24T02:35:00+00:00')
+    expect(checked).to_contain_text('10:35:00')
+    state['phase_review_resolved'] = True
+    page.locator('#phase-view').select_option('groups')
+    page.locator('#phase-view').select_option('review')
+    expect(review).to_contain_text('暂无条目')
     page.locator('#phase-view').select_option('ready')
     expect(page.locator('#phase-content')).to_contain_text('另有 1 条用券记录无法归属客户')
     page.get_by_role('button', name='确认', exact=True).click()
@@ -482,6 +499,7 @@ def check_phase(browser):
     page.goto('https://fs.invalid/dashboard/customers/reconcile/')
     expect(page.get_by_role('heading', name='待人工核对')).to_be_visible()
     expect(page.locator('#phase-content')).to_contain_text('FCSM_' + 'A'*32)
+    expect(page.locator('#phase-content')).to_contain_text('回执身份冲突（grant_batch_no）')
     page.get_by_label('核对依据').fill('Admin 原批次已确认')
     page.get_by_role('button', name='登记结果').click()
     expect(page.locator('#phase-content')).to_contain_text('暂无条目')

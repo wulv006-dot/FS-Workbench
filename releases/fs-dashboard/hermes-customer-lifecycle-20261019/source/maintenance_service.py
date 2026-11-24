@@ -78,6 +78,7 @@ def keys(body, fields):
 def matching_cases(db, customer):
     ident, email = customer['customer_id'], email_key(customer['email'])
     exact, conflicts = [], []
+    uid_conflict = False
     uid = member_id(customer.get('uid'))
     query = '''SELECT common.id,common.baseline,
                       preferred.baseline AS preferred, known.customer_id AS customer_id
@@ -96,7 +97,8 @@ def matching_cases(db, customer):
             exact.append(case['id'])
         elif email in emails or (uid and uid in uids):
             conflicts.append(case['id'])
-    return sorted(exact), sorted(conflicts)
+            uid_conflict |= bool(email not in emails and uid and uid in uids)
+    return sorted(exact), sorted(conflicts), uid_conflict
 
 
 def create_case(db, customer, at):
@@ -120,28 +122,37 @@ def case_binding(db, customer, *, entering_stage=False):
                            SELECT 1 FROM vip_events e WHERE e.case_id=c.case_id
                            AND json_extract(e.payload,'$.event')='close') AS closed
                            FROM maintenance_cases c WHERE c.customer_id=?""", (ident,)).fetchone()
-    if customer.get('email_conflict') or not valid_email(customer['email']):
-        return None, 'pending_identity', [], []
-    exact, conflicts = matching_cases(db, customer)
+    if customer.get('email_conflict'):
+        return None, 'pending_identity', [], [], 'email_conflict'
+    if not valid_email(customer['email']):
+        return None, 'pending_identity', [], [], 'invalid_email'
+    exact, conflicts, uid_conflict = matching_cases(db, customer)
+    reason = 'case_binding_pending'
+    if uid_conflict:
+        reason = 'uid_case_conflict'
+    elif conflicts:
+        reason = 'email_case_conflict'
+    elif len(exact) > 1:
+        reason = 'multiple_open_cases'
     if prior and prior['status'] == 'pending_identity':
-        return None, 'pending_identity', exact, conflicts
+        return None, 'pending_identity', exact, conflicts, reason
     ambiguous = bool(conflicts or len(exact) > 1)
     if prior and prior['case_id'] in exact:
         if not ambiguous:
-            return prior['case_id'], 'linked', exact, conflicts
+            return prior['case_id'], 'linked', exact, conflicts, None
         resolution = db.execute("SELECT after_json FROM maintenance_changes WHERE action='case_link' "
                                 'AND subject=? ORDER BY rowid DESC LIMIT 1', (ident,)).fetchone()
         if resolution:
             selected = json.loads(resolution['after_json'])
             if (selected.get('case_id'), selected.get('candidates')) == (prior['case_id'], [exact, conflicts]):
-                return prior['case_id'], 'linked', exact, conflicts
+                return prior['case_id'], 'linked', exact, conflicts, None
     if ambiguous or (prior and not (entering_stage and prior['closed'])):
-        return None, 'pending_identity', exact, conflicts
-    return None, 'unlinked', exact, conflicts
+        return None, 'pending_identity', exact, conflicts, reason
+    return None, 'unlinked', exact, conflicts, reason
 
 
 def case_link(db, customer, at):
-    case_id, status, exact, _ = case_binding(db, customer, entering_stage=True)
+    case_id, status, exact, _, _ = case_binding(db, customer, entering_stage=True)
     if status == 'unlinked':
         case_id, status = (exact[0] if exact else create_case(db, customer, at)), 'linked'
         store_case_link(db, customer['customer_id'], case_id, status)
@@ -153,8 +164,10 @@ def case_link(db, customer, at):
 
 
 def case_feedback(db, customer):
-    case_id, status, _, _ = case_binding(db, customer)
-    return events_for(db, case_id) if status == 'linked' else None
+    case_id, status, _, _, reason = case_binding(db, customer)
+    if status != 'linked':
+        raise PendingIdentity(reason)
+    return events_for(db, case_id)
 
 
 def event_order_valid(facts, event, customer):
@@ -323,8 +336,6 @@ class Maintenance:
     def _local_evidence(db, entry, at, evidence, current):
         customer = entry['customer_id']
         feedback = case_feedback(db, current)
-        if feedback is None:
-            raise PendingIdentity('case_binding_pending')
         contacts = [dict(at=row['at'], actor=row['actor'], contacted_at=row.get('contacted_at'))
                     for row in feedback if row['event'] == 'contacted']
         return review_evidence(**evidence, automatic=active_customer(db, customer, at), contacts=contacts)
@@ -411,6 +422,8 @@ class Maintenance:
                 unprocessed += not self.review(entry, latest, at, logs)
             except (LookupError, OSError, ValueError, KeyError, TypeError) as error:
                 unprocessed += 1
+                if isinstance(error, PendingIdentity):
+                    self.ledger.defer_review_identity(entry['id'], self.clock(), str(error))
                 LOGGER.warning('Maintenance review %s pending: %s', entry['id'], type(error).__name__)
         self._review_offset += unprocessed
 
@@ -497,7 +510,7 @@ class Maintenance:
             if not row:
                 raise LookupError('maintenance_customer_missing')
             customer = json.loads(row['body'])
-            case_id, status, exact, _ = case_binding(db, customer)
+            case_id, status, exact, _, _ = case_binding(db, customer)
             owner = db.execute('SELECT owner FROM vip_cases WHERE id=?', (case_id,)).fetchone() if case_id else None
             link = dict(customer_id=ident, case_id=case_id, status=status, owner=owner['owner'] if owner else None)
             override = db.execute('SELECT tier FROM maintenance_overrides WHERE customer_id=?', (ident,)).fetchone()
@@ -533,7 +546,7 @@ class Maintenance:
             if not row:
                 raise ValueError('maintenance_case_already_resolved')
             customer = json.loads(row['body'])
-            _, status, exact, conflicts = case_binding(db, customer)
+            _, status, exact, conflicts, _ = case_binding(db, customer)
             if status != 'pending_identity':
                 raise ValueError('maintenance_case_already_resolved')
             if customer.get('email_conflict'):
@@ -576,7 +589,11 @@ class Maintenance:
             item = {key: value for key, value in row.items() if key != 'rule_body'}
             item['review'] = reviews[-1] if reviews else None
             identity = identities.get(row['id'])
-            if identity and row['state'] in AWAITING:
+            review_check = row['result'] or {}
+            if row['state'] == 'reviewing' and review_check.get('identity_reason'):
+                item.update(identity_status='pending_identity', identity_reason=review_check['identity_reason'],
+                            identity_checked_at=review_check['identity_checked_at'])
+            elif identity and row['state'] in AWAITING:
                 reason = identity['identity_reason']
                 item.update(identity_status='pending_identity' if reason else 'verified',
                             identity_reason=reason, identity_checked_at=identity['identity_checked_at'])
@@ -622,7 +639,7 @@ class Maintenance:
             if action == 'owner':
                 if value is not None:
                     account(value)
-                case_id, status, _, _ = case_binding(db, json.loads(row['body']))
+                case_id, status, _, _, _ = case_binding(db, json.loads(row['body']))
                 case = (db.execute('SELECT id,owner FROM vip_cases WHERE id=?', (case_id,)).fetchone()
                         if status == 'linked' else None)
                 if not case or case['owner'] != expected:

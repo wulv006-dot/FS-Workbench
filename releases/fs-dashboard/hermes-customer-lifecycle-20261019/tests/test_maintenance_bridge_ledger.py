@@ -5,6 +5,7 @@ import subprocess
 import unittest
 
 from test_maintenance_dispatch import Bridge, Dispatcher, NOW, ROOT, ledger_test, TEMPLATE
+from maintenance_reconcile import reconcile
 
 
 class BridgeLedgerTest(unittest.TestCase):
@@ -51,6 +52,63 @@ class BridgeLedgerTest(unittest.TestCase):
         self.assertEqual([(entries[0], 'admin-77'), (entries[2], '88')],
                          [(row['id'], row['job_id']) for row in self.ledger.reconcile_queue()])
         self.assertCountEqual([entries[1], entries[3]], [row['id'] for row in self.ledger.manual_queue()])
+
+
+    def test_reconciliation_releases_quotas_only_for_a_matching_rejection(self):
+        node = shutil.which('node')
+        self.assertIsNotNone(node)
+        fixture = ROOT / 'tests' / 'test_maintenance_coupon_bridge.cjs'
+        scenarios = [
+            ('batch', 'grant_batch_no', {'grant_batch_no': 'FCSM_' + 'B' * 32}),
+            ('recipient', 'rows.email', {'rows': [{'email': 'other@example.net'}]}),
+            ('job', 'job_id', {'job_id': 'other-job'}),
+            ('matched', None, {}),
+        ]
+        for case, conflict, overrides in scenarios:
+            with self.subTest(case=case):
+                self.rule(case)
+                email = case + '@example.net'
+                entry = self.ledger.enqueue(case, case, email, case, NOW)
+                self.ledger.commit_review(entry, dict(digest='proof', decision='pass'), 'proof', NOW)
+                self.ledger.decide(entry, 'confirmed', 'admin', NOW)
+                original = self.ledger.claim(entry, NOW)
+                job = 'admin-' + case
+                self.ledger.result(entry, 'dispatching', dict(state='pending_register', job_id=job), NOW)
+
+                def lookup(job_id, recipient, batch):
+                    self.assertEqual((job, email, original['batch']), (job_id, recipient, batch))
+                    args = dict(job=job_id, email=recipient, batch=batch, overrides=overrides)
+                    script = ('const {readReceipt} = require(process.argv[1]);'
+                              'readReceipt(JSON.parse(process.argv[2])).then(v => console.log(JSON.stringify(v)))'
+                              '.catch(e => { console.error(e); process.exitCode = 1; });')
+                    return json.loads(subprocess.check_output(
+                        [node, '-e', script, str(fixture), json.dumps(args)], timeout=10))
+
+                reconcile(self.ledger, lambda: NOW, lookup)
+                actual = self.ledger.entry(entry)
+                self.assertEqual((job, original['batch']), (actual['job_id'], actual['batch']))
+                self.assertEqual('unknown' if conflict else 'rejected', actual['state'])
+                manual_ids = [row['id'] for row in self.ledger.manual_queue()]
+                self.assertEqual(bool(conflict), entry in manual_ids)
+                self.assertNotIn(entry, [row['id'] for row in self.ledger.reconcile_queue()])
+                if conflict:
+                    self.assertEqual([conflict], actual['result']['identity_conflicts'])
+                self.rule(case + '-other')
+                for event, customer, rule, blocked in [
+                    ('customer', case, case + '-other', 'customer_quota'),
+                    ('rule', case + '-other', case, 'daily_quota'),
+                ]:
+                    successor = self.ledger.enqueue(case + event, customer, email, rule, NOW)
+                    self.ledger.commit_review(successor, dict(digest='proof', decision='pass'), 'proof', NOW)
+                    self.ledger.decide(successor, 'confirmed', 'admin', NOW)
+                    self.assertEqual(not conflict, self.ledger.claim(successor, NOW) is not None)
+                    if conflict:
+                        self.assertEqual(blocked, self.ledger.entry(successor)['result']['reason'])
+                if conflict:
+                    self.assertFalse(self.ledger.result(entry, 'unknown', dict(state='rejected'), NOW,
+                                                        reconciled=True))
+                    self.assertTrue(self.ledger.manual_result(entry, 'manually_closed', 'admin', NOW,
+                                                              '核对了原批次和原 job'))
 
 
 if __name__ == '__main__':

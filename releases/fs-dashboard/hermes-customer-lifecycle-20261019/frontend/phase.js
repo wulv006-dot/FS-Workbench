@@ -21,6 +21,9 @@
     recipient_changed: '收件邮箱变化', rule_changed: '规则已变更', template_changed: '券模板已变更或过期',
     event_invalid: '原末购已失效', pending_identity: '身份待核',
     email_conflict: '邮箱与其他客户冲突', case_binding_pending: '案件归属待确认',
+    invalid_email: '收件邮箱无效', uid_case_conflict: '案件归属待核：UID 关联到另一未结案件',
+    email_case_conflict: '案件归属待核：邮箱关联到另一未结案件',
+    multiple_open_cases: '案件归属待核：同一邮箱存在多个未结案件',
     customer_quota: '客户 30 天内已占用额度', daily_quota: '当日规则额度已满',
     owner_conflict: '当前负责人已变化'
   };
@@ -210,6 +213,9 @@
       if (row.review?.manual_coupon_notice) evidence.append(node('div', row.review.manual_coupon_notice));
       const reasons = (row.review?.reasons || []).map(label);
       if (row.result?.reason) reasons.push(label(row.result.reason));
+      if (row.result?.identity_conflicts?.length) {
+        reasons.push('回执身份冲突（' + row.result.identity_conflicts.join('、') + '）');
+      }
       if (reasons.length) evidence.append(node('div', reasons.join('、')));
       const actions = node('div', undefined, 'phase-actions');
       if (current === 'ready') actions.append(button('剔除', event => {
@@ -232,6 +238,13 @@
       if (row.identity_status === 'pending_identity') {
         state += ' · ' + label(row.identity_status);
         if (row.identity_reason) state += '：' + label(row.identity_reason);
+        if (current === 'review' && row.identity_checked_at) {
+          const shown = new Date(row.identity_checked_at).toLocaleString('zh-CN',
+            {timeZone: 'Asia/Shanghai', hour12: false});
+          const checked = node('time', '检查时间 ' + shown + '（北京时间）');
+          checked.dateTime = row.identity_checked_at;
+          evidence.append(checked);
+        }
       }
       return [row.email, row.rule_id, state, row.batch || '—', evidence, actions];
     });
