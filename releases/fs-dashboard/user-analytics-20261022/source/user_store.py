@@ -596,6 +596,18 @@ class Store:
             raise LookupError('customer_missing')
         return row[0]
 
+    def emails(self, customer_ids):
+        result = {}
+        with self.db() as db:
+            for offset in range(0, len(customer_ids), 200):
+                batch = customer_ids[offset:offset + 200]
+                placeholders = ','.join('?' for _ in batch)
+                result.update(db.execute('SELECT customer_id, email FROM identities WHERE customer_id IN (' +
+                                         placeholders + ')', batch))
+        if len(result) != len(customer_ids):
+            raise LookupError('customer_missing')
+        return result
+
     def find_email(self, email, sites):
         # Reuse the identity key without creating an identity for a search miss.
         lookups = [hmac.new(self.key, canonical([self.config['sites'][site].get('verified_identity_group') or ('site:' + site), email]).encode(), 'sha256').hexdigest() for site in sites]

@@ -55,7 +55,7 @@ check('paid order AOV is same-scope revenue/orders; native customer ARPU and cus
   assert.equal(c.fsPaidOrderAverage({orders:{...metric(2),source:'Order',scope:'all'},revenueUsd:{...metric(30),source:'Admin',scope:'main'}}).value,null);
   if(name!=='shell.js'){
    assert.ok(s.includes("['客单价','averageOrderUsd',money]"));assert.ok(s.includes("['付费客户均额（ARPU）','averageCustomerUsd',money]"));
-   assert.ok(s.includes("['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd']"),'eight primary metric contract retained');
+   assert.ok(s.includes("['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','local_repeat_rate','newCustomerSharePct','averageOrderUsd']"),'eight primary metric contract retained');
    c.rsFilters={};c.rsScope=()=> 'RS';
    vm.runInContext(s.slice(s.indexOf('function rsProjection('),s.indexOf('function rsShippingDays(')),c);
    const rs=make(2,30,20);rs.key='RS';assert.equal(c.fsMainSite(rs).metrics.averageOrderUsd.value,15);

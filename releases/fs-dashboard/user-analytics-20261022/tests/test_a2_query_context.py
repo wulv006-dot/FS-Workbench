@@ -290,6 +290,121 @@ class A2Context(unittest.TestCase):
             context.changes_due(baseline, current, '2026-10-29T00:00:00+08:00',
                                 [{'opaque_customer_id': 'c_'+'f'*32, 'snapshot_id': baseline}])
 
+    def cohort_export_request(self, *, indexed):
+        from user_member_index import initialize
+
+        if indexed:
+            self.config['member_keyset_index'] = True
+            initialize(self.store)
+        self.original.permission_epoch = lambda user, query: 'fixture-policy-1'
+        self.rows = [order(i + 10, person='person' + str(i)) for i in range(205)]
+        self.load()
+        flags = {row['order_no']: 'new' for row in self.rows}
+        import hashlib
+        self.original.customer_type_reader = lambda query: (
+            {hashlib.sha256(key.encode()).hexdigest(): label for key, label in flags.items()}, {'status': 'complete'})
+        result = self.original.v4.query(dict(SCOPE, cohort_start='2026-10', cohort_end='2026-10', windows=[4]),
+                                        'operator')
+        group = result['cohorts']['batches'][0]['windows'][0]['group']
+        return {'snapshot_id': [result['snapshot_id']], 'group': [group]}
+
+    def test_v4_export_download_contains_all_keyset_pages_and_window_columns(self):
+        import csv
+        from io import StringIO
+        from user_http import get
+
+        params = self.cohort_export_request(indexed=True)
+        code, first = get(self.original, '/users/private', dict(params, limit=['200']), 'operator')
+        self.assertEqual((code, len(first['rows'])), (200, 200))
+        self.assertTrue(first['next_cursor'])
+        code, download = get(self.original, '/users/private', dict(params, action=['export']), 'operator')
+        self.assertEqual(code, 200)
+        self.assertEqual(download['exported_rows'], 205)
+        rows = list(csv.DictReader(StringIO(download['csv'].lstrip('﻿'))))
+        self.assertEqual(len(rows), 205)
+        self.assertEqual({row['邮箱'] for row in rows}, {f'person{i}@example.test' for i in range(205)})
+        self.assertTrue(all(row['时间窗状态'] == '已满窗（分母）' and row['计入分子'] == '否' for row in rows))
+        self.assertEqual([r['客户 ID'] for r in rows[:200]], [r['customer_id'] for r in first['rows']])
+
+    def test_v4_export_revocation_between_batches_never_downloads(self):
+        from user_http import get
+
+        params = self.cohort_export_request(indexed=False)
+        lookup = self.store.emails
+
+        def revoked(members):
+            result = lookup(members)
+            if len(members) == 200:
+                self.source_allowed = False
+            return result
+
+        with patch.object(self.store, 'emails', side_effect=revoked):
+            code, result = get(self.original, '/users/private', dict(params, action=['export']), 'operator')
+        self.assertEqual((code, result), (403, {'error': 'scope_or_admin_required'}))
+
+    def test_v4_export_rejects_permission_version_change_after_last_page(self):
+        from user_http import get
+
+        params = self.cohort_export_request(indexed=False)
+        lookup = self.store.emails
+
+        def revision_changed(members):
+            result = lookup(members)
+            if len(members) == 5:
+                self.original.permission_epoch = lambda user, query: 'fixture-policy-2'
+            return result
+
+        with patch.object(self.store, 'emails', side_effect=revision_changed):
+            code, result = get(self.original, '/users/private', dict(params, action=['export']), 'operator')
+        self.assertEqual((code, result), (403, {'error': 'scope_or_admin_required'}))
+        self.assertTrue(self.source_allowed)
+
+    def test_v4_export_obeys_byte_budget_before_exposing_download(self):
+        from user_http import get
+
+        params = self.cohort_export_request(indexed=False)
+        self.config['member_export_max_bytes'] = 64
+        code, result = get(self.original, '/users/private', dict(params, action=['export']), 'operator')
+        self.assertEqual(code, 503)
+        self.assertNotIn('csv', result)
+
+    def test_complete_orders_do_not_make_unavailable_es_cohorts_complete(self):
+        shared = BASE.parent / "customer-segments-20261124" / "source"
+        with patch.object(sys, "path", [str(shared), *sys.path]):
+            result = self.original.v4.query(dict(SCOPE, start="2026-10-01",
+                                                 end_exclusive="2026-10-25"), "operator")
+        self.assertEqual(result["coverage"]["order_missing_days"], 0)
+        self.assertEqual(result["cohorts"]["customer_type_source"], "unavailable")
+        self.assertEqual(result["cohorts"]["status"], "partial")
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["stages"]["status"], "available")
+        from user_tools import read_v4
+        status, stage_only = read_v4(self.original, "operator", {
+            "snapshot_id": result["snapshot_id"], "section": "stages",
+        })
+        self.assertEqual((status, stage_only["status"]), (200, "available"))
+        self.assertNotIn("cohorts", stage_only)
+
+    def test_changes_due_compares_v4_order_history_at_each_frozen_revision(self):
+        shared = BASE.parent / "customer-segments-20261124" / "source"
+        with patch.object(sys, "path", [str(shared), *sys.path]):
+            args = dict(SCOPE, start="2026-10-01", end_exclusive="2026-10-25")
+            before = self.original.v4.query(args, "operator")
+            cid = self.context.candidates(before["snapshot_id"])["rows"][0]["opaque_customer_id"]
+            email = self.store.email(cid)
+            self.rows.append(order(88, "2026-10-29", person=email.split("@")[0]))
+            self.load()
+            after = self.original.v4.query(args, "operator")
+            self.assertNotEqual(before["snapshot_id"], after["snapshot_id"])
+            self.assertEqual(before["contract_version"], "fs-users-v4")
+            self.assertEqual(after["contract_version"], "fs-users-v4")
+            refs = [{"opaque_customer_id": cid, "snapshot_id": before["snapshot_id"]}]
+            result = self.plan(cid).changes_due(before["snapshot_id"], after["snapshot_id"],
+                                                "2026-10-29T00:00:00+08:00", refs)
+            change = result["changes"][0]
+            self.assertEqual(change["status"], "due_with_new_purchase")
+            self.assertEqual(change["after"]["last_paid"]["at"][:10], "2026-10-29")
+
     def test_failed_refresh_retains_frozen_cutoff_and_never_advances_observation(self):
         baseline = self.snapshot(self.summary())
         cid = self.cid(baseline)

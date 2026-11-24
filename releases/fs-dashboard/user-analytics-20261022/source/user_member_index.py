@@ -32,6 +32,12 @@ def classification(record):
     return repeated,kind
 
 
+def member_record(private, group, cid):
+    record = private['records'][cid]
+    membership = private.get('cohort_memberships', {}).get(group)
+    return dict(record, **membership[cid]) if membership is not None else record
+
+
 def build(store,public,private,*,clock=time.monotonic):
     started=clock()
     sid=public['snapshot_id'];query,_=store.snapshot_public(sid);token=store.snapshot_token(sid)
@@ -78,7 +84,7 @@ def build(store,public,private,*,clock=time.monotonic):
                 totals={r+':'+k:0 for r in ('all','repeated','not_repeated') for k in ('all','new','old','unknown')}
                 for ordinal,cid in enumerate(ids):
                     guard(ordinal%128==0)
-                    record=private['records'][cid];body=canonical(record)
+                    record=member_record(private,group,cid);body=canonical(record)
                     if len(body.encode())>16384:raise ValueError('member_projection_size')
                     ref=hashlib.sha256(body.encode()).hexdigest();repeated,kind=classification(record)
                     for r in ('all',)+(('repeated',) if repeated==1 else ('not_repeated',) if repeated==0 else ()):
@@ -87,7 +93,7 @@ def build(store,public,private,*,clock=time.monotonic):
                 def rows():
                     for ordinal,cid in enumerate(ids):
                         guard(ordinal%128==0)
-                        record=private['records'][cid];ref=hashlib.sha256(canonical(record).encode()).hexdigest();repeated,kind=classification(record)
+                        record=member_record(private,group,cid);ref=hashlib.sha256(canonical(record).encode()).hexdigest();repeated,kind=classification(record)
                         yield (projection,group,ordinal,cid,ref,repeated,kind,mac(store,[projection,group,ordinal,cid,ref,repeated,kind]))
                 db.executemany('INSERT INTO member_projection_rows VALUES(?,?,?,?,?,?,?,?)',rows())
                 shared=dict(private_sha256=private_hash,query_hash=query_hash,group=group,totals=totals)

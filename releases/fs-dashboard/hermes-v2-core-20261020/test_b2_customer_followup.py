@@ -191,6 +191,18 @@ class CurrentFSConsumer(unittest.TestCase):
         self.assertIsNotNone(value['facts']['observed_first_at'])
         self.assertIn('historical_first_purchase_unverified', value['limitations'])
 
+    def test_es_new_v4_first_order_reaches_hermes_customer_description(self):
+        from hashlib import sha256
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'customer-segments-20261124/source'))
+        service = self.a.original
+        flag = sha256(b'synthetic-1').hexdigest()
+        service.customer_type_reader = lambda query: ({flag: 'new'}, {'status': 'complete'})
+        latest = service.v4.query(dict(scope='project', scope_id='1327', start='2026-10-01'), 'operator')
+        result = self.b2.describe_customer(self.a.context, snapshot_id=latest['snapshot_id'],
+                                           customer_id=self.customer, now=service.clock())
+        self.assertEqual(result['facts']['first_paid_at'], '2026-10-02T00:00:00+08:00')
+        self.assertNotIn('historical_first_purchase_unverified', result['limitations'])
+
     def test_snapshot_read_at_is_not_effective_source_cutoff(self):
         from copy import deepcopy
         receipt = deepcopy(self.a.context.timeline(self.snapshot, self.customer))
