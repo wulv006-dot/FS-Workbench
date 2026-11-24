@@ -17,6 +17,7 @@ from customer_tracking import AdminService, Store, ID
 
 KEY_FILE=Path(os.environ.get('FS_CUSTOMER_TRACKING_KEY_FILE','/var/lib/fs-hermes-fc/private/customer-tracking.key'))
 SHANGHAI=timezone(timedelta(hours=8))
+MAINTENANCE_ROLLBACK = False
 
 
 def scan_permission_denied(job):
@@ -126,9 +127,23 @@ class TrackingController:
         else:self.reports=None
         from vip_maintenance import VipMaintenance
         self.vip = VipMaintenance(self.store)
+        self.maintenance = None
+        self._reconciliation = None
+        self.phase_lock = threading.Lock()
         if auto_start:
+            operations = [('reconcile', 30)]
+            if MAINTENANCE_ROLLBACK:
+                recovery = self.reconciliation()
+                recovery.ledger.stop_dispatch(recovery.clock())
+            else:
+                operations.extend([('update', 60), ('update_effects', 3600)])
+                if os.environ.get('FS_CUSTOMER_MAINTENANCE_DISPATCH') == '1':
+                    operations.append(('dispatch', 15))
             threading.Thread(target=self._vip_loop,name='fs-vip-maintenance',daemon=True).start()
             threading.Thread(target=self._daily_loop,name='fs-customer-daily',daemon=True).start()
+            for name, interval in operations:
+                threading.Thread(target=self._phase_loop, args=(name, interval),
+                                 name='fs-customer-stage-' + name, daemon=True).start()
 
     def _queue_reports(self):
         # Reports are submitted only by an explicit generate_pool POST.
@@ -242,6 +257,8 @@ class TrackingController:
             raise ValueError('tracking_query')
         view=params.get('view',[''])[0]
         allowed={'mode','structure','view'}
+        if view.startswith('phase_'):
+            return 200, self.phase_get(view, {key: value[0] for key, value in params.items() if key not in allowed})
         if view == 'vip_week' and set(params) <= allowed | {'week','scope'}:
             scope = params.get('scope', ['uk_us'])[0]
             if scope not in ('uk_us', 'global_preferred'):
@@ -288,6 +305,9 @@ class TrackingController:
     def post(self,user,body):
         self.admin._admin(user)
         if not isinstance(body,dict) or body.get('kind')!='hermes_customer_tracking':raise ValueError('tracking_kind')
+        action = body.get('action')
+        if isinstance(action, str) and action.startswith('phase_'):
+            return 200, self.phase_post(user, action, {key: value for key, value in body.items() if key not in ('kind','action')})
         if body.get('action') == 'vip_feedback':
             data = {key: val for key, val in body.items() if key not in ('kind', 'action')}
             return 200, self.vip.feedback(user, data)
@@ -309,3 +329,91 @@ class TrackingController:
                 history_status=self._poll_history(value['tracking_id']))
             self._queue_reports()
         return 200,value
+
+    def phase(self):
+        with self.phase_lock:
+            if self.maintenance is None:
+                from maintenance_service import Maintenance
+                self.maintenance = Maintenance(self.store)
+            return self.maintenance
+
+    def reconciliation(self):
+        with self.phase_lock:
+            if self._reconciliation is None:
+                from maintenance_reconcile import Reconciliation
+                self._reconciliation = Reconciliation(self.store)
+            return self._reconciliation
+
+    def reconcile_maintenance(self):
+        self.reconciliation().run()
+
+    def _phase_loop(self, operation, interval):
+        while True:
+            try:
+                if operation == 'reconcile':
+                    self.reconcile_maintenance()
+                else:
+                    getattr(self.phase(), operation)()
+            except Exception as error:
+                logging.getLogger(__name__).error('Customer stage %s failed: %s', operation, type(error).__name__)
+            time.sleep(interval)
+
+    def phase_get(self, view, fields):
+        if MAINTENANCE_ROLLBACK and view != 'phase_manual':
+            raise ValueError('maintenance_rollback_only')
+        if view in ('phase_groups', 'phase_review', 'phase_ready', 'phase_delivery', 'phase_manual'):
+            if set(fields) - {'offset'}:
+                raise ValueError('maintenance_query')
+            offset = fields.get('offset', '0')
+            if not offset.isascii() or not offset.isdecimal() or len(offset) > 8:
+                raise ValueError('maintenance_offset')
+            if view == 'phase_manual':
+                return self.reconciliation().manual_view(int(offset))
+            phase = self.phase()
+            if view == 'phase_groups':
+                return phase.group_view(int(offset))
+            return phase.queue_view(view[6:], int(offset))
+        phase = self.phase()
+        if view == 'phase_customer' and set(fields) == {'id'}:
+            return phase.customer_view(fields['id'])
+        if view == 'phase_effect' and set(fields) <= {'days'} and fields.get('days', '30') in ('7', '30', '60'):
+            return phase.effect_view(int(fields.get('days', '30')))
+        if fields:
+            raise ValueError('maintenance_query')
+        if view == 'phase_rules':
+            return dict(items=phase.ledger.rules(), dispatch_enabled=os.environ.get('FS_CUSTOMER_MAINTENANCE_DISPATCH') == '1')
+        if view == 'phase_config':
+            return phase.config_view()
+        raise ValueError('maintenance_query')
+
+    def phase_post(self, user, action, data):
+        self.admin._admin(user)
+        if action == 'phase_result':
+            return self.reconciliation().manual_result(user, data)
+        if MAINTENANCE_ROLLBACK:
+            raise ValueError('maintenance_rollback_only')
+        from maintenance_service import keys, strict_id
+        phase = self.phase()
+        if action == 'phase_rule':
+            return phase.save_rule(user, data)
+        if action == 'phase_auto':
+            keys(data, 'id enabled')
+            if type(data['enabled']) is not bool:
+                raise ValueError('maintenance_auto_flag')
+            return dict(revision=phase.ledger.set_auto(strict_id(data['id']), data['enabled'], user, phase.clock))
+        if action == 'phase_config':
+            return phase.save_config(data)
+        if action == 'phase_decide':
+            return phase.decide_entries(user, data)
+        if action == 'phase_case':
+            return phase.resolve_case(user, data)
+        if action in ('phase_owner', 'phase_tier'):
+            return phase.modify(user, action[6:], data)
+        if action == 'phase_feedback':
+            case_id = data.get('case_id')
+            customer = data.pop('customer_id', None)
+            view = phase.customer_view(customer)
+            if not view['case'] or view['case']['case_id'] != case_id:
+                raise ValueError('maintenance_case_mismatch')
+            return self.vip.feedback(user, data)
+        raise ValueError('maintenance_action')
