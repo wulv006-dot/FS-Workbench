@@ -177,6 +177,21 @@ class SixCost(unittest.TestCase):
                 self.run_collect([rows, []], curve_v6=True)
         self.assertEqual(self.tab.evaluate.call_count, 1)
 
+    def test_v6_pending_pairs_include_current_order_after_a_platform_times_out(self):
+        deliveries = [(None, dict(platform=platform, order_delivery={'order_id': order}))
+                      for order, platform in (('1', 'PS'), ('2', 'PS'), ('3', 'PS'), ('4', 'PS'),
+                                              ('5', 'PC'), ('2', 'XBOX'), ('3', 'XBOX'), ('4', 'XBOX'))]
+        detail = dict(complete=True, goods=[], deliveries=[])
+        self.tab.evaluate = Mock(side_effect=lambda expression, pair: [
+            {'timed_out': True} if order == '1' else detail for order in pair])
+        timed_out = set()
+        with patch.object(self.collector, 'verified_delivery_cost', return_value=None):
+            evidence = list(self.collector.verified_v6_deliveries(self.tab, deliveries, {}, timed_out))
+        self.assertEqual(timed_out, {'PS'})
+        self.assertEqual([record['platform'] for record, _ in evidence], ['PC', 'XBOX', 'XBOX', 'XBOX'])
+        self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list],
+                         [['1', '2'], ['5', '3'], ['4']])
+
     def test_sparse_ps_does_not_block_independent_v6_xbox_and_pc_costs(self):
         rows = [self.raw(1000+index*100+i, '.4', i, platform)
                 for index, platform in enumerate(('PS', 'XBOX', 'PC')) for i in range(4 if platform == 'PS' else 6)]

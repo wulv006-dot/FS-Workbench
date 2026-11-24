@@ -369,7 +369,11 @@ def verified_v6_deliveries(tab, deliveries, order_cache, timed_out):
         order_id = delivery_order_id(record)
         if order_id is not None and order_id not in order_cache:
             if order_id not in prefetched:
-                pair = list(islice(pending, 2))
+                pair = [order_id]
+                mate = next((candidate for candidate in pending
+                             if candidate != order_id and candidate not in prefetched), None)
+                if mate is not None:
+                    pair.append(mate)
                 details = tab.evaluate(READ_ORDER_PAIR, pair)
                 if not isinstance(details, list) or len(details) != len(pair):
                     raise ValueError('cost_order_detail_response_unverified')
