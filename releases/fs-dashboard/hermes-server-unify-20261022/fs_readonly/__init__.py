@@ -55,7 +55,7 @@ def read(path, params):
             return {'status':'unavailable','http_status':response.code,'error':'fs_response_too_large'}
         value=json.loads(raw)
         if not isinstance(value,dict):raise ValueError('fs_response_shape')
-        return value if response.code<400 else {**value,'http_status':response.code}
+        return value if response.code == 200 else {**value, 'http_status': response.code}
 
 
 def call(name,args,*,read_source=None):

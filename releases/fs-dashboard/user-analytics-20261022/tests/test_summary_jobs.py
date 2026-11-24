@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from user_http import get
+from user_contract import stamp
 from user_summary_jobs import SummaryJobs
 
 
@@ -24,14 +25,17 @@ class SummaryJobsTest(unittest.TestCase):
                     raise AssertionError('test did not release the query')
             return {'snapshot_id': 'frozen'}
 
-        class Service:
-            summary_jobs = SummaryJobs(query)
-
-        service = Service()
-        self.addCleanup(service.summary_jobs.pool.shutdown)
+        from unittest.mock import Mock
+        from user_query import Service
+        service = Service(Mock(), lambda user, _query, _private: user in allowed)
+        service.v4.jobs.query = query
+        service.v4.read_context = Mock(return_value=(
+            {'projects': {'456': {}, '552': {}}, 'history_backfill_start': '2026-01-01'},
+            None, stamp('2026-02-01')))
+        self.addCleanup(service.v4.jobs.pool.shutdown)
         self.addCleanup(unblock.set)
         route = '/users'
-        submit = dict(action=['connector_summary'], start=['2026-01-01'], scope_id=['456'])
+        submit = dict(action=['connector_summary'], start=['2026-01-01'], game=['456'])
         with patch('user_summary_jobs.wait'):
             status, pending = get(service, route, submit, 'caller')
         self.assertEqual(status, 202)
@@ -39,12 +43,14 @@ class SummaryJobsTest(unittest.TestCase):
         self.assertEqual(get(service, route, submit, 'caller'), (202, pending))
         poll = dict(action=['connector_summary'], query_id=[pending['query_id']])
         self.assertEqual(get(service, route, poll, 'other')[0], 404)
-        self.assertEqual(get(service, route, dict(poll, scope_id=['552']), 'caller')[0], 422)
-        self.assertEqual(get(service, route, dict(submit, scope_id=['552']), 'caller')[0], 429)
+        self.assertEqual(get(service, route, dict(poll, game=['552']), 'caller')[0], 422)
+        self.assertEqual(get(service, route, dict(submit, game=['552']), 'caller')[0], 429)
         unblock.set()
-        service.summary_jobs.pool.shutdown()
+        service.v4.jobs.pool.shutdown()
         self.assertEqual(get(service, route, poll, 'caller'), (200, {'snapshot_id': 'frozen'}))
-        self.assertEqual(started, [{'start': '2026-01-01', 'scope_id': '456'}])
+        self.assertEqual(len(started), 1)
+        self.assertEqual(started[0]['start'], '2026-01-01T00:00:00+08:00')
+        self.assertEqual(started[0]['game'], '456')
         allowed.clear()
         self.assertEqual(get(service, route, poll, 'caller')[0], 403)
 

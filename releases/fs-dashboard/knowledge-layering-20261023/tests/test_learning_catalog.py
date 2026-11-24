@@ -287,9 +287,11 @@ class LearningCatalog(unittest.TestCase):
                            ['FS'], ['fs.dashboard.shipping-profit'], preview=True)
         self.assertEqual(result['status'], 'available_preview')
         rule = result['entries'][0]
-        self.assertEqual(rule['revision'], 'native-summary-shipping-20261107')
+        self.assertEqual(rule['revision'], 'native-summary-shipping-period-repeat-20261124')
+        self.assertIn('fs.dashboard.shipping-profit@native-summary-shipping-20261107', rule['supersedes'])
         for required in ('北京时间昨日', '原生汇总', 'Order「统计管理→发货统计」', '不是净利润',
-                         '不等待 fc-detail', '不能借全游戏总数', '权限拒绝', 'UNKNOWN', '主视图不自动请求 actual-profit'):
+                         '不等待 fc-detail', '不能借全游戏总数', '权限拒绝', 'UNKNOWN', '主视图不自动请求 actual-profit',
+                         '距期间首单至少 24 小时', 'Admin 原生复购率在补充指标中显示，公式未公开'):
             self.assertIn(required, rule['content'])
         historical = kc.select(ROOT, 'knowledge/index.json', hashlib.sha256(lf(path)).hexdigest(),
                                ['FS'], ['fs.dashboard.shipping-profit'], revision='shipping-profit-20261024-v1',history=True,preview=True)

@@ -67,7 +67,8 @@ const retired='admin-main-order-labelled-supplement-v1';
   }
   const cards=['orders','revenueUsd','averageOrderUsd','profitCny','profitMarginPct'].map(key=>({dataset:{metric:key},strong:{},small:{},querySelector:s=>s==='strong'?cards.find(c=>c.dataset.metric===key).strong:cards.find(c=>c.dataset.metric===key).small}));
   const context={KEY:'FC27',exactPermissionDenied:()=>false,fcSameQuery:()=>false,fcDetailState:{},fcQuery:()=>({site_group:'all'}),fcNativeAdminMetrics:()=>({site:'全部网站',cutoff:'2026-11-07 00:00',metrics:{orders:{status:'available',value:4},revenueUsd:{status:'available',value:100}}}),currentExact:()=>({profile:{}}),shippingMetrics:()=>({profitCny:{status:'available',value:30},profitMarginPct:{status:'available',value:20}}),scope:{summaryPolling:false},fcDetailPending:true,document:{querySelectorAll:()=>cards,querySelector:()=>null},fcSetText:(node,text)=>{if(node)node.textContent=text;},fcMoney:v=>'$'+v.toFixed(2),fmtN:String,fcName:String,fcFilters:{product:'all'}};
-  vm.runInNewContext(text.slice(begin,end)+';fcUpdateMetrics()',context);
+  const repeatProjection=text.slice(text.indexOf('const fsRepeatReasons='),text.indexOf('function fsMetricText('));
+  vm.runInNewContext(repeatProjection+text.slice(begin,end)+';fcUpdateMetrics()',context);
   assert.deepEqual(cards.map(c=>c.strong.textContent),['4','$100.00','$25.00','¥30.00','20.00%'],name+' summary visible while details pending');
   context.fcNativeAdminMetrics=()=>null;
   vm.runInNewContext('fcUpdateMetrics()',context);

@@ -3,8 +3,9 @@ import json
 
 from user_contract import VIEWS, aggregate_only, POLICIES, METRIC_DEFINITIONS
 from user_lifecycle import coverage_runs
+from user_query_v4 import SECTIONS, SnapshotVersionRetired
 
-PROPERTIES = {
+LEGACY_PROPERTIES = {
     'section': {'type': 'string', 'enum': [*VIEWS, 'coverage']},
     'view': {'type': 'string', 'enum': list(VIEWS)},
     'scope': {'type': 'string', 'enum': ['global', 'site', 'series', 'project']},
@@ -15,18 +16,57 @@ PROPERTIES = {
     'snapshot_id': {'type': 'string'}, 'H': {'type': 'integer', 'enum': [7, 30], 'description': 'Second-purchase observation horizon only; never the recent/silent/lost thresholds.'},
     'evidence_id': {'type': 'string'},
 }
-DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Daily updates publish through yesterday after incremental collection finishes. Default period_cohort uses the latest seven complete days; optionally select an earlier start date, with the end fixed to the latest successful publication cutoff. '
-               'Preserve weekly_update/data_version and fixed observation_date until the next successful daily publication or during failed refreshes. Queries never force source collection; full database backups are explicit on-demand operations only, and old snapshots retain their IDs. '
-               'new_purchasers/old_flag_purchasers/customer_type_unknown use the first period order ES flag, not lifetime first-purchase proof. Repeat means at least two distinct valid period orders. Waiting means one order and not yet silent; repeat buyers may later be silent/lost. '
-               'Legacy current and period_end still use all covered history. Guest customers are included. '
-               'Preserve coverage, partial historical pool, refund-revision limits, mature cohort denominators and versions. '
-               'No customer identifiers, SQL, URLs, collection, outreach, coupon or price changes. '
-               'Use the same snapshot_id to compare dashboard evidence. Return changes, supported and alternative explanations, '
-               'The default compact summary omits large project/trend tables; section reads those from the same frozen snapshot without recollecting. '
-               'Use the returned lifecycle_policy and metric_definitions. H is cohort observation only. Zero in a partial historical pool never proves no company-wide loss. '
-               'Project tables and migration use their own project_policy_versions, not the top summary policy. Source status 86 is a code, never a refund count. '
-               'A return only proves a later purchase; it cannot prove a marketing response or its cause. '
-               'data gaps, an owner action, review metric and review date. Never estimate missing measured counts.')
+
+TEXT = {'type': 'string'}
+PROPERTIES = {
+    'section': {'type': 'string', 'enum': list(SECTIONS)},
+    'scope': {'type': 'string', 'enum': ['global', 'site', 'project']},
+    'scope_id': TEXT, 'game': TEXT, 'start': TEXT, 'end_exclusive': TEXT,
+    'cohort_start': TEXT, 'cohort_end': TEXT,
+    'windows': {'type': 'string', 'description': 'Ascending comma-separated window days, for example 30,90,180.'},
+    'return_after': {'type': 'integer', 'minimum': 2, 'maximum': 364},
+    'return_within': {'type': 'integer', 'minimum': 3, 'maximum': 365},
+    'customer_type': {'type': 'string', 'enum': ['all', 'new', 'old', 'unknown']},
+    'repeat_status': {'type': 'string', 'enum': ['all', 'repeated', 'not_repeated']},
+    'snapshot_id': TEXT, 'query_id': TEXT, 'evidence_id': TEXT,
+}
+DESCRIPTION = (
+    'Read the fs-users-v4 frozen aggregate. New customers are identified by the ES flag on the first valid '
+    'site order observed since 2026-01-01. A repeat is a distinct valid order at least 24 hours later. '
+    'Cohort window N ends before the first order plus N days. Rates use only fully observed, covered windows. '
+    'Silent return requires a fully covered Y-day window, no repeat before X days, and a repeat from X to before Y days. '
+    'Stage customers bought in the selected period, and their stages use the displayed Shanghai observation date. '
+    'When pending, poll with query_id and optional section only. Reuse snapshot_id for the same results.'
+)
+
+
+def read_v4(service, user, args, *, wait_seconds=10, require_poll_section=False):
+    if not isinstance(args, dict) or set(args) - PROPERTIES.keys():
+        raise ValueError('user_tool_fields')
+    args = dict(args)
+    if require_poll_section and 'query_id' in args and 'section' not in args:
+        raise ValueError('user_tool_section')
+    section = args.pop('section', 'summary')
+    if 'evidence_id' in args:
+        evidence = args.pop('evidence_id')
+        if not isinstance(evidence, str) or len(evidence) != 35 or not evidence.startswith('ua_'):
+            raise ValueError('user_evidence_id')
+        snapshot = 'us_' + evidence[3:]
+        if args.get('snapshot_id', snapshot) != snapshot:
+            raise ValueError('user_evidence_snapshot_mismatch')
+        args['snapshot_id'] = snapshot
+    status, value = service.v4.get(args, user, wait_seconds=wait_seconds, section=section)
+    if status == 200:
+        value = dict(value, result_section=section, available_sections=list(SECTIONS))
+    return status, value
+
+
+def invoke_v4(service, user, args):
+    try:
+        status, value = read_v4(service, user, args)
+    except SnapshotVersionRetired:
+        status, value = 422, {'error': 'snapshot_version_retired'}
+    return value if status == 200 else dict(value, http_status=status)
 
 
 def schema(name):
@@ -35,7 +75,7 @@ def schema(name):
 
 
 def invoke(service, user, args):
-    if not isinstance(args, dict) or set(args) - set(PROPERTIES):
+    if not isinstance(args, dict) or set(args) - set(LEGACY_PROPERTIES):
         raise ValueError('user_tool_fields')
     args = dict(args)
     section = args.pop('section', None)
@@ -92,8 +132,8 @@ def invoke(service, user, args):
 
 def runtime_invoke(owner, args, detail=None):
     from user_runtime import build
-    value = invoke(build(), owner, args)
-    if detail is not None:
+    value = invoke_v4(build(), owner, args)
+    if detail is not None and 'snapshot_id' in value:
         from workspace_evidence import save
         archive = save(detail, 'user_analytics', value['query'], value)
         if archive.get('archive_id'):
@@ -106,12 +146,12 @@ def research_schema():
 
 
 def research_call(service, owner, args):
-    return invoke(service, owner, args)
+    return invoke_v4(service, owner, args)
 
 
 def register_native(ctx, service, trusted_owner):
     # trusted_owner comes from the existing server profile, never browser request arguments.
     name = 'fs_query_user_analytics'
     def handler(args, **context):
-        return json.dumps(invoke(service, trusted_owner, args), ensure_ascii=False, allow_nan=False)
+        return json.dumps(invoke_v4(service, trusted_owner, args), ensure_ascii=False, allow_nan=False)
     ctx.register_tool(name=name, toolset='fs_readonly', schema=schema(name), handler=handler)

@@ -71,10 +71,14 @@ def observation_from_a2(receipt, *, now):
     first, last = customer.get('first_paid', {}), customer.get('last_paid', {})
     if type(first) is not dict or type(last) is not dict:
         raise ValueError('a2_customer_receipt')
-    first_verified = (complete and coverage.get('historical_origin') is not None
-                      and query.get('state_basis') != 'period_cohort'
-                      and first.get('complete') is True and first.get('missing') is False
-                      and first.get('basis') == 'verified_historical_first_purchase')
+    first_known = complete and first.get('complete') is True and first.get('missing') is False
+    if source.get('contract_version') == 'fs-users-v4':
+        first_verified = (first_known and bool(coverage.get('history_start'))
+                          and first.get('basis') == 'es_new_customer_at_first_observed_site_order')
+    else:
+        first_verified = (first_known and coverage.get('historical_origin') is not None
+                          and query.get('state_basis') != 'period_cohort'
+                          and first.get('basis') == 'verified_historical_first_purchase')
     first_at = at(first['at']) if first_verified and first.get('at') is not None else None
     last_at = at(last['at']) if last.get('at') is not None else None
     if ((first_at is not None and (last_at is None or first_at > last_at))

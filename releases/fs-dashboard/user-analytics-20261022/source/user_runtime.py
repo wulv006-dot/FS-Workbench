@@ -86,14 +86,23 @@ def authorize(user, query, private=False, *, resource='/dashboard/users/'):
         return False
     if resource not in ('/dashboard/users/','/dashboard/analytics/','/dashboard/data-tools/'):
         return False
-    sys.path.insert(0, '/opt/fs-access-policy')
-    import rbac
-    if not Path(rbac.LIVE_POLICY).is_file():
-        return False
-    policy = rbac.load_policy()
-    if rbac.authorize(policy, user, 'GET', resource) != 200:
+    rbac, policy = live_policy()
+    if policy is None or rbac.authorize(policy, user, 'GET', resource) != 200:
         return False
     return rbac.is_admin(policy, user) if private else True
+
+
+def live_policy():
+    sys.path.insert(0, '/opt/fs-access-policy')
+    import rbac
+    return rbac, rbac.load_policy() if Path(rbac.LIVE_POLICY).is_file() else None
+
+
+def users_permission_epoch(user, _query):
+    rbac, policy = live_policy()
+    if policy is None or rbac.authorize(policy, user, 'GET', '/dashboard/users/') != 200:
+        raise PermissionError('user_scope_denied')
+    return rbac.revision_of(policy)
 
 
 def build():
@@ -102,5 +111,6 @@ def build():
     with _lock:
         if _service is None:
             from user_customer_types import read_flags
-            _service = Service(load_store(), authorize, customer_type_reader=read_flags)
+            _service = Service(load_store(), authorize, customer_type_reader=read_flags,
+                               permission_epoch=users_permission_epoch)
         return _service
