@@ -88,9 +88,9 @@
           const report=event=>{try{onProgress?.(event);}catch{/* UI feedback cannot change a cart receipt. */}};
           report({phase:'checking',total:rows.length});
           const pending=rows.map((_,i)=>i).filter(i=>!finished(results[i].state));
-          const live=new Array(rows.length);
+          const live=new Array(rows.length), checkedAt=new Array(rows.length);
           let next=0;
-          const worker=async()=>{while(next<pending.length){const i=pending[next++];live[i]=await core.lookup(rows[i],true);}};
+          const worker=async()=>{while(next<pending.length){const i=pending[next++];live[i]=await core.lookup(rows[i],true);checkedAt[i]=now();}};
           const [current]=await Promise.all([counts(),...Array.from({length:Math.min(3,pending.length)},worker)]);
           for (const i of pending) {
             const line=rows[i], outstanding=data.unresolved[line.id];
@@ -128,12 +128,22 @@
                   Object.assign(results[i],{state:fresh?'pending':'unavailable',...(fresh?{price:fresh.price}:{})});
                   return answer(fresh?'cancelled':'unavailable','This listing changed while you were reviewing it. Check the current selection again.');
                 }
+                live[i]=fresh;checkedAt[i]=now();
               }
             }
           }
           for (const i of active) {
             if (signal?.aborted) return answer('cancelled','The remaining items were not added.');
             const line=rows[i], before=current.get(line.id)||0, after=before+line.quantity;
+            if (line.kind==='gear' && now()-checkedAt[i]>=30000) {
+              // A long batch can outlive a unique listing after its one initial lookup.
+              const fresh=await core.lookup(line,true);
+              if (!fresh || fresh.price!==live[i].price || JSON.stringify(fresh.payload)!==JSON.stringify(live[i].payload)) {
+                Object.assign(results[i],{state:fresh?'pending':'unavailable',...(fresh?{price:fresh.price}:{})});
+                return answer(fresh?'cancelled':'unavailable','This equipment changed before it could be added. Review your selection.');
+              }
+              live[i]=fresh;checkedAt[i]=now();
+            }
             report({phase:'adding',line:{...results[i]},index:i+1,total:rows.length});
             data.unresolved[line.id]={attempt:attemptId,before,after};
             update(i,{state:'unknown'});writeStarted=true;

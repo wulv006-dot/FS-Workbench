@@ -96,3 +96,10 @@ test('a completed intent reports earlier processing when its native item was rem
   const f=fixture();await f.run([gear]);f.cart.clear();
   const replay=await f.run([gear]);assert.equal(replay.state,'cancelled');assert.ok(replay.processed);assert.match(replay.message,/already processed/);assert.equal(f.calls.length,1);
 });
+test('an equipment quote that aged in a slow batch is rechecked just before the write',async()=>{
+  let time=Date.now(),available=true;
+  const f=fixture({now:()=>time,quote:line=>line.kind==='gear'&&!available?null:line.price,add:()=>{time+=31000;available=false;return {code:1};}});
+  const r=await f.run([gem,gear]);
+  assert.deepEqual(f.lookups,['456','123','123']);assert.deepEqual(f.calls.map(p=>p.id),['456']);
+  assert.equal(r.state,'unavailable');assert.deepEqual(r.lines.map(x=>x.state),['confirmed','unavailable']);
+});
