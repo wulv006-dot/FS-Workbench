@@ -1294,7 +1294,7 @@
     },
     {
       "id": "fs.dashboard.shipping-profit",
-      "revision": "native-summary-shipping-20261107",
+      "revision": "native-summary-shipping-period-repeat-20261124",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1302,22 +1302,24 @@
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-07",
+      "effective_at": "2026-11-24",
       "owner": "吴律；原经营看板维护者",
       "authority": "git",
-      "source_commit": null,
+      "source_commit": "2c918010156d5a9574125256f565df334d4ed745",
       "source": {
         "path": "docs/planning/business-dashboard-refresh-20261025/CONTRACT.md",
-        "sha256": "fbd2c0cf9979d89aad6e61e3a546926f3203bf13c6faff2dacc0d4b393d02347",
+        "sha256": "a00586fded54893a3ed97be77e3bde94b64451513e6e5ca52150b566d80299be",
         "hash_basis": "utf8_lf",
         "selector": {
-          "start": "# 经营看板展示与刷新规则"
+          "start": "## 首页与主展示",
+          "end": "发布使用原 publisher、准确目标、CAS、备份、原锁与读回。"
         }
       },
       "supersedes": [
         "fs.dashboard.shipping-profit@same-order-actual-profit-20261024-v2",
         "fs.dashboard.shipping-profit@dashboard-refresh-20261025-v3",
-        "fs.dashboard.shipping-profit@dashboard-refresh-paid-aov-state-20261028-v4"
+        "fs.dashboard.shipping-profit@dashboard-refresh-paid-aov-state-20261028-v4",
+        "fs.dashboard.shipping-profit@native-summary-shipping-20261107"
       ],
       "provenance": [
         {
@@ -1339,6 +1341,10 @@
         {
           "kind": "direct_user_summary_first_and_retired_knowledge_cleanup",
           "url": "https://github.com/wulv006-dot/FS-Workbench/pull/896"
+        },
+        {
+          "kind": "direct_user_confirmed_dashboard_period_repeat",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2c918010156d5a9574125256f565df334d4ed745/docs/planning/users-cohort-maintenance-20261124/PHASE1-USERS.md#L59-L78"
         }
       ],
       "consumers": [
