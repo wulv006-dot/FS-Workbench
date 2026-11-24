@@ -47,7 +47,7 @@ async def allowed(interaction, owner=None):
     return ok
 
 
-async def show_spin(interaction, owner, tier, first, receipt=None):
+async def show_spin(interaction, owner, tier, first, receipt=None, *, test=False):
     left, middle, right = {
         'one': ('⚽', '⭐', '🪙'),
         'two': ('⚽', '⚽', '⭐'),
@@ -61,12 +61,14 @@ async def show_spin(interaction, owner, tier, first, receipt=None):
     for reels, caption, delay in frames:
         frame = embed('🎰  Black Friday spin', f'## {reels}\n{caption}')
         if receipt:
-            frame.set_footer(text='D4 VIP · MMOEXP account reward')
+            frame.set_footer(text='D4 VIP · Test run' if test else 'MMOEXP account reward')
         await interaction.edit_original_response(embed=frame, view=None)
         await asyncio.sleep(delay)
     if receipt:
-        card = discord.Embed(title='🎁  Your FC27 Black Friday coupon',
-            description=f'## {left}  │  {middle}  │  {right}\n{REWARDS[tier]} · Added to your MMOEXP account.\n'
+        title = '🎁  Your FC27 Black Friday coupon' if first else '🧾  Your existing Black Friday reward'
+        delivery = 'Test result · No coupon issued.' if test else 'Added to your MMOEXP account.'
+        card = discord.Embed(title=title,
+            description=f'## {left}  │  {middle}  │  {right}\n{REWARDS[tier]} · {delivery}\n'
                         f'{TERMS}\nReceipt **{receipt}**', colour=0xE4AF45)
         await interaction.edit_original_response(embed=card, view=None)
         return
@@ -189,6 +191,9 @@ class Home(discord.ui.View):
 
 
 def register_pilot(client):
+    if getattr(client.user, 'id', None) == APP:
+        from black_friday_discord import register_campaign
+        register_campaign(client)
     marker = STATE / 'message.id'
     if getattr(client.user, 'id', None) == APP and marker.is_file():
         message = marker.read_text().strip()
