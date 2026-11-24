@@ -813,17 +813,13 @@ async function add(id) {
     render();
     return;
   }
-  const c = cart(), previous = c.get(s.id), context2 = key();
+  const c = cart();
   c.set(s.id, chosen);
   owned().delete(s.id);
   if ($("#dialog").open) $("#dialog").close();
   const a = slots(), index = a.findIndex((x) => x.id === s.id), next = [...a.slice(index + 1), ...a.slice(0, index)].find((x) => !c.has(x.id) && !owned().has(x.id) && candidates(x).length);
   if ($("#autoNext").checked && next) activate(next.id);
   else render();
-  toast(s.label + " added" + (next && $("#autoNext").checked ? " \xB7 Browsing " + next.label : ""), () => {
-    previous ? c.set(s.id, previous) : c.delete(s.id);
-    if (key() === context2) activate(s.id);
-  });
 }
 function open(title, html) {
   $("#dialog").classList.remove("item-dialog", "image-zoomed");
