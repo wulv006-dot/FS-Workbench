@@ -88,6 +88,7 @@ class Integration(unittest.TestCase):
         root = TemporaryDirectory()
         self.addCleanup(root.cleanup)
         self.path = Path(root.name) / 'tracking.db'
+        self.path.touch(mode=0o600)
         self.store = SimpleNamespace(db=self.db, path=self.path)
         self.vip = VipMaintenance(self.store, clock=lambda: self.now)
         self.source, self.admin, self.bridge, self.now = Source(), Admin(), Bridge(), INIT

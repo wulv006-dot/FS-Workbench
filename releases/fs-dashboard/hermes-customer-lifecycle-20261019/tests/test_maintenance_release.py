@@ -20,7 +20,7 @@ def exercise_rollback_runtime(root):
     import maintenance_reconcile
 
     now = datetime.now(timezone.utc)
-    root.mkdir()
+    root.mkdir(mode=0o700)
     user = 'admin'
     initial = TrackingController(root, lambda user: user == 'admin', auto_start=False)
     ledger = Ledger(initial.store.db)
