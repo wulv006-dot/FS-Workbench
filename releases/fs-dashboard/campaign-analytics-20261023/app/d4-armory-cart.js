@@ -63,7 +63,37 @@
     if (data?.code===1 || data?.code==='1') return 'confirmed';
     return 'unknown';
   }
-  if (typeof module === 'object' && module.exports) {module.exports = {checkList,nativeOffer,receipt,productText,priceChanged};return;}
+  const post = async (path, data) => {
+    const response = await fetch(path, {method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
+      signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(data)});
+    if (!response.ok) throw Error('The MMOEXP store could not be reached.');
+    return response.json();
+  };
+  async function lookup(line, requireGearStock = false) {
+    const keyword = line.kind === 'gear' && line.number ? line.number : line.name;
+    for (let page=1;page<=10;page++) {
+      const data = await post('/ajax/goods',{site_id:'266',Game_id:'456',page:String(page),top_cid:'2',category_id:String(line.categoryId),
+        level:'1',get_about_multi_by_cid:'1',perpage:'28',aid:realm,keyword});
+      const index = data?.goods?.index;
+      if (!Array.isArray(index?.list)) throw Error('The store did not return a product list.');
+      const matches = index.list.filter(row => String(row.id) === line.id);
+      if (matches.length) {
+        if (matches.length !== 1) return null;
+        const row=matches[0];
+        // A specific equipment listing must expose its actual positive stock.
+        if (requireGearStock && line.kind==='gear' && (!line.number || String(row.auto_off)!=='1' || !Number.isSafeInteger(Number(row.total)) || Number(row.total)<line.quantity)) return null;
+        return nativeOffer(line,row);
+      }
+      if (page * (Number(index.perpage) || 28) >= Number(index.total) || !index.list.length) break;
+    }
+    return null;
+  }
+  const goods = {checkList,nativeOffer,receipt,productText,priceChanged,lookup,add:payload=>post('/Cart/add.html',payload)};
+  if (typeof module === 'object' && module.exports) {module.exports=goods;return;}
+  if (location.pathname==='/events/D4-Build-Shop.html') {
+    globalThis.ArmoryNativeGoods=Object.freeze(goods);
+    return;
+  }
   const $ = id => document.getElementById(id);
   const message = text => { $('status').textContent = text; };
   const button = $('confirm');
@@ -72,25 +102,6 @@
   let list, offers = [], journal = {}, busy = false;
   const pending = () => list.lines.filter(line => journal[line.id] !== 'confirmed');
   const uncertain = () => Object.values(journal).includes('unknown');
-  const post = async (path, data) => {
-    const response = await fetch(path, {method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
-      signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(data)});
-    if (!response.ok) throw Error('The MMOEXP store could not be reached.');
-    return response.json();
-  };
-  async function lookup(line) {
-    const keyword = line.kind === 'gear' && line.number ? line.number : line.name;
-    for (let page=1;page<=10;page++) {
-      const data = await post('/ajax/goods',{site_id:'266',Game_id:'456',page:String(page),top_cid:'2',category_id:String(line.categoryId),
-        level:'1',get_about_multi_by_cid:'1',perpage:'28',aid:realm,keyword});
-      const index = data?.goods?.index;
-      if (!Array.isArray(index?.list)) throw Error('The store did not return a product list.');
-      const matches = index.list.filter(row => String(row.id) === line.id);
-      if (matches.length) return matches.length === 1 ? nativeOffer(line,matches[0]) : null;
-      if (page * (Number(index.perpage) || 28) >= Number(index.total) || !index.list.length) break;
-    }
-    return null;
-  }
   async function refresh() {
     const fresh = [...offers];
     // Limit concurrent searches even for a full loadout.
