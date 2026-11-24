@@ -100,7 +100,9 @@ def install(page):
             if query.get('action') == ['catalog']:
                 return request.fulfill(json=dict(contract_version='fs-users-v4', history_backfill_start='2026-01-01',
                                                 weekly_update=dict(cutoff='2026-11-24T00:00:00+08:00'),
-                                                projects={'1327': dict(label='FC27', series='FC'), '833': dict(label='FC26', series='FC')}))
+                                                projects={'1327': dict(label='FC27', series='FC'), '833': dict(label='FC26', series='FC'),
+                                                          '1309': dict(label='Madden NFL 27', series='Madden'),
+                                                          '835': dict(label='Madden NFL 26', series='Madden')}))
             return request.fulfill(json=summary(query))
         if name == 'private.json' and query['action'] == ['members']:
             assert query['group'] in (['cohort:2026-04:180'], ['cohort:old:2026-04:180'])
@@ -135,6 +137,9 @@ def check_page(browser, output=None):
     assert requested and requested[0] == 'all', requested
     expect(page.locator('select[name=game] option[value="1327"]')).to_have_count(0)
     expect(page.locator('select[name=game] option[value="833"]')).to_have_count(0)
+    # Other series keep both the merged choice and their single editions.
+    expect(page.locator('select[name=game] option[value="series:Madden"]')).to_have_count(1)
+    expect(page.locator('select[name=game] option[value="1309"]')).to_have_count(1)
     expect(page.locator('#repeat-finding')).to_contain_text('结论')
     page.get_by_role('button', name='2026-04 180 天，查看详情').click()
     drill = page.locator('#cohort-drill')
