@@ -49,8 +49,6 @@ def encoded(value, **kwargs):
 
 def replace_routes(text, *, reconcile_only=False):
     locator = lambda path: r'(?m)^location = ' + re.escape(path) + r' \{\n(?P<body>[\s\S]*?)^\}'
-    if f'location = {NEW}' in text:
-        raise ValueError('existing_customer_route')
     old = list(re.finditer(locator(OLD), text))
     if len(old) != 1 or GUARD not in old[0]['body']:
         raise ValueError('prior_tracking_route_or_guard')
@@ -77,17 +75,32 @@ def replace_routes(text, *, reconcile_only=False):
         body, _ = re.subn(r'((?:hubnav|nav)\.js\?v=)[\w-]+', r'\g<1>customer-maintenance-20261124', body)
         return f'location = {route} {{\n{body}}}'
 
+    def html_page(directory, name):
+        index = directory + 'index.html'
+        return [
+            f'location = {directory} {{\n'
+            '    if ($request_method !~ ^(GET|HEAD)$) { return 405; }\n'
+            f'    rewrite ^ {index} last;\n}}',
+            alias(html, index, name),
+        ]
+
     reconcile_routes = [
         alias(style[0], NEW + 'page.css', 'page.css'),
         alias(script[0], NEW + 'phase.js', 'phase.js'),
-        alias(html, NEW + 'reconcile/', 'reconcile.html'),
+        *html_page(NEW + 'reconcile/', 'reconcile.html'),
     ]
+    recovery_tail = '\n\n' + '\n\n'.join(reconcile_routes) + '\n'
+    # A rollback leaves this exact guarded fragment in place for manual reconciliation.
+    if text.endswith(recovery_tail):
+        text = text.removesuffix(recovery_tail) + '\n'
+    if f'location = {NEW}' in text:
+        raise ValueError('existing_customer_route')
     if reconcile_only:
-        return text.rstrip() + '\n\n' + '\n\n'.join(reconcile_routes) + '\n'
+        return text.rstrip() + recovery_tail
 
     new = [
         f'location = {OLD} {{ return 302 {NEW}; }}',
-        alias(html, NEW, 'index.html'),
+        *html_page(NEW, 'index.html'),
         alias(script[0], NEW + 'page.js', 'page.js'),
         *reconcile_routes,
     ]
@@ -142,9 +155,15 @@ def update_script(text, main=False):
 
 def patch_iam(text):
     marker = '("/dashboard/fs-home/brain", "/dashboard/fs-home/hermes",'
-    if text.count(marker) != 1 or '"/dashboard/customers"' in text:
+    customer = '"/dashboard/customers"'
+    patched = f'{marker} {customer},'
+    if text.count(marker) != 1:
         raise ValueError('prior_tracking_iam')
-    return text.replace(marker, marker + ' "/dashboard/customers",', 1)
+    if customer in text:
+        if patched not in text or text.count(customer) != 1:
+            raise ValueError('prior_tracking_iam')
+        return text
+    return text.replace(marker, patched, 1)
 
 
 def patch_catalog(active, candidate):
