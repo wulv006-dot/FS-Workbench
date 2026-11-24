@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import stat
+from types import SimpleNamespace
 import sys
 from tempfile import TemporaryDirectory
 import unittest
@@ -96,6 +98,53 @@ class MaintenanceRelease(unittest.TestCase):
         self.assertIn('unrelated', result)
         with self.assertRaises(ValueError):
             release.replace_routes(fixture.replace(release.GUARD, ''))
+
+    def test_live_tracking_rewrite_uses_guarded_html_location(self):
+        entry = (f'location = {release.OLD} {{\n    {release.GUARD}\n'
+                 f'    rewrite ^ {release.OLD}index.html last;\n}}\n')
+        current = entry
+        for name in ('index.html', 'page.js', 'page.css'):
+            current += (f'location = {release.OLD}{name} {{\n    {release.GUARD}\n'
+                        f'    alias /active/{name};\n}}\n')
+        forward = release.replace_routes(current)
+        self.assertNotIn('rewrite ^', forward)
+        self.assertIn(f'location = {release.OLD}index.html {{ return 302 {release.NEW}; }}', forward)
+        self.assertIn(f'alias {release.STATIC}/index.html;', forward)
+        recovery = release.replace_routes(current, reconcile_only=True)
+        self.assertTrue(recovery.startswith(current.rstrip() + '\n\n'))
+        self.assertIn(f'alias {release.STATIC}/reconcile.html;', recovery)
+        with self.assertRaises(ValueError):
+            release.replace_routes(current.replace(release.GUARD + '\n    alias /active/index.html;',
+                                                   'alias /active/index.html;'))
+
+    @unittest.skipUnless(os.name == 'posix', 'checks POSIX directory and file modes')
+    def test_static_writer_overrides_private_umask_for_exact_nginx_assets(self):
+        def atomic(path, data, mode=0o644):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+            path.chmod(mode)
+
+        def no_target_link(path):
+            if path.exists() and not path.is_file():
+                raise ValueError('target is not a regular file')
+
+        publisher = SimpleNamespace(atomic=atomic, no_target_link=no_target_link)
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / release.STATIC.lstrip('/') / 'index.html'
+            target.parent.parent.mkdir(parents=True)
+            release.bind_static_permissions(publisher, root)
+            before = os.umask(0o077)
+            try:
+                publisher.atomic(target, b'page')
+                unrelated = root / 'backup' / 'journal.json'
+                publisher.atomic(unrelated, b'{}', 0o600)
+            finally:
+                os.umask(before)
+            self.assertEqual(stat.S_IMODE(target.parent.stat().st_mode), 0o755)
+            self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o644)
+            self.assertEqual(stat.S_IMODE(unrelated.parent.stat().st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(unrelated.stat().st_mode), 0o600)
 
     def test_rollback_candidate_keeps_only_the_manual_and_reconcile_surfaces(self):
         routes = ''

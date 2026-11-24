@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 
@@ -53,6 +54,15 @@ def replace_routes(text, *, reconcile_only=False):
     old = list(re.finditer(locator(OLD), text))
     if len(old) != 1 or GUARD not in old[0]['body']:
         raise ValueError('prior_tracking_route_or_guard')
+    old_index = list(re.finditer(locator(OLD + 'index.html'), text))
+    if len(old_index) > 1:
+        raise ValueError('duplicate_old_tracking_route')
+    html = old[0]
+    if f'rewrite ^ {OLD}index.html last;' in html['body']:
+        if len(old_index) != 1 or GUARD not in old_index[0]['body']:
+            raise ValueError('prior_tracking_index_or_guard')
+        html = old_index[0]
+
     script = list(re.finditer(locator(OLD + 'page.js'), text))
     style = list(re.finditer(locator(OLD + 'page.css'), text))
     if len(script) != 1 or len(style) != 1:
@@ -70,20 +80,17 @@ def replace_routes(text, *, reconcile_only=False):
     reconcile_routes = [
         alias(style[0], NEW + 'page.css', 'page.css'),
         alias(script[0], NEW + 'phase.js', 'phase.js'),
-        alias(old[0], NEW + 'reconcile/', 'reconcile.html'),
+        alias(html, NEW + 'reconcile/', 'reconcile.html'),
     ]
     if reconcile_only:
         return text.rstrip() + '\n\n' + '\n\n'.join(reconcile_routes) + '\n'
 
     new = [
         f'location = {OLD} {{ return 302 {NEW}; }}',
-        alias(old[0], NEW, 'index.html'),
+        alias(html, NEW, 'index.html'),
         alias(script[0], NEW + 'page.js', 'page.js'),
         *reconcile_routes,
     ]
-    old_index = list(re.finditer(locator(OLD + 'index.html'), text))
-    if len(old_index) > 1:
-        raise ValueError('duplicate_old_tracking_route')
     if old_index:
         text = text[:old_index[0].start()] + f'location = {OLD}index.html {{ return 302 {NEW}; }}' + text[old_index[0].end():]
     return re.sub(locator(OLD), lambda _: '\n\n'.join(new), text, count=1)
@@ -158,6 +165,33 @@ def patch_catalog(active, candidate):
     guide = next(row for row in result['data_methods']['guides'] if row['id'] == 'customer_business_details')
     guide['operations'].extend(name for name in inactive if name not in guide['operations'])
     return result
+
+
+def bind_static_permissions(publisher, root=Path('/')):
+    """Keep staging and backups private while publishing the five exact Nginx assets."""
+    asset_root = root / STATIC.lstrip('/')
+    assets = {root / name.lstrip('/') for name in TARGETS.values() if name.startswith(STATIC + '/')}
+    original_atomic = publisher.atomic
+
+    def atomic(path, data, mode=0o644):
+        if path not in assets:
+            return original_atomic(path, data, mode)
+        publisher.no_target_link(path)
+        try:
+            asset_root.mkdir(mode=0o755)
+        except FileExistsError:
+            if not asset_root.is_dir() or stat.S_IMODE(asset_root.stat().st_mode) != 0o755:
+                raise ValueError('customer_maintenance_static_directory_permissions')
+        else:
+            # mkdir's requested mode is masked by the publisher's private umask.
+            asset_root.chmod(0o755)
+        original_atomic(path, data, 0o644)
+        if stat.S_IMODE(path.stat().st_mode) != 0o644:
+            raise ValueError('customer_maintenance_static_asset_permissions')
+        if root == Path('/'):
+            subprocess.run(['sudo', '-u', 'nginx', 'test', '-r', str(path)], check=True, timeout=5)
+
+    publisher.atomic = atomic
 
 
 def sha(data):
