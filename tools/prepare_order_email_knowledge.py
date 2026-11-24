@@ -11,6 +11,7 @@ preflight.json with captured_at, protected file hashes, service states and
 existing immutable D5 release names. It performs no publish or service action.
 --fc-v61 uses the same retained-baseline preflight and preserves route selections.
 The 100K revision also updates the existing parameter and learning rule entries.
+--fc-baseline-identity adds the explicit FC version to the direct baseline and preserves every selected catalog entry.
 --fc-v61-reporting overlays the three report entries and the shared data-source
 section against their previous Git bodies, retaining the current V6 pricing entries.
 --email-only refreshes existing email entries and retains route selections and baseline.
@@ -52,6 +53,7 @@ FC_V61_CARNIVAL_REVISION = 'fc_v61_carnival_discount_20261119'
 FC_V61_CARNIVAL_BASE = '9295063b2c1ee4bfb15c175ecba19253d808e99a'
 MARKET_PREDECESSOR_MANIFEST_SHA = 'baad7565b53098d636eaf0901b0682800a048919face91aa5212cca6cc5f5d89'
 FC_V61_MARKET_PACKAGES_REVISION = 'fc_v61_market_packages_observers_20261124'
+FC_BASELINE_IDENTITY_LINE = '当前基准版本为 `business-baseline-fc-v6-20261124`。\n'.encode('utf-8')
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
 FC_V61_LEARNING_ID = 'fs.learning.methods'
 FC_V61_MARGIN_BAND_IDS = (*FC_V61_OVERLAYS, FC_V61_PARAMETER_ID, FC_V61_LEARNING_ID,
@@ -274,10 +276,11 @@ def write_payloads(root, payloads):
         path.write_bytes(data)
 
 
-def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=False, fc_v61_reporting=False, email_only=False):
-    if sum((shared_admin_es, fc_v61, fc_v61_reporting, email_only)) > 1:
+def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=False,
+            fc_v61_reporting=False, email_only=False, fc_baseline_identity=False):
+    if sum((shared_admin_es, fc_v61, fc_v61_reporting, email_only, fc_baseline_identity)) > 1:
         raise ValueError('one_knowledge_overlay_scope_required')
-    fc_overlay = fc_v61 or fc_v61_reporting
+    fc_overlay = fc_v61 or fc_v61_reporting or fc_baseline_identity
     preserve_routes = shared_admin_es or fc_overlay or email_only
     root, snapshot, output = Path(root).absolute(), Path(snapshot).absolute(), Path(output).absolute()
     if not re.fullmatch('[a-f0-9]{40}', commit):
@@ -293,6 +296,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         raise ValueError('exact_fc_v61_candidate_required')
     current = {}
     overlay_ids = FC_V61_OVERLAYS if fc_v61 else SHARED_OVERLAYS if shared_admin_es else OVERLAYS
+    if fc_baseline_identity:
+        overlay_ids = ()
     if email_only:
         overlay_ids = (EMAIL,)
     if fc_v61_reporting:
@@ -370,8 +375,15 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     retain_baseline = email_only or carnival
     if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
-            allow_baseline_patch=fc_v61 and FC_V61_PARAMETER_ID in current,
+            allow_baseline_patch=fc_baseline_identity or fc_v61 and FC_V61_PARAMETER_ID in current,
             revision=constraints_revision if fc_v61 else None, retain_baseline=retain_baseline)
+        if fc_baseline_identity:
+            before = bound(snapshot, 'business-baseline.md').read_bytes()
+            heading, separator, body = before.partition(b'\n')
+            candidate = git_bytes(root, commit, BASELINE_SOURCE)
+            if (not separator or FC_BASELINE_IDENTITY_LINE in before
+                    or heading + b'\n\n' + FC_BASELINE_IDENTITY_LINE + body != candidate):
+                raise ValueError('fc_baseline_identity_content_changed')
         compatibility = {'mode': 'retain_full_baseline', 'sha256': preflight['protected'][BASELINE_TARGET]}
         if any(r.get('baseline_compatibility', compatibility) != compatibility for r in all_routes):
             if fc_v61 and constraints_revision == FC_V61_MARKET_PACKAGES_REVISION:
@@ -606,8 +618,10 @@ if __name__ == '__main__':
     mode.add_argument('--fc-v61', action='store_true')
     mode.add_argument('--fc-v61-reporting', action='store_true')
     mode.add_argument('--email-only', action='store_true')
+    mode.add_argument('--fc-baseline-identity', action='store_true')
     args = parser.parse_args()
     print(json.dumps(prepare(ROOT, args.snapshot, args.output, args.commit,
                              shared_admin_es=args.shared_admin_es, fc_v61=args.fc_v61,
-                             fc_v61_reporting=args.fc_v61_reporting, email_only=args.email_only),
+                             fc_v61_reporting=args.fc_v61_reporting, email_only=args.email_only,
+                             fc_baseline_identity=args.fc_baseline_identity),
                      ensure_ascii=False, indent=2))

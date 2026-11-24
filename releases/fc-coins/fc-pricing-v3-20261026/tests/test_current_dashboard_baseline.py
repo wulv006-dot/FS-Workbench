@@ -1,5 +1,6 @@
 """The active Hermes baseline must preserve the current dashboard profit contract."""
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import unittest
@@ -9,6 +10,17 @@ RUNTIME = ROOT / "releases/fs-dashboard/fs-business-baseline-20261021/source/her
 CANONICAL = ROOT / "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
 
 class CurrentDashboardBaselineTest(unittest.TestCase):
+    def test_actual_coins_reader_recognizes_active_baseline_identity(self):
+        reader = ROOT / "releases/fs-dashboard/fc-coins-evidence-20261021/source/coins_evidence.py"
+        spec = importlib.util.spec_from_file_location("active_coins_evidence", reader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.__file__ = str(RUNTIME.with_name("coins_evidence.py"))
+        self.assertEqual(module.baseline_identity(), {
+            "version": "business-baseline-fc-v6-20261124",
+            "sha256": hashlib.sha256(RUNTIME.read_bytes()).hexdigest(),
+        })
+
     def test_runtime_uses_shipping_and_provenance_tracks_published_bytes(self):
         runtime = RUNTIME.read_bytes().replace(b"\r\n", b"\n")
         canonical = CANONICAL.read_bytes().replace(b"\r\n", b"\n")

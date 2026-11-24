@@ -404,6 +404,27 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'market_predecessor_target_drift'):
                 reconcile()
 
+    def test_baseline_identity_patch_keeps_all_existing_entries_and_route_selections(self):
+        self.set_fc_v61_candidate((builder.FC_V61_MARKET_PACKAGES_REVISION,) * 2, b'FC package rules.\n')
+        before = self.git[COMMIT, builder.BASELINE_SOURCE]
+        candidate = before + b'\n' + builder.FC_BASELINE_IDENTITY_LINE
+        self.git[COMMIT, builder.BASELINE_SOURCE] = candidate
+        proof_path = builder.BASELINE_SOURCE.replace('.md', '.provenance.json')
+        proof = json.loads(self.git[COMMIT, proof_path])
+        proof.update(before_sha256=builder.sha(before), after_sha256=builder.sha(candidate))
+        self.git[COMMIT, proof_path] = builder.encoded(proof)
+        result = builder.prepare(ROOT, self.snapshot, self.output, COMMIT, fc_baseline_identity=True)
+        self.assertEqual(result['manifest']['baselinePatch']['after_sha256'], builder.sha(candidate))
+        self.assertEqual(json.loads((self.output / 'retained-baseline-provenance.json').read_bytes())['overlays'], [])
+        for r in builder.routes(json.loads((self.output / 'candidate/runtime/knowledge-load-policy.json').read_bytes())):
+            if 'baseline_compatibility' in r:
+                self.assertEqual(r['baseline_compatibility']['sha256'], builder.sha(candidate))
+        extra = candidate + b'Changed unrelated rule.\n'
+        self.git[COMMIT, builder.BASELINE_SOURCE] = extra
+        self.git[COMMIT, proof_path] = builder.encoded(dict(proof, after_sha256=builder.sha(extra)))
+        with self.assertRaisesRegex(ValueError, 'fc_baseline_identity_content_changed'):
+            builder.prepare(ROOT, self.snapshot, self.output.with_name('drift'), COMMIT, fc_baseline_identity=True)
+
     def test_package_sources_update_pricing_reporting_and_direct_baseline(self):
         self.assert_fc_revision_migration(builder.FC_V61_CARNIVAL_REVISION,
                                           builder.FC_V61_MARKET_PACKAGES_REVISION, baseline_patch=True)
