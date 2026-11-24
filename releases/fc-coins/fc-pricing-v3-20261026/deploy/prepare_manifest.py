@@ -163,7 +163,7 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         protected.add(MONITOR_SQLITE_SOURCE)
     if curve_stage:
         protected.update(set(three_platform_targets(source).values()) - changed)
-        protected.update(COUPON_DISPLAY_PROTECTED)
+        protected.update(set(COUPON_DISPLAY_PROTECTED) - changed)
         protected.update(CURVE_V6_PROTECTED)
         protected.update(THREE_PLATFORM_EXTRA[name] for name in ('source/monitor-hooks.py', 'source/monitor-collector.py'))
     if curve_stage and not curve_v6:
