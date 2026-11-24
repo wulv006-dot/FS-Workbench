@@ -1,6 +1,7 @@
 """Private Black Friday interactions in the test and configured FC27 channels."""
 import asyncio
 import json
+from datetime import datetime
 from functools import partial
 from pathlib import Path
 
@@ -48,17 +49,18 @@ class TestCouponBridge:
 
 
 def run_test(discord_id, scenario):
-    from black_friday_orders import MEMBERS, lookup_order_history
+    from black_friday_orders import lookup_order_history
 
     address = f'{scenario}+{discord_id}@example.test'
     member, orders = fixture(address)
 
     def fetch(path, query):
-        rows = ([dict(uid=member, email=address, site_id=266)] if path == MEMBERS else [
+        rows = [
             dict(id=row['id'], uid=member, email=address, site_id=row['site'], gid=row['game'],
+                 timestamp=int(datetime.fromisoformat(row['paid_at']).timestamp()),
                  paytime='2026-10-01 00:00:00', pay_status=1,
                  status=101 if row['status'] == 'complete' else 21)
-            for row in reversed(orders)])
+            for row in reversed(orders)]
         return {'code': 1, 'data': {'list': rows, 'total': len(rows)}}
 
     lookup = partial(lookup_order_history, fetch=fetch)
@@ -97,6 +99,11 @@ def gate(interaction, clubs, *, resume_only=False):
 
 
 async def render_receipt(interaction, receipt, *, test=False):
+    if receipt.pending_registration:
+        await interaction.edit_original_response(
+            content='Your coupon is reserved for this email. Register with the same email on MMOEXP, then check My Coupons.',
+            view=coupon_link())
+        return
     if not receipt.complete:
         content = ('Contact MMOEXP support so we can check the original claim.' if receipt.rejected
                    else 'Your delivery is awaiting confirmation. Use **Check my reward** to check again.')

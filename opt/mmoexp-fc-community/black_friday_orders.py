@@ -3,6 +3,7 @@
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
@@ -13,7 +14,6 @@ SITE = 266
 SHANGHAI = timezone(timedelta(hours=8))
 START = datetime(2026, 10, 1)
 ORDERS = '/admin/order.Order/index'
-MEMBERS = '/admin/user.Member/index'
 ADMIN = 'http://127.0.0.1:8912'
 PAGE_SIZE = 50
 MAX_PAGES = 40
@@ -26,7 +26,7 @@ class OrderLookupError(RuntimeError):
 
 @dataclass(frozen=True)
 class OrderHistory:
-    member_id: int
+    member_id: Optional[int]
     paid: int
     completed: int
 
@@ -54,13 +54,15 @@ def _decimal_int(value):
     return int(value)
 
 
-def _page(fetch, path, page, limit, email):
-    params = {'page': page, 'limit': limit, 'order': 'id,desc', 'quick_search': email}
-    for index, (field, value) in enumerate((('site_id', str(SITE)), ('email', email))):
-        params.update({f'search[{index}][field]': field, f'search[{index}][operator]': '=',
+def _page(fetch, page, email, period):
+    params = {'page': page, 'limit': PAGE_SIZE, 'order': 'id,desc', 'quick_search': email}
+    filters = (('site_id', '=', str(SITE)), ('email', '=', email), ('timestamp', 'RANGE', period))
+    for index, (field, operator, value) in enumerate(filters):
+        params.update({f'search[{index}][field]': field, f'search[{index}][operator]': operator,
                        f'search[{index}][val]': value})
+    params['search[2][render]'] = 'datetime'
     try:
-        payload = fetch(path, params)
+        payload = fetch(ORDERS, params)
     except Exception:
         raise OrderLookupError('Admin lookup is temporarily unavailable') from None
     if not isinstance(payload, dict) or type(payload.get('code')) is not int or payload['code'] != 1:
@@ -77,22 +79,31 @@ def _page(fetch, path, page, limit, email):
 
 
 def lookup_order_history(email, *, fetch=_fetch, now=None):
-    """Reuse the Admin page's quick search, with exact site/email filtering.
+    """Search the exact site's mailbox orders from the past calendar year.
 
-    Quick search reaches older orders and draft orders. Their member IDs may
-    establish identity without making those records count as paid purchases.
+    A matching order can supply a member ID for deduplication. A successful
+    empty history is eligible for the new-customer reward without that ID.
     """
     if not isinstance(email, str):
         raise OrderLookupError('Enter your MMOEXP account email')
     email = email.strip().lower()
     if len(email) > 254 or not EMAIL.fullmatch(email):
         raise OrderLookupError('Enter your MMOEXP account email')
-    now = datetime.now(SHANGHAI).replace(tzinfo=None) if now is None else now
+    now = datetime.now(SHANGHAI) if now is None else now
+    if now.tzinfo is not None:
+        now = now.astimezone(SHANGHAI)
+    now = now.replace(tzinfo=None, microsecond=0)
+    # February 29 maps to February 28 in the previous year.
+    day = 28 if (now.month, now.day) == (2, 29) else now.day
+    since = now.replace(year=now.year - 1, day=day)
+    start_epoch = int(since.replace(tzinfo=SHANGHAI).timestamp())
+    end_epoch = int(now.replace(tzinfo=SHANGHAI).timestamp())
+    period = f'{since:%Y-%m-%d %H:%M:%S},{now:%Y-%m-%d %H:%M:%S}'
     total = last_id = None
     paid = completed = seen = 0
     members = set()
     for page in range(1, MAX_PAGES + 1):
-        rows, count = _page(fetch, ORDERS, page, PAGE_SIZE, email)
+        rows, count = _page(fetch, page, email, period)
         if total is None:
             total = count
         if (count != total or total > PAGE_SIZE * MAX_PAGES
@@ -103,7 +114,9 @@ def lookup_order_history(email, *, fetch=_fetch, now=None):
             if order_id == 0 or (last_id is not None and order_id >= last_id):
                 raise OrderLookupError('Admin order pages are out of sequence')
             last_id = order_id
-            member_id = _decimal_int(row.get('uid'))
+            if not start_epoch <= _decimal_int(row.get('timestamp')) <= end_epoch:
+                raise OrderLookupError('Admin results fall outside the requested order window')
+            member_id = _decimal_int(row.get('uid') or 0)
             if member_id:
                 members.add(member_id)
             pay_state = _decimal_int(row.get('pay_status'))
@@ -121,12 +134,5 @@ def lookup_order_history(email, *, fetch=_fetch, now=None):
         seen += len(rows)
         if seen == total:
             break
-    if not members:
-        rows, total = _page(fetch, MEMBERS, 1, 2, email)
-        if total == 1 and len(rows) == 1:
-            member_id = _decimal_int(rows[0].get('uid'))
-            if member_id:
-                members.add(member_id)
-    if len(members) != 1:
-        raise OrderLookupError('A unique MMOEXP member account could not be resolved')
-    return OrderHistory(members.pop(), paid, completed)
+    member_id = members.pop() if len(members) == 1 else None
+    return OrderHistory(member_id, paid, completed)

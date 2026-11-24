@@ -60,6 +60,32 @@ class CampaignFlow(unittest.TestCase):
                 self.campaign.claim(discord_id, address)
         self.bridge.grant.assert_called_once()
 
+    def test_no_order_email_can_claim_once_without_an_admin_member_lookup(self):
+        email, other = self.addresses[:2]
+        self.histories[email] = SimpleNamespace(member_id=None, paid=0, completed=0)
+        receipt = self.campaign.claim(51, email)
+        self.assertEqual((receipt.tier, receipt.receipts), ('one', ('1011',)))
+        self.assertTrue(self.campaign.claim(51, email.upper()).replay)
+        for discord_id, address in [(52, email), (51, other)]:
+            with self.assertRaises(ClaimConflict):
+                self.campaign.claim(discord_id, address)
+        self.histories[other] = SimpleNamespace(member_id=None, paid=0, completed=0)
+        self.assertTrue(self.campaign.claim(52, other).complete)
+        self.assertEqual(self.bridge.grant.call_count, 2)
+
+    def test_old_claims_table_keeps_its_existing_delivery(self):
+        receipt = self.campaign.claim(52, self.addresses[1])
+        with sqlite3.connect(self.campaign.path) as db:
+            db.execute('''CREATE TABLE old_claims (
+                discord_id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL UNIQUE,
+                email_hash TEXT NOT NULL UNIQUE, tier TEXT NOT NULL)''')
+            db.execute('INSERT INTO old_claims SELECT * FROM claims')
+            db.execute('DROP TABLE claims')
+            db.execute('ALTER TABLE old_claims RENAME TO claims')
+        campaign = Campaign(self.state, self.coupons, self.lookup, self.bridge)
+        self.assertEqual(campaign.claim(52, self.addresses[1]).receipts, receipt.receipts)
+        self.bridge.grant.assert_called_once()
+
     def test_concurrent_claim_sends_only_once(self):
         with ThreadPoolExecutor(4) as pool:
             receipts = list(pool.map(lambda _: self.campaign.claim(51, self.addresses[0]), range(8)))

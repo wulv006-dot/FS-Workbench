@@ -19,6 +19,7 @@ class Receipt:
     complete: bool
     replay: bool
     rejected: bool = False
+    pending_registration: bool = False
 
 
 def validate_coupon(bridge, label, coupon):
@@ -45,8 +46,15 @@ class Campaign:
         self.coupons, self.lookup, self.bridge = coupons, lookup, bridge
         with self.transaction() as db:
             db.execute('''CREATE TABLE IF NOT EXISTS claims (
-                discord_id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL UNIQUE,
+                discord_id INTEGER PRIMARY KEY, member_id INTEGER UNIQUE,
                 email_hash TEXT NOT NULL UNIQUE, tier TEXT NOT NULL)''')
+            if any(field[1] == 'member_id' and field[3] for field in db.execute('PRAGMA table_info(claims)')):
+                db.execute('''CREATE TABLE claims_next (
+                    discord_id INTEGER PRIMARY KEY, member_id INTEGER UNIQUE,
+                    email_hash TEXT NOT NULL UNIQUE, tier TEXT NOT NULL)''')
+                db.execute('INSERT INTO claims_next SELECT discord_id,member_id,email_hash,tier FROM claims')
+                db.execute('DROP TABLE claims')
+                db.execute('ALTER TABLE claims_next RENAME TO claims')
             db.execute('''CREATE TABLE IF NOT EXISTS delivery (
                 discord_id INTEGER NOT NULL REFERENCES claims(discord_id), slot INTEGER NOT NULL,
                 coupon_id INTEGER NOT NULL, batch TEXT NOT NULL UNIQUE,
@@ -101,7 +109,7 @@ class Campaign:
         if resume_only:
             raise ClaimConflict('No earlier claim was found for this account and email.')
         history = self.lookup(email)
-        if (type(history.member_id) is not int or history.member_id <= 0
+        if ((history.member_id is not None and (type(history.member_id) is not int or history.member_id <= 0))
                 or type(history.paid) is not int or type(history.completed) is not int
                 or not 0 <= history.completed <= history.paid):
             raise ValueError('Incomplete order history.')
@@ -114,8 +122,9 @@ class Campaign:
             if previous is not None:
                 return previous, True
             db.execute('INSERT INTO claims VALUES (?,?,?,?)', (discord_id, history.member_id, digest, tier))
+            identity = history.member_id if history.member_id is not None else 'email:' + digest
             for slot, label in enumerate(labels):
-                suffix = hashlib.sha256(f'BF26:{history.member_id}:{label}'.encode()).hexdigest()[:32].upper()
+                suffix = hashlib.sha256(f'BF26:{identity}:{label}'.encode()).hexdigest()[:32].upper()
                 db.execute('INSERT INTO delivery VALUES (?,?,?,?,\'ready\',NULL,NULL)',
                            (discord_id, slot, self.coupons[label], 'FC27R_' + suffix))
         return tier, False
@@ -148,7 +157,9 @@ class Campaign:
         newer_job = result.get('job_id') or job
         if result.get('state') == 'confirmed' and receipt.isascii() and receipt.isdigit() and int(receipt) > 0:
             new_status = 'confirmed'
-        elif result.get('state') in ('rejected', 'limit', 'pending_register'):
+        elif result.get('state') == 'pending_register':
+            new_status = 'pending_register'
+        elif result.get('state') in ('rejected', 'limit'):
             new_status = 'rejected'
         elif newer_job and (result.get('state') == 'pending' or status == 'pending'):
             new_status = 'pending'
@@ -175,4 +186,5 @@ class Campaign:
             if not receipt:
                 break
             receipts.append(receipt)
-        return Receipt(tier, tuple(receipts), len(receipts) == len(labels), replay, status == 'rejected')
+        return Receipt(tier, tuple(receipts), len(receipts) == len(labels), replay,
+                       rejected=status == 'rejected', pending_registration=status == 'pending_register')
