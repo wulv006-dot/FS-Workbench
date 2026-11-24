@@ -295,16 +295,22 @@ def _curve_market_quotes(snapshot, observation=None):
                 'regular_price','display_price','eligible_net_price','comparable','delivery_method','delivery_tier','captured_at')}
     offers = [row for row in snapshot['evidence'].get('competitor_offers') or []
               if row.get('purchase_k') in requested and row.get('source') in sources]
-    monitoring, monitoring_status = {}, {}
+    monitoring, monitoring_status, monitoring_attempts = {}, {}, {}
     if policy == POLICY:
         same_run = observation if observation and observation.get('run_id') == snapshot['snapshot_id'] else {}
         for source in ('IGGM','U4GM'):
-            status = (same_run.get('package_status', {}).get(source) or {}).get('status')
+            result = same_run.get('package_status', {}).get(source) or {}
+            status = result.get('status')
             monitoring_status[source] = status if status in ('captured','partial','missing') else 'pending'
+            if result.get('attempts'):
+                monitoring_attempts[source] = result['attempts']
+            elif 'source_access_restricted' in result.get('errors', []):
+                monitoring_attempts[source] = [dict(errors=['source_access_restricted'])]
             monitoring[source] = [public_quote(r) for r in same_run.get('package_offers', [])
                                   if r.get('source') == source and r.get('run_id') == snapshot['snapshot_id']
                                   and r.get('purchase_k') in requested]
-    return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=policy, monitoring=monitoring, monitoring_status=monitoring_status,
+    return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=policy, monitoring=monitoring,
+                monitoring_status=monitoring_status, monitoring_attempts=monitoring_attempts,
                 snapshot_id=snapshot['snapshot_id'], captured_at=snapshot['created_at'],
                 competitor_coverage=quantity_coverage(offers, requested=requested, sources=sources),
                   competitor_offers=[public_quote(row) for row in offers])

@@ -23,6 +23,7 @@ from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEK
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, curve_arab_quote_targets
 from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
+from target_map import OBSERVER_CONTROL_FILES
 from target_map import ORDER_COST_CHANNEL_OVERLAY, order_cost_channel_overlay
 from target_map import HOURLY_COST_CHANNEL_BASE, HOURLY_COST_CHANNEL_OVERLAY, hourly_cost_channel_overlay
 from target_map import ORDER_COST_CHANNEL_REPOSITORY
@@ -170,6 +171,29 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         protected.update(('/opt/fs-hermes-fc/user_source.py', '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'))
     if curve_arab_quote:
         protected.update('/opt/fs-fc-control/code/fc_collection/' + name for name in ('adapters.py', 'contracts.py'))
+    if curve_recovery == 'observer-status':
+        role_root = Path('/opt/fs-fc-control/code')
+        current_manifest = role_root / 'manifest.json'
+        candidate_role = STAGE / 'candidate/source/control-role'
+        regular(current_manifest)
+        prior_role = json.loads(current_manifest.read_bytes())
+        next_role = json.loads((candidate_role / 'manifest.json').read_bytes())
+        prior_hashes = prior_role.pop('sha256')
+        next_hashes = next_role.pop('sha256')
+        if prior_role != next_role or prior_hashes.keys() != next_hashes.keys():
+            raise ValueError('observer_control_role_manifest_changed')
+        for name, prior_hash in prior_hashes.items():
+            path = role_root / name
+            regular(path)
+            if sha(path) != prior_hash:
+                raise ValueError('observer_control_role_baseline_drift:' + name)
+            if name in OBSERVER_CONTROL_FILES:
+                if sha(candidate_role / name) != next_hashes[name]:
+                    raise ValueError('observer_control_role_payload_drift:' + name)
+            elif prior_hash != next_hashes[name]:
+                raise ValueError('observer_control_role_change_outside_scope:' + name)
+            else:
+                protected.add(str(path))
     rows = []
     for name, target in sorted(expected.items()):
         current = Path(target)
