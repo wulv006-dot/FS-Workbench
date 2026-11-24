@@ -24,6 +24,7 @@ class PilotFlow(unittest.IsolatedAsyncioTestCase):
                     args['view'].children[0]._values = ['Real Madrid']
                     await args['view'].children[0].callback(it)
                     email = it.response.send_modal.await_args.args[0]
+                    self.assertLessEqual(len(email.address.label), 45)
                     email.address._value = f'{profile}+tester@example.test'
                     await email.on_submit(it)
                     inbox = it.response.send_message.await_args.kwargs['view']

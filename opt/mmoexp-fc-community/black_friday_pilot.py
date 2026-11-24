@@ -96,7 +96,7 @@ class Email(discord.ui.Modal, title='Test member email'):
     def __init__(self, owner, club):
         super().__init__(timeout=180)
         self.owner, self.club = owner, club
-        self.address = discord.ui.TextInput(label='Demo email · change five to new, return or four',
+        self.address = discord.ui.TextInput(label='Test email (new, return, four or five)',
             default=f'five+{owner}@example.test', max_length=64)
         self.add_item(self.address)
 
