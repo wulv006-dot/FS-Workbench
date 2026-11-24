@@ -68,7 +68,7 @@ if(require.main===module)(async()=>{
   assert.deepEqual(await page.locator('#business-site option').evaluateAll(options=>options.map(o=>o.value)),['all','mmoexp','rsorders','rsmalls','rsfast']);
   assert.equal(await page.locator('#business-scope optgroup[label=球类] option').count(),5);assert.equal(await page.locator('#business-scope optgroup[label=RPG] option').count(),5);
   assert.equal(await page.getByRole('combobox',{name:'参考展示范围'}).count(),0);assert.equal(await page.locator('#rs_site').count(),0);
-  assert.equal(await core.count(),16);assert.match(await gross.innerText(),/毛利（¥）/);assert.match(await margin.innerText(),/25.00%/);
+  assert.equal(await core.count(),17); assert.equal(await page.locator('[data-metric="native_repeat_rate"]').isVisible(),false);assert.match(await gross.innerText(),/毛利（¥）/);assert.match(await margin.innerText(),/25.00%/);
   assert.equal(await page.locator('[data-procurement-independent]').count(),0);assert.equal(await page.locator('#shipping-category').count(),0);assert.equal(await coverage.count(),0);
   for(const k of ['coveredOrders','missingCostOrders','pendingOrders'])assert.equal(await page.locator('[data-metric="'+k+'"]').count(),0);
   const primary=['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','local_repeat_rate','newCustomerSharePct','averageOrderUsd'];
