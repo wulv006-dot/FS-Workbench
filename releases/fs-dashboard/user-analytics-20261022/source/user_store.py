@@ -424,7 +424,7 @@ class Store:
         return True
 
     def read_at(self, version, start=None, end=None, *, bounded_only=False):
-        """Replay a fixed revision. Bound date lookup and recent undo data on request."""
+        """Replay a fixed revision, using the date index whenever a period is supplied."""
         if not isinstance(version, str) or not version.isdecimal() or str(int(version)) != version or (start is None) != (end is None):
             raise ValueError('snapshot_replay_version')
         if bounded_only and start is None:
@@ -454,9 +454,9 @@ class Store:
                                if row['valid']), key=lambda row: (row['paid_at'], row['order_key']))
             order_query = 'SELECT * FROM orders WHERE revision<=?'
             order_args = (target,)
-            if bounded_only:
-                if not self.bounded_tail_available(db, target, current):
-                    return None
+            if bounded_only and not self.bounded_tail_available(db, target, current):
+                return None
+            if start is not None:
                 order_query = ('SELECT * FROM orders INDEXED BY purchase_time '
                                'WHERE revision<=? AND paid_at>=? AND paid_at<? AND valid=1')
                 order_args = (target, start, end)

@@ -3,7 +3,7 @@ from contextlib import ExitStack
 from datetime import datetime, timedelta
 from collections import OrderedDict
 from copy import deepcopy
-from threading import RLock, Timer
+from threading import Lock, RLock, Timer
 from time import monotonic
 import json
 import hashlib
@@ -11,6 +11,10 @@ import re
 
 from user_contract import TZ, aggregate_only, checked_query, stamp, digest, METRIC_DEFINITIONS, OBSERVATION_POLICIES
 from user_lifecycle import analyze, project_analysis, in_scope, covered
+
+
+class SummaryBusy(Exception):
+    """An uncached summary is already being built in this process."""
 
 
 class Service:
@@ -25,6 +29,7 @@ class Service:
         self.export_verifier,self.export_publisher = export_verifier,export_publisher
         self.cache = OrderedDict()
         self.cache_lock = RLock()
+        self.summary_slot = Lock()
         self.private_lock = RLock()
         self.private_cache = None
         self.private_cache_timer = None
@@ -39,6 +44,10 @@ class Service:
             self.permit(user, dict(query, scope='global', scope_id=''))
 
     def query(self, args, user):
+        with ExitStack() as computation:
+            return self._query(args, user, computation)
+
+    def _query(self, args, user, computation):
         if not isinstance(args, dict):
             raise ValueError('query_fields')
         config = self.store.config
@@ -58,9 +67,6 @@ class Service:
             self.permit_snapshot(user, old, public)
             return public
         with ExitStack() as archive_read:
-            if self.weekly_publication is not False and config.get('update_cadence') in ('weekly-v1','daily-v1'):
-                from user_customer_types import publication_archive_access
-                archive_read.enter_context(publication_archive_access())
             publication = None
             if self.weekly_publication is not False and config.get('update_cadence') in ('weekly-v1', 'daily-v1'):
                 from user_weekly import publication as read_publication
@@ -89,8 +95,17 @@ class Service:
                 if cache_key in self.cache:
                     self.cache.move_to_end(cache_key)
                     return deepcopy(self.cache[cache_key])
+            # A timed-out client does not cancel its server thread. Limit concurrent
+            # materialization while keeping cached and fixed-snapshot reads available.
+            if not self.summary_slot.acquire(blocking=False):
+                raise SummaryBusy('users_summary_busy')
+            computation.callback(self.summary_slot.release)
             if period_cohort and publication:
-                from user_customer_types import read_pinned_flags
+                from user_customer_types import publication_archive_access, read_pinned_flags
+                archive_read.enter_context(publication_archive_access())
+                # A new publication may have retired the first set of manifest pins.
+                if read_publication(self.store, self.clock())['publication_id'] != publication['publication_id']:
+                    raise SummaryBusy('users_publication_changed')
                 try:
                     flags, flag_source = read_pinned_flags(query, publication['flag_manifests'])
                 except (OSError, ValueError, KeyError, TypeError, ImportError) as error:

@@ -114,6 +114,19 @@ class RevisionRange(unittest.TestCase):
         self.assertEqual(actual,self.store.read_at('2',*window))
         self.assertEqual([row['order_key'] for row in actual],['moved_out','void_later'])
 
+    def test_normal_historical_period_projects_only_in_window_rows_and_undo(self):
+        self.change(2, [fact('in',2,'2026-10-01'), fact('out',2,'2026-09-01'),
+                        fact('moved',2,'2026-10-01')])
+        self.change(3, [fact('moved',3,'2026-10-02')])
+        self.change(4, [fact('moved',4,'2026-10-01')])
+        window = ('2026-10-01', '2026-10-02')
+        reference = [row for row in self.store.read_at('2')
+                     if window[0] <= row['paid_at'] < window[1]]
+        with patch.object(self.store, 'analytics_row_v1', wraps=self.store.analytics_row_v1) as project:
+            self.assertEqual(self.store.read_at('2', *window), reference)
+        self.assertNotIn('out', [call.args[0]['order_key'] for call in project.call_args_list])
+        self.assertEqual([row['order_key'] for row in reference], ['in', 'moved'])
+
     def test_unindexed_bounded_tail_refuses_excess_revisions_and_bytes(self):
         self.change(2,[fact('a',2,'2026-10-01')])
         self.change(3,[fact('a',3,'2026-10-02')])

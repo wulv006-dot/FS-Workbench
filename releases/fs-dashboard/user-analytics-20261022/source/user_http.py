@@ -2,6 +2,7 @@
 from user_weekly import WeeklyUnavailable
 from user_store import StoreUnavailable
 from user_member_index import IndexUnavailable
+from user_query import SummaryBusy
 
 
 def search(service, body, user):
@@ -56,6 +57,8 @@ def get(service, path, params, user):
         if action != 'summary':
             raise ValueError('public_action')
         return 200, service.query(args, user)
+    except SummaryBusy:
+        return 429, {'error': 'users_summary_busy', 'retryable': True}
     except PermissionError:
         return 403, {'error': 'scope_or_admin_required'}
     except IndexUnavailable:
