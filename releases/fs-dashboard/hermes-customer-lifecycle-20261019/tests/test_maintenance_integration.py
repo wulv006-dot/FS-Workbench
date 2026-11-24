@@ -132,6 +132,26 @@ class Integration(unittest.TestCase):
         return dict(id=ident, member_id=100, site_id=266, status=2, grant_batch_no='manual',
                     start_time=(self.now-timedelta(hours=1)).isoformat())
 
+    def test_maintenance_dashboard_reads_stored_queue_details_and_counts(self):
+        template = dict(TEMPLATE, mode_type=2, reduce='88', max_reduce='50')
+        self.bridge.detail = lambda coupon: template.copy()
+        entry = self.create()
+        groups = self.service.group_view()
+        self.assertEqual(dict(reviewing=1), groups['queue_counts'])
+        self.assertEqual(0, groups['last_run']['config_version'])
+
+        self.service.update()
+        ready, = self.service.queue_view('ready')['items']
+        self.assertEqual(entry['id'], ready['id'])
+        self.assertEqual('high', ready['tier'])
+        self.assertEqual('silent', ready['stage'])
+        self.assertEqual('500.00', ready['amount_usd'])
+        self.assertEqual(0, ready['unknown_amount_orders'])
+        self.assertEqual({'mode_type': 2, 'reduce': '88', 'max_reduce': '50', 'time_effect': 2, 'days': 7},
+                         ready['coupon'])
+        self.assertNotIn('rule_body', ready)
+        self.assertEqual({'ready': 1}, self.service.group_view()['queue_counts'])
+
     def test_admin_problem_status_blocks_review_and_dispatch(self):
         for status in ('CB(资料)', '调查中', '拒付', '退款中'):
             with self.subTest(status=status):

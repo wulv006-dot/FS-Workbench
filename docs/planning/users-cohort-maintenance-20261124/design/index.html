@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-CN" data-fs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>用户分析与客户维护 · 设计稿</title>
+<style>
+/* demo: FS 主题令牌 + 新布局；数字均为 2026-11-23 生产真实读数 */
+:root,[data-fs-theme="light"]{
+ color-scheme:light;--bg:#e9edf2;--surface:#fff;--surface-2:#f7f9fb;--surface-3:#eef2f6;
+ --text:#1b2632;--muted:#596980;--line:#dce3eb;--line-soft:#e8edf3;
+ --brand:#1f6f73;--brand-soft:#e3f0ef;--brand-on:#fff;--ok:#1f7d61;--ok-soft:#e2f3ec;
+ --warn:#825a13;--warn-soft:#faf0dd;--danger:#a8412c;--danger-soft:#fbeae5;--info:#2f5a86;--info-soft:#e7eef7;--violet:#65509b;
+ --c1:#1f6f73;--c2:#3d8fb8;--c3:#c08a2c;--c4:#a8412c;--c5:#65509b;--gray:#c9d3de;
+ --heat-0:#eef5f4;--heat-1:#cfe5e2;--heat-2:#9fcbc6;--heat-3:#5fa7a2;--heat-4:#1f6f73;--heat-text-dark:#fff;
+ --shadow:0 1px 3px #14283c08,0 14px 34px -25px #14283c55;--radius:16px;--radius-sm:10px;--focus:#147a80;
+ --font:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+ --num:"SF Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+[data-fs-theme="dark"]{
+ color-scheme:dark;--bg:#0a1424;--surface:#121d31;--surface-2:#182641;--surface-3:#22314c;
+ --text:#e8eef6;--muted:#b6c4d7;--line:#35465f;--line-soft:#293a51;
+ --brand:#4db8b0;--brand-soft:#183a40;--brand-on:#07191d;--ok:#70cfa7;--ok-soft:#17392e;
+ --warn:#f0c478;--warn-soft:#3b3020;--danger:#ffad99;--danger-soft:#402b2c;--info:#9bc5f3;--info-soft:#22344e;--violet:#c5b4f3;
+ --c1:#4db8b0;--c2:#7fb8e0;--c3:#e0b765;--c4:#ff9f8a;--c5:#c5b4f3;--gray:#3a4a62;
+ --heat-0:#16283a;--heat-1:#1b3a45;--heat-2:#205a5e;--heat-3:#2f8984;--heat-4:#4db8b0;--heat-text-dark:#07191d;
+ --shadow:0 12px 28px -24px #000b;--focus:#7fd0c9;
+}
+*{box-sizing:border-box}
+html,body{overflow-x:clip}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--font)}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1240px;margin:0 auto;padding:24px 24px 64px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:28px;line-height:1.2;margin:0}
+.sub{color:var(--muted);margin:4px 0 0}
+.tabs{display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:12px;box-shadow:var(--shadow)}
+.tabs button{border:0;background:none;padding:8px 14px;border-radius:9px;cursor:pointer;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--brand);color:var(--brand-on)}
+.tabs button:hover:not([aria-selected="true"]){background:var(--surface-3);color:var(--text)}
+.theme{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 12px;cursor:pointer}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 0 18px}
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px}
+.card .k{color:var(--muted);font-size:13px}
+.card .v{font-size:30px;font-weight:650;line-height:1.15;margin-top:6px;font-variant-numeric:tabular-nums}
+.card .n{color:var(--muted);font-size:13px;margin-top:4px}
+.card.accent{background:var(--brand);color:var(--brand-on)}
+.card.accent .k,.card.accent .n{color:inherit;opacity:.85}
+section.mod{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px;margin-bottom:18px}
+.mod-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.mod-head h2{font-size:19px;margin:0}
+.mod-head .q{color:var(--muted);margin:2px 0 0}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--brand-soft);color:var(--brand);margin-right:6px}
+.finding{margin:14px 0 4px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--brand-soft);font-size:15px}
+.finding b{font-weight:650}
+.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:14px 0 6px;color:var(--muted)}
+.controls select,.controls input{border:1px solid var(--line);border-radius:9px;background:var(--surface-2);padding:6px 9px}
+.controls input{width:64px;text-align:center}
+.sentence{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text)}
+.grid2{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;margin-top:12px}
+.panel{background:var(--surface-2);border-radius:var(--radius-sm);padding:14px}
+.panel h3{font-size:14px;margin:0 0 8px;font-weight:600}
+.panel .hint{color:var(--muted);font-size:13px;margin:0 0 6px}
+svg{display:block;width:100%;height:auto}
+svg text{fill:var(--muted);font:12px var(--font)}
+svg .strong{fill:var(--text);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+table.heat{width:100%;border-collapse:separate;border-spacing:4px;font-variant-numeric:tabular-nums}
+table.heat th{font-weight:500;color:var(--muted);font-size:12.5px;text-align:left;padding:2px 4px}
+table.heat td{border-radius:8px;padding:8px 10px;font-size:14px;cursor:pointer}
+table.heat td .p{font-weight:650}
+table.heat td .s{font-size:11.5px;opacity:.85}
+table.heat td.obs{background:repeating-linear-gradient(135deg,var(--surface-3) 0 6px,var(--surface-2) 6px 12px);color:var(--muted);cursor:default}
+table.heat td:hover:not(.obs){outline:2px solid var(--focus)}
+details.how{margin-top:14px;border-top:1px solid var(--line-soft);padding-top:10px}
+details.how summary{cursor:pointer;color:var(--brand);font-size:14px}
+details.how .body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:10px;font-size:14px;color:var(--text)}
+details.how ol{margin:0;padding-left:18px}
+details.how .ex{background:var(--surface-2);border-radius:var(--radius-sm);padding:10px 12px}
+.drill{margin-top:10px;font-size:13.5px;color:var(--muted)}
+.drill b{color:var(--text)}
+.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:14px}
+.step{background:var(--surface-2);border-radius:var(--radius-sm);padding:12px;position:relative;border:1px solid var(--line-soft)}
+.step .no{font-size:12px;color:var(--muted)}
+.step .t{font-weight:600;margin-top:2px}
+.step .c{font-size:24px;font-weight:650;margin-top:6px;font-variant-numeric:tabular-nums}
+.step .d{font-size:12.5px;color:var(--muted)}
+.step.you{border-color:var(--brand);background:var(--brand-soft)}
+.matrix{display:grid;grid-template-columns:110px repeat(4,minmax(0,1fr));gap:8px;margin-top:12px;align-items:stretch}
+.matrix .h{font-size:12.5px;color:var(--muted);align-self:end;padding:0 4px}
+.matrix .rowh{font-weight:600;align-self:center}
+.tile{border-radius:var(--radius-sm);padding:10px 12px;background:var(--surface-2);border:1px solid var(--line-soft)}
+.tile .cnt{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
+.tile .r{font-size:12.5px;margin-top:4px}
+.tile.calm{background:var(--surface-3)}
+.tile.watch{background:var(--info-soft)}
+.tile.alert{background:var(--warn-soft)}
+.tile.hot{background:var(--danger-soft)}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;background:var(--surface);border:1px solid var(--line)}
+.empty{color:var(--muted);text-align:center;padding:18px;border:1px dashed var(--line);border-radius:var(--radius-sm);margin-top:12px}
+.guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:10px}
+.guide div{background:var(--surface-2);border-radius:var(--radius-sm);padding:12px;font-size:14px}
+.guide b{display:block;margin-bottom:4px}
+.hidden{display:none}
+.note{font-size:12.5px;color:var(--muted);margin-top:10px}
+@media (max-width:900px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.grid2,details.how .body,.guide{grid-template-columns:minmax(0,1fr)}.flow{grid-template-columns:minmax(0,1fr)}.matrix{grid-template-columns:80px repeat(4,minmax(0,1fr))}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <header class="top">
+  <div>
+   <h1 id="title">用户分析</h1>
+   <p class="sub">数据截至 2026-11-23（北京时间） · MMOEXP 主站 · 设计稿，数字为生产真实读数</p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+   <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="users">用户分析</button>
+    <button role="tab" aria-selected="false" data-tab="care">客户维护 · 阶段维护</button>
+   </div>
+   <button class="theme" id="theme">深色</button>
+  </div>
+ </header>
+
+ <!-- ===================== 用户分析 ===================== -->
+ <main id="users">
+  <details class="card" style="margin-bottom:18px">
+   <summary style="cursor:pointer;font-weight:600">这页能回答什么？（30 秒看懂）</summary>
+   <div class="guide">
+    <div><b>① 新客会不会回来买</b>某个月来的新客，首单后 30 / 90 / 180 天内，有多少人买了第二单。看「回头率」模块。</div>
+    <div><b>② 沉默后会不会被拉回来</b>首单后很久没买的人，后来有没有回来（例如新赛季）。看「沉默后回流」模块。</div>
+    <div><b>③ 现在的客户健不健康</b>最近买过的客户里，多少人还活跃、多少人开始沉默或流失，每天有多少人回流。看「客户健康」模块。</div>
+   </div>
+  </details>
+
+  <div class="cards">
+   <div class="card accent"><div class="k">1 月新客</div><div class="v">9,154</div><div class="n">站内首单在 2026-01 的新客</div></div>
+   <div class="card"><div class="k">90 天回头率</div><div class="v">40.4%</div><div class="n">3,698 人 90 天内买了第二单</div></div>
+   <div class="card"><div class="k">沉默后回流率</div><div class="v">5.4%</div><div class="n">60 天没买的 5,599 人里 302 人回来</div></div>
+   <div class="card"><div class="k">回流带来的复购额</div><div class="v">$30,608</div><div class="n">第 61–180 天回流订单</div></div>
+  </div>
+
+  <!-- 模块 1 回头率 -->
+  <section class="mod">
+   <div class="mod-head">
+    <div><h2>回头率：新客多久会买第二单</h2><p class="q">按首单月份分批，看首单后 N 天内买过第二单的人占多少（累计，越往后越高）</p></div>
+   </div>
+   <div class="controls">
+    <span class="sentence">看 <select aria-label="游戏"><option>全部游戏</option><option>POE2</option><option>Diablo 4</option><option>FC27</option></select> 首单在 <select aria-label="起"><option>2026-01</option></select> 到 <select aria-label="止"><option>2026-10</option></select> 的新客，首单后 <input value="30" aria-label="节点1"> / <input value="90" aria-label="节点2"> / <input value="180" aria-label="节点3"> 天内的回头率</span>
+   </div>
+   <div class="finding"><b>结论：</b>新客的回购大多发生在<b>首单后 30 天内</b>（180 天内回来的人里，八成以上在 30 天内就买了第二单）；4–5 月批次回头率最高，90 天达 <b>51%</b>。</div>
+   <div class="grid2">
+    <div class="panel">
+     <h3>回头率曲线（每条线是一批新客）</h3>
+     <p class="hint">横轴：首单后天数；纵轴：已买第二单的比例。线越高，这批客户越愿意回来。</p>
+     <svg id="curve" viewBox="0 0 520 280" role="img" aria-label="各批新客回头率随天数增长曲线"></svg>
+     <div class="legend" id="curve-legend"></div>
+    </div>
+    <div class="panel">
+     <h3>回头率热力表</h3>
+     <p class="hint">颜色越深回头率越高；斜纹格表示时间还没到，暂时算不出。点格子看名单。</p>
+     <table class="heat" id="heat"></table>
+     <div class="legend"><span><i style="background:var(--heat-0)"></i>低</span><span><i style="background:var(--heat-2)"></i>中</span><span><i style="background:var(--heat-4)"></i>高</span><span><i style="background:var(--surface-3)"></i>未满期</span></div>
+     <div class="drill" id="drill">点任意格子，这里显示该格的人数、复购金额和名单入口。</div>
+    </div>
+   </div>
+   <div class="panel" style="margin-top:14px">
+    <h3>第一次回购发生在什么时候</h3>
+    <p class="hint">只统计已满 180 天的批次。每条横条 = 这批新客 100%，按第一次买第二单的时间分段。</p>
+    <svg id="dist" viewBox="0 0 1000 190" role="img" aria-label="首次回购时间分布"></svg>
+    <div class="legend"><span><i style="background:var(--c1)"></i>30 天内回购</span><span><i style="background:var(--c2)"></i>30–90 天</span><span><i style="background:var(--c3)"></i>90–180 天</span><span><i style="background:var(--gray)"></i>180 天内没回购</span></div>
+   </div>
+   <details class="how"><summary>这块怎么读？</summary>
+    <div class="body">
+     <ol><li>每一批 = 站内首单落在同一个月、且 ES 标记为新客的人。</li><li>回购 = 首单后<b>满 24 小时</b>的另一笔有效订单（当天补单不算）。</li><li>只用「时间已满」的客户算比例；没满的人不进分母，显示为斜纹。</li><li>节点 30/90/180 可以改，最多 5 个。</li></ol>
+     <div class="ex"><b>例：</b>1 月批 9,154 人。30 天内 3,281 人买了第二单（35.8%）；到 90 天累计 3,698 人（40.4%）；到 180 天累计 3,857 人（42.1%）。也就是说 30 天后还会陆续有人回来，但越来越少。</div>
+    </div>
+   </details>
+  </section>
+
+  <!-- 模块 2 沉默后回流 -->
+  <section class="mod">
+   <div class="mod-head">
+    <div><h2>沉默后回流：一段时间没买的人，后来回来了吗</h2><p class="q">用来验证「1–2 个月沉默，新赛季又回来」</p></div>
+   </div>
+   <div class="controls">
+    <span class="sentence">首单后 <input value="60" aria-label="沉默天数"> 天内没买第二单的人，在第 <b>61</b> 到 <input value="180" aria-label="回流截止"> 天之间回来下单的比例</span>
+   </div>
+   <svg id="timeline" viewBox="0 0 1000 86" role="img" aria-label="沉默期与回流窗口示意" style="margin-top:6px"></svg>
+   <div class="finding"><b>结论：</b>每批新客中都有 <b>3.9%–7.6%</b> 的人沉默两个月以上后回来；<b>4 月批最高（7.6%）</b>。若要证明「新赛季拉回」，下一步按游戏筛选并对照赛季开启日期。</div>
+   <div class="grid2">
+    <div class="panel">
+     <h3>各批次沉默后回流率</h3>
+     <p class="hint">柱高 = 回流率；柱上数字 = 回来的人数 / 沉默的人数。</p>
+     <svg id="silent" viewBox="0 0 520 250" role="img" aria-label="各批次沉默后回流率柱状图"></svg>
+    </div>
+    <div class="panel">
+     <h3>回流带来的复购金额</h3>
+     <p class="hint">第 61–180 天回流订单的金额合计（USD）。</p>
+     <svg id="silentAmt" viewBox="0 0 520 250" role="img" aria-label="各批次回流金额"></svg>
+    </div>
+   </div>
+   <details class="how"><summary>这块怎么读？</summary>
+    <div class="body">
+     <ol><li>先找出首单后 <b>60 天内一直没回购</b>的人（沉默的人）。</li><li>再看他们在<b>第 61–180 天</b>有没有回来下单。</li><li>只统计首单已满 180 天的批次，所以 6 月以后的批次暂时没有数据。</li><li>这里的 180 和「回头率」里的 180 是各自独立的设置，可以设成不同的数。</li></ol>
+     <div class="ex"><b>例：</b>1 月批里有 5,599 人前 60 天没买第二单；其中 302 人在第 61–180 天回来了（5.4%），带来 $30,608 复购额。</div>
+    </div>
+   </details>
+  </section>
+
+  <!-- 模块 3 客户健康 -->
+  <section class="mod">
+   <div class="mod-head">
+    <div><h2>客户健康：最近买过的客户现在怎么样</h2><p class="q">不看新老，看所选期间内买过的所有客户：多少还活跃，多少开始沉默或流失，每天有多少人回来</p></div>
+   </div>
+   <div class="controls"><span class="sentence">近 <select aria-label="期间"><option>90 天</option><option>30 天</option><option>180 天</option></select> 买过的客户，截至 2026-11-23 的状态（全部游戏按 30 / 60 / 90 天划分）</span></div>
+   <div class="grid2">
+    <div class="panel">
+     <h3>客户状态分布（32,580 人）</h3>
+     <p class="hint">按距最后一次购买的天数分组：&lt;30 天近期，30–59 天沉默，60–89 天流失，≥90 天长期流失。</p>
+     <svg id="stages" viewBox="0 0 520 150" role="img" aria-label="客户状态分布"></svg>
+     <div class="legend"><span><i style="background:var(--c1)"></i>近期 12,450</span><span><i style="background:var(--c3)"></i>沉默 13,284</span><span><i style="background:var(--c4)"></i>流失 6,846</span></div>
+    </div>
+    <div class="panel">
+     <h3>每日回流人数（近 30 天）</h3>
+     <p class="hint">回流 = 隔了 30 天以上又来买。曲线上冲的日子，常对应活动或赛季开启。</p>
+     <svg id="daily" viewBox="0 0 520 220" role="img" aria-label="每日回流人数"></svg>
+     <div class="legend"><span><i style="background:var(--c3)"></i>沉默唤醒（隔 30–59 天）</span><span><i style="background:var(--c4)"></i>流失回流（隔 60 天以上）</span></div>
+    </div>
+   </div>
+   <div class="finding"><b>结论：</b>近 90 天买过的客户里，<b>超过六成已经 30 天以上没再买</b>；每天约有 45–115 人从沉默或流失中回来，11-08、11-15 两个周末明显偏高。</div>
+  </section>
+
+  <section class="mod">
+   <div class="mod-head"><div><h2>查人</h2><p class="q">输入完整邮箱，查看这位客户的购买时间线</p></div></div>
+   <div class="controls"><input style="width:320px;text-align:left" placeholder="客户完整邮箱" aria-label="客户邮箱"><button class="theme">查购买记录</button></div>
+  </section>
+ </main>
+
+ <!-- ===================== 客户维护 ===================== -->
+ <main id="care" class="hidden">
+  <div class="cards">
+   <div class="card accent"><div class="k">维护池</div><div class="v">556</div><div class="n">FC27 累计消费 ≥ $500 的客户</div></div>
+   <div class="card"><div class="k">超高价值（≥ $1,000）</div><div class="v">155</div><div class="n">其中 79 人已沉默或流失</div></div>
+   <div class="card"><div class="k">高价值（$500–999）</div><div class="v">401</div><div class="n">其中 213 人已沉默或流失</div></div>
+   <div class="card"><div class="k">今日待你确认</div><div class="v">0</div><div class="n">今晚首轮只登记存量，明天起出现</div></div>
+  </div>
+
+  <section class="mod">
+   <div class="mod-head"><div><h2>每天怎么运转</h2><p class="q">规则自动挑人 → 程序复核 → 你确认 → 程序发券。只有第 4 步需要你动手。</p></div></div>
+   <div class="flow">
+    <div class="step"><div class="no">第 1 步 · 自动</div><div class="t">规则挑人</div><div class="c">6 条</div><div class="d">新进入沉默 / 流失 / 长期流失的客户触发</div></div>
+    <div class="step"><div class="no">第 2 步 · 自动</div><div class="t">程序复核</div><div class="c">0</div><div class="d">排除刚下单、有售后、30 天内收过券、正在跟进的人</div></div>
+    <div class="step"><div class="no">第 3 步 · 自动</div><div class="t">进入待发区</div><div class="c">0</div><div class="d">同时出现在你的待跟进列表</div></div>
+    <div class="step you"><div class="no">第 4 步 · 你</div><div class="t">确认或剔除</div><div class="c">0</div><div class="d">72 小时未确认自动过期，不补发</div></div>
+    <div class="step"><div class="no">第 5 步 · 自动</div><div class="t">发券并对账</div><div class="c">0</div><div class="d">每条规则每天最多 50 张</div></div>
+   </div>
+  </section>
+
+  <section class="mod">
+   <div class="mod-head"><div><h2>客户分层与对应动作</h2><p class="q">行 = 价值档，列 = 距最后一次购买多久（FC27：14 / 30 / 60 天）。格子里是当前人数和自动动作。</p></div></div>
+   <div class="matrix" id="matrix"></div>
+   <div class="legend" style="margin-top:10px"><span><i style="background:var(--surface-3)"></i>近期，不打扰</span><span><i style="background:var(--info-soft)"></i>预警跟进</span><span><i style="background:var(--warn-soft)"></i>发券挽回</span><span><i style="background:var(--danger-soft)"></i>重点挽回</span></div>
+   <details class="how"><summary>分层规则怎么定的？</summary>
+    <div class="body">
+     <ol><li>价值档按 FC27 <b>累计有效消费</b>：超高 ≥ $1,000，高 $500–999.99，低于 $500 不进维护池。</li><li>阶段按距最后一次 FC27 购买：&lt;14 天近期，14–29 天沉默，30–59 天流失，≥60 天长期流失。</li><li>只有<b>当天新进入</b>某个阶段的客户才触发动作；已经在阶段里的老存量不会一次性全发。</li><li>同一客户 30 天内最多收到一张自动券。</li></ol>
+     <div class="ex"><b>例：</b>某位累计消费 $1,161 的客户，今天距最后一次购买刚满 30 天 → 进入「超高 · 流失」→ 复核通过后进待发区，你确认后自动发 12% 券（最多减 $50，7 天有效），并分配给 wulv 跟进。</div>
+    </div>
+   </details>
+  </section>
+
+  <section class="mod">
+   <div class="mod-head"><div><h2>待发区</h2><p class="q">复核通过、等你确认的客户</p></div></div>
+   <div class="empty">今晚首次日更只登记 556 位存量客户，不触发发券。从明天起，新进入流失 / 长期流失的客户会出现在这里。</div>
+  </section>
+ </main>
+ <p class="note">设计稿说明：图表为示意实现，正式版沿用同一数据接口；控件在设计稿中不可提交。</p>
+</div>
+
+<script>
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+const fmt = n => n.toLocaleString('en-US');
+const cohorts = [
+ ['2026-01',9154,[[3281,9154],[3698,9154],[3857,9154]]],
+ ['2026-02',5831,[[2130,5831],[2351,5831],[2421,5831]]],
+ ['2026-03',5806,[[2137,5806],[2393,5806],[2456,5806]]],
+ ['2026-04',6125,[[2697,6125],[3121,6125],[3241,6125]]],
+ ['2026-05',6545,[[2925,6545],[3263,6545],[2934,5669]]],
+ ['2026-06',6753,[[2976,6753],[3255,6753],null]],
+ ['2026-07',7859,[[3177,7859],[3451,7859],null]],
+ ['2026-08',4832,[[1468,4832],[1445,4131],null]],
+ ['2026-09',5336,[[1652,5336],null,null]],
+ ['2026-10',8866,[[2159,6943],null,null]],
+];
+const amounts = {'2026-01':['$246,001','$371,663','$459,942'],'2026-04':['$269,202','$481,173','$575,356']};
+const dist = [['2026-01',[3281,417,159,5297]],['2026-02',[2130,221,70,3410]],['2026-03',[2137,256,63,3350]],['2026-04',[2697,424,120,2884]],['2026-05',[2530,294,110,2735]]];
+const silent = [['2026-01',302,5599,30608],['2026-02',137,3547,7017],['2026-03',142,3492,10193],['2026-04',238,3122,14949],['2026-05',193,2928,10922]];
+const daily = {"10-25":[30,65],"10-26":[22,62],"10-27":[28,44],"10-28":[19,50],"10-29":[32,62],"10-30":[29,53],"10-31":[36,64],"11-01":[34,47],"11-02":[25,51],"11-03":[31,53],"11-04":[21,33],"11-05":[21,24],"11-06":[24,41],"11-07":[40,49],"11-08":[46,63],"11-09":[25,27],"11-10":[24,31],"11-11":[29,40],"11-12":[29,44],"11-13":[33,39],"11-14":[38,53],"11-15":[46,68],"11-16":[36,40],"11-17":[27,48],"11-18":[30,45],"11-19":[27,44],"11-20":[30,38],"11-21":[38,41],"11-22":[26,39],"11-23":[26,36]};
+
+function curve() {
+ window.__used=[];
+ const svg = document.getElementById('curve'); svg.replaceChildren();
+ const W=520,H=280,L=42,R=16,T=12,B=34, xs=[0,30,90,180], xmax=180, ymax=0.6;
+ const x=d=>L+(W-L-R)*d/xmax, y=v=>T+(H-T-B)*(1-v/ymax);
+ for (const v of [0,0.2,0.4,0.6]) { svg.append(el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:css('--line-soft')})); svg.append(el('text',{x:L-8,y:y(v)+4,'text-anchor':'end'},Math.round(v*100)+'%')); }
+ for (const d of xs) svg.append(el('text',{x:x(d),y:H-12,'text-anchor':'middle'},d===0?'首单':d+' 天'));
+ const pick = [['2026-01','--c1'],['2026-03','--c2'],['2026-04','--c3'],['2026-07','--c5'],['2026-10','--c4']];
+ const leg = document.getElementById('curve-legend'); leg.replaceChildren();
+ for (const [m,c] of pick) {
+  const row = cohorts.find(r=>r[0]===m); const pts=[[0,0]];
+  row[2].forEach((cell,i)=>{ if(cell) pts.push([xs[i+1],cell[0]/cell[1]]); });
+  svg.append(el('polyline',{points:pts.map(([d,v])=>x(d)+','+y(v)).join(' '),fill:'none',stroke:css(c),'stroke-width':2.4,'stroke-linejoin':'round'}));
+  for (const [d,v] of pts.slice(1)) svg.append(el('circle',{cx:x(d),cy:y(v),r:3.5,fill:css(c)}));
+  const last=pts[pts.length-1]; window.__used=window.__used||[]; let ly=y(last[1])-7; while(window.__used.some(u=>u[0]===last[0]&&Math.abs(u[1]-ly)<13)) ly+=14; window.__used.push([last[0],ly]);
+  svg.append(el('text',{x:x(last[0])+(last[0]===180?-6:6),y:ly,'text-anchor':last[0]===180?'end':'start',class:'strong'},(last[1]*100).toFixed(1)+'%'));
+  const s=document.createElement('span'); s.innerHTML=`<i style="background:${css(c)}"></i>${m} 批`; leg.append(s);
+ }
+}
+function heat() {
+ const t=document.getElementById('heat'); t.innerHTML='<tr><th>首单批次</th><th>30 天</th><th>90 天</th><th>180 天</th></tr>';
+ const scale=v=>v<0.33?'--heat-0':v<0.38?'--heat-1':v<0.43?'--heat-2':v<0.48?'--heat-3':'--heat-4';
+ for (const [m,n,cells] of cohorts) {
+  const tr=document.createElement('tr'); tr.innerHTML=`<th>${m}<br><span style="font-size:11px">${fmt(n)} 人</span></th>`;
+  cells.forEach((c,i)=>{ const td=document.createElement('td');
+   if(!c){ td.className='obs'; td.innerHTML='<span class="s">未满期</span>'; }
+   else { const v=c[0]/c[1], k=scale(v); td.style.background=css(k); if(k==='--heat-3'||k==='--heat-4') td.style.color=css('--heat-text-dark');
+    td.innerHTML=`<div class="p">${(v*100).toFixed(1)}%</div><div class="s">${fmt(c[0])} 人</div>`; td.tabIndex=0;
+    const show=()=>{ document.getElementById('drill').innerHTML=`<b>${m} 批 · ${[30,90,180][i]} 天</b>：${fmt(c[1])} 人已满期，其中 <b>${fmt(c[0])}</b> 人买了第二单（${(v*100).toFixed(2)}%）${c[1]<n?`；另有 ${fmt(n-c[1])} 人时间未满，暂不计入`:''}${amounts[m]?`；复购金额 ${amounts[m][i]}`:''}。<a href="#" style="color:var(--brand)">查看名单 →</a>`; };
+    td.addEventListener('click',show); td.addEventListener('keydown',e=>{if(e.key==='Enter')show();}); }
+   tr.append(td); });
+  t.append(tr);
+ }
+}
+function distChart() {
+ const svg=document.getElementById('dist'); svg.replaceChildren();
+ const L=80,W=1000,R=12,rowH=30,cols=['--c1','--c2','--c3','--gray'];
+ dist.forEach(([m,parts],r)=>{ const tot=parts.reduce((a,b)=>a+b,0); let x=L; const y=6+r*36;
+  svg.append(el('text',{x:L-10,y:y+19,'text-anchor':'end',class:'strong'},m));
+  parts.forEach((p,i)=>{ const w=(W-L-R)*p/tot; svg.append(el('rect',{x,y,width:Math.max(w-2,0),height:rowH,rx:5,fill:css(cols[i])}));
+   if(w>60) svg.append(el('text',{x:x+8,y:y+20,style:`fill:${i<3?'#fff':css('--muted')};font-weight:600`},(p/tot*100).toFixed(0)+'%')); x+=w; }); });
+}
+function timeline() {
+ const svg=document.getElementById('timeline'); svg.replaceChildren();
+ const L=30,W=1000,R=30,x=d=>L+(W-L-R)*d/200,y=30;
+ svg.append(el('line',{x1:x(0),x2:x(200),y1:y,y2:y,stroke:css('--line'),'stroke-width':2}));
+ svg.append(el('rect',{x:x(1),y:y-12,width:x(60)-x(1),height:24,rx:6,fill:css('--warn-soft')}));
+ svg.append(el('text',{x:(x(1)+x(60))/2,y:y+4,'text-anchor':'middle',class:'strong'},'沉默：60 天内没买第二单'));
+ svg.append(el('rect',{x:x(61),y:y-12,width:x(180)-x(61),height:24,rx:6,fill:css('--brand-soft')}));
+ svg.append(el('text',{x:(x(61)+x(180))/2,y:y+4,'text-anchor':'middle',class:'strong'},'回流窗口：第 61–180 天回来下单就算回流'));
+ for (const [d,l] of [[0,'首单'],[60,'第 60 天'],[180,'第 180 天']]) { svg.append(el('circle',{cx:x(d),cy:y,r:5,fill:css('--brand')})); svg.append(el('text',{x:x(d),y:y+34,'text-anchor':'middle'},l)); }
+}
+function bars(id,data,valFn,labelFn,color,fmtY,ymax) {
+ const svg=document.getElementById(id); svg.replaceChildren();
+ const W=520,H=250,L=48,R=10,T=26,B=30,bw=(W-L-R)/data.length;
+ const y=v=>T+(H-T-B)*(1-v/ymax);
+ for (let i=0;i<=4;i++){ const v=ymax*i/4; svg.append(el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:css('--line-soft')})); svg.append(el('text',{x:L-8,y:y(v)+4,'text-anchor':'end'},fmtY(v))); }
+ data.forEach((d,i)=>{ const v=valFn(d), x=L+i*bw+bw*0.2, w=bw*0.6;
+  svg.append(el('rect',{x,y:y(v),width:w,height:y(0)-y(v),rx:6,fill:css(color)}));
+  svg.append(el('text',{x:x+w/2,y:y(v)-8,'text-anchor':'middle',class:'strong'},labelFn(d)));
+  svg.append(el('text',{x:x+w/2,y:H-10,'text-anchor':'middle'},d[0])); });
+}
+function stagesChart() {
+ const svg=document.getElementById('stages'); svg.replaceChildren();
+ const parts=[['近期',12450,'--c1'],['沉默',13284,'--c3'],['流失',6846,'--c4']], tot=32580, L=0,W=520; let x=L;
+ parts.forEach(([n,v,c])=>{ const w=W*v/tot; svg.append(el('rect',{x,y:20,width:w-3,height:56,rx:8,fill:css(c)}));
+  svg.append(el('text',{x:x+10,y:46,style:'fill:#fff;font-weight:650;font-size:15px'},(v/tot*100).toFixed(0)+'%'));
+  svg.append(el('text',{x:x+10,y:66,style:'fill:#fff;font-size:12px'},n+' '+fmt(v)));
+  x+=w; });
+ svg.append(el('text',{x:0,y:110},'近 90 天内买过的客户里，长期流失（≥90 天）按定义不会出现；看 180 天可看到长期流失。'));
+}
+function dailyChart() {
+ const svg=document.getElementById('daily'); svg.replaceChildren();
+ const keys=Object.keys(daily), W=520,H=220,L=36,R=10,T=12,B=30,ymax=80;
+ const x=i=>L+(W-L-R)*i/(keys.length-1), y=v=>T+(H-T-B)*(1-v/ymax);
+ for (const v of [0,40,80]) { svg.append(el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:css('--line-soft')})); svg.append(el('text',{x:L-6,y:y(v)+4,'text-anchor':'end'},v)); }
+ [[0,'--c3'],[1,'--c4']].forEach(([k,c])=>svg.append(el('polyline',{points:keys.map((d,i)=>x(i)+','+y(daily[d][k])).join(' '),fill:'none',stroke:css(c),'stroke-width':2.2})));
+ keys.forEach((d,i)=>{ if(i%5===0||i===keys.length-1) svg.append(el('text',{x:x(i),y:H-10,'text-anchor':i===keys.length-1?'end':'middle'},d)); });
+ for (const d of ['11-08','11-15']) { const i=keys.indexOf(d); svg.append(el('line',{x1:x(i),x2:x(i),y1:T,y2:H-B,stroke:css('--brand'),'stroke-dasharray':'3 3'})); }
+}
+function matrix() {
+ const m=document.getElementById('matrix'); m.replaceChildren();
+ const head=['','近期（<14 天）','沉默（14–29 天）','流失（30–59 天）','长期流失（≥60 天）'];
+ head.forEach(h=>{ const d=document.createElement('div'); d.className='h'; d.textContent=h; m.append(d); });
+ const rows=[['超高价值<br><span class="pill">≥ $1,000</span>',[[76,'calm','不打扰'],[44,'watch','预警 · 分配 wulv'],[32,'alert','发 12% 券 · 最多减 $50'],[3,'hot','发 15% 券 · 最多减 $80']]],
+  ['高价值<br><span class="pill">$500–999</span>',[[188,'calm','不打扰'],[101,'watch','只预警'],[103,'alert','发 8% 券 · 最多减 $30'],[9,'hot','发 10% 券 · 最多减 $50']]]];
+ for (const [h,cells] of rows) { const r=document.createElement('div'); r.className='rowh'; r.innerHTML=h; m.append(r);
+  for (const [n,k,a] of cells) { const t=document.createElement('div'); t.className='tile '+k; t.innerHTML=`<div class="cnt">${n}</div><div class="r">${a}</div>`; m.append(t); } }
+}
+function renderAll(){ curve(); heat(); distChart(); timeline();
+ bars('silent',silent,d=>d[1]/d[2],d=>(d[1]/d[2]*100).toFixed(1)+'%',' --c1'.trim(),v=>(v*100).toFixed(0)+'%',0.08);
+ bars('silentAmt',silent,d=>d[3],d=>'$'+fmt(d[3]),'--c2',v=>'$'+Math.round(v/1000)+'k',35000);
+ stagesChart(); dailyChart(); matrix(); }
+renderAll();
+document.querySelectorAll('[role=tab]').forEach(b=>b.addEventListener('click',()=>{
+ document.querySelectorAll('[role=tab]').forEach(x=>x.setAttribute('aria-selected',x===b));
+ document.getElementById('users').classList.toggle('hidden',b.dataset.tab!=='users');
+ document.getElementById('care').classList.toggle('hidden',b.dataset.tab!=='care');
+ document.getElementById('title').textContent=b.dataset.tab==='users'?'用户分析':'客户维护';
+}));
+document.getElementById('theme').addEventListener('click',e=>{ const r=document.documentElement; const dark=r.dataset.fsTheme!=='dark'; r.dataset.fsTheme=dark?'dark':'light'; e.target.textContent=dark?'浅色':'深色'; renderAll(); });
+</script>
+</body>
+</html>

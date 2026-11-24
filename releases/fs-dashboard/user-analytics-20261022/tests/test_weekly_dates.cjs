@@ -10,7 +10,7 @@ const definitions = ['dateShift', 'reportDates'].map(name => {
 const reportDates = Function(definitions.join('\n') + '\nreturn reportDates;')();
 const origin = '2026-01-01';
 assert.deepEqual(reportDates({cutoff:'2026-11-24T00:00:00+08:00'}, origin), {
-  cutoff:'2026-11-24', start:'2026-11-17', end:'2026-11-23', firstMonth:'2026-01', lastMonth:'2026-10',
+  cutoff:'2026-11-24', start:'2026-08-26', end:'2026-11-23', firstMonth:'2026-01', lastMonth:'2026-10',
 });
 assert.deepEqual(reportDates({cutoff:'2026-01-03T00:00:00+08:00'}, origin), {
   cutoff:'2026-01-03', start:origin, end:'2026-01-02', firstMonth:'2026-01', lastMonth:'2026-01',

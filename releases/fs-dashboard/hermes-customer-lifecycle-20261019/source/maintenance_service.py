@@ -486,6 +486,7 @@ class Maintenance:
                                  FROM maintenance_customers s LEFT JOIN maintenance_cases c USING(customer_id)
                                  LEFT JOIN vip_cases v ON v.id=c.case_id LEFT JOIN maintenance_overrides o USING(customer_id)
                                  ORDER BY s.customer_id''')
+            queue_counts = dict(db.execute('SELECT state,count(*) FROM maintenance_entries GROUP BY state').fetchall())
             counts, items, follow_up = Counter(), [], 0
             for row in rows:
                 customer = json.loads(row['body'])
@@ -505,7 +506,7 @@ class Maintenance:
         return dict(status='ready' if last and last['day'] == expected.isoformat() else 'waiting',
                     waiting_for=expected.isoformat(), last_run=dict(last) if last else None,
                     groups=[dict(tier=t, stage=s, customer_type=c, count=n) for (t, s, c), n in sorted(counts.items())],
-                    items=items, next_offset=offset+20 if follow_up > offset+20 else None)
+                    queue_counts=queue_counts, items=items, next_offset=offset+20 if follow_up > offset+20 else None)
 
     def customer_view(self, ident):
         strict_id(ident)
@@ -578,20 +579,35 @@ class Maintenance:
         rows = self.ledger.queue(state_sets[view], limit=21, offset=offset)
         items = []
         customer_ids = list({row['customer_id'] for row in rows[:20]})
-        conflicts, identities = set(), {}
+        customers, identities, events = {}, {}, {}
         if customer_ids:
             with self.ledger.db() as db:
                 entry_ids = [row['id'] for row in rows[:20]]
                 identities = {row['entry_id']: row for row in db.execute(
                     'SELECT entry_id,identity_checked_at,identity_reason FROM maintenance_dispatch_checks '
                     f'WHERE identity_checked_at IS NOT NULL AND entry_id IN ({marks(entry_ids)})', entry_ids)}
-                customers = db.execute(f'SELECT customer_id,body FROM maintenance_customers '
-                                       f'WHERE customer_id IN ({marks(customer_ids)})', customer_ids)
-                conflicts = {cid for cid, body in customers if json.loads(body).get('email_conflict')}
+                stored = db.execute(f'SELECT customer_id,body FROM maintenance_customers '
+                                    f'WHERE customer_id IN ({marks(customer_ids)})', customer_ids)
+                customers = {cid: json.loads(body) for cid, body in stored}
+                if view == 'ready':
+                    event_ids = list({row['event_id'] for row in rows[:20]})
+                    stored = db.execute(f'SELECT id,body FROM maintenance_events '
+                                        f'WHERE id IN ({marks(event_ids)})', event_ids)
+                    events = {ident: json.loads(body) for ident, body in stored}
         for row in rows[:20]:
             reviews = self.ledger.reviews(row['id'])
             item = {key: value for key, value in row.items() if key != 'rule_body'}
             item['review'] = reviews[-1] if reviews else None
+            customer = customers.get(row['customer_id'], {})
+            if view == 'ready':
+                event = events.get(row['event_id'], {})
+                template = row['rule_body'].get('template') or {}
+                item.update(tier=event.get('tier'), stage=event.get('stage'),
+                            amount_usd=customer.get('amount_usd'),
+                            unknown_amount_orders=customer.get('unknown_amount_orders'),
+                            coupon={key: template[key] for key in
+                                    ('mode_type', 'reduce', 'max_reduce', 'time_effect', 'days', 'start_time', 'end_time')
+                                    if key in template})
             identity = identities.get(row['id'])
             review_check = row['result'] or {}
             if row['state'] == 'reviewing' and review_check.get('identity_reason'):
@@ -601,7 +617,7 @@ class Maintenance:
                 reason = identity['identity_reason']
                 item.update(identity_status='pending_identity' if reason else 'verified',
                             identity_reason=reason, identity_checked_at=identity['identity_checked_at'])
-            elif row['customer_id'] in conflicts and row['state'] in ('reviewing', 'ready', *AWAITING):
+            elif customer.get('email_conflict') and row['state'] in ('reviewing', 'ready', *AWAITING):
                 item.update(identity_status='pending_identity', identity_reason='email_conflict')
             items.append(item)
         return dict(status='ready', items=items, next_offset=offset+20 if len(rows) > 20 else None)

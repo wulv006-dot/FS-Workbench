@@ -10,11 +10,11 @@
   <title>客户维护 · FS</title>
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
-  <link rel="stylesheet" href="page.css?v=stage-maintenance-20261124">
+  <link rel="stylesheet" href="page.css?v=20261124-redesign">
   <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
   <script defer src="/__hub/hubnav.js?v=3dda7cae"></script>
   <script defer src="page.js?v=stage-maintenance-20261124"></script>
-  <script defer src="phase.js?v=stage-maintenance-20261124"></script>
+  <script defer src="phase.js?v=20261124-redesign"></script>
 <link rel="stylesheet" href="/__hub/hermes-nav.css?v=hermes-nav-20261019-v2">
 <script defer src="/__hub/nav.js?v=hermes-nav-20261019-v1"></script>
 </head>
@@ -105,11 +105,16 @@
         <div id="vip-list" aria-busy="true"></div>
         </div>
         <div id="phase-panel" hidden>
-          <div class="section-head phase-toolbar">
+          <div class="phase-heading">
             <h2>FC27 阶段维护</h2>
+            <p class="hint">按累计有效消费和末购阶段，跟进值得维护的客户。</p>
+          </div>
+          <div id="phase-overview" aria-busy="true"></div>
+          <div class="section-head phase-toolbar">
+            <h3>处理与查看</h3>
             <label>查看 <select id="phase-view">
               <option value="groups">分组名单</option><option value="review">程序复核</option>
-              <option value="ready">待发区</option><option value="delivery">派发结果</option>
+              <option value="ready" selected>待发区</option><option value="delivery">派发结果</option>
               <option value="effect">规则效果</option><option value="rules">维护规则</option>
               <option value="config">阶段和价值门槛</option>
             </select></label>
@@ -119,6 +124,14 @@
           <p id="phase-status" class="status" role="status" aria-live="polite"></p>
           <div id="phase-content"></div>
           <button class="fs-btn" id="phase-more" type="button" hidden>下一页</button>
+          <dialog id="phase-remove-dialog" aria-labelledby="phase-remove-title" aria-describedby="phase-remove-copy">
+            <h2 id="phase-remove-title">剔除所选待发条目？</h2>
+            <p id="phase-remove-copy"></p>
+            <form method="dialog" class="phase-actions">
+              <button class="fs-btn" value="cancel" autofocus>取消</button>
+              <button class="fs-btn phase-danger" value="remove">确认剔除</button>
+            </form>
+          </dialog>
         </div>
       </section>
       <section class="panel vip-performance" aria-labelledby="vip-performance-title" hidden id="vip-performance">
