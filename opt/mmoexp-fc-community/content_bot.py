@@ -229,6 +229,8 @@ class ContentClient(discord.Client):
             self.add_view(AlertHomeView(self.config['alert_preferences']))
         from fut_panel import FutHomeView
         self.add_view(FutHomeView(self.store))
+        from black_friday_pilot import register_pilot
+        register_pilot(self)
         if self.quote_provider:
             from quote_panel import CategoryHomeView
             for kind in QUOTE_KINDS:
