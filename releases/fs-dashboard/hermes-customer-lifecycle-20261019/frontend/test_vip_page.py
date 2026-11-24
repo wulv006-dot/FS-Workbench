@@ -160,9 +160,14 @@ def install(page, *, admin=True, bulk=False):
                                  dict(tier='high', stage='lost', customer_type='old', count=20)],
                          queue_counts=dict(ready=3-len(ids), reviewing=2, confirmed=1, issued=4))
         elif view == 'phase_rules':
-            value = dict(items=[dict(id='rule-A', enabled=True, tier='ultra', stage='silent',
-                                     customer_type='new', alert=True, owner='fixture-operator', coupon_id=123)],
-                         dispatch_enabled=False)
+            value = dict(items=[
+                dict(id='rule-A', version=2, enabled=True, tier='ultra', stage='silent',
+                     customer_type='new', alert=True, owner='fixture-operator', coupon_id=123,
+                     template=dict(mode_type='2', reduce='88', max_reduce='50.00', time_effect='2', days='7')),
+                dict(id='rule-B', version=2, enabled=True, tier='high', stage='lost', coupon_id=124),
+                dict(id='rule-C', version=2, enabled=True, tier='ultra', stage='long_lost', coupon_id=125),
+                dict(id='rule-D', version=1, enabled=True, tier='high', stage='silent', alert=True, owner='wulv'),
+            ], dispatch_enabled=False)
         elif view == 'phase_config':
             value = dict(version=1, stages=[14, 30, 60], tiers=dict(high=500, ultra=1000))
         elif view == 'phase_review':
@@ -174,14 +179,16 @@ def install(page, *, admin=True, bulk=False):
             value = dict(items=[dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state='confirmed',
                                      identity_status='pending_identity', identity_reason='email_conflict')])
         elif view == 'phase_ready':
-            rows = [dict(id=ident, email=email, state='ready', rule_id='rule-A', tier=tier, stage=stage,
+            if state.get('phase_ready_unavailable'):
+                return request.fulfill(status=503, json={'error': 'ready_unavailable'})
+            rows = [dict(id=ident, email=email, state='ready', rule_id=rule, rule_version=version, tier=tier, stage=stage,
                          amount_usd=total, unknown_amount_orders=0, ready_at='2026-11-24T02:00:00+00:00',
                          review=dict(decision='pass', manual_coupon_notice='人工券：仅核对已使用记录；另有 1 条用券记录无法归属客户'),
-                         coupon=dict(mode_type=2, reduce='88', max_reduce='50', time_effect=2, days=7))
-                    for ident, email, tier, stage, total in [
-                        ('fixture-entry', EMAIL, 'ultra', 'silent', '1200.00'),
-                        ('other-entry', 'second@example.invalid', 'high', 'lost', '800.00'),
-                        ('next-page-entry', 'next-page@example.invalid', 'ultra', 'silent', None)]]
+                         coupon=dict(mode_type=2, reduce=reduce, max_reduce=cap, time_effect=2, days=days))
+                    for ident, email, rule, version, tier, stage, total, reduce, cap, days in [
+                        ('fixture-entry', EMAIL, 'rule-A', 1, 'ultra', 'silent', '1200.00', '89', '50', 7),
+                        ('other-entry', 'second@example.invalid', 'rule-B', 2, 'high', 'lost', '800.00', '92', '30.25', 14),
+                        ('next-page-entry', 'next-page@example.invalid', 'rule-C', 1, 'ultra', 'silent', None, '90', '50', 7)]]
             removed = {ident for post in state['phase_posts'] if post['action'] == 'phase_decide' for ident in post['ids']}
             rest = [row for row in rows if row['id'] not in removed]
             offset = int(query.get('offset', ['0'])[0])
@@ -502,7 +509,20 @@ def check_phase(browser):
     phase.click()
     expect(page.locator('#phase-overview')).to_contain_text('观察日 2026-11-23')
     expect(page.locator('#phase-overview')).to_contain_text('客户分层与对应动作')
-    expect(page.locator('#phase-overview')).to_contain_text('发券 #123')
+    matrix = page.get_by_role('region', name='客户分层与对应动作')
+    expect(matrix.get_by_text('发 12% 券 · 最多减 $50 · 7 天有效')).to_have_attribute('title', '券 #123')
+    expect(matrix.get_by_text('发 8% 券 · 最多减 $30.25 · 14 天有效')).to_have_attribute('title', '券 #124')
+    expect(matrix.get_by_text('发券（条款读取失败）', exact=True)).to_have_attribute('title', '券 #125')
+    expect(matrix.get_by_text('待跟进 · 分配给 wulv', exact=True)).to_be_visible()
+
+    state['phase_ready_unavailable'] = True
+    page.locator('#phase-refresh').click()
+    expect(matrix.get_by_text('发券（条款读取失败）', exact=True)).to_have_count(2)
+    expect(matrix.get_by_text('发 12% 券 · 最多减 $50 · 7 天有效')).to_be_visible()
+    assert not state['phase_posts']
+    state['phase_ready_unavailable'] = False
+    page.locator('#phase-view').select_option('groups')
+    expect(matrix.get_by_text('发 8% 券 · 最多减 $30.25 · 14 天有效')).to_be_visible()
     expect(page.locator('#vip-week-panel')).to_be_hidden()
     page.locator('#phase-view').select_option('review')
     review = page.locator('#phase-content')
@@ -517,7 +537,7 @@ def check_phase(browser):
     page.locator('#phase-view').select_option('ready')
     ready = page.locator('#phase-content')
     expect(ready).to_contain_text('另有 1 条用券记录无法归属客户')
-    expect(ready).to_contain_text('减 12%')
+    expect(ready).to_contain_text('减 11%')
     expect(ready).to_contain_text('最多减 $50.00')
     expect(ready).to_contain_text('7 天')
     expect(ready).to_contain_text('剩 48 小时 30 分')
