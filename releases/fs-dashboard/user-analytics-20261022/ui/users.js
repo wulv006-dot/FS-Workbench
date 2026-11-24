@@ -338,19 +338,30 @@ function heatTable(view) {
       const old = view.compare ? windowOf(sameMonth(view.oldBatches, batch.month), window.days) : null;
       const button = element('button', null, 'cell');
       button.type = 'button';
-      if (window.rate == null && old?.rate == null) {
+      const empty = item => !item || population(item) === 0;
+      if (empty(window) && empty(old)) {
         button.classList.add('obs');
         button.disabled = true;
-        button.append(element('span', window.observing ? '未满期' : '暂无数据', 's'));
-        button.setAttribute('aria-label', batch.month + ' ' + window.days + ' 天，' + (window.observing ? '未满期' : '暂无数据'));
+        button.append(element('span', '无客户', 's'));
+        button.setAttribute('aria-label', batch.month + ' ' + window.days + ' 天，无客户');
         return button;
       }
-      const level = heatLevel(window.rate, low, high);
-      if (level) button.classList.add(level);
-      button.append(element('span', pct1(window.rate), 'p'),
-        element('span', window.rate == null ? '新客暂无数据' : n(window.numerator) + ' 人', 's'));
-      if (old) button.append(element('span', '老客 ' + pct1(old.rate), 's'));
-      if (window.observing) button.append(element('span', '观察中 ' + n(window.observing), 's'));
+      if (window.rate == null && old?.rate == null) {
+        // Customers exist but none can be counted yet: keep the gap visible and the drill open.
+        button.classList.add('obs');
+        for (const item of [window, old].filter(Boolean)) {
+          const who = item === old ? '老客' : '';
+          if (item.observing) button.append(element('span', who + '观察中 ' + n(item.observing), 's'));
+          if (item.coverage_gap) button.append(element('span', who + '数据缺口 ' + n(item.coverage_gap), 's'));
+        }
+      } else {
+        const level = heatLevel(window.rate, low, high);
+        if (level) button.classList.add(level);
+        button.append(element('span', pct1(window.rate), 'p'),
+          element('span', window.rate == null ? '新客暂无数据' : n(window.numerator) + ' 人', 's'));
+        if (old) button.append(element('span', '老客 ' + pct1(old.rate), 's'));
+        if (window.observing) button.append(element('span', '观察中 ' + n(window.observing), 's'));
+      }
       button.setAttribute('aria-label', batch.month + ' ' + window.days + ' 天，查看详情');
       button.addEventListener('click', () => {
         el('cohort-heat').querySelectorAll('.is-selected').forEach(node => node.classList.remove('is-selected'));
@@ -363,7 +374,7 @@ function heatTable(view) {
   table(el('cohort-heat'), ['首单批次', ...windows.map(days => days + ' 天')], rows, 'heat');
   const host = el('heat-legend');
   host.replaceChildren();
-  for (const [text, color] of [['低', 'var(--u-heat-0)'], ['中', 'var(--u-heat-2)'], ['高', 'var(--u-heat-4)'], ['未满期', 'var(--fs-surface-3)']]) {
+  for (const [text, color] of [['低', 'var(--u-heat-0)'], ['中', 'var(--u-heat-2)'], ['高', 'var(--u-heat-4)'], ['未满期或数据缺口', 'var(--fs-surface-3)']]) {
     const item = element('li');
     const swatch = element('i');
     swatch.style.background = color;

@@ -30,6 +30,8 @@ def summary(query):
         for days in windows:
             watching = observing if days >= 180 else 0
             gap = 2 if month == '2026-04' else 0
+            if month == '2026-03' and days >= 180:
+                gap = population  # every customer excluded: not the same as an empty cohort
             denominator = population - watching - gap
             numerator = min({30: 32, 90: 48}.get(days, 52), denominator)
             cells.append(dict(days=days, group=f'cohort:{month}:{days}', observing=watching, coverage_gap=gap,
@@ -133,13 +135,19 @@ def check_page(browser, output=None):
     expect(page.locator('#return-amounts svg rect')).to_have_count(4)
     expect(page.locator('#return-amounts')).to_contain_text('含 3 笔金额未知')
 
+    # A window whose customers are all in a coverage gap stays inspectable.
+    all_gap = page.get_by_role('button', name='2026-03 180 天，查看详情')
+    expect(all_gap).to_contain_text('数据缺口 98')
+    all_gap.click()
+    expect(page.locator('#cohort-drill')).to_contain_text('数据缺口 98 人')
+
     # The 2026-04 coverage gap is reported next to the first-repeat distribution.
     expect(page.locator('#first-repeat-basis')).to_contain_text('有 2 人因订单数据缺口未计入')
     expect(page.locator('#first-repeat')).to_contain_text('数据缺口未计入')
 
-    # Coverage gaps (2026-04) and customers still under observation (2026-05) mark both return charts.
-    expect(page.locator('#return-rates svg text', has_text='部分')).to_have_count(2)
-    expect(page.locator('#return-amounts svg text', has_text='部分')).to_have_count(3)
+    # Coverage gaps (2026-03, 2026-04) and customers still under observation (2026-05) mark both return charts.
+    expect(page.locator('#return-rates svg text', has_text='部分')).to_have_count(3)
+    expect(page.locator('#return-amounts svg text', has_text='部分')).to_have_count(4)
 
     # New-versus-old comparison: cells show the old-customer rate, the drill offers both lists.
     page.get_by_role('radio', name='新老对比').check()
@@ -178,7 +186,7 @@ def check_page(browser, output=None):
     expect(page.locator('#cohort-heat')).to_contain_text('60 天')
     expect(page.locator('#cohort-heat')).not_to_contain_text('180 天')
     # The 180-day return window now comes from the reference query; partial markers survive.
-    expect(page.locator('#return-rates svg text', has_text='部分')).to_have_count(2)
+    expect(page.locator('#return-rates svg text', has_text='部分')).to_have_count(3)
     page.locator('input[name=cohort_end]').fill('2026-03')
     page.locator('#run-query').click()
     expect(page.locator('#cohort-kpis')).to_contain_text('2026-03')
