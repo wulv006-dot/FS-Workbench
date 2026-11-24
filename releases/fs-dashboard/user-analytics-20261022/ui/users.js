@@ -932,7 +932,7 @@ async function initialize() {
     if (catalog.contract_version !== 'fs-users-v4' || !found) throw new Error('当前用户分析数据尚未发布。');
     dates = {...found, origin};
     const form = filters.elements;
-    // Annual editions (FC26, FC27…) share one customer base: offer each series as a merged choice first.
+    // Annual editions share one customer base: offer each series as a merged choice first.
     const series = {};
     for (const game of Object.values(catalog.projects)) if (game.series) (series[game.series] ||= []).push(game.label);
     const merged = element('optgroup');
@@ -946,6 +946,8 @@ async function initialize() {
     const single = element('optgroup');
     single.label = '单款游戏';
     for (const [gid, game] of Object.entries(catalog.projects)) {
+      // FC26 and FC27 are only offered together: picking FC means the FC series.
+      if (game.series === 'FC' && series.FC.length > 1) continue;
       const option = element('option', game.label);
       option.value = gid;
       single.append(option);
