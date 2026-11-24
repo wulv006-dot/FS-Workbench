@@ -65,10 +65,10 @@ SUMMARY = {
 }
 
 
-def install(page, *, admin=True, bulk=False):
+def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
     items = json.loads(json.dumps(CUSTOMERS))
     state = {"events": [], "receipt": {}, "queries": [], "deny_week": False, "errors": [],
-             "viewer": "wulv", "bulk_requests": [], "phase_posts": [], "bad_bulk_read": False, "first_bulk_unknown": True}
+             "viewer": "wulv", "bulk_requests": [], "phase_posts": [], "bad_bulk_read": False, "first_bulk_unknown": True, "deny_config": False}
     if bulk:
         items = [
             dict(case_id=f"{i + 1000:032x}", email=f"bulk-{i}@example.invalid", uid=f"{i + 2000}",
@@ -92,6 +92,10 @@ def install(page, *, admin=True, bulk=False):
             return request.fulfill(body=(ASSETS / "index.html").read_bytes(), content_type="text/html")
         if url.path == ROUTE + 'reconcile/':
             return request.fulfill(body=(ASSETS / 'reconcile.html').read_bytes(), content_type='text/html')
+        if url.path.startswith(ROUTE) and name == "phase.js" and late_phase:
+            # Simulate phase.js finishing after page.js has already loaded the config.
+            body = b"setTimeout(function(){" + (ASSETS / name).read_bytes() + b"\n}, 600);"
+            return request.fulfill(body=body, content_type="text/javascript")
         if url.path.startswith(ROUTE) and name in ("page.js", "page.css", "phase.js"):
             return request.fulfill(body=(ASSETS / name).read_bytes(),
                                    content_type="text/javascript" if name.endswith(".js") else "text/css")
@@ -150,6 +154,8 @@ def install(page, *, admin=True, bulk=False):
         view = query["view"][0]
         state["queries"].append((view, query))
         if view == "config":
+            if state["deny_config"]:
+                return request.fulfill(status=403, json={"error": "admin_required"})
             value = CONFIG
         elif view == 'phase_groups':
             ids = {ident for post in state['phase_posts'] if post['action'] == 'phase_decide' for ident in post['ids']}
@@ -241,6 +247,12 @@ def install(page, *, admin=True, bulk=False):
     page.route("**/*", route)
     page.clock.install(time=datetime(2026, 11, 20, 2, tzinfo=timezone.utc))
     page.goto(WEB)
+    if admin and not late_phase:
+        # Stage maintenance is the default tab; the weekly-list checks open their tab explicitly.
+        expect(page.locator('#phase-scope')).to_have_attribute('aria-pressed', 'true')
+        expect(page.locator('#phase-panel')).to_be_visible()
+        if weekly:
+            page.get_by_role('button', name='英美队列', exact=True).click()
     return state
 
 
@@ -355,7 +367,7 @@ def check_desktop(browser):
 def check_narrow_and_denied(browser):
     page = browser.new_page(viewport={"width": 390, "height": 844}, color_scheme="dark", is_mobile=True, has_touch=True)
     state = install(page)
-    expect(page.get_by_text(EMAIL)).to_be_visible()
+    expect(page.locator("#vip-list").get_by_text(EMAIL)).to_be_visible()
     page.locator("#theme").select_option("dark")
     expect(page.locator("html")).to_have_attribute("data-fs-theme", "dark")
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
@@ -501,28 +513,52 @@ def check_bulk_selection_and_csv(browser):
     assert not direct["errors"], direct["errors"]
 
 
+def check_phase_default_view(browser):
+    page = browser.new_page(viewport={'width': 1440, 'height': 900})
+    state = install(page, late_phase=True)
+    # phase.js arrives after the config: it must still open the default stage view.
+    expect(page.locator('#phase-panel')).to_be_visible()
+    expect(page.locator('#phase-overview')).to_contain_text('客户分层与对应动作')
+    expect(page.locator('#vip-week-panel')).to_be_hidden()
+    # A denied refresh clears the stage view; the next successful refresh reloads it.
+    state['deny_config'] = True
+    page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+    expect(page.locator('#app')).to_be_hidden()
+    expect(page.locator('#phase-overview')).to_be_empty()
+    state['deny_config'] = False
+    page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+    expect(page.locator('#phase-overview')).to_contain_text('客户分层与对应动作')
+    assert not state['errors'], state['errors']
+    page.close()
+
+
 def check_phase(browser):
     page = browser.new_page(viewport={'width': 1440, 'height': 900})
-    state = install(page)
+    state = install(page, weekly=False)
+    assert page.locator('#vip-scopes button').first.get_attribute('id') == 'phase-scope'
     page.clock.set_fixed_time(datetime.fromisoformat('2026-11-25T01:30:00+00:00'))
     phase = page.get_by_role('button', name='阶段维护', exact=True)
     phase.click()
     expect(page.locator('#phase-overview')).to_contain_text('观察日 2026-11-23')
     expect(page.locator('#phase-overview')).to_contain_text('客户分层与对应动作')
     matrix = page.get_by_role('region', name='客户分层与对应动作')
-    expect(matrix.get_by_text('发 12% 券 · 最多减 $50 · 7 天有效')).to_have_attribute('title', '券 #123')
-    expect(matrix.get_by_text('发 8% 券 · 最多减 $30.25 · 14 天有效')).to_have_attribute('title', '券 #124')
-    expect(matrix.get_by_text('发券（条款读取失败）', exact=True)).to_have_attribute('title', '券 #125')
-    expect(matrix.get_by_text('待跟进 · 分配给 wulv', exact=True)).to_be_visible()
+    offer = matrix.locator('.phase-offer[title="券 #123"]')
+    expect(offer).to_contain_text('12% OFF')
+    expect(offer).to_contain_text('最多减 $50，7 天有效')
+    expect(matrix.locator('.phase-offer[title="券 #124"]')).to_contain_text('最多减 $30.25，14 天有效')
+    expect(matrix.locator('.phase-offer[title="券 #125"]')).to_contain_text('条款读取失败')
+    expect(matrix.locator('.phase-chip', has_text='分配 wulv').first).to_be_visible()
+    expect(matrix.locator('.phase-chip-alert').first).to_have_text('预警')
+    assert not matrix.evaluate("el => /\u00b7/.test([...el.querySelectorAll('.phase-cell')].map(c => c.innerText).join(' '))")
 
     state['phase_ready_unavailable'] = True
     page.locator('#phase-refresh').click()
-    expect(matrix.get_by_text('发券（条款读取失败）', exact=True)).to_have_count(2)
-    expect(matrix.get_by_text('发 12% 券 · 最多减 $50 · 7 天有效')).to_be_visible()
+    expect(matrix.locator('.phase-offer-missing')).to_have_count(2)
+    expect(matrix.locator('.phase-offer[title="券 #123"]')).to_contain_text('12% OFF')
     assert not state['phase_posts']
     state['phase_ready_unavailable'] = False
     page.locator('#phase-view').select_option('groups')
-    expect(matrix.get_by_text('发 8% 券 · 最多减 $30.25 · 14 天有效')).to_be_visible()
+    expect(matrix.locator('.phase-offer[title="券 #124"]')).to_contain_text('最多减 $30.25，14 天有效')
     expect(page.locator('#vip-week-panel')).to_be_hidden()
     page.locator('#phase-view').select_option('review')
     review = page.locator('#phase-content')
@@ -537,7 +573,7 @@ def check_phase(browser):
     page.locator('#phase-view').select_option('ready')
     ready = page.locator('#phase-content')
     expect(ready).to_contain_text('另有 1 条用券记录无法归属客户')
-    expect(ready).to_contain_text('减 11%')
+    expect(ready).to_contain_text('11% OFF')
     expect(ready).to_contain_text('最多减 $50.00')
     expect(ready).to_contain_text('7 天')
     expect(ready).to_contain_text('剩 48 小时 30 分')
@@ -601,6 +637,7 @@ if __name__ == "__main__":
         check_desktop(browser)
         check_narrow_and_denied(browser)
         check_bulk_selection_and_csv(browser)
+        check_phase_default_view(browser)
         check_phase(browser)
         browser.close()
     print("VIP tracking browser checks passed")
