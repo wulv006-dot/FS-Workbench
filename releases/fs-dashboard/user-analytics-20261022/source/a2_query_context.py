@@ -13,7 +13,7 @@ from time import perf_counter
 
 from user_contract import digest, stamp, METRIC_DEFINITIONS
 from user_query import Service
-from user_tools import invoke, read_v4
+from user_tools import PROPERTIES, invoke, read_v4
 from user_query_v4 import SECTIONS, VERSION
 from user_weekly import WeeklyUnavailable
 
@@ -132,6 +132,9 @@ class QueryContext:
                       group_order='stable_opaque_customer_id_not_value_rank',
                       query_fields=['start', 'end_exclusive', 'as_of', 'state_basis', 'policy_version', 'policy_mode', 'H'],
                       scope_is_host_authority=True)
+        result['current_aggregate'] = dict(contract_version=VERSION, sections=list(SECTIONS),
+            query_fields=[key for key in PROPERTIES if key not in
+                          ('scope', 'scope_id', 'game', 'snapshot_id', 'section', 'evidence_id')])
         result['can_read_private'] = self.service.authorizer(self.identity, self.scope, True) is True
         return result
 
@@ -145,7 +148,7 @@ class QueryContext:
             public = self.public(snapshot_id)
             if public.get('contract_version') == VERSION:
                 _, value = read_v4(self.service, self.identity, {'snapshot_id': snapshot_id, 'section': section})
-                return self.v4_aggregate_receipt(value, started)
+                return self.v4_aggregate_receipt(value, started, calls=2)
         elif isinstance(query, dict) and query.get('contract_version') == VERSION:
             if section not in SECTIONS or set(query) & {'scope', 'scope_id', 'game', 'snapshot_id', 'section', 'evidence_id'}:
                 raise ValueError('aggregate_query_fields')
@@ -171,11 +174,11 @@ class QueryContext:
         result = invoke(self.service, self.identity, {'snapshot_id': public['snapshot_id'], 'section': section})
         return self.receipt(public, {'data': result}, {'method': 'aggregate', 'section': section}, started, 2)
 
-    def v4_aggregate_receipt(self, value, started):
+    def v4_aggregate_receipt(self, value, started, *, calls=1):
         if not self.source_authorized(self.identity, value['query']):
             raise PermissionError('host_scope_revoked')
         section = value['result_section']
-        return self.receipt(value, {'data': value}, {'method': 'aggregate', 'section': section}, started, 1)
+        return self.receipt(value, {'data': value}, {'method': 'aggregate', 'section': section}, started, calls)
 
     def cursor(self, snapshot, kind, fields, after=None, token=None):
         binding = digest({'scope': self.scope, 'snapshot_id': snapshot, 'kind': kind, 'fields': fields})

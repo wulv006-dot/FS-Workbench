@@ -123,6 +123,7 @@ def _read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False, *, allow
         selected.append(item)
         cursor = (stamp(item['query']['end'])+timedelta(days=1)).date().isoformat()
     flags, hashes, captures, identities = {}, set(), [], {}
+    parse_complete = True
     complete = complete and cursor > end
     if selected:
         import es_order_structure as es
@@ -145,6 +146,7 @@ def _read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False, *, allow
                     if sum(map(len, files)) > 128*1024*1024:
                         raise ValueError('frozen_customer_type_read_budget')
             rows, parsed_hashes, failures = es.parse_files(files)
+            parse_complete &= failures == 0 and len(parsed_hashes) == len(ids)
             integrity = item.get('file_set') or {}
             complete &= (failures == 0 and integrity.get('failed_files') == 0
                          and integrity.get('declared_files') == len(parsed_hashes))
@@ -173,9 +175,12 @@ def _read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False, *, allow
         labels = {key: dict(status='verified' if len(v['buyer_id']) == 1 else 'conflict' if len(v['buyer_id']) > 1 else 'unknown',
                             buyer_id=next(iter(v['buyer_id'])) if len(v['buyer_id']) == 1 else None,
                             uid=next(iter(v['uid'])) if len(v['uid']) == 1 else None) for key,v in identities.items()}
-    return labels, dict(status='complete' if complete else 'partial', source='Admin ES exact-order buyer/UID evidence' if _identity else 'Admin ES order-time new-customer flag',
-                        generatedAt=max(captures, default=None), files=len(hashes),
-                        sourceVersion=hashlib.sha256(''.join(sorted(hashes)).encode()).hexdigest())
+    source = dict(status='complete' if complete else 'partial', source='Admin ES exact-order buyer/UID evidence' if _identity else 'Admin ES order-time new-customer flag',
+                  generatedAt=max(captures, default=None), files=len(hashes),
+                  sourceVersion=hashlib.sha256(''.join(sorted(hashes)).encode()).hexdigest())
+    if allow_gaps:
+        source['parse_complete'] = parse_complete
+    return labels, source
 
 
 def closed_period_bundle(query, cutoff, root=RECEIPTS):

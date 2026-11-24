@@ -74,6 +74,10 @@ class A2Context(unittest.TestCase):
                 context.service.private_cache_timer.cancel()
 
     def test_v4_cohort_section_uses_frozen_v4_evidence_with_the_host_scope(self):
+        catalog = self.context.catalog()['current_aggregate']
+        self.assertIn('cohorts', catalog['sections'])
+        self.assertIn('cohort_type', catalog['query_fields'])
+        self.assertNotIn('scope', catalog['query_fields'])
         scoped = dict(contract_version='fs-users-v4', cohort_start='2026-10',
                       cohort_end='2026-10', cohort_type='compare')
         result = self.context.aggregate(scoped, section='cohorts')
@@ -83,6 +87,7 @@ class A2Context(unittest.TestCase):
         origin = result['source']['snapshot_id']
         same = self.context.aggregate(snapshot_id=origin, section='cohorts')
         self.assertEqual(result['data'], same['data'])
+        self.assertEqual(same['load']['service_calls'], 2)
         self.assertNotIn('stages', same['data'])
         with self.assertRaises(ValueError):
             self.context.aggregate(dict(scoped, game='series:FC'), section='cohorts')

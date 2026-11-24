@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 from sqlite3 import Error as SQLiteError
 import stat
 from pathlib import Path
@@ -363,6 +364,38 @@ def targeted_refresh(store, site, now, reader=shared_correct, lock_path=SOURCE_L
 
 
 
+def prewarm_published_users(budget):
+    from user_query import Service
+    from user_weekly import stored_publication
+
+    class PrewarmDeadline(Exception):
+        pass
+
+    def expire(_signum, _frame):
+        raise PrewarmDeadline
+
+    with (ROOT / 'v4-prewarm.lock').open('a+b') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return dict(status='deferred', reason='prewarm_active')
+        handler = signal.signal(signal.SIGALRM, expire)
+        signal.setitimer(signal.ITIMER_REAL, budget)
+        try:
+            store = load_store()
+            publication = stored_publication(store)
+            if not publication:
+                return dict(status='waiting_for_publication')
+            service = Service(store, lambda _user, _query, _private: False)
+            return service.v4.prewarm(publication['config'], publication, stamp(publication['cutoff']),
+                                      budget_seconds=budget)
+        except PrewarmDeadline:
+            return dict(status='partial', reason='prewarm_budget')
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, handler)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=('sync', 'tick', 'backup', 'backup-plan', 'backup-verify', 'shared-es-seed'))
@@ -373,21 +406,14 @@ def main():
     args = parser.parse_args()
     now = datetime.now(TZ)
     if args.action == 'tick':
-        from user_weekly import stored_publication, wake
+        from user_weekly import wake
         started = monotonic()
         result = wake(ROOT, load_store, datetime.now(TZ), force=args.recheck, cadence='daily', shared_es=True)
         print(canonical(result), flush=True)
         budget = min(90, 480 - (monotonic() - started))
         if budget > 0 and result.get('reason') != 'user_job_active':
-            from user_query import Service
             try:
-                store = load_store()
-                publication = stored_publication(store)
-                if publication:
-                    service = Service(store, lambda _user, _query, _private: False)
-                    warm = service.v4.prewarm(publication['config'], publication, stamp(publication['cutoff']),
-                                              budget_seconds=budget)
-                    print(canonical({'users_v4_prewarm': warm}), flush=True)
+                print(canonical({'users_v4_prewarm': prewarm_published_users(budget)}), flush=True)
             except (OSError, ValueError, RuntimeError, SQLiteError) as error:
                 print(canonical({'users_v4_prewarm': {'status': 'failed', 'error_type': type(error).__name__}}),
                       flush=True)

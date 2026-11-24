@@ -373,6 +373,16 @@ class PublishedCohortArchive(unittest.TestCase):
                     hot = perf_counter() - started
                 # Grant checks still run for persisted cache hits.
                 self.assertEqual(get(restarted, '/users', args, 'viewer')[0], 403)
+            # A damaged derived payload must fall back to the original calculation.
+            import gzip
+            warm_path = store.root / 'v4-cache/warm-0-old.json.gz'
+            with gzip.open(warm_path, 'rb') as stream:
+                header = stream.readline()
+            warm_path.write_bytes(gzip.compress(header + b'{}'))
+            with patch.object(store, 'read_at', wraps=store.read_at) as replay:
+                status, old = get(engine, '/users', dict(args, cohort_type=['old']), 'reader')
+                replay.assert_called_once()
+            self.assertEqual((status, old['cohorts']['segment']), (200, 'old'))
             january = value['cohorts']['batches'][0]
             self.assertEqual(january['windows'][0]['numerator'], 1)
             self.assertEqual(value['cohorts']['batches'][-1]['month'], '2026-10')
@@ -398,3 +408,32 @@ class PublishedCohortArchive(unittest.TestCase):
             status, current = get(corrected_engine, '/users', args, 'reader')
             self.assertEqual(status, 200)
             self.assertEqual(current['cohorts']['batches'][0]['windows'][0]['numerator'], 0)
+
+            recovery = dict(corrected, publication_id='fixture-flags-recovery')
+            recovering, recovery_cutoff = service(recovery)
+            with patch('user_customer_types.read_pinned_flags',
+                       return_value=({}, {'status': 'partial', 'parse_complete': False})):
+                warm = recovering.v4.prewarm(config, recovery, recovery_cutoff)
+                self.assertEqual(warm['status'], 'waiting_for_customer_flags')
+                status, incomplete = get(recovering, '/users', args, 'reader')
+            self.assertEqual(status, 200)
+            self.assertEqual(incomplete['cohorts']['customer_type_source'], 'partial')
+
+            recovered, _ = service(recovery)
+            status, complete = get(recovered, '/users', args, 'reader')
+            self.assertEqual((status, complete['cohorts']['customer_type_source']), (200, 'complete'))
+            self.assertNotEqual(complete['snapshot_id'], incomplete['snapshot_id'])
+            self.assertEqual(get(recovered, '/users', {'snapshot_id': [incomplete['snapshot_id']]}, 'reader'),
+                             (200, incomplete))
+
+    def test_scheduled_preheat_stops_a_slow_read_and_releases_its_lock(self):
+        from tempfile import TemporaryDirectory
+        from time import sleep
+        from unittest.mock import patch
+        from user_jobs import prewarm_published_users
+
+        with TemporaryDirectory() as folder, patch('user_jobs.ROOT', Path(folder)):
+            with patch('user_jobs.load_store', side_effect=lambda: sleep(1)):
+                self.assertEqual(prewarm_published_users(0.02), {'status': 'partial', 'reason': 'prewarm_budget'})
+            with patch('user_jobs.load_store'), patch('user_weekly.stored_publication', return_value=None):
+                self.assertEqual(prewarm_published_users(1), {'status': 'waiting_for_publication'})

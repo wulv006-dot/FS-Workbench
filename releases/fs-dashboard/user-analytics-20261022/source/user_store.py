@@ -9,6 +9,7 @@ import sqlite3
 import tempfile
 import stat
 import uuid
+from zlib import error as GzipError
 from contextlib import contextmanager, closing
 from pathlib import Path
 
@@ -659,8 +660,13 @@ class Store:
                 if check_only:
                     return True
                 raw = stream.read(64 * 1024 * 1024 + 1)
-            return json.loads(raw) if len(raw) <= 64 * 1024 * 1024 else None
-        except (OSError, EOFError, ValueError, TypeError):
+            if len(raw) <= 64 * 1024 * 1024:
+                value = json.loads(raw)
+                parts = 3 if slot.startswith('warm-') else 2
+                if isinstance(value, list) and len(value) == parts and all(isinstance(part, dict) for part in value):
+                    return value
+            return None
+        except (OSError, EOFError, ValueError, GzipError):
             return None  # Rebuild an absent or incomplete derived archive.
 
     def write_v4_archive(self, slot, key, value, *, max_bytes):

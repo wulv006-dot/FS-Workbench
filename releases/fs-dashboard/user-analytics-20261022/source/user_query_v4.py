@@ -32,6 +32,13 @@ DEFAULT_WINDOWS = (30, 90, 180)
 LOGGER = logging.getLogger(__name__)
 
 
+def reusable_flags(source):
+    # A pinned coverage gap stays partial until a new publication. A parser
+    # failure may recover with the same pinned inputs and must be retried.
+    return source.get('status') == 'complete' or (
+        source.get('status') == 'partial' and source.get('parse_complete') is True)
+
+
 class SnapshotVersionRetired(ValueError):
     def __init__(self):
         super().__init__('snapshot_version_retired')
@@ -275,7 +282,7 @@ class UsersV4:
                     continue
                 if facts is None:
                     facts = self.read_facts(config, cutoff, publication, revision)
-                    if facts[3].get('status') == 'unavailable':
+                    if not reusable_flags(facts[3]):
                         return dict(status='waiting_for_customer_flags', prepared=written)
                 result = self.calculate(query, config, cutoff, publication, revision, segments, version, source,
                                         facts, stage_cache=stage_cache)
@@ -370,7 +377,7 @@ class UsersV4:
         primary = 'new' if cohort_type == 'compare' else cohort_type
 
         def for_segment(segment):
-            if publication and flag_source.get('status') in ('complete', 'partial'):
+            if publication and reusable_flags(flag_source):
                 return self.archived_cohorts(orders, jobs, query, cutoff, flags, people, segment)
             return analyze_cohorts(orders, jobs, query, cutoff, flags, people=people, segment=segment)
 
@@ -452,7 +459,7 @@ class UsersV4:
         result = self.store.save_snapshot(query, public, private)
         if self.store.config.get('member_keyset_index') is True:
             build_member_index(self.store, result, private)
-        if public['cohorts']['customer_type_source'] != 'unavailable':
+        if reusable_flags(public['coverage']['new_customer_flags']):
             if public['publication_id'] is not None:
                 try:
                     self.store.remember_v4_snapshot(key, result['snapshot_id'])
