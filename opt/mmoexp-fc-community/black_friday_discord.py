@@ -7,7 +7,7 @@ from pathlib import Path
 import discord
 
 from black_friday_claims import Campaign, ClaimConflict
-from black_friday_pilot import CHANNEL, GUILD, STATE, REWARDS, fixture, show_spin
+from black_friday_pilot import CHANNEL, GUILD, STATE, REWARDS, coupon_link, fixture, show_spin
 from match_rewards_delivery import CouponBridge, email_fingerprint
 
 OFFICIAL = 1041923524601851914
@@ -102,7 +102,8 @@ async def render_receipt(interaction, receipt, *, test=False):
                    else 'Your delivery is awaiting confirmation. Use **Check my reward** to check again.')
         if receipt.receipts:
             content = '**$2 OFF** was added to your MMOEXP account. ' + content
-        await interaction.edit_original_response(content=content, view=None)
+        await interaction.edit_original_response(content=content,
+                                                 view=coupon_link() if receipt.receipts and not test else None)
         return
     receipts = ' · '.join(receipt.receipts)
     if receipt.replay:
@@ -110,7 +111,7 @@ async def render_receipt(interaction, receipt, *, test=False):
         card = discord.Embed(title='🧾  Your existing Black Friday reward',
                              description=f'{REWARDS[receipt.tier]} · {delivery}\nReceipt **{receipts}**',
                              colour=0xE4AF45)
-        await interaction.edit_original_response(embed=card, view=None)
+        await interaction.edit_original_response(embed=card, view=None if test else coupon_link())
         return
     await show_spin(interaction, interaction.user.id, receipt.tier, True, receipts, test=test)
 

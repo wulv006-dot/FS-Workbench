@@ -16,6 +16,7 @@ STATE = Path(os.environ.get('BF_PILOT_STATE', '/var/lib/fc27-black-friday-pilot'
 CLUBS = ('Manchester City', 'Real Madrid', 'Barcelona', 'Bayern Munich', 'Paris Saint-Germain')
 REWARDS = {'one':'**$1 OFF**', 'two':'**$2 OFF**', 'bonus':'**$2 OFF**  +  🏆 **20% OFF**'}
 TERMS = 'FC27 only · 7 days from claim · One coupon per order · No minimum spend.'
+COUPONS_URL = 'https://www.mmoexp.com/Ucenter/coupon.html'
 FOOT = 'D4 VIP playtest · Demo accounts and coupons'
 PROFILES = {'new':(0, 0), 'return':(1, 0), 'four':(5, 4), 'five':(5, 5)}
 
@@ -37,6 +38,12 @@ def fixture(address):
 def embed(title, body):
     card = discord.Embed(title=title, description=body, colour=0xE4AF45)
     return card.set_footer(text=FOOT)
+
+
+def coupon_link():
+    view = discord.ui.View()
+    view.add_item(discord.ui.Button(label='View my coupons', emoji='🎟️', url=COUPONS_URL))
+    return view
 
 
 async def allowed(interaction, owner=None):
@@ -70,7 +77,7 @@ async def show_spin(interaction, owner, tier, first, receipt=None, *, test=False
         card = discord.Embed(title=title,
             description=f'## {left}  │  {middle}  │  {right}\n{REWARDS[tier]} · {delivery}\n'
                         f'{TERMS}\nReceipt **{receipt}**', colour=0xE4AF45)
-        await interaction.edit_original_response(embed=card, view=None)
+        await interaction.edit_original_response(embed=card, view=None if test else coupon_link())
         return
     title = '🎁  Your Black Friday drop' if first else '🧾  Your original drop'
     await interaction.edit_original_response(embed=embed(title,

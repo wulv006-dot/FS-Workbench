@@ -4,6 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 import black_friday_pilot as pilot
+from black_friday_claims import Receipt
+from black_friday_discord import render_receipt
 
 
 def action(uid, channel=pilot.CHANNEL):
@@ -13,6 +15,18 @@ def action(uid, channel=pilot.CHANNEL):
 
 
 class PilotFlow(unittest.IsolatedAsyncioTestCase):
+    async def test_real_receipts_open_my_coupons(self):
+        for replay in (False, True):
+            for demo in (False, True):
+                it = action(10)
+                with patch.object(pilot.asyncio, 'sleep', AsyncMock()):
+                    await render_receipt(it, Receipt('two', ('45123',), True, replay), test=demo)
+                view = it.edit_original_response.await_args.kwargs['view']
+                if demo:
+                    self.assertIsNone(view)
+                else:
+                    self.assertEqual(view.children[0].url, 'https://www.mmoexp.com/Ucenter/coupon.html')
+
     async def test_only_bonus_has_three_matches_and_locked_reels_stay_put(self):
         for tier, distinct in [('one', 3), ('two', 2), ('bonus', 1)]:
             with self.subTest(tier=tier), patch.object(pilot.asyncio, 'sleep', AsyncMock()):
