@@ -22,11 +22,16 @@ class PackageRouting(unittest.TestCase):
                 with patch('fc_collection.package_routes.subprocess.run') as child, patch('fc_collection.client.collect_remote') as remote, patch('fc_collection.package_relay.request_local') as local:
                     now = datetime.now(timezone.utc)
                     rows, attempts = collect_missing(source,'next',[('PC','100')],lambda node,r:read_node(node,r,now),lambda:now)
-                    self.assertEqual([(r['node'], r['errors'], r['response_received']) for r in attempts],
-                                     [('187', ['source_blocked'], False)])
+                    self.assertEqual((attempts[0]['node'], attempts[0]['errors'], attempts[0]['response_received']),
+                                     ('187', ['source_blocked'], False))
                     self.assertFalse(rows)
-                    for entry in (child,remote,local):
+                    for entry in (child, remote):
                         entry.assert_not_called()
+                    if source == 'U4GM':
+                        local.assert_called_once_with(dict(source='U4GM', run_id='next', wanted=[('PC','100')],
+                                                          mode='cached_u4gm'))
+                    else:
+                        local.assert_not_called()
 
     def test_primary_process_failure_releases_its_permit_for_the_next_node(self):
         from pathlib import Path
@@ -116,7 +121,7 @@ class PackageRouting(unittest.TestCase):
 
     def test_u4gm_uses_local_for_missing_slots_and_stops_on_access_restrictions(self):
         now = datetime.now(timezone.utc)
-        for error, nodes in [('template_changed',['187','183','local']),('http_403',['187'])]:
+        for error, nodes in [('template_changed',['187','183','local']),('http_403',['187','local'])]:
             with self.subTest(error=error):
                 requests = []
                 def read(node, request):

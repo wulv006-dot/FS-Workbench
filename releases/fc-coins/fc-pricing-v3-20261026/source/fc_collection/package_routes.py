@@ -1,7 +1,7 @@
 """Complete missing ordinary price slots in node order; the first usable slot wins."""
 import sqlite3
 import subprocess
-from collections import defaultdict
+from collections import defaultdict, deque
 
 from fc_pricing_v3.competitor_offers import normalize_offers
 
@@ -11,9 +11,9 @@ def collect_missing(source, run_id, wanted, read, clock):
         raise ValueError('package_route_source')
     remaining = set(wanted)
     accepted, attempts = [], []
-    for node in ('187', '183', 'local'):
-        if not remaining:
-            break
+    nodes = deque(('187', '183', 'local'))
+    while remaining and nodes:
+        node = nodes.popleft()
         requested = sorted(remaining)
         request = dict(source=source, run_id=run_id, wanted=requested)
         result = dict(node=node, requested=requested, accepted=[], errors=[], response_received=False)
@@ -39,9 +39,14 @@ def collect_missing(source, run_id, wanted, read, clock):
                     rows = normalize_offers([raw], run_id, clock())
                 except ValueError:
                     continue
-                if (rows and rows[0]['currency']=='USD' and rows[0]['regular_price'] and rows[0]['comparable']
+                if not rows:
+                    continue
+                delivery_ok = rows[0]['delivery_method'] == 'comfort_trade' or (
+                    source == 'U4GM' and node == 'local' and receipt.get('provider') == 'windows_u4gm_snapshot'
+                    and raw['platform'] in ('PS', 'XBOX') and rows[0]['delivery_method'] == 'default_storefront')
+                if (rows[0]['currency']=='USD' and rows[0]['regular_price'] and rows[0]['comparable']
                         and rows[0]['conditional'] is False and rows[0]['promotion_eligibility']=='all_customers'
-                        and rows[0]['delivery_method']=='comfort_trade' and str(rows[0].get('region_id') or 0)=='0'):
+                        and delivery_ok and str(rows[0].get('region_id') or 0)=='0'):
                     slots[slot].append(rows[0])
             for slot, rows in slots.items():
                 if len(rows) != 1:
@@ -52,14 +57,18 @@ def collect_missing(source, run_id, wanted, read, clock):
                 result['accepted'].append(slot)
         except SourceRestricted as exc:
             result['errors'].append(str(exc))
-            break
+            nodes.clear()
+            if source == 'U4GM' and node != 'local':
+                nodes.append('local')
         except (OSError, ValueError, EOFError, TypeError, sqlite3.Error, subprocess.SubprocessError) as exc:
             result['errors'].append(type(exc).__name__)
         except Exception as exc:
             result['errors'].append(type(exc).__name__)
             break
         if set(result['errors']) & {'http_401','http_403','http_429','challenge','captcha','source_access_restricted'}:
-            break
+            nodes.clear()
+            if source == 'U4GM' and node != 'local':
+                nodes.append('local')
     return accepted, attempts
 
 
@@ -165,6 +174,12 @@ def read_node(node, request, started):
     from datetime import timedelta
     from pathlib import Path
     from .client import source_hold_reason
+    if request['source'] == 'U4GM' and node == 'local':
+        from .package_relay import request_local
+        receipt = request_local(dict(request, mode='cached_u4gm'))
+        if receipt.get('provider') != 'windows_u4gm_snapshot':
+            raise ValueError('package_cache_receipt_scope')
+        return receipt
     hold_reason = source_hold_reason(request['source'], require_registered=True)
     if hold_reason:
         raise SourceRestricted(hold_reason)
