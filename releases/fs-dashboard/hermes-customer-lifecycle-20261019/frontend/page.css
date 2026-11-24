@@ -188,8 +188,17 @@ main{max-width:1280px;margin:auto;padding:24px 20px 64px}.intro{margin-bottom:18
 .phase-matrix td.phase-silent { background: var(--fs-info-soft); }
 .phase-matrix td.phase-lost { background: var(--fs-warn-soft); }
 .phase-matrix td.phase-long_lost { background: var(--fs-danger-soft); }
-.phase-cell { display: grid; gap: 4px; }
-.phase-cell strong { font-size: 1.05rem; display: block; }
+.phase-cell { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.phase-count { display: flex; align-items: baseline; gap: 4px; }
+.phase-count strong { font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.phase-count span { color: var(--fs-muted); font-size: .85rem; }
+.phase-offer { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--fs-surface); border: 1px solid var(--fs-line); }
+.phase-offer strong { font-size: 1.05rem; color: var(--fs-text); }
+.phase-offer span { font-size: .8rem; color: var(--fs-muted); }
+.phase-offer-missing strong, .phase-offer-missing span { color: var(--fs-danger); }
+.phase-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.phase-chip { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: .78rem; line-height: 1.6; background: var(--fs-surface); border: 1px solid var(--fs-line); color: var(--fs-text); }
+.phase-chip-alert { background: var(--fs-warn-soft); border-color: transparent; color: var(--fs-warn); }
 .phase-cell small, .phase-ready td small { display: block; }
 .phase-guide { margin-top: 8px; }
 .phase-guide summary, .phase-rule summary { cursor: pointer; color: var(--fs-brand); font-weight: 650; }
