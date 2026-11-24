@@ -95,7 +95,7 @@ def install(page):
             if query.get('action') == ['catalog']:
                 return request.fulfill(json=dict(contract_version='fs-users-v4', history_backfill_start='2026-01-01',
                                                 weekly_update=dict(cutoff='2026-11-24T00:00:00+08:00'),
-                                                projects={'1327': dict(label='FC27')}))
+                                                projects={'1327': dict(label='FC27', series='FC'), '833': dict(label='FC26', series='FC')}))
             return request.fulfill(json=summary(query))
         if name == 'private.json' and query['action'] == ['members']:
             assert query['group'] in (['cohort:2026-04:180'], ['cohort:old:2026-04:180'])
@@ -123,6 +123,8 @@ def check_page(browser, output=None):
     expect(page.get_by_role('img', name='各批次回头率曲线')).to_be_visible()
     # Demo layout: four cards, a conclusion line and charts; no dot-joined meta strings in cells.
     expect(page.locator('#cohort-kpis .card')).to_have_count(4)
+    # FC26 and FC27 share customers: the merged series is offered as one choice.
+    expect(page.locator('select[name=game] option[value="series:FC"]')).to_have_text('FC 系列（FC26 + FC27）')
     expect(page.locator('#repeat-finding')).to_contain_text('结论')
     page.get_by_role('button', name='2026-04 180 天，查看详情').click()
     drill = page.locator('#cohort-drill')

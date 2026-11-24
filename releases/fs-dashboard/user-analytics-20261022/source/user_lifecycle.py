@@ -31,6 +31,30 @@ def in_scope(row, query, config):
             or scope == 'series' and config['projects'].get(row['gid'], {}).get('series') == ident)
 
 
+SERIES_PREFIX = 'series:'
+
+
+def series_members(name, config):
+    """Projects of one series, e.g. FC26 and FC27, whose customers carry over between editions."""
+    return sorted(gid for gid, project in config['projects'].items() if project.get('series') == name)
+
+
+def series_policy_game(members, config):
+    """Lifecycle thresholds follow the series project with its own policy, else the newest edition."""
+    explicit = [gid for gid in members if config['projects'][gid].get('policy')]
+    return max(explicit or members, key=int)
+
+
+def game_match(query, gid):
+    """True when an order of project `gid` belongs to the queried game, series or everything."""
+    game = query['game']
+    return game == 'all' or gid == game or gid in query.get('games', ())
+
+
+def policy_game(query):
+    return query.get('policy_game', query['game'])
+
+
 def origin(query, config):
     return config.get('history_origins', {}).get(query['scope'] + ':' + query['scope_id']) or config.get('available_history_origin')
 
@@ -339,7 +363,7 @@ def cohort_groups(batches, people, covered, query, cutoff, flags, segment='new')
     for cid, purchases in people.items():
         first = purchases[0]
         month = first[0].strftime('%Y-%m')
-        if month not in batches or query['game'] not in ('all', first[2]):
+        if month not in batches or not game_match(query, first[2]):
             continue
         batch = batches[month]
         flag = flags.get(first[3]['order_no_hash'])
@@ -350,7 +374,7 @@ def cohort_groups(batches, people, covered, query, cutoff, flags, segment='new')
                 continue
         elif segment != 'all' and flag != segment:
             continue
-        repeats = [order for order in purchases[1:] if query['game'] in ('all', order[2])
+        repeats = [order for order in purchases[1:] if game_match(query, order[2])
                    and is_repeat(first[0], order[0])]
         first_repeat = repeats[0][0] if repeats else cutoff
         for window, duration in zip(batch['windows'], durations):
@@ -451,7 +475,7 @@ def analyze_stages(orders, jobs, query, cutoff, flags, config, *, people=None):
     start, end = (stamp(query[key]) for key in ('start', 'end_exclusive'))
     observation = (cutoff - timedelta(microseconds=1)).date()
     covered = complete_coverage(jobs)
-    game = query['game']
+    game, policy = query['game'], policy_game(query)
     members = defaultdict(set, {f'stage:{key}': set() for key in (*STATES, 'unverified')})
     for name in STATES[1:]:
         members[f'entered:{name}']
@@ -467,7 +491,7 @@ def analyze_stages(orders, jobs, query, cutoff, flags, config, *, people=None):
 
     for cid, all_purchases in people.items():
         first = all_purchases[0]
-        purchases = all_purchases if game == 'all' else [purchase for purchase in all_purchases if purchase[2] == game]
+        purchases = [purchase for purchase in all_purchases if game_match(query, purchase[2])]
         interval = [purchase for purchase in purchases if start <= purchase[0] < end]
         flag = flags.get(first[3]['order_no_hash'])
         customer_type = flag if flag in ('new', 'old') else 'unknown'
@@ -477,12 +501,12 @@ def analyze_stages(orders, jobs, query, cutoff, flags, config, *, people=None):
         if query['repeat_status'] not in ('all', 'repeated' if repeated else 'not_repeated'):
             continue
         last = purchases[-1][0]
-        state = observed(last, game)
+        state = observed(last, policy)
         records[cid] = dict(customer_id=cid, stage=state, customer_type=customer_type, repeated=repeated,
                             first_paid_at=first[0].isoformat(), last_paid_at=last.isoformat(),
                             period_orders=len(interval))
         members[f'stage:{state}'].add(cid)
-        for event in stage_events(purchases, start, end, game, config, covered):
+        for event in stage_events(purchases, start, end, policy, config, covered):
             kind = event['kind']
             if kind == 'enter':
                 members[f"entered:{event['stage']}"].add(cid)
