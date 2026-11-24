@@ -119,12 +119,17 @@ def stage_email_key(buyer):
 
 def open_stage_cases_by_email(db):
     cases = {}
-    for case in db.execute("""SELECT c.* FROM vip_cases AS c WHERE c.week=''
-                              AND NOT EXISTS(SELECT 1 FROM vip_events AS e WHERE e.case_id=c.id
-                                             AND json_extract(e.payload,'$.event')='close')"""):
+    for case in db.execute("SELECT * FROM vip_cases WHERE week=''"):
+        if case_closed(db, case['id']):
+            continue
         key = stage_email_key(json.loads(case['baseline']))
         cases.setdefault(key, []).append(case)
     return cases
+
+
+def case_closed(db, case_id):
+    return any(json.loads(payload).get('event') == 'close' for (payload,) in db.execute(
+        'SELECT payload FROM vip_events WHERE case_id=?', (case_id,)))
 
 
 def events_for(db, case_id, cutoff=None):

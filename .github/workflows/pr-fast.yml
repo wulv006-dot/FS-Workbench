@@ -129,6 +129,23 @@ jobs:
       - name: Prepare connector SDK
         if: steps.connector.outputs.changed == 'true'
         run: '"${{ steps.connector-python.outputs.python-path }}" -m pip install --disable-pip-version-check -r fs_mcp_connector/requirements.txt'
+      - name: Build SQLite 3.7.17 for customer lifecycle checks
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -E '^releases/fs-dashboard/hermes-customer-lifecycle-20261019/.*\.(py|js|cjs)$' > /dev/null; then
+            legacy="$RUNNER_TEMP/fs-maintenance-sqlite317"
+            mkdir -p "$legacy"
+            cd "$legacy"
+            curl --fail --silent --show-error --location --max-time 35 https://www.sqlite.org/2013/sqlite-amalgamation-3071700.zip -o sqlite.zip
+            echo '022ef41bd83a1333faf40dc8f1f8469205f4a18c30dc5e137889ba7ea924ef30  sqlite.zip' | sha256sum --check
+            unzip -q sqlite.zip
+            cc -O2 -fPIC -shared -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_ENABLE_LOAD_EXTENSION \
+              -Wl,-soname,libsqlite3.so.0 -o libsqlite3.so.0 sqlite-amalgamation-3071700/sqlite3.c -ldl -lpthread
+          fi
       - name: Diff and isolated affected checks
         shell: bash
         env:
@@ -143,5 +160,5 @@ jobs:
           sudo unshare --net -- bash -c '
             set -euo pipefail
             ip link set lo up
-            exec env -i PATH="/usr/bin:/bin:$7" LD_LIBRARY_PATH="$1" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 NODE_PATH="$8" PLAYWRIGHT_BROWSERS_PATH="$9" FS_CONNECTOR_PYTHON="${10}" "$2" -I -B "$3/tools/pr_fast.py" "$4" "$5" "$6"
-          ' bash "$QA_LIBRARY" "$QA_PYTHON" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr-paths" "$PR_BASE" "$PR_HEAD" "$QA_NODE_DIR" "$RUNNER_TEMP/fs-browser/node_modules" "$RUNNER_TEMP/fs-browser/browsers" "${{ steps.connector-python.outputs.python-path }}"
+            exec env -i PATH="/usr/bin:/bin:$7" LD_LIBRARY_PATH="$1" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 NODE_PATH="$8" PLAYWRIGHT_BROWSERS_PATH="$9" FS_CONNECTOR_PYTHON="${10}" FS_MAINTENANCE_SQLITE_317="${11}" "$2" -I -B "$3/tools/pr_fast.py" "$4" "$5" "$6"
+          ' bash "$QA_LIBRARY" "$QA_PYTHON" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr-paths" "$PR_BASE" "$PR_HEAD" "$QA_NODE_DIR" "$RUNNER_TEMP/fs-browser/node_modules" "$RUNNER_TEMP/fs-browser/browsers" "${{ steps.connector-python.outputs.python-path }}" "$RUNNER_TEMP/fs-maintenance-sqlite317"

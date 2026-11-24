@@ -2,6 +2,9 @@
 from collections import defaultdict
 from contextlib import closing, contextmanager
 from datetime import date, datetime, timedelta
+from decimal import Decimal
+from functools import cached_property
+from itertools import chain
 import hashlib
 import json
 from pathlib import Path
@@ -9,13 +12,16 @@ import sqlite3
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, build_opener
 
+from customer_segments import tier
+from maintenance_ledger import marks
 from maintenance_review import coupon_time, email_key, member_id
-from maintenance_stages import SHANGHAI, day_start
+from maintenance_stages import GID, SHANGHAI, cohort, day_end, day_start, payment
 
 
 DB_PATH = Path('/var/lib/fs-user-analytics/customers.sqlite3')
 HISTORY = date(2026, 1, 1)
 SITE = '266'
+ROW_BATCH = 128
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -112,17 +118,36 @@ class AdminFacts:
         return findings
 
 
-class Facts:
-    def __init__(self, publication, orders, jobs, token, uid_pairs=(), identities=None):
+class Coverage:
+    def __init__(self, publication, jobs, token):
         self.publication = publication
         self.cutoff = coupon_time(publication['cutoff'])
         self.day = self.cutoff.date() - timedelta(days=1)
-        self.orders = orders
         self.token = token
+        self.intervals = sorted((coupon_time(job['start']), coupon_time(job['end']))
+                                for job in jobs if job['site'] == SITE and job['state'] == 'complete')
+
+    def covered(self, start, end):
+        if end > self.cutoff:
+            return False
+        if start >= end:
+            return True
+        for left, right in self.intervals:
+            if left > start:
+                break
+            start = max(start, right)
+            if start >= end:
+                return True
+        return False
+
+
+class Facts(Coverage):
+    def __init__(self, publication, orders, jobs, token, uid_pairs=(), identities=None):
+        super().__init__(publication, jobs, token)
+        self.orders = orders
         self.customers = defaultdict(list)
         self.by_order = {}
         self.uid_customers = defaultdict(set)
-        self.customer_uids = defaultdict(set)
         self.email_customers = defaultdict(set)
         for customer, address in (identities or {}).items():
             key = email_key(address)
@@ -139,29 +164,280 @@ class Facts:
                 uid = member_id(row.get('uid'))
                 if uid:
                     self.uid_customers[uid].add(customer)
-                    self.customer_uids[customer].add(uid)
         for pair in uid_pairs:
             uid = member_id(pair[1])
             if uid:
                 self.uid_customers[uid].add(pair[0])
-        self.intervals = sorted((coupon_time(job['start']), coupon_time(job['end']))
-                                for job in jobs if job['site'] == SITE and job['state'] == 'complete')
+
+    def find_order(self, key):
+        return self.by_order.get(key)
+
+    def customer_orders(self, customer):
+        return self.customers.get(customer, ())
+
+    def stage_cohort(self, day, config):
+        return cohort(self.orders, day, config, self.covered)
+
+    def customer_groups(self):
+        return self.customers.items()
+
+    def effect_orders(self, customers, numbers):
+        return (row for row in self.orders if row.get('customer_id') in customers or row.get('order_no') in numbers)
 
     def email_conflict(self, customer, address):
         return bool(self.email_customers.get(email_key(address), set()) - {customer})
 
-    def covered(self, start, end):
-        if end > self.cutoff:
+
+def batches(values):
+    values = sorted(values)
+    for offset in range(0, len(values), ROW_BATCH):
+        yield values[offset:offset + ROW_BATCH]
+
+
+def checked_order_number(row, body):
+    number = body.get('order_no')
+    if not isinstance(number, str) or row['order_key'] != 'admin:' + SITE + ':' + number:
+        raise ValueError('maintenance_projection_order_identity')
+    return number
+
+
+class ProjectionFacts(Coverage):
+    # Keep the receipt and version pin, and reopen a read snapshot for each
+    # bounded read. A changed projection forces the caller to retry with a fresh pin.
+    def __init__(self, source, publication, token, lower, target, indexed):
+        super().__init__(publication, publication['jobs'], token)
+        self.source = source
+        self.lower = lower
+        self.target = target
+        self.current = int(token[1])
+        self.indexed = indexed
+        self._identities = None
+        self._uid_owners = None
+
+    @contextmanager
+    def snapshot(self):
+        with self.source.db() as db:
+            if self.source._token(db) != self.token:
+                raise LookupError('maintenance_projection_changed')
+            yield db
+
+    def _rows(self, db, *, end=None, customers=None, keys=None, fc=False, valid=False,
+              columns=None, history_only=False):
+        from user_version_index import COLUMNS
+        upper = min(end, self.cutoff).isoformat() if end else self.cutoff.isoformat()
+        lower = self.lower.isoformat()
+        filters = ['site=?', 'paid_at>=?', 'paid_at<?']
+        args = [SITE, lower, upper]
+        for field, values in (('customer_id', customers), ('order_key', keys)):
+            if values is not None:
+                filters.append(f'{field} IN ({marks(values)})')
+                args.extend(values)
+        if valid:
+            filters.append('valid=1')
+        if fc:
+            filters.append('gid=?')
+            args.append(GID)
+        suffix = ' AND ' + ' AND '.join(filters)
+        fields = columns or COLUMNS
+
+        if self.target < self.current and not self.indexed:
+            needed = self.current - self.target
+            if needed > 40:
+                raise LookupError('maintenance_projection_waiting_for_revisions')
+            count = db.execute('SELECT count(*) FROM revisions WHERE id>? AND id<=?',
+                               (self.target, self.current)).fetchone()[0]
+            if count != needed:
+                raise LookupError('maintenance_projection_incomplete')
+
+        if not history_only:
+            yield from db.execute(f'SELECT {fields} FROM orders WHERE revision<=?' + suffix, (self.target, *args))
+        if self.target == self.current:
+            return
+        if self.indexed:
+            yield from db.execute(f'SELECT {fields} FROM user_order_versions WHERE revision<=? AND superseded>?' +
+                                  suffix, (self.target, self.target, *args))
+            return
+
+        # The earliest superseding revision contains the version at the pin.
+        # Record its key before applying any date, status or customer filters.
+        restored = set()
+        for (body,) in db.execute('SELECT body FROM revisions WHERE id>? AND id<=? ORDER BY id',
+                                  (self.target, self.current)):
+            for row in revision_orders(body):
+                key = row['order_key']
+                if key in restored or row['site'] != SITE or row['revision'] > self.target:
+                    continue
+                if keys is not None and key not in keys:
+                    continue
+                restored.add(key)
+                if (lower <= row['paid_at'] < upper and (not fc or str(row['gid']) == GID)
+                        and (not valid or row['valid'] == 1)
+                        and (customers is None or row['customer_id'] in customers)):
+                    yield row
+
+    def _load_emails(self, db):
+        if self._identities is not None:
+            return self._identities
+        emails, customers, conflicts = {}, {}, set()
+        for ident, address in db.execute('SELECT customer_id,email FROM identities'):
+            if ident in emails and emails[ident] != address:
+                raise ValueError('maintenance_projection_email_conflict')
+            emails[ident] = address
+            key = email_key(address)
+            if key:
+                if customers.setdefault(key, ident) != ident:
+                    conflicts.add(key)
+        self._identities = (emails, customers, conflicts)
+        return self._identities
+
+    def email_conflict(self, customer, address):
+        key = email_key(address)
+        if not key:
             return False
-        if start >= end:
-            return True
-        for left, right in self.intervals:
-            if left > start:
+        identities = self._identities
+        if identities is None:
+            with self.snapshot() as db:
+                identities = self._load_emails(db)
+        _, customers, conflicts = identities
+        return key in conflicts or customers.get(key, customer) != customer
+
+    @cached_property
+    def order_flags(self):
+        try:
+            return self.source._flags(self.publication, self.lower)
+        except (OSError, LookupError, ValueError):
+            return {}
+
+    def _details(self, db, *, flags, **filters):
+        emails, _, _ = self._load_emails(db)
+        for row in self._rows(db, **filters):
+            body = json.loads(row['body'])
+            number = checked_order_number(row, body)
+            order = dict(row)
+            del order['body']
+            order.update(order_no=number, uid=body.get('uid'), email=emails.get(row['customer_id']),
+                         amount_usd=body.get('amount_usd'), pay_status=body.get('pay_status'),
+                         test_order=bool(body.get('test_order')),
+                         new_customer_flag=flags.get(hashlib.sha256(number.encode()).hexdigest()))
+            yield order
+
+    def find_order(self, key):
+        with self.snapshot() as db:
+            row = next(self._rows(db, keys=(key,), columns='order_key,customer_id,gid,valid,body'), None)
+            if row is None:
+                return None
+            checked_order_number(row, json.loads(row['body']))
+            return {column: row[column] for column in ('order_key', 'customer_id', 'gid', 'valid')}
+
+    def customer_orders(self, customer):
+        flags = self.order_flags
+        with self.snapshot() as db:
+            return list(self._details(db, customers=(customer,), flags=flags))
+
+    def stage_cohort(self, day, config):
+        end = day_end(day)
+        totals = defaultdict(Decimal)
+        with self.snapshot() as db:
+            for row in self._rows(db, end=end, fc=True, valid=True,
+                                  columns='order_key,customer_id,paid_at,body'):
+                customer = row['customer_id']
+                if not customer or payment(row) >= end:
+                    continue
+                body = json.loads(row['body'])
+                checked_order_number(row, body)
+                amount = body.get('amount_usd')
+                totals[customer] += Decimal(str(amount)) if amount is not None else 0
+        candidates = [customer for customer, total in totals.items() if tier(total, GID, config) is not None]
+        result = {}
+        if candidates:
+            # Reading pinned ES files can take time. Keep it outside the SQLite snapshot.
+            flags = self.order_flags
+            with self.snapshot() as db:
+                for batch in batches(candidates):
+                    # Customer type uses the earliest valid main-site payment
+                    # across games. Other non-FC orders need no body or flags.
+                    first = {}
+                    for row in self._rows(db, end=end, customers=batch, valid=True,
+                                          columns='customer_id,order_key,paid_at,gid'):
+                        paid = payment(row)
+                        customer = row['customer_id']
+                        rank = (paid, row['order_key'])
+                        if paid < end and (customer not in first or rank < first[customer][0]):
+                            first[customer] = (rank, row['gid'])
+                    non_fc = [key for (_, key), gid in first.values() if str(gid) != GID]
+                    fc_orders = self._details(db, end=end, customers=batch, fc=True, valid=True, flags=flags)
+                    first_orders = self._details(db, end=end, keys=non_fc, valid=True,
+                                                 flags=flags) if non_fc else ()
+                    result.update(cohort(chain(fc_orders, first_orders), day, config, self.covered))
+        return result
+
+    def customer_groups(self):
+        with self.snapshot() as db:
+            customers = {row['customer_id'] for row in self._rows(db, fc=True, valid=True, columns='customer_id')
+                         if row['customer_id']}
+        for batch in batches(customers):
+            flags = self.order_flags
+            grouped = defaultdict(list)
+            with self.snapshot() as db:
+                for row in self._details(db, customers=batch, valid=True, flags=flags):
+                    grouped[row['customer_id']].append(row)
+            yield from grouped.items()
+
+    def effect_orders(self, customers, numbers):
+        with self.snapshot() as db:
+            for batch in batches(customers):
+                yield from self._details(db, customers=batch, flags={})
+            for batch in batches({'admin:' + SITE + ':' + number for number in numbers}):
+                for row in self._details(db, keys=batch, flags={}):
+                    if row['customer_id'] not in customers:
+                        yield row
+
+    @property
+    def uid_customers(self):
+        if self._uid_owners is None:
+            owners = defaultdict(set)
+            with self.snapshot() as db:
+                current = db.execute('SELECT customer_id,body FROM orders WHERE customer_id IS NOT NULL')
+                for row in current:
+                    uid = member_id(json.loads(row['body']).get('uid'))
+                    if uid:
+                        owners[uid].add(row['customer_id'])
+                for row in self._rows(db, history_only=True, columns='customer_id,body'):
+                    uid = member_id(json.loads(row['body']).get('uid'))
+                    if uid and row['customer_id']:
+                        owners[uid].add(row['customer_id'])
+            self._uid_owners = owners
+        return self._uid_owners
+
+
+def revision_orders(body):
+    # Revisions are canonical JSON arrays. Decode one prior row at a time.
+    decoder = json.JSONDecoder()
+    offset = 0
+
+    def skip_space():
+        nonlocal offset
+        while offset < len(body) and body[offset] in ' \\t\\r\\n':
+            offset += 1
+
+    skip_space()
+    if not body.startswith('[', offset):
+        raise ValueError('maintenance_projection_revision_body')
+    offset += 1
+    skip_space()
+    if body[offset:offset + 1] != ']':
+        while True:
+            row, offset = decoder.raw_decode(body, offset)
+            yield row
+            skip_space()
+            if body[offset:offset + 1] == ']':
                 break
-            start = max(start, right)
-            if start >= end:
-                return True
-        return False
+            if body[offset:offset + 1] != ',':
+                raise ValueError('maintenance_projection_revision_body')
+            offset += 1
+            skip_space()
+    if body[offset + 1:].strip():
+        raise ValueError('maintenance_projection_revision_body')
 
 
 class UserProjection:
@@ -238,38 +514,8 @@ class UserProjection:
             self.flag_pin, self.flags = pin, flags
         return self.flags
 
-    @staticmethod
-    def _read_rows(db, target, revision, lower, upper):
-        if target > revision:
-            raise ValueError('maintenance_publication_future_version')
-        if target == revision:
-            return db.execute('SELECT * FROM orders WHERE site=? AND paid_at>=? AND paid_at<?',
-                              (SITE, lower, upper)).fetchall()
-        import user_version_index
-        if user_version_index.ready(db, revision):
-            return [row for row in user_version_index.read(db, target, start=lower, end=upper)
-                    if row['site'] == SITE]
-        rows = {row['order_key']: row for row in db.execute(
-            'SELECT * FROM orders WHERE site=? AND revision<=? AND paid_at>=? AND paid_at<?',
-            (SITE, target, lower, upper))}
-        needed = revision - target
-        if needed > 40:
-            raise LookupError('maintenance_projection_waiting_for_revisions')
-        restored = set()
-        for _, body in db.execute('SELECT id,body FROM revisions WHERE id>? AND id<=? ORDER BY id', (target, revision)):
-            needed -= 1
-            for row in json.loads(body):
-                key = row['order_key']
-                if key in restored or row['site'] != SITE or row['revision'] > target:
-                    continue
-                restored.add(key)
-                if lower <= row['paid_at'] < upper:
-                    rows[key] = row
-        if needed:
-            raise LookupError('maintenance_projection_incomplete')
-        return list(rows.values())
-
     def read(self, now, *, latest=False):
+        from user_version_index import ready
         with self.db() as db:
             publication = self.receipt(db)
             cutoff = coupon_time(publication['cutoff'])
@@ -280,31 +526,7 @@ class UserProjection:
             history = publication['config'].get('history_backfill_start', HISTORY.isoformat())
             lower = day_start(coupon_time(history).astimezone(SHANGHAI).date())
             target = revision if latest else int(publication['data_version'])
-            rows = self._read_rows(db, target, revision, lower.isoformat(), cutoff.isoformat())
-            emails = {}
-            for ident, address in db.execute('SELECT DISTINCT customer_id,email FROM identities'):
-                if ident in emails and emails[ident] != address:
-                    raise ValueError('maintenance_projection_email_conflict')
-                emails[ident] = address
-            uid_pairs = db.execute("""SELECT DISTINCT customer_id, json_extract(body,'$.uid') FROM orders
-                                      WHERE customer_id IS NOT NULL AND json_extract(body,'$.uid') IS NOT NULL""").fetchall()
-        try:
-            flags = self._flags(publication, lower)
-        except (OSError, LookupError, ValueError):
-            # A missing or conflicting ES label remains unverified.
-            flags = {}
-        orders = []
-        for row in rows:
-            body = json.loads(row['body'])
-            number = body.get('order_no')
-            if not isinstance(number, str) or row['order_key'] != 'admin:' + SITE + ':' + number:
-                raise ValueError('maintenance_projection_order_identity')
-            row = dict(row)
-            row.pop('body', None)
-            customer = row['customer_id']
-            row.update(order_no=number, uid=body.get('uid'), email=emails.get(customer),
-                       amount_usd=body.get('amount_usd'), pay_status=body.get('pay_status'),
-                       test_order=bool(body.get('test_order')),
-                       new_customer_flag=flags.get(hashlib.sha256(number.encode()).hexdigest()))
-            orders.append(row)
-        return Facts(publication, orders, publication['jobs'], (publication['publication_id'], current), uid_pairs, emails)
+            if target > revision:
+                raise ValueError('maintenance_publication_future_version')
+            return ProjectionFacts(self, publication, (publication['publication_id'], current),
+                                   lower, target, ready(db, revision))

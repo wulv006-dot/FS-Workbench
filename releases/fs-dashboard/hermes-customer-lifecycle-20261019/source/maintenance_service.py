@@ -18,7 +18,7 @@ from maintenance_review import (CouponIndex, canonical, coupon_time, digest, ema
                                 manual_evidence, member_id, review_evidence, valid_email)
 from maintenance_sources import AdminFacts, UserProjection
 from maintenance_stages import FOLLOW_UP, GID, RANK, cohort, day_end, matches_rule, new_event, payment
-from vip_maintenance import events_for
+from vip_maintenance import case_closed, events_for
 
 
 LOGGER = logging.getLogger(__name__)
@@ -84,18 +84,18 @@ def matching_cases(db, customer):
                       preferred.baseline AS preferred, known.customer_id AS customer_id
                FROM vip_cases AS common
                LEFT JOIN vip_preferred_cases AS preferred ON preferred.id=common.id
-               LEFT JOIN maintenance_cases AS known ON known.case_id=common.id
-               WHERE NOT EXISTS(SELECT 1 FROM vip_events AS audit WHERE audit.case_id=common.id
-                                AND json_extract(audit.payload,'$.event')='close')'''
+               LEFT JOIN maintenance_cases AS known ON known.case_id=common.id'''
     for case in db.execute(query):
         bodies = [json.loads(body) for body in (case['baseline'], case['preferred']) if body]
         identities = [body.get('identity') or {} for body in bodies]
         emails = {email_key(value) for item in identities for value in item.get('emails', ())
                   if isinstance(value, str)}
         uids = {member_id(value) for item in identities for value in item.get('uids', ())}
+        if not (email in emails or uid and uid in uids) or case_closed(db, case['id']):
+            continue
         if emails == {email} and case['customer_id'] in (None, ident):
             exact.append(case['id'])
-        elif email in emails or (uid and uid in uids):
+        else:
             conflicts.append(case['id'])
             uid_conflict |= bool(email not in emails and uid and uid in uids)
     return sorted(exact), sorted(conflicts), uid_conflict
@@ -112,16 +112,15 @@ def create_case(db, customer, at):
 
 
 def store_case_link(db, customer, case_id, status):
-    db.execute('INSERT INTO maintenance_cases VALUES(?,?,?) ON CONFLICT(customer_id) DO UPDATE '
-               'SET case_id=excluded.case_id,status=excluded.status', (customer, case_id, status))
+    if db.execute('SELECT 1 FROM maintenance_cases WHERE customer_id=?', (customer,)).fetchone():
+        db.execute('UPDATE maintenance_cases SET case_id=?,status=? WHERE customer_id=?', (case_id, status, customer))
+    else:
+        db.execute('INSERT INTO maintenance_cases VALUES(?,?,?)', (customer, case_id, status))
 
 
 def case_binding(db, customer, *, entering_stage=False):
     ident = customer['customer_id']
-    prior = db.execute("""SELECT c.case_id,c.status,EXISTS(
-                           SELECT 1 FROM vip_events e WHERE e.case_id=c.case_id
-                           AND json_extract(e.payload,'$.event')='close') AS closed
-                           FROM maintenance_cases c WHERE c.customer_id=?""", (ident,)).fetchone()
+    prior = db.execute('SELECT case_id,status FROM maintenance_cases WHERE customer_id=?', (ident,)).fetchone()
     if customer.get('email_conflict'):
         return None, 'pending_identity', [], [], 'email_conflict'
     if not valid_email(customer['email']):
@@ -146,7 +145,7 @@ def case_binding(db, customer, *, entering_stage=False):
             selected = json.loads(resolution['after_json'])
             if (selected.get('case_id'), selected.get('candidates')) == (prior['case_id'], [exact, conflicts]):
                 return prior['case_id'], 'linked', exact, conflicts, None
-    if ambiguous or (prior and not (entering_stage and prior['closed'])):
+    if ambiguous or (prior and not (entering_stage and case_closed(db, prior['case_id']))):
         return None, 'pending_identity', exact, conflicts, reason
     return None, 'unlinked', exact, conflicts, reason
 
@@ -158,8 +157,9 @@ def case_link(db, customer, at):
         store_case_link(db, customer['customer_id'], case_id, status)
     elif status == 'pending_identity':
         # Keep a prior assignment reserved until it is explicitly resolved.
-        db.execute("INSERT INTO maintenance_cases VALUES(?,NULL,'pending_identity') "
-                   "ON CONFLICT(customer_id) DO NOTHING", (customer['customer_id'],))
+        ident = customer['customer_id']
+        if not db.execute('SELECT 1 FROM maintenance_cases WHERE customer_id=?', (ident,)).fetchone():
+            db.execute("INSERT INTO maintenance_cases VALUES(?,NULL,'pending_identity')", (ident,))
     return case_id, status
 
 
@@ -173,7 +173,7 @@ def case_feedback(db, customer):
 def event_order_valid(facts, event, customer):
     if not event or event['status'] != 'active' or event['customer_id'] != customer:
         return False
-    order = facts.by_order.get(event['last_order_key'])
+    order = facts.find_order(event['last_order_key'])
     return bool(order and order['valid'] and order['customer_id'] == customer and str(order['gid']) == GID)
 
 
@@ -243,7 +243,7 @@ class Maintenance:
                 self.ledger.void(db, at, ACTOR, event_id=row['id'])
 
     def _day(self, facts, day, config, at):
-        current = cohort(facts.orders, day, config, facts.covered)
+        current = facts.stage_cohort(day, config)
         for cid, customer in current.items():
             customer['email_conflict'] = facts.email_conflict(cid, customer['email'])
         with self.ledger.db(write=True) as db:
@@ -262,16 +262,16 @@ class Maintenance:
                     continue
                 selected = [rule for rule in rules if matches_rule(rule, customer)
                             and coupon_time(rule['enabled_at']) <= coupon_time(event['event_at'])]
-                inserted = db.execute("INSERT INTO maintenance_events VALUES(?,?,?,?,?,'active',?) "
-                                      'ON CONFLICT(id) DO NOTHING',
-                                      (event['id'], cid, event['last_order_key'], event['event_at'], canonical(event),
-                                       int(any(rule['alert'] for rule in selected)))).rowcount
-                if inserted:
-                    case_id, _ = case_link(db, customer, at)
-                    for rule in selected:
-                        assign_empty(db, case_id, rule['owner'], event['id'], rule['id'], at)
-                        if rule['template'] and valid_email(customer['email']):
-                            enqueue_entry(db, event['id'], cid, customer['email'], rule, at)
+                if db.execute('SELECT 1 FROM maintenance_events WHERE id=?', (event['id'],)).fetchone():
+                    continue
+                db.execute("INSERT INTO maintenance_events VALUES(?,?,?,?,?,'active',?)",
+                           (event['id'], cid, event['last_order_key'], event['event_at'], canonical(event),
+                            int(any(rule['alert'] for rule in selected))))
+                case_id, _ = case_link(db, customer, at)
+                for rule in selected:
+                    assign_empty(db, case_id, rule['owner'], event['id'], rule['id'], at)
+                    if rule['template'] and valid_email(customer['email']):
+                        enqueue_entry(db, event['id'], cid, customer['email'], rule, at)
             db.execute('INSERT INTO maintenance_runs VALUES(?,?,?,?)',
                        (day.isoformat(), config['version'], facts.publication['publication_id'], stamp(at)))
 
@@ -287,7 +287,7 @@ class Maintenance:
                 start = end
             numbers = {str(log['order_no']) for log in logs if log.get('order_no')}
             owners = self.source.coupon_orders(numbers, facts.token)
-            index = CouponIndex(owners, logs, facts.uid_customers)
+            index = CouponIndex(owners, logs, facts.uid_customers if logs else {})
         except (LookupError, OSError, ValueError, TypeError, sqlite3.Error) as error:
             LOGGER.warning('Maintenance coupon usage unavailable: %s', type(error).__name__)
             return None
@@ -302,7 +302,7 @@ class Maintenance:
         customer = entry['customer_id']
         if facts.email_conflict(customer, entry['email']):
             raise LookupError('maintenance_email_identity_conflict')
-        orders = facts.customers.get(customer, [])
+        orders = facts.customer_orders(customer)
         if not orders or not facts.covered(coupon_time(event['event_at']), facts.cutoff):
             raise LookupError('maintenance_order_coverage')
         if logs is None:
@@ -311,8 +311,8 @@ class Maintenance:
         # Automatic batches are already covered by the local ledger.
         used['matched'] = [row for row in used['matched'] if not str(
             (row.get('memberCoupon') or {}).get('grant_batch_no') or '').startswith('FCSM_')]
-        relevant = [dict(uid=uid, customer_id=cid) for uid in facts.customer_uids.get(customer, ())
-                    for cid in facts.uid_customers[uid]]
+        uids = {member_id(row.get('uid')) for row in orders} - {None}
+        relevant = [dict(uid=uid, customer_id=cid) for uid in uids for cid in facts.uid_customers[uid]]
         coupons = manual_evidence(relevant, customer, at, self.admin.grants, used)
         cutoff = coupon_time(event['event_at'])
         return dict(coupons=coupons, payments=[
@@ -323,7 +323,7 @@ class Maintenance:
     @staticmethod
     def _review_identity(entry, facts):
         customer = entry['customer_id']
-        orders = (row for row in facts.customers.get(customer, ())
+        orders = (row for row in facts.customer_orders(customer)
                   if row['valid'] and str(row['gid']) == GID)
         last = max(orders, key=lambda row: (payment(row), row['order_key']), default=None)
         if last is None:
@@ -363,7 +363,7 @@ class Maintenance:
             event = dispatch_event(db, row)
         config, version, _ = load_config(self.config_path)
         customer = row['customer_id']
-        current = cohort(facts.customers.get(customer, ()), facts.day, config, facts.covered).get(customer)
+        current = cohort(facts.customer_orders(customer), facts.day, config, facts.covered).get(customer)
         rule = row['rule_body']
         reason = None
         evidence = None
@@ -482,26 +482,30 @@ class Maintenance:
         expected = self.clock().astimezone(SHANGHAI).date() - timedelta(days=1)
         with self.ledger.db() as db:
             last = db.execute('SELECT * FROM maintenance_runs ORDER BY day DESC LIMIT 1').fetchone()
-            rows = db.execute('''SELECT s.body,c.case_id,c.status,v.owner,o.tier,
-                        (SELECT max(alert) FROM maintenance_events e WHERE e.customer_id=s.customer_id AND e.status='active'
-                         AND e.last_order_key=json_extract(s.body,'$.last_order_key')) AS alert
-                        FROM maintenance_customers s LEFT JOIN maintenance_cases c USING(customer_id)
-                        LEFT JOIN vip_cases v ON v.id=c.case_id LEFT JOIN maintenance_overrides o USING(customer_id)
-                        ORDER BY s.customer_id''').fetchall()
-        items = []
-        for row in rows:
-            customer = json.loads(row['body'])
-            conflict = customer.get('email_conflict')
-            items.append(dict(customer, case_id=None if conflict else row['case_id'],
-                              case_status='pending_identity' if conflict else row['status'],
-                              owner=None if conflict else row['owner'], override_tier=row['tier'],
-                              alert=bool(row['alert'])))
-        counts = Counter((r['override_tier'] or r['tier'], r['stage'], r['customer_type']) for r in items)
-        items = [row for row in items if row['stage'] in FOLLOW_UP]
+            rows = db.execute('''SELECT s.body,c.case_id,c.status,v.owner,o.tier
+                                 FROM maintenance_customers s LEFT JOIN maintenance_cases c USING(customer_id)
+                                 LEFT JOIN vip_cases v ON v.id=c.case_id LEFT JOIN maintenance_overrides o USING(customer_id)
+                                 ORDER BY s.customer_id''')
+            counts, items, follow_up = Counter(), [], 0
+            for row in rows:
+                customer = json.loads(row['body'])
+                counts[(row['tier'] or customer['tier'], customer['stage'], customer['customer_type'])] += 1
+                if customer['stage'] not in FOLLOW_UP:
+                    continue
+                follow_up += 1
+                if not offset < follow_up <= offset + 20:
+                    continue
+                conflict = customer.get('email_conflict')
+                alert = db.execute("SELECT 1 FROM maintenance_events WHERE customer_id=? "
+                                   "AND status='active' AND alert=1 AND last_order_key=? LIMIT 1",
+                                   (customer['customer_id'], customer['last_order_key'])).fetchone()
+                items.append(dict(customer, case_id=None if conflict else row['case_id'],
+                                  case_status='pending_identity' if conflict else row['status'],
+                                  owner=None if conflict else row['owner'], override_tier=row['tier'], alert=bool(alert)))
         return dict(status='ready' if last and last['day'] == expected.isoformat() else 'waiting',
                     waiting_for=expected.isoformat(), last_run=dict(last) if last else None,
                     groups=[dict(tier=t, stage=s, customer_type=c, count=n) for (t, s, c), n in sorted(counts.items())],
-                    items=items[offset:offset+20], next_offset=offset+20 if len(items) > offset+20 else None)
+                    items=items, next_offset=offset+20 if follow_up > offset+20 else None)
 
     def customer_view(self, ident):
         strict_id(ident)
@@ -581,9 +585,9 @@ class Maintenance:
                 identities = {row['entry_id']: row for row in db.execute(
                     'SELECT entry_id,identity_checked_at,identity_reason FROM maintenance_dispatch_checks '
                     f'WHERE identity_checked_at IS NOT NULL AND entry_id IN ({marks(entry_ids)})', entry_ids)}
-                conflicts = {row[0] for row in db.execute(
-                    f"SELECT customer_id FROM maintenance_customers WHERE customer_id IN ({marks(customer_ids)}) "
-                    "AND json_extract(body,'$.email_conflict')=1", customer_ids)}
+                customers = db.execute(f'SELECT customer_id,body FROM maintenance_customers '
+                                       f'WHERE customer_id IN ({marks(customer_ids)})', customer_ids)
+                conflicts = {cid for cid, body in customers if json.loads(body).get('email_conflict')}
         for row in rows[:20]:
             reviews = self.ledger.reviews(row['id'])
             item = {key: value for key, value in row.items() if key != 'rule_body'}
@@ -654,9 +658,10 @@ class Maintenance:
                     raise ValueError('maintenance_tier_conflict')
                 if value is None:
                     db.execute('DELETE FROM maintenance_overrides WHERE customer_id=?', (customer_id,))
+                elif prior_value:
+                    db.execute('UPDATE maintenance_overrides SET tier=? WHERE customer_id=?', (value, customer_id))
                 else:
-                    db.execute('INSERT INTO maintenance_overrides VALUES(?,?) ON CONFLICT(customer_id) '
-                               'DO UPDATE SET tier=excluded.tier', (customer_id, value))
+                    db.execute('INSERT INTO maintenance_overrides VALUES(?,?)', (customer_id, value))
             else:
                 raise ValueError('maintenance_action')
             db.execute('INSERT INTO maintenance_changes VALUES(?,?,?,?,?,?,?)',
@@ -686,18 +691,16 @@ class Maintenance:
                 continue
             enabled_at = coupon_time(rule['enabled_at']).astimezone(SHANGHAI)
             baseline_end = enabled_at - horizon
-            candidate_days = defaultdict(set)
-            for customer, orders in facts.customers.items():
+            gap = thresholds(GID, config)[RANK[rule['stage']]-1]
+            for customer, orders in facts.customer_groups():
+                candidate_days = set()
                 for row in orders:
                     if row['valid'] and str(row['gid']) == GID:
-                        gap = thresholds(GID, config)[RANK[rule['stage']]-1]
                         day = payment(row).date() + timedelta(days=gap)
                         at = day_end(day)
                         if baseline_end - timedelta(days=60) < at <= baseline_end and at + horizon <= facts.cutoff:
-                            candidate_days[customer].add(day)
-            for customer, dates in candidate_days.items():
-                orders = facts.customers[customer]
-                for day in sorted(dates):
+                            candidate_days.add(day)
+                for day in sorted(candidate_days):
                     previous = cohort(orders, day-timedelta(days=1), config, facts.covered).get(customer)
                     current = cohort(orders, day, config, facts.covered).get(customer)
                     event = new_event(previous, current) if current else None
@@ -736,14 +739,20 @@ class Maintenance:
         except (OSError, ValueError, KeyError, TypeError) as error:
             LOGGER.warning('Maintenance effect usage unavailable: %s', type(error).__name__)
             logs = None
+        customers = {entry['customer_id'] for entry in entries}
+        numbers = {row['order_no'] for row in logs or () if isinstance(row.get('order_no'), str) and row['order_no']}
         outcomes = []
         for days in (7, 30, 60):
             baseline = self._baselines(entries, facts, days)
-            items = effects(entries, facts.orders, logs, days, facts.day, facts.covered, baseline)
+            items = effects(entries, facts.effect_orders(customers, numbers), logs, days, facts.day, facts.covered, baseline)
             value = dict(status='ready' if logs is not None else 'partial', days=days, items=items,
                          observation_date=facts.day.isoformat(), season='FC27 赛季中',
                          season_note='赛季开启可能抬高同期回购率', baseline_days=60)
             outcomes.append((days, stamp(at), canonical(value)))
         with self.ledger.db(write=True) as db:
-            db.executemany('INSERT INTO maintenance_outcomes VALUES(?,?,?) ON CONFLICT(days) DO UPDATE '
-                           'SET observed_at=excluded.observed_at,body=excluded.body', outcomes)
+            for days, observed_at, body in outcomes:
+                if db.execute('SELECT 1 FROM maintenance_outcomes WHERE days=?', (days,)).fetchone():
+                    db.execute('UPDATE maintenance_outcomes SET observed_at=?,body=? WHERE days=?',
+                               (observed_at, body, days))
+                else:
+                    db.execute('INSERT INTO maintenance_outcomes VALUES(?,?,?)', (days, observed_at, body))

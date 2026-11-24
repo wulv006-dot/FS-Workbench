@@ -11,10 +11,14 @@ def effects(entries, orders, logs, days, observation, covered, baseline=None):
     end = day_end(observation)
     by_customer = defaultdict(list)
     by_batch = {}
-    main_orders = {row.get('order_no'): row for row in orders if row.get('order_no')}
+    main_orders = {}
+    coupon_numbers = {log['order_no'] for log in logs or () if log.get('order_no')}
+    customers = {entry['customer_id'] for entry in entries}
     summaries = {}
     for row in orders:
-        if row['valid'] and str(row['gid']) == GID and row.get('customer_id'):
+        if row.get('order_no') in coupon_numbers:
+            main_orders[row['order_no']] = row
+        if row['valid'] and str(row['gid']) == GID and row.get('customer_id') in customers:
             by_customer[row['customer_id']].append(row)
     attributed = {}
     for entry in entries:
