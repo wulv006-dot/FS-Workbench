@@ -15,10 +15,10 @@ function setup(t,clock){
 }
 const q=uid=>new URLSearchParams({uid});
 
-test('odds: first round 30/30/40, later rounds 40/40/20',()=>{
+test('odds: first round 30/30/40, later rounds 20/30/50',()=>{
  const count=first=>{const c={8:0,10:0,15:0};for(let r=0;r<100;r++)c[rollDiscount(first,r)]++;return c;};
  assert.deepEqual(count(true),{8:30,10:30,15:40});
- assert.deepEqual(count(false),{8:40,10:40,15:20});
+ assert.deepEqual(count(false),{8:20,10:30,15:50});
 });
 
 test('a first round always has a 15% card; later rounds keep the plain odds',()=>{
@@ -74,7 +74,7 @@ test('a paid use of the game coupon set after the draw unlocks the next round wi
  assert.equal(s.games.poe2.can_draw,true);
  assert.equal(carnival.draw({uid:'42',game:'poe1',items:[0,1,2]}).current.round,1);
  assert.equal(carnival.state(q('42')).games.poe1.can_draw,false,'the use reopened POE 2 only');
- state.now=at('2026-11-21T10:00:00-05:00');rolls.push(79,80,99);
+ state.now=at('2026-11-21T10:00:00-05:00');rolls.push(49,50,99);
  const second=carnival.draw({uid:'42',game:'poe2',items:[3,4,5]});
  assert.equal(second.current.round,2);assert.deepEqual(second.current.picks.map(p=>p.off),[10,15,15]);
  assert.deepEqual(second.current.picks.map(p=>p.coupon_id),[MYSTERY_SETS.poe.coupons[10],MYSTERY_SETS.poe.coupons[15],MYSTERY_SETS.poe.coupons[15]]);
