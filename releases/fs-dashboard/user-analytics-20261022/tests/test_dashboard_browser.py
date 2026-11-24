@@ -46,8 +46,8 @@ def summary(query):
                             first_repeat=dict(boundaries=windows, counts=buckets),
                             silent_return=dict(after_days=after, within_days=within, numerator=returning,
                                                denominator=68 if population else 0, rate=returning/68 if population else None,
-                                               return_amount=dict(known_usd=str(returning * 47) if population else '0',
-                                                                  unknown_orders=int(month == '2026-04')))))
+                                               return_amount=dict(known_usd=None if month == '2026-01' else str(returning * 47) if population else '0',
+                                                                  unknown_orders=3 if month == '2026-01' else int(month == '2026-04')))))
     cohort_type = query.get('cohort_type', ['new'])[0]
     cohorts = dict(batches=batches)
     if cohort_type == 'compare':
@@ -58,6 +58,9 @@ def summary(query):
                 cell['group'] = 'cohort:old:' + batch['month'] + ':' + str(cell['days'])
                 cell['numerator'] = cell['numerator'] // 2
                 cell['rate'] = cell['numerator'] / cell['denominator'] if cell['denominator'] else None
+                if batch['month'] == '2026-06':
+                    # A month with old customers but no eligible new customers.
+                    cell.update(denominator=10, numerator=4, rate=.4)
         cohorts['compare'] = dict(segment='old', batches=old)
     return dict(contract_version='fs-users-v4', snapshot_id='browser-fixture', config_version=2,
                 observation_date='2026-11-23', query=dict(game=query['game'][0], windows=windows, cohort_type=cohort_type,
@@ -124,12 +127,19 @@ def check_page(browser, output=None):
     expect(page.locator('#members')).to_contain_text('cohort@example.invalid')
     expect(page.get_by_role('button', name='导出 CSV')).to_be_enabled()
 
+    # All return amounts unknown for 2026-01: no bar is drawn and the amount is not shown as $0.
+    expect(page.locator('#return-amounts svg rect')).to_have_count(4)
+    expect(page.locator('#return-amounts')).to_contain_text('含 3 笔金额未知')
+
     # New-versus-old comparison: cells show the old-customer rate, the drill offers both lists.
     page.get_by_role('radio', name='新老对比').check()
     expect(page.locator('#repeat-title')).to_contain_text('新老客')
     expect(page.locator('#segment-note')).to_be_visible()
     expect(page.locator('#cohort-heat')).to_contain_text('老客')
     expect(page.locator('#cohort-kpis')).to_contain_text('老客')
+    old_only = page.get_by_role('button', name='2026-06 30 天，查看详情')
+    expect(old_only).to_be_enabled()
+    expect(old_only).to_contain_text('老客 40.0%')
     if output:
         page.screenshot(path=output / 'users-compare.png', full_page=True, animations='disabled')
     page.get_by_role('button', name='2026-04 180 天，查看详情').click()

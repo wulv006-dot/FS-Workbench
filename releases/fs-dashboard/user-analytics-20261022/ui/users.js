@@ -214,7 +214,7 @@ function renderFindings(view) {
     card('沉默后回流率', pct1(silent?.rate),
       silent ? after + ' 天没买的 ' + n(silent.denominator) + ' 人里 ' + n(silent.numerator) + ' 人回来' : '暂无可用分母',
       {secondary: compare && oldSilent ? '老客 ' + pct1(oldSilent.rate) : null}),
-    card('回流带来的复购额', silent?.denominator ? wholeDollars.format(Number(silent.return_amount.known_usd || 0)) : '—',
+    card('回流带来的复购额', silent?.denominator && silent.return_amount.known_usd != null ? wholeDollars.format(Number(silent.return_amount.known_usd)) : '—',
       '第 ' + (after + 1) + '–' + within + ' 天回流订单' + unknownAmount(silent?.return_amount)),
   );
   const share = firstWindowShare(batch, query.windows);
@@ -332,7 +332,7 @@ function heatTable(view) {
       const old = view.compare ? windowOf(sameMonth(view.oldBatches, batch.month), window.days) : null;
       const button = element('button', null, 'cell');
       button.type = 'button';
-      if (window.rate == null) {
+      if (window.rate == null && old?.rate == null) {
         button.classList.add('obs');
         button.disabled = true;
         button.append(element('span', window.observing ? '未满期' : '暂无数据', 's'));
@@ -341,7 +341,8 @@ function heatTable(view) {
       }
       const level = heatLevel(window.rate, low, high);
       if (level) button.classList.add(level);
-      button.append(element('span', pct1(window.rate), 'p'), element('span', n(window.numerator) + ' 人', 's'));
+      button.append(element('span', pct1(window.rate), 'p'),
+        element('span', window.rate == null ? '新客暂无数据' : n(window.numerator) + ' 人', 's'));
       if (old) button.append(element('span', '老客 ' + pct1(old.rate), 's'));
       if (window.observing) button.append(element('span', '观察中 ' + n(window.observing), 's'));
       button.setAttribute('aria-label', batch.month + ' ' + window.days + ' 天，查看详情');
@@ -514,14 +515,20 @@ function renderReturns(view) {
         detail: value ? pct1(value.rate) + '，' + n(value.numerator) + ' / ' + n(value.denominator) + ' 人' : '—'};
     }),
   })), {format: pct1, axis: value => Math.round(value * 100) + '%', colors});
-  barChart(el('return-amounts'), '各批次回流复购金额', groups.map(batch => ({
-    label: batch.month,
-    bars: series.map(([name, key]) => {
-      const value = pick(batch, key);
-      return {name, value: value?.denominator ? Number(value.return_amount.known_usd || 0) : NaN,
-        detail: value?.denominator ? amount(value.return_amount) : '—'};
-    }),
-  })), {format: value => wholeDollars.format(value), axis: value => '$' + compactDollars.format(value), colors: amountColors});
+  // Unknown amounts stay missing (no bar) and partial sums are flagged; never plotted as $0.
+  barChart(el('return-amounts'), '各批次回流复购金额', groups.map(batch => {
+    const values = series.map(([, key]) => pick(batch, key));
+    return {
+      label: batch.month,
+      partial: values.some(value => value?.denominator && value.return_amount.unknown_orders),
+      bars: series.map(([name], index) => {
+        const value = values[index];
+        const known = value?.denominator ? value.return_amount.known_usd : null;
+        return {name, value: known == null ? NaN : Number(known),
+          detail: value?.denominator ? amount(value.return_amount) : '—'};
+      }),
+    };
+  }), {format: value => wholeDollars.format(value), axis: value => '$' + compactDollars.format(value), colors: amountColors});
   if (view.compare) {
     legend(el('return-rates'), [['新客', colors[0]], ['老客', colors[1]]]);
     legend(el('return-amounts'), [['新客', amountColors[0]], ['老客', amountColors[1]]]);
@@ -690,9 +697,14 @@ function updateLabels(type) {
     ' 起第一次在数据里出现的月份分批；第一个月的老客批次包含当月所有回头的老客，会偏大，比较趋势时以后续月份为准。';
 }
 
+let generation = 0;
+
 async function query(event) {
   event?.preventDefault();
   if (el('run-query').disabled && event) return;
+  // Only the latest request may render; a slower earlier one is dropped.
+  const mine = ++generation;
+  const stale = () => mine !== generation;
   pending(true);
   current = memberView = null;
   emailForm.querySelector('button').disabled = true;
@@ -703,6 +715,7 @@ async function query(event) {
     const args = formArgs();
     updateLabels(args.cohort_type);
     const data = await summary(args);
+    if (stale()) return;
     const focus = [...new Set([90, 180, data.query.return_within])].sort((a, b) => a - b);
     let reference = data;
     let warning = '';
@@ -716,6 +729,7 @@ async function query(event) {
         reference = null;
       }
     }
+    if (stale()) return;
     const type = data.query.cohort_type || args.cohort_type;
     const view = {
       query: data.query, who: whoNames[type], compare: type === 'compare',
@@ -742,9 +756,9 @@ async function query(event) {
     for (const id of ['cohort-kpis', 'cohorts', 'returns', 'stages']) el(id).hidden = false;
     emailForm.querySelector('button').disabled = false;
   } catch (error) {
-    el('query-status').textContent = error.message;
+    if (!stale()) el('query-status').textContent = error.message;
   } finally {
-    pending(false);
+    if (!stale()) pending(false);
   }
 }
 
