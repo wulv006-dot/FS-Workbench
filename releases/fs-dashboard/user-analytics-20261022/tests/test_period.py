@@ -60,7 +60,7 @@ class Period(unittest.TestCase):
         with self.service.summary_slot:
             args = {'start': ['2026-10-02']}
             status, body = get(self.service, '/users', args, 'admin')
-            self.assertEqual((status, body), (429, {'error': 'users_summary_busy', 'retryable': True}))
+            self.assertEqual((status, body), (429, {'error': 'users_summary_busy', 'retryable': True, 'retryAfter': 5}))
             self.assertEqual(get(self.service, '/users', args, 'denied')[0], 403)
             self.assertEqual(get(self.service, '/users', {'action': ['catalog']}, 'admin')[0], 200)
             self.assertEqual(self.query('2026-10-01'), cached)

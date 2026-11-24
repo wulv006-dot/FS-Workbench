@@ -31,6 +31,18 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(out['data']['next_cursor'], 'next')
         self.assertNotIn('MMOEXP_AUTH', json.dumps(out))
 
+    def test_users_summary_continuation_uses_original_connectors_route(self):
+        query_id = 'a' * 32
+        pending = dict(status='pending', query_id=query_id, retryAfter=5)
+        self.response = (202, json.dumps(pending).encode())
+        result = self.backend.query(self.principal, 'users.summary', {'scope': 'project', 'scope_id': '456'})
+        self.assertEqual((result['status_code'], result['data']), (202, pending))
+        self.assertIn('action=connector_summary', self.calls[-1][1])
+        self.response = (200, b'{"snapshot_id":"frozen"}')
+        result = self.backend.query(self.principal, 'users.summary', {'query_id': query_id})
+        self.assertEqual(result['data'], {'snapshot_id': 'frozen'})
+        self.assertEqual(self.calls[-1][1], '/dashboard/users/data.json?action=connector_summary&query_id=' + query_id)
+
     def test_fc_project_review_fixed_read_preserves_pending_and_admin_denial(self):
         operation = 'business.fc_project_review'
         args = {'profile': 'FC27', 'start': '2026-11-16', 'end': '2026-11-18'}

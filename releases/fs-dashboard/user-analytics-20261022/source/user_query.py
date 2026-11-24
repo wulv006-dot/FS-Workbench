@@ -11,6 +11,7 @@ import re
 
 from user_contract import TZ, aggregate_only, checked_query, stamp, digest, METRIC_DEFINITIONS, OBSERVATION_POLICIES
 from user_lifecycle import analyze, project_analysis, in_scope, covered
+from user_summary_jobs import SummaryJobs
 
 
 class SummaryBusy(Exception):
@@ -30,6 +31,7 @@ class Service:
         self.cache = OrderedDict()
         self.cache_lock = RLock()
         self.summary_slot = Lock()
+        self.summary_jobs = SummaryJobs(self.query)
         self.private_lock = RLock()
         self.private_cache = None
         self.private_cache_timer = None
@@ -155,7 +157,7 @@ class Service:
             if query == global_query and global_config is config:
                 global_result, global_private = result, private
             else:
-                global_result, global_private = analyze(orders, jobs, global_query, global_config)
+                global_result, global_private = analyze(orders, jobs, global_query, global_config, details=False)
             result['projects'], result['migration'] = project_analysis(orders, jobs, query, global_config, global_result, global_private)
         self.store.decorate_private_v1(private, orders, query, config, global_allowed)
         result['requires_global_scope'] = global_allowed
