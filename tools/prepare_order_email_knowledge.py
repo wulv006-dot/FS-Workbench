@@ -52,6 +52,7 @@ FC_V61_HOURLY_BASE = '27fe0962a8b51fcfb64a415603101ece8097dff8'
 FC_V61_CARNIVAL_REVISION = 'fc_v61_carnival_discount_20261119'
 FC_V61_CARNIVAL_BASE = '9295063b2c1ee4bfb15c175ecba19253d808e99a'
 MARKET_PREDECESSOR_MANIFEST_SHA = 'baad7565b53098d636eaf0901b0682800a048919face91aa5212cca6cc5f5d89'
+FC_V61_OBSERVATION_RECEIPTS_REVISION = 'fc_v61_market_observation_receipts_20261124'
 FC_V61_MARKET_PACKAGES_REVISION = 'fc_v61_market_packages_observers_20261124'
 FC_BASELINE_IDENTITY_LINE = '当前基准版本为 `business-baseline-fc-v6-20261124`。\n'.encode('utf-8')
 FC_V61_PARAMETER_ID = 'fs.pricing.parameter-identity'
@@ -63,6 +64,8 @@ FC_V61_MARGIN_BAND_SCOPES = {
     FC_V61_MARGIN_BAND_REVISION: (FC_V61_MARGIN_BAND_IDS, FC_V61_MARGIN_BAND_BASE),
     FC_V61_HOURLY_REVISION: (FC_V61_HOURLY_IDS, FC_V61_HOURLY_BASE),
     FC_V61_CARNIVAL_REVISION: ((FC_V61_OVERLAYS[0],), FC_V61_CARNIVAL_BASE),
+    FC_V61_OBSERVATION_RECEIPTS_REVISION: ((*FC_V61_OVERLAYS, FC_V61_PARAMETER_ID, 'fc.reporting.business'),
+                                           'e11b4a0a6fc8857db938fafed11103e26337ef2e'),
     FC_V61_MARKET_PACKAGES_REVISION: ((*FC_V61_OVERLAYS, FC_V61_PARAMETER_ID, 'fc.reporting.business'),
                                       'e6981b3cb3916e944b007008bbb547d9d2d78e33'),
 }
@@ -462,7 +465,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 source = live['source']
                 data = normalized(payloads['artifact/' + sources + source['path']], source)
                 live_body = catalog.extract(data.decode('utf-8-sig'), source.get('selector'))
-                package_constraint = (constraints_revision == FC_V61_MARKET_PACKAGES_REVISION
+                package_constraint = (constraints_revision in (FC_V61_MARKET_PACKAGES_REVISION, FC_V61_OBSERVATION_RECEIPTS_REVISION)
                                       and identity == 'fc.pricing.constraints' and live_body != prior_bodies[identity])
                 if (live['revision'] != margin_band_prior[identity]['revision']
                         or not (carnival or package_constraint) and live_body != prior_bodies[identity]):

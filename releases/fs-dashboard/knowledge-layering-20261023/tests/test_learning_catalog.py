@@ -275,7 +275,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'fc_v61_market_packages_observers_20261124')
+        self.assertEqual(margin['revision'], 'fc_v61_market_observation_receipts_20261124')
         self.assertIn('fc.pricing.constraints@fc_v61_insurance_15_40_20261117', margin['supersedes'])
         self.assertEqual(margin['source']['path'],'docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md')
         self.assertIn('fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4',margin['supersedes'])
@@ -322,7 +322,7 @@ class LearningCatalog(unittest.TestCase):
                 self.assertEqual(row['knowledge_updated_at'],'2026-11-17')
             elif row['id'] == 'fs.pricing.parameter-identity':
                 self.assertEqual(row['effective_at'],'2026-11-24')
-                self.assertEqual(row['revision'],'fc_v61_market_packages_observers_20261124')
+                self.assertEqual(row['revision'],'fc_v61_market_observation_receipts_20261124')
                 self.assertIn('实际计划修订', row['effective_at_basis'])
             elif row['id'] == 'fs.learning.methods':
                 self.assertEqual(row['effective_at'],'2026-11-18')
@@ -390,7 +390,7 @@ class LearningCatalog(unittest.TestCase):
             self.assertIn(token, texts['fs.data.sources'])
         self.assertIn('view=same-order', texts['fc.reporting.data'])
         pricing = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.v3'], preview=True)['entries'][0]
-        self.assertEqual(pricing['revision'], 'fc_v61_market_packages_observers_20261124')
+        self.assertEqual(pricing['revision'], 'fc_v61_market_observation_receipts_20261124')
         self.assertIn('北京时间每小时 15 分到期', pricing['content'])
         self.assertIn('沿同一任务等待并续跑', pricing['content'])
         self.assertNotIn('看板自动读取使用原鉴权channel-effects入口mode=actual-profit', texts['fs.data.sources'])
