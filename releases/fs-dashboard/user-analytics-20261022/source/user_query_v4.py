@@ -162,7 +162,7 @@ class UsersV4:
             self.service.summary_slot.release()
 
     def materialize(self, query, config, cutoff, publication, revision, segments, version, source, cache_key):
-        from customer_segments import thresholds
+        from customer_segments import stage, thresholds
 
         origin = config['history_backfill_start']
         flag_query = dict(start=origin, end_exclusive=cutoff.isoformat())
@@ -196,15 +196,21 @@ class UsersV4:
             gaps += not covered(day, following)
             day = following
         missing_identity = sum(row['site'] == '266' and not row['customer_id'] for row in orders)
-        for cid in {identity for ids in cohort_members.values() for identity in ids}:
-            first = people[cid][0]
-            records.setdefault(cid, dict(customer_id=cid, first_paid_at=first[0].isoformat(), customer_type='new'))
+        observation = (cutoff - timedelta(days=1)).date()
+        cohort_customers = {identity for ids in cohort_members.values() for identity in ids}
+        for cid in cohort_customers - records.keys():
+            orders = people[cid]
+            first = orders[0][0]
+            last = next(order[0] for order in reversed(orders) if query['game'] in ('all', order[2]))
+            records[cid] = dict(customer_id=cid, first_paid_at=first.isoformat(), customer_type='new',
+                                last_paid_at=last.isoformat(),
+                                stage=stage(last, observation, query['game'], segments, covered(last, cutoff)))
         query['as_of'] = cutoff.isoformat()
         period_complete = covered(stamp(query['start']), stamp(query['end_exclusive']))
         public = dict(contract_version=VERSION, query=query, status='partial' if gaps or missing_identity else 'available',
                       scope_version=config['scope_version'], identity_version=config['identity_version'],
                       policy_version=version, lifecycle_policy={'thresholds_days': list(thresholds(query['game'], segments))},
-                      data_version=revision, observation_date=(cutoff-timedelta(days=1)).date().isoformat(),
+                      data_version=revision, observation_date=observation.isoformat(),
                       config_version=version, config_source=source, timezone='Asia/Shanghai',
                       cohorts=cohorts, stages=stages,
                       coverage=dict(history_start=origin, data_end_exclusive=cutoff.isoformat(),

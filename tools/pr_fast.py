@@ -1589,7 +1589,7 @@ def main():
             units("releases/fs-dashboard/hermes-v2-review-repair-20261021",["test_review_repair"])
             units("releases/fs-dashboard/hermes-v2-core-20261020",["test_core"])
         elif group=="hermes-v2-core":
-            units("releases/fs-dashboard/hermes-v2-core-20261020",["test_core"])
+            units("releases/fs-dashboard/hermes-v2-core-20261020",["test_core","test_b2_customer_followup"])
         elif group=="hermes-admin-recovery":
             units("releases/fs-dashboard/hermes-admin-recovery-20261020",["test_admin_recovery"])
         elif group=="hermes-report-method":

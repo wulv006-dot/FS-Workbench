@@ -185,6 +185,8 @@ class V4Snapshot(unittest.TestCase):
             params = {'snapshot_id': [ident], 'group': [group]}
             status, page = get(service, '/users/private', params, 'reader')
             self.assertEqual((status, page['total'], page['rows'][0]['email']), (200, 1, email))
+            self.assertEqual((page['rows'][0]['last_paid_at'], page['rows'][0]['stage']),
+                             ('2026-01-02T00:00:00+08:00', 'silent'))
             code, export = get(service, '/users/private', dict(params, action=['export']), 'reader')
             self.assertEqual((code, export['rows']), (200, page['rows']))
             self.assertEqual(get(service, '/users/private', dict(params, action=['connector_members']), 'reader')[0], 403)
