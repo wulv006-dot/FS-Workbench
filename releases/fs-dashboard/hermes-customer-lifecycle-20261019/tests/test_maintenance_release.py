@@ -107,12 +107,22 @@ class MaintenanceRelease(unittest.TestCase):
             current += (f'location = {release.OLD}{name} {{\n    {release.GUARD}\n'
                         f'    alias /active/{name};\n}}\n')
         forward = release.replace_routes(current)
-        self.assertNotIn('rewrite ^', forward)
         self.assertIn(f'location = {release.OLD}index.html {{ return 302 {release.NEW}; }}', forward)
-        self.assertIn(f'alias {release.STATIC}/index.html;', forward)
         recovery = release.replace_routes(current, reconcile_only=True)
         self.assertTrue(recovery.startswith(current.rstrip() + '\n\n'))
-        self.assertIn(f'alias {release.STATIC}/reconcile.html;', recovery)
+
+        for config, directory, asset in (
+            (forward, '/dashboard/customers/', 'index.html'),
+            (forward, '/dashboard/customers/reconcile/', 'reconcile.html'),
+            (recovery, '/dashboard/customers/reconcile/', 'reconcile.html'),
+        ):
+            with self.subTest(directory=directory, rollback=config is recovery):
+                entry = config.split(f'location = {directory} {{\n', 1)[1].split('\n}', 1)[0]
+                self.assertIn(f'rewrite ^ {directory}index.html last;', entry)
+                self.assertNotIn('alias ', entry)
+                page = config.split(f'location = {directory}index.html {{\n', 1)[1].split('\n}', 1)[0]
+                self.assertIn(release.GUARD, page)
+                self.assertIn(f'alias {release.STATIC}/{asset};', page)
         with self.assertRaises(ValueError):
             release.replace_routes(current.replace(release.GUARD + '\n    alias /active/index.html;',
                                                    'alias /active/index.html;'))
@@ -209,6 +219,27 @@ class MaintenanceRelease(unittest.TestCase):
                              'maintenance_reconcile', 'maintenance_service', 'maintenance_dispatch'):
                     sys.modules.pop(name, None)
                 exercise_rollback_runtime(root / 'db')
+
+    def test_republication_accepts_only_the_preserved_manual_routes_and_iam_mapping(self):
+        old_routes = ''.join(
+            f'location = {release.OLD}{suffix} {{\n'
+            f'    {release.GUARD}\n    alias /active/{suffix or "index.html"};\n}}\n'
+            for suffix in ('', 'page.js', 'page.css')
+        )
+        retained_routes = release.replace_routes(old_routes, reconcile_only=True)
+        iam = '("/dashboard/fs-home/brain", "/dashboard/fs-home/hermes", "/other",)'
+        retained_iam = release.patch_iam(iam)
+
+        with self.subTest('routes'):
+            self.assertEqual(release.replace_routes(old_routes), release.replace_routes(retained_routes))
+            self.assertEqual(retained_routes, release.replace_routes(retained_routes, reconcile_only=True))
+            drifted = retained_routes.replace('/reconcile.html;', '/unexpected.html;')
+            with self.assertRaisesRegex(ValueError, 'existing_customer_route'):
+                release.replace_routes(drifted)
+        with self.subTest('iam'):
+            self.assertEqual(retained_iam, release.patch_iam(retained_iam))
+            with self.assertRaisesRegex(ValueError, 'prior_tracking_iam'):
+                release.patch_iam(iam + '\nother = "/dashboard/customers"')
 
     def test_the_shared_module_is_not_a_publication_payload(self):
         self.assertFalse(any('customer_segments.py' in target for target in release.TARGETS.values()))
