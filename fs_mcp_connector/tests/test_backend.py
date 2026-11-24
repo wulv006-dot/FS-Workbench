@@ -44,6 +44,14 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(result['data'], {'snapshot_id': 'frozen'})
         self.assertEqual(self.calls[-1][1], '/dashboard/users/data.json?action=connector_summary&query_id=' + query_id)
 
+    def test_users_v4_connectors_accept_the_dashboard_series_and_cohort_population(self):
+        for operation in ('users.summary', 'analytics.user_section'):
+            with self.subTest(operation=operation):
+                self.backend.query(self.principal, operation, {'game': 'series:FC', 'cohort_type': 'compare'})
+                target = self.calls[-1][1]
+                self.assertIn('game=series%3AFC', target)
+                self.assertIn('cohort_type=compare', target)
+
     def test_fc_project_review_fixed_read_preserves_pending_and_admin_denial(self):
         operation = 'business.fc_project_review'
         args = {'profile': 'FC27', 'start': '2026-11-16', 'end': '2026-11-18'}

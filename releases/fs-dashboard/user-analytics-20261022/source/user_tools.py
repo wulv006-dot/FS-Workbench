@@ -3,7 +3,7 @@ import json
 
 from user_contract import VIEWS, aggregate_only, POLICIES, METRIC_DEFINITIONS
 from user_lifecycle import coverage_runs
-from user_query_v4 import SECTIONS, SnapshotVersionRetired
+from user_query_v4 import COHORT_TYPES, SECTIONS, SnapshotVersionRetired
 
 LEGACY_PROPERTIES = {
     'section': {'type': 'string', 'enum': [*VIEWS, 'coverage']},
@@ -21,12 +21,17 @@ TEXT = {'type': 'string'}
 PROPERTIES = {
     'section': {'type': 'string', 'enum': list(SECTIONS)},
     'scope': {'type': 'string', 'enum': ['global', 'site', 'project']},
-    'scope_id': TEXT, 'game': TEXT, 'start': TEXT, 'end_exclusive': TEXT,
+    'scope_id': TEXT,
+    'game': {'type': 'string', 'description': 'all, a configured project ID, or series:FC for the FC series shown in the dashboard.'},
+    'start': TEXT, 'end_exclusive': TEXT,
     'cohort_start': TEXT, 'cohort_end': TEXT,
     'windows': {'type': 'string', 'description': 'Ascending comma-separated window days, for example 30,90,180.'},
     'return_after': {'type': 'integer', 'minimum': 2, 'maximum': 364},
     'return_within': {'type': 'integer', 'minimum': 3, 'maximum': 365},
-    'customer_type': {'type': 'string', 'enum': ['all', 'new', 'old', 'unknown']},
+    'cohort_type': {'type': 'string', 'enum': list(COHORT_TYPES),
+                    'description': 'Cohort population. Old customers use their first observed purchase month. Default: new.'},
+    'customer_type': {'type': 'string', 'enum': ['all', 'new', 'old', 'unknown'],
+                      'description': 'Filter the stage pane by site-first ES tag.'},
     'repeat_status': {'type': 'string', 'enum': ['all', 'repeated', 'not_repeated']},
     'snapshot_id': TEXT, 'query_id': TEXT, 'evidence_id': TEXT,
 }
@@ -35,6 +40,8 @@ DESCRIPTION = (
     'site order observed since 2026-01-01. A repeat is a distinct valid order at least 24 hours later. '
     'Cohort window N ends before the first order plus N days. Rates use only fully observed, covered windows. '
     'Silent return requires a fully covered Y-day window, no repeat before X days, and a repeat from X to before Y days. '
+    'Use game=series:FC for FC26 and FC27 together, matching User Analytics. The first order remains the site-first order. '
+    'cohort_type selects new, old, all, or a new-vs-old comparison. In the old cohort, use first observed purchase month. '
     'Stage customers bought in the selected period, and their stages use the displayed Shanghai observation date. '
     'When pending, poll with query_id and optional section only. Reuse snapshot_id for the same results.'
 )

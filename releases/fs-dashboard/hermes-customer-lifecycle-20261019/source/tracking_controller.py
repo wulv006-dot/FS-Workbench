@@ -362,7 +362,9 @@ class TrackingController:
         if MAINTENANCE_ROLLBACK and view != 'phase_manual':
             raise ValueError('maintenance_rollback_only')
         if view in ('phase_groups', 'phase_review', 'phase_ready', 'phase_delivery', 'phase_manual'):
-            if set(fields) - {'offset'}:
+            group_fields = {'tier', 'stage', 'customer_type'}
+            filters = set(fields) - {'offset'}
+            if filters and (view != 'phase_groups' or filters != group_fields):
                 raise ValueError('maintenance_query')
             offset = fields.get('offset', '0')
             if not offset.isascii() or not offset.isdecimal() or len(offset) > 8:
@@ -371,7 +373,7 @@ class TrackingController:
                 return self.reconciliation().manual_view(int(offset))
             phase = self.phase()
             if view == 'phase_groups':
-                return phase.group_view(int(offset))
+                return phase.group_view(int(offset), **{key: fields[key] for key in filters})
             return phase.queue_view(view[6:], int(offset))
         phase = self.phase()
         if view == 'phase_customer' and set(fields) == {'id'}:

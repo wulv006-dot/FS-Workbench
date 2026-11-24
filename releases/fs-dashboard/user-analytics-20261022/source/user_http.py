@@ -43,7 +43,7 @@ def get(service, path, params, user):
     if service is None:
         return 503, {'error': 'users_not_enabled'}
     try:
-        if not isinstance(params, dict) or len(params) > 14 or any(not isinstance(v, list) or len(v) != 1 for v in params.values()):
+        if not isinstance(params, dict) or len(params) > 15 or any(not isinstance(v, list) or len(v) != 1 for v in params.values()):
             raise ValueError('query_shape')
         args = {k: v[0] for k, v in params.items()}
         if any(not isinstance(v, str) or len(v) > 160 for v in args.values()):

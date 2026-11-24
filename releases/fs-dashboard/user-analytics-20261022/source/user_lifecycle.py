@@ -5,7 +5,7 @@ from bisect import bisect_left, bisect_right
 from decimal import Decimal
 import json
 
-from user_contract import TZ, STATES, stamp, state, OBSERVATION_POLICIES
+from user_contract import TZ, STATES, stamp, state, OBSERVATION_POLICIES, game_match, in_scope, policy_game
 
 
 def covered(jobs, sites, start, end):
@@ -22,37 +22,6 @@ def covered(jobs, sites, start, end):
         if cursor < end:
             return False
     return True
-
-
-def in_scope(row, query, config):
-    scope, ident = query['scope'], query['scope_id']
-    return (scope == 'global' or scope == 'site' and row['site'] == ident
-            or scope == 'project' and row['gid'] == ident
-            or scope == 'series' and config['projects'].get(row['gid'], {}).get('series') == ident)
-
-
-SERIES_PREFIX = 'series:'
-
-
-def series_members(name, config):
-    """Projects of one series, e.g. FC26 and FC27, whose customers carry over between editions."""
-    return sorted(gid for gid, project in config['projects'].items() if project.get('series') == name)
-
-
-def series_policy_game(members, config):
-    """Lifecycle thresholds follow the series project with its own policy, else the newest edition."""
-    explicit = [gid for gid in members if config['projects'][gid].get('policy')]
-    return max(explicit or members, key=int)
-
-
-def game_match(query, gid):
-    """True when an order of project `gid` belongs to the queried game, series or everything."""
-    game = query['game']
-    return game == 'all' or gid == game or gid in query.get('games', ())
-
-
-def policy_game(query):
-    return query.get('policy_game', query['game'])
 
 
 def origin(query, config):

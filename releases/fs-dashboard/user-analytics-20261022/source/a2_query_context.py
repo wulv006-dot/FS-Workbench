@@ -13,8 +13,8 @@ from time import perf_counter
 
 from user_contract import digest, stamp, METRIC_DEFINITIONS
 from user_query import Service
-from user_tools import invoke
-from user_query_v4 import VERSION
+from user_tools import invoke, read_v4
+from user_query_v4 import SECTIONS, VERSION
 from user_weekly import WeeklyUnavailable
 
 
@@ -143,6 +143,20 @@ class QueryContext:
             if query is not None:
                 raise ValueError('snapshot_or_query')
             public = self.public(snapshot_id)
+            if public.get('contract_version') == VERSION:
+                _, value = read_v4(self.service, self.identity, {'snapshot_id': snapshot_id, 'section': section})
+                return self.v4_aggregate_receipt(value, started)
+        elif isinstance(query, dict) and query.get('contract_version') == VERSION:
+            if section not in SECTIONS or set(query) & {'scope', 'scope_id', 'game', 'snapshot_id', 'section', 'evidence_id'}:
+                raise ValueError('aggregate_query_fields')
+            args = {key: value for key, value in query.items() if key != 'contract_version'}
+            if 'query_id' not in args:
+                args.update(self.scope)
+            status, value = read_v4(self.service, self.identity, dict(args, section=section))
+            if status != 200:
+                self.guard()
+                return dict(value, http_status=status)
+            return self.v4_aggregate_receipt(value, started)
         else:
             if not isinstance(query, dict) or set(query) - {'start', 'end_exclusive', 'as_of', 'state_basis', 'policy_version', 'policy_mode', 'H'}:
                 raise ValueError('aggregate_query_fields')

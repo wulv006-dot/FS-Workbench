@@ -1006,10 +1006,7 @@
     loadConfig().then(() => {
       if (!config || document.hidden || disposed) return;
       if (pendingWrite) reconcile();
-      // Reload whichever tab is selected; stage maintenance is selected by default.
-      // phase.js may load after this point, so it also checks the ready flag on start.
-      window.fsCustomerPrivateReady = true;
-      if ($('phase-scope').getAttribute('aria-pressed') === 'true') window.dispatchEvent(new Event('fs-phase-open'));
+      if ($('phase-scope').getAttribute('aria-pressed') === 'true') $('phase-scope').click();
       else loadVip($('vip-week-date').value || currentWeek());
       loadLegacy();
     });

@@ -765,6 +765,37 @@ class Integration(unittest.TestCase):
         self.assertEqual('high', self.service.customer_view('customer-A')['customer']['tier'])
         self.assertEqual(1, len(self.service.ledger.queue(('ready',))))
 
+    def test_group_count_and_last_page_share_the_display_tier_and_identity(self):
+        controller = TrackingController(self.path.parent / 'group-auth', lambda user: user == 'operator', auto_start=False)
+        controller.maintenance = self.service
+        with self.service.ledger.db() as db:
+            for index in range(23):
+                ident = f'group-{index:02d}'
+                body = dict(customer_id=ident, email=f'{ident}@example.net', tier='high',
+                            stage='recent', customer_type='old' if index == 22 else 'new',
+                            last_order_key=ident)
+                db.execute('INSERT INTO maintenance_customers VALUES (?,?)', (ident, json.dumps(body)))
+            db.execute('INSERT INTO maintenance_overrides VALUES (?,?)', ('group-00', 'ultra'))
+            db.execute('INSERT INTO maintenance_events VALUES (?,?,?,?,?,?,?)',
+                       ('alert', 'group-21', 'group-21', self.now.isoformat(), '{}', 'active', 1))
+        base = dict(mode=['hermes'], structure=['customer_tracking'], view=['phase_groups'])
+        self.assertEqual(0, controller.get('operator', base)[1]['total'])
+        query = dict(base, tier=['high'], stage=['recent'], customer_type=['new'])
+        with self.assertRaises(PermissionError):
+            controller.get('viewer', query)
+        with self.assertRaises(ValueError):
+            controller.get('operator', dict(query, stage=['invalid']))
+        first = controller.get('operator', query)[1]
+        last = controller.get('operator', dict(query, offset=['20']))[1]
+        group = next(row for row in first['groups']
+                     if (row['tier'], row['stage'], row['customer_type']) == ('high', 'recent', 'new'))
+        self.assertEqual((21, 21, 20), (group['count'], first['total'], first['next_offset']))
+        self.assertEqual(20, len(first['items']))
+        self.assertEqual(21, last['total'])
+        self.assertIsNone(last['next_offset'])
+        self.assertEqual(['group-21@example.net'], [row['email'] for row in last['items']])
+        self.assertTrue(last['items'][0]['alert'])
+
     def test_get_and_post_reject_callers_without_real_admin_session(self):
         controller = TrackingController(self.path.parent / 'auth', lambda user: user == 'operator', auto_start=False)
         controller.maintenance = self.service

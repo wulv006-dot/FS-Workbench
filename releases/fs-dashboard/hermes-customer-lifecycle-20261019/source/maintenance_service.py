@@ -478,35 +478,48 @@ class Maintenance:
             'tier', 'stage', 'customer_type', 'enabled', 'priority', 'daily_quota', 'alert', 'owner', 'coupon_id')}
         return self.ledger.save_rule(ident, body['expected_version'], dict(stored, template=template), actor, self.clock())
 
-    def group_view(self, offset=0):
+    def group_view(self, offset=0, *, tier=None, stage=None, customer_type=None):
+        group = (tier, stage, customer_type)
+        filtered = group != (None, None, None)
+        if filtered and (tier not in ('high', 'ultra') or stage not in (*RANK, 'unverified')
+                         or customer_type not in ('new', 'old', 'unverified')):
+            raise ValueError('maintenance_group')
         expected = self.clock().astimezone(SHANGHAI).date() - timedelta(days=1)
+        page_size = 20
         with self.ledger.db() as db:
+            db.execute('BEGIN')
             last = db.execute('SELECT * FROM maintenance_runs ORDER BY day DESC LIMIT 1').fetchone()
             rows = db.execute('''SELECT s.body,c.case_id,c.status,v.owner,o.tier
                                  FROM maintenance_customers s LEFT JOIN maintenance_cases c USING(customer_id)
                                  LEFT JOIN vip_cases v ON v.id=c.case_id LEFT JOIN maintenance_overrides o USING(customer_id)
                                  ORDER BY s.customer_id''')
             queue_counts = dict(db.execute('SELECT state,count(*) FROM maintenance_entries GROUP BY state').fetchall())
-            counts, items, follow_up = Counter(), [], 0
+            counts, items, total = Counter(), [], 0
             for row in rows:
                 customer = json.loads(row['body'])
-                counts[(row['tier'] or customer['tier'], customer['stage'], customer['customer_type'])] += 1
-                if customer['stage'] not in FOLLOW_UP:
+                key = (row['tier'] or customer['tier'], customer['stage'], customer['customer_type'])
+                counts[key] += 1
+                if not (key == group if filtered else customer['stage'] in FOLLOW_UP):
                     continue
-                follow_up += 1
-                if not offset < follow_up <= offset + 20:
+                total += 1
+                if total <= offset or len(items) == page_size:
                     continue
                 conflict = customer.get('email_conflict')
-                alert = db.execute("SELECT 1 FROM maintenance_events WHERE customer_id=? "
-                                   "AND status='active' AND alert=1 AND last_order_key=? LIMIT 1",
-                                   (customer['customer_id'], customer['last_order_key'])).fetchone()
                 items.append(dict(customer, case_id=None if conflict else row['case_id'],
                                   case_status='pending_identity' if conflict else row['status'],
-                                  owner=None if conflict else row['owner'], override_tier=row['tier'], alert=bool(alert)))
+                                  owner=None if conflict else row['owner'], override_tier=row['tier']))
+            if items:
+                ids = [row['customer_id'] for row in items]
+                alerts = {tuple(event) for event in db.execute(
+                    f"SELECT customer_id,last_order_key FROM maintenance_events WHERE customer_id IN ({marks(ids)}) "
+                    "AND status='active' AND alert=1", ids)}
+                for row in items:
+                    row['alert'] = (row['customer_id'], row['last_order_key']) in alerts
         return dict(status='ready' if last and last['day'] == expected.isoformat() else 'waiting',
                     waiting_for=expected.isoformat(), last_run=dict(last) if last else None,
                     groups=[dict(tier=t, stage=s, customer_type=c, count=n) for (t, s, c), n in sorted(counts.items())],
-                    queue_counts=queue_counts, items=items, next_offset=offset+20 if follow_up > offset+20 else None)
+                    queue_counts=queue_counts, items=items, total=total, offset=offset, page_size=page_size,
+                    next_offset=offset+page_size if total > offset+page_size else None)
 
     def customer_view(self, ident):
         strict_id(ident)

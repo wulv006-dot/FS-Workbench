@@ -10,7 +10,8 @@ import hashlib
 import re
 
 from user_contract import TZ, aggregate_only, checked_query, stamp, digest, METRIC_DEFINITIONS, OBSERVATION_POLICIES
-from user_lifecycle import analyze, project_analysis, in_scope, covered
+from user_contract import in_scope
+from user_lifecycle import analyze, project_analysis, covered
 from user_summary_jobs import SummaryJobs
 
 
