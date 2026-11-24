@@ -2,6 +2,9 @@
 
 口径引用 [共享合同](SHARED-CONTRACT.md)。在 2026-11-20 已上线的 FC27 大客维护上扩展（[现有说明](../../../releases/fs-dashboard/hermes-customer-lifecycle-20261019/VIP-MAINTENANCE.md)），不另建维护池。
 
+
+「处理与查看 → 分组名单」按展示价值档、阶段、新老客三项查询。点击人数进入该组，通过页码查看名单与邮箱；按原管理员权限返回。默认待跟进名单保留原阶段范围，点分组也可查看近期或待核客户。名单操作与发券队列各自按原合同处理。分析页的 FC 系列与本页的单款 FC27 分层以共享合同为准。
+
 ## 范围
 
 - 代码：`releases/fs-dashboard/hermes-customer-lifecycle-20261019/`（`source/vip_*.py`、`tracking_controller.py`、`frontend/`、`deploy/`、`tests/`）；新增发券桥 `source/maintenance_coupon_bridge.cjs`（调用 `opt/mmoexp-lucky-loot/coupon.cjs`）；导航 `ui-system/modules/native/navigation.json` 及其生成物；FS 连接器 `customer_tracking.*`。

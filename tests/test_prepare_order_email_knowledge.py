@@ -113,6 +113,76 @@ class OverlayTest(unittest.TestCase):
         email_row = next(r for r in updated['entries'] if r['id'] == builder.EMAIL)
         self.assertIn(builder.EMAIL + '@old-email', email_row['supersedes'])
 
+    def test_customer_lifecycle_updates_the_existing_entry_and_binds_the_baseline(self):
+        identity = builder.CUSTOMER_LIFECYCLE
+        name = next(iter(self.old))
+        index = copy.deepcopy(self.old[name][0])
+        before = b'old complete baseline'
+        after = b'current complete baseline'
+        old_text = b'old customer lifecycle'
+        new_text = b'new customer lifecycle'
+        index['entries'].append(row(identity, 'old-customer', 'customer.md', old_text))
+        raw = builder.encoded(index)
+        write(self.snapshot / name, raw)
+        write(self.snapshot / index['source_root'] / 'customer.md', old_text)
+        task = self.policy['task_routes']['routes'][0]
+        task['entry_ids'].append(identity)
+        task['sha256'] = builder.sha(raw)
+        for route in builder.routes(self.policy):
+            route['baseline_compatibility']['sha256'] = builder.sha(before)
+        policy_raw = builder.encoded(self.policy)
+        write(self.snapshot / 'policy.json', policy_raw)
+        write(self.snapshot / 'business-baseline.md', before)
+        protected = {builder.FS_RUNTIME_ROOT + p.relative_to(self.snapshot).as_posix(): builder.sha(p.read_bytes())
+                     for p in (self.snapshot / 'knowledge-releases').rglob('*') if p.is_file()}
+        protected[builder.BASELINE_TARGET] = builder.sha(before)
+        write(self.snapshot / 'preflight.json', builder.encoded(dict(captured_at='2026-11-25', protected=protected,
+            immutable_directories=[], runtime={u: {'ActiveState': 'active'}
+                for u in ('fs-hermes-fc.service', 'fs-business-range.service')})))
+
+        template = row(identity, builder.CUSTOMER_LIFECYCLE_REVISION, 'customer.md', new_text)
+        template['supersedes'] = [identity + '@old-customer']
+        canonical = dict(entries=[template])
+        paths = {
+            'knowledge/index.json': builder.encoded(canonical),
+            builder.BASELINE_SOURCE: after,
+            builder.BASELINE_SOURCE.replace('.md', '.provenance.json'): builder.encoded(dict(
+                contract='fc-current-baseline-patch-v1', runtime_source=builder.BASELINE_SOURCE,
+                before_sha256=builder.sha(before), after_sha256=builder.sha(after), canonical_sha256='a' * 64)),
+            'customer.md': new_text,
+        }
+        git_bytes = builder.git_bytes
+
+        def resolve(root, commit, file):
+            return paths[file] if file in paths else git_bytes(root, commit, file)
+
+        with mock.patch.object(builder, 'git_bytes', side_effect=resolve):
+            result = builder.prepare(ROOT, self.snapshot, self.output, COMMIT, customer_lifecycle=True)
+        manifest = result['manifest']
+        self.assertEqual(manifest['baselinePatch']['contract'], builder.CUSTOMER_BASELINE_PATCH)
+        self.assertEqual(manifest['baselinePatch']['before_sha256'], builder.sha(before))
+        self.assertFalse(manifest['releaseReady'])
+
+        candidate = self.output / 'candidate'
+        final = json.loads((candidate / 'runtime/knowledge-load-policy.json').read_bytes())
+        for original, updated in zip(builder.routes(self.policy), builder.routes(final)):
+            self.assertEqual(original.get('entry_ids'), updated.get('entry_ids'))
+            self.assertEqual(updated['baseline_compatibility']['sha256'], builder.sha(after))
+        installed = json.loads((candidate / 'artifact/index.json').read_bytes())
+        updated = next(r for r in installed['entries'] if r['id'] == identity)
+        self.assertEqual(updated['revision'], builder.CUSTOMER_LIFECYCLE_REVISION)
+        self.assertIn(identity + '@old-customer', updated['supersedes'])
+        self.assertEqual([r for r in installed['entries'] if r['id'] != identity], index['entries'][:-1])
+        native = json.loads((candidate / 'artifact/catalog-2/index.json').read_bytes())
+        self.assertFalse(any(r['id'] == identity for r in native['entries']))
+
+        template['supersedes'] = []
+        paths['knowledge/index.json'] = builder.encoded(canonical)
+        with mock.patch.object(builder, 'git_bytes', side_effect=resolve):
+            with self.assertRaisesRegex(ValueError, 'customer_lifecycle_predecessor_changed'):
+                builder.prepare(ROOT, self.snapshot, self.base / 'invalid-predecessor', COMMIT,
+                                customer_lifecycle=True)
+
     def test_independent_catalogs_preserved_and_selected(self):
         result = self.prepare()
         self.assertEqual(result['catalog_count'], 3)

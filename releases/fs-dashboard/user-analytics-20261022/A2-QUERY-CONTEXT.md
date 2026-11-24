@@ -10,6 +10,12 @@
 
 基线为 main `71cb788e8fdffab3068b278045911c910a12f093`，包含已合并 B 路由包；不修改 B 路由代码或重新验收该包。既有 Service、Store、业务口径、IAM、controller、schema、插件及发布清单均未修改。后续 B2 消费者、集成 PR、CI 接线及独审由 Personal 主控负责。
 
+## 当前 v4 读取（PR #1352）
+
+目录的 `current_aggregate` 提供当前合同、可读部分和参数。新分析显式传 `contract_version=fs-users-v4`，可选 `summary`、`cohorts`、`stages`、`coverage`。宿主决定站点或单项目，模型传入 scope、game 或其他身份覆盖会被拒绝。FC 系列的授权聚合从 Hermes 用户数据工具读取；单客调查仍按宿主固定的站点或单项目。老客批次不是终生首购。返回 202 后在同一宿主上下文传原 `query_id` 和合同版本续查。
+
+显式快照按其 `contract_version` 读回，旧消费者的 `state_basis`、旧指标和证据继续按旧合同解释。V4 快照重读计两次适配器直调；直接初查、续查计一次。下方示例和首包字段表为旧版本证据。
+
 ## 创建上下文
 
 ```python
@@ -32,9 +38,9 @@ ctx = context_factory(
 
 | 方法 | 参数及真实行为 |
 | --- | --- |
-| `catalog()` | 返回原授权目录的 scope 投影、原 policies/definitions、三个允许 group 及输入字段。`can_read_private` 是当前 scope 下的交集权限。 |
+| `catalog()` | 返回宿主范围、旧 policies/definitions、旧组及 `current_aggregate` 的 v4 部分与参数。`can_read_private` 是当前 scope 下的交集权限。 |
 | `aggregate(query=None, section='summary', snapshot_id=None)` | query 与 snapshot_id 二选一。query 允许 start/end_exclusive/as_of/state_basis/policy_version/policy_mode/H；scope 由 host 固定，view 固定 summary。原 checked_query 决定日期与政策是否合法。section 支持 summary/coverage/trend/cohort/trajectories；不开放跨全局矩阵。 |
-| `candidates(snapshot_id, group='known_pool', cursor=None, limit=50)` | limit 严格整数 1–200；group 可为 known_pool/entered_silent/high_value_entered_silent。沿原 members 稳定 opaque ID 顺序，不是价值排名。 |
+| `candidates(snapshot_id, group='known_pool', cursor=None, limit=50)` | limit 严格整数 1–200；旧快照使用 known_pool/entered_silent/high_value_entered_silent；v4 用原快照中的组，省略 group 时读 stage:recent。沿原 members 稳定 opaque ID 顺序，不是价值排名。 |
 | `timeline(snapshot_id, opaque_customer_id, cursor=None, limit=50)` | 沿原 detail，仅投影该客户字段及事件 at/kind/stage。没有 email/uid/订单号/自由文本/原 orders。分页和 cursor 同样受 scope/snapshot/customer 约束。 |
 | `changes_due(baseline_snapshot_id, current_snapshot_id, observation_at, explicit_refs)` | 只消费同 scope 的两个冻结快照及 host 目标检查点。没有注册客户、自动回源、后台追踪或调度。具体时点合同见下文。 |
 

@@ -26,6 +26,13 @@
 
 整单归属、同单成本/优惠、多SKU去重等复用原合同，不在连接器重算业务规则。指南引用的仓库路径及LF规范化SHA仅说明方法版本，不证明该规则已装入每个生产接口或当前数据完整。
 
+## 用户分析和客户维护（2026-11-25）
+
+- 用 `users.catalog` 确定当前范围与发布截止，调用 `users.summary` 或 `analytics.user_section`，核返回的 `contract_version=fs-users-v4`。FC 系列用 `game=series:FC`；`cohort_type` 控制首单批次，`customer_type` 控制阶段。返回 202 时汇总只传 `query_id`，分节另传 `section`。完成后按 `snapshot_id` 对数或读取获准名单。
+- `customer_tracking.stage_groups` 查单款 FC27 的维护名单，单组须同时传 `tier`、`stage`、`customer_type`。返回 `total`、`offset`、`page_size` 与 `next_offset`，管理员可按原权限读取所在页邮箱。原有候选、观察及发券各按对应业务合同。
+
+取数口径见[用户生命周期](../../../knowledge/customer-tracking/BUYER-ID-CANDIDATES.md)。当前公开目录与原后端需分别验证。
+
 ## 订单用户邮箱导出与现有订单操作分开（2026-11-11）
 
 按[现行合同](../../../knowledge/order-email-export.md)，已登录FS数据分析工具可按真实站点、多游戏、日期和其余可用字段导出`user_email`。`progress/status/cid/aid`固定置灰空值，不请求四目录、不提交四条件，使用Admin默认行为；操作人已移除，不继续补权，不能把导出称固定已支付/已完成或已证明的全部状态。旧付费明细投影与旧progress1/status11年度399结果不适用于本次默认口径。

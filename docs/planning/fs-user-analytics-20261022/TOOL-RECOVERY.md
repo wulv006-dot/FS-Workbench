@@ -1,4 +1,11 @@
 <!-- users-tool-current-20261029 -->
+
+## 当前取数入口
+
+新用户分析使用 [v4 合同](../users-cohort-maintenance-20261124/PHASE1-USERS.md)，同范围比较复用原 `snapshot_id`。旧工具名若仍在现役目录，先查看其当前参数和响应版本。下方记录保留旧快照与历史排障方法。
+
+## 历史恢复记录
+
 ## 2026-10-29 工具调用维护
 
 fs_query_user_analytics（普通Hermes）与mcp__fcro__fc_query_user_analytics（研究）继续共用冻结聚合投影。复用snapshot_id/evidence，section只取同快照已有summary/projects/migration/trend/cohort/trajectories/coverage；默认摘要省略大表。两条路径都只读，不接受SQL/URL/客户标识，不触发抓取、定向改单、备份清理、联系客户或写价。

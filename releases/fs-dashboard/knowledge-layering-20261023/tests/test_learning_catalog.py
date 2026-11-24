@@ -316,8 +316,9 @@ class LearningCatalog(unittest.TestCase):
         self.assertEqual(len(rows), 6)
         for row in rows:
             if row['id']=='fs.customer.lifecycle':
-                self.assertEqual(row['effective_at'], '2026-11-10')
-                self.assertEqual(row['effective_at_basis'], '2026-11-10 用户确认 ES 候选金额口径')
+                self.assertEqual(row['effective_at'], '2026-11-25')
+                self.assertEqual(row['revision'], 'users-v4-maintenance-20261125-v1')
+                self.assertIn('fs.customer.lifecycle@buyer-candidates-20261110-v1', row['supersedes'])
             elif row['id'] == 'fs.procurement.inputs':
                 self.assertEqual(row['effective_at'],'2026-11-17')
                 self.assertEqual(row['revision'],'fc_v61_insurance_15_40_20261117')

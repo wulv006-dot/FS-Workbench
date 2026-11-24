@@ -5265,7 +5265,7 @@
       "path": "/dashboard/fs-home/advisor.json",
       "method": "GET",
       "permission_path": "/dashboard/customers/",
-      "description": "查看 FC27 阶段维护分组和名单，含观察日、配置版本与续页。",
+      "description": "按原管理员权限查看 FC27 阶段维护分组及每页 20 人的名单。查某组须一起传 tier、stage、customer_type；按 next_offset 续页。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5273,6 +5273,34 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 99999999
+          },
+          "tier": {
+            "type": "string",
+            "maxLength": 5,
+            "enum": [
+              "high",
+              "ultra"
+            ]
+          },
+          "stage": {
+            "type": "string",
+            "maxLength": 12,
+            "enum": [
+              "recent",
+              "silent",
+              "lost",
+              "long_lost",
+              "unverified"
+            ]
+          },
+          "customer_type": {
+            "type": "string",
+            "maxLength": 10,
+            "enum": [
+              "new",
+              "old",
+              "unverified"
+            ]
           }
         },
         "required": [],
@@ -5710,7 +5738,7 @@
     }
   ],
   "data_methods": {
-    "version": "fs-data-methods-20261109",
+    "version": "fs-data-methods-20261125",
     "purpose": "提供FS业务数据调取方法和现行口径，由当前AI按本次问题自主分析归因。以下为可选导航，不是固定月报模板，也不要求逐项全拉；不调用Hermes会话、代理或报告生成。",
     "principles": [
       "先从获准目录及原catalog选择实际网站、游戏/项目、范围ID、日期、快照；不要猜profile、snapshotId、customer_id或把历史示例数字当现值。",
@@ -5762,9 +5790,10 @@
           "orders.live",
           "orders.customer"
         ],
-        "guidance": "Admin销售额、订单、客户按原网站/游戏/项目、付款状态与日期范围读取，不能暗改为仅完成订单。销售USD、订单数、付费客户人数分别保留；客单价=同范围销售额/订单数；客户平均消费ARPU与客单价不同，亦不是Coins单位价。客户生命周期沿原policy/state_basis与快照，不把范围内最早购买当终生首购；UID=0的游客不自动排除。",
+        "guidance": "Admin销售额、订单、客户按原网站/游戏/项目、付款状态与日期范围读取，不能暗改为仅完成订单。销售USD、订单数、付费客户人数分别保留；客单价=同范围销售额/订单数；客户平均消费ARPU与客单价不同，亦不是Coins单位价。新用户分析用 fs-users-v4。FC 系列用 game=series:FC；cohort_type 筛批次，customer_type 筛阶段。站内覆盖期首单 ES 标记区分新老客，24 小时以上的不同有效订单计复购。只有满窗且覆盖完整的客户进入分母。同筛选对数复用 snapshot_id；202 用原 query_id 续查。老客首次观测不充当终生首购；UID=0 的游客不自动排除。",
         "sources": [
-          "monthly_data"
+          "monthly_data",
+          "user_lifecycle"
         ]
       },
       {
@@ -5854,9 +5883,10 @@
           "customer_tracking.stage_ready",
           "orders.customer"
         ],
-        "guidance": "客户追踪读取原存储业务数据、请求回执和候选/详情；候选/详情固定stored_only，不观察、排队扫描或生成报告。保留stored_only/refreshed/history/complete及获准email、UID、原订单号和订单明细；存储未刷新不等于实时完整。原admin/private/对象权限继续适用；实现目录或固定mode名含Hermes不代表调用代理。",
+        "guidance": "客户追踪读取原存储业务数据、请求回执和候选/详情；候选/详情固定stored_only，不观察、排队扫描或生成报告。保留stored_only/refreshed/history/complete及获准email、UID、原订单号和订单明细；存储未刷新不等于实时完整。原admin/private/对象权限继续适用；实现目录或固定mode名含Hermes不代表调用代理。 阶段维护只看 FC27（1327）。stage_groups 同传价值档、阶段和新老客筛单组，按 next_offset 继续，total 为所选名单人数。",
         "sources": [
-          "monthly_data"
+          "monthly_data",
+          "user_lifecycle"
         ]
       },
       {
@@ -5922,6 +5952,12 @@
         "id": "categories",
         "path": "docs/planning/fc-dashboard-category-20261106/CONTRACT.md",
         "sha256": "8f01d98bab5ad317d51c4624dce8c339e98dd2a5018f6499ec716e7d51e87ff6",
+        "kind": "repository_method_reference_not_live_data"
+      },
+      {
+        "id": "user_lifecycle",
+        "path": "knowledge/customer-tracking/BUYER-ID-CANDIDATES.md",
+        "sha256": "d8fcdff0e349fb60c73fc923fabee971096f2d3f2da9f3e026fe896b7e5c2723",
         "kind": "repository_method_reference_not_live_data"
       }
     ]

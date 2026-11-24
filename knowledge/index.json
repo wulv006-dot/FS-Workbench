@@ -55,7 +55,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -156,6 +156,12 @@
           "date": "2026-11-20",
           "decision": "docs/planning/fs-query-perf-20261119/ORDER-ARCHIVE.md",
           "scope": "短查询复用现役同单工具，活动使用现役稿件入口"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-25",
+          "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -180,7 +186,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -238,6 +244,12 @@
           "prior_revision": "fc-v3-20261026",
           "prior_source_sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
           "scope": "source_file_hash_refreshed; selected_text_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-25",
+          "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -261,7 +273,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -320,6 +332,12 @@
           "prior_revision": "fc-v3-20261026",
           "prior_source_sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
           "scope": "selected_definition_updated; runtime_not_published"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-25",
+          "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -344,7 +362,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -403,6 +421,12 @@
           "prior_revision": "fc-v3-20261026",
           "prior_source_sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
           "scope": "selected_definition_updated; runtime_not_published"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-25",
+          "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -724,7 +748,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -810,6 +834,12 @@
           "date": "2026-11-13",
           "decision": "最终待归类且有推广人UID的订单归Direct/分销，明确上级归属优先。",
           "implementation_status": "candidate; production acceptance pending"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-25",
+          "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -838,7 +868,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -898,6 +928,12 @@
           "kind": "direct_user",
           "date": "2026-11-17",
           "decision": "FC27 insurance: single round +/-15%, rolling 24h +/-40%; replace prior active limits, retain historical receipts."
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-25",
+          "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
         }
       ],
       "effective_at_basis": "2026-11-17 confirmed FC V6 rule synchronization; other protocols retain their original meaning",
@@ -920,7 +956,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -1018,6 +1054,12 @@
         },
         {
           "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-25",
+          "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
         }
       ],
       "effective_at_basis": "2026-11-24 吴律确认监控比价来源与定价来源的职责，是否启用以实际计划修订为准",
@@ -1040,7 +1082,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -1087,6 +1129,12 @@
           "prior_revision": "fc-v3-20261026",
           "prior_source_sha256": "20acc45706bed3a427b95d28ca489dcdbd69a3b17128326aea5887d4f6307b86",
           "scope": "source_file_hash_refreshed; selected_text_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-25",
+          "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
         }
       ],
       "effective_at_basis": "本知识修订截至日",
@@ -1094,27 +1142,32 @@
     },
     {
       "id": "fs.customer.lifecycle",
-      "revision": "buyer-candidates-20261110-v1",
+      "revision": "users-v4-maintenance-20261125-v1",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-11-10",
+      "effective_at": "2026-11-25",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/customer-tracking/BUYER-ID-CANDIDATES.md",
-        "sha256": "cfef599ccdaaeae09d49cfe1fdab35ac5203b1a204c8c6c4fbe4679ef5036890",
-        "hash_basis": "utf8_lf"
+        "sha256": "d8fcdff0e349fb60c73fc923fabee971096f2d3f2da9f3e026fe896b7e5c2723",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "## 当前取数与维护",
+          "end": "## 用户分析 v4"
+        }
       },
       "supersedes": [
         "fs.customer.lifecycle@existing-contract-20261023",
         "fs.customer.lifecycle@fc-v3-20261026",
-        "fs.customer.lifecycle@users-storage-20261029-v1"
+        "fs.customer.lifecycle@users-storage-20261029-v1",
+        "fs.customer.lifecycle@buyer-candidates-20261110-v1"
       ],
       "provenance": [
         {
@@ -1151,9 +1204,15 @@
           "date": "2026-11-10",
           "scope": "FC27 tracking candidate identity and ES amount threshold only",
           "path": "docs/planning/customer-buyer-tracking-20261110/IMPLEMENTATION.md"
+        },
+        {
+          "kind": "direct_user_current_contract_sync",
+          "pr": 1352,
+          "base_commit": "56b4b6b9eecbf45e4ec70ff3ddffcc50eff448bd",
+          "previous_source_sha256": "cfef599ccdaaeae09d49cfe1fdab35ac5203b1a204c8c6c4fbe4679ef5036890"
         }
       ],
-      "effective_at_basis": "2026-11-10 用户确认 ES 候选金额口径",
+      "effective_at_basis": "2026-11-25 用户确认现行口径同步",
       "original_effective_at": null
     },
     {
@@ -1172,7 +1231,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1236,6 +1295,12 @@
           "date": "2026-11-18",
           "decision": "docs/planning/fc-pricing-market-anchor-20261117/MARGIN-BAND-CONSTRUCTION.md",
           "scope": "Stage 5 applies only to eligible plan revisions; separate decision evidence from realized gross profit and preserve existing reader scopes."
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-25",
+          "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
         }
       ],
       "effective_at_basis": "2026-11-18 吴律确认阶段 5 规则，适用性以实际计划修订为准",

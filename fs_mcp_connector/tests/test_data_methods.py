@@ -20,6 +20,9 @@ class DataMethodsTests(unittest.TestCase):
         self.assertEqual(len(maintenance), 5)
         self.assertTrue(all(row['method'] == 'GET' and row['permission_path'] == '/dashboard/customers/'
                             for row in maintenance))
+        groups = catalog.operation('customer_tracking.stage_groups')['input_schema']['properties']
+        self.assertIn('recent', groups['stage']['enum'])
+        self.assertEqual(set(groups) - {'offset'}, {'tier', 'stage', 'customer_type'})
         self.assertIn('customer_tracking.vip_period', catalog.operations)
         vip_schema = catalog.operation('customer_tracking.vip_period')['input_schema']
         self.assertEqual(vip_schema['properties']['scope']['enum'], ['uk_us', 'global_preferred'])
