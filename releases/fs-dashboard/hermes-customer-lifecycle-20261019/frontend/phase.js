@@ -739,5 +739,9 @@
       offset = 0;
       load();
     });
+    window.addEventListener('fs-phase-open', () => get('phase-scope').click());
+    if (window.fsCustomerPrivateReady && get('phase-scope').getAttribute('aria-pressed') === 'true') {
+      get('phase-scope').click();
+    }
   }
 })();

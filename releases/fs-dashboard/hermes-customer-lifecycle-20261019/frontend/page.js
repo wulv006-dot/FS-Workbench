@@ -1002,14 +1002,15 @@
     loadTracked();
     loadPoolReports();
   }
-  let phaseOpened = false;
   function onPrivateVisible() {
     loadConfig().then(() => {
       if (!config || document.hidden || disposed) return;
       if (pendingWrite) reconcile();
-      // Stage maintenance is the default view; weekly lists load when their tab is chosen.
-      if (!phaseOpened) { phaseOpened = true; $('phase-scope').click(); }
-      else if ($('phase-panel').hidden) loadVip($('vip-week-date').value || currentWeek());
+      // Reload whichever tab is selected; stage maintenance is selected by default.
+      // phase.js may load after this point, so it also checks the ready flag on start.
+      window.fsCustomerPrivateReady = true;
+      if ($('phase-scope').getAttribute('aria-pressed') === 'true') window.dispatchEvent(new Event('fs-phase-open'));
+      else loadVip($('vip-week-date').value || currentWeek());
       loadLegacy();
     });
   }

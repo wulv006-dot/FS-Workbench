@@ -65,10 +65,10 @@ SUMMARY = {
 }
 
 
-def install(page, *, admin=True, bulk=False, weekly=True):
+def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
     items = json.loads(json.dumps(CUSTOMERS))
     state = {"events": [], "receipt": {}, "queries": [], "deny_week": False, "errors": [],
-             "viewer": "wulv", "bulk_requests": [], "phase_posts": [], "bad_bulk_read": False, "first_bulk_unknown": True}
+             "viewer": "wulv", "bulk_requests": [], "phase_posts": [], "bad_bulk_read": False, "first_bulk_unknown": True, "deny_config": False}
     if bulk:
         items = [
             dict(case_id=f"{i + 1000:032x}", email=f"bulk-{i}@example.invalid", uid=f"{i + 2000}",
@@ -92,6 +92,10 @@ def install(page, *, admin=True, bulk=False, weekly=True):
             return request.fulfill(body=(ASSETS / "index.html").read_bytes(), content_type="text/html")
         if url.path == ROUTE + 'reconcile/':
             return request.fulfill(body=(ASSETS / 'reconcile.html').read_bytes(), content_type='text/html')
+        if url.path.startswith(ROUTE) and name == "phase.js" and late_phase:
+            # Simulate phase.js finishing after page.js has already loaded the config.
+            body = b"setTimeout(function(){" + (ASSETS / name).read_bytes() + b"\n}, 600);"
+            return request.fulfill(body=body, content_type="text/javascript")
         if url.path.startswith(ROUTE) and name in ("page.js", "page.css", "phase.js"):
             return request.fulfill(body=(ASSETS / name).read_bytes(),
                                    content_type="text/javascript" if name.endswith(".js") else "text/css")
@@ -150,6 +154,8 @@ def install(page, *, admin=True, bulk=False, weekly=True):
         view = query["view"][0]
         state["queries"].append((view, query))
         if view == "config":
+            if state["deny_config"]:
+                return request.fulfill(status=403, json={"error": "admin_required"})
             value = CONFIG
         elif view == 'phase_groups':
             ids = {ident for post in state['phase_posts'] if post['action'] == 'phase_decide' for ident in post['ids']}
@@ -241,7 +247,7 @@ def install(page, *, admin=True, bulk=False, weekly=True):
     page.route("**/*", route)
     page.clock.install(time=datetime(2026, 11, 20, 2, tzinfo=timezone.utc))
     page.goto(WEB)
-    if admin:
+    if admin and not late_phase:
         # Stage maintenance is the default tab; the weekly-list checks open their tab explicitly.
         expect(page.locator('#phase-scope')).to_have_attribute('aria-pressed', 'true')
         expect(page.locator('#phase-panel')).to_be_visible()
@@ -507,6 +513,25 @@ def check_bulk_selection_and_csv(browser):
     assert not direct["errors"], direct["errors"]
 
 
+def check_phase_default_view(browser):
+    page = browser.new_page(viewport={'width': 1440, 'height': 900})
+    state = install(page, late_phase=True)
+    # phase.js arrives after the config: it must still open the default stage view.
+    expect(page.locator('#phase-panel')).to_be_visible()
+    expect(page.locator('#phase-overview')).to_contain_text('客户分层与对应动作')
+    expect(page.locator('#vip-week-panel')).to_be_hidden()
+    # A denied refresh clears the stage view; the next successful refresh reloads it.
+    state['deny_config'] = True
+    page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+    expect(page.locator('#app')).to_be_hidden()
+    expect(page.locator('#phase-overview')).to_be_empty()
+    state['deny_config'] = False
+    page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+    expect(page.locator('#phase-overview')).to_contain_text('客户分层与对应动作')
+    assert not state['errors'], state['errors']
+    page.close()
+
+
 def check_phase(browser):
     page = browser.new_page(viewport={'width': 1440, 'height': 900})
     state = install(page, weekly=False)
@@ -612,6 +637,7 @@ if __name__ == "__main__":
         check_desktop(browser)
         check_narrow_and_denied(browser)
         check_bulk_selection_and_csv(browser)
+        check_phase_default_view(browser)
         check_phase(browser)
         browser.close()
     print("VIP tracking browser checks passed")
