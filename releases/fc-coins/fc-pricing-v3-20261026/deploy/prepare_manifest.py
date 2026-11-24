@@ -171,7 +171,7 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         protected.update(('/opt/fs-hermes-fc/user_source.py', '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'))
     if curve_arab_quote:
         protected.update('/opt/fs-fc-control/code/fc_collection/' + name for name in ('adapters.py', 'contracts.py'))
-    if curve_recovery == 'observer-status':
+    if curve_recovery in OBSERVER_CONTROL_FILES:
         role_root = Path('/opt/fs-fc-control/code')
         current_manifest = role_root / 'manifest.json'
         candidate_role = STAGE / 'candidate/source/control-role'
@@ -187,7 +187,7 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
             regular(path)
             if sha(path) != prior_hash:
                 raise ValueError('observer_control_role_baseline_drift:' + name)
-            if name in OBSERVER_CONTROL_FILES:
+            if name in OBSERVER_CONTROL_FILES[curve_recovery]:
                 if sha(candidate_role / name) != next_hashes[name]:
                     raise ValueError('observer_control_role_payload_drift:' + name)
             elif prior_hash != next_hashes[name]:
