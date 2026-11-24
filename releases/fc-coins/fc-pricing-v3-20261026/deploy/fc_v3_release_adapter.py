@@ -265,7 +265,7 @@ def checked_manifest(value):
     if scope in SCOPED_NEW and {r['candidate'] for r in rows if r.get('beforeSha256') is None}!=new_targets:
         raise ValueError('fc_v3_operating_new_target_identity_changed')
     if any(r.get('owner') != '0:0' or r.get('mode') not in (
-            ('0o444',) if scope == CURVE_RECOVERY_SCOPES['observer-status']
+            ('0o444',) if scope in (CURVE_RECOVERY_SCOPES['observer-status'], CURVE_RECOVERY_SCOPES['observer-cache'])
             and r['candidate'].startswith('source/control-role/') else ('0o644', '0o700', '0o750', '0o755'))
            for r in rows):
         raise ValueError('exact_fc_v3_target_metadata_required')
@@ -432,6 +432,10 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
+        if manifest.get('scope') == CURVE_RECOVERY_SCOPES['observer-cache']:
+            subprocess.run(['systemctl', 'restart', 'fc-pricing-v3.service'], check=True, timeout=30)
+            subprocess.run(['systemctl', 'is-active', '--quiet', 'fc-pricing-v3.service'], check=True, timeout=10)
+            return
         if manifest.get('scope') in (CURVE_AVERAGE_SCOPE, CURVE_INSURANCE_SCOPE, CURVE_STABILITY_SCOPE, CURVE_MARKET_SCOPE, CURVE_WEEKLY_SCOPE, CURVE_REVIEW_SCOPE, CURVE_MARGIN_BAND_SCOPE, *CURVE_RECOVERY_SCOPES.values()):
             if manifest['scope'] == CURVE_RECOVERY_SCOPES['market-packages']:
                 # The frozen history scope reloads both Hermes consumers under the existing admission fence.

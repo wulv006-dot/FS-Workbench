@@ -318,11 +318,17 @@ MARKET_PACKAGE_REPOSITORY_SOURCES = {
     **{'source/' + name: 'releases/fs-dashboard/fc-coins-workflow-20261022/source/' + name
        for name in MARKET_HERMES_MODULES},
 }
-OBSERVER_CONTROL_FILES = ('manifest.json', 'fc_collection/client.py', 'fc_collection/package_routes.py',
-                          'fc_collection/package_relay.py')
+OBSERVER_CACHE_CONTROL_FILES = ('manifest.json', 'fc_collection/package_routes.py', 'fc_collection/package_relay.py')
+OBSERVER_CONTROL_FILES = {
+    'observer-cache': OBSERVER_CACHE_CONTROL_FILES,
+    'observer-status': (*OBSERVER_CACHE_CONTROL_FILES, 'fc_collection/client.py'),
+}
 CURVE_RECOVERY_TARGETS = {
+    'observer-cache': {
+        'control-role/' + name: '/opt/fs-fc-control/code/' + name for name in OBSERVER_CONTROL_FILES['observer-cache']
+    },
     'observer-status': {
-        **{'control-role/' + name: '/opt/fs-fc-control/code/' + name for name in OBSERVER_CONTROL_FILES},
+        **{'control-role/' + name: '/opt/fs-fc-control/code/' + name for name in OBSERVER_CONTROL_FILES['observer-status']},
         **{name: '/var/www/dashboard/' + name for name in ('fc-pricing-v3.js', 'fc27-coins.html')},
         **module_targets(('api.py', 'observations.py')),
     },
@@ -378,6 +384,7 @@ CURVE_RECOVERY_SCOPES = {name: 'fc-pricing-v6-recovery-' + name + '-20261119'
                          for name in CURVE_RECOVERY_TARGETS}
 CURVE_RECOVERY_SCOPES['market-packages'] = 'fc-pricing-v6-market-packages-20261124'
 CURVE_RECOVERY_SCOPES['observer-status'] = 'fc-pricing-v6-observer-status-20261124'
+CURVE_RECOVERY_SCOPES['observer-cache'] = 'fc-pricing-v6-observer-cache-20261124'
 CURVE_RECOVERY_SCOPES['shared-evidence'] = 'fc-pricing-v6-recovery-shared-evidence-20261120'
 
 

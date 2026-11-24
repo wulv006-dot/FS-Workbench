@@ -23,6 +23,18 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_observer_cache_stage_has_only_the_live_controller_delta(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / 'cache.tar.gz'
+            with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']), \
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, rev: path.read_bytes().replace(b'\r\n', b'\n')):
+                built = build_stage.build(ROOT, output, curve_recovery='observer-cache')
+            self.assertEqual(built['targets'], 3)
+            with tarfile.open(output) as bundle:
+                manifest = json.load(bundle.extractfile('fc-pricing-v3-20261026/source-manifest.json'))
+            self.assertEqual(set(manifest['files']), {'source/control-role/manifest.json',
+                'source/control-role/fc_collection/package_routes.py', 'source/control-role/fc_collection/package_relay.py'})
+
     def test_observer_status_stage_binds_bounded_control_files_to_role_manifest(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / 'observer.tar.gz'

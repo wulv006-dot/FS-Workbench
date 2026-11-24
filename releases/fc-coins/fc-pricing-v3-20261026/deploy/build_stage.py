@@ -21,7 +21,7 @@ from target_map import CURVE_INSURANCE_SCOPE, CURVE_INSURANCE_TARGET_COUNT, curv
 from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEKLY_NEW, curve_weekly_targets
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, curve_arab_quote_targets
-from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS, MARKET_PACKAGE_REPOSITORY_SOURCES
+from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS, MARKET_PACKAGE_REPOSITORY_SOURCES, OBSERVER_CONTROL_FILES
 from target_map import HOURLY_COST_CHANNEL_BASE, HOURLY_COST_CHANNEL_OVERLAY, hourly_cost_channel_overlay
 from target_map import (ORDER_COST_CHANNEL_INSERT, ORDER_COST_CHANNEL_OVERLAY,
                         ORDER_COST_CHANNEL_REPOSITORY, order_cost_channel_overlay)
@@ -120,7 +120,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
         candidate = stage / 'candidate/source'
         candidate.mkdir(parents=True)
         control_files = {}
-        if curve_recovery == 'observer-status':
+        if curve_recovery in OBSERVER_CONTROL_FILES:
             from build_collection_node import role_files
             control_files, _ = role_files('control', lambda name: read_blob(source / 'fc_collection' / name))
         for name in mapping:
@@ -134,7 +134,7 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
                 original=checkout/CURVE_STABILITY_REPOSITORY_SOURCES['source/'+name]
             destination = candidate / name
             destination.parent.mkdir(parents=True, exist_ok=True)
-            if curve_recovery == 'observer-status' and name.startswith('control-role/'):
+            if curve_recovery in OBSERVER_CONTROL_FILES and name.startswith('control-role/'):
                 payload = control_files[name.removeprefix('control-role/')]
             elif channel_overlay is not None and 'source/' + name == ORDER_COST_CHANNEL_OVERLAY['candidate']:
                 payload = channel_overlay
