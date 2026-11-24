@@ -255,7 +255,8 @@ class UserProjection:
                 raise ValueError('maintenance_publication_future')
             current = db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0]
             revision = int(current)
-            lower = day_start(date.fromisoformat(publication['config'].get('history_backfill_start', HISTORY.isoformat())))
+            history = publication['config'].get('history_backfill_start', HISTORY.isoformat())
+            lower = day_start(coupon_time(history).astimezone(SHANGHAI).date())
             target = revision if latest else int(publication['data_version'])
             rows = self._read_rows(db, target, revision, lower.isoformat(), cutoff.isoformat())
             emails = {}

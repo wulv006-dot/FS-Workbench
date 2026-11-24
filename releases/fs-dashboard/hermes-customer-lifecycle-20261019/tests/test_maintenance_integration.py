@@ -18,9 +18,11 @@ sys.path[:0] = [
 ]
 from customer_segments import ConfigCommitUnknown, write_config
 from customer_tracking import Store
-from maintenance_sources import AdminFacts, Facts
+from maintenance_sources import AdminFacts, Facts, UserProjection
 from maintenance_service import Maintenance
 from tracking_controller import TrackingController
+from user_contract import digest as publication_digest
+from user_weekly import CONTRACT as PUBLICATION_CONTRACT, META as PUBLICATION_META
 from vip_maintenance import VipMaintenance
 
 
@@ -495,6 +497,45 @@ class Integration(unittest.TestCase):
                 controller.post(user, dict(kind='hermes_customer_tracking', action='phase_decide',
                                            ids='all', decision='confirmed'))
         self.assertEqual(200, controller.get('operator', query)[0])
+
+    def test_user_projection_reads_published_timestamp_as_a_shanghai_history_boundary(self):
+        config_source = ROOT.parent / 'user-analytics-20261022' / 'source' / 'user_config.json'
+        config = json.loads(config_source.read_text('utf-8'))
+        cutoff = self.now.replace(hour=0).isoformat()
+        path = self.path.with_name('customers.sqlite3')
+        start_values = (config['history_backfill_start'], '2025-12-31T16:00:00Z', '2026-01-01')
+        with closing(sqlite3.connect(path)) as db, db:
+            db.executescript("""
+                CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+                INSERT INTO meta VALUES ('revision', '1');
+                CREATE TABLE orders(order_key TEXT,site TEXT,gid TEXT,customer_id TEXT,paid_at TEXT,
+                                    valid INTEGER,body TEXT,revision INTEGER);
+                CREATE TABLE identities(customer_id TEXT,email TEXT);
+                INSERT INTO identities VALUES ('customer-A', 'Buyer@example.net');
+            """)
+            for ident, paid in (('before', '2025-12-31T23:59:59+08:00'),
+                                ('first', '2026-01-01T00:00:00+08:00')):
+                order_body = json.dumps(dict(order_no=ident, uid=100, amount_usd='500', pay_status=1))
+                db.execute('INSERT INTO orders VALUES(?,?,?,?,?,?,?,?)',
+                           ('admin:266:'+ident, '266', '1327', 'customer-A', paid, 1, order_body, 1))
+
+        for start in start_values:
+            with self.subTest(start=start):
+                publication = dict(contract=PUBLICATION_CONTRACT, cadence='daily', cutoff=cutoff,
+                                   published_at=self.now.isoformat(), captured_at=self.now.isoformat(),
+                                   refresh_health={}, coverage_context={}, source_status_rule_versions=[],
+                                   data_version='1', config=dict(config, history_backfill_start=start),
+                                   jobs=[], flag_manifests=[])
+                publication['publication_id'] = 'uw_' + publication_digest(publication)[:32]
+                with closing(sqlite3.connect(path)) as db, db:
+                    db.execute('INSERT OR REPLACE INTO meta VALUES (?,?)',
+                               (PUBLICATION_META, json.dumps(publication)))
+                projection = UserProjection(path)
+                with patch('user_customer_types.read_pinned_flags', return_value=({}, {})):
+                    for latest in (False, True):
+                        rows = projection.read(self.now, latest=latest).orders
+                        self.assertEqual(['first'], [row['order_no'] for row in rows])
+                        self.assertEqual('Buyer@example.net', rows[0]['email'])
 
     def test_verified_uid_query_has_no_start_time_search(self):
         request = []
