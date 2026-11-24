@@ -82,11 +82,16 @@ def summary(query):
                     cross_game_flow=[]))
 
 
+requested = []
+
+
 def install(page):
     def route(request):
         url = urlsplit(request.request.url)
         name = url.path.rsplit('/', 1)[-1]
         query = parse_qs(url.query)
+        if name == 'data.json' and query.get('action') != ['catalog']:
+            requested.append(query.get('game', [''])[0])
         if name in SHARED:
             return request.fulfill(path=ROOT / SHARED[name])
         if name in ('', 'users.js', 'users.css'):
@@ -125,6 +130,11 @@ def check_page(browser, output=None):
     expect(page.locator('#cohort-kpis .card')).to_have_count(4)
     # FC26 and FC27 share customers: the merged series is offered as one choice.
     expect(page.locator('select[name=game] option[value="series:FC"]')).to_have_text('FC 系列（FC26 + FC27）')
+    # The page still opens on all games; FC26 and FC27 are not offered separately.
+    expect(page.locator('select[name=game]')).to_have_value('all')
+    assert requested and requested[0] == 'all', requested
+    expect(page.locator('select[name=game] option[value="1327"]')).to_have_count(0)
+    expect(page.locator('select[name=game] option[value="833"]')).to_have_count(0)
     expect(page.locator('#repeat-finding')).to_contain_text('结论')
     page.get_by_role('button', name='2026-04 180 天，查看详情').click()
     drill = page.locator('#cohort-drill')
