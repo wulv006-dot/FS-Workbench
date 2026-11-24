@@ -3,6 +3,7 @@ import csv
 from datetime import datetime, timezone
 import io
 import json
+import os
 from pathlib import Path
 import sys
 from urllib.parse import parse_qs, urlparse
@@ -107,6 +108,9 @@ def install(page, *, admin=True, bulk=False):
             assert request.request.headers["x-fs-advisor-action"] == "submit"
             if body['action'] in ('phase_decide', 'phase_result'):
                 state['phase_posts'].append(body)
+                if body['action'] == 'phase_decide':
+                    assert isinstance(body['ids'], list) and 1 <= len(body['ids']) <= 100
+                    return request.fulfill(json=dict(changed=body['ids'], skipped=0))
                 return request.fulfill(json=dict(changed=True))
             if body["action"] == "vip_bulk_claim":
                 state["bulk_requests"].append(body)
@@ -148,7 +152,19 @@ def install(page, *, admin=True, bulk=False):
         if view == "config":
             value = CONFIG
         elif view == 'phase_groups':
-            value = dict(status='waiting', waiting_for='2026-11-23', items=[], groups=[])
+            ids = {ident for post in state['phase_posts'] if post['action'] == 'phase_decide' for ident in post['ids']}
+            value = dict(status='ready', items=[],
+                         last_run=dict(day='2026-11-23', config_version=1),
+                         groups=[dict(tier='ultra', stage='silent', customer_type='new', count=12),
+                                 dict(tier='ultra', stage='recent', customer_type='old', count=6),
+                                 dict(tier='high', stage='lost', customer_type='old', count=20)],
+                         queue_counts=dict(ready=3-len(ids), reviewing=2, confirmed=1, issued=4))
+        elif view == 'phase_rules':
+            value = dict(items=[dict(id='rule-A', enabled=True, tier='ultra', stage='silent',
+                                     customer_type='new', alert=True, owner='fixture-operator', coupon_id=123)],
+                         dispatch_enabled=False)
+        elif view == 'phase_config':
+            value = dict(version=1, stages=[14, 30, 60], tiers=dict(high=500, ultra=1000))
         elif view == 'phase_review':
             row = dict(id='review-entry', email=EMAIL, rule_id='rule-A', state='reviewing',
                        identity_status='pending_identity', identity_reason='uid_case_conflict',
@@ -157,14 +173,23 @@ def install(page, *, admin=True, bulk=False):
         elif view == 'phase_delivery':
             value = dict(items=[dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state='confirmed',
                                      identity_status='pending_identity', identity_reason='email_conflict')])
-        elif view in ('phase_ready', 'phase_manual'):
-            action = 'phase_decide' if view == 'phase_ready' else 'phase_result'
-            mode = 'ready' if view == 'phase_ready' else 'unknown'
-            row = dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state=mode, batch='FCSM_'+'A'*32,
-                       review=dict(manual_coupon_notice='人工券：仅核对已使用记录；另有 1 条用券记录无法归属客户'))
-            if view == 'phase_manual':
-                row.update(job_id='original-job', result=dict(identity_conflicts=['grant_batch_no']))
-            value = dict(items=[] if any(post['action']==action for post in state['phase_posts']) else [row])
+        elif view == 'phase_ready':
+            rows = [dict(id=ident, email=email, state='ready', rule_id='rule-A', tier=tier, stage=stage,
+                         amount_usd=total, unknown_amount_orders=0, ready_at='2026-11-24T02:00:00+00:00',
+                         review=dict(decision='pass', manual_coupon_notice='人工券：仅核对已使用记录；另有 1 条用券记录无法归属客户'),
+                         coupon=dict(mode_type=2, reduce='88', max_reduce='50', time_effect=2, days=7))
+                    for ident, email, tier, stage, total in [
+                        ('fixture-entry', EMAIL, 'ultra', 'silent', '1200.00'),
+                        ('other-entry', 'second@example.invalid', 'high', 'lost', '800.00'),
+                        ('next-page-entry', 'next-page@example.invalid', 'ultra', 'silent', None)]]
+            removed = {ident for post in state['phase_posts'] if post['action'] == 'phase_decide' for ident in post['ids']}
+            rest = [row for row in rows if row['id'] not in removed]
+            offset = int(query.get('offset', ['0'])[0])
+            value = dict(items=rest[offset:offset+2], next_offset=offset+2 if len(rest) > offset+2 else None)
+        elif view == 'phase_manual':
+            row = dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state='unknown', batch='FCSM_'+'A'*32,
+                       job_id='original-job', result=dict(identity_conflicts=['grant_batch_no']))
+            value = dict(items=[] if any(post['action']=='phase_result' for post in state['phase_posts']) else [row])
         elif view == "vip_week":
             if state["deny_week"]:
                 return request.fulfill(status=403, json={"error": "admin_required"})
@@ -470,11 +495,14 @@ def check_bulk_selection_and_csv(browser):
 
 
 def check_phase(browser):
-    page = browser.new_page(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
+    page = browser.new_page(viewport={'width': 1440, 'height': 900})
     state = install(page)
+    page.clock.set_fixed_time(datetime.fromisoformat('2026-11-25T01:30:00+00:00'))
     phase = page.get_by_role('button', name='阶段维护', exact=True)
     phase.click()
-    expect(page.locator('#phase-status')).to_contain_text('等待 2026-11-23 日数据')
+    expect(page.locator('#phase-overview')).to_contain_text('观察日 2026-11-23')
+    expect(page.locator('#phase-overview')).to_contain_text('客户分层与对应动作')
+    expect(page.locator('#phase-overview')).to_contain_text('发券 #123')
     expect(page.locator('#vip-week-panel')).to_be_hidden()
     page.locator('#phase-view').select_option('review')
     review = page.locator('#phase-content')
@@ -487,11 +515,50 @@ def check_phase(browser):
     page.locator('#phase-view').select_option('review')
     expect(review).to_contain_text('暂无条目')
     page.locator('#phase-view').select_option('ready')
-    expect(page.locator('#phase-content')).to_contain_text('另有 1 条用券记录无法归属客户')
-    page.get_by_role('button', name='确认', exact=True).click()
-    expect(page.locator('#phase-content')).to_contain_text('暂无条目')
+    ready = page.locator('#phase-content')
+    expect(ready).to_contain_text('另有 1 条用券记录无法归属客户')
+    expect(ready).to_contain_text('减 12%')
+    expect(ready).to_contain_text('最多减 $50.00')
+    expect(ready).to_contain_text('7 天')
+    expect(ready).to_contain_text('剩 48 小时 30 分')
+    expect(ready).to_contain_text('$1,200.00')
+    expect(ready).to_contain_text('next-page@example.invalid')
+    for theme, width, tag in [('light', 1440, 'light'), ('dark', 1440, 'dark'), ('light', 390, '390')]:
+        page.set_viewport_size(dict(width=width, height=900))
+        page.locator('#theme').select_option(theme)
+        expect(page.locator('html')).to_have_attribute('data-fs-theme', theme)
+        assert page.evaluate('document.documentElement.scrollWidth === innerWidth')
+        if width == 390:
+            table = ready.get_by_role('region', name='待发区客户名单')
+            table.focus()
+            page.keyboard.press('ArrowRight')
+            assert table.evaluate("node => new Promise(resolve => setTimeout(() => resolve(node.scrollLeft > 0), 200))")
+            table.evaluate('(node) => { node.scrollLeft = 0; node.blur(); }')
+            page.evaluate('scrollTo(0, 0)')
+        if CAPTURE:
+            page.screenshot(path=str(CAPTURE / f'care-{tag}.png'), full_page=True, animations='disabled')
+    page.get_by_label('待发价值档').select_option('ultra')
+    expect(ready).not_to_contain_text('second@example.invalid')
+    page.get_by_role('checkbox', name='全选当前筛选').check()
+    expect(ready.get_by_role('checkbox', name='选择 ' + EMAIL)).to_be_checked()
+    expect(ready.get_by_role('checkbox', name='选择 next-page@example.invalid')).to_be_checked()
+    page.get_by_role('button', name='确认所选').click()
+    expect(ready).to_contain_text('当前筛选暂无条目')
     assert state['phase_posts'][0]['action'] == 'phase_decide'
-    assert state['phase_posts'][0]['ids'] == ['fixture-entry']
+    assert state['phase_posts'][0]['ids'] == ['fixture-entry', 'next-page-entry']
+    page.get_by_label('待发价值档').select_option('high')
+    page.get_by_role('checkbox', name='选择 second@example.invalid').check()
+    page.get_by_role('button', name='剔除所选').click()
+    dialog = page.get_by_role('dialog', name='剔除所选待发条目？')
+    expect(dialog).to_be_visible()
+    expect(dialog.get_by_role('button', name='取消')).to_be_focused()
+    dialog.get_by_role('button', name='取消').click()
+    assert len(state['phase_posts']) == 1
+    page.get_by_role('button', name='剔除所选').click()
+    dialog.get_by_role('button', name='确认剔除').click()
+    expect(ready).to_contain_text('暂无条目')
+    assert state['phase_posts'][1]['ids'] == ['other-entry']
+    assert state['phase_posts'][1]['decision'] == 'removed'
     page.locator('#phase-view').select_option('delivery')
     expect(page.locator('#phase-content')).to_contain_text('已确认 · 身份待核：邮箱与其他客户冲突')
     page.get_by_role('button', name='英美队列', exact=True).click()
@@ -510,7 +577,7 @@ def check_phase(browser):
 
 if __name__ == "__main__":
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        browser = playwright.chromium.launch(executable_path=os.environ.get('FS_BROWSER_EXECUTABLE'))
         check_desktop(browser)
         check_narrow_and_denied(browser)
         check_bulk_selection_and_csv(browser)
