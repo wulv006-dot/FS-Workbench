@@ -1,11 +1,13 @@
 """One fixed-source ordinary package receipt per SSH forced-command connection."""
 from pathlib import Path
+import json
 import socket
 import subprocess
 import sys
 from threading import Timer
 import time
 import uuid
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from .protocol import read_message, write_message
 
@@ -18,6 +20,11 @@ RECEIPT_TIMEOUT_SECONDS = 30  # Three sequential public GETs at up to seven seco
 
 class LocalWorkerUnavailable(TimeoutError):
     pass
+
+
+class NoLocalRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def request_local(request, *, root=ROOT, timeout=12):
@@ -79,7 +86,11 @@ def local_once(ssh_config=None):
             if task != {'status':'idle'}:
                 if task.get('source') not in LOCAL_SOURCES:
                     raise ValueError('local_package_scope')
-                write_message(ssh.stdin, run_request(task))
+                if task['source'] == 'U4GM':
+                    receipt = local_quote_api({k: task[k] for k in ('source', 'run_id', 'wanted')})
+                else:
+                    receipt = run_request(task)
+                write_message(ssh.stdin, receipt)
         finally:
             watchdog.cancel()
             ssh.stdin.close()
@@ -91,6 +102,24 @@ def local_once(ssh_config=None):
                 raise
         if code:
             raise subprocess.CalledProcessError(code,cmd)
+
+
+def local_quote_api(task):
+    request = Request('http://127.0.0.1:8790/fc27-observation',
+                      headers={'Content-Type': 'application/json'},
+                      data=json.dumps(task).encode('utf-8'))
+    try:
+        with build_opener(ProxyHandler({}), NoLocalRedirect()).open(request, timeout=24) as reply:
+            raw = reply.read(65537)
+        if len(raw) > 65536:
+            raise ValueError('local_quote_api_receipt_size')
+        receipt = json.loads(raw)
+        if receipt['source'] != task['source'] or receipt['run_id'] != task['run_id']:
+            raise ValueError('local_quote_api_receipt_scope')
+        return receipt
+    except (OSError, ValueError, TypeError, KeyError):
+        return dict(source=task['source'], run_id=task['run_id'], offers=[],
+                    errors=['local_quote_api_unavailable'], retry_after_seconds=0, provider='windows_u4gm_snapshot')
 
 
 if __name__ == '__main__':
