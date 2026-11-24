@@ -167,7 +167,7 @@ export function createSnapshot(publishedRelease) {
   return {publication_status:'published',...projectRelease(publishedRelease)};
 }
 
-const allowedNames = new Set(['D4-Armory.html','d4-armory-cart.js','Carnival.html','carnival.css','carnival-proto.js','carnival-live.js','index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','native-code-handoff.js','standalone-adapter.js','activity-analytics.js','analytics-config.js','catalog.js','sitemap.xml','robots.txt',
+const allowedNames = new Set(['D4-Build-Shop.html','d4-build-shop.js','d4-build-shop.css','d4-armory-store.js','D4-Armory.html','d4-armory-cart.js','Carnival.html','carnival.css','carnival-proto.js','carnival-live.js','index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','native-code-handoff.js','standalone-adapter.js','activity-analytics.js','analytics-config.js','catalog.js','sitemap.xml','robots.txt',
   'seasonal/index.html','seasonal/creative-kit.html','seasonal/event.js','seasonal/event.css','seasonal/vault-core.js','seasonal/campaign-data.js','seasonal/kit.js','seasonal/kit.css','seasonal/vault-analytics.js','seasonal/activity-analytics.js','seasonal/analytics-config.js','seasonal/runtime-bridge.js','seasonal/model-selection.js']);
 export function loadStatic(root, manifest) {
   const realRoot=fs.realpathSync(root), files=new Map();
