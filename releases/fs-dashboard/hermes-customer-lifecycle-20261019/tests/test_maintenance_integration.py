@@ -24,7 +24,8 @@ from maintenance_service import Maintenance
 from tracking_controller import TrackingController
 from user_contract import digest as publication_digest
 from user_weekly import CONTRACT as PUBLICATION_CONTRACT, META as PUBLICATION_META
-from vip_maintenance import VipMaintenance
+from vip_maintenance import PREFERRED, UK_US, VipMaintenance
+from test_vip_maintenance import FakeSource, buyer, payment
 
 
 SH = timezone(timedelta(hours=8))
@@ -117,8 +118,8 @@ class Integration(unittest.TestCase):
         return self.service.save_rule('admin', dict(id='first', expected_version=0, tier='high', stage='silent',
                     customer_type='new', enabled=True, priority=0, daily_quota=1, coupon_id=123, alert=True, owner=owner))
 
-    def create(self):
-        self.rule()
+    def create(self, owner=None):
+        self.rule(owner=owner)
         self.tick()
         self.assertEqual([], self.service.queue_view('review')['items'])
         self.tick(2, run=False)
@@ -535,6 +536,58 @@ class Integration(unittest.TestCase):
         self.service.dispatch()
         self.assertEqual('confirmed', self.service.ledger.entry(entry['id'])['state'])
         self.assertEqual([], self.bridge.sent)
+
+    def weekly_cohort(self, scope):
+        source = FakeSource()
+        paid_at = datetime.fromisoformat(self.source.orders[0]['paid_at'])
+        member = buyer(100, payment(1, paid_at))
+        member['email'] = 'BUYER@example.net'
+        member['identity']['emails'] = [member['email']]
+        source.entries = [member] if scope == UK_US else []
+        source.preferred = [dict(member, scope=PREFERRED)] if scope == PREFERRED else []
+        self.vip.source = source
+
+    def test_weekly_refresh_reuses_open_stage_case_by_verified_email(self):
+        for scope, other in ((UK_US, PREFERRED), (PREFERRED, UK_US)):
+            with self.subTest(scope=scope):
+                self.setUp()
+                entry = self.create(owner='operator')
+                stage_case = self.service.customer_view('customer-A')['case']
+                self.weekly_cohort(scope)
+
+                self.assertEqual('ready', self.vip.refresh()['scope_status'][scope])
+
+                view = self.service.customer_view('customer-A')
+                self.assertEqual([], view['matching_cases'])
+                self.assertEqual(stage_case, view['case'])
+                weekly_case, = self.vip.queue(scope=scope)['items']
+                self.assertEqual(stage_case['case_id'], weekly_case['case_id'])
+                self.assertEqual('operator', weekly_case['owner'])
+                self.assertEqual([], self.vip.queue(scope=other)['items'])
+                self.service.update()
+                ready, = self.service.queue_view('ready')['items']
+                self.assertEqual(entry['id'], ready['id'])
+
+    def test_stage_maintenance_reuses_open_weekly_case_by_verified_email(self):
+        for scope in (UK_US, PREFERRED):
+            with self.subTest(scope=scope):
+                self.setUp()
+                self.weekly_cohort(scope)
+                self.assertEqual('ready', self.vip.refresh()['scope_status'][scope])
+                weekly_case, = self.vip.queue(scope=scope)['items']
+
+                entry = self.create(owner='operator')
+                self.service.update()
+
+                view = self.service.customer_view('customer-A')
+                self.assertEqual([], view['matching_cases'])
+                self.assertEqual('linked', view['case']['status'])
+                self.assertEqual(weekly_case['case_id'], view['case']['case_id'])
+                updated, = self.vip.queue(scope=scope)['items']
+                self.assertEqual(weekly_case['case_id'], updated['case_id'])
+                self.assertEqual('operator', updated['owner'])
+                ready, = self.service.queue_view('ready')['items']
+                self.assertEqual(entry['id'], ready['id'])
 
     def test_new_stage_after_closed_case_opens_another_case(self):
         self.vip = VipMaintenance(Store(self.path.parent), clock=lambda: self.now)

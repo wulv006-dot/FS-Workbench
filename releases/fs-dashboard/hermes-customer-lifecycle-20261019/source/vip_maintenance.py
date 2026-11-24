@@ -1,4 +1,5 @@
 """Private, weekly FC27 VIP maintenance and verified payment outcomes."""
+from collections import Counter
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -109,6 +110,21 @@ def scoped_rows(db, scope, week=None):
     current_scope = (" WHERE c.week <> '' AND (c.id NOT IN (SELECT id FROM vip_preferred_cases) "
                      'OR c.id IN (SELECT case_id FROM vip_week_cases))') if scope == UK_US else ''
     return db.execute(f'SELECT c.*{owner} FROM {cases} AS c{owner_join}{current_scope} ORDER BY c.opened_at,c.id').fetchall()
+
+
+def stage_email_key(buyer):
+    emails = {value.strip().casefold() for value in buyer['identity'].get('emails', ()) if isinstance(value, str)}
+    return (buyer['siteId'], emails.pop()) if len(emails) == 1 else None
+
+
+def open_stage_cases_by_email(db):
+    cases = {}
+    for case in db.execute("""SELECT c.* FROM vip_cases AS c WHERE c.week=''
+                              AND NOT EXISTS(SELECT 1 FROM vip_events AS e WHERE e.case_id=c.id
+                                             AND json_extract(e.payload,'$.event')='close')"""):
+        key = stage_email_key(json.loads(case['baseline']))
+        cases.setdefault(key, []).append(case)
+    return cases
 
 
 def events_for(db, case_id, cutoff=None):
@@ -745,6 +761,9 @@ class VipMaintenance:
             if not frozen:
                 return
             recorded_ids = {case['id'] for case, _, _, _ in previous}
+            # Stage-only cases have no weekly membership until their buyer qualifies for this scope.
+            stage_cases = open_stage_cases_by_email(db)
+            cohort_emails = Counter(map(stage_email_key, cohort['buyers'])) if stage_cases else {}
             opened = start_of(checked_week(week))
             for buyer in cohort['buyers']:
                 last_order = buyer.get('lastOrder') or {}
@@ -754,13 +773,18 @@ class VipMaintenance:
                         and last_order.get('afterSales') not in {'problem', 'fraud', 'dispute', 'after_sales'}
                         and last_order.get('refundStatus') in {'none_observed', 'partial_observed'}):
                     continue
-                matching = [entry for entry in previous if same_buyer(buyer, entry[1])]
+                key = stage_email_key(buyer)
+                candidates = stage_cases.get(key, ()) if key and cohort_emails.get(key) == 1 else ()
+                stage = candidates[0] if len(candidates) == 1 else None
+                stage_id = stage['id'] if stage is not None else None
+                matching = [entry for entry in previous if entry[0]['id'] == stage_id or same_buyer(buyer, entry[1])]
                 cross_scope = [entry for entry in other if same_buyer(buyer, entry[1])]
                 if any(view['reason'] == 'no_contact' and view['status'] == 'closed'
                        for _, _, view, _ in matching + cross_scope):
                     continue
                 same_cycle = next((case for case, _, _, active in reversed(matching)
-                                   if active or (json.loads(case['baseline']).get('lastOrder') or {}).get('orderNo') == last_order.get('orderNo')), None)
+                                   if case['id'] == stage_id or active
+                                   or (json.loads(case['baseline']).get('lastOrder') or {}).get('orderNo') == last_order.get('orderNo')), None)
                 if same_cycle:
                     if scope == PREFERRED:
                         db.execute(f'INSERT OR REPLACE INTO {memberships}(week,case_id,baseline) VALUES(?,?,?)',
@@ -771,7 +795,9 @@ class VipMaintenance:
                                (active or case['id'] in other_current
                                 or (prior_buyer.get('lastOrder') or {}).get('orderNo') == last_order.get('orderNo'))), None)
                 prior = matching or cross_scope
-                if prior:
+                if shared is None and stage is not None and stage_id not in recorded_ids:
+                    shared = stage
+                elif prior:
                     identity = prior[-1][1]
                     buyer = dict(buyer, buyerId=identity['buyerId'], identity={
                         key: sorted(set(buyer['identity'][key]) | set(identity['identity'][key]))
