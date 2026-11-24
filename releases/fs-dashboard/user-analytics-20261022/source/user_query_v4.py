@@ -18,7 +18,8 @@ from user_member_index import IndexUnavailable, build as build_member_index, mem
 VERSION = 'fs-users-v4'
 SECTIONS = ('summary', 'cohorts', 'stages', 'coverage')
 FIELDS = {'scope', 'scope_id', 'game', 'start', 'end_exclusive', 'cohort_start', 'cohort_end',
-          'windows', 'return_after', 'return_within', 'customer_type', 'repeat_status', 'cohort_type'}
+          'windows', 'return_after', 'return_within', 'customer_type', 'repeat_status', 'cohort_type',
+          'games', 'policy_game'}  # series fields are derived; accepted only when they match the recomputation
 # Cohort population: ES new customers (default), ES old customers, everyone, or new and old side by side.
 COHORT_TYPES = ('new', 'old', 'all', 'compare')
 SEGMENTS_PATH = '/var/lib/fs-customer-segments/segments.json'
@@ -60,6 +61,8 @@ def selection(args, config, cutoff):
         if 'game' in args and game != ident:
             raise ValueError('game_scope_mismatch')
         game = ident
+    elif scope == 'series' and game == SERIES_PREFIX + str(ident):
+        pass  # a normalized series query being validated again by the summary job
     elif (scope, ident) not in ((None, None), ('global', ''), ('global', None), ('site', '266')):
         raise ValueError('v4_scope')
     if not isinstance(game, str) or game != 'all' and game not in config['projects'] and not (
@@ -69,6 +72,8 @@ def selection(args, config, cutoff):
     if game.startswith(SERIES_PREFIX):
         members = series_members(game[len(SERIES_PREFIX):], config)
         series = dict(games=members, policy_game=series_policy_game(members, config))
+    if any(key in args and args[key] != series.get(key) for key in ('games', 'policy_game')):
+        raise ValueError('v4_query_fields')
     origin = stamp(config['history_backfill_start'])
     start = stamp(args.get('start', max(origin, cutoff - timedelta(days=7)).isoformat()))
     end = stamp(args.get('end_exclusive', cutoff.isoformat()))

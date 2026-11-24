@@ -172,6 +172,28 @@ class V4Snapshot(unittest.TestCase):
                          ('series', 'FC', ['1327', '833'], '1327'))
         with self.assertRaisesRegex(ValueError, 'v4_game'):
             selection({'game': 'series:Nope'}, config, stamp('2026-11-24'))
+        # The summary job validates the normalized query again; it must survive unchanged.
+        self.assertEqual(selection(query, config, stamp('2026-11-24')), query)
+        with self.assertRaisesRegex(ValueError, 'v4_query_fields'):
+            selection(dict(query, games=['456']), config, stamp('2026-11-24'))
+        from unittest.mock import Mock
+        from user_query import Service
+
+        service = Service(Mock(), lambda user, query, private: user == 'reader')
+        self.addCleanup(service.v4.jobs.pool.shutdown)
+        service.v4.read_context = Mock(return_value=(config, None, stamp('2026-11-24')))
+        frozen = {}
+
+        def run(args, owner):
+            # The job re-validates the normalized query, then re-reads the frozen snapshot.
+            if 'snapshot_id' not in args:
+                frozen.update(snapshot_id='frozen', query=selection(args, config, stamp('2026-11-24')),
+                              cohorts={}, stages={})
+            return frozen
+
+        service.v4.jobs.query = run
+        code, value = service.v4.get({'game': 'series:FC'}, 'reader')
+        self.assertEqual((code, value['query']['games']), (200, ['1327', '833']))
         orders = [
             purchase(1, 'carried', '2026-01-02', game='833'),   # FC26 first order, FC27 repeat
             purchase(2, 'carried', '2026-01-20', game='1327'),
