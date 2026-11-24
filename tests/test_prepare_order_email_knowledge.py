@@ -425,6 +425,10 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'fc_baseline_identity_content_changed'):
             builder.prepare(ROOT, self.snapshot, self.output.with_name('drift'), COMMIT, fc_baseline_identity=True)
 
+    def test_observation_receipts_update_four_knowledge_ids_and_direct_baseline(self):
+        self.assert_fc_revision_migration(builder.FC_V61_MARKET_PACKAGES_REVISION,
+                                          builder.FC_V61_OBSERVATION_RECEIPTS_REVISION, baseline_patch=True)
+
     def test_package_sources_update_pricing_reporting_and_direct_baseline(self):
         self.assert_fc_revision_migration(builder.FC_V61_CARNIVAL_REVISION,
                                           builder.FC_V61_MARKET_PACKAGES_REVISION, baseline_patch=True)
@@ -478,7 +482,13 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                 entries[entries.index(previous)] = row(previous['id'], old_revision, old_path, old_data)
             if number == 0:
                 identity = 'fc.pricing.constraints'
-                entries.append(row(identity, old_revision, old_path, old_data))
+                if new_revision == builder.FC_V61_OBSERVATION_RECEIPTS_REVISION:
+                    live_path = 'entries/original-live-constraint.md'
+                    live_data = old_data + b'\nLive-only working rule.\n'
+                    self.put_snapshot(index['source_root'] + '/' + live_path, live_data)
+                    entries.append(row(identity, old_revision, live_path, live_data))
+                else:
+                    entries.append(row(identity, old_revision, old_path, old_data))
                 route['entry_ids'].append(identity)
                 if builder.FC_V61_PARAMETER_ID in overlay_ids:
                     identity = builder.FC_V61_PARAMETER_ID
@@ -551,6 +561,11 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                 self.assertIn(identity + '@' + old_revision, item['supersedes'])
                 self.assertEqual(item['source']['canonical_path'], canonical_path)
                 expected_data = new_data.replace(b'Unrelated Git-only paragraph.', b'Live-only paragraph.') if carnival else new_data
+                if new_revision == builder.FC_V61_OBSERVATION_RECEIPTS_REVISION and identity == 'fc.pricing.constraints':
+                    expected_data += b'\nLive-only working rule.\n'
+                    final_body = (sources / item['source']['path']).read_bytes()
+                    self.assertEqual(final_body.count(b'Live-only working rule.'), 1)
+                    self.assertEqual(final_body.count(new_data.strip()), 1)
                 self.assertEqual(item['source']['sha256'], builder.sha(expected_data))
                 self.assertNotEqual(item['source']['path'], old_path)
                 self.assertEqual((sources / item['source']['path']).read_bytes(), expected_data)
