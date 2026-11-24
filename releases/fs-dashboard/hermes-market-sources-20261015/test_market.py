@@ -23,8 +23,9 @@ import market_snapshot_client
 NOW = datetime(2026, 10, 15, 9, 10, tzinfo=timezone.utc)
 STAMP = '2026-10-15T09:09:00+00:00'
 RUN = '11111111-1111-1111-1111-111111111111'
-URLS = dict(zip(SOURCES, ['https://www.lootbar.com/game-coins/fc27',
-    'https://www.iggm.com/ea-sports-fc/fc-27-coins', 'https://www.u4gm.com/fc-27/coins', 'https://www.u7buy.com/fc27/coins']))
+URLS = {'Lootbar': 'https://www.lootbar.com/game-coins/fc27',
+        'U4GM': 'https://www.u4gm.com/fc-27/coins',
+        'U7Buy': 'https://www.u7buy.com/fc27/coins'}
 
 
 class MarketTests(unittest.TestCase):
@@ -52,9 +53,12 @@ class MarketTests(unittest.TestCase):
     def read(self):
         self.save(); return self.reader({'profile':'FC27'})
 
-    def test_real_files_four_families_and_missing_not_zero(self):
+    def test_real_files_supported_sources_and_missing_not_zero(self):
+        self.run['competitors'].append(dict(self.run['competitors'][0], source='IGGM',
+            url='https://www.iggm.com/ea-sports-fc/fc-27-coins'))
         out=self.read();self.assertEqual(out['status'],'available')
-        self.assertEqual((len(out['competitors']),len(out['costs']),len(out['storefront']['rows'])),(12,3,3))
+        self.assertEqual((len(out['competitors']),len(out['costs']),len(out['storefront']['rows'])),(9,3,3))
+        self.assertEqual({row['source'] for row in out['competitors']}, set(URLS))
         self.assertEqual(out['competitors'][0]['bonus_k'],'0')
         self.assertIsNone(out['competitors'][0]['mandatory_fees_usd'])
         self.assertFalse(out['can_recommend_price']);self.assertEqual(out['offer_completeness'],'partial')
