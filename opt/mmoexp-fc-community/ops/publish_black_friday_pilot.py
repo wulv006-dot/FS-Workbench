@@ -41,9 +41,9 @@ def main():
                 f.write('D4 VIP pilot')
             card = {'title':TITLE, 'color':0xE4AF45,
                     'description':('Support a club. Enter your test email and spin.\n\n'
-                    '**$1 OFF  ·  $2 OFF  ·  $2 + 20% OFF**\n'
+                    '**$1 OFF  ·  $2 OFF  ·  $2 + 15% OFF**\n'
                     'Your MMOEXP orders across all games since Oct 1 determine your drop. '
-                    'Five completed orders unlock the extra 20% coupon.'),
+                    'Five completed orders unlock the extra 15% coupon.'),
                     'footer':{'text':'D4 VIP PLAYTEST · Demo accounts only · No real coupons issued'}}
             buttons = [{'type':2,'style':style,'custom_id':ident,'label':label,'emoji':{'name':emoji}}
                        for ident,style,label,emoji in zip(IDS,[1,2],['Play the test drop','See all test cases'],['🎰','📋'])]

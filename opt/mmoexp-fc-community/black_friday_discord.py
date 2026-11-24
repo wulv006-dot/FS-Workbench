@@ -7,6 +7,7 @@ from pathlib import Path
 
 import discord
 
+from black_friday import BONUS_PERCENT
 from black_friday_claims import Campaign, ClaimConflict
 from black_friday_pilot import CHANNEL, GUILD, STATE, REWARDS, coupon_link, fixture, show_spin
 from match_rewards_delivery import CouponBridge, email_fingerprint
@@ -21,7 +22,7 @@ SCENARIOS = {
     'new': '$1 · No paid orders',
     'return': '$2 · One paid order',
     'four': '$2 · Five paid, four complete',
-    'five': '$2 + 20% · Five complete',
+    'five': f'$2 + {BONUS_PERCENT}% · Five complete',
 }
 
 
@@ -38,7 +39,7 @@ class TestCouponBridge:
     coupons = {'one': 11, 'two': 22, 'bonus': 33}
 
     def detail(self, coupon):
-        mode, amount = {11: (1, 1), 22: (1, 2), 33: (2, 80)}[coupon]
+        mode, amount = {11: (1, 1), 22: (1, 2), 33: (2, 100 - BONUS_PERCENT)}[coupon]
         return dict(id=coupon, type=1, status=1, site_id=266, game_id=1327,
                     mode_type=mode, fetch_scene=4, time_effect=2, days=7, is_open=0,
                     repeat_qty=1, goods_id=0, product_type=0, attain=0, max_reduce=0,

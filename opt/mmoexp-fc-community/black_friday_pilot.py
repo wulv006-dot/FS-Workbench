@@ -7,14 +7,14 @@ import re
 from datetime import datetime, timezone
 
 import discord
-from black_friday import ClaimStore, reward_tier
+from black_friday import BONUS_PERCENT, ClaimStore, reward_tier
 
 GUILD = 1565922092518613064
 CHANNEL = 1568260661010497627
 APP = 1568239618111832094
 STATE = Path(os.environ.get('BF_PILOT_STATE', '/var/lib/fc27-black-friday-pilot'))
 CLUBS = ('Manchester City', 'Real Madrid', 'Barcelona', 'Bayern Munich', 'Paris Saint-Germain')
-REWARDS = {'one':'**$1 OFF**', 'two':'**$2 OFF**', 'bonus':'**$2 OFF**  +  🏆 **20% OFF**'}
+REWARDS = {'one':'**$1 OFF**', 'two':'**$2 OFF**', 'bonus':f'**$2 OFF**  +  🏆 **{BONUS_PERCENT}% OFF**'}
 TERMS = 'FC27 only · 7 days from claim · One coupon per order · No minimum spend.'
 COUPONS_URL = 'https://www.mmoexp.com/Ucenter/coupon.html'
 FOOT = 'D4 VIP playtest · Demo accounts and coupons'
@@ -81,7 +81,7 @@ async def show_spin(interaction, owner, tier, first, receipt=None, *, test=False
         return
     title = '🎁  Your Black Friday drop' if first else '🧾  Your original drop'
     await interaction.edit_original_response(embed=embed(title,
-        f'## {left}  │  {middle}  │  {right}\n{REWARDS[tier]}\n\n{TERMS} The 20% coupon has no discount cap.\n\n'
+        f'## {left}  │  {middle}  │  {right}\n{REWARDS[tier]}\n\n{TERMS} The {BONUS_PERCENT}% coupon has no discount cap.\n\n'
         '**Demo receipt** · Replay shows this same reward.'), view=Replay(owner, tier))
 
 
@@ -192,7 +192,7 @@ class Home(discord.ui.View):
         if await allowed(interaction):
             await interaction.response.send_message(embed=embed('📋  Test cases',
                 '**new** · No paid orders → $1\n**return** · One paid order in another game → $2\n'
-                '**four** · Five paid, four completed → $2\n**five** · Five completed → $2 + 20%\n\n'
+                f'**four** · Five paid, four completed → $2\n**five** · Five completed → $2 + {BONUS_PERCENT}%\n\n'
                 'Replace the part before + in the demo email to choose a case before your first claim. '
                 'Repeat your original email to view your receipt.'), ephemeral=True)
 

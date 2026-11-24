@@ -30,7 +30,7 @@ class CampaignFlow(unittest.TestCase):
 
     @staticmethod
     def coupon_detail(coupon_id):
-        mode, value = {11: (1, 1), 22: (1, 2), 33: (2, 80)}[coupon_id]
+        mode, value = {11: (1, 1), 22: (1, 2), 33: (2, 85)}[coupon_id]
         return dict(id=coupon_id, type=1, status=1, site_id=266, game_id=1327,
                     mode_type=mode, fetch_scene=4, time_effect=2, days=7, is_open=0,
                     repeat_qty=1, goods_id=0, product_type=0, attain=0, max_reduce=0,
@@ -47,6 +47,13 @@ class CampaignFlow(unittest.TestCase):
                 receipt = self.campaign.claim(discord_id, email)
                 self.assertEqual((receipt.tier, receipt.receipts), expected)
                 self.assertTrue(receipt.complete)
+
+    def test_old_twenty_percent_bonus_is_rejected_before_shipping_any_coupon(self):
+        self.bridge.detail.side_effect = lambda coupon: (
+            dict(self.coupon_detail(coupon), reduce=80) if coupon == 33 else self.coupon_detail(coupon))
+        with self.assertRaisesRegex(ValueError, 'coupon terms'):
+            self.campaign.claim(53, self.addresses[2])
+        self.bridge.grant.assert_not_called()
 
     def test_repeat_does_not_post_and_both_identities_are_unique(self):
         email, other = self.addresses[:2]
