@@ -46,7 +46,7 @@ def scope_metadata(payload, mapped):
 
 
 def repeat_metrics(raw, scope, local=None):
-    """Local input is the existing user replay period_cohort result, not a second calculator."""
+    """Map the native and published local values independently."""
     original = raw.get('repeat_rete')
     value = None
     text = original.strip() if isinstance(original,str) else ''
@@ -64,7 +64,7 @@ def repeat_metrics(raw, scope, local=None):
                   definition='Admin repeat_rete; numerator and denominator not published',
                   population='upstream_native_buyers; membership_and_formula_unverified')
     result = dict(value=None,numerator=None,denominator=None,unit='percent',status='unavailable',
-                  source='user_replay_v1.period_cohort',scope=None,coverage=None,
+                  source='user_lifecycle.period_repeat',scope=None,coverage=None,
                   identity_basis='existing user_store.customer_id mapping; not a uid-only cohort',
                   population='covered_identified_period_purchasers')
     if local is not None:
@@ -79,7 +79,7 @@ def repeat_metrics(raw, scope, local=None):
         complete = (coverage.get('period_complete') is True and coverage.get('identity_deduplication_complete') is True
                     and coverage.get('missing_identity_orders') == 0
                     and coverage.get('state_basis') == 'period_cohort' and (rate.get('status') == 'available' or known_empty)
-                    and rate.get('basis') == 'at_least_two_distinct_valid_orders_within_selected_period')
+                    and rate.get('basis') == 'period_first_plus_24h_within_selected_period')
         if complete:
             n,d = rate.get('numerator'),rate.get('denominator')
             if type(n) is not int or type(d) is not int or not 0 <= n <= d:

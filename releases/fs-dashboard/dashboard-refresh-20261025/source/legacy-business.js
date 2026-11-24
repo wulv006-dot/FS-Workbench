@@ -245,6 +245,45 @@ function fsPaidOrderAverage(metrics){
 }
 
 function fsOrderLabel(source){return ({available:'读取完成',queued:'排队中',reading:'读取中',deferred:'采集繁忙，稍后重试',failed:'读取失败',pending:'读取中',unavailable:'读取失败'}[source?.phase||source?.status]||'尚未读取')+(source?.stale&&source?.capturedAt?' · 已过期':'');}
+const fsRepeatReasons={
+ rs_not_supported:'RS 范围',main_site_required:'仅支持 MMOEXP 主站',country_filter_not_supported:'含国家筛选',
+ full_days_required:'需要完整自然日',product_filter_not_supported:'当前为商品细分',
+ user_scope_denied:'无用户分析权限',publication_period_incomplete:'订单覆盖未齐',
+ publication_scope_unverified:'游戏范围无法核实',local_repeat_busy:'本地取数繁忙',
+ publication_unavailable:'用户分析结果尚未发布',publication_read_unavailable:'本地订单读取失败',
+ bounded_revision_unavailable:'本地订单版本不可读'
+};
+function fsPeriodRepeat(profile,all=false,selection={}){
+ const local=profile?.supplement?.local_repeat_rate;
+ let reason=profile?.key==='RS'?'rs_not_supported':all?'main_site_required':
+  selection.country_code?'country_filter_not_supported':selection.grain&&selection.grain!=='day'?'full_days_required':
+  ['product','platform','customer','bucket'].some(key=>selection[key]&&selection[key]!=='all')?'product_filter_not_supported':local?.reason;
+ if(!reason&&local?.definition==='period_first_plus_24h_within_selected_period'){
+  if(local.status==='available'&&Number.isFinite(local.value))return {...local,source:'用户分析',scope:'MMOEXP 主站'};
+  if(local.status==='not_applicable'&&local.denominator===0)reason='无期间有效购买客户';
+ }
+ return {value:null,status:'not_applicable',source:'用户分析',scope:'MMOEXP 主站',reason:fsRepeatReasons[reason]||reason||'本地结果暂缺'};
+}
+function fsNativeRepeat(profile){
+ const source=profile?.supplement;
+ const metric=source?.native_repeat_rate||source?.metrics?.repeatRatePct;
+ return {value:Number.isFinite(metric?.value)?metric.value:null,source:'Admin',scope:'原生公式未公开'};
+}
+function fsRepeatDetail(item){
+ return item.status==='available'?'用户分析 · '+item.numerator+' / '+item.denominator+' 人 · 首单后至少 24 小时':
+  '不适用 · '+item.reason;
+}
+
+function fsSetRepeatDetail(card,item){
+ const label=card.querySelector('small');
+ const details=card.querySelector('details');
+ const text=fsRepeatDetail(item);
+ if(label.textContent!==text)label.textContent=text;
+ if(item.status==='available'&&!details){
+  const fold=document.createElement('details'),title=document.createElement('summary');
+  title.textContent='查看分子与分母';fold.append(title,label);card.append(fold);
+ }else if(item.status!=='available'&&details){details.replaceWith(label);}
+}
 function fsMetricText(item,format){
  if(item?.field==='amount / total'&&item?.status==='not_computable')return '无订单，不计算';
  if(item?.status==='not_applicable')return '不适用（无销售额）';
@@ -316,28 +355,20 @@ function render(host,data,key='MMOEXP',selection=null,readState=null){
  const projected=fsMainSite(p,combined),m=projected.metrics,period=projected.period,shown={...m};
  const head=text('div',null,'fsi-heading');head.append(text('h3',key==='RS'?'RS · '+projected.site:combined?'全部网站':'MMOEXP 主站经营'),text('p',(key==='MMOEXP'?'MMOEXP':p.name||key)+' · '+(period?.start||'—')+' 至 '+(period?.end||'—')+' · 北京时间','fsi-note'));host.append(head);
  const cards=text('div',null,'fsi-metrics');
- const fields=[['订单数','orders',count],['销售额','revenueUsd',money],['毛利（¥）','profitCny',v=>'¥'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})],['毛利率','profitMarginPct',pct],['新客人数','newCustomers',count],['付款人数','payingCustomers',count],['新客付款金额','newCustomerRevenueUsd',money],['Admin原生复购率','repeatRatePct',pct],['新客占比','newCustomerSharePct',pct],['纯销售额','pureSalesUsd',money],['退款金额','refundAmountUsd',money],['退款订单','refundOrders',count],['发货完成率','fulfillmentRatePct',pct],['支付成功率','paymentSuccessRatePct',pct],['客单价','averageOrderUsd',money],['付费客户均额（ARPU）','averageCustomerUsd',money]];
- for(const [label,k,format] of fields){const item=shown[k];cards.append(metricCard(label,phase?placeholder:fsMetricText(item,format),'来源：'+item.source+' · '+item.scope+(k==='averageOrderUsd'?' · 付款销售额÷付款订单数':''),k));}
- host.append(cards);
- const native=p.supplement;
- if(!phase&&native?.native_repeat_rate&&native.reconciliation_status==='not_aligned'){
-  const local=native.local_repeat_rate,q=local?.scope,applied=native.effective_scope,requested=native.requested_scope;
-  const note=text('p','两种复购率的订单成员与计算口径仍待对账。','fsi-note');
-  note.dataset.localRepeatAudit='';
-  const empty=local?.status==='not_applicable'&&native.coverage?.scope_status==='empty_result_membership_unverified';
-  const expected=empty?requested:applied;
-  const same=q?.scope==='site'&&q.scope_id==='266'&&expected?.site==='266'&&q.game===expected.game&&
-    q.start?.slice(0,16).replace('T',' ')===expected.period?.start&&
-    q.end_exclusive?.slice(0,16).replace('T',' ')===expected.period?.end;
-  if(same&&(local.status==='available'||local.status==='not_applicable')){
-   const rate=local.status==='available'?pct(local.value):'不适用';
-   const game=q.game==='all'?'全部游戏':p.name||key;
-   note.append(text('span',` 本地区间复购用户占比 ${rate}（${count(local.numerator)} / ${count(local.denominator)} 人） · MMOEXP主站 · ${game} · ${q.start.slice(0,10)} 至 ${q.end_exclusive.slice(0,10)}（不含结束日） · 期间与客户身份覆盖已核。`));
-  }else note.append(text('span',' 本地区间复购用户占比暂缺。'));
-  host.append(note);
+ shown.local_repeat_rate=fsPeriodRepeat(p,combined,selection||{});
+ shown.native_repeat_rate=fsNativeRepeat(p);
+ const fields=[['订单数','orders',count],['销售额','revenueUsd',money],['毛利（¥）','profitCny',v=>'¥'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})],['毛利率','profitMarginPct',pct],['新客人数','newCustomers',count],['付款人数','payingCustomers',count],['新客付款金额','newCustomerRevenueUsd',money],['期间复购率','local_repeat_rate',pct],['Admin 原生复购率','native_repeat_rate',pct],['新客占比','newCustomerSharePct',pct],['纯销售额','pureSalesUsd',money],['退款金额','refundAmountUsd',money],['退款订单','refundOrders',count],['发货完成率','fulfillmentRatePct',pct],['支付成功率','paymentSuccessRatePct',pct],['客单价','averageOrderUsd',money],['付费客户均额（ARPU）','averageCustomerUsd',money]];
+ for(const [label,k,format] of fields){
+  const item=shown[k],local=k==='local_repeat_rate',native=k==='native_repeat_rate';
+  const number=phase?placeholder:local?(item.value==null?'不适用':format(item.value)):native?(item.value==null?'未知':format(item.value)):fsMetricText(item,format);
+  const detail=local?fsRepeatDetail(item):'来源：'+item.source+' · '+item.scope+(k==='averageOrderUsd'?' · 付款销售额÷付款订单数':'');
+  const card=metricCard(label,number,detail,k);
+  if(local)fsSetRepeatDetail(card,item);
+  cards.append(card);
  }
+ host.append(cards);
+ if(!combined&&!projected.onlyMain)host.append(text('p','新客采用 Admin 原统计范围，可能包含其他站点。','fsi-note'));
 
- if(!combined&&!projected.onlyMain)host.append(text('p','新客、复购率等采用 Admin 本区间原统计范围，可能含其他站点，仅参考；没有将其冒充主站独立指标。','fsi-note'));
  host.append(text('p','Admin 取数：'+(projected.adminCapturedAt||'未提供')+'；Order 取数：'+(projected.orderCapturedAt||'未提供'),'fsi-note'));
  if(key==='RS'){host.append(text('p','RS：'+projected.site+'。指定区服订单、销售及结构来自完整Admin订单列表；其他指标来源见各卡片。毛利按相同筛选下付款订单的Admin人民币收入减Order实际成本，区间和每日为同一批订单；仅已核完成单，非净利润。','fsi-note'));return;}
 
@@ -1574,12 +1605,12 @@ function renderCross(){
     return {key:k, name:p.name, lifecycle:p.lifecycle, coverage:cov.to,
       dayOrders:ld.orders, dayRevenue:ld.revenueUsd,
       weekOrders:wk.orders, weekRevenue:wk.revenueUsd,
-      weekNew:wk.newCustomers, weekRepeat:wk.repeatRatePct, rangeMessage:range.messages.get(k)||(!range.values.has(k)?'正在读取准确区间':''),
+      weekNew:wk.newCustomers, weekRepeat:wk.local_repeat_rate, rangeMessage:range.messages.get(k)||(!range.values.has(k)?'正在读取准确区间':''),
       hasData:ld.hasData, raw:pill};
   }).filter(Boolean);
   const LC = {active:'运营中', planned:'筹备/预售', stopped:'已停服', macro:'全站'};
   document.getElementById('crossHint').textContent = `所选日期 ${range.selection.start} 至 ${range.selection.end}（北京时间） · Admin主站区间原值；所选末日为Order历史参考`;;
-  const heads={dayOrders:'末日订单（Order参考）',dayRevenue:'末日金额（Order参考）',weekOrders:'所选区间订单',weekRevenue:'所选区间金额',weekNew:'区间新客（Admin参考）',weekRepeat:'区间复购率（Admin参考）'};for(const [key,label] of Object.entries(heads)){const th=document.querySelector('#crossTbl th[data-k="'+key+'"]');if(th)th.textContent=label;}document.querySelector('#crossCard > h2').textContent='所选末日及区间项目对比';
+  const heads={dayOrders:'末日订单（Order参考）',dayRevenue:'末日金额（Order参考）',weekOrders:'所选区间订单',weekRevenue:'所选区间金额',weekNew:'区间新客（Admin参考）',weekRepeat:'期间复购率（用户分析）'};for(const [key,label] of Object.entries(heads)){const th=document.querySelector('#crossTbl th[data-k="'+key+'"]');if(th)th.textContent=label;}document.querySelector('#crossCard > h2').textContent='所选末日及区间项目对比';
   document.querySelector('#crossTbl tbody').innerHTML = rows.map(r=>`<tr>
       <td>${logoImg(r.key,'big')}${esc(r.name)}</td>
       <td style="text-align:right"><span class="pill">${LC[r.lifecycle]||r.lifecycle||'-'}</span></td>
@@ -1588,7 +1619,7 @@ function renderCross(){
       <td>${r.weekOrders==null?'未提供':fmtN(r.weekOrders)}</td>
       <td style="color:#c16a00">${r.weekRevenue==null?'未提供':fmtM(r.weekRevenue)}</td>
       <td>${r.weekNew==null?'未提供':fmtN(r.weekNew)}</td>
-      <td>${r.weekRepeat==null?'未提供':fmtP(r.weekRepeat)}</td>
+      <td>${r.weekRepeat?.value==null?'不适用':fmtP(r.weekRepeat.value)}</td>
       <td style="text-align:right">${r.raw} <span style="color:#a1a1a6">${esc(r.coverage||'')}</span>${r.rangeMessage?'<small class="hint"> · '+esc(r.rangeMessage)+'</small>':''}</td>
     </tr>`).join('') || '<tr><td colspan="9" class="empty">暂无数据</td></tr>';
 }
@@ -2095,7 +2126,7 @@ function workspaceCrossRange(keys){
   if(state.values.has(key))continue;
    try{const data=await window.FSExactRange.readSummary(key,selection,state.abort.signal,message=>{if(workspaceRangeLive(state)&&workspaceRangeViews.cross===state){state.messages.set(key,message);renderCross();}});
    if(!workspaceRangeLive(state)||workspaceRangeViews.cross!==state)return;
-   const p=data.profile;state.values.set(key,{orders:workspacePrimaryMetric(p,'orders'),revenueUsd:workspacePrimaryMetric(p,'revenueUsd'),newCustomers:fsMainSite(p).metrics.newCustomers.value,repeatRatePct:fsMainSite(p).metrics.repeatRatePct.value});state.messages.set(key,data.sources?.Admin?.status==='unavailable'?'Admin读取失败，保留可用参考；见读取时间':data.sources?.Admin?.status==='pending'?'Admin读取中':'');
+   const p=data.profile;state.values.set(key,{orders:workspacePrimaryMetric(p,'orders'),revenueUsd:workspacePrimaryMetric(p,'revenueUsd'),newCustomers:fsMainSite(p).metrics.newCustomers.value,local_repeat_rate:fsPeriodRepeat(p,['all','combined'].includes(scope.referenceScope),selection)});state.messages.set(key,data.sources?.Admin?.status==='unavailable'?'Admin读取失败，保留可用参考；见读取时间':data.sources?.Admin?.status==='pending'?'Admin读取中':'');
   }catch(e){if(!workspaceRangeLive(state)||workspaceRangeViews.cross!==state)return;state.failed.add(key);state.messages.set(key,e.message||'读取失败');}
   renderCross();
  }})();return state;
@@ -2216,9 +2247,10 @@ function fcUpdateMetrics(){
  if(KEY!=='FC27')return;
  const d=!exactPermissionDenied()&&fcSameQuery(fcDetailState.data?.query,fcQuery())?fcDetailState.data:null,t=d?.fc_dashboard?.totals;
  const metric={revenueUsd:t?.revenue_usd,orders:t?.orders,profitCny:t?.gross_profit_cny,profitMarginPct:t?.gross_margin_pct,averageOrderUsd:t?.orders>0&&Number.isFinite(t.revenue_usd)?t.revenue_usd/t.orders:null};
- const native=fcNativeAdminMetrics(fcQuery()),nativeKeys=['newCustomers','payingCustomers','newCustomerRevenueUsd','repeatRatePct','newCustomerSharePct','pureSalesUsd','refundAmountUsd','refundOrders','fulfillmentRatePct','paymentSuccessRatePct','averageCustomerUsd'];
- const localRepeatNote=document.querySelector('#supplement-insights [data-local-repeat-audit]');
- if(localRepeatNote)localRepeatNote.hidden=!native;
+ const query=fcQuery(),native=fcNativeAdminMetrics(query),nativeKeys=['newCustomers','payingCustomers','newCustomerRevenueUsd','newCustomerSharePct','pureSalesUsd','refundAmountUsd','refundOrders','fulfillmentRatePct','paymentSuccessRatePct','averageCustomerUsd'];
+ const exact=currentExact()?.profile;
+ const localRepeat=fsPeriodRepeat(exact,query.site_group!=='main',query);
+ const nativeRepeat=fsNativeRepeat(native?exact:null);
  if(native){
   for(const key of ['orders','revenueUsd'])metric[key]=native.metrics[key]?.status==='available'?native.metrics[key].value:null;
   metric.averageOrderUsd=metric.orders>0&&Number.isFinite(metric.revenueUsd)?metric.revenueUsd/metric.orders:null;
@@ -2226,6 +2258,16 @@ function fcUpdateMetrics(){
   for(const key of ['profitCny','profitMarginPct'])metric[key]=shipping[key]?.status==='available'?shipping[key].value:null;
  }
  for(const card of document.querySelectorAll('#supplement-insights .fsi-metric')){
+  if(card.dataset.metric==='local_repeat_rate'){
+   fcSetText(card.querySelector('strong'),localRepeat.value==null?'不适用':localRepeat.value.toFixed(2)+'%');
+   fsSetRepeatDetail(card,localRepeat);
+   continue;
+  }
+  if(card.dataset.metric==='native_repeat_rate'){
+   fcSetText(card.querySelector('strong'),nativeRepeat.value==null?'未知':nativeRepeat.value.toFixed(2)+'%');
+   fcSetText(card.querySelector('small'),'Admin 原生公式未公开'+(native?.cutoff?' · 统计截至 '+native.cutoff:''));
+   continue;
+  }
   const key=card.dataset.metric,isNative=nativeKeys.includes(key),item=isNative?native?.metrics[key]:null,v=isNative?(item?.status==='available'?item.value:null):metric[key],known=Number.isFinite(v),profit=['profitCny','profitMarginPct'].includes(key),label=card.querySelector('small');
   const formatted=known?(key==='profitCny'?'¥'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):key.endsWith('Pct')?v.toFixed(2)+'%':key.endsWith('Usd')?fcMoney(v):fmtN(v)):exactPermissionDenied()?'读取失败':fcDetailState.error?'读取失败':isNative&&scope.summaryPolling||fcDetailPending&&!d?'待读取':'暂缺';
   fcSetText(card.querySelector('strong'),formatted);
@@ -2425,7 +2467,7 @@ async function fcExportCsv(){
 }
 async function fcReport(){
  const reportFilters={...fcFilters};
-  const core=[...document.querySelectorAll('#supplement-insights .fsi-metric')].filter(c=>['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd'].includes(c.dataset.metric)).map(c=>[c.querySelector('span').textContent,c.querySelector('strong').textContent,c.querySelector('small').textContent]);
+  const core=[...document.querySelectorAll('#supplement-insights .fsi-metric')].filter(c=>['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','local_repeat_rate','newCustomerSharePct','averageOrderUsd'].includes(c.dataset.metric)).map(c=>[c.querySelector('span').textContent,c.querySelector('strong').textContent,c.querySelector('small').textContent]);
  const status=fcHost.querySelector('.fc-report-status');status.textContent='正在保存同一快照的事实日报…';
  try{const d=await fcRead(fcQuery({mode:'fc-report',page:'1',format:'json'}),scope.signal),r=d.report;
 
@@ -2499,8 +2541,8 @@ function workspaceSync(){if(scope.signal.aborted||workspaceQueued)return;workspa
  if(grid){
   if(!root.getElementById('all-metrics')){const button=document.createElement('button');button.id='all-metrics';button.className='metrics-toggle';button.onclick=()=>{scope.metrics=!scope.metrics;workspaceSync();};grid.before(button);}
   const button=root.getElementById('all-metrics');fcSetText(button,scope.metrics?'收起补充指标':'展开补充指标');button.setAttribute('aria-expanded',String(!!scope.metrics));
-  const cards=[...grid.children],primary=['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd'];
-  for(const [i,c] of cards.entries()){const n=primary.indexOf(c.dataset.metric);if(n>=0)fcSetText(c.querySelector('span'),['销售额','订单数','毛利（¥）','毛利率','新客人数','Admin原生复购率','新客占比','客单价'][n]);c.style.order=n<0?primary.length+i:n;c.hidden=!scope.metrics&&n<0;}
+  const cards=[...grid.children],primary=['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','local_repeat_rate','newCustomerSharePct','averageOrderUsd'];
+  for(const [i,c] of cards.entries()){const n=primary.indexOf(c.dataset.metric);if(n>=0)fcSetText(c.querySelector('span'),['销售额','订单数','毛利（¥）','毛利率','新客人数','期间复购率','新客占比','客单价'][n]);c.style.order=n<0?primary.length+i:n;c.hidden=!scope.metrics&&n<0;}
   for(let i=0;i<primary.length;i++){const card=cards.find(c=>c.dataset.metric===primary[i]);if(card&&grid.children[i]!==card)grid.insertBefore(card,grid.children[i]||null);}
 
  }

@@ -90,7 +90,7 @@ def _manifest_inventory(root=ARCHIVE):
     return selected
 
 
-def _read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False):
+def _read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False, *, allow_gaps=False):
     """Read precisely the pinned file hashes, not archived_dataset's newest matching export."""
     root = Path(root); safe(root)
     start = stamp(query['start']).date().isoformat()
@@ -109,15 +109,21 @@ def _read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False):
         if hashlib.sha256(raw).hexdigest() != item['sha256']:
             raise ValueError('frozen_customer_type_manifest_changed')
         values.append(json.loads(raw))
-    cursor, selected = start, []
+    cursor, selected, complete = start, [], True
     while cursor <= end:
         options = [v for v in values if v['query']['start'] <= cursor <= v['query']['end']]
-        if not options:break
+        if not options:
+            complete = False
+            later = [v['query']['start'] for v in values if cursor < v['query']['start'] <= end]
+            if not allow_gaps or not later:
+                break
+            cursor = min(later)
+            continue
         item = max(options, key=lambda v: (v['query']['end'], v['captured_at']))
         selected.append(item)
         cursor = (stamp(item['query']['end'])+timedelta(days=1)).date().isoformat()
     flags, hashes, captures, identities = {}, set(), [], {}
-    complete = cursor > end
+    complete = complete and cursor > end
     if selected:
         import es_order_structure as es
         for item in selected:
@@ -240,9 +246,9 @@ def manifest_inventory(root=ARCHIVE):
     with es.archive_access(root):return _manifest_inventory(root)
 
 
-def read_pinned_flags(query,manifests,root=ARCHIVE,_identity=False):
+def read_pinned_flags(query,manifests,root=ARCHIVE,_identity=False, *, allow_gaps=False):
     import es_order_structure as es
-    with es.archive_access(root):return _read_pinned_flags(query,manifests,root,_identity=_identity)
+    with es.archive_access(root):return _read_pinned_flags(query,manifests,root,_identity=_identity,allow_gaps=allow_gaps)
 
 
 def archive_reference_state(store,receipt_root=Path('/var/lib/fs-hermes-fc/fs/es-structures')):

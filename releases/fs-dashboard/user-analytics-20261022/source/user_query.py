@@ -32,6 +32,8 @@ class Service:
         self.cache_lock = RLock()
         self.summary_slot = Lock()
         self.summary_jobs = SummaryJobs(self.query)
+        from user_query_v4 import UsersV4
+        self.v4 = UsersV4(self)
         self.private_lock = RLock()
         self.private_cache = None
         self.private_cache_timer = None

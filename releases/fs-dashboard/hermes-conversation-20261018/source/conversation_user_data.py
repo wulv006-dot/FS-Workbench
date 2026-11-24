@@ -14,9 +14,9 @@ from b2_customer_followup import describe_customer, observe_live_orders, observa
 
 TEXT={'type':'string'}
 REFERENCE={'snapshot_id':TEXT,'customer_id':TEXT}
-CUSTOMER_SCOPE_HELP=('Global, series and default queries remain available for aggregates. Customer investigation requires an explicit site or project snapshot. '
+CUSTOMER_SCOPE_HELP=('Global and default queries remain available for aggregates. Customer investigation requires an explicit site or project snapshot. '
     'Choose scope and scope_id from customer_investigation.scope_choices in fs_get_data_catalog, call fs_query_user_analytics with both fields, '
-    'then use its new snapshot_id for fs_customer_candidates and fs_describe_customer. Never reuse or silently narrow a global/series snapshot.')
+    'then use its new snapshot_id for fs_customer_candidates and fs_describe_customer. Use a site or project snapshot for customer investigation.')
 
 
 class _CustomerScopeRequired(ValueError):
@@ -30,11 +30,11 @@ TOOLS={
          **REFERENCE,'goal_id':TEXT,'objective':TEXT,'recheck_at':TEXT,
          'explicit_goal':{'type':'boolean'},'expected_revision':{'type':'integer','minimum':0}},['operation']),
     'fs_customer_candidates':(
-        'Read private customer candidates from an explicit site/project frozen snapshot. Global/series snapshots return scope-selection guidance, not customer rows. '+CUSTOMER_SCOPE_HELP+' Keep coverage, cursor and policy. Opaque IDs are not access grants.',
-        {'snapshot_id':TEXT,'group':{'type':'string','enum':['known_pool','entered_silent','high_value_entered_silent']},
+        'Read private customer candidates from an explicit site/project frozen snapshot. Global snapshots return scope-selection guidance. '+CUSTOMER_SCOPE_HELP+' Keep coverage, cursor and policy. Opaque IDs are not access grants.',
+        {'snapshot_id':TEXT,'group':{'type':'string','description':'Group ID from the v4 snapshot, e.g. stage:recent or entered:silent.'},
          'cursor':TEXT,'limit':{'type':'integer','minimum':1,'maximum':200}},['snapshot_id']),
     'fs_describe_customer':(
-        'Explain one authorized opaque customer from an explicit site/project snapshot using FS frozen lifecycle facts, policy, coverage and evidence. '+CUSTOMER_SCOPE_HELP+' No goal or business action is created; period-first is not lifetime Day0.',
+        'Explain one authorized opaque customer from an explicit site/project snapshot using FS frozen lifecycle facts, policy, coverage and evidence. '+CUSTOMER_SCOPE_HELP+' No goal or business action is created; Keep the observed first order separate from a verified ES-new first order.',
         dict(REFERENCE),list(REFERENCE)),
     'fs_observe_customer_orders':(
         'Observe bounded recent orders for the same authorized customer. Host resolves the private email; never supply one. Serial 20-row pages, 28-day windows, 365-day boundary. Partial live observations are not a frozen history or valid-purchase count.',
@@ -369,25 +369,21 @@ class NativeUserData:
             # The pre-ready approval hook must not initialize analytics on
             # ordinary native turns; load these original consumers on use.
             from a2_query_context import QueryContext
-            from user_tools import invoke
-            # A narrow frozen snapshot must be created with the same narrow
-            # authorizer that will read it later; no global matrices are hidden
-            # after having created a global-dependent recipe.
-            scope={key:args.get(key) for key in ('scope','scope_id')}
-            if scope['scope'] in ('site','project') and not args.get('snapshot_id') and not args.get('evidence_id'):
-                context=QueryContext(self.service,binding['owner'],scope,
-                    lambda owner,selected:owner==binding['owner'] and selected==scope and self.guard(binding,scope))
-                section=args.get('section','summary')
-                query={k:v for k,v in args.items() if k not in ('scope','scope_id','section','view')}
-                receipt=context.aggregate(query,section)
-                value=dict(receipt.get('data',{}),source=receipt.get('source'),
-                           evidence_ref=receipt.get('evidence_ref'),status=receipt['status'])
-            else:value=invoke(self.service,binding['owner'],args)
+            from user_tools import invoke_v4
+            scope = {key: args.get(key) for key in ('scope', 'scope_id')}
+            if scope['scope'] in ('site', 'project') and not {'snapshot_id', 'query_id', 'evidence_id'} & args.keys():
+                context = QueryContext(self.service, binding['owner'], scope,
+                    lambda owner, selected: owner == binding['owner'] and selected == scope and self.guard(binding, scope))
+                result = context.aggregate_v4(args)
+                value = dict(result['data'], source=result['source'], evidence_ref=result['evidence_ref'],
+                             status=result['status']) if 'data' in result else result
+            else:
+                value = invoke_v4(self.service, binding['owner'], args)
             query=value.get('query') or (value.get('source') or {}).get('query') or {}
             value['customer_investigation']=self.customer_path(binding,{k:query.get(k) for k in ('scope','scope_id')})
         elif name=='fs_get_data_catalog':
             if args:raise ValueError('native_user_tool_fields')
-            catalog=self.service.catalog(binding['owner'])
+            catalog=self.service.v4.catalog(binding['owner'], admin=True)
             value={'user_analytics':dict(catalog,customer_investigation=self.customer_path(binding))}
         else:
             if name not in TOOLS:raise PermissionError('native_user_tool_unavailable')
@@ -450,7 +446,12 @@ class NativeUserData:
             raise PermissionError('native_live_scope_mismatch')
         def identity():
             self.guard(binding,scope,True)
-            detail=self.service.detail({'snapshot_id':snapshot_id,'customer_id':customer_id},binding['owner'])
+            from user_query_v4 import VERSION
+            public = context.public(snapshot_id)
+            arguments = {'snapshot_id': snapshot_id, 'customer_id': customer_id}
+            detail = (self.service.v4.detail(arguments, binding['owner'], admin=True)
+                      if public.get('contract_version') == VERSION
+                      else self.service.detail(arguments, binding['owner']))
             if not any(str(row['site'])==site_id and str(row['project_id'])==game_id for row in detail['orders']):
                 raise PermissionError('native_live_customer_scope_mismatch')
             return detail['email']
@@ -495,7 +496,12 @@ class NativeUserData:
         if self.service.authorizer(owner,ref['scope'],True) is not True:return False
         public=self.service.query({'snapshot_id':ref['snapshot_id']},owner)
         if {k:public['query'][k] for k in ('scope','scope_id')}!=ref['scope']:return False
-        self.service.detail({k:ref[k] for k in ('snapshot_id','customer_id')},owner)
+        from user_query_v4 import VERSION
+        arguments = {k: ref[k] for k in ('snapshot_id', 'customer_id')}
+        if public.get('contract_version') == VERSION:
+            self.service.v4.detail(arguments, owner, admin=True)
+        else:
+            self.service.detail(arguments, owner)
         return True
 
     def _goals(self,owner,cid):

@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import Mock,patch
 ROOT=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(ROOT/'source'),str(ROOT/'tests/fixtures')]
+sys.path[:0]=[str(ROOT/'source'),str(ROOT/'tests/fixtures'),str(ROOT.parent/'customer-segments-20261124/source')]
 from live_summary import query,key_of,SHANGHAI,SummaryCache
 from daily_archive import summary_key
 from admin_scope import scope_metadata,repeat_metrics
@@ -98,7 +98,7 @@ class SummaryArchiveBoundary(unittest.TestCase):
 
 class Repurchase(unittest.TestCase):
  def test_native_and_local_repeat_not_silently_replaced(self):
-  local={'repeat_rate':{'numerator':13,'denominator':280,'rate':13/280,'status':'available','basis':'at_least_two_distinct_valid_orders_within_selected_period'},'coverage':{'period_complete':True,'identity_deduplication_complete':True,'missing_identity_orders':0,'state_basis':'period_cohort'},'scope':{'site':'unverified-es-sample'}}
+  local={'repeat_rate':{'numerator':13,'denominator':280,'rate':13/280,'status':'available','basis':'period_first_plus_24h_within_selected_period'},'coverage':{'period_complete':True,'identity_deduplication_complete':True,'missing_identity_orders':0,'state_basis':'period_cohort'},'scope':{'site':'unverified-es-sample'}}
   original=copy.deepcopy(local);v=repeat_metrics({'repeat_rete':'4.33%','paid_payments':280},{'site':266},local)
   self.assertEqual(v['admin_repeat_rate_raw'],'4.33%');self.assertEqual(v['native_repeat_rate']['value'],4.33)
   self.assertIsNone(v['native_repeat_rate']['denominator']);self.assertIsNone(v['native_repeat_rate']['numerator'])
@@ -112,7 +112,7 @@ class Repurchase(unittest.TestCase):
   self.assertEqual(v['admin_repeat_rate_raw'],' 0% ');self.assertEqual(v['native_repeat_rate']['status'],'not_applicable')
  def test_complete_replay_zero_denominator_is_not_applicable_only_for_known_empty(self):
   local={'repeat_rate':{'numerator':0,'denominator':0,'rate':None,'status':'not_mature',
-         'basis':'at_least_two_distinct_valid_orders_within_selected_period'},
+         'basis':'period_first_plus_24h_within_selected_period'},
          'coverage':{'period_complete':True,'identity_deduplication_complete':True,'missing_identity_orders':0,'state_basis':'period_cohort'}}
   value=repeat_metrics({'repeat_rete':'0%','paid_payments':0},{},local)
   self.assertEqual(value['admin_repeat_rate_raw'],'0%')
@@ -170,6 +170,38 @@ class LocalRepeatBinding(unittest.TestCase):
   reader.assert_called_once_with(self.store)
   self.store.read_at.assert_called_once_with('4','2026-11-10T00:00:00+08:00','2026-11-12T00:00:00+08:00',bounded_only=True)
   self.service.query.assert_not_called();self.store.save_snapshot.assert_not_called()
+
+ def test_local_period_repeat_uses_24_hours_without_a_supplement_placeholder(self):
+  del self.supplement['local_repeat_rate']
+  self.store.read_at.return_value=[
+   self.order('a','exact'),self.order('b','exact','2026-11-11'),
+   self.order('c','under'),dict(self.order('d','under','2026-11-11'),paid_at='2026-11-11T09:59:59+08:00'),
+   self.order('e','simultaneous'),self.order('f','simultaneous'),
+   self.order('g','older','2026-10-31'),self.order('h','older')]
+  local,_=self.run_binding()
+  self.assertEqual((local['status'],local['numerator'],local['denominator'],local['value']),('available',1,4,25))
+  self.assertEqual(local['definition'],'period_first_plus_24h_within_selected_period')
+
+ def test_two_daily_archives_restore_local_rate_without_native_rate(self):
+  from daily_archive import derive_summary
+  from local_repeat_source import attach
+  from threading import RLock
+
+  self.store.read_at.return_value=[self.order('a','one'), self.order('b','one','2026-11-11')]
+  day_source=dict(self.supplement, system='Admin', currency='USD', normalisedScope='main-website',
+                  endpoint='/summary', capturedAt='2026-11-12T00:00:00+08:00',
+                  filters={'site':266,'game':1327,'country_code':''}, native_repeat_rate={'value':25.0})
+  daily=dict(query=q(), profile={'supplement':day_source,'primary':day_source},
+             sources={'Admin':{},'Order':{}}, generatedAt='2026-11-12T00:00:00+08:00', archive={'version':1})
+  with patch('daily_archive.closed',return_value=True), patch('daily_archive.read',return_value=daily), patch('daily_archive.complete_summary',return_value=True):
+   derived=derive_summary(q())
+  self.assertNotIn('native_repeat_rate',derived['profile']['supplement'])
+  self.assertIsNone(derived['profile']['supplement']['metrics']['repeatRatePct']['value'])
+  with patch('local_repeat_source.copy',return_value=self.store), patch('user_weekly.stored_publication',return_value=self.publication):
+   result=attach(derived,q(),'alice',self.service,{},RLock())
+  local=result['profile']['supplement']['local_repeat_rate']
+  self.assertEqual((local['numerator'],local['denominator'],local['value']),(1,1,100))
+  self.assertNotIn('local_repeat_rate',derived['profile']['supplement'])
 
  def test_permission_is_rechecked_before_cached_revision_and_reads(self):
   self.assertEqual(self.run_binding()[0]['value'],50)
@@ -257,7 +289,7 @@ class Integration(unittest.TestCase):
  def test_existing_period_replay_cross_day_uid_zero_and_order_flags(self):
   sys.path.insert(0,str(ROOT.parent/'user-analytics-20261022/source'))
   from user_store import Store
-  from user_query import Service
+  from user_lifecycle import period_repeat
   from user_contract import stamp
   cfg=json.loads((ROOT.parent/'user-analytics-20261022/source/user_config.json').read_text(encoding='utf-8'))
   with tempfile.TemporaryDirectory() as folder:
@@ -265,10 +297,13 @@ class Integration(unittest.TestCase):
    rows=[dict(id=i,order_no='d1-'+str(i),paytime=paid,email=email,gid='1327',uid=0,site_id='266',pay_status=1,status='11')
          for i,paid,email in [(1,'2026-11-10 10:00:00','a@example.test'),(2,'2026-11-11 10:00:00','a@example.test'),(3,'2026-11-10 12:00:00','b@example.test'),(4,'2026-11-11 12:00:00','c@example.test')]]
    now=stamp('2026-11-12T12:00:00+08:00');store.replace_window('266','2026-11-10','2026-11-12',rows,now.isoformat())
-   flags={hashlib.sha256(('d1-'+str(i)).encode()).hexdigest():('new' if i in (1,3) else 'old') for i in range(1,5)}
-   service=Service(store,lambda u,q,p:True,clock=lambda:now,customer_type_reader=lambda q:(flags,dict(status='complete',source='synthetic flags',sourceVersion='d1')))
-   local=service.query(dict(start='2026-11-10',scope='site',scope_id='266',state_basis='period_cohort'),'test-user')
-   local['scope']=local['query'];v=repeat_metrics({'repeat_rete':'4.33%'},{'site':'266'},local)
+   start,end=stamp('2026-11-10'),stamp('2026-11-12')
+   _,facts,_=store.read(analytics=True,start=start.isoformat(),end=end.isoformat())
+   repeat,missing=period_repeat(facts,'266','1327',start,end)
+   local=dict(repeat_rate=repeat,scope={'site':'266'},coverage={
+       'period_complete':True,'identity_deduplication_complete':True,
+       'missing_identity_orders':missing,'state_basis':'period_cohort'})
+   v=repeat_metrics({'repeat_rete':'4.33%'},{'site':'266'},local)
    self.assertEqual((v['local_repeat_rate']['numerator'],v['local_repeat_rate']['denominator']),(1,3))
    self.assertAlmostEqual(v['local_repeat_rate']['value'],100/3);self.assertEqual(v['reconciliation_status'],'not_aligned')
 if __name__=='__main__':unittest.main()

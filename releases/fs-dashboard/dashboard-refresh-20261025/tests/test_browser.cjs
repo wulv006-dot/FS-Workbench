@@ -71,7 +71,7 @@ if(require.main===module)(async()=>{
   assert.equal(await core.count(),16);assert.match(await gross.innerText(),/毛利（¥）/);assert.match(await margin.innerText(),/25.00%/);
   assert.equal(await page.locator('[data-procurement-independent]').count(),0);assert.equal(await page.locator('#shipping-category').count(),0);assert.equal(await coverage.count(),0);
   for(const k of ['coveredOrders','missingCostOrders','pendingOrders'])assert.equal(await page.locator('[data-metric="'+k+'"]').count(),0);
-  const primary=['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd'];
+  const primary=['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','local_repeat_rate','newCustomerSharePct','averageOrderUsd'];
   assert.deepEqual(await core.evaluateAll(cards=>cards.filter(c=>!c.hidden).map(c=>c.dataset.metric)),primary);
   assert.doesNotMatch(await gross.innerText(),/已过期/);
   const revenue=page.locator('[data-metric="revenueUsd"] strong');await revenue.getByText('$1,000.00',{exact:true}).waitFor();assert.equal(await page.locator('[data-metric=\"averageOrderUsd\"] strong').innerText(),'$250.00');assert.equal(await page.locator('[data-metric=\"averageCustomerUsd\"] strong').textContent(),'$95.26');assert.equal(await page.locator('[data-metric=\"averageCustomerUsd\"]').isVisible(),false);

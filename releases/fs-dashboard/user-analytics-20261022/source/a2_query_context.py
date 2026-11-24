@@ -14,6 +14,7 @@ from time import perf_counter
 from user_contract import digest, stamp, METRIC_DEFINITIONS
 from user_query import Service
 from user_tools import invoke
+from user_query_v4 import VERSION
 from user_weekly import WeeklyUnavailable
 
 
@@ -76,6 +77,8 @@ class QueryContext:
         if not isinstance(snapshot_id, str) or not re.fullmatch('us_[a-f0-9]{32}', snapshot_id):
             raise ValueError('snapshot_id')
         value = self.service.query({'snapshot_id': snapshot_id}, self.identity)
+        if value.get('contract_version') == VERSION and not self.source_authorized(self.identity, value['query']):
+            raise PermissionError('host_scope_revoked')
         if value.get('requires_global_scope'):
             raise PermissionError('snapshot_requires_global_scope')
         return value
@@ -153,6 +156,20 @@ class QueryContext:
         result = invoke(self.service, self.identity, {'snapshot_id': public['snapshot_id'], 'section': section})
         return self.receipt(public, {'data': result}, {'method': 'aggregate', 'section': section}, started, 2)
 
+    def aggregate_v4(self, args):
+        from user_tools import invoke_v4
+
+        if not self.guard():
+            return self.unavailable()
+        started = perf_counter()
+        value = invoke_v4(self.original, self.identity, {**args, **self.scope})
+        if 'snapshot_id' not in value:
+            return value
+        if not self.source_authorized(self.identity, value['query']):
+            raise PermissionError('host_scope_revoked')
+        section = args.get('section', 'summary')
+        return self.receipt(value, {'data': value}, {'method': 'aggregate', 'section': section}, started, 1)
+
     def cursor(self, snapshot, kind, fields, after=None, token=None):
         binding = digest({'scope': self.scope, 'snapshot_id': snapshot, 'kind': kind, 'fields': fields})
         if token is None:
@@ -169,6 +186,26 @@ class QueryContext:
 
     def project(self, row, public):
         coverage, query = public.get('coverage', {}), public['query']
+        if public.get('contract_version') == VERSION:
+            complete = coverage.get('period_complete') is True and coverage.get('missing_identity_orders') == 0
+            purchases = {}
+            for prefix in ('period', 'covered_history'):
+                purchases[prefix + '_orders'] = row.get(prefix + '_orders')
+                purchases[prefix + '_sales_usd'] = row.get(prefix + '_sales_usd') if row.get(prefix + '_amount_complete') else None
+            first = row.get('first_paid_at')
+            verified = row.get('customer_type') == 'new' and first is not None
+            return {'opaque_customer_id': opaque(row['customer_id']),
+                    'first_paid': {'at': first if verified else None, 'complete': verified, 'missing': not verified,
+                                   'basis': 'es_new_customer_at_first_observed_site_order' if verified else 'unknown'},
+                    'observed_first': {'at': first, 'complete': verified, 'missing': first is None,
+                                       'basis': 'first_effective_site_order_since_history_start'},
+                    'last_paid': {'at': row.get('last_paid_at'), 'complete': complete and row.get('stage') != 'unverified',
+                                  'missing': row.get('last_paid_at') is None},
+                    'purchases': purchases, 'amount_unit': 'USD', 'amount_basis': 'whole_order_sales_not_net_contribution',
+                    'stage': row.get('stage', 'unverified'),
+                    'identity_reliability': {'complete': coverage.get('identity_deduplication_complete') is True,
+                                             'missing_identity_orders': coverage.get('missing_identity_orders')},
+                    'refund_review': {'status': 'requires_review', 'coverage': coverage.get('refund_correction')}}
         complete = (coverage.get('period_complete') is True and coverage.get('identity_deduplication_complete') is True
                     and not coverage.get('missing_identity_orders'))
         historical = (complete and coverage.get('historical_origin') is not None
@@ -194,21 +231,25 @@ class QueryContext:
                                          'missing_identity_orders': coverage.get('missing_identity_orders')},
                 'refund_review': {'status': 'requires_review', 'coverage': coverage.get('refund_correction')}}
 
-    def candidates(self, snapshot_id, group='known_pool', cursor=None, limit=50):
+    def candidates(self, snapshot_id, group=None, cursor=None, limit=50):
         if not self.guard():
             return self.unavailable()
         limit_value(limit)
-        if group not in ('known_pool', 'entered_silent', 'high_value_entered_silent'):
-            raise ValueError('candidate_group')
         started = perf_counter()
         public = self.public(snapshot_id)
+        v4 = public.get('contract_version') == VERSION
+        group = group or ('stage:recent' if v4 else 'known_pool')
+        if not v4 and group not in ('known_pool', 'entered_silent', 'high_value_entered_silent'):
+            raise ValueError('candidate_group')
         fields = {'group': group}
         after = self.cursor(snapshot_id, 'candidates', fields, token=cursor) if cursor is not None else ''
         if not isinstance(after, str):
             raise ValueError('candidate_cursor')
-        if after:
+        if after and not v4:
             opaque(after)
-        page = self.service.members({'snapshot_id': snapshot_id, 'group': group, 'cursor': after, 'limit': limit}, self.identity)
+        arguments = {'snapshot_id': snapshot_id, 'group': group, 'cursor': after, 'limit': limit}
+        page = (self.service.v4.members(arguments, self.identity, admin=True)
+                if v4 else self.service.members(arguments, self.identity))
         rows = [self.project(row, public) for row in page['rows']]
         next_cursor = self.cursor(snapshot_id, 'candidates', fields, page['next_cursor']) if page['next_cursor'] else None
         return self.receipt(public, {'rows': rows, 'total': page['total'], 'returned': len(rows),
@@ -225,7 +266,9 @@ class QueryContext:
         opaque(opaque_customer_id)
         started = perf_counter()
         public = self.public(snapshot_id)
-        detail = self.service.detail({'snapshot_id': snapshot_id, 'customer_id': opaque_customer_id}, self.identity)
+        arguments = {'snapshot_id': snapshot_id, 'customer_id': opaque_customer_id}
+        detail = (self.service.v4.detail(arguments, self.identity, admin=True)
+                  if public.get('contract_version') == VERSION else self.service.detail(arguments, self.identity))
         fields = {'opaque_customer_id': opaque_customer_id}
         offset = self.cursor(snapshot_id, 'timeline', fields, token=cursor) if cursor is not None else 0
         events = detail['timeline']

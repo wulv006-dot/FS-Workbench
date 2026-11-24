@@ -457,7 +457,7 @@ class Users(unittest.TestCase):
         exported = self.service.export(args, 'admin')
         self.assertEqual(detail['total'], self.values(result)['purchasers'])
         self.assertEqual(detail['rows'], exported['rows'])
-        projected = research_call(self.service, 'admin', {'snapshot_id': result['snapshot_id']})
+        projected = invoke(self.service, 'admin', {'snapshot_id': result['snapshot_id']})
         for key in ('snapshot_id', 'evidence_id', 'metrics', 'query', 'coverage'):
             self.assertEqual(projected[key], result[key])
         self.assertEqual(projected['source_window_counts'],dict(complete=1,failed=0))
@@ -468,7 +468,9 @@ class Users(unittest.TestCase):
                 context.handler = kwargs['handler']
         ctx = Context()
         register_native(ctx, self.service, 'admin')
-        self.assertEqual(json.loads(ctx.handler({'snapshot_id': result['snapshot_id']})), projected)
+        retired = {'error': 'snapshot_version_retired', 'http_status': 422}
+        self.assertEqual(json.loads(ctx.handler({'snapshot_id': result['snapshot_id']})), retired)
+        self.assertEqual(research_call(self.service, 'admin', {'snapshot_id': result['snapshot_id']}), retired)
         with self.assertRaises(LookupError):
             self.service.query({'snapshot_id': 'us_' + '0' * 32}, 'admin')
 
@@ -517,7 +519,7 @@ class Users(unittest.TestCase):
         self.assertEqual(http_get(None, '/users', {}, 'admin')[0], 503)
         self.load([order(1, '2026-10-01')])
         result = self.query()
-        params = {'snapshot_id': [result['snapshot_id']], 'group': ['purchasers']}
+        params = {'action': ['connector_members'], 'snapshot_id': [result['snapshot_id']], 'group': ['purchasers']}
         self.assertEqual(http_get(self.service, '/users/private', params, 'reader')[0], 403)
 
     def test_scope_permission_does_not_grant_global_migration(self):

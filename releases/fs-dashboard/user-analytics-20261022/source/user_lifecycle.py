@@ -302,6 +302,238 @@ def analyze(orders, jobs, query, config, details=True):
     return result, dict(members=members, records=records, events=events)
 
 
+def customer_orders(orders, cutoff):
+    people = defaultdict(list)
+    for row in orders:
+        if row['site'] != '266' or not row['valid'] or not row['customer_id']:
+            continue
+        paid = stamp(row['paid_at'])
+        if paid < cutoff:
+            people[row['customer_id']].append((paid, row['order_key'], row['gid'], json.loads(row['body'])))
+    for purchases in people.values():
+        purchases.sort(key=lambda order: order[:2])
+    return people
+
+
+def complete_coverage(jobs):
+    intervals = coverage_runs(jobs, ['266'])['266']
+    return lambda start, end: start >= end or any(lo <= start and end <= hi for lo, hi in intervals)
+
+
+def amount_summary(purchases):
+    known = [Decimal(order[3]['amount_usd']) for order in purchases if order[3].get('amount_usd') is not None]
+    return dict(known_usd=format(sum(known, Decimal(0)), 'f') if known or not purchases else None,
+                unknown_orders=len(purchases) - len(known))
+
+
+def cohort_groups(batches, people, covered, query, cutoff, flags):
+    from customer_segments import is_repeat
+
+    windows = query['windows']
+    min_return, max_return = (timedelta(days=query[key]) for key in ('return_after', 'return_within'))
+    durations = [timedelta(days=days) for days in windows]
+    members = defaultdict(set)
+    for cid, purchases in people.items():
+        first = purchases[0]
+        month = first[0].strftime('%Y-%m')
+        if month not in batches or query['game'] not in ('all', first[2]):
+            continue
+        batch = batches[month]
+        flag = flags.get(first[3]['order_no_hash'])
+        if flag != 'new':
+            batch['pending_classification'] += flag != 'old'
+            continue
+        repeats = [order for order in purchases[1:] if query['game'] in ('all', order[2])
+                   and is_repeat(first[0], order[0])]
+        first_repeat = repeats[0][0] if repeats else cutoff
+        for window, duration in zip(batch['windows'], durations):
+            end = first[0] + duration
+            members[window['group']].add(cid)
+            if end > cutoff:
+                window['observing'] += 1
+            elif not covered(first[0], end):
+                window['coverage_gap'] += 1
+            else:
+                window['denominator'] += 1
+                if first_repeat < end:
+                    window['numerator'] += 1
+                    window['amount_orders'].extend(order for order in repeats if order[0] < end)
+                if duration == durations[-1]:
+                    bucket = next((i for i, d in enumerate(durations) if first_repeat < first[0] + d), len(windows))
+                    batch['first_repeat']['counts'][bucket] += 1
+
+        end = first[0] + max_return
+        if end <= cutoff and covered(first[0], end) and first_repeat >= first[0] + min_return:
+            returned = batch['silent_return']
+            returned['denominator'] += 1
+            if first_repeat < end:
+                returned['numerator'] += 1
+                returned['amount_orders'].extend(order for order in repeats if order[0] < end)
+    return members
+
+
+def analyze_cohorts(orders, jobs, query, cutoff, flags, *, people=None):
+    """Build cohort window statistics and the matching frozen membership."""
+    windows = query['windows']
+    year, month = map(int, query['cohort_start'].split('-'))
+    batches = {}
+    while (key := f'{year:04d}-{month:02d}') <= query['cohort_end']:
+        batches[key] = dict(month=key, pending_classification=0,
+                            windows=[dict(days=days, group=f'cohort:{key}:{days}', numerator=0,
+                                          denominator=0, observing=0, coverage_gap=0, amount_orders=[])
+                                     for days in windows],
+                            first_repeat=dict(boundaries=windows, counts=[0] * (len(windows) + 1)),
+                            silent_return=dict(after_days=query['return_after'], within_days=query['return_within'],
+                                               numerator=0, denominator=0, amount_orders=[]))
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    members = cohort_groups(batches, people if people is not None else customer_orders(orders, cutoff),
+                            complete_coverage(jobs), query, cutoff, flags)
+    for batch in batches.values():
+        for window in batch['windows']:
+            members[window['group']]
+            window['repeat_amount'] = amount_summary(window.pop('amount_orders'))
+            known = window['repeat_amount']['known_usd']
+            window['repeat_per_customer_usd'] = (format(Decimal(known) / window['numerator'], '.2f')
+                                                  if known is not None and window['numerator'] else None)
+            window['rate'] = window['numerator'] / window['denominator'] if window['denominator'] else None
+        returned = batch['silent_return']
+        returned['return_amount'] = amount_summary(returned.pop('amount_orders'))
+        returned['rate'] = returned['numerator'] / returned['denominator'] if returned['denominator'] else None
+    return dict(batches=list(batches.values())), members
+
+
+def stage_events(purchases, start, end, game, config, covered):
+    from customer_segments import stage, thresholds
+
+    points = thresholds(game, config)
+    for index, (paid, *_order) in enumerate(purchases):
+        if paid >= end:
+            break
+        if index and paid >= start:
+            previous = purchases[index - 1][0]
+            if covered(previous, paid + timedelta(microseconds=1)):
+                # A purchase at the same midnight as a threshold wins the tie.
+                date_before = paid.date() - timedelta(days=1) if paid.time() == datetime.min.time() else paid.date()
+                before = stage(previous, max(date_before, previous.date()), game, config, True)
+                if before != 'recent':
+                    yield dict(kind='silent_wakeup' if before == 'silent' else 'lost_return',
+                               stage=before, at=paid.isoformat())
+        following = purchases[index + 1][0] if index + 1 < len(purchases) else end
+        for threshold, name in zip(points, STATES[1:]):
+            at = datetime.combine(paid.date() + timedelta(days=threshold), datetime.min.time(), TZ)
+            if start <= at < min(following, end) and covered(paid, at + timedelta(microseconds=1)):
+                yield dict(kind='enter', stage=name, at=at.isoformat())
+
+
+def analyze_stages(orders, jobs, query, cutoff, flags, config, *, people=None):
+    """Use one filtered population for interval events, stock, and cross-game flow."""
+    from customer_segments import is_repeat, stage
+
+    start, end = (stamp(query[key]) for key in ('start', 'end_exclusive'))
+    observation = (cutoff - timedelta(microseconds=1)).date()
+    covered = complete_coverage(jobs)
+    game = query['game']
+    members = defaultdict(set, {f'stage:{key}': set() for key in (*STATES, 'unverified')})
+    for name in STATES[1:]:
+        members[f'entered:{name}']
+    for name in ('silent_wakeup', 'lost_return', 'any'):
+        members[f'return:{name}']
+    daily = defaultdict(set)
+    records = {}
+    if people is None:
+        people = customer_orders(orders, cutoff)
+
+    def observed(paid, gid):
+        return stage(paid, observation, gid, config, covered(paid, cutoff))
+
+    for cid, all_purchases in people.items():
+        first = all_purchases[0]
+        purchases = all_purchases if game == 'all' else [purchase for purchase in all_purchases if purchase[2] == game]
+        interval = [purchase for purchase in purchases if start <= purchase[0] < end]
+        flag = flags.get(first[3]['order_no_hash'])
+        customer_type = flag if flag in ('new', 'old') else 'unknown'
+        if not interval or query['customer_type'] not in ('all', customer_type):
+            continue
+        repeated = any(key != first[1] and is_repeat(first[0], paid) for paid, key, *_ in purchases)
+        if query['repeat_status'] not in ('all', 'repeated' if repeated else 'not_repeated'):
+            continue
+        last = purchases[-1][0]
+        state = observed(last, game)
+        records[cid] = dict(customer_id=cid, stage=state, customer_type=customer_type, repeated=repeated,
+                            first_paid_at=first[0].isoformat(), last_paid_at=last.isoformat(),
+                            period_orders=len(interval))
+        members[f'stage:{state}'].add(cid)
+        for event in stage_events(purchases, start, end, game, config, covered):
+            kind = event['kind']
+            if kind == 'enter':
+                members[f"entered:{event['stage']}"].add(cid)
+            else:
+                day = event['at'][:10]
+                daily[(day, kind)].add(cid)
+                members[f'return:{kind}'].add(cid)
+                members['return:any'].add(cid)
+        if game == 'all':
+            by_game = {purchase[2]: purchase[0] for purchase in all_purchases}
+            statuses = {gid: observed(paid, gid) for gid, paid in by_game.items()}
+            recent_games = [gid for gid, status in statuses.items() if status == 'recent']
+            for source, status in statuses.items():
+                if status in ('lost', 'long_lost'):
+                    for destination in recent_games:
+                        members[f'flow:{source}:{destination}'].add(cid)
+
+    def counts(prefix, labels):
+        return [dict(kind=label, group=f'{prefix}:{label}', count=len(members[f'{prefix}:{label}']))
+                for label in labels]
+
+    daily_returns = []
+    day = start
+    while day < end:
+        until = day + timedelta(days=1)
+        key = day.date().isoformat()
+        observed_day = covered(day, until)
+        daily_returns.append(dict(date=key,
+                                  silent_wakeup=len(daily[(key, 'silent_wakeup')]) if observed_day else None,
+                                  lost_return=len(daily[(key, 'lost_return')]) if observed_day else None))
+        day = until
+    flow = []
+    for group in sorted(members):
+        if group.startswith('flow:'):
+            _, source, destination = group.split(':')
+            flow.append(dict(source=source, destination=destination, count=len(members[group]), group=group))
+    result = dict(stages=counts('stage', (*STATES, 'unverified')), inflow=counts('entered', STATES[1:]),
+                  returns=counts('return', ('silent_wakeup', 'lost_return', 'any')), daily_returns=daily_returns)
+    if game == 'all':
+        result['cross_game_flow'] = flow
+    return result, members, records
+
+
+def period_repeat(orders, site, game, start, end):
+    """Count scoped buyers with a distinct order at least 24 hours after period entry."""
+    from customer_segments import is_repeat
+
+    people = defaultdict(list)
+    missing_identity = 0
+    for row in orders:
+        if not row['valid'] or row['site'] != site or game != 'all' and row['gid'] != game:
+            continue
+        paid = stamp(row['paid_at'])
+        if not start <= paid < end:
+            continue
+        if row['customer_id']:
+            people[row['customer_id']].append((paid, row['order_key']))
+        else:
+            missing_identity += 1
+    repeated = 0
+    for purchases in people.values():
+        first_at, first_key = min(purchases)
+        repeated += any(key != first_key and is_repeat(first_at, paid) for paid, key in purchases)
+    count = len(people)
+    rate = dict(numerator=repeated, denominator=count, rate=repeated / count if count else None,
+                status='available' if count else 'not_mature',
+                basis='period_first_plus_24h_within_selected_period')
+    return rate, missing_identity
+
+
 def second_purchase(people, jobs, sites, start, end, anchor, horizon, entry_end=None, covers=None):
     mature = repeated = observing = gap = unknown = 0
     covers = covers or (lambda a,b: covered(jobs, sites, a,b))

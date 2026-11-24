@@ -3,6 +3,7 @@ from user_weekly import WeeklyUnavailable
 from user_store import StoreUnavailable
 from user_member_index import IndexUnavailable
 from user_query import SummaryBusy
+from user_query_v4 import SnapshotVersionRetired
 
 
 def search(service, body, user):
@@ -11,7 +12,13 @@ def search(service, body, user):
     if service is None:
         return 503, {'error': 'users_not_enabled'}
     try:
-        return 200, service.search(body, user)
+        if not isinstance(body, dict):
+            raise ValueError('v4_email_fields')
+        args = dict(body)
+        source = args.pop('source', 'page')
+        if source not in ('page', 'connector'):
+            raise ValueError('v4_search_source')
+        return 200, service.v4.search(args, user, admin=source == 'connector')
     except PermissionError:
         return 403, {'error': 'scope_or_admin_required'}
     except IndexUnavailable:
@@ -22,6 +29,8 @@ def search(service, body, user):
         return 503, {'error': 'weekly_initial_publication_pending'}
     except LookupError:
         return 404, {'error': 'snapshot_not_found'}
+    except SnapshotVersionRetired:
+        return 422, {'error': 'snapshot_version_retired'}
     except (ValueError, TypeError):
         return 422, {'error': 'invalid_user_query'}
 
@@ -40,25 +49,28 @@ def get(service, path, params, user):
         if any(not isinstance(v, str) or len(v) > 160 for v in args.values()):
             raise ValueError('query_value')
         action = args.pop('action', 'summary' if path == '/users' else 'members')
-        for key in ('H', 'limit'):
+        for key in ('return_after', 'return_within', 'limit'):
             if key in args:
                 if not args[key].isdigit():
                     raise ValueError('query_integer')
                 args[key] = int(args[key])
         if path == '/users/private':
-            if action not in ('members', 'export', 'detail'):
-                raise ValueError('private_action')
-            return 200, getattr(service, action)(args, user)
-        if action == 'catalog' and not args:
-            return 200, service.catalog(user)
-        if action == 'tool':
-            from user_tools import invoke
-            return 200, invoke(service, user, args)
-        if action == 'connector_summary':
-            return service.summary_jobs.read(args, user)
-        if action != 'summary':
-            raise ValueError('public_action')
-        return 200, service.query(args, user)
+            admin = action.startswith('connector_')
+            action = action[len('connector_'):] if admin else action
+            if action == 'detail':
+                return 200, service.v4.detail(args, user, admin=admin)
+            if action in ('members', 'export') and (action != 'export' or not admin):
+                return 200, service.v4.members(args, user, admin=admin, export=action == 'export')
+            raise ValueError('private_action')
+        if action in ('catalog', 'connector_catalog') and not args:
+            return 200, service.v4.catalog(user, admin=action == 'connector_catalog')
+        if action in ('tool', 'connector_section'):
+            from user_tools import read_v4
+            return read_v4(service, user, args, wait_seconds=3 if action == 'connector_section' else 10,
+                           require_poll_section=action == 'connector_section')
+        if action in ('summary', 'connector_summary'):
+            return service.v4.get(args, user, wait_seconds=3 if action == 'connector_summary' else 10)
+        raise ValueError('public_action')
     except SummaryBusy:
         return 429, {'error': 'users_summary_busy', 'retryable': True, 'retryAfter': 5}
     except PermissionError:
@@ -71,6 +83,8 @@ def get(service, path, params, user):
         return 503, {'error': 'weekly_initial_publication_pending'}
     except LookupError:
         return 404, {'error': 'snapshot_not_found'}
+    except SnapshotVersionRetired:
+        return 422, {'error': 'snapshot_version_retired'}
     except (ValueError, TypeError):
         return 422, {'error': 'invalid_user_query'}
 

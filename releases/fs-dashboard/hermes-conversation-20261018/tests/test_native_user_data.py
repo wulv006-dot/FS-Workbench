@@ -89,7 +89,8 @@ class NativeUserRelay(unittest.TestCase):
     def test_actual_host_binding_context_and_b2_projection_do_not_create_goals(self):
         self.data()
         receipt=self.call('fs_query_user_analytics',dict(fixtures.SCOPE,start='2026-10-01',
-                         end_exclusive='2026-10-25',state_basis='period_end'))
+                         end_exclusive='2026-10-25'))
+        self.assertEqual(receipt['contract_version'],'fs-users-v4')
         snapshot=receipt['snapshot_id']
         page=self.call('fs_customer_candidates',{'snapshot_id':snapshot,'limit':1})
         cid=page['rows'][0]['opaque_customer_id']
@@ -120,9 +121,9 @@ class NativeUserRelay(unittest.TestCase):
     def test_default_global_snapshot_offers_explicit_customer_scope_without_selecting_one(self):
         self.data()
         catalog=self.call('fs_get_data_catalog',{})
-        for explicit in ({},{'scope':'global'},{'scope':'series','scope_id':'FC'}):
+        for explicit in ({},{'scope':'global'}):
             aggregate=self.call('fs_query_user_analytics',dict(start='2026-10-01',end_exclusive='2026-10-25',
-                                state_basis='period_end',**explicit))
+                                **explicit))
             self.assertEqual(aggregate['query']['scope'],explicit.get('scope','global'))
             snapshot=aggregate['snapshot_id']
             # This public schema's default is legal for aggregates, but must
@@ -141,7 +142,7 @@ class NativeUserRelay(unittest.TestCase):
                 selected=next(x for x in path['scope_choices'] if x['scope']==kind and
                               (kind=='site' or x['scope_id']==fixtures.SCOPE['scope_id']))
                 narrowed=self.call('fs_query_user_analytics',dict(start='2026-10-01',end_exclusive='2026-10-25',
-                                   state_basis='period_end',**selected))
+                                   **selected))
                 self.assertTrue(narrowed['customer_investigation']['snapshot_usable'])
                 page=self.call('fs_customer_candidates',{'snapshot_id':narrowed['snapshot_id'],'limit':1})
                 customer=page['rows'][0]['opaque_customer_id']
@@ -153,7 +154,7 @@ class NativeUserRelay(unittest.TestCase):
 
     def test_customer_scope_guidance_does_not_replace_private_or_run_authorization(self):
         self.data()
-        args=dict(start='2026-10-01',end_exclusive='2026-10-25',state_basis='period_end')
+        args=dict(start='2026-10-01',end_exclusive='2026-10-25')
         snapshot=self.call('fs_query_user_analytics',args)['snapshot_id']
         self.original.authorizer=lambda owner,scope,private:owner=='operator' and not private
         aggregate=self.call('fs_query_user_analytics',args)
@@ -165,7 +166,7 @@ class NativeUserRelay(unittest.TestCase):
 
     def test_scope_guidance_rechecks_binding_after_authorizer_io(self):
         self.data()
-        snapshot=self.call('fs_query_user_analytics',dict(start='2026-10-01',end_exclusive='2026-10-25',state_basis='period_end'))['snapshot_id']
+        snapshot=self.call('fs_query_user_analytics',dict(start='2026-10-01',end_exclusive='2026-10-25'))['snapshot_id']
         def revoke(owner,scope,private):
             if scope['scope']=='project' and private:self.host_allowed=False
             return owner=='operator'
@@ -244,21 +245,21 @@ class NativeUserRelay(unittest.TestCase):
             query_tool=registered['fs_query_user_analytics']
             self.assertIn('global',query_tool['schema']['parameters']['properties']['scope']['enum'])
             aggregate=json.loads(query_tool['handler'](
-                dict(start='2026-10-01',end_exclusive='2026-10-25',state_basis='period_end'),task_id=binding['turn_id']))
+                dict(start='2026-10-01',end_exclusive='2026-10-25'),task_id=binding['turn_id']))
             guidance=json.loads(registered['fs_customer_candidates']['handler'](
                 {'snapshot_id':aggregate['snapshot_id']},task_id=binding['turn_id']))
             self.assertEqual(guidance['reason'],'customer_snapshot_scope_required')
             self.assertIn('site',query_tool['schema']['description'])
             selected=next(x for x in guidance['customer_investigation']['scope_choices'] if x['scope']=='site')
             scoped=json.loads(query_tool['handler'](dict(start='2026-10-01',end_exclusive='2026-10-25',
-                state_basis='period_end',**selected),task_id=binding['turn_id']))
+                **selected),task_id=binding['turn_id']))
             page=json.loads(registered['fs_customer_candidates']['handler'](
                 {'snapshot_id':scoped['snapshot_id'],'limit':1},task_id=binding['turn_id']))
             described=json.loads(registered['fs_describe_customer']['handler'](
                 {'snapshot_id':scoped['snapshot_id'],'customer_id':page['rows'][0]['opaque_customer_id']},task_id=binding['turn_id']))
             self.assertEqual(described['status'],'observed')
             result=json.loads(registered['fs_query_user_analytics']['handler'](
-                dict(fixtures.SCOPE,start='2026-10-01',end_exclusive='2026-10-25',state_basis='period_end'),task_id=binding['turn_id']))
+                dict(fixtures.SCOPE,start='2026-10-01',end_exclusive='2026-10-25'),task_id=binding['turn_id']))
             self.assertTrue(result['snapshot_id'].startswith('us_'))
             wire_count=len(wire);self.assertEqual(wire_count,6)
             with self.assertRaises(PermissionError):registered['fs_query_user_analytics']['handler']({},task_id='another-turn')
