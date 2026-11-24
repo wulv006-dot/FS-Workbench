@@ -40,7 +40,7 @@ ctx = context_factory(
 | --- | --- |
 | `catalog()` | 返回宿主范围、旧 policies/definitions、旧组及 `current_aggregate` 的 v4 部分与参数。`can_read_private` 是当前 scope 下的交集权限。 |
 | `aggregate(query=None, section='summary', snapshot_id=None)` | query 与 snapshot_id 二选一。query 允许 start/end_exclusive/as_of/state_basis/policy_version/policy_mode/H；scope 由 host 固定，view 固定 summary。原 checked_query 决定日期与政策是否合法。section 支持 summary/coverage/trend/cohort/trajectories；不开放跨全局矩阵。 |
-| `candidates(snapshot_id, group='known_pool', cursor=None, limit=50)` | limit 严格整数 1–200；group 可为 known_pool/entered_silent/high_value_entered_silent。沿原 members 稳定 opaque ID 顺序，不是价值排名。 |
+| `candidates(snapshot_id, group='known_pool', cursor=None, limit=50)` | limit 严格整数 1–200；旧快照使用 known_pool/entered_silent/high_value_entered_silent；v4 用原快照中的组，省略 group 时读 stage:recent。沿原 members 稳定 opaque ID 顺序，不是价值排名。 |
 | `timeline(snapshot_id, opaque_customer_id, cursor=None, limit=50)` | 沿原 detail，仅投影该客户字段及事件 at/kind/stage。没有 email/uid/订单号/自由文本/原 orders。分页和 cursor 同样受 scope/snapshot/customer 约束。 |
 | `changes_due(baseline_snapshot_id, current_snapshot_id, observation_at, explicit_refs)` | 只消费同 scope 的两个冻结快照及 host 目标检查点。没有注册客户、自动回源、后台追踪或调度。具体时点合同见下文。 |
 

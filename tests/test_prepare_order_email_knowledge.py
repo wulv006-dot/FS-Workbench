@@ -140,7 +140,9 @@ class OverlayTest(unittest.TestCase):
             immutable_directories=[], runtime={u: {'ActiveState': 'active'}
                 for u in ('fs-hermes-fc.service', 'fs-business-range.service')})))
 
-        canonical = dict(entries=[row(identity, builder.CUSTOMER_LIFECYCLE_REVISION, 'customer.md', new_text)])
+        template = row(identity, builder.CUSTOMER_LIFECYCLE_REVISION, 'customer.md', new_text)
+        template['supersedes'] = [identity + '@old-customer']
+        canonical = dict(entries=[template])
         paths = {
             'knowledge/index.json': builder.encoded(canonical),
             builder.BASELINE_SOURCE: after,
@@ -173,6 +175,13 @@ class OverlayTest(unittest.TestCase):
         self.assertEqual([r for r in installed['entries'] if r['id'] != identity], index['entries'][:-1])
         native = json.loads((candidate / 'artifact/catalog-2/index.json').read_bytes())
         self.assertFalse(any(r['id'] == identity for r in native['entries']))
+
+        template['supersedes'] = []
+        paths['knowledge/index.json'] = builder.encoded(canonical)
+        with mock.patch.object(builder, 'git_bytes', side_effect=resolve):
+            with self.assertRaisesRegex(ValueError, 'customer_lifecycle_predecessor_changed'):
+                builder.prepare(ROOT, self.snapshot, self.base / 'invalid-predecessor', COMMIT,
+                                customer_lifecycle=True)
 
     def test_independent_catalogs_preserved_and_selected(self):
         result = self.prepare()

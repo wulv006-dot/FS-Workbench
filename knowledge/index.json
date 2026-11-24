@@ -55,7 +55,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fee18f1ede7ebe761004b21627482942add8eb642cea20a6587a82edeac4d2c1",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -186,7 +186,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fee18f1ede7ebe761004b21627482942add8eb642cea20a6587a82edeac4d2c1",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -273,7 +273,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fee18f1ede7ebe761004b21627482942add8eb642cea20a6587a82edeac4d2c1",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -362,7 +362,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fee18f1ede7ebe761004b21627482942add8eb642cea20a6587a82edeac4d2c1",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -748,7 +748,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fee18f1ede7ebe761004b21627482942add8eb642cea20a6587a82edeac4d2c1",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -868,7 +868,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fee18f1ede7ebe761004b21627482942add8eb642cea20a6587a82edeac4d2c1",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -956,7 +956,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fee18f1ede7ebe761004b21627482942add8eb642cea20a6587a82edeac4d2c1",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -1082,7 +1082,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fee18f1ede7ebe761004b21627482942add8eb642cea20a6587a82edeac4d2c1",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -1156,7 +1156,7 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/customer-tracking/BUYER-ID-CANDIDATES.md",
-        "sha256": "56e46d696d9bf3fb9c20baf869b1faa204b5bccea5a41e5160984df0ddaa1b9a",
+        "sha256": "d8fcdff0e349fb60c73fc923fabee971096f2d3f2da9f3e026fe896b7e5c2723",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 当前取数与维护",
@@ -1231,7 +1231,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fee18f1ede7ebe761004b21627482942add8eb642cea20a6587a82edeac4d2c1",
+        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",

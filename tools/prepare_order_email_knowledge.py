@@ -474,6 +474,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                 raise ValueError('snapshot_current_conflict:' + identity)
             if (fc_overlay or email_only or customer_lifecycle) and not existing:
                 continue
+            if customer_lifecycle and identity + '@' + existing[0]['revision'] not in template['supersedes']:
+                raise ValueError('customer_lifecycle_predecessor_changed:' + existing[0]['revision'])
             if margin_band_scope:
                 live = existing[0]
                 source = live['source']

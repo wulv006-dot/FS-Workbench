@@ -28,7 +28,7 @@
 
 ## 用户分析和客户维护（2026-11-25）
 
-- 用 `users.catalog` 确定当前范围与发布截止，`users.summary` 或 `analytics.user_section` 请求 `fs-users-v4`。FC 系列用 `game=series:FC`；`cohort_type` 控制首单批次，`customer_type` 控制阶段。返回 202 时汇总只传 `query_id`，分节另传 `section`。完成后按 `snapshot_id` 对数或读取获准名单。
+- 用 `users.catalog` 确定当前范围与发布截止，调用 `users.summary` 或 `analytics.user_section`，核返回的 `contract_version=fs-users-v4`。FC 系列用 `game=series:FC`；`cohort_type` 控制首单批次，`customer_type` 控制阶段。返回 202 时汇总只传 `query_id`，分节另传 `section`。完成后按 `snapshot_id` 对数或读取获准名单。
 - `customer_tracking.stage_groups` 查单款 FC27 的维护名单，单组须同时传 `tier`、`stage`、`customer_type`。返回 `total`、`offset`、`page_size` 与 `next_offset`，管理员可按原权限读取所在页邮箱。原有候选、观察及发券各按对应业务合同。
 
 取数口径见[用户生命周期](../../../knowledge/customer-tracking/BUYER-ID-CANDIDATES.md)。当前公开目录与原后端需分别验证。
