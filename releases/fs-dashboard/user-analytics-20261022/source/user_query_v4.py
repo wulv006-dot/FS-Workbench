@@ -17,7 +17,9 @@ from user_member_index import IndexUnavailable, build as build_member_index, mem
 VERSION = 'fs-users-v4'
 SECTIONS = ('summary', 'cohorts', 'stages', 'coverage')
 FIELDS = {'scope', 'scope_id', 'game', 'start', 'end_exclusive', 'cohort_start', 'cohort_end',
-          'windows', 'return_after', 'return_within', 'customer_type', 'repeat_status'}
+          'windows', 'return_after', 'return_within', 'customer_type', 'repeat_status', 'cohort_type'}
+# Cohort population: ES new customers (default), ES old customers, everyone, or new and old side by side.
+COHORT_TYPES = ('new', 'old', 'all', 'compare')
 SEGMENTS_PATH = '/var/lib/fs-customer-segments/segments.json'
 
 
@@ -80,9 +82,13 @@ def selection(args, config, cutoff):
     customer_type, repeat_status = args.get('customer_type', 'all'), args.get('repeat_status', 'all')
     if customer_type not in ('all', 'new', 'old', 'unknown') or repeat_status not in ('all', 'repeated', 'not_repeated'):
         raise ValueError('v4_stage_filter')
+    cohort_type = args.get('cohort_type', 'new')
+    if cohort_type not in COHORT_TYPES:
+        raise ValueError('v4_cohort_type')
     return dict(authorization_scope(args, game), game=game, start=start.isoformat(), end_exclusive=end.isoformat(),
                 cohort_start=cohort_start, cohort_end=cohort_end, windows=windows,
-                return_after=after, return_within=within, customer_type=customer_type, repeat_status=repeat_status)
+                return_after=after, return_within=within, customer_type=customer_type, repeat_status=repeat_status,
+                cohort_type=cohort_type)
 
 
 def section_result(value, section):
@@ -239,7 +245,15 @@ class UsersV4:
                 from user_query import SummaryBusy
                 raise SummaryBusy('users_publication_changed')
         people = customer_orders(orders, cutoff)
-        cohorts, cohort_members = analyze_cohorts(orders, jobs, query, cutoff, flags, people=people)
+        cohort_type = query.get('cohort_type', 'new')
+        primary = 'new' if cohort_type == 'compare' else cohort_type
+        cohorts, cohort_members = analyze_cohorts(orders, jobs, query, cutoff, flags, people=people, segment=primary)
+        cohorts['segment'] = primary
+        if cohort_type == 'compare':
+            # Old customers alongside new ones; their member groups carry the 'cohort:old:' prefix.
+            old, old_members = analyze_cohorts(orders, jobs, query, cutoff, flags, people=people, segment='old')
+            cohorts['compare'] = dict(segment='old', batches=old['batches'])
+            cohort_members = {**cohort_members, **old_members}
         stages, stage_members, records = analyze_stages(orders, jobs, query, cutoff, flags, segments, people=people)
         covered = complete_coverage(jobs)
         day = stamp(origin)
@@ -255,7 +269,9 @@ class UsersV4:
             orders = people[cid]
             first = orders[0][0]
             last = next(order[0] for order in reversed(orders) if query['game'] in ('all', order[2]))
-            records[cid] = dict(customer_id=cid, first_paid_at=first.isoformat(), customer_type='new',
+            flag = flags.get(orders[0][3]['order_no_hash'])
+            records[cid] = dict(customer_id=cid, first_paid_at=first.isoformat(),
+                                customer_type=flag if flag in ('new', 'old') else 'unknown',
                                 last_paid_at=last.isoformat(),
                                 stage=stage(last, observation, query['game'], segments, covered(last, cutoff)))
         detail_customer_types = {}

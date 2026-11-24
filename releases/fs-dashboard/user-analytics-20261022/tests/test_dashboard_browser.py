@@ -30,6 +30,8 @@ def summary(query):
         for days in windows:
             watching = observing if days >= 180 else 0
             gap = 2 if month == '2026-04' else 0
+            if month == '2026-03' and days >= 180:
+                gap = population  # every customer excluded: not the same as an empty cohort
             denominator = population - watching - gap
             numerator = min({30: 32, 90: 48}.get(days, 52), denominator)
             cells.append(dict(days=days, group=f'cohort:{month}:{days}', observing=watching, coverage_gap=gap,
@@ -46,13 +48,29 @@ def summary(query):
                             first_repeat=dict(boundaries=windows, counts=buckets),
                             silent_return=dict(after_days=after, within_days=within, numerator=returning,
                                                denominator=68 if population else 0, rate=returning/68 if population else None,
-                                               return_amount=dict(known_usd=str(returning * 47) if population else '0',
-                                                                  unknown_orders=int(month == '2026-04')))))
+                                               return_amount=dict(known_usd=None if month == '2026-01' else str(returning * 47) if population else '0',
+                                                                  unknown_orders=3 if month == '2026-01' else int(month == '2026-04')))))
+    cohort_type = query.get('cohort_type', ['new'])[0]
+    cohorts = dict(batches=batches)
+    if cohort_type == 'compare':
+        import copy
+        old = copy.deepcopy(batches)
+        for batch in old:
+            for cell in batch['windows']:
+                cell['group'] = 'cohort:old:' + batch['month'] + ':' + str(cell['days'])
+                cell['numerator'] = cell['numerator'] // 2
+                cell['rate'] = cell['numerator'] / cell['denominator'] if cell['denominator'] else None
+                if batch['month'] == '2026-06':
+                    # A month with old customers but no eligible new customers.
+                    cell.update(denominator=10, numerator=4, rate=.4)
+            if batch['month'] == '2026-06':
+                batch['first_repeat']['counts'] = [2, 1, 1, 6]
+        cohorts['compare'] = dict(segment='old', batches=old)
     return dict(contract_version='fs-users-v4', snapshot_id='browser-fixture', config_version=2,
-                observation_date='2026-11-23', query=dict(game=query['game'][0], windows=windows,
+                observation_date='2026-11-23', query=dict(game=query['game'][0], windows=windows, cohort_type=cohort_type,
                 return_after=after, return_within=within, start=query['start'][0], end_exclusive=query['end_exclusive'][0]),
                 coverage=dict(order_missing_days=1, new_customer_flags=dict(status='complete')),
-                cohorts=dict(batches=batches), stages=dict(
+                cohorts=cohorts, stages=dict(
                     stages=[dict(kind=kind, group=f'stage:{kind}', count=count) for kind, count in
                             [('recent', 20), ('silent', 12), ('lost', 5), ('long_lost', 2), ('unverified', 1)]],
                     inflow=[dict(kind='silent', group='entered:silent', count=12)],
@@ -80,7 +98,7 @@ def install(page):
                                                 projects={'1327': dict(label='FC27')}))
             return request.fulfill(json=summary(query))
         if name == 'private.json' and query['action'] == ['members']:
-            assert query['group'] == ['cohort:2026-04:180']
+            assert query['group'] in (['cohort:2026-04:180'], ['cohort:old:2026-04:180'])
             return request.fulfill(json=dict(total=1, next_cursor=None, rows=[
                 dict(email='cohort@example.invalid', customer_id='client', stage='recent',
                      window_status='denominator', in_numerator=True)]))
@@ -103,19 +121,72 @@ def check_page(browser, output=None):
     expect(page.locator('input[name=start]')).to_have_value('2026-08-26')
     expect(page.locator('#cross-flow')).not_to_have_attribute('open', '')
     expect(page.get_by_role('img', name='各批次回头率曲线')).to_be_visible()
+    # Demo layout: four cards, a conclusion line and charts; no dot-joined meta strings in cells.
+    expect(page.locator('#cohort-kpis .card')).to_have_count(4)
+    expect(page.locator('#repeat-finding')).to_contain_text('结论')
     page.get_by_role('button', name='2026-04 180 天，查看详情').click()
-    detail = page.get_by_role('dialog', name='2026-04 · 180 天')
-    expect(detail.locator('dl div').filter(has_text='覆盖缺口')).to_contain_text('2 人')
-    detail.get_by_role('button', name='查看名单').click()
-    expect(detail).to_be_hidden()
+    drill = page.locator('#cohort-drill')
+    expect(drill).to_contain_text('数据缺口 2 人')
+    drill.get_by_role('button', name='查看名单').click()
     expect(page.locator('#members')).to_contain_text('cohort@example.invalid')
     expect(page.get_by_role('button', name='导出 CSV')).to_be_enabled()
 
-    page.locator('input[name=windows]').fill('30,60')
+    # All return amounts unknown for 2026-01: no bar is drawn and the amount is not shown as $0.
+    expect(page.locator('#return-amounts svg rect')).to_have_count(4)
+    expect(page.locator('#return-amounts')).to_contain_text('含 3 笔金额未知')
+
+    # A window whose customers are all in a coverage gap stays inspectable.
+    all_gap = page.get_by_role('button', name='2026-03 180 天，查看详情')
+    expect(all_gap).to_contain_text('数据缺口 98')
+    all_gap.click()
+    expect(page.locator('#cohort-drill')).to_contain_text('数据缺口 98 人')
+
+    # The 2026-04 coverage gap is reported next to the first-repeat distribution.
+    expect(page.locator('#first-repeat-basis')).to_contain_text('有 2 人因订单数据缺口未计入')
+    expect(page.locator('#first-repeat')).to_contain_text('数据缺口未计入')
+
+    # Coverage gaps (2026-03, 2026-04) and customers still under observation (2026-05) mark both return charts.
+    expect(page.locator('#return-rates svg text', has_text='部分')).to_have_count(3)
+    expect(page.locator('#return-amounts svg text', has_text='部分')).to_have_count(4)
+
+    # New-versus-old comparison: cells show the old-customer rate, the drill offers both lists.
+    page.get_by_role('radio', name='新老对比').check()
+    expect(page.locator('#repeat-title')).to_contain_text('新老客')
+    expect(page.locator('#segment-note')).to_be_visible()
+    expect(page.locator('#cohort-heat')).to_contain_text('老客')
+    expect(page.locator('#cohort-kpis')).to_contain_text('老客')
+    old_only = page.get_by_role('button', name='2026-06 30 天，查看详情')
+    expect(old_only).to_be_enabled()
+    expect(old_only).to_contain_text('老客 40.0%')
+    # A mature old-customer month is shown even when that month has no mature new customers.
+    expect(page.locator('#first-repeat')).to_contain_text('2026-06 老')
+    expect(page.locator('#first-repeat')).not_to_contain_text('2026-06 新')
+    if output:
+        page.screenshot(path=output / 'users-compare.png', full_page=True, animations='disabled')
+    # Each population reports its own excluded customers in comparison mode.
+    expect(page.locator('#first-repeat-basis')).to_contain_text('有 4 人')
+    page.get_by_role('button', name='2026-04 180 天，查看详情').click()
+    page.locator('#cohort-drill').get_by_role('button', name='查看老客名单').click()
+    expect(page.locator('#members')).to_contain_text('cohort@example.invalid')
+    # Only an old-customer month selected: the curve still draws the old-customer line.
+    page.locator('input[name=cohort_start]').fill('2026-06')
+    page.locator('input[name=cohort_end]').fill('2026-06')
+    page.locator('#run-query').click()
+    expect(page.locator('#repeat-curve')).to_contain_text('2026-06 老客')
+    expect(page.locator('#repeat-curve')).not_to_contain_text('2026-06 新客')
+    page.locator('input[name=cohort_start]').fill('2026-01')
+    page.locator('input[name=cohort_end]').fill('2026-06')
+    page.get_by_role('radio', name='新客').check()
+    expect(page.locator('#segment-note')).to_be_hidden()
+
+    page.locator('input[name=w2]').fill('60')
+    page.locator('input[name=w3]').fill('')
     page.locator('#run-query').click()
     expect(page.locator('#cohort-kpis')).to_contain_text('2026-04')
     expect(page.locator('#cohort-heat')).to_contain_text('60 天')
     expect(page.locator('#cohort-heat')).not_to_contain_text('180 天')
+    # The 180-day return window now comes from the reference query; partial markers survive.
+    expect(page.locator('#return-rates svg text', has_text='部分')).to_have_count(3)
     page.locator('input[name=cohort_end]').fill('2026-03')
     page.locator('#run-query').click()
     expect(page.locator('#cohort-kpis')).to_contain_text('2026-03')

@@ -326,7 +326,10 @@ def amount_summary(purchases):
                 unknown_orders=len(purchases) - len(known))
 
 
-def cohort_groups(batches, people, covered, query, cutoff, flags):
+COHORT_SEGMENTS = ('new', 'old', 'all')
+
+
+def cohort_groups(batches, people, covered, query, cutoff, flags, segment='new'):
     from customer_segments import is_repeat
 
     windows = query['windows']
@@ -340,8 +343,12 @@ def cohort_groups(batches, people, covered, query, cutoff, flags):
             continue
         batch = batches[month]
         flag = flags.get(first[3]['order_no_hash'])
-        if flag != 'new':
-            batch['pending_classification'] += flag != 'old'
+        if flag not in ('new', 'old'):
+            # ES flag missing or conflicting: counted as pending, kept only in the everyone view.
+            batch['pending_classification'] += 1
+            if segment != 'all':
+                continue
+        elif segment != 'all' and flag != segment:
             continue
         repeats = [order for order in purchases[1:] if query['game'] in ('all', order[2])
                    and is_repeat(first[0], order[0])]
@@ -375,14 +382,21 @@ def cohort_groups(batches, people, covered, query, cutoff, flags):
     return members
 
 
-def analyze_cohorts(orders, jobs, query, cutoff, flags, *, people=None):
-    """Build cohort window statistics and the matching frozen membership."""
+def analyze_cohorts(orders, jobs, query, cutoff, flags, *, people=None, segment='new'):
+    """Build cohort window statistics and the matching frozen membership.
+
+    segment: 'new' (ES new-customer first orders), 'old' (ES old-customer first orders,
+    batched by their first purchase in the covered history) or 'all' (everyone).
+    """
+    if segment not in COHORT_SEGMENTS:
+        raise ValueError('cohort_segment')
+    prefix = 'cohort:' if segment == 'new' else 'cohort:' + segment + ':'
     windows = query['windows']
     year, month = map(int, query['cohort_start'].split('-'))
     batches = {}
     while (key := f'{year:04d}-{month:02d}') <= query['cohort_end']:
         batches[key] = dict(month=key, pending_classification=0,
-                            windows=[dict(days=days, group=f'cohort:{key}:{days}', numerator=0,
+                            windows=[dict(days=days, group=f'{prefix}{key}:{days}', numerator=0,
                                           denominator=0, observing=0, coverage_gap=0, amount_orders=[])
                                      for days in windows],
                             first_repeat=dict(boundaries=windows, counts=[0] * (len(windows) + 1)),
@@ -390,7 +404,7 @@ def analyze_cohorts(orders, jobs, query, cutoff, flags, *, people=None):
                                                numerator=0, denominator=0, amount_orders=[]))
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)
     members = cohort_groups(batches, people if people is not None else customer_orders(orders, cutoff),
-                            complete_coverage(jobs), query, cutoff, flags)
+                            complete_coverage(jobs), query, cutoff, flags, segment)
     for batch in batches.values():
         for window in batch['windows']:
             members[window['group']]

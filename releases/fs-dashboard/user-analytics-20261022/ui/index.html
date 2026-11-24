@@ -7,128 +7,175 @@
   <title>用户分析 · FS</title>
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
-  <link rel="stylesheet" href="./users.css?v=20261124-redesign">
+  <link rel="stylesheet" href="./users.css?v=20261124-demo">
   <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
   <script defer src="/__hub/hubnav.js"></script>
-  <script type="module" src="./users.js?v=20261124-redesign"></script>
+  <script type="module" src="./users.js?v=20261124-demo"></script>
 </head>
 <body class="fs-ui-page" data-fs-module="users">
   <a class="skip-link" href="#main">跳到主内容</a>
-  <header>
-    <div><h1>用户分析</h1><p id="metadata">正在读取数据截止日</p></div>
-    <label>显示主题<select id="theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
-  </header>
-  <main id="main" tabindex="-1">
-    <details class="panel page-guide">
-      <summary>这页能回答什么？</summary>
-      <div class="guide-grid">
-        <p><a href="#repeat-title">回头率</a> 看不同月份的新客多久会买第二单。</p>
-        <p><a href="#return-title">沉默后回流</a> 看首单后一段时间没回购的人有没有回来。</p>
-        <p><a href="#stage-title">客户健康</a> 看期间购买客户的现状、流入和回流。</p>
-      </div>
-    </details>
-    <div id="cohort-kpis" class="kpi-grid" aria-label="最近满 180 天批次关键数据" hidden></div>
-    <form id="filters" aria-label="用户分析筛选">
-      <section class="panel" aria-labelledby="repeat-title">
-        <h2 id="repeat-title">回头率<span>新客多久会买第二单</span></h2>
-        <div class="filter-band">
-          <div class="fields">
-            <label>游戏<select name="game"><option value="all">全部游戏</option></select></label>
-            <label>首单月份起<input name="cohort_start" type="month" required></label>
-            <label>首单月份止<input name="cohort_end" type="month" required></label>
-          </div>
-          <div class="sentence">看这批新客首单后 <input name="windows" value="30,90,180" pattern="[0-9]{1,3}(,[0-9]{1,3}){0,4}" aria-label="回头率时间窗" aria-describedby="window-hint" required> 天内买第二单的比例。
-            <button type="submit" id="run-query" disabled>应用筛选</button>
-          </div>
-          <p id="window-hint" class="muted">时间窗按天数升序填写，最多 5 个。</p>
+  <div class="wrap">
+    <header class="top">
+      <div><h1>用户分析</h1><p class="sub" id="metadata">正在读取数据截止日</p></div>
+      <label class="theme-pick">显示主题<select id="theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
+    </header>
+    <main id="main" tabindex="-1">
+      <details class="card guide">
+        <summary>这页能回答什么？（30 秒看懂）</summary>
+        <div class="guide-grid">
+          <div><b>① 客户会不会回来买</b>某个月来的客户，首单后 30 / 90 / 180 天内有多少人买了第二单。看<a href="#repeat-title">「回头率」</a>。</div>
+          <div><b>② 沉默后会不会被拉回来</b>首单后很久没买的人，后来有没有回来（例如新赛季）。看<a href="#return-title">「沉默后回流」</a>。</div>
+          <div><b>③ 现在的客户健不健康</b>最近买过的客户里，多少人还活跃、多少人开始沉默或流失，每天有多少人回流。看<a href="#stage-title">「客户健康」</a>。</div>
         </div>
-        <p id="query-status" role="status" aria-live="polite"></p>
-        <div id="cohorts" hidden>
-          <p class="finding" id="repeat-finding"></p>
-          <div class="chart-grid cohort-grid">
-            <section class="plot">
-              <h3>回头率曲线</h3><p class="muted">每条线代表一个首单批次，缺失节点留空。</p>
-              <div id="repeat-curve"></div>
-            </section>
-            <section class="plot">
-              <h3>回头率热力表</h3><p class="muted">点击格子查看分母、覆盖、金额和名单。斜纹表示仍在观察或覆盖有缺口。</p>
-              <div id="cohort-heat" class="table-scroll" tabindex="0" role="region" aria-label="批次回头率热力表"></div>
-            </section>
+      </details>
+
+      <div id="cohort-kpis" class="cards" aria-label="关键数据" hidden></div>
+      <p id="query-status" class="status" role="status" aria-live="polite"></p>
+
+      <form id="filters" aria-label="用户分析筛选">
+        <section class="mod" aria-labelledby="repeat-title">
+          <div class="mod-head"><h2 id="repeat-title">回头率：<span data-who>新客</span>多久会买第二单</h2>
+            <p class="q">按首单月份分批，看首单后 N 天内买过第二单的人占多少（累计，越往后越高）</p></div>
+          <fieldset class="segments" aria-label="看哪类客户">
+            <legend>看哪类客户</legend>
+            <label><input type="radio" name="cohort_type" value="new" checked><span>新客</span></label>
+            <label><input type="radio" name="cohort_type" value="old"><span>老客</span></label>
+            <label><input type="radio" name="cohort_type" value="all"><span>全部客户</span></label>
+            <label><input type="radio" name="cohort_type" value="compare"><span>新老对比</span></label>
+          </fieldset>
+          <div class="controls"><p class="sentence">看
+            <select name="game" aria-label="游戏"><option value="all">全部游戏</option></select>
+            首单在 <input name="cohort_start" type="month" aria-label="首单月份起" required>
+            到 <input name="cohort_end" type="month" aria-label="首单月份止" required> 的客户，首单后
+            <input class="num" name="w1" type="number" min="2" max="365" value="30" aria-label="时间窗 1（天）" required> /
+            <input class="num" name="w2" type="number" min="2" max="365" value="90" aria-label="时间窗 2（天）"> /
+            <input class="num" name="w3" type="number" min="2" max="365" value="180" aria-label="时间窗 3（天）"> 天内的回头率
+            <button type="submit" id="run-query" class="primary" disabled>查询</button></p>
           </div>
-          <section class="plot">
-            <h3>第一次回购发生在什么时候</h3>
-            <p id="first-repeat-basis" class="muted"></p><div id="first-repeat"></div>
-          </section>
-          <details class="how">
-            <summary>这块怎么读？</summary>
-            <div class="how-body">
-              <p>每批是同月站内首单且 ES 确认是新客的人。两单相隔至少 24 小时才算回购。各窗分母只含已满期且覆盖完整的客户。</p>
-              <p class="example" id="repeat-example"></p>
+          <p id="segment-note" class="note" hidden></p>
+          <div id="cohorts" hidden>
+            <p class="finding" id="repeat-finding"></p>
+            <div class="grid2">
+              <section class="panel">
+                <h3>回头率曲线（每条线是一批客户）</h3>
+                <p class="hint">横轴：首单后天数；纵轴：已买第二单的比例。线越高，这批客户越愿意回来。</p>
+                <div id="repeat-curve"></div>
+              </section>
+              <section class="panel">
+                <h3>回头率热力表</h3>
+                <p class="hint">颜色越深回头率越高；斜纹格表示时间还没到，暂时算不出。点格子看详情和名单。</p>
+                <div id="cohort-heat" class="table-scroll" tabindex="0" role="region" aria-label="批次回头率热力表"></div>
+                <ul class="legend" id="heat-legend"></ul>
+                <div class="drill" id="cohort-drill" aria-live="polite">点任意格子，这里显示该格的人数、复购金额和名单入口。</div>
+              </section>
             </div>
-          </details>
-        </div>
-      </section>
-      <section class="panel" aria-labelledby="return-title">
-        <h2 id="return-title">沉默后回流<span>一段时间没买的人，后来回来了吗</span></h2>
-        <div class="filter-band sentence">首单后 <input name="return_after" type="number" min="2" max="364" value="60" aria-label="沉默期（天）" required> 天内没买第二单的人，到第 <input name="return_within" type="number" min="3" max="365" value="180" aria-label="回流截止（天）" required> 天内有多少回来下单？
-          <button type="submit">应用回流参数</button>
-        </div>
-        <div id="returns" hidden>
-          <div id="return-timeline"></div>
-          <p class="finding" id="return-finding"></p>
-          <div class="chart-grid">
-            <section class="plot"><h3>各批次沉默后回流率</h3><p class="muted">分母为前段没有回购、已满回流窗且覆盖完整的客户。</p><div id="return-rates"></div></section>
-            <section class="plot"><h3>回流带来的复购金额</h3><p class="muted">回流时间窗内已知复购订单金额（USD）。</p><div id="return-amounts"></div></section>
+            <section class="panel spaced">
+              <h3>第一次回购发生在什么时候</h3>
+              <p class="hint" id="first-repeat-basis"></p>
+              <div id="first-repeat"></div>
+            </section>
+            <details class="how"><summary>这块怎么读？</summary>
+              <div class="how-body">
+                <ol>
+                  <li>每一批 = 站内首单落在同一个月的客户；「新客」「老客」按首单上的 ES 标记区分。</li>
+                  <li>回购 = 首单后<b>满 24 小时</b>的另一笔有效订单（当天补单不算）。</li>
+                  <li>只用「时间已满且数据完整」的客户算比例；没满的人不进分母，显示为斜纹。</li>
+                  <li>三个天数节点可以改；选「新老对比」时，格子大字是新客，小字是老客。</li>
+                </ol>
+                <p class="example" id="repeat-example"></p>
+              </div>
+            </details>
           </div>
-          <details class="how">
-            <summary>这块怎么读？</summary>
-            <div class="how-body"><p>先在已满回流窗且覆盖完整的客户中找前段未复购的人，再看这些人有多少在后段下单。是否受赛季或活动影响需结合游戏与日期核对。</p><p class="example" id="return-example"></p></div>
-          </details>
-        </div>
-      </section>
-      <section class="panel" aria-labelledby="stage-title">
-        <h2 id="stage-title">客户健康<span>最近买过的客户现在怎么样</span></h2>
-        <div class="filter-band fields">
-          <label>期间起<input name="start" type="date" required></label>
-          <label>期间止（含）<input name="end" type="date" required></label>
-          <label>新老客<select name="customer_type"><option value="all">全部</option><option value="new">新客</option><option value="old">老客</option><option value="unknown">待核</option></select></label>
-          <label>是否复购<select name="repeat_status"><option value="all">全部</option><option value="repeated">已复购</option><option value="not_repeated">未复购</option></select></label>
-          <button type="submit">应用客户健康筛选</button>
-        </div>
-        <div id="stages" hidden>
-          <p id="stage-basis" class="muted"></p>
-          <p class="finding" id="stage-finding"></p>
-          <div class="chart-grid">
-            <section class="plot"><h3 id="stage-chart-title">客户状态分布</h3><div id="stage-distribution"></div><ul class="metric-list" id="stage-counts"></ul></section>
-            <section class="plot"><h3>每日回流人数</h3><div id="return-trend"></div></section>
+        </section>
+
+        <section class="mod" aria-labelledby="return-title">
+          <div class="mod-head"><h2 id="return-title">沉默后回流：一段时间没买的人，后来回来了吗</h2>
+            <p class="q">用来验证「1–2 个月沉默，新赛季又回来」</p></div>
+          <div class="controls"><p class="sentence">首单后
+            <input class="num" name="return_after" type="number" min="2" max="364" value="60" aria-label="沉默天数" required>
+            天内没买第二单的人，在第 <b data-after-next>61</b> 到
+            <input class="num" name="return_within" type="number" min="3" max="365" value="180" aria-label="回流截止天数" required>
+            天之间回来下单的比例
+            <button type="submit" class="primary">应用</button></p>
           </div>
-          <details><summary>本期流入与回流</summary><h3>本期流入</h3><ul class="metric-list" id="stage-inflow"></ul><h3>本期回流</h3><ul class="metric-list" id="stage-returns"></ul></details>
-          <details id="cross-flow"><summary>跨游戏流向</summary><div id="cross-table" class="table-scroll" tabindex="0" role="region" aria-label="跨游戏流向"></div></details>
-          <details class="how"><summary>这块怎么读？</summary><div class="how-body"><p>状态由末购日距观察日的天数决定，覆盖缺口计入待核。每日回流按人和上海自然日去重，区间人数从「本期回流」读取。</p><p class="example" id="stage-example"></p></div></details>
-        </div>
-      </section>
-    </form>
-    <section class="panel" aria-labelledby="person-title">
-      <h2 id="person-title">查人</h2>
-      <form id="email-search" method="post" action="/dashboard/users/search.json" aria-labelledby="person-title" class="fields filter-band">
-        <label>客户完整邮箱<input type="email" name="email" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="320" required></label>
-        <button type="submit" disabled>查购买记录</button>
+          <div id="returns" hidden>
+            <div id="return-timeline"></div>
+            <p class="finding" id="return-finding"></p>
+            <div class="grid2">
+              <section class="panel"><h3>各批次沉默后回流率</h3><p class="hint">柱高 = 回流率；柱上数字 = 回来的人数 / 沉默的人数。</p><div id="return-rates"></div></section>
+              <section class="panel"><h3>回流带来的复购金额</h3><p class="hint">回流窗口内的复购订单金额合计（USD）。</p><div id="return-amounts"></div></section>
+            </div>
+            <details class="how"><summary>这块怎么读？</summary>
+              <div class="how-body">
+                <ol>
+                  <li>先找出首单后<b>前 N 天内一直没回购</b>的人（沉默的人）。</li>
+                  <li>再看他们在<b>回流窗口</b>里有没有回来下单。</li>
+                  <li>只统计首单已满回流截止天数、且数据完整的批次。</li>
+                  <li>这里的截止天数和「回头率」里的节点是各自独立的设置。</li>
+                </ol>
+                <p class="example" id="return-example"></p>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <section class="mod" aria-labelledby="stage-title">
+          <div class="mod-head"><h2 id="stage-title">客户健康：最近买过的客户现在怎么样</h2>
+            <p class="q">不分首单月份，看所选期间买过的客户：多少还活跃，多少开始沉默或流失，每天有多少人回来</p></div>
+          <div class="controls"><p class="sentence">近
+            <select name="period" aria-label="期间"><option value="30">30 天</option><option value="90" selected>90 天</option><option value="180">180 天</option><option value="custom">自定义</option></select>
+            <span id="custom-period" hidden>（<input name="start" type="date" aria-label="期间起"> 至 <input name="end" type="date" aria-label="期间止（含）">）</span>
+            买过的
+            <select name="customer_type" aria-label="新老客"><option value="all">全部客户</option><option value="new">新客</option><option value="old">老客</option><option value="unknown">待核</option></select>
+            ，<select name="repeat_status" aria-label="是否复购"><option value="all">不论是否复购</option><option value="repeated">已复购</option><option value="not_repeated">未复购</option></select>
+            的状态
+            <button type="submit" class="primary">应用</button></p>
+          </div>
+          <div id="stages" hidden>
+            <p class="hint" id="stage-basis"></p>
+            <div class="grid2">
+              <section class="panel"><h3 id="stage-chart-title">客户状态分布</h3>
+                <p class="hint">按距最后一次购买的天数分组。点下方数字查看名单。</p>
+                <div id="stage-distribution"></div><ul class="chips" id="stage-counts"></ul></section>
+              <section class="panel"><h3>每日回流人数</h3>
+                <p class="hint">回流 = 隔了较长时间又来买。曲线上冲的日子，常对应活动或赛季开启。</p>
+                <div id="return-trend"></div></section>
+            </div>
+            <p class="finding" id="stage-finding"></p>
+            <details><summary>本期流入与回流</summary><h3>本期新进入</h3><ul class="chips" id="stage-inflow"></ul><h3>本期回流</h3><ul class="chips" id="stage-returns"></ul></details>
+            <details id="cross-flow"><summary>跨游戏流向</summary><div id="cross-table" class="table-scroll" tabindex="0" role="region" aria-label="跨游戏流向"></div></details>
+            <details class="how"><summary>这块怎么读？</summary>
+              <div class="how-body">
+                <ol>
+                  <li>只看所选期间内至少买过一单的客户。</li>
+                  <li>状态按距最后一次购买的天数划分，天数门槛见上方说明。</li>
+                  <li>每日回流按人和自然日去重，不同日期的人数不能相加。</li>
+                </ol>
+                <p class="example" id="stage-example"></p>
+              </div>
+            </details>
+          </div>
+        </section>
       </form>
-      <p id="email-status" role="status" aria-live="polite"></p>
-      <div id="member-panel" hidden>
-        <div class="section-heading"><h3 id="member-title" tabindex="-1">名单</h3><button type="button" id="export">导出 CSV</button></div>
-        <p id="member-status" role="status" aria-live="polite"></p>
-        <div id="members" class="table-scroll" tabindex="0" role="region" aria-label="客户名单"></div>
-        <div class="pager"><button type="button" id="previous">上一页</button><button type="button" id="next">下一页</button></div>
-      </div>
-    </section>
-  </main>
-  <dialog id="cohort-detail" aria-labelledby="cohort-detail-title">
-    <div class="section-heading"><h2 id="cohort-detail-title"></h2><form method="dialog"><button autofocus>关闭</button></form></div>
-    <dl id="cohort-detail-metrics"></dl><button type="button" id="cohort-members">查看名单</button>
-  </dialog>
+
+      <section class="mod" aria-labelledby="person-title">
+        <div class="mod-head"><h2 id="person-title">查人</h2><p class="q">输入完整邮箱，查看这位客户的购买时间线</p></div>
+        <form id="email-search" class="controls row" method="post" action="/dashboard/users/search.json" aria-labelledby="person-title">
+          <input class="wide" type="email" name="email" placeholder="客户完整邮箱" aria-label="客户完整邮箱" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="320" required>
+          <button type="submit" disabled>查购买记录</button>
+        </form>
+        <p id="email-status" class="status" role="status" aria-live="polite"></p>
+        <div id="member-panel" class="panel spaced" hidden>
+          <div class="row between"><h3 id="member-title" tabindex="-1">名单</h3><button type="button" id="export">导出 CSV</button></div>
+          <p id="member-status" class="status" role="status" aria-live="polite"></p>
+          <div id="members" class="table-scroll" tabindex="0" role="region" aria-label="客户名单"></div>
+          <div class="row"><button type="button" id="previous">上一页</button><button type="button" id="next">下一页</button></div>
+        </div>
+      </section>
+    </main>
+  </div>
   <dialog id="customer-detail" aria-labelledby="detail-title">
-    <div class="section-heading"><h2 id="detail-title">客户购买记录</h2><form method="dialog"><button autofocus>关闭</button></form></div>
+    <div class="row between"><h2 id="detail-title">客户购买记录</h2><form method="dialog"><button autofocus>关闭</button></form></div>
     <p id="detail-email"></p>
     <h3>时间线</h3><div id="detail-timeline" class="table-scroll" tabindex="0" role="region" aria-label="时间线"></div>
     <h3>有效订单</h3><div id="detail-orders" class="table-scroll" tabindex="0" role="region" aria-label="有效订单"></div>
