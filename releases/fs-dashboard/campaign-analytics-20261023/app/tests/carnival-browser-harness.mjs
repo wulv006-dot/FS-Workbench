@@ -39,7 +39,7 @@ export function mainSite({signedIn=true}={}){
     saleprop:Object.fromEntries(variants.map(sku=>[sku.id,sku]))}]:[];
    return {goods:{index:{total:list.length,perpage:28,list}}};
   }
-  const ids={9623:[163329311,163329277,163329345],9627:[170015253,170015245,170015249,170017913,170015181,170015205],9661:[165167189],6955:[105267633],9991:[187090053,187090087],10079:[186209371],1338:[186208657],3955:[170070065],7111:[185981107,185981139,185981171]}[form.get('category_id')]||[];
+  const ids={9623:[163329311,163329277,163329345],9627:[187669759,187669747,187669711,187669879],9661:[165167189],6955:[105267633],9991:[187090053,187090087],10079:[186209371],1338:[186208657],3955:[170070065],7111:[185981107,185981139,185981171]}[form.get('category_id')]||[];
   return {goods:{index:{total:ids.length,perpage:28,list:ids.map(row)}}};
  }
  // Tier coupons (Admin 档位配券): spend-checked by the main site, as in its API document.
