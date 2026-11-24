@@ -38,13 +38,17 @@ def thresholds(gid, config):
 
 def stage(last_paid_at, observation_date, gid, config, covered):
     """Classify the customer at the observation day in Shanghai."""
-    if not covered:
+    if not covered and last_paid_at is None:
         return "unverified"
     if isinstance(observation_date, str):
         observation_date = date.fromisoformat(observation_date)
     if isinstance(observation_date, datetime):
         observation_date = _shanghai_time(observation_date).date()
     days = (observation_date - _shanghai_time(last_paid_at).date()).days
+    if days < 0:
+        raise ValueError("last payment is after observation date in Shanghai")
+    if not covered:
+        return "unverified"
     return _STAGES[sum(days >= point for point in thresholds(gid, config))]
 
 
@@ -94,7 +98,7 @@ def _check_gid(gid):
 def _validate_config(config):
     if not isinstance(config, dict) or set(config) != _CONFIG_FIELDS:
         raise ValueError("config must contain exactly version, stages, and tiers")
-    if type(config["version"]) is not int or config["version"] < _DEFAULT_VERSION:
+    if type(config["version"]) is not int or config["version"] <= _DEFAULT_VERSION:
         raise ValueError("invalid config version")
     if not isinstance(config["stages"], dict) or not isinstance(config["tiers"], dict):
         raise ValueError("stages and tiers must be objects keyed by game ID")
@@ -124,6 +128,10 @@ def _unique_object(pairs):
     return obj
 
 
+def _encode_config(config):
+    return (json.dumps(config, sort_keys=True, allow_nan=False, default=str) + "\n").encode("utf-8")
+
+
 def _decode_config(payload):
     # Keep fractional JSON numbers exact and the loaded configuration JSON-serializable.
     config = json.loads(payload.decode("utf-8"), parse_float=str, object_pairs_hook=_unique_object)
@@ -143,6 +151,14 @@ def load_config(path):
 
 class ConfigVersionConflict(ValueError):
     """The active configuration changed since the caller read it."""
+
+
+class ConfigCommitUnknown(RuntimeError):
+    """The new config is visible but syncing its directory failed."""
+
+    def __init__(self, version):
+        self.version = version
+        super().__init__(f"could not confirm durability of config version {version}")
 
 
 def _lock_writer(stream):
@@ -167,7 +183,7 @@ def _sync_directory(directory):
             os.close(fd)
 
 
-def _atomic_write(path, payload):
+def _atomic_replace(path, payload):
     temporary = NamedTemporaryFile(
         mode="wb", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False
     )
@@ -178,9 +194,9 @@ def _atomic_write(path, payload):
             temporary.flush()
             os.fsync(temporary.fileno())
         os.replace(temp_path, path)
-        _sync_directory(path.parent)
-    finally:
+    except BaseException:
         temp_path.unlink(missing_ok=True)
+        raise
 
 
 def _archive(path, version, payload):
@@ -190,11 +206,12 @@ def _archive(path, version, payload):
     try:
         archived = target.read_bytes()
     except FileNotFoundError:
-        _atomic_write(target, payload)
+        _atomic_replace(target, payload)
     else:
         if archived != payload:
             raise ValueError(f"history already contains different data for version {version}")
-    # Persist the history directory entry before replacing the live configuration.
+    # Sync even when retrying an archive already present from an interrupted write.
+    _sync_directory(history)
     _sync_directory(path.parent)
 
 
@@ -203,10 +220,11 @@ def write_config(path, config, expected_version):
     _validate_config(config)
     if type(expected_version) is not int or expected_version < _DEFAULT_VERSION:
         raise ValueError("invalid expected config version")
-    if config["version"] != expected_version + 1:
+    new_version = config["version"]
+    if new_version != expected_version + 1:
         raise ValueError("new config version must equal expected_version + 1")
 
-    payload = (json.dumps(config, sort_keys=True, allow_nan=False, default=str) + "\n").encode("utf-8")
+    payload = _encode_config(config)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_name(f".{path.name}.lock").open("a+b") as lock:
@@ -214,10 +232,19 @@ def write_config(path, config, expected_version):
         try:
             previous = path.read_bytes()
         except FileNotFoundError:
-            previous = None
-        current_version = _DEFAULT_VERSION if previous is None else _decode_config(previous)["version"]
+            current_version = _DEFAULT_VERSION
+            previous = _encode_config(_default_config())
+        else:
+            current_version = _decode_config(previous)["version"]
         if current_version != expected_version:
             raise ConfigVersionConflict(f"expected config version {expected_version}, found {current_version}")
-        if previous is not None:
-            _archive(path, current_version, previous)
-        _atomic_write(path, payload)
+        if current_version == _DEFAULT_VERSION:
+            # A prior attempt may have created ancestors without syncing their entries.
+            for parent in path.parent.absolute().parents:
+                _sync_directory(parent)
+        _archive(path, current_version, previous)
+        _atomic_replace(path, payload)
+        try:
+            _sync_directory(path.parent)
+        except OSError as error:
+            raise ConfigCommitUnknown(new_version) from error

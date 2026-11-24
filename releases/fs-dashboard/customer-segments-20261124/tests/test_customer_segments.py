@@ -1,17 +1,39 @@
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+import multiprocessing
 import os
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
-from threading import Barrier
 import unittest
 from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "source"))
 import customer_segments as segments
+
+
+def _exit_before_live_replace(path, config):
+    replace = os.replace
+
+    def interrupt_live_replace(source, target):
+        if target == path:
+            os._exit(23)
+        return replace(source, target)
+
+    with patch.object(segments.os, "replace", side_effect=interrupt_live_replace):
+        segments.write_config(path, config, expected_version=config["version"] - 1)
+
+
+def _write_concurrently(path, points, start, results):
+    config = {"version": 1, "stages": {"1327": points}, "tiers": {}}
+    start.wait()
+    try:
+        segments.write_config(path, config, expected_version=0)
+    except segments.ConfigVersionConflict:
+        results.put(("conflict", config))
+    else:
+        results.put(("committed", config))
 
 
 class SegmentationTests(unittest.TestCase):
@@ -35,6 +57,24 @@ class SegmentationTests(unittest.TestCase):
         last_paid = datetime(2026, 11, 8, 16, tzinfo=timezone.utc)
         self.assertEqual(segments.stage(last_paid, "2026-11-22", 1327, {"stages": {}}, True), "recent")
         self.assertEqual(segments.stage("2026-11-08T16:00:00Z", date(2026, 11, 23), 1327, {"stages": {}}, True), "silent")
+
+    def test_stage_crosses_shanghai_midnight_with_utc_inputs(self):
+        last_paid = datetime(2026, 11, 8, 15, 59, 59, tzinfo=timezone.utc)
+        for observed_at, expected in (
+            (datetime(2026, 11, 21, 15, 59, 59, tzinfo=timezone.utc), "recent"),
+            (datetime(2026, 11, 21, 16, tzinfo=timezone.utc), "silent"),
+        ):
+            with self.subTest(observed_at=observed_at):
+                self.assertEqual(segments.stage(last_paid, observed_at, 1327, {"stages": {}}, True), expected)
+
+    def test_stage_rejects_last_payment_on_a_later_shanghai_date(self):
+        last_paid = "2026-11-08T16:00:00Z"
+        for covered in (True, False):
+            with self.subTest(covered=covered):
+                with self.assertRaisesRegex(ValueError, "after observation date"):
+                    segments.stage(last_paid, "2026-11-08", 1327, {"stages": {}}, covered)
+        self.assertEqual(segments.stage(last_paid, "2026-11-09", 1327, {"stages": {}}, True), "recent")
+        self.assertEqual(segments.stage(last_paid, "2026-11-09", 1327, {"stages": {}}, False), "unverified")
 
     def test_stage_with_incomplete_coverage_is_unverified(self):
         self.assertEqual(segments.stage(None, date(2026, 11, 23), 1327, {"stages": {}}, False), "unverified")
@@ -71,11 +111,31 @@ class SegmentationTests(unittest.TestCase):
                 self.assertEqual(segments.tier(Decimal(amount), 1327, config), expected)
 
 
+    def test_caller_excludes_unknown_orders_before_classifying_known_spend(self):
+        config = {"tiers": {}}
+        amounts = [Decimal("499.99"), None, Decimal("0.01")]
+        subtotal = sum(amount for amount in amounts if amount is not None)
+        self.assertEqual(segments.tier(subtotal, 1327, config), "high")
+        with self.assertRaisesRegex(ValueError, "invalid USD amount"):
+            segments.tier(None, 1327, config)
+
+
 class ConfigTests(unittest.TestCase):
     def setUp(self):
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.path = Path(directory.name) / "segments.json"
+
+    def _start_process(self, worker):
+        worker.start()
+        self.addCleanup(self._close_process, worker)
+
+    @staticmethod
+    def _close_process(worker):
+        if worker.is_alive():
+            worker.terminate()
+            worker.join(5)
+        worker.close()
 
     def test_missing_file_returns_fresh_defaults(self):
         config, version, source = segments.load_config(self.path)
@@ -101,6 +161,11 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(segments.tier("1000", 1327, config), "high")
         self.assertEqual(segments.tier("1000.000000000000000001", 1327, config), "ultra")
         self.assertEqual(segments.tier("500", 833, config), "high")
+
+    def test_active_version_zero_file_is_rejected(self):
+        self.path.write_bytes(b'{"version":0,"stages":{},"tiers":{}}')
+        with self.assertRaisesRegex(ValueError, "invalid config version"):
+            segments.load_config(self.path)
 
     def test_invalid_file_fails_without_falling_back(self):
         for payload in (
@@ -132,7 +197,10 @@ class ConfigTests(unittest.TestCase):
         segments.write_config(self.path, first, expected_version=0)
         original = self.path.read_bytes()
         self.assertEqual(segments.load_config(self.path), (first, 1, "file"))
-        self.assertFalse((self.path.parent / "history" / "0.json").exists())
+        self.assertEqual(
+            (self.path.parent / "history" / "0.json").read_bytes(),
+            b'{"stages": {"1327": [14, 30, 60], "833": [14, 30, 90]}, "tiers": {}, "version": 0}\n',
+        )
 
         segments.write_config(self.path, second, expected_version=1)
         self.assertEqual(segments.load_config(self.path), (second, 2, "file"))
@@ -145,27 +213,84 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(segments.load_config(self.path), (second, 2, "file"))
         self.assertFalse((self.path.parent / "history" / "2.json").exists())
 
-    def test_replace_failure_leaves_previous_config_readable_and_can_retry(self):
+    def test_process_exit_after_archive_keeps_previous_config_and_allows_retry(self):
         first = {"version": 1, "stages": {}, "tiers": {}}
         second = {"version": 2, "stages": {"1327": [9, 19, 39]}, "tiers": {}}
         segments.write_config(self.path, first, expected_version=0)
         original = self.path.read_bytes()
-        replace = os.replace
 
-        def fail_live_replace(source, target):
-            if target == self.path:
-                self.assertEqual(self.path.read_bytes(), original)
-                raise OSError("injected replacement failure")
-            return replace(source, target)
-
-        with patch.object(segments.os, "replace", side_effect=fail_live_replace):
-            with self.assertRaisesRegex(OSError, "injected replacement failure"):
-                segments.write_config(self.path, second, expected_version=1)
+        context = multiprocessing.get_context("spawn")
+        worker = context.Process(target=_exit_before_live_replace, args=(self.path, second))
+        self._start_process(worker)
+        worker.join(15)
+        self.assertEqual(worker.exitcode, 23)
         self.assertEqual(segments.load_config(self.path), (first, 1, "file"))
+        archive = self.path.parent / "history" / "1.json"
+        self.assertEqual(archive.read_bytes(), original)
 
         segments.write_config(self.path, second, expected_version=1)
         self.assertEqual(segments.load_config(self.path), (second, 2, "file"))
-        self.assertEqual((self.path.parent / "history" / "1.json").read_bytes(), original)
+        self.assertEqual(archive.read_bytes(), original)
+
+    def test_failed_directory_sync_after_live_replace_reports_unknown_commit(self):
+        segments.write_config(self.path, {"version": 1, "stages": {}, "tiers": {}}, expected_version=0)
+        candidate = {
+            "version": 2,
+            "stages": {"1327": (9, 19, 39)},
+            "tiers": {"1327": {"ultra": 1000, "high": Decimal("550.25")}},
+        }
+        readback = {
+            "version": 2,
+            "stages": {"1327": [9, 19, 39]},
+            "tiers": {"1327": {"ultra": 1000, "high": "550.25"}},
+        }
+        sync_directory = segments._sync_directory
+        failure = OSError("injected directory fsync failure")
+
+        def fail_after_live_replace(directory):
+            if directory == self.path.parent and segments.load_config(self.path)[1] == 2:
+                raise failure
+            sync_directory(directory)
+
+        with patch.object(segments, "_sync_directory", side_effect=fail_after_live_replace):
+            with self.assertRaises(RuntimeError) as caught:
+                segments.write_config(self.path, candidate, expected_version=1)
+
+        self.assertIsInstance(caught.exception, segments.ConfigCommitUnknown)
+        self.assertEqual(caught.exception.version, 2)
+        self.assertIs(caught.exception.__cause__, failure)
+        self.assertEqual(segments.load_config(self.path), (readback, 2, "file"))
+
+    def test_retry_syncs_parent_entries_after_interrupted_first_write(self):
+        root = self.path.parent
+        path = root / "new-parent" / "config" / self.path.name
+        config = {"version": 1, "stages": {}, "tiers": {}}
+        sync_directory = segments._sync_directory
+
+        def interrupt_parent_sync(directory):
+            if directory == root:
+                raise OSError("injected parent fsync failure")
+            sync_directory(directory)
+
+        with patch.object(segments, "_sync_directory", side_effect=interrupt_parent_sync):
+            with self.assertRaisesRegex(OSError, "injected parent fsync failure"):
+                segments.write_config(path, config, expected_version=0)
+        self.assertTrue(path.parent.is_dir())
+        self.assertEqual(segments.load_config(path)[1:], (0, "default"))
+
+        synced_before_commit = []
+
+        def record_sync(directory):
+            if not path.exists():
+                synced_before_commit.append(directory)
+            sync_directory(directory)
+
+        with patch.object(segments, "_sync_directory", side_effect=record_sync):
+            segments.write_config(path, config, expected_version=0)
+
+        self.assertIn(root, synced_before_commit)
+        self.assertIn(root / "new-parent", synced_before_commit)
+        self.assertEqual(segments.load_config(path), (config, 1, "file"))
 
     def test_write_rejects_invalid_candidate_or_live_config(self):
         valid = {"version": 1, "stages": {}, "tiers": {}}
@@ -178,22 +303,24 @@ class ConfigTests(unittest.TestCase):
             segments.write_config(self.path, valid, expected_version=0)
         self.assertEqual(self.path.read_text(encoding="utf-8"), "{}")
 
-    def test_concurrent_writers_cannot_both_commit_the_same_version(self):
-        start = Barrier(2, timeout=5)
+    def test_independent_writers_only_commit_one_candidate_at_the_same_version(self):
+        context = multiprocessing.get_context("spawn")
+        start = context.Barrier(2, timeout=15)
+        results = context.Queue()
+        self.addCleanup(results.close)
+        workers = [
+            context.Process(target=_write_concurrently, args=(self.path, points, start, results))
+            for points in ([10, 20, 40], [15, 30, 60])
+        ]
+        for worker in workers:
+            self._start_process(worker)
+        for worker in workers:
+            worker.join(20)
+            self.assertEqual(worker.exitcode, 0)
 
-        def save(points):
-            config = {"version": 1, "stages": {"1327": points}, "tiers": {}}
-            start.wait()
-            try:
-                segments.write_config(self.path, config, expected_version=0)
-            except segments.ConfigVersionConflict:
-                return None
-            return config
-
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            results = list(pool.map(save, ([10, 20, 40], [15, 30, 60])))
-        self.assertEqual(results.count(None), 1)
-        winner = next(config for config in results if config is not None)
+        outcomes = [results.get(timeout=5) for _ in workers]
+        self.assertCountEqual([status for status, _ in outcomes], ["committed", "conflict"])
+        winner = next(config for status, config in outcomes if status == "committed")
         self.assertEqual(segments.load_config(self.path), (winner, 1, "file"))
 
 
