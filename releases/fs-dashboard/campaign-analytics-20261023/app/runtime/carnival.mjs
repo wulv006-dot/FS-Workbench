@@ -36,8 +36,8 @@ export const MYSTERY_SETS={
 };
 export const MYSTERY_GAMES={fc27:'fc27',aion2:'aion2',wow:'wow',d4:'d4',poe1:'poe',poe2:'poe',maple:'mix',arc:'mix',codmw4:'mix'};
 const POOL_SIZE=9,PICKS=3;
-// Confirmed odds per card: first round 8/10/15 = 30/30/40, later rounds 40/40/20.
-export function rollDiscount(first,roll=randomInt(100)){return first?(roll<30?8:roll<60?10:15):(roll<40?8:roll<80?10:15);}
+// Confirmed odds per card: first round 8/10/15 = 30/30/40, later rounds 20/30/50 (2026-11-24).
+export function rollDiscount(first,roll=randomInt(100)){return first?(roll<30?8:roll<60?10:15):(roll<20?8:roll<50?10:15);}
 // A member's first round always shows at least one 15% card (one random card is raised
 // to 15% when none rolled it); later rounds use the plain odds.
 export function drawRound(first,count,roll){

@@ -187,37 +187,46 @@ def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None, 
         projection = to_fc_quote_rows(accepted, task, utc())
         if package:
             projection['errors']=[body['reason_code'] for body in accepted if body.get('reason_code')]
+            projection['response_received'] = bool(accepted)
         return projection
     return to_arab_status(accepted, task, utc())
 
 
 def legacy_ready(source_id='ArabUT', *, require_registered=False):
+    return source_hold_reason(source_id, require_registered=require_registered) is None
+
+
+def source_hold_reason(source_id, *, require_registered=False):
     if not DATABASE.exists():
-        return not require_registered
+        return 'source_not_ready' if require_registered else None
     if DATABASE.is_symlink():
-        return False
+        return 'source_not_ready'
     with closing(sqlite3.connect(DATABASE.as_uri() + '?mode=ro', uri=True, timeout=5)) as db:
         source = db.execute('SELECT body FROM collection_sources WHERE id=?', (source_id,)).fetchone()
         if source is None:
-            return not require_registered
+            return 'source_not_ready' if require_registered else None
         source = json.loads(source[0])
         if source_id == 'ArabUT' and source['mode'] == 'off':
-            return False
+            return 'source_not_ready'
         if require_registered and (source['mode'] != 'consume' or source['origin'] != PACKAGE_ORIGINS[source_id]):
-            return False
+            return 'source_not_ready'
         now = utc().timestamp()
         for row in db.execute('SELECT body FROM collection_sources'):
             shared = json.loads(row[0])
-            if shared['origin'] == source['origin'] and (shared['blocked'] or shared['cooldown_until'] > now):
-                return False
+            if shared['origin'] != source['origin']:
+                continue
+            if shared['blocked']:
+                return 'source_blocked'
+            if shared['cooldown_until'] > now:
+                return 'source_cooldown'
         if db.execute('SELECT 1 FROM collection_permits p LEFT JOIN collection_permit_completions c ON p.id=c.id '
                       'WHERE p.origin=? AND c.id IS NULL AND p.expires>? LIMIT 1',
                       (source['origin'], now - source['clock_margin_seconds'])).fetchone():
-            return False
+            return 'source_busy'
         for row in db.execute("SELECT body FROM collection_jobs WHERE source=? AND state='LEASED'", (source_id,)):
             if instant(json.loads(row[0])['lease_expires_at']).timestamp() + source['clock_margin_seconds'] > now:
-                return False
-    return True
+                return 'source_busy'
+    return None
 
 
 def arab_normal(local, parent=None, *, pinned=None, price_table=False):

@@ -761,6 +761,26 @@
     $('v3-curve-results').hidden=true;
     return checkCurveCollection();
   }
+  function observerOutcome(attempts){
+    if(!attempts?.length)return '';
+    const {node,errors,response_received}=attempts[attempts.length-1];
+    const at=node==='local'?'Windows 本机':node;
+    const noLocal=node==='local'?'，未向本机发出采价请求':'，本轮未派给本机';
+    if(errors.includes('source_blocked'))return '187 的来源账本已阻断本站，采集停派'+noLocal;
+    if(errors.includes('source_cooldown'))return '站点限频冷却中，187 已停派'+noLocal;
+    if(errors.includes('source_busy'))return '已有同来源采集任务，187 已停派'+noLocal;
+    if(errors.includes('source_not_ready'))return '采集来源配置未就绪，187 已停派'+noLocal;
+    if(errors.includes('source_access_restricted'))return '旧记录显示来源受限，派单明细待核';
+    if(response_received&&errors.some(error=>['http_401','http_403','http_429','challenge','captcha'].includes(error))){
+      return at+' 收到站点访问限制，本轮停止补采';
+    }
+    if(node==='local'){
+      if(errors.includes('LocalWorkerUnavailable'))return '本轮已等候 Windows 本机，等候期间无连接领取';
+      if(!response_received)return 'Windows 本机的领取或回传结果待核';
+      return 'Windows 本机已回传，仍有普通档缺价';
+    }
+    return '';
+  }
   async function renderMarketEvidence(){
     const reading=++marketRead;
     const output=$('v3-market-cards'),summary=$('v3-market-status');output.setAttribute('aria-busy','true');
@@ -837,10 +857,17 @@
           for(const [source,quotes] of Object.entries(market.monitoring||{})){
             const card=node('section');card.className='market-quote';card.append(node('h4',source+' · 监控'));
             const observed=quotes.filter(row=>row.platform===platform);
-            if(!observed.length)card.append(node('p',market.monitoring_status?.[source]==='pending'?'本轮尚无监控结果':'本轮暂无普通档报价'));
+            if(observed.length<2){
+              const attempts=market.monitoring_attempts?.[source]?.filter(attempt=>
+                !attempt.requested||attempt.requested.some(([p,q])=>p===platform&&!observed.some(row=>row.purchase_k===q)));
+              const outcome=observerOutcome(attempts);
+              if(outcome||!observed.length)card.append(node('p',outcome||
+                (market.monitoring_status?.[source]==='pending'?'本轮尚无监控结果':'本平台本轮暂无普通档报价')));
+            }
             for(const row of observed){
               const ours=(market.catalogue_samples?.[platform]?.tiers||[]).find(t=>t.purchase_k===row.purchase_k);
-              card.append(node('p',`${row.purchase_k}K · ${usd(row.regular_price)} · ${when(row.captured_at)}`));
+              const readBy=row.collection_node==='local'?' · Windows 本机采集':'';
+              card.append(node('p',`${row.purchase_k}K · ${usd(row.regular_price)} · ${when(row.captured_at)}${readBy}`));
               if(Number(ours?.native_price_usd)>0&&Number(row.regular_price)>0){
                 const difference=(Number(ours.native_price_usd)/Number(row.regular_price)-1)*100;
                 card.append(node('p',`我方同档价差 ${difference.toFixed(1)}%`));

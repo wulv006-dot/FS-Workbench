@@ -445,3 +445,12 @@
 - 线上读回（用户 Chrome，只读）：两款游戏平台选项 PC/PS/XBOX；ARC PS、Xbox 9 件均有价（与 PC 相同）；COD PS、Xbox、PC 9 件均有价。
 - 已知旧问题（未改）：COD 两个机器人房间（1 Run Domination、2 Hours 套餐）是同一商品的不同 SKU，页面显示的是商品基础价 $6.99，不是各自 SKU 价。
 - 回退：`/var/backups/fs-navigation-20261006/nav-20261119T064438Z`。
+
+### 2026-11-24 `nav-20261124T023755Z` + `nav-20261124T025143Z`（PR #1321、#1322）黑五前神秘商店调整
+
+- 来源：#1321 合并 `39b91360`（`Carnival.html`、`carnival-proto.js`、`runtime/carnival.mjs`，运行时已重启）；#1322 合并 `779614c6`（`Carnival.html`、`carnival-live.js`）。两次发布前线上文件与上一版仓库一致（无漂移）。
+- 内容（用户 2026-11-24）：WoW 与 Diablo 4 顺序对调；第二轮起每张 8%/10%/15% 概率 20/30/50（首轮不变）；冒险岛 200K→300K Mesos；FC 27 加 1500K 金币，球员换为 Caroline Graham Hansen / Bruno Miguel Borges Fernandes / Lamine Yamal Nasraoui Ebana / Micky van de Ven（Thunderstruck，PS/Xbox/PC 商品取自主站目录）。
+- Codex 审查 #1321 指出：回合只存商品序号，换清单后已抽未付款回合会显示成别的商品。187 统计 FC 27 130 个、冒险岛 6 个受影响。#1322 修复：`2026-11-24T02:37:55Z` 之前抽的回合按旧清单还原。
+- 线上读回：脚本 `carnival-proto.js?v=20261124a`、`carnival-live.js?v=20261124a`；游戏顺序 fc27,aion2,wow,poe1,poe2,d4,maple,arc,codmw4；FC PS 价 $6.05/$30.25/$62.30/$93.45/$124.60，球员 $81.68/$49.84/$287.94/$33.59；冒险岛 300K $12.21；球员图可加载。
+- 未验证：#1321 发布至 #1322 发布之间（约 14 分钟）打开页面的会员看到的是错映射商品；新概率的真实分布需积累抽取数据。
+- 回退：`/var/backups/fs-navigation-20261006/nav-20261124T023755Z`、`nav-20261124T025143Z`。

@@ -4,7 +4,8 @@ from pathlib import Path
 from urllib.parse import parse_qs,urlsplit
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
-from admin_live_dispatch import private_body_params
+from admin_live_dispatch import handle, private_body_params
+from admin_live_page import LivePageError
 
 ROOT=Path(__file__).resolve().parent
 class SecureRoute(unittest.TestCase):
@@ -55,6 +56,30 @@ class SecureRoute(unittest.TestCase):
   self.env['get_live_orders']=fetch
   self.assertEqual(self.invoke({'Cookie':'MMOEXP_AUTH=fixture'})[0],403)
   self.assertEqual(self.calls,[]);self.assertEqual(len(count),2)
+ def test_active_get_distinguishes_session_recheck_failure_from_busy_and_unavailable(self):
+  source=ROOT.parents[1]/'management-november-20261103'/'source'/'range_api.py'
+  tree=ast.parse(source.read_text(encoding='utf8'))
+  handler=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=='Handler')
+  method=next(node for node in handler.body if isinstance(node,ast.FunctionDef) and node.name=='do_GET')
+  def get(params,actor,*,run_source):
+   return handle(params,actor,enabled=True,
+                 authorize_for_user=lambda subject:lambda query:dict(scope_hash='fixture',permission_epoch='1',policy_version='v1'),
+                 fetch=lambda *args:run_source(lambda:self.calls.append(actor),10),
+                 observed_at=lambda:'2026-10-30T12:00:00+08:00')
+  self.env.update(LivePageError=LivePageError,get_live_orders=get)
+  exec(compile(ast.Module(body=[method],type_ignores=[]),str(source),'exec'),self.env)
+  for status,actor,expected in (
+      (429,None,(429,{'error':'source_busy','retryAfter':10})),
+      (503,None,(503,{'error':'session_unavailable'})),
+      (401,None,(403,{'error':'scope_denied'})),
+      (403,None,(403,{'error':'scope_denied'})),
+      (200,'other-user',(403,{'error':'scope_denied'})),
+  ):
+   with self.subTest(status=status,actor=actor):
+    answers=iter([(200,'real-user'),(status,actor)])
+    self.env['verify_live_session']=lambda cookie:next(answers)
+    self.assertEqual(self.invoke({'Cookie':'MMOEXP_AUTH=fixture'}),expected)
+    self.assertEqual(self.calls,[])
  def invoke_private(self,body,headers=None,query=''):
   raw=json.dumps(body).encode() if not isinstance(body,bytes) else body
   hdr={'Content-Type':'application/json','Content-Length':str(len(raw)),'Sec-Fetch-Site':'same-origin','Cookie':'MMOEXP_AUTH=fixture'};hdr.update(headers or {})

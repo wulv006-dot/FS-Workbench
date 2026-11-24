@@ -264,7 +264,10 @@ def checked_manifest(value):
         raise ValueError('fc_v3_new_existing_target_boundary_changed')
     if scope in SCOPED_NEW and {r['candidate'] for r in rows if r.get('beforeSha256') is None}!=new_targets:
         raise ValueError('fc_v3_operating_new_target_identity_changed')
-    if any(r.get('owner') != '0:0' or r.get('mode') not in ('0o644', '0o700', '0o750', '0o755') for r in rows):
+    if any(r.get('owner') != '0:0' or r.get('mode') not in (
+            ('0o444',) if scope == CURVE_RECOVERY_SCOPES['observer-status']
+            and r['candidate'].startswith('source/control-role/') else ('0o644', '0o700', '0o750', '0o755'))
+           for r in rows):
         raise ValueError('exact_fc_v3_target_metadata_required')
     if scope == SCOPE and next(r for r in rows if r['candidate'] == 'source/reconcile_price.sh')['mode'] != '0o755':
         raise ValueError('fc_v3_reconcile_script_must_be_executable')

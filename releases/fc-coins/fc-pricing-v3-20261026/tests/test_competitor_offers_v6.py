@@ -467,6 +467,7 @@ class CompetitorOffersV6(unittest.TestCase):
             self.assertNotIn('U7Buy',result['retired_automatic_sources'])
 
     def test_observer_keeps_monitoring_quotes_outside_the_price_snapshot(self):
+        from fc_pricing_v3.api import _curve_market_quotes
         from fc_pricing_v3 import observations,runtime
         from fc_pricing_v3.ledger import Ledger
         run_id = '00000000-0000-4000-8000-000000000099'
@@ -487,6 +488,11 @@ class CompetitorOffersV6(unittest.TestCase):
             self.assertEqual(reader.call_count,2)
             self.assertEqual(result['package_status']['IGGM']['status'],'captured')
             self.assertEqual(result['package_status']['U4GM']['status'],'missing')
+            market = _curve_market_quotes(dict(snapshot, snapshot_id=run_id), result)
+            attempt, = market['monitoring_attempts']['U4GM']
+            self.assertEqual((attempt['node'], attempt['response_received'], attempt['errors']), ('187', True, ['http_403']))
+            self.assertIn(['PC', '1000'], attempt['requested'])
+            self.assertEqual(attempt['accepted'], [])
             self.assertEqual(len(result['package_offers']),6)
             self.assertEqual(db.get('pricing_snapshots',run_id),snapshot)
 
@@ -498,7 +504,8 @@ class CompetitorOffersV6(unittest.TestCase):
             return dict(req, offers=[raw(q, source='IGGM', platform=p) for p,q in req['wanted']],errors=[])
         with patch('fc_collection.package_routes.read_node',side_effect=read):
             result = collect_package_observations('same', NOW.isoformat())
-        self.assertEqual(result['package_status']['U4GM'],{'status':'missing','errors':['RuntimeError']})
+        self.assertEqual(result['package_status']['U4GM']['errors'], ['RuntimeError'])
+        self.assertEqual(result['package_status']['U4GM']['status'], 'missing')
         self.assertEqual(result['package_status']['IGGM']['status'],'captured')
         self.assertEqual(len(result['package_offers']),6)
 

@@ -22,7 +22,8 @@ class PackageRouting(unittest.TestCase):
                 with patch('fc_collection.package_routes.subprocess.run') as child, patch('fc_collection.client.collect_remote') as remote, patch('fc_collection.package_relay.request_local') as local:
                     now = datetime.now(timezone.utc)
                     rows, attempts = collect_missing(source,'next',[('PC','100')],lambda node,r:read_node(node,r,now),lambda:now)
-                    self.assertEqual([r['errors'] for r in attempts],[['source_access_restricted']])
+                    self.assertEqual([(r['node'], r['errors'], r['response_received']) for r in attempts],
+                                     [('187', ['source_blocked'], False)])
                     self.assertFalse(rows)
                     for entry in (child,remote,local):
                         entry.assert_not_called()
@@ -97,6 +98,21 @@ class PackageRouting(unittest.TestCase):
                 self.assertEqual(calls,['187'])
                 self.assertIn(reason,attempts[0]['errors'])
                 self.assertFalse(rows)
+
+    def test_local_timeout_before_any_connection_records_no_worker_response(self):
+        import socket
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from fc_collection.package_relay import LocalWorkerUnavailable, request_local
+
+        with TemporaryDirectory() as tmp, patch('fc_collection.package_relay.socket.AF_UNIX', 1, create=True), \
+                patch('fc_collection.package_relay.socket.socket') as listen:
+            server = listen.return_value.__enter__.return_value
+            server.accept.side_effect = socket.timeout
+            request = dict(source='IGGM', run_id='00000000-0000-4000-8000-000000000001', wanted=[('PC','100')])
+            with patch.object(Path, 'chmod'), self.assertRaises(LocalWorkerUnavailable):
+                request_local(request, root=Path(tmp))
 
     def test_u4gm_uses_local_for_missing_slots_and_stops_on_access_restrictions(self):
         now = datetime.now(timezone.utc)

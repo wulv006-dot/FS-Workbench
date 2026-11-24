@@ -231,6 +231,9 @@ def selfcheck():
                'releases/ops/pricing-recovery-20261023/rpg/prepare_candidate.py',
                'releases/ops/pricing-recovery-20261023/order/service.py']) != ['pricing-recovery']:
         raise RuntimeError('pricing_recovery_mapping_missing')
+    for path in ("source/customer_segments.py", "tests/test_customer_segments.py"):
+        if select(["releases/fs-dashboard/customer-segments-20261124/"+path]) != ["customer-segments"]:
+            raise RuntimeError("customer_segments_checks_missing:"+path)
     if select(["releases/fs-dashboard/user-analytics-20261022/source/user_query.py"]) != ["user-analytics"]:
         raise RuntimeError("user_analytics_checks_missing")
     for path in ("source/date_policy.py","source/eviction_policy.py","scripts/backup_inventory.py","scripts/eviction_dry_run.py","tests/test_query_checkpoint.py","schema/query-v2.json"):
@@ -612,6 +615,8 @@ def select(paths):
             groups.add("rs-business-adapter");continue
         if name.startswith("releases/fs-dashboard/business-procurement-20261022/"):
             groups.add("business-procurement");continue
+        if name.startswith("releases/fs-dashboard/customer-segments-20261124/"):
+            groups.add("customer-segments");continue
         if name.startswith("releases/fs-dashboard/user-analytics-20261022/"):
             groups.add("user-analytics");continue
         if name.startswith("releases/fs-dashboard/tiered-data-access-20261101/"):
@@ -1178,6 +1183,8 @@ def main():
             units("releases/fs-dashboard/business-procurement-20261022/tests",["test_release"])
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_procurement.cjs")
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_views.cjs")
+        elif group=="customer-segments":
+            units("releases/fs-dashboard/customer-segments-20261124/tests",["test_customer_segments"])
         elif group=="user-analytics":
             units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context","test_missing_store","test_revision_range","test_member_keyset","test_archive_publication","test_shared_es_facts"])
             node("releases/fs-dashboard/user-analytics-20261022/tests/test_weekly_dates.cjs")

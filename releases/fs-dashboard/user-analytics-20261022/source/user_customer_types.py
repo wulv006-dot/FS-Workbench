@@ -153,13 +153,14 @@ def _read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False):
                             ident = row.get(field)
                             if isinstance(ident, str) and ident.strip().lower() not in ('', '0', 'null', 'none', 'n/a', 'nan', 'undefined', '-') and len(ident) <= 160 and not any(ord(c)<32 for c in ident):
                                 values[field].add(ident.strip())
-            dataset = es.make_dataset(rows, parsed_hashes, failures, integrity.get('declared_files'), integrity.get('failed_files'))
+            else:
+                for row in rows:
+                    paid = str(row.get(es.COLUMNS['time']) or '').replace('/', '-')[:10]
+                    order = row.get(es.COLUMNS['order'])
+                    if start <= paid <= end and order:
+                        ident = hashlib.sha256(order.encode()).hexdigest()
+                        flags.setdefault(ident, set()).add(str(row.get(es.COLUMNS['new_customer']) or '').strip())
             hashes.update(parsed_hashes); captures.append(item['captured_at'])
-            for row in dataset['rows']:
-                paid = str(row.get(es.COLUMNS['time']) or '').replace('/', '-')[:10]
-                ident = row.get(es.COLUMNS['order'])
-                if start <= paid <= end and ident:
-                    flags.setdefault(ident, set()).add(str(row.get(es.COLUMNS['new_customer']) or '').strip())
     labels = {ident: ('new' if next(iter(items)) == '\u662f' else 'old' if next(iter(items)) == '\u5426' else 'unknown')
               if len(items) == 1 else 'conflict' for ident, items in flags.items()}
     if _identity:

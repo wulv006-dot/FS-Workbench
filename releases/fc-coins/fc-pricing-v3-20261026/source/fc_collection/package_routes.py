@@ -16,7 +16,7 @@ def collect_missing(source, run_id, wanted, read, clock):
             break
         requested = sorted(remaining)
         request = dict(source=source, run_id=run_id, wanted=requested)
-        result = dict(node=node, requested=requested, accepted=[], errors=[])
+        result = dict(node=node, requested=requested, accepted=[], errors=[], response_received=False)
         attempts.append(result)
         try:
             receipt = read(node, request)
@@ -27,6 +27,7 @@ def collect_missing(source, run_id, wanted, read, clock):
                                     and len(reason)<=64)
             if not isinstance(receipt.get('offers'), list) or len(receipt['offers']) > 64:
                 raise ValueError('package_receipt_scope')
+            result['response_received'] = receipt.get('response_received', True)
             slots = defaultdict(list)
             for raw in receipt['offers']:
                 if not isinstance(raw, dict) or raw.get('source') != source or raw.get('run_id') != run_id:
@@ -163,9 +164,10 @@ def read_node(node, request, started):
     import json
     from datetime import timedelta
     from pathlib import Path
-    from .client import legacy_ready
-    if not legacy_ready(request['source'], require_registered=True):
-        raise SourceRestricted('source_access_restricted')
+    from .client import source_hold_reason
+    hold_reason = source_hold_reason(request['source'], require_registered=True)
+    if hold_reason:
+        raise SourceRestricted(hold_reason)
     if node in ('local', '187'):
         with package_permit(request, subprocess_owned=node == '187'):
             if node == 'local':
@@ -186,7 +188,9 @@ def read_node(node, request, started):
     source = request['source']
     routing = read_routing_file(ROUTING.with_name(source.lower()+'-routing.json'))
     if routing['remote_result_mode'] != 'consume':
-        return dict(source=source, run_id=request['run_id'], offers=[], errors=['collection_route_unavailable'])
+        return dict(source=source, run_id=request['run_id'], offers=[],
+                    errors=['collection_route_unavailable'], response_received=False)
     parent = dict(run_id=request['run_id'], created_at=started.isoformat(), deadline_at=(started+timedelta(seconds=100)).isoformat())
     receipt = collect_remote(parent, routing, source_id=source, wanted=request['wanted'])
-    return dict(source=source, run_id=receipt['run_id'], offers=receipt['offers'], errors=receipt.get('errors',[]))
+    return dict(source=source, run_id=receipt['run_id'], offers=receipt['offers'],
+                errors=receipt.get('errors', []), response_received=receipt.get('response_received'))

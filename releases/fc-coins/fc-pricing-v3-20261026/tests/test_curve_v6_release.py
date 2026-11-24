@@ -23,6 +23,23 @@ BASE = target_map.CURVE_V6_BASE
 
 
 class CurveV6Release(unittest.TestCase):
+    def test_observer_status_stage_binds_bounded_control_files_to_role_manifest(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / 'observer.tar.gz'
+            with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']), \
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, rev: path.read_bytes().replace(b'\r\n', b'\n')):
+                build_stage.build(ROOT, output, curve_recovery='observer-status')
+            with tarfile.open(output) as bundle:
+                prefix = 'fc-pricing-v3-20261026/candidate/source/control-role/'
+                manifest = json.load(bundle.extractfile(prefix + 'manifest.json'))
+                names = {member.name.removeprefix(prefix) for member in bundle.getmembers()
+                         if member.isfile() and member.name.startswith(prefix)}
+                self.assertEqual(names, {'manifest.json', 'fc_collection/client.py',
+                                         'fc_collection/package_routes.py', 'fc_collection/package_relay.py'})
+                for name in names - {'manifest.json'}:
+                    self.assertEqual(hashlib.sha256(bundle.extractfile(prefix + name).read()).hexdigest(),
+                                     manifest['sha256'][name])
+
     def test_market_packages_stage_binds_both_hermes_market_readers_to_the_same_commit(self):
         origin = 'releases/fs-dashboard/fc-coins-workflow-20261022/source/'
         commit = 'a' * 40

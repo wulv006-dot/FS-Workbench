@@ -398,7 +398,7 @@
       "path": "/dashboard/users/data.json",
       "method": "GET",
       "permission_path": "/dashboard/users/data.json",
-      "description": "原用户分析汇总；权限和快照合同由原服务核验",
+      "description": "原用户分析汇总。HTTP 202 时按 retryAfter 等待，仅传返回的 query_id 续查原请求，直到获得冻结快照或明确错误。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -466,6 +466,10 @@
             "type": "string",
             "maxLength": 160
           },
+          "query_id": {
+            "type": "string",
+            "maxLength": 32
+          },
           "H": {
             "type": "integer",
             "minimum": 7,
@@ -479,7 +483,9 @@
         "required": [],
         "additionalProperties": false
       },
-      "fixed": {},
+      "fixed": {
+        "action": "connector_summary"
+      },
       "path_parameters": [],
       "limits": {
         "request_bytes": 16384,
@@ -684,7 +690,7 @@
       "limits": {
         "request_bytes": 8192,
         "response_bytes": 262144,
-        "timeout_seconds": 10
+        "timeout_seconds": 20
       },
       "provenance": {
         "source": "releases/fs-dashboard/tiered-data-access-20261101/LIVE-ORDER-PAGINATION.md",

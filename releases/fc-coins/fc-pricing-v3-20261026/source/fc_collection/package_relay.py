@@ -16,6 +16,10 @@ WORKER_POLL_SECONDS = 30
 RECEIPT_TIMEOUT_SECONDS = 30  # Three sequential public GETs at up to seven seconds each.
 
 
+class LocalWorkerUnavailable(TimeoutError):
+    pass
+
+
 def request_local(request, *, root=ROOT, timeout=12):
     if request['source'] not in LOCAL_SOURCES or str(uuid.UUID(request['run_id'])) != request['run_id']:
         raise ValueError('local_package_scope')
@@ -29,7 +33,10 @@ def request_local(request, *, root=ROOT, timeout=12):
             path.chmod(0o660)
             server.listen(1)
             server.settimeout(timeout)
-            conn, _ = server.accept()
+            try:
+                conn, _ = server.accept()
+            except socket.timeout as exc:
+                raise LocalWorkerUnavailable from exc
             with conn, conn.makefile('rwb', buffering=0) as stream:
                 conn.settimeout(RECEIPT_TIMEOUT_SECONDS)
                 write_message(stream, request)
