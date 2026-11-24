@@ -23,7 +23,12 @@ def collect_package_observations(run_id, snapshot_time):
                                         lambda:datetime.now(timezone.utc))
         offers.extend(rows)
         status[source] = dict(status='captured' if len(rows)==len(wanted) else 'partial' if rows else 'missing',
-                              errors=sorted({error for attempt in attempts for error in attempt['errors']}))
+                              errors=sorted({error for attempt in attempts for error in attempt['errors']}),
+                              attempts=[dict(node=attempt['node'], errors=attempt['errors'],
+                                             response_received=attempt.get('response_received'),
+                                             requested=[list(slot) for slot in attempt['requested']],
+                                             accepted=[list(slot) for slot in attempt['accepted']])
+                                        for attempt in attempts])
     return dict(package_offers=offers, package_status=status)
 
 

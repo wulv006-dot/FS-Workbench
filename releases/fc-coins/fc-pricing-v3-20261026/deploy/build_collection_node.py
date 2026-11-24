@@ -25,16 +25,21 @@ main()
 '''
 
 
-def build(output, role='node'):
+def role_files(role, read_module):
     if role not in ('node', 'control'):
         raise ValueError('collection_role_invalid')
-    files = {'fc_collection/' + name: (ROOT / 'source/fc_collection' / name).read_bytes().replace(b'\r\n', b'\n')
+    files = {'fc_collection/' + name: read_module(name)
              for name in (MODULES if role == 'node' else CONTROL_MODULES)}
     files['entry.py'] = ENTRY if role == 'node' else CONTROL_ENTRY
     manifest = dict(schema_version=1, role='limited_fc_collector' if role == 'node' else 'fc_collection_controller', production_consume=False,
         sources=['ArabUT','Lootbar','U4GM','IGGM'], credentials=[], business_runtime=False,
         sha256={name: hashlib.sha256(body).hexdigest() for name, body in files.items()})
     files['manifest.json'] = json.dumps(manifest, sort_keys=True, indent=2).encode('utf-8')
+    return files, manifest
+
+
+def build(output, role='node'):
+    files, manifest = role_files(role, lambda name: (ROOT / 'source/fc_collection' / name).read_bytes().replace(b'\r\n', b'\n'))
     with zipfile.ZipFile(output, 'x', compression=zipfile.ZIP_DEFLATED) as archive:
         for name, body in sorted(files.items()):
             archive.writestr(name, body)

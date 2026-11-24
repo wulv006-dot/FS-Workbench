@@ -119,6 +119,10 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
         stage = Path(temporary) / 'fc-pricing-v3-20261026'
         candidate = stage / 'candidate/source'
         candidate.mkdir(parents=True)
+        control_files = {}
+        if curve_recovery == 'observer-status':
+            from build_collection_node import role_files
+            control_files, _ = role_files('control', lambda name: read_blob(source / 'fc_collection' / name))
         for name in mapping:
             original = checkout/COUPON_DISPLAY_SOURCE if coupon_display and name=='storefront_monitor.py' else source / name.removeprefix('hermes-copy/')
             if lootbar and 'source/'+name in LOOTBAR_CALLER_REPOSITORY_SOURCES:original=checkout/LOOTBAR_CALLER_REPOSITORY_SOURCES['source/'+name]
@@ -130,7 +134,9 @@ def build(checkout, output, coupon_display=False, three_platform=False, monitor_
                 original=checkout/CURVE_STABILITY_REPOSITORY_SOURCES['source/'+name]
             destination = candidate / name
             destination.parent.mkdir(parents=True, exist_ok=True)
-            if channel_overlay is not None and 'source/' + name == ORDER_COST_CHANNEL_OVERLAY['candidate']:
+            if curve_recovery == 'observer-status' and name.startswith('control-role/'):
+                payload = control_files[name.removeprefix('control-role/')]
+            elif channel_overlay is not None and 'source/' + name == ORDER_COST_CHANNEL_OVERLAY['candidate']:
                 payload = channel_overlay
             else:
                 payload = library if 'source/'+name==MONITOR_SQLITE_CANDIDATE else read_blob(original)
