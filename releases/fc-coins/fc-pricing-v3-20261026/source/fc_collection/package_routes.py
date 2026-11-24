@@ -192,4 +192,5 @@ def read_node(node, request, started):
                     errors=['collection_route_unavailable'], response_received=False)
     parent = dict(run_id=request['run_id'], created_at=started.isoformat(), deadline_at=(started+timedelta(seconds=100)).isoformat())
     receipt = collect_remote(parent, routing, source_id=source, wanted=request['wanted'])
-    return dict(source=source, run_id=receipt['run_id'], offers=receipt['offers'], errors=receipt.get('errors',[]))
+    return dict(source=source, run_id=receipt['run_id'], offers=receipt['offers'],
+                errors=receipt.get('errors', []), response_received=receipt.get('response_received'))

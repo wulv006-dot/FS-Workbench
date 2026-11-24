@@ -866,7 +866,8 @@
             }
             for(const row of observed){
               const ours=(market.catalogue_samples?.[platform]?.tiers||[]).find(t=>t.purchase_k===row.purchase_k);
-              card.append(node('p',`${row.purchase_k}K · ${usd(row.regular_price)} · ${when(row.captured_at)}`));
+              const readBy=row.collection_node==='local'?' · Windows 本机采集':'';
+              card.append(node('p',`${row.purchase_k}K · ${usd(row.regular_price)} · ${when(row.captured_at)}${readBy}`));
               if(Number(ours?.native_price_usd)>0&&Number(row.regular_price)>0){
                 const difference=(Number(ours.native_price_usd)/Number(row.regular_price)-1)*100;
                 card.append(node('p',`我方同档价差 ${difference.toFixed(1)}%`));

@@ -306,7 +306,8 @@ def _curve_market_quotes(snapshot, observation=None):
                 monitoring_attempts[source] = result['attempts']
             elif 'source_access_restricted' in result.get('errors', []):
                 monitoring_attempts[source] = [dict(errors=['source_access_restricted'])]
-            monitoring[source] = [public_quote(r) for r in same_run.get('package_offers', [])
+            monitoring[source] = [dict(public_quote(r), collection_node=r.get('collection_node'))
+                                  for r in same_run.get('package_offers', [])
                                   if r.get('source') == source and r.get('run_id') == snapshot['snapshot_id']
                                   and r.get('purchase_k') in requested]
     return dict(write_protocol=CURVE_WRITE_PROTOCOL, competitor_policy=policy, monitoring=monitoring,

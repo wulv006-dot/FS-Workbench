@@ -187,6 +187,7 @@ def collect_remote(parent, routing, *, source_id='ArabUT', trigger_sha256=None, 
         projection = to_fc_quote_rows(accepted, task, utc())
         if package:
             projection['errors']=[body['reason_code'] for body in accepted if body.get('reason_code')]
+            projection['response_received'] = bool(accepted)
         return projection
     return to_arab_status(accepted, task, utc())
 

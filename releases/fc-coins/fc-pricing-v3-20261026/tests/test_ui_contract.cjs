@@ -453,12 +453,15 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   const monitorCards=JSON.stringify(elements['v3-market-cards'].children[0]);
   assert.match(monitorCards,/IGGM · 监控.*我方同档价差 -14.9%.*U4GM · 监控.*本轮尚无监控结果/);
   assert.doesNotMatch(monitorCards,/Arab-UT/);
-  curveMarket={...curveMarket,monitoring_status:{IGGM:'partial',U4GM:'missing'},monitoring_attempts:{
-    IGGM:[{node:'local',errors:[],response_received:true}],
-    U4GM:[{node:'187',errors:['source_blocked'],response_received:false}]}};
+  curveMarket={...curveMarket,monitoring_status:{IGGM:'partial',U4GM:'missing'},
+    monitoring:{...curveMarket.monitoring,IGGM:[...curveMarket.monitoring.IGGM,
+      {platform:'PS',purchase_k:'1000',regular_price:'90',captured_at:curveCapturedAt,collection_node:'local'}]},
+    monitoring_attempts:{IGGM:[{node:'local',errors:[],response_received:true,requested:[['PS','1000'],['PC','1000']]}],
+      U4GM:[{node:'187',errors:['source_blocked'],response_received:false}]}};
   await elements['v3-refresh'].events.click();
   const diagnosedCards=JSON.stringify(elements['v3-market-cards'].children[0]);
-  assert.match(diagnosedCards,/IGGM · 监控.*Windows 本机已回传，仍有普通档缺价.*U4GM · 监控.*187 的来源账本已阻断本站，采集停派，本轮未派给本机/);
+  assert.match(diagnosedCards,/IGGM · 监控.*1000K .*Windows 本机采集.*U4GM · 监控.*187 的来源账本已阻断本站，采集停派，本轮未派给本机/);
+  assert.match(JSON.stringify(elements['v3-market-cards'].children[2]),/IGGM · 监控.*Windows 本机已回传，仍有普通档缺价/);
   curveMarket=historicalMarket;
   await elements['v3-refresh'].events.click();
   const decisionBeforeReadonly=elements['v3-decision-basis'].textContent;
