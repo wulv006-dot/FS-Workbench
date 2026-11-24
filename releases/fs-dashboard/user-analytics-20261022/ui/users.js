@@ -187,10 +187,12 @@ function card(label, value, note, {accent = false, secondary} = {}) {
   return box;
 }
 
+// Share of the customers who came back within 180 days that already came back in the first window.
 function firstWindowShare(batch, windows) {
   const counts = batch?.first_repeat?.counts;
-  if (!counts?.length) return null;
-  const returned = counts.slice(0, windows.length).reduce((sum, value) => sum + value, 0);
+  const boundary = windows.indexOf(180);
+  if (!counts?.length || boundary < 0) return null;
+  const returned = counts.slice(0, boundary + 1).reduce((sum, value) => sum + value, 0);
   return returned ? counts[0] / returned : null;
 }
 
@@ -404,8 +406,9 @@ function firstRepeat(view) {
     return window?.observing === 0 && window.denominator > 0;
   };
   const rows = [];
-  for (const batch of view.batches.filter(mature)) {
-    rows.push({label: batch.month + (view.compare ? ' 新' : ''), batch});
+  // Each population qualifies on its own maturity.
+  for (const batch of view.batches) {
+    if (mature(batch)) rows.push({label: batch.month + (view.compare ? ' 新' : ''), batch});
     const old = view.compare && sameMonth(view.oldBatches, batch.month);
     if (old && mature(old)) rows.push({label: batch.month + ' 老', batch: old});
   }
@@ -492,6 +495,19 @@ function barChart(host, label, groups, {format, axis = format, colors}) {
   });
 }
 
+// A month is partial when, for any shown population, its return window still has customers under
+// observation or with order-coverage gaps. The return window comes from the reference query when
+// the selected repeat windows do not include it; unknown completeness also counts as partial.
+function returnPartial(view, month) {
+  const within = view.query.return_within;
+  const sources = [[view.refBatches, view.batches]];
+  if (view.compare) sources.push([view.refOldBatches, view.oldBatches]);
+  return sources.some(([reference, shown]) => {
+    const window = windowOf(sameMonth(reference, month), within) || windowOf(sameMonth(shown, month), within);
+    return !window || Boolean(window.observing || window.coverage_gap);
+  });
+}
+
 function renderReturns(view) {
   const {return_after: after, return_within: within} = view.query;
   document.querySelectorAll('[data-after-next]').forEach(node => { node.textContent = after + 1; });
@@ -508,7 +524,7 @@ function renderReturns(view) {
   }
   barChart(el('return-rates'), '各批次沉默后回流率', groups.map(batch => ({
     label: batch.month,
-    partial: Boolean(windowOf(batch, within)?.observing),
+    partial: returnPartial(view, batch.month),
     bars: series.map(([name, key]) => {
       const value = pick(batch, key);
       return {name, value: value?.denominator ? value.rate : NaN,
@@ -520,7 +536,8 @@ function renderReturns(view) {
     const values = series.map(([, key]) => pick(batch, key));
     return {
       label: batch.month,
-      partial: values.some(value => value?.denominator && value.return_amount.unknown_orders),
+      partial: returnPartial(view, batch.month) ||
+        values.some(value => value?.denominator && value.return_amount.unknown_orders),
       bars: series.map(([name], index) => {
         const value = values[index];
         const known = value?.denominator ? value.return_amount.known_usd : null;
@@ -734,6 +751,7 @@ async function query(event) {
     const view = {
       query: data.query, who: whoNames[type], compare: type === 'compare',
       batches: data.cohorts.batches, oldBatches: data.cohorts.compare?.batches || [],
+      refBatches: reference?.cohorts.batches || [], refOldBatches: reference?.cohorts.compare?.batches || [],
     };
     const batch = reference ? latestMatureBatch(reference.cohorts.batches) : null;
     renderFindings({...view, batch, old: batch && sameMonth(reference.cohorts.compare?.batches, batch.month),
