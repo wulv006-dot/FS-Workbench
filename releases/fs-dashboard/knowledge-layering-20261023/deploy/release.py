@@ -20,8 +20,9 @@ FC_V61 = 'fc-v61-average-discount-20261113-r1'
 CUSTOMER_LIFECYCLE = 'users-v4-maintenance-20261125-v1'
 BASELINE_CANDIDATE = 'runtime/business-baseline.md'
 BASELINE_TARGET = '/opt/fs-hermes-fc/business-baseline.md'
+BASELINE_PATCH_CONTRACT = 'fc-v61-current-baseline-patch-v1'
 BASELINE_PATCH_CONTRACTS = {
-    FC_V61: 'fc-v61-current-baseline-patch-v1',
+    FC_V61: BASELINE_PATCH_CONTRACT,
     CUSTOMER_LIFECYCLE: 'users-maintenance-current-baseline-patch-v1',
 }
 
