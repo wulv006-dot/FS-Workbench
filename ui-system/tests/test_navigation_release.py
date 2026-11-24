@@ -104,6 +104,9 @@ location = /dashboard/workspace-assets/workspace/shell.js {{
                 {row['target'] for row in result['manifest']['files']},
                 {MAIN, FORMAL, USERS, CUSTOMERS, SHELL, HOME, changed},
             )
+            rows = sorted(result['manifest']['files'], key=lambda row: row['candidate'])
+            self.assertEqual(rows[0]['target'], changed)
+            self.assertEqual({row['target'] for row in rows[-2:]}, {MAIN, FORMAL})
             path.write_bytes(self.before[changed])
 
     def test_cache_drift_stops_and_non_navigation_assets_stay_unchanged(self):

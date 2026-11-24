@@ -97,6 +97,17 @@ def is_static(target):
     return target.startswith((DASHBOARD, FORMAL_STATIC)) and Path(target).suffix in SUFFIXES
 
 
+def candidate_name(target):
+    # The existing publisher applies candidates in lexicographic order.
+    if target in ASSETS:
+        category = 'a-navigation'
+    elif target in CONFIGS:
+        category = 'z-routes'
+    else:
+        category = 'site'
+    return category + '/' + target.lstrip('/')
+
+
 def sources(root, configs):
     # Site files under the dashboard root, plus files aliased from outside that root.
     paths = {
@@ -146,8 +157,7 @@ def prepare(root, output, scripts=None):
                 after = apply_cache_policy(after)
         if before == after:
             continue
-        # Place the Nginx configuration after the static assets in apply order.
-        candidate = ('routes/' if target in CONFIGS else 'site/') + target.lstrip('/')
+        candidate = candidate_name(target)
         dest = output / 'candidate' / candidate
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(after)
@@ -179,8 +189,7 @@ def run_publisher(action, stage, approval=None, release_id=None):
         target = row['target']
         if target == BUSINESS_HTML or (target not in (*CONFIGS, *ASSETS) and not is_static(target)):
             raise ValueError('navigation-only target required: ' + target)
-        prefix = 'routes/' if target in CONFIGS else 'site/'
-        if (row['candidate'] != prefix + target.lstrip('/') or '..' in Path(target).parts
+        if (row['candidate'] != candidate_name(target) or '..' in Path(target).parts
                 or row['beforeSha256'] is None or target in targets.values()):
             raise ValueError('invalid navigation target mapping')
         targets[row['candidate']] = target
