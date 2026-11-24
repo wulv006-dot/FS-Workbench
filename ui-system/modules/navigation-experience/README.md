@@ -8,6 +8,20 @@
 
 `build.cjs` 接受已核实的正式模块清单。`shell_payload.py` 从本批现场文件和仓库源码生成六个看板及活动页发布输入；`prepare-combined.py` 校验输入并生成原 UI 发布器可用的清单。正式配置、现场文件和备份留在私有发布目录。每次发布以活动版本和本批回执为准。
 
+## 导航缓存发布
+
+更新任一导航脚本时，将同一次构建的 hubnav.js 和 nav.js 放入受审目录，并在 187 的私有暂存区运行：
+
+    umask 077
+    python3 prepare-navigation.py prepare /opt/fs-release-stage/<批次>/candidate --scripts /opt/fs-release-stage/<批次>/reviewed-nav
+    python3 prepare-navigation.py inspect /opt/fs-release-stage/<批次>/candidate
+    python3 prepare-navigation.py apply /opt/fs-release-stage/<批次>/candidate <manifest SHA256> <nav-YYYYMMDDTHHMMSSZ>
+
+仅重新发布当前脚本的引用时省略 --scripts。准备阶段根据两份候选脚本的字节生成同一版本，再从当前 Nginx 注入、看板静态入口和实际 alias 文件中同步所有版本化及无版本引用。确认清单和消费者后，沿用现役 UI 发布器的双锁、CAS、备份、回读和 Nginx 检查与重载。回退用同一暂存目录的 rollback 子命令、原 manifest SHA256 和发布 ID。
+
+只有 /__hub/hubnav.js 与 /__hub/nav.js 使用 300 秒新鲜期与 604800 秒后台重新验证窗口，其他 /__hub/ 资源沿用 30 天。版本号随实际脚本内容生成。后续改动导航脚本时随同一发布同步引用，页面发布沿现场保留当前引用和缓存规则。下方留档命令仅描述各批实际发布。
+
+
 ## 2026-11-20 导航实测
 
 第一批发布 `nav-20261119T183046Z` 读回 24 个目标。正式 Chrome 使用同一登录身份，从左侧导航点击到页面标题可见，数据看板由 4.020–5.320 秒降至 3.539–3.974 秒。周更台此前 5.086 秒，新版本首次 5.405 秒、再次 3.003 秒。首页 3.180 → 3.178 秒，RPG 工作区 1.583 → 1.942 秒。看板数据查询另行计时：11 月 17–19 日同单采购查询用时 0.559 秒。
