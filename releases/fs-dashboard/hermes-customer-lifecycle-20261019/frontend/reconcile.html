@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+  <title>待人工核对 · 客户维护</title>
+  <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
+  <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
+  <link rel="stylesheet" href="/dashboard/customers/page.css?v=stage-maintenance-20261124">
+  <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
+  <script defer src="/dashboard/customers/phase.js?v=stage-maintenance-20261124"></script>
+</head>
+<body class="fs-ui-page">
+  <main id="phase-manual" class="panel">
+    <div class="section-head">
+      <div>
+        <h1>待人工核对</h1>
+        <p class="hint">在 Admin 用原批次号核对后登记结果。</p>
+      </div>
+      <button class="fs-btn" id="phase-refresh" type="button">刷新</button>
+      <a href="/dashboard/customers/">返回客户维护</a>
+    </div>
+    <p id="phase-status" class="status" role="status" aria-live="polite">正在读取待人工核对条目…</p>
+    <div id="phase-content"></div>
+    <button class="fs-btn" id="phase-more" type="button" hidden>下一页</button>
+  </main>
+</body>
+</html>

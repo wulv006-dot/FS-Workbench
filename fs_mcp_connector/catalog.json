@@ -3494,7 +3494,7 @@
       "module": "customer-tracking",
       "path": "/dashboard/fs-home/advisor.json",
       "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
+      "permission_path": "/dashboard/customers/",
       "description": "Read existing customer-tracking config under original admin gate; no scan/history poll or task queue.",
       "input_schema": {
         "type": "object",
@@ -3527,7 +3527,7 @@
       "module": "customer-tracking",
       "path": "/dashboard/fs-home/advisor.json",
       "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
+      "permission_path": "/dashboard/customers/",
       "description": "Read existing customer-tracking tracked under original admin gate; no scan/history poll or task queue.",
       "input_schema": {
         "type": "object",
@@ -3560,7 +3560,7 @@
       "module": "customer-tracking",
       "path": "/dashboard/fs-home/advisor.json",
       "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
+      "permission_path": "/dashboard/customers/",
       "description": "Read existing tracking request receipt only; no scan/history poll.",
       "input_schema": {
         "type": "object",
@@ -5092,7 +5092,7 @@
       "module": "customer-tracking",
       "path": "/dashboard/fs-home/advisor.json",
       "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
+      "permission_path": "/dashboard/customers/",
       "description": "按自选上海付款日期读取 MMOEXP FC27 大客。默认英美 uk_us，窗口累计实付至少300美元；global_preferred 查全国家优选，限连续30个完整日，排除退款、问题和调查订单的原实付累计至少500美元，前后任一15日至少300美元，至少2个有效购买日，问题单少于50%。入组及后续观察按返回口径，第15天开始复购跟踪。日期含首尾，as_of 可传含时区的观察时点，默认当前。每页20人，按返回next_offset、as_of和原条件续查。只读，保留来源覆盖、订单联系邮箱、可核UID、付款及退款标记。",
       "input_schema": {
         "type": "object",
@@ -5160,7 +5160,7 @@
       "module": "customer-tracking",
       "path": "/dashboard/fs-home/advisor.json",
       "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
+      "permission_path": "/dashboard/customers/",
       "description": "只读原已存客单追踪candidates；不轮询、不产生报告任务，保持原管理员范围与完整性状态",
       "input_schema": {
         "type": "object",
@@ -5202,7 +5202,7 @@
       "module": "customer-tracking",
       "path": "/dashboard/fs-home/advisor.json",
       "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
+      "permission_path": "/dashboard/customers/",
       "description": "只读原已存客单追踪detail；不轮询、不产生报告任务，保持原管理员范围与完整性状态",
       "input_schema": {
         "type": "object",
@@ -5238,6 +5238,196 @@
         "route_observed_date": "2026-11-09"
       },
       "response_adapter": "tracking"
+    },
+    {
+      "name": "customer_tracking.stage_groups",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/customers/",
+      "description": "查看 FC27 阶段维护分组和名单，含观察日、配置版本与续页。",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 99999999
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "phase_groups"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 1048576,
+        "timeout_seconds": 30
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/maintenance_service.py",
+        "mapping_status": "source_mapped; deployment_and_authenticated_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json"
+      }
+    },
+    {
+      "name": "customer_tracking.stage_customer",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/customers/",
+      "description": "查看单个阶段维护客户、案件、进入事件和跟进时间线。",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "[A-Za-z0-9_.:-]{1,128}",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "phase_customer"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 1048576,
+        "timeout_seconds": 30
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/maintenance_service.py",
+        "mapping_status": "source_mapped; deployment_and_authenticated_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json"
+      }
+    },
+    {
+      "name": "customer_tracking.stage_effect",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/customers/",
+      "description": "查看成熟订单窗口的各规则回购率、券使用、归因和覆盖。",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "enum": [
+              7,
+              30,
+              60
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "phase_effect"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 1048576,
+        "timeout_seconds": 30
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/maintenance_service.py",
+        "mapping_status": "source_mapped; deployment_and_authenticated_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json"
+      }
+    },
+    {
+      "name": "customer_tracking.stage_review",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/customers/",
+      "description": "读取程序复核及暂缓条目、证据摘要和人工券数据缺口。",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 99999999
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "phase_review"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 1048576,
+        "timeout_seconds": 30
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/maintenance_service.py",
+        "mapping_status": "source_mapped; deployment_and_authenticated_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json"
+      }
+    },
+    {
+      "name": "customer_tracking.stage_ready",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/customers/",
+      "description": "读取待发区和程序复核结论。只读，不确认或派发。",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 99999999
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "phase_ready"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 1048576,
+        "timeout_seconds": 30
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/maintenance_service.py",
+        "mapping_status": "source_mapped; deployment_and_authenticated_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json"
+      }
     }
   ],
   "coverage": [
@@ -5420,9 +5610,9 @@
     {
       "module": "customer-tracking",
       "status": "partially_mapped_not_live_verified",
-      "operations": 6,
-      "reason": "Existing reads plus SELECT-only candidates/detail adapter; new helper deployment and real user reads pending.",
-      "permission_path": "/dashboard/fs-home/hermes/customer-tracking/"
+      "operations": 11,
+      "reason": "Existing weekly lists and stored reads plus FC27 stage maintenance reads; deployed authenticated readback pending.",
+      "permission_path": "/dashboard/customers/"
     },
     {
       "module": "fc27-evolutions",
@@ -5637,6 +5827,11 @@
           "customer_tracking.candidates",
           "customer_tracking.vip_period",
           "customer_tracking.detail",
+          "customer_tracking.stage_groups",
+          "customer_tracking.stage_customer",
+          "customer_tracking.stage_effect",
+          "customer_tracking.stage_review",
+          "customer_tracking.stage_ready",
           "orders.customer"
         ],
         "guidance": "客户追踪读取原存储业务数据、请求回执和候选/详情；候选/详情固定stored_only，不观察、排队扫描或生成报告。保留stored_only/refreshed/history/complete及获准email、UID、原订单号和订单明细；存储未刷新不等于实时完整。原admin/private/对象权限继续适用；实现目录或固定mode名含Hermes不代表调用代理。",

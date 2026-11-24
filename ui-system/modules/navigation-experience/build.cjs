@@ -1,6 +1,6 @@
 const fs=require('fs'),path=require('path');
 const dir=__dirname;
-const live=fs.readFileSync(path.join(dir,'hubnav.live.js'),'utf8');
+const live=fs.readFileSync(path.join(dir,'hubnav.live.js'),'utf8').replace(/\r\n/g,'\n');
 const reg=JSON.parse(process.argv[2]?fs.readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,''):live.match(/const BUILTIN=(.*);\r?\n/)[1]);
 if(reg.schemaVersion!==1||!Array.isArray(reg.sections)||!Array.isArray(reg.tools))throw Error('Invalid navigation registry');
 const css=fs.readFileSync(path.join(dir,'navigation-experience.css'),'utf8').replace(/\r\n/g,'\n');
@@ -9,7 +9,7 @@ const style=`\n(function(){if(document.getElementById('fsNavExperienceStyle'))re
 fs.mkdirSync(path.join(dir,'candidate'),{recursive:true});
 const hub=live.replace(/^const BUILTIN=.*;$/m,()=>'const BUILTIN='+JSON.stringify(reg)+';').replace('tree.replaceChildren(frag);',"tree.replaceChildren(frag);document.dispatchEvent(new CustomEvent('fs-nav-account-ready',{detail:{account:tree.querySelector('.hn-account')}}));");
 fs.writeFileSync(path.join(dir,'candidate','hubnav.js'),hub+style+enhancement);
-let nav=fs.readFileSync(path.join(dir,'nav.live.js'),'utf8');
+let nav=fs.readFileSync(path.join(dir,'nav.live.js'),'utf8').replace(/\r\n/g,'\n');
 // The shared renderer owns group structure and active state once mounted.
 nav=nav.replace('  // Keep the shared Hermes hierarchy', '  if(!window.__fsNavExperience){\n  // Keep the shared Hermes hierarchy');
 nav=nav.replace("  var KEY = 'fs-navigation-theme';", "  }\n  var KEY = 'fs-navigation-theme';");

@@ -15,7 +15,11 @@ class DataMethodsTests(unittest.TestCase):
     def test_method_sources_and_operations_are_real_and_scope_is_business_data(self):
         catalog = Catalog(lambda *_: 200)
         listing = catalog.list(self.principal)
-        self.assertEqual(len(listing['operations']), 119)
+        self.assertEqual(len(listing['operations']), 124)
+        maintenance = [row for row in catalog.operations.values() if row['name'].startswith('customer_tracking.stage_')]
+        self.assertEqual(len(maintenance), 5)
+        self.assertTrue(all(row['method'] == 'GET' and row['permission_path'] == '/dashboard/customers/'
+                            for row in maintenance))
         self.assertIn('customer_tracking.vip_period', catalog.operations)
         vip_schema = catalog.operation('customer_tracking.vip_period')['input_schema']
         self.assertEqual(vip_schema['properties']['scope']['enum'], ['uk_us', 'global_preferred'])

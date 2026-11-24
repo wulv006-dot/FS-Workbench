@@ -130,3 +130,18 @@ main{max-width:1280px;margin:auto;padding:24px 20px 64px}.intro{margin-bottom:18
 .vip-select-row input,.vip-bulk-actions input{flex:none;accent-color:var(--fs-brand)}
 .vip-select-row input{margin:4px 2px 0 0}
 .vip-bulk p{margin:6px 0 0}
+
+
+.phase-toolbar { flex-wrap: wrap; }
+.phase-toolbar h2 { margin-right: auto; }
+.phase-table { overflow-x: auto; }
+.phase-table table { width: 100%; border-collapse: collapse; }
+.phase-table th, .phase-table td { text-align: left; border-bottom: 1px solid var(--fs-border); padding: .55rem; }
+.phase-form, .phase-actions { display: flex; flex-wrap: wrap; gap: .7rem; align-items: end; }
+.phase-form label { display: grid; gap: .25rem; }
+.phase-form input:not([type="checkbox"]), .phase-form select { max-width: 100%; }
+.phase-alert { color: var(--fs-danger, #b6494b); font-weight: 600; }
+.phase-detail { margin-top: .85rem; }
+#phase-manual { max-width: 72rem; margin: 2rem auto; }
+
+.phase-current #vip-performance { display: none; }
