@@ -690,7 +690,7 @@
       "limits": {
         "request_bytes": 8192,
         "response_bytes": 262144,
-        "timeout_seconds": 10
+        "timeout_seconds": 20
       },
       "provenance": {
         "source": "releases/fs-dashboard/tiered-data-access-20261101/LIVE-ORDER-PAGINATION.md",

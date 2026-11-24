@@ -399,6 +399,7 @@ private_live_body=None
 try:
  from admin_live_admission import LiveAdminAdmission
  from admin_live_host import get as get_live_orders
+ from admin_live_page import LivePageError
  from admin_live_session import verify as verify_live_session
  from admin_live_dispatch import private_body_params as private_live_body
  LIVE_ADMIN=LiveAdminAdmission(SUMMARY.pools['Admin'],maintenance_admission)
@@ -448,6 +449,8 @@ class Handler(BaseHTTPRequestHandler):
     def run_scoped(operation,timeout):
      def checked():
       next_status,next_actor=verify_live_session(cookie)
+      if next_status==429:raise LivePageError('source_busy')
+      if next_status==503:raise LivePageError('session_unavailable')
       if next_status!=200 or next_actor!=actor:raise PermissionError('session_changed')
       return operation()
      return LIVE_ADMIN.run(checked,timeout)
