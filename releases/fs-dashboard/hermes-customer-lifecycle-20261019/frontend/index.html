@@ -7,13 +7,14 @@
   <meta name="color-scheme" content="light dark">
   <meta http-equiv="Cache-Control" content="no-store">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'">
-  <title>智体客单追踪 · FS</title>
+  <title>客户维护 · FS</title>
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
-  <link rel="stylesheet" href="page.css?v=vip-maintenance-20261120-bulk">
+  <link rel="stylesheet" href="page.css?v=stage-maintenance-20261124">
   <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
   <script defer src="/__hub/hubnav.js?v=3dda7cae"></script>
-  <script defer src="page.js?v=vip-maintenance-20261120-bulk"></script>
+  <script defer src="page.js?v=stage-maintenance-20261124"></script>
+  <script defer src="phase.js?v=stage-maintenance-20261124"></script>
 <link rel="stylesheet" href="/__hub/hermes-nav.css?v=hermes-nav-20261019-v2">
 <script defer src="/__hub/nav.js?v=hermes-nav-20261019-v1"></script>
 </head>
@@ -24,12 +25,13 @@
 <section class="hn-group">
 <a class="hn-heading" href="/dashboard/modules/analytics/"><span class="hn-icon">▥</span><span>数据分析</span></a>
 <a class="hn-tool" href="/dashboard/analytics/?mode=business">数据看板</a>
+<a class="hn-tool" href="/dashboard/users/">用户分析</a><a class="hn-tool" href="/dashboard/customers/">客户维护</a>
 <a class="hn-tool" href="/dashboard/data-tools/">数据分析工具</a>
 <a class="hn-tool" href="/dashboard/fs-home/brain/index.html?report_kind=weekly#reports">运营报告</a>
 <a class="hn-tool" href="/dashboard/management/">经营管理台</a>
 <a class="hn-tool" href="/dashboard/game-monitor/">游戏监控台</a>
 </section>
-<section class="hn-group"><a class="hn-heading" href="/dashboard/modules/hermes/" aria-current="true"><span class="hn-icon">◈</span><span>Hermes 智体</span></a><a class="hn-tool" href="/dashboard/fs-home/brain/index.html">智体决策报告</a><a class="hn-tool" href="/dashboard/fs-home/hermes/conversation/">持续对话</a><a class="hn-tool" href="/dashboard/fs-home/hermes/customer-tracking/">智体客单追踪</a></section>
+<section class="hn-group"><a class="hn-heading" href="/dashboard/modules/hermes/"><span class="hn-icon">◈</span><span>Hermes 智体</span></a><a class="hn-tool" href="/dashboard/fs-home/brain/index.html">智体决策报告</a><a class="hn-tool" href="/dashboard/fs-home/hermes/conversation/">持续对话</a></section>
 <section class="hn-group">
 <a class="hn-heading" href="/dashboard/modules/sports/"><span class="hn-icon">◉</span><span>球类工作区</span></a>
 </section>
@@ -47,16 +49,18 @@
 <button id="hubNavToggle" type="button" aria-controls="hubNav" aria-expanded="false">☰ 导航</button>
 <button id="hubNavScrim" type="button" hidden aria-label="关闭导航"></button>
   <a class="skip" href="#main">跳到主内容</a>
-  <header class="page-head"><a href="/dashboard/">FS / MMOEXP</a><nav aria-label="当前位置"><a href="/dashboard/modules/hermes/">Hermes 智体</a><span aria-hidden="true"> / </span><span aria-current="page">智体客单追踪</span></nav><label>显示主题 <select id="theme"><option value="system">跟随系统</option><option value="light">浅色主题</option><option value="dark">深色主题</option></select></label></header>
+  <header class="page-head"><a href="/dashboard/">FS / MMOEXP</a><nav aria-label="当前位置"><a href="/dashboard/modules/analytics/">数据分析</a><span aria-hidden="true"> / </span><span aria-current="page">客户维护</span></nav><label>显示主题 <select id="theme"><option value="system">跟随系统</option><option value="light">浅色主题</option><option value="dark">深色主题</option></select></label></header>
   <main id="main" tabindex="-1">
-    <div class="intro"><h1>智体客单追踪</h1><p>FC27 每周客户维护与回购</p></div>
+    <div class="intro"><h1>客户维护</h1><p>FC27 每周客户维护与回购</p></div>
     <p id="status" class="status" role="status" aria-live="polite">正在核对管理员权限…</p><button id="reconcile-write" class="fs-btn" type="button" hidden>核对上次操作</button>
     <div id="app" hidden>
       <section class="panel vip-queue" aria-labelledby="vip-title">
         <div id="vip-scopes" class="vip-scopes" role="group" aria-label="维护名单范围">
           <button class="fs-btn" type="button" data-vip-scope="uk_us" aria-pressed="true" aria-controls="vip-list">英美队列</button>
           <button class="fs-btn" type="button" data-vip-scope="global_preferred" aria-pressed="false" aria-controls="vip-list">全国家优选</button>
+          <button class="fs-btn" id="phase-scope" type="button" aria-pressed="false" aria-controls="phase-panel">阶段维护</button>
         </div>
+        <div id="vip-week-panel">
         <div class="section-head vip-head">
           <div>
             <h2 id="vip-title">本周优先跟进</h2>
@@ -99,6 +103,23 @@
           <p id="vip-bulk-status" class="vip-state" role="status"></p>
         </div>
         <div id="vip-list" aria-busy="true"></div>
+        </div>
+        <div id="phase-panel" hidden>
+          <div class="section-head phase-toolbar">
+            <h2>FC27 阶段维护</h2>
+            <label>查看 <select id="phase-view">
+              <option value="groups">分组名单</option><option value="review">程序复核</option>
+              <option value="ready">待发区</option><option value="delivery">派发结果</option>
+              <option value="effect">规则效果</option><option value="rules">维护规则</option>
+              <option value="config">阶段和价值门槛</option>
+            </select></label>
+            <button class="fs-btn" id="phase-refresh" type="button">刷新</button>
+            <a href="/dashboard/customers/reconcile/">待人工核对</a>
+          </div>
+          <p id="phase-status" class="status" role="status" aria-live="polite"></p>
+          <div id="phase-content"></div>
+          <button class="fs-btn" id="phase-more" type="button" hidden>下一页</button>
+        </div>
       </section>
       <section class="panel vip-performance" aria-labelledby="vip-performance-title" hidden id="vip-performance">
         <div class="section-head"><h2 id="vip-performance-title">周维护效果</h2></div>

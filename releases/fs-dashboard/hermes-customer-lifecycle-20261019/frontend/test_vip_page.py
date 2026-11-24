@@ -12,7 +12,7 @@ from playwright.sync_api import expect, sync_playwright
 ROOT = Path.cwd()
 ASSETS = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent
 CAPTURE = Path(sys.argv[2]) if len(sys.argv) > 2 else None
-ROUTE = "/dashboard/fs-home/hermes/customer-tracking/"
+ROUTE = "/dashboard/customers/"
 WEB = "https://fs.invalid" + ROUTE
 WEEK = "2026-11-16"
 CASE_ID = "7" * 32
@@ -67,7 +67,7 @@ SUMMARY = {
 def install(page, *, admin=True, bulk=False):
     items = json.loads(json.dumps(CUSTOMERS))
     state = {"events": [], "receipt": {}, "queries": [], "deny_week": False, "errors": [],
-             "viewer": "wulv", "bulk_requests": [], "bad_bulk_read": False, "first_bulk_unknown": True}
+             "viewer": "wulv", "bulk_requests": [], "phase_posts": [], "bad_bulk_read": False, "first_bulk_unknown": True}
     if bulk:
         items = [
             dict(case_id=f"{i + 1000:032x}", email=f"bulk-{i}@example.invalid", uid=f"{i + 2000}",
@@ -89,7 +89,9 @@ def install(page, *, admin=True, bulk=False):
         name = url.path.rsplit("/", 1)[-1]
         if url.path == ROUTE:
             return request.fulfill(body=(ASSETS / "index.html").read_bytes(), content_type="text/html")
-        if url.path.startswith(ROUTE) and name in ("page.js", "page.css"):
+        if url.path == ROUTE + 'reconcile/':
+            return request.fulfill(body=(ASSETS / 'reconcile.html').read_bytes(), content_type='text/html')
+        if url.path.startswith(ROUTE) and name in ("page.js", "page.css", "phase.js"):
             return request.fulfill(body=(ASSETS / name).read_bytes(),
                                    content_type="text/javascript" if name.endswith(".js") else "text/css")
         if name in SHARED:
@@ -103,6 +105,9 @@ def install(page, *, admin=True, bulk=False):
             body = request.request.post_data_json
             assert body["kind"] == "hermes_customer_tracking"
             assert request.request.headers["x-fs-advisor-action"] == "submit"
+            if body['action'] in ('phase_decide', 'phase_result'):
+                state['phase_posts'].append(body)
+                return request.fulfill(json=dict(changed=True))
             if body["action"] == "vip_bulk_claim":
                 state["bulk_requests"].append(body)
                 assert body["week"] == WEEK and body["scope"] == "global_preferred"
@@ -142,6 +147,14 @@ def install(page, *, admin=True, bulk=False):
         state["queries"].append((view, query))
         if view == "config":
             value = CONFIG
+        elif view == 'phase_groups':
+            value = dict(status='waiting', waiting_for='2026-11-23', items=[], groups=[])
+        elif view in ('phase_ready', 'phase_manual'):
+            action = 'phase_decide' if view == 'phase_ready' else 'phase_result'
+            mode = 'ready' if view == 'phase_ready' else 'unknown'
+            row = dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state=mode, batch='FCSM_'+'A'*32,
+                       review=dict(manual_coupon_notice='人工券：仅核对已使用记录；另有 1 条用券记录无法归属客户'))
+            value = dict(items=[] if any(post['action']==action for post in state['phase_posts']) else [row])
         elif view == "vip_week":
             if state["deny_week"]:
                 return request.fulfill(status=403, json={"error": "admin_required"})
@@ -446,11 +459,38 @@ def check_bulk_selection_and_csv(browser):
     assert not direct["errors"], direct["errors"]
 
 
+def check_phase(browser):
+    page = browser.new_page(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
+    state = install(page)
+    phase = page.get_by_role('button', name='阶段维护', exact=True)
+    phase.click()
+    expect(page.locator('#phase-status')).to_contain_text('等待 2026-11-23 日数据')
+    expect(page.locator('#vip-week-panel')).to_be_hidden()
+    page.locator('#phase-view').select_option('ready')
+    expect(page.locator('#phase-content')).to_contain_text('另有 1 条用券记录无法归属客户')
+    page.get_by_role('button', name='确认', exact=True).click()
+    expect(page.locator('#phase-content')).to_contain_text('暂无条目')
+    assert state['phase_posts'][0]['action'] == 'phase_decide'
+    assert state['phase_posts'][0]['ids'] == ['fixture-entry']
+    page.get_by_role('button', name='英美队列', exact=True).click()
+    expect(page.locator('#vip-week-panel')).to_be_visible()
+    page.goto('https://fs.invalid/dashboard/customers/reconcile/')
+    expect(page.get_by_role('heading', name='待人工核对')).to_be_visible()
+    expect(page.locator('#phase-content')).to_contain_text('FCSM_' + 'A'*32)
+    page.get_by_label('核对依据').fill('Admin 原批次已确认')
+    page.get_by_role('button', name='登记结果').click()
+    expect(page.locator('#phase-content')).to_contain_text('暂无条目')
+    assert state['phase_posts'][-1]['action'] == 'phase_result'
+    assert state['phase_posts'][-1]['batch'] == 'FCSM_' + 'A'*32
+    assert not state['errors']
+
+
 if __name__ == "__main__":
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         check_desktop(browser)
         check_narrow_and_denied(browser)
         check_bulk_selection_and_csv(browser)
+        check_phase(browser)
         browser.close()
     print("VIP tracking browser checks passed")

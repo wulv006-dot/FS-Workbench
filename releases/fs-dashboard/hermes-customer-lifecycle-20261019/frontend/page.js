@@ -1013,9 +1013,15 @@
   $('vip-week-form').onsubmit = event => { event.preventDefault(); loadVip($('vip-week-date').value); };
   $('vip-week-prev').onclick = () => loadVip(dayOffset($('vip-week-date').value || currentWeek(), -7));
   $('vip-week-next').onclick = () => loadVip(dayOffset($('vip-week-date').value || currentWeek(), 7));
-  for (const button of $('vip-scopes').querySelectorAll('button')) {
+  for (const button of $('vip-scopes').querySelectorAll('[data-vip-scope]')) {
     button.onclick = () => {
-      if (button.dataset.vipScope === vipScope || writeInFlight) return;
+      if (writeInFlight) return;
+      if (!$('phase-panel').hidden) {
+        $('app').classList.remove('phase-current');
+        $('phase-panel').hidden = true;
+        $('vip-week-panel').hidden = false;
+        $('phase-scope').setAttribute('aria-pressed', 'false');
+      } else if (button.dataset.vipScope === vipScope) return;
       vipScope = button.dataset.vipScope;
       for (const scope of $('vip-scopes').querySelectorAll('button')) {
         scope.setAttribute('aria-pressed', String(scope === button));

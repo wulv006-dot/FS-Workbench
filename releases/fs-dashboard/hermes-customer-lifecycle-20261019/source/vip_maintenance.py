@@ -106,8 +106,8 @@ def scoped_rows(db, scope, week=None):
         return db.execute(f'SELECT c.*{owner}{baseline} FROM {cases} AS c{owner_join} '
                           f'JOIN {memberships} AS w ON w.case_id=c.id WHERE w.week=? ORDER BY c.opened_at,c.id',
                           (week,)).fetchall()
-    current_scope = (' WHERE c.id NOT IN (SELECT id FROM vip_preferred_cases) '
-                     'OR c.id IN (SELECT case_id FROM vip_week_cases)') if scope == UK_US else ''
+    current_scope = (" WHERE c.week <> '' AND (c.id NOT IN (SELECT id FROM vip_preferred_cases) "
+                     'OR c.id IN (SELECT case_id FROM vip_week_cases))') if scope == UK_US else ''
     return db.execute(f'SELECT c.*{owner} FROM {cases} AS c{owner_join}{current_scope} ORDER BY c.opened_at,c.id').fetchall()
 
 

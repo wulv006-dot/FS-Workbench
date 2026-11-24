@@ -12,6 +12,7 @@
         "unified-business",
         "channel-effects",
         "user-analytics",
+        "customer-tracking",
         "data-analysis-tools",
         "weekly",
         "management",
@@ -24,11 +25,10 @@
       "id": "brain",
       "title": "Hermes 智体",
       "icon": "◈",
-      "intro": "决策报告、持续对话与客单追踪。",
+      "intro": "决策报告与持续对话。",
       "ids": [
         "brain",
-        "hermes-conversation",
-        "customer-tracking"
+        "hermes-conversation"
       ],
       "path": "/dashboard/modules/hermes/"
     },
@@ -439,13 +439,13 @@
     },
     {
       "id": "customer-tracking",
-      "section": "brain",
+      "section": "analytics",
       "scope": "global-portal",
       "requiredGroup": "dashboard",
       "icon": "◈",
-      "label": "智体客单追踪",
-      "path": "/dashboard/fs-home/hermes/customer-tracking/",
-      "short": "按日期区间筛选候选，查看持续观察与维护建议"
+      "label": "客户维护",
+      "path": "/dashboard/customers/",
+      "short": "FC27 周名单、客户阶段、维护规则与跟进结果"
     },
     {
       "id": "fc27-evolutions",

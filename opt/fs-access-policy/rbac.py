@@ -110,7 +110,7 @@ RESOURCES = (
     ("management", "经营管理台", "analytics", ("/dashboard/management",)),
     ("game-monitor", "游戏监控台", "analytics", ("/dashboard/game-monitor",)),
     # ---- Hermes 智体 ----
-    ("brain", "Hermes 智体", "brain", ("/dashboard/fs-home/brain", "/dashboard/fs-home/hermes", "/dashboard/fs-home/advisor.json", "/api/hermes")),
+    ("brain", "Hermes 智体", "brain", ("/dashboard/fs-home/brain", "/dashboard/fs-home/hermes", "/dashboard/customers", "/dashboard/fs-home/advisor.json", "/api/hermes")),
     # ---- 球类工作区 ----
     ("coins", "FC27 金币控制台", "sports", ("/dashboard/fc27-coins.html", "/dashboard/fc27-coins.", "/api/fc27/cloud", "/dashboard/fc27-quote-api", "/dashboard/fc27-activity-api")),
     ("fc27-bundles", "FC27 捆绑包改价", "sports", ("/dashboard/modules/sports/bundles",)),
