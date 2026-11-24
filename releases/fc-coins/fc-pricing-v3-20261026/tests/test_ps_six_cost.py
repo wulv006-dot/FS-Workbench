@@ -144,16 +144,24 @@ class SixCost(unittest.TestCase):
             self.assertEqual(len(samples['records']), 6)
             self.assertEqual(Decimal(cost['cny_per_1k']), Decimal('.4'))
 
-        for response, reason in (
-            ({'timed_out': True}, 'cost_order_detail_timeout'),
-            (None, 'cost_order_detail_unavailable'),
-        ):
-            with self.subTest(reason=reason):
-                self.tab.evaluate = Mock(return_value=[response, response])
-                with self.assertRaisesRegex(ValueError, reason):
-                    self.run_collect([rows, []], curve_v6=True)
-                self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list],
-                                 [[slow_order, '310']])
+        # A single unverified order keeps only its own platform out of pricing.
+        self.tab.evaluate = Mock(side_effect=lambda expression, request: [
+            {'timed_out': True} if order_id == slow_order else details[order_id] for order_id in request])
+        partial = self.snapshot.cost_snapshots(
+            'offline', self.run_collect([rows, []], curve_v6=True), curve_v6=True)
+        self.assertEqual([(row['platform'], row['status']) for row in partial],
+                         [('PS', 'missing'), ('XBOX', 'valid'), ('PC', 'valid')])
+        self.assertEqual(partial[0]['reason'], 'cost_order_detail_timeout')
+        self.assertFalse(partial[0]['v6_delivery_samples']['window_complete'])
+        self.assertEqual([len(row['v6_delivery_samples']['records']) for row in partial[1:]], [6, 6])
+        self.assertEqual([order_id for call in self.tab.evaluate.call_args_list for order_id in call.args[1]
+                          if str(order_id).startswith('30')], [slow_order])
+
+        self.tab.evaluate = Mock(return_value=[None, None])
+        with self.assertRaisesRegex(ValueError, 'cost_order_detail_unavailable'):
+            self.run_collect([rows, []], curve_v6=True)
+        self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list],
+                         [[slow_order, '310']])
 
         first_pair = [details[slow_order], details['310']]
         for response in (first_pair[:1], [first_pair[0], {'goods': [], 'complete': True}]):

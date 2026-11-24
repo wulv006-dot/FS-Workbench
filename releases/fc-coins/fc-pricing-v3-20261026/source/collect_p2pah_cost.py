@@ -354,11 +354,18 @@ def collect_ps_cost(tab, observations, order_cache):
     raise ValueError('ps_valid_delivery_sample_incomplete')
 
 
-def verified_v6_deliveries(tab, deliveries, order_cache):
-    pending = iter(dict.fromkeys(order_id for _, record in deliveries
-        if (order_id := delivery_order_id(record)) is not None and order_id not in order_cache))
+def verified_v6_deliveries(tab, deliveries, order_cache, timed_out):
+    order_platforms = {}
+    for _, record in deliveries:
+        order_id = delivery_order_id(record)
+        if order_id is not None:
+            order_platforms.setdefault(order_id, set()).add(record['platform'])
+    pending = (order_id for order_id, platforms in order_platforms.items()
+               if order_id not in order_cache and not platforms <= timed_out)
     prefetched = {}
     for _, record in deliveries:
+        if record['platform'] in timed_out:
+            continue
         order_id = delivery_order_id(record)
         if order_id is not None and order_id not in order_cache:
             if order_id not in prefetched:
@@ -366,17 +373,21 @@ def verified_v6_deliveries(tab, deliveries, order_cache):
                 details = tab.evaluate(READ_ORDER_PAIR, pair)
                 if not isinstance(details, list) or len(details) != len(pair):
                     raise ValueError('cost_order_detail_response_unverified')
-                prefetched = dict(zip(pair, details))
+                prefetched.update(zip(pair, details))
             detail = prefetched.pop(order_id)
             if detail is None:
                 raise ValueError('cost_order_detail_unavailable')
-            if isinstance(detail, dict) and detail.get('timed_out') is True:
-                raise ValueError('cost_order_detail_timeout')
-            if (not isinstance(detail, dict) or type(detail.get('complete')) is not bool
-                    or not isinstance(detail.get('goods'), list) or not isinstance(detail.get('deliveries'), list)):
+            if not isinstance(detail, dict):
+                raise ValueError('cost_order_detail_response_unverified')
+            if detail.get('timed_out') is not True and (
+                    type(detail.get('complete')) is not bool or not isinstance(detail.get('goods'), list)
+                    or not isinstance(detail.get('deliveries'), list)):
                 raise ValueError('cost_order_detail_response_unverified')
             order_cache[order_id] = detail
         # Validate in source order before staging a subsequent pair.
+        if order_cache.get(order_id, {}).get('timed_out') is True:
+            timed_out.update(order_platforms[order_id])
+            continue
         yield record, verified_delivery_cost(tab, record, order_cache, retry_timeout_ms=16000)
 
 
@@ -389,6 +400,7 @@ def collect_v6_delivery_samples(tab, observations, order_cache, confirmed_costs=
     bounds = {p: (Decimal(str(ref)) / 2, Decimal(str(ref)) * 2) if ref is not None
               else (Decimal('.05'), Decimal('5')) for p, ref in references.items()}
     previous = None
+    timed_out = set()
     for hours in (3, 6, 12, 24, 48, 96, 192):
         start = end - timedelta(hours=hours)
         window = dict(start=start, end=end, area='0')
@@ -422,26 +434,30 @@ def collect_v6_delivery_samples(tab, observations, order_cache, confirmed_costs=
         for item in ordered[len(recent):]:
             older[item[1]['platform']].append(item)
         verified = {p: [] for p in PLATFORMS}
-        for record, normal in verified_v6_deliveries(tab, recent, order_cache):
+        for record, normal in verified_v6_deliveries(tab, recent, order_cache, timed_out):
             if normal is not None:
                 verified[record['platform']].append(normal)
 
         enough = []
         for platform, records in verified.items():
+            if platform in timed_out:
+                continue
             lower, upper = bounds[platform]
             within_bounds = sum(lower <= Decimal(row['cny_per_1k']) <= upper for row in records)
             candidates = iter(sorted(older[platform], key=lambda item: (item[0], item[1]['record_id']),
                                      reverse=True))
             inspected = 0
-            while within_bounds < 6:
+            while within_bounds < 6 and platform not in timed_out:
                 batch = list(islice(candidates, min(2, 6 - within_bounds)))
                 if not batch:
                     break
                 inspected += len(batch)
-                for _, normal in verified_v6_deliveries(tab, batch, order_cache):
+                for _, normal in verified_v6_deliveries(tab, batch, order_cache, timed_out):
                     if normal is not None:
                         records.append(normal)
                         within_bounds += lower <= Decimal(normal['cny_per_1k']) <= upper
+            if platform in timed_out:
+                continue
             unchecked = len(older[platform]) - inspected
             scope = dict(list_start=start.isoformat(), list_end=end.isoformat(),
                          full_detail_start=recent_start.isoformat(), older_detail_rows_checked=inspected,
@@ -453,6 +469,9 @@ def collect_v6_delivery_samples(tab, observations, order_cache, confirmed_costs=
             enough.append(within_bounds >= 6)
         if all(enough):
             break
+    for platform in timed_out:
+        result[platform] = dict(records=[], window_complete=False, history_complete=False,
+                                reason='cost_order_detail_timeout')
     return result
 
 
@@ -475,7 +494,8 @@ def collect(*, curve_v6=False, confirmed_costs=None):
                     record = dict(rows[0] if rows else {}, platform=platform, checked_at=checked_at,
                                   v6_delivery_samples=samples[platform])
                     if not rows:
-                        record.update(status='missing', reason='ordinary_delivery_cost_sample_missing')
+                        record.update(status='missing', reason=samples[platform].get(
+                            'reason', 'ordinary_delivery_cost_sample_missing'))
                     records.append(record)
                 return dict(status='valid', cost_protocol='fc27_curve_v6', checked_at=checked_at,
                             costs=records, page_observations=observations)
