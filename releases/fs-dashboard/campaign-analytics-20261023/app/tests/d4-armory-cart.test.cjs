@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const {checkList,nativeOffer,receipt} = require('../d4-armory-cart.js');
+const {checkList,nativeOffer,receipt,productText,priceChanged} = require('../d4-armory-cart.js');
 const gear = {kind:'gear',id:'187713191',number:'45677343',categoryId:1943,cid:1945,quantity:1,price:2.02,name:'Helm #45677343'};
 const gem = {kind:'gem',id:'169833273',number:'43039177',categoryId:3867,quantity:11,price:.01953,name:'Grand Ruby (Lv.30)'};
 const row = line => ({id:Number(line.id),gid:456,aid:15943,cid:line.cid||line.categoryId,mid:Number(line.number),title:line.name,
@@ -62,3 +62,11 @@ test('reprice requires a new explicit click; ambiguous partial batch cannot be r
   const reopened=await browser({storage:b.storage});assert.ok(reopened.button.hidden);assert.equal(reopened.button.click,undefined);
 });
 test('a direct visit offers a return link without requesting products or altering the cart',async()=>{const b=await browser({hash:''});assert.ok(b.button.hidden);assert.equal(b.requests.length,0);assert.match(b.nodes.get('status').textContent,/Open a selection/);});
+
+test('decodes product labels as text and compares D4 gear prices at displayed precision',()=>{
+  assert.equal(productText('LEORIC&#039;S CROWN &amp; &#x27;Fire&#39;'),"LEORIC'S CROWN & 'Fire'");
+  assert.equal(productText('&lt;i&gt;Helm&lt;/i&gt;'),'<i>Helm</i>');
+  assert.equal(priceChanged({...gear,price:2.49},2.49285),false);
+  assert.equal(priceChanged({...gear,price:2.49},2.50),true);
+  assert.equal(priceChanged({...gem,price:.01953},.01976),true);
+});

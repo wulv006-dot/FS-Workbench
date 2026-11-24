@@ -8,6 +8,18 @@
   const usd = (value, unit = false) => new Intl.NumberFormat('en-US', {
     style: 'currency', currency: 'USD', maximumFractionDigits: unit ? 6 : 2
   }).format(value);
+  function productText(raw) {
+    const named = {amp:'&',quot:'"',apos:"'",lt:'<',gt:'>',nbsp:' '};
+    return String(raw).replace(/&(amp|quot|apos|lt|gt|nbsp|#\d{1,7}|#x[\da-f]{1,6});/gi,(entity,code)=>{
+      const name=code.toLowerCase();
+      if (Object.hasOwn(named,name)) return named[name];
+      const point=name.startsWith('#x')?parseInt(name.slice(2),16):Number(name.slice(1));
+      return point>=32 && point<=0x10ffff && !(point>=0xd800 && point<=0xdfff)?String.fromCodePoint(point):entity;
+    });
+  }
+  function priceChanged(line,quote) {
+    return usd(line.price,line.kind!=='gear')!==usd(quote,line.kind!=='gear');
+  }
   function checkList(list) {
     if (list?.realm !== realm || !Number.isFinite(Date.parse(list.expiresAt)) ||
         Date.parse(list.expiresAt) <= Date.now()) throw Error('This selection has expired. Return to the Build Shop to refresh it.');
@@ -51,7 +63,7 @@
     if (data?.code===1 || data?.code==='1') return 'confirmed';
     return 'unknown';
   }
-  if (typeof module === 'object' && module.exports) {module.exports = {checkList,nativeOffer,receipt};return;}
+  if (typeof module === 'object' && module.exports) {module.exports = {checkList,nativeOffer,receipt,productText,priceChanged};return;}
   const $ = id => document.getElementById(id);
   const message = text => { $('status').textContent = text; };
   const button = $('confirm');
@@ -112,7 +124,7 @@
     for (const [i,line] of list.lines.entries()) {
       const offer=offers[i], done=journal[line.id]==='confirmed', unknown=journal[line.id]==='unknown';
       const li=document.createElement('li'), name=document.createElement('strong'), amount=document.createElement('span'), detail=document.createElement('small');
-      name.textContent=offer?.name || line.name;
+      name.textContent=productText(offer?.name || line.name);
       amount.textContent=offer?usd(offer.price*line.quantity):'';
       const text = ['Quantity '+line.quantity];
       if (line.number) text.push('#'+line.number);
@@ -121,8 +133,8 @@
       else if (!offer) { text.push('Currently unavailable');available=false; }
       else {
         total+=offer.price*line.quantity;
-        text.push(usd(offer.price,true)+' each');
-        if (Math.abs(offer.price-Number(line.price))>0.0000001) text.push('Build Shop estimate '+usd(line.price,true)+' each');
+        text.push(usd(offer.price,line.kind!=='gear')+' each');
+        if (priceChanged(line,offer.price)) text.push('Build Shop estimate '+usd(line.price,line.kind!=='gear')+' each');
         if (journal[line.id]==='rejected') text.push('Store rejected the last attempt');
       }
       detail.textContent=text.join(' · ');li.append(name,amount,detail);fragment.append(li);
@@ -153,7 +165,7 @@
         for (const [i,line] of list.lines.entries()) {
           if (journal[line.id]==='confirmed') continue;
           checkList(list);record(line.id,'unknown');
-          message('Adding '+line.name+'…');
+          message('Adding '+productText(line.name)+'…');
           let state='unknown';
           try {state=receipt(await post('/Cart/add.html',offers[i].payload));} catch { /* Reconcile an unknown write in the cart. */ }
           record(line.id,state);
