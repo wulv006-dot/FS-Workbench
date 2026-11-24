@@ -24,7 +24,7 @@ RBAC = 'opt/fs-access-policy/rbac.py'
 
 TARGETS = {
     **{f'{RELEASE}/source/{name}': '/opt/fs-hermes-fc/' + name for name in (
-        'tracking_controller.py', 'vip_maintenance.py', 'maintenance_coupon_bridge.cjs',
+        'tracking_controller.py', 'vip_maintenance.py', 'maintenance_coupon_bridge.cjs', 'maintenance_coupon_reconcile.cjs',
         'maintenance_dispatch.py', 'maintenance_effects.py', 'maintenance_ledger.py',
         'maintenance_reconcile.py', 'maintenance_review.py', 'maintenance_service.py',
         'maintenance_sources.py', 'maintenance_stages.py')},
@@ -46,7 +46,7 @@ def encoded(value, **kwargs):
     return json.dumps(value, **options)
 
 
-def replace_routes(text):
+def replace_routes(text, *, reconcile_only=False):
     locator = lambda path: r'(?m)^location = ' + re.escape(path) + r' \{\n(?P<body>[\s\S]*?)^\}'
     if f'location = {NEW}' in text:
         raise ValueError('existing_customer_route')
@@ -67,13 +67,19 @@ def replace_routes(text):
         body, _ = re.subn(r'((?:hubnav|nav)\.js\?v=)[\w-]+', r'\g<1>customer-maintenance-20261124', body)
         return f'location = {route} {{\n{body}}}'
 
+    reconcile_routes = [
+        alias(style[0], NEW + 'page.css', 'page.css'),
+        alias(script[0], NEW + 'phase.js', 'phase.js'),
+        alias(old[0], NEW + 'reconcile/', 'reconcile.html'),
+    ]
+    if reconcile_only:
+        return text.rstrip() + '\n\n' + '\n\n'.join(reconcile_routes) + '\n'
+
     new = [
         f'location = {OLD} {{ return 302 {NEW}; }}',
         alias(old[0], NEW, 'index.html'),
         alias(script[0], NEW + 'page.js', 'page.js'),
-        alias(style[0], NEW + 'page.css', 'page.css'),
-        alias(script[0], NEW + 'phase.js', 'phase.js'),
-        alias(old[0], NEW + 'reconcile/', 'reconcile.html'),
+        *reconcile_routes,
     ]
     old_index = list(re.finditer(locator(OLD + 'index.html'), text))
     if len(old_index) > 1:
@@ -165,11 +171,12 @@ def prepare(repo, baseline, output, commit):
     required = set(TARGETS.values()) | set(ACTIVE.values())
     if set(prior) != required:
         raise ValueError('capture_target_set')
+    active = {name: (baseline / name).read_bytes() for name in ACTIVE}
+    if any(sha(raw) != prior[ACTIVE[name]] for name, raw in active.items()):
+        raise ValueError('active_capture_changed')
+
     def captured(name):
-        raw = (baseline / name).read_bytes()
-        if sha(raw) != prior[ACTIVE[name]]:
-            raise ValueError('active_capture_changed')
-        return raw.decode()
+        return active[name].decode('utf-8')
     def blob(path):
         return subprocess.check_output(['git', '-C', str(repo), 'cat-file', 'blob', commit + ':' + path])
     candidates = {target: (blob(source), source) for source, target in TARGETS.items()}
@@ -184,16 +191,53 @@ def prepare(repo, baseline, output, commit):
     }
     for name, value in generated.items():
         candidates[ACTIVE[name]] = value.encode(), name
-    (output / 'candidate').mkdir(parents=True)
+    rollback = rollback_candidates(candidates, active)
+    forward = write_candidate(output, 'candidate', commit, candidates, prior)
+    write_candidate(output, 'rollback', commit, rollback, {row['target']: row['sha256'] for row in forward['files']})
+    return forward
+
+
+def replace_exact(raw, previous, current):
+    if raw.count(previous) != 1:
+        raise ValueError('rollback_source_anchor')
+    return raw.replace(previous, current)
+
+
+def rollback_candidates(forward, active):
+    target = '/opt/fs-hermes-fc/'
+    kept = {ACTIVE['iam'], STATIC + '/page.css', STATIC + '/phase.js',
+            *(target + name for name in ('vip_maintenance.py', 'maintenance_ledger.py', 'maintenance_review.py',
+                                        'maintenance_reconcile.py', 'maintenance_coupon_reconcile.cjs'))}
+    candidates = {path: forward[path] for path in kept}
+    for name in ('registry', 'hubnav', 'nav', 'catalog'):
+        candidates[ACTIVE[name]] = active[name], f'captured/{name}'
+    candidates[NGINX] = replace_routes(active['routes'].decode('utf-8'), reconcile_only=True).encode(), 'rollback/routes'
+    controller = target + 'tracking_controller.py'
+    raw, source = forward[controller]
+    candidates[controller] = replace_exact(raw, b'MAINTENANCE_ROLLBACK = False', b'MAINTENANCE_ROLLBACK = True'), source
+    page = STATIC + '/reconcile.html'
+    raw, source = forward[page]
+    old_link = f'href="{NEW}"'.encode()
+    candidates[page] = replace_exact(raw, old_link, f'href="{OLD}"'.encode()), source
+    # The normal publisher installs files by CAS. These replacements revoke the two writer entry points.
+    candidates[target + 'maintenance_dispatch.py'] = b'"""Coupon dispatcher retired during rollback."""\n', 'rollback/disabled'
+    candidates[target + 'maintenance_coupon_bridge.cjs'] = (
+        b"'use strict';\nthrow Error('coupon_dispatch_disabled');\n", 'rollback/disabled')
+    return candidates
+
+
+def write_candidate(output, lane, commit, candidates, prior):
+    (output / lane).mkdir(parents=True)
     files = []
     for index, (target, (raw, source)) in enumerate(sorted(candidates.items())):
-        name = f'candidate/{index:02d}-{Path(target).name}'
+        name = f'{lane}/{index:02d}-{Path(target).name}'
         (output / name).write_bytes(raw)
         files.append(dict(candidate=name, target=target, source=source, beforeSha256=prior[target],
                           sha256=sha(raw), owner='0:0', mode='0o644'))
-    payload = dict(schemaVersion=1, scope='customer-maintenance-phase2-20261124',
-                   sourceCommit=commit, releaseReady=False, businessWrites=False, timersChanged=False, files=files)
-    (output / 'candidate-manifest.json').write_text(encoded(payload, indent=2)+'\n', encoding='utf-8')
+    scope = 'customer-maintenance-phase2-20261124' + ('-rollback' if lane == 'rollback' else '')
+    payload = dict(schemaVersion=1, scope=scope, sourceCommit=commit, releaseReady=False,
+                   businessWrites=False, timersChanged=False, files=files)
+    (output / f'{lane}-manifest.json').write_bytes((encoded(payload, indent=2)+'\n').encode())
     return payload
 
 

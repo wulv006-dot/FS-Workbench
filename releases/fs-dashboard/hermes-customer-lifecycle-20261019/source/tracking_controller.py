@@ -17,6 +17,7 @@ from customer_tracking import AdminService, Store, ID
 
 KEY_FILE=Path(os.environ.get('FS_CUSTOMER_TRACKING_KEY_FILE','/var/lib/fs-hermes-fc/private/customer-tracking.key'))
 SHANGHAI=timezone(timedelta(hours=8))
+MAINTENANCE_ROLLBACK = False
 
 
 def scan_permission_denied(job):
@@ -127,13 +128,19 @@ class TrackingController:
         from vip_maintenance import VipMaintenance
         self.vip = VipMaintenance(self.store)
         self.maintenance = None
+        self._reconciliation = None
         self.phase_lock = threading.Lock()
         if auto_start:
+            operations = [('reconcile', 30)]
+            if MAINTENANCE_ROLLBACK:
+                recovery = self.reconciliation()
+                recovery.ledger.stop_dispatch(recovery.clock())
+            else:
+                operations.extend([('update', 60), ('update_effects', 3600)])
+                if os.environ.get('FS_CUSTOMER_MAINTENANCE_DISPATCH') == '1':
+                    operations.append(('dispatch', 15))
             threading.Thread(target=self._vip_loop,name='fs-vip-maintenance',daemon=True).start()
             threading.Thread(target=self._daily_loop,name='fs-customer-daily',daemon=True).start()
-            operations = [('update', 60), ('reconcile', 30), ('update_effects', 3600)]
-            if os.environ.get('FS_CUSTOMER_MAINTENANCE_DISPATCH') == '1':
-                operations.append(('dispatch', 15))
             for name, interval in operations:
                 threading.Thread(target=self._phase_loop, args=(name, interval),
                                  name='fs-customer-stage-' + name, daemon=True).start()
@@ -330,25 +337,43 @@ class TrackingController:
                 self.maintenance = Maintenance(self.store)
             return self.maintenance
 
+    def reconciliation(self):
+        with self.phase_lock:
+            if self._reconciliation is None:
+                from maintenance_reconcile import Reconciliation
+                self._reconciliation = Reconciliation(self.store)
+            return self._reconciliation
+
+    def reconcile_maintenance(self):
+        self.reconciliation().run()
+
     def _phase_loop(self, operation, interval):
         while True:
             try:
-                getattr(self.phase(), operation)()
+                if operation == 'reconcile':
+                    self.reconcile_maintenance()
+                else:
+                    getattr(self.phase(), operation)()
             except Exception as error:
                 logging.getLogger(__name__).error('Customer stage %s failed: %s', operation, type(error).__name__)
             time.sleep(interval)
 
     def phase_get(self, view, fields):
-        phase = self.phase()
+        if MAINTENANCE_ROLLBACK and view != 'phase_manual':
+            raise ValueError('maintenance_rollback_only')
         if view in ('phase_groups', 'phase_review', 'phase_ready', 'phase_delivery', 'phase_manual'):
             if set(fields) - {'offset'}:
                 raise ValueError('maintenance_query')
             offset = fields.get('offset', '0')
             if not offset.isascii() or not offset.isdecimal() or len(offset) > 8:
                 raise ValueError('maintenance_offset')
+            if view == 'phase_manual':
+                return self.reconciliation().manual_view(int(offset))
+            phase = self.phase()
             if view == 'phase_groups':
                 return phase.group_view(int(offset))
             return phase.queue_view(view[6:], int(offset))
+        phase = self.phase()
         if view == 'phase_customer' and set(fields) == {'id'}:
             return phase.customer_view(fields['id'])
         if view == 'phase_effect' and set(fields) <= {'days'} and fields.get('days', '30') in ('7', '30', '60'):
@@ -363,6 +388,10 @@ class TrackingController:
 
     def phase_post(self, user, action, data):
         self.admin._admin(user)
+        if action == 'phase_result':
+            return self.reconciliation().manual_result(user, data)
+        if MAINTENANCE_ROLLBACK:
+            raise ValueError('maintenance_rollback_only')
         from maintenance_service import keys, strict_id
         phase = self.phase()
         if action == 'phase_rule':
@@ -376,8 +405,6 @@ class TrackingController:
             return phase.save_config(data)
         if action == 'phase_decide':
             return phase.decide_entries(user, data)
-        if action == 'phase_result':
-            return phase.manual_result(user, data)
         if action == 'phase_case':
             return phase.resolve_case(user, data)
         if action in ('phase_owner', 'phase_tier'):

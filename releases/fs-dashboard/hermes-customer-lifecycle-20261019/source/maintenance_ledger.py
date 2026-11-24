@@ -44,6 +44,9 @@ CREATE TABLE IF NOT EXISTS maintenance_entries (
 CREATE INDEX IF NOT EXISTS maintenance_customer_quota ON maintenance_entries(customer_id,dispatch_at,state);
 CREATE INDEX IF NOT EXISTS maintenance_rule_quota ON maintenance_entries(rule_id,dispatch_day,state);
 CREATE INDEX IF NOT EXISTS maintenance_entry_state ON maintenance_entries(state,created_at);
+CREATE TABLE IF NOT EXISTS maintenance_reconcile_checks (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT, entry_id TEXT UNIQUE NOT NULL
+);
 CREATE TABLE IF NOT EXISTS maintenance_reviews (
     entry_id TEXT NOT NULL, digest TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL, result TEXT NOT NULL,
     PRIMARY KEY(entry_id,digest)
@@ -248,17 +251,32 @@ class Ledger:
             transition(db, row, 'void', actor, at, where)
         return len(rows)
 
+    def stop_dispatch(self, at):
+        actor = 'system-maintenance-rollback'
+        with self.db(write=True) as db:
+            for raw in db.execute('SELECT * FROM maintenance_rules').fetchall():
+                body = json.loads(raw['body'])
+                if body['enabled']:
+                    body['enabled'] = False
+                    db.execute('UPDATE maintenance_rules SET version=version+1,body=?,enabled_at=NULL WHERE id=?',
+                               (canonical(body), raw['id']))
+                last = db.execute('SELECT at,enabled FROM maintenance_auto_history WHERE rule_id=? '
+                                  'ORDER BY at DESC,revision DESC LIMIT 1', (raw['id'],)).fetchone()
+                if last and last['enabled']:
+                    db.execute('INSERT INTO maintenance_auto_history(rule_id,at,actor,enabled) VALUES(?,?,?,0)',
+                               (raw['id'], max(last['at'], stamp(at)), actor))
+            self.void(db, at, actor)
+
     def active_customer(self, customer, at):
         with self.db() as db:
             return active_customer(db, customer, at)
 
-    def claim(self, ident, at, recheck=None):
-        """Call after external revalidation. The callback verifies fresh local facts under the claim lock."""
+    def claim(self, ident, at, recheck=None, *, validate=None):
+        """Recheck local facts under the claim lock and validate at the recorded dispatch time."""
         actor = 'system-maintenance-dispatch'
-        day = at.astimezone(SHANGHAI).date().isoformat()
         with self.db(write=True) as db:
             row = fetch_entry(db, ident)
-            if not row or row['state'] not in AWAITING or (row['deferred_day'] and row['deferred_day'] >= day):
+            if not row or row['state'] not in AWAITING:
                 return None
             rule = fetch_rule(db, row['rule_id'])
             reason = None
@@ -266,6 +284,12 @@ class Ledger:
                 reason = 'rule_changed'
             elif recheck is not None:
                 reason = recheck(db, row)
+            at = at() if callable(at) else at
+            day = at.astimezone(SHANGHAI).date().isoformat()
+            if row['deferred_day'] and row['deferred_day'] >= day:
+                return None
+            if not reason and validate is not None:
+                reason = validate(row, at)
             if reason:
                 transition(db, row, 'recheck_failed', actor, at, {'reason': reason})
                 return None
@@ -283,7 +307,7 @@ class Ledger:
                 return fetch_entry(db, ident)
         return None
 
-    def result(self, ident, expected, receipt, at, source='system-maintenance-dispatch'):
+    def result(self, ident, expected, receipt, at, source='system-maintenance-dispatch', *, reconciled=False):
         if expected not in IN_FLIGHT:
             raise ValueError('maintenance_result_state')
         receipt_state = receipt.get('state')
@@ -294,6 +318,8 @@ class Ledger:
             row = fetch_entry(db, ident)
             if not row or row['state'] != expected:
                 return False
+            if reconciled and row['job_id']:
+                db.execute('INSERT OR REPLACE INTO maintenance_reconcile_checks(entry_id) VALUES(?)', (ident,))
             if row['job_id'] and job and row['job_id'] != job:
                 return False
             job = row['job_id'] or job
@@ -339,11 +365,17 @@ class Ledger:
                 (*AWAITING, day))
             return [entry_view(row) for row in rows]
 
-    def manual_queue(self):
-        return self.queue(('pending_register', 'unknown'), sql_filter='AND job_id IS NULL')
+    def manual_queue(self, *, limit=100, offset=0):
+        return self.queue(('pending_register', 'unknown'), limit=limit, offset=offset,
+                          sql_filter='AND job_id IS NULL')
 
     def reconcile_queue(self):
-        return self.queue(IN_FLIGHT, sql_filter='AND job_id IS NOT NULL')
+        with self.db() as db:
+            rows = db.execute(f'SELECT e.* FROM maintenance_entries e '
+                              'LEFT JOIN maintenance_reconcile_checks c ON c.entry_id=e.id '
+                              f'WHERE e.state IN ({marks(IN_FLIGHT)}) AND e.job_id IS NOT NULL '
+                              'ORDER BY c.sequence,e.created_at,e.id LIMIT 100', IN_FLIGHT)
+            return [entry_view(row) for row in rows]
 
     def recover_dispatches(self, at, maximum_age):
         rows = self.queue(('dispatching',), sql_filter='AND job_id IS NULL AND dispatch_at<=?',

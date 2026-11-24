@@ -74,6 +74,27 @@ class DispatchTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 checked_template(invalid, 123, NOW)
 
+    def test_reconciler_rotates_past_a_full_page_of_long_pending_jobs(self):
+        self.rule('many', quota=101)
+        entries = []
+        for i in range(101):
+            ident = self.approved(str(i), str(i), 'many')
+            self.ledger.claim(ident, NOW)
+            entries.append(ident)
+        entries.sort()
+        for index, ident in enumerate(entries):
+            self.ledger.result(ident, 'dispatching', dict(state='pending', job_id=f'j{index}'), NOW)
+
+        def lookup(job, email, batch):
+            if job == 'j100':
+                return dict(state='confirmed', member_coupon_id='23')
+            return dict(state='pending', job_id=job)
+
+        reconcile(self.ledger, lambda: NOW, lookup)
+        self.assertEqual('dispatching', self.ledger.entry(entries[-1])['state'])
+        reconcile(self.ledger, lambda: NOW, lookup)
+        self.assertEqual('issued', self.ledger.entry(entries[-1])['state'])
+
     def test_reconciler_addresses_only_original_job_and_batch_and_recovers_missing_job(self):
         first = self.approved('known-job', 'c1', 'r1')
         second = self.approved('interrupted', 'c2', 'r2')

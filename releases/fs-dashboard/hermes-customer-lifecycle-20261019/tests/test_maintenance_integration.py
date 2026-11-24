@@ -11,8 +11,13 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'source'), str(ROOT.parent / 'customer-segments-20261124' / 'source')]
+sys.path[:0] = [
+    str(ROOT / 'source'),
+    str(ROOT.parent / 'customer-segments-20261124' / 'source'),
+    str(ROOT.parent / 'user-analytics-20261022' / 'source'),
+]
 from customer_segments import ConfigCommitUnknown, write_config
+from customer_tracking import Store
 from maintenance_sources import AdminFacts, Facts
 from maintenance_service import Maintenance
 from tracking_controller import TrackingController
@@ -116,6 +121,121 @@ class Integration(unittest.TestCase):
         return dict(id=ident, member_id=100, site_id=266, status=2, grant_batch_no='manual',
                     start_time=(self.now-timedelta(hours=1)).isoformat())
 
+    def test_admin_problem_status_blocks_review_and_dispatch(self):
+        for status in ('CB(资料)', '调查中', '拒付', '退款中'):
+            with self.subTest(status=status):
+                for dispatch in (False, True):
+                    with self.subTest(dispatch=dispatch):
+                        self.setUp()
+                        entry = self.create()
+                        native_status = '已完成'
+
+                        def read(path, params):
+                            if path == AdminFacts.ROUTES['orders']:
+                                row = dict(id=1, order_no='a', site_id=266, pay_status=1,
+                                           paytime='2026-10-01 12:00:00', amount_usd='500',
+                                           status_format=native_status)
+                                return dict(total=1, list=[row])
+                            return dict(total=0, list=[])
+
+                        self.service.admin = AdminFacts(read)
+                        if dispatch:
+                            self.service.update()
+                            self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+                        native_status = status
+                        if dispatch:
+                            self.service.dispatch()
+                            row = self.service.ledger.entry(entry['id'])
+                            self.assertEqual('exceptions', row['result'].get('reason'))
+                            self.assertEqual([], self.bridge.sent)
+                        else:
+                            self.service.update()
+                            self.assertEqual('held', self.service.ledger.entry(entry['id'])['state'])
+                            review, = self.service.ledger.reviews(entry['id'])
+                            self.assertEqual(['exceptions'], review['reasons'])
+                            self.assertEqual(status, review['order_exceptions'][0]['order_state'])
+                            self.assertEqual('problem', review['order_exceptions'][0]['reason'])
+                        finding, = self.service.admin.exceptions(self.source.orders)
+                        self.assertEqual(status, finding['order_state'])
+                        self.assertEqual('problem', finding['reason'])
+
+    def admin_rows(self, *, usage=lambda: [], grants=lambda: [], status=lambda: '已完成'):
+        def read(path, params):
+            if path == AdminFacts.ROUTES['orders']:
+                rows = [dict(id=i, order_no=number, site_id=266, pay_status=1,
+                             paytime='2026-10-01 12:00:00', amount_usd='500', status_format=status())
+                        for i, number in enumerate(params['search[1][val]'].split(','), 1)]
+            elif path == AdminFacts.ROUTES['grants']:
+                rows = grants()
+            else:
+                rows = usage()
+            return dict(total=len(rows), list=rows)
+
+        self.service.admin = AdminFacts(read)
+
+    def coupon_use(self, **changes):
+        return dict(dict(id=7, site_id=266, order_no='a', member_id=999, member_coupon_id=22,
+                         memberCoupon=dict(id=22, grant_batch_no='manual'),
+                         use_time=(self.now-timedelta(hours=1)).isoformat()), **changes)
+
+    def test_usage_failure_with_no_uid_defers_review_and_dispatch(self):
+        self.source.orders = [order(uid=None)]
+        entry = self.create()
+        unavailable = True
+
+        def usage():
+            if unavailable:
+                raise OSError('fixture unavailable')
+            return [self.coupon_use(order_no='not-in-projection')]
+
+        self.admin_rows(usage=usage)
+        self.service.update()
+        self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
+        unavailable = False
+        self.service.update()
+        review, = self.service.ledger.reviews(entry['id'])
+        self.assertEqual('pass', review['decision'])
+        self.assertEqual(1, review['unattributed_coupon_logs'])
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        unavailable = True
+        self.service.dispatch()
+        self.assertEqual('confirmed', self.service.ledger.entry(entry['id'])['state'])
+        self.assertEqual([], self.bridge.sent)
+
+    def test_order_attributed_coupon_blocks_known_uid_and_deduplicates_same_grant(self):
+        entry = self.create()
+        self.admin_rows(usage=lambda: [self.coupon_use()])
+        self.service.update()
+        review, = self.service.ledger.reviews(entry['id'])
+        self.assertEqual(['manual_coupons'], review['reasons'])
+        self.assertEqual(1, review['matches']['manual_coupons'])
+
+    def test_usage_and_grant_for_same_coupon_count_once_and_both_pin_evidence(self):
+        entry = self.create()
+        self.admin_rows(usage=lambda: [self.coupon_use()], grants=lambda: [self.grant(22)])
+        self.service.update()
+        review, = self.service.ledger.reviews(entry['id'])
+        self.assertEqual(['manual_coupons'], review['reasons'])
+        self.assertEqual(1, review['matches']['manual_coupons'])
+        self.assertEqual('held', self.service.ledger.entry(entry['id'])['state'])
+
+    def test_changed_coupon_usage_during_review_discards_stale_pass(self):
+        entry = self.create()
+        visible = False
+
+        def grants():
+            nonlocal visible
+            visible = True
+            return []
+
+        self.admin_rows(usage=lambda: [self.coupon_use()] if visible else [], grants=grants)
+        self.service.update()
+        self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
+        self.assertEqual([], self.service.ledger.reviews(entry['id']))
+        self.service.update()
+        self.assertEqual('held', self.service.ledger.entry(entry['id'])['state'])
+        self.assertEqual(['manual_coupons'], self.service.ledger.reviews(entry['id'])[0]['reasons'])
+
     def test_changed_admin_grant_evidence_does_not_write_stale_pass(self):
         entry = self.create()
         self.admin.coupons = [[], [self.grant(21)]]
@@ -156,6 +276,59 @@ class Integration(unittest.TestCase):
         self.assertEqual('recheck_failed', timeline['state'])
         self.assertEqual([], self.service.group_view()['items'])
 
+    def test_template_is_read_after_external_evidence_and_checked_at_dispatch_time(self):
+        for change in ('snapshot', 'expiry'):
+            with self.subTest(change=change):
+                self.setUp()
+                template = TEMPLATE.copy()
+                if change == 'expiry':
+                    template.update(time_effect=1, end_time=(self.now+timedelta(days=2, seconds=1)).isoformat())
+                self.bridge.detail = lambda coupon: template.copy()
+                entry = self.create()
+                self.service.update()
+                self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+
+                def state():
+                    if change == 'expiry':
+                        self.now += timedelta(seconds=1)
+                    else:
+                        template['days'] = 21
+                    return '已完成'
+
+                self.admin_rows(status=state)
+                self.service.dispatch()
+                row = self.service.ledger.entry(entry['id'])
+                self.assertEqual('template_changed', row['result'].get('reason'))
+                self.assertEqual([], self.bridge.sent)
+
+    def test_latest_projection_invalidates_event_before_daily_void_even_if_tier_still_matches(self):
+        older = dict(order('older'), paid_at='2026-10-01T10:00:00+08:00')
+        self.source.orders = [older, dict(order(), amount_usd='100')]
+        entry = self.create()
+        self.service.update()
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.source.orders = [older, order(valid=False)]
+        self.tick(run=False)
+        self.service.dispatch()
+        row = self.service.ledger.entry(entry['id'])
+        self.assertEqual('event_invalid', row['result'].get('reason'))
+        self.assertEqual([], self.bridge.sent)
+
+    def test_claim_rechecks_event_status_after_template_read(self):
+        entry = self.create()
+        self.service.update()
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+
+        def detail(coupon):
+            with self.db() as db:
+                db.execute("UPDATE maintenance_events SET status='void' WHERE id=?", (entry['event_id'],))
+            return TEMPLATE.copy()
+
+        self.bridge.detail = detail
+        self.service.dispatch()
+        self.assertEqual('event_invalid', self.service.ledger.entry(entry['id'])['result']['reason'])
+        self.assertEqual([], self.bridge.sent)
+
     def test_configuration_change_rechecks_old_confirmation(self):
         entry = self.create()
         self.service.update()
@@ -177,6 +350,62 @@ class Integration(unittest.TestCase):
         self.assertEqual((14, 31, 60), saved['stages'])
         self.assertEqual(1, saved['version'])
 
+    def insert_case(self, ident, address='buyer@example.net', uid='100'):
+        baseline = dict(identity=dict(emails=[address], uids=[uid]))
+        with self.db() as db:
+            db.execute('INSERT INTO vip_cases(id,week,opened_at,baseline) VALUES(?,?,?,?)',
+                       (ident, '2026-10-05', self.now.isoformat(), json.dumps(baseline)))
+
+    def test_ambiguous_cases_keep_review_pending_until_admin_selection(self):
+        first, second = 'a'*32, 'b'*32
+        self.insert_case(first)
+        self.insert_case(second)
+        entry = self.create()
+        self.service.update()
+        self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
+        view = self.service.customer_view('customer-A')
+        self.assertEqual('pending_identity', view['case']['status'])
+        self.assertEqual([first, second], view['matching_cases'])
+        self.service.resolve_case('admin', dict(customer_id='customer-A', case_id=second, request_id='selected'))
+        self.service.update()
+        self.assertEqual('ready', self.service.ledger.entry(entry['id'])['state'])
+
+    def test_new_case_conflict_after_review_prevents_dispatch_until_admin_selection(self):
+        entry = self.create()
+        self.service.update()
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.insert_case('a'*32)
+        self.service.dispatch()
+        self.assertEqual('confirmed', self.service.ledger.entry(entry['id'])['state'])
+        self.assertEqual([], self.bridge.sent)
+        self.assertEqual('pending_identity', self.service.customer_view('customer-A')['case']['status'])
+        self.service.resolve_case('admin', dict(customer_id='customer-A', case_id='a'*32, request_id='selected'))
+        self.service.dispatch()
+        self.assertEqual('issued', self.service.ledger.entry(entry['id'])['state'])
+
+    def test_dispatch_uses_latest_customer_identity_to_check_case_conflicts(self):
+        entry = self.create()
+        self.service.update()
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.insert_case('a'*32, 'other@example.net', uid='101')
+        self.source.orders = [order(uid=101)]
+        self.tick(run=False)
+        self.service.dispatch()
+        self.assertEqual('confirmed', self.service.ledger.entry(entry['id'])['state'])
+        self.assertEqual([], self.bridge.sent)
+
+    def test_new_stage_after_closed_case_opens_another_case(self):
+        self.vip = VipMaintenance(Store(self.path.parent), clock=lambda: self.now)
+        self.create()
+        prior = self.service.customer_view('customer-A')['case']['case_id']
+        self.vip.feedback('operator', dict(case_id=prior, request_id='1'*32, event='claim'))
+        self.vip.feedback('operator', dict(case_id=prior, request_id='2'*32, event='close'))
+        self.tick(16)
+        current = self.service.customer_view('customer-A')['case']
+        self.assertEqual('linked', current['status'])
+        self.assertIsNotNone(current['case_id'])
+        self.assertNotEqual(prior, current['case_id'])
+
     def test_two_orders_sharing_uid_do_not_cross_attach_cases(self):
         self.rule(owner='operator')
         with self.db() as db:
@@ -194,6 +423,46 @@ class Integration(unittest.TestCase):
         resolved = self.service.resolve_case('admin', dict(customer_id='customer-A', case_id=None, request_id='safe'))
         self.assertNotEqual('a'*32, resolved['case_id'])
         self.assertEqual('linked', self.service.customer_view('customer-A')['case']['status'])
+
+    def test_verified_email_case_is_preserved_and_dispatch_uses_lowercase(self):
+        self.source.orders = [order(address='Buyer@example.com')]
+        self.insert_case('a'*32, 'buyer@example.com')
+        entry = self.create()
+        self.service.update()
+        self.assertEqual('Buyer@example.com', entry['email'])
+        view = self.service.customer_view('customer-A')
+        self.assertEqual('Buyer@example.com', view['customer']['email'])
+        self.assertEqual('a'*32, view['case']['case_id'])
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.service.dispatch()
+        self.assertEqual('issued', self.service.ledger.entry(entry['id'])['state'])
+        self.assertEqual('buyer@example.com', self.bridge.sent[0][1])
+
+    def test_casefold_collision_is_visible_and_neither_identity_can_dispatch(self):
+        self.source.orders = [order(address='Buyer@example.com'),
+                              order('b', 'customer-B', 101, 'buyer@example.com')]
+        self.rule()
+        self.tick()
+        self.tick(2)
+        items = self.service.queue_view('review')['items']
+        self.assertEqual({'customer-A', 'customer-B'}, {row['customer_id'] for row in items})
+        self.assertEqual({'pending_identity'}, {row['identity_status'] for row in items})
+        self.assertEqual({'reviewing'}, {row['state'] for row in items})
+        self.assertEqual({'pending_identity'}, {row['case_status'] for row in self.service.group_view()['items']})
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.service.dispatch()
+        self.assertEqual([], self.bridge.sent)
+
+    def test_new_casefold_collision_in_latest_identities_defers_existing_confirmation(self):
+        self.source.orders = [order(address='Buyer@example.com')]
+        entry = self.create()
+        self.service.update()
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.source.orders.append(order('b', 'customer-B', 101, 'buyer@example.com'))
+        self.tick(run=False)
+        self.service.dispatch()
+        self.assertEqual('confirmed', self.service.ledger.entry(entry['id'])['state'])
+        self.assertEqual([], self.bridge.sent)
 
     def test_assignment_only_fills_empty_and_manual_change_uses_cas(self):
         self.rule(owner='operator')

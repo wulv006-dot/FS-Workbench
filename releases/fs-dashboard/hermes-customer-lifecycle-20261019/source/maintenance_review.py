@@ -20,6 +20,18 @@ def digest(value):
     return hashlib.sha256(canonical(value).encode()).hexdigest()
 
 
+EMAIL = re.compile(r'^[^\s@,;，；<>]+@[^\s@,;，；<>]+\.[^\s@,;，；<>]+$')
+
+
+def valid_email(email):
+    return (isinstance(email, str) and len(email) <= 254 and email == email.strip()
+            and EMAIL.fullmatch(email) is not None)
+
+
+def email_key(value):
+    return value.strip().casefold() if isinstance(value, str) else None
+
+
 def member_id(value):
     if type(value) in (str, int) and re.fullmatch(r'[1-9][0-9]*', str(value).strip()):
         return str(value).strip()
@@ -74,6 +86,7 @@ def review_evidence(*, coupons, payments, exceptions, automatic, contacts):
         raise ValueError('maintenance_review_evidence_unavailable')
     checks['manual_coupons'] = coupons['matched']
     evidence = {field: sorted(rows, key=canonical) for field, rows in checks.items()}
+    evidence['attributed_coupon_digest'] = coupons.get('attributed_coupon_digest')
     evidence['unattributed_coupon_logs'] = coupons['unattributed']
     evidence['unattributed_coupon_digest'] = coupons['unattributed_digest']
     evidence['manual_coupon_uid_gaps'] = coupons.get('uid_gaps', [])
@@ -85,6 +98,7 @@ def review_evidence(*, coupons, payments, exceptions, automatic, contacts):
                 digest=digest(evidence), manual_coupon_notice=notice,
                 unattributed_coupon_logs=coupons['unattributed'],
                 manual_coupon_uid_gaps=coupons.get('uid_gaps', []),
+                order_exceptions=evidence['exceptions'],
                 matches={field: len(rows) for field, rows in checks.items()})
 
 def coupon_time(value):
@@ -127,5 +141,11 @@ def manual_evidence(orders, customer_id, now, read_grants, used=None):
               else '人工券：已按可唯一归属的会员 UID 核对发放记录')
     if used['unattributed']:
         notice += '；另有 {} 条用券记录无法归属客户'.format(used['unattributed'])
-    return dict(matched=matched + (used['matched'] if gaps else []), uid_gaps=gaps, notice=notice,
+    by_coupon = {('coupon', member_id(row['id'])): row for row in matched}
+    for row in used['matched']:
+        coupon = member_id(row.get('member_coupon_id')) or member_id((row.get('memberCoupon') or {}).get('id'))
+        key = ('coupon', coupon) if coupon else ('usage', row['id'])
+        by_coupon.setdefault(key, row)
+    return dict(matched=list(by_coupon.values()), uid_gaps=gaps, notice=notice,
+                attributed_coupon_digest=digest(used['matched']),
                 unattributed=used['unattributed'], unattributed_digest=used['unattributed_digest'])

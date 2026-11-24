@@ -1548,6 +1548,10 @@ def main():
             units("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests",["test_lifecycle","test_readonly","test_vip_followup","test_vip_maintenance","test_vip_query","test_vip_paging_patch",
                    "test_maintenance_dispatch","test_maintenance_ledger","test_maintenance_review","test_maintenance_stages",
                    "test_maintenance_integration","test_maintenance_release"])
+            node("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests/test_maintenance_coupon_bridge.cjs")
+            # This fixed fixture calls Node with a stubbed Admin response, outside the process-free unit runner.
+            subprocess.run([sys.executable, "-B", str(ROOT/"releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests/test_maintenance_bridge_ledger.py")],
+                           cwd=ROOT, check=True, timeout=30)
             units("releases/fs-dashboard/hermes-customer-tracking-20261018/tests",["test_private_tracking"])
         elif group=="hermes-navigation-range":
             units("releases/fs-dashboard/hermes-navigation-range-20261019/tests",["test_contract"])

@@ -19,6 +19,7 @@
     manual_coupons: '30 天内已有人工券', contacts: '已联系',
     tier_changed: '当前价值档不符', customer_type_changed: '当前新老客条件不符', stage_changed: '当前阶段不符',
     recipient_changed: '收件邮箱变化', rule_changed: '规则已变更', template_changed: '券模板已变更或过期',
+    event_invalid: '原末购已失效', pending_identity: '身份待核',
     customer_quota: '客户 30 天内已占用额度', daily_quota: '当日规则额度已满',
     owner_conflict: '当前负责人已变化'
   };
@@ -171,8 +172,10 @@
         target.append(follow, button('领取给我', event => write(event.currentTarget, 'feedback', {
           request_id: requestId(), customer_id: id, case_id: c.case_id, event: 'claim'
         }, () => customer(id))));
+      } else if (row.email_conflict) {
+        target.append(node('p', '多个客户记录共用同一邮箱，身份待核。', 'phase-alert'));
       } else if (c?.status === 'pending_identity') {
-        target.append(node('p', '邮箱与历史案件有冲突，归属待核。', 'phase-alert'));
+        target.append(node('p', '案件归属待核，联系证据缺失。', 'phase-alert'));
         const form = node('form', undefined, 'phase-form');
         const choices = data.matching_cases.length ? data.matching_cases.map(value => [value, value]) : [['', '为已核邮箱新建案件']];
         const selection = control(form, '按已核邮箱选择案件', 'case', 'text', choices[0][0], choices);
@@ -224,7 +227,7 @@
           {id: row.id, batch: row.batch, state: nextState.value, evidence: proof.value}));
         actions.append(form);
       }
-      return [row.email, row.rule_id, label(row.state), row.batch || '—', evidence, actions];
+      return [row.email, row.rule_id, label(row.identity_status || row.state), row.batch || '—', evidence, actions];
     });
     content.replaceChildren(controls, table(['收件邮箱', '规则', '状态', '原批次', '复核依据', '操作'], rows));
   }

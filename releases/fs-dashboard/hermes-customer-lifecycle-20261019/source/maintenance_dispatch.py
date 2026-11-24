@@ -1,16 +1,14 @@
 """Validate a fresh template, reserve once, then invoke the existing coupon writer."""
 import json
 from pathlib import Path
-import re
 import subprocess
 
 from maintenance_ledger import AWAITING
-from maintenance_review import coupon_time
+from maintenance_review import coupon_time, valid_email
 
 
 CALL_TIMEOUT = 105
 BRIDGE = Path(__file__).resolve().with_name('maintenance_coupon_bridge.cjs')
-EMAIL = re.compile(r'^[^\s@,;，；<>]+@[^\s@,;，；<>]+\.[^\s@,;，；<>]+$')
 
 
 def invoke(action, **payload):
@@ -43,11 +41,6 @@ def checked_template(template, coupon, at):
     return template
 
 
-def valid_email(email):
-    return (isinstance(email, str) and len(email) <= 254 and email == email.strip().lower()
-            and EMAIL.fullmatch(email) is not None)
-
-
 class Dispatcher:
     def __init__(self, ledger, bridge, prepare_recheck, clock):
         self.ledger = ledger
@@ -61,23 +54,25 @@ class Dispatcher:
             return
         snapshot = row['rule_body']['template']
         coupon = snapshot['id']
+        recheck = self.prepare_recheck(row, self.clock())
         template = self.bridge.detail(coupon)
-        now = self.clock()
-        try:
-            changed = checked_template(template, coupon, now) != snapshot
-        except ValueError:
-            changed = True
-        if changed or not valid_email(row['email']):
-            reason = 'template_changed' if changed else 'recipient_changed'
-            self.ledger.claim(ident, now, lambda db, fresh: reason)
-            return
-        recheck = self.prepare_recheck(row, now)
-        claimed = self.ledger.claim(ident, self.clock(), recheck)
+
+        def validate(fresh, at):
+            try:
+                if checked_template(template, coupon, at) != snapshot:
+                    return 'template_changed'
+            except ValueError:
+                return 'template_changed'
+            if not valid_email(fresh['email']):
+                return 'recipient_changed'
+            return None
+
+        claimed = self.ledger.claim(ident, self.clock, recheck, validate=validate)
         if claimed is None:
             return
         # The local reservation and original batch must be durable before this call.
         try:
-            receipt = self.bridge.grant(coupon, claimed['email'], claimed['batch'])
+            receipt = self.bridge.grant(coupon, claimed['email'].lower(), claimed['batch'])
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             receipt = dict(state='unknown', error_code=type(error).__name__)
         self.ledger.result(ident, 'dispatching', receipt, self.clock())

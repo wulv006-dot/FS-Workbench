@@ -9,7 +9,7 @@ import sqlite3
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, build_opener
 
-from maintenance_review import coupon_time, member_id
+from maintenance_review import coupon_time, email_key, member_id
 from maintenance_stages import SHANGHAI, day_start
 
 
@@ -86,7 +86,7 @@ class AdminFacts:
 
     def exceptions(self, orders):
         """Refresh actual refund and issue evidence from the exact local order numbers."""
-        from vip_followup import project_order
+        from vip_followup import preferred_disposition, project_order
         wanted = {row['order_no']: row['order_key'] for row in orders if row.get('order_no') and not row.get('test_order')}
         numbers = sorted(wanted)
         if any(',' in number for number in numbers):
@@ -102,15 +102,18 @@ class AdminFacts:
                 view = project_order(row)
                 if view['afterSales'] == 'unknown' or view['refundStatus'] == 'unknown':
                     raise ValueError('maintenance_admin_order_state_unknown')
-                if view['afterSales'] != 'none_observed' or view['refundStatus'] != 'none_observed':
-                    findings.append(dict(order_key=wanted[row['order_no']], after_sales=view['afterSales'],
+                disposition = preferred_disposition(view)
+                if disposition == 'problem' or view['afterSales'] != 'none_observed':
+                    findings.append(dict(order_key=wanted[row['order_no']],
+                                         reason='problem' if disposition == 'problem' else 'after_sales',
+                                         after_sales=view['afterSales'],
                                          refund=view['refundStatus'], refund_amount=view['sourceRefundAmount'],
                                          pay_status=view['payStatus'], order_state=view['orderState']))
         return findings
 
 
 class Facts:
-    def __init__(self, publication, orders, jobs, token, uid_pairs=()):
+    def __init__(self, publication, orders, jobs, token, uid_pairs=(), identities=None):
         self.publication = publication
         self.cutoff = coupon_time(publication['cutoff'])
         self.day = self.cutoff.date() - timedelta(days=1)
@@ -120,11 +123,19 @@ class Facts:
         self.by_order = {}
         self.uid_customers = defaultdict(set)
         self.customer_uids = defaultdict(set)
+        self.email_customers = defaultdict(set)
+        for customer, address in (identities or {}).items():
+            key = email_key(address)
+            if key:
+                self.email_customers[key].add(customer)
         for row in orders:
             self.by_order[row['order_key']] = row
             customer = row.get('customer_id')
             if customer:
                 self.customers[customer].append(row)
+                key = email_key(row.get('email'))
+                if key:
+                    self.email_customers[key].add(customer)
                 uid = member_id(row.get('uid'))
                 if uid:
                     self.uid_customers[uid].add(customer)
@@ -135,6 +146,9 @@ class Facts:
                 self.uid_customers[uid].add(pair[0])
         self.intervals = sorted((coupon_time(job['start']), coupon_time(job['end']))
                                 for job in jobs if job['site'] == SITE and job['state'] == 'complete')
+
+    def email_conflict(self, customer, address):
+        return bool(self.email_customers.get(email_key(address), set()) - {customer})
 
     def covered(self, start, end):
         if end > self.cutoff:
@@ -270,4 +284,4 @@ class UserProjection:
                        test_order=bool(body.get('test_order')),
                        new_customer_flag=flags.get(hashlib.sha256(number.encode()).hexdigest()))
             orders.append(row)
-        return Facts(publication, orders, publication['jobs'], (publication['publication_id'], current), uid_pairs)
+        return Facts(publication, orders, publication['jobs'], (publication['publication_id'], current), uid_pairs, emails)

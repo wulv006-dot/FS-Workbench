@@ -8,12 +8,12 @@ import re
 from threading import Lock
 
 from customer_segments import ConfigCommitUnknown, load_config, thresholds, write_config
-from maintenance_dispatch import Bridge, Dispatcher, checked_template, valid_email
+from maintenance_dispatch import Bridge, Dispatcher, checked_template
 from maintenance_effects import effects
 from maintenance_ledger import (AWAITING, Ledger, SHANGHAI, active_customer, enqueue_entry, fetch_rule,
                                 marks, stamp, transition)
-from maintenance_reconcile import reconcile
-from maintenance_review import BATCH, CouponIndex, canonical, coupon_time, digest, manual_evidence, member_id, review_evidence
+from maintenance_review import (CouponIndex, canonical, coupon_time, digest, email_key,
+                                manual_evidence, member_id, review_evidence, valid_email)
 from maintenance_sources import AdminFacts, UserProjection
 from maintenance_stages import FOLLOW_UP, GID, RANK, cohort, day_end, matches_rule, new_event, payment
 from vip_maintenance import events_for
@@ -70,7 +70,7 @@ def keys(body, fields):
 
 
 def matching_cases(db, customer):
-    ident, email = customer['customer_id'], customer['email']
+    ident, email = customer['customer_id'], email_key(customer['email'])
     exact, conflicts = [], []
     uid = member_id(customer.get('uid'))
     query = '''SELECT common.id,common.baseline,
@@ -83,7 +83,7 @@ def matching_cases(db, customer):
     for case in db.execute(query):
         bodies = [json.loads(body) for body in (case['baseline'], case['preferred']) if body]
         identities = [body.get('identity') or {} for body in bodies]
-        emails = {value.strip().lower() for item in identities for value in item.get('emails', ())
+        emails = {email_key(value) for item in identities for value in item.get('emails', ())
                   if isinstance(value, str)}
         uids = {member_id(value) for item in identities for value in item.get('uids', ())}
         if emails == {email} and case['customer_id'] in (None, ident):
@@ -108,30 +108,59 @@ def store_case_link(db, customer, case_id, status):
                'SET case_id=excluded.case_id,status=excluded.status', (customer, case_id, status))
 
 
-def case_link(db, customer, at):
-    ident, email = customer['customer_id'], customer['email']
-    if not valid_email(email):
-        store_case_link(db, ident, None, 'pending_identity')
-        return None, 'pending_identity'
-    prior = db.execute('SELECT case_id,status FROM maintenance_cases WHERE customer_id=?', (ident,)).fetchone()
+def case_binding(db, customer, *, entering_stage=False):
+    ident = customer['customer_id']
+    prior = db.execute("""SELECT c.case_id,c.status,EXISTS(
+                           SELECT 1 FROM vip_events e WHERE e.case_id=c.case_id
+                           AND json_extract(e.payload,'$.event')='close') AS closed
+                           FROM maintenance_cases c WHERE c.customer_id=?""", (ident,)).fetchone()
+    if customer.get('email_conflict') or not valid_email(customer['email']):
+        return None, 'pending_identity', [], []
     exact, conflicts = matching_cases(db, customer)
-    if prior and prior['status'] == 'linked' and prior['case_id'] in exact:
-        return prior['case_id'], prior['status']
-    if conflicts or len(exact) > 1:
-        status, case_id = 'pending_identity', None
-    elif exact:
-        status, case_id = 'linked', exact[0]
-    else:
-        status, case_id = 'linked', create_case(db, customer, at)
-    store_case_link(db, ident, case_id, status)
+    if prior and prior['status'] == 'pending_identity':
+        return None, 'pending_identity', exact, conflicts
+    ambiguous = bool(conflicts or len(exact) > 1)
+    if prior and prior['case_id'] in exact:
+        if not ambiguous:
+            return prior['case_id'], 'linked', exact, conflicts
+        resolution = db.execute("SELECT after_json FROM maintenance_changes WHERE action='case_link' "
+                                'AND subject=? ORDER BY rowid DESC LIMIT 1', (ident,)).fetchone()
+        if resolution:
+            selected = json.loads(resolution['after_json'])
+            if (selected.get('case_id'), selected.get('candidates')) == (prior['case_id'], [exact, conflicts]):
+                return prior['case_id'], 'linked', exact, conflicts
+    if ambiguous or (prior and not (entering_stage and prior['closed'])):
+        return None, 'pending_identity', exact, conflicts
+    return None, 'unlinked', exact, conflicts
+
+
+def case_link(db, customer, at):
+    case_id, status, exact, _ = case_binding(db, customer, entering_stage=True)
+    if status == 'unlinked':
+        case_id, status = (exact[0] if exact else create_case(db, customer, at)), 'linked'
+        store_case_link(db, customer['customer_id'], case_id, status)
+    elif status == 'pending_identity':
+        # Keep a prior assignment reserved until it is explicitly resolved.
+        db.execute("INSERT INTO maintenance_cases VALUES(?,NULL,'pending_identity') "
+                   "ON CONFLICT(customer_id) DO NOTHING", (customer['customer_id'],))
     return case_id, status
 
 
-def case_feedback(db, customer_id):
-    row = db.execute('SELECT case_id,status FROM maintenance_cases WHERE customer_id=?', (customer_id,)).fetchone()
-    if not row or row['status'] == 'pending_identity':
-        return []
-    return events_for(db, row['case_id'])
+def case_feedback(db, customer):
+    case_id, status, _, _ = case_binding(db, customer)
+    return events_for(db, case_id) if status == 'linked' else None
+
+
+def event_order_valid(facts, event, customer):
+    if not event or event['status'] != 'active' or event['customer_id'] != customer:
+        return False
+    order = facts.by_order.get(event['last_order_key'])
+    return bool(order and order['valid'] and order['customer_id'] == customer and str(order['gid']) == GID)
+
+
+def dispatch_event(db, row):
+    return db.execute('SELECT customer_id,last_order_key,status FROM maintenance_events WHERE id=?',
+                      (row['event_id'],)).fetchone()
 
 
 def assign_empty(db, case_id, owner, event, rule, at):
@@ -186,8 +215,7 @@ class Maintenance:
         with self.ledger.db(write=True) as db:
             active = db.execute("SELECT * FROM maintenance_events WHERE status='active'").fetchall()
             for row in active:
-                order = facts.by_order.get(row['last_order_key'])
-                if order and order['valid'] and order['customer_id'] == row['customer_id']:
+                if event_order_valid(facts, row, row['customer_id']):
                     continue
                 last = coupon_time(json.loads(row['body'])['last_paid_at']).astimezone(SHANGHAI).date()
                 if not facts.covered(day_end(last)-timedelta(days=1), day_end(last)):
@@ -197,6 +225,8 @@ class Maintenance:
 
     def _day(self, facts, day, config, at):
         current = cohort(facts.orders, day, config, facts.covered)
+        for cid, customer in current.items():
+            customer['email_conflict'] = facts.email_conflict(cid, customer['email'])
         with self.ledger.db(write=True) as db:
             if db.execute('SELECT 1 FROM maintenance_runs WHERE day=?', (day.isoformat(),)).fetchone():
                 return
@@ -249,20 +279,20 @@ class Maintenance:
         if not event or event['status'] != 'active':
             raise LookupError('maintenance_event_not_available')
         customer = entry['customer_id']
+        if facts.email_conflict(customer, entry['email']):
+            raise LookupError('maintenance_email_identity_conflict')
         orders = facts.customers.get(customer, [])
         if not orders or not facts.covered(coupon_time(event['event_at']), facts.cutoff):
             raise LookupError('maintenance_order_coverage')
-        used = logs.for_customer(customer) if logs is not None else None
-        # A fallback use hit needs a defensible customer. Keep our automatic batches in the local ledger.
-        if used:
-            used['matched'] = [row for row in used['matched'] if not str(
-                (row.get('memberCoupon') or {}).get('grant_batch_no') or '').startswith('FCSM_')]
+        if logs is None:
+            raise LookupError('maintenance_coupon_usage_unavailable')
+        used = logs.for_customer(customer)
+        # Automatic batches are already covered by the local ledger.
+        used['matched'] = [row for row in used['matched'] if not str(
+            (row.get('memberCoupon') or {}).get('grant_batch_no') or '').startswith('FCSM_')]
         relevant = [dict(uid=uid, customer_id=cid) for uid in facts.customer_uids.get(customer, ())
                     for cid in facts.uid_customers[uid]]
         coupons = manual_evidence(relevant, customer, at, self.admin.grants, used)
-        if logs is None:
-            coupons['notice'] += '；用券记录暂不可用，未归属条数待核'
-            coupons['unattributed'] = None
         cutoff = coupon_time(event['event_at'])
         return dict(coupons=coupons, payments=[
             dict(order_key=row['order_key'], paid_at=row['paid_at'])
@@ -270,18 +300,26 @@ class Maintenance:
             exceptions=self.admin.exceptions(orders))
 
     @staticmethod
-    def _local_evidence(db, entry, at, evidence):
+    def _local_evidence(db, entry, at, evidence, current=None):
         customer = entry['customer_id']
+        if current is None:
+            saved = db.execute('SELECT body FROM maintenance_customers WHERE customer_id=?', (customer,)).fetchone()
+            current = json.loads(saved['body']) if saved else None
+        feedback = case_feedback(db, current) if current else None
+        if feedback is None:
+            raise LookupError('maintenance_contact_evidence_missing')
         contacts = [dict(at=row['at'], actor=row['actor'], contacted_at=row.get('contacted_at'))
-                    for row in case_feedback(db, customer) if row['event'] == 'contacted']
+                    for row in feedback if row['event'] == 'contacted']
         return review_evidence(**evidence, automatic=active_customer(db, customer, at), contacts=contacts)
 
-    def review(self, entry, facts, at, logs, latest_logs):
+    def review(self, entry, facts, at, logs):
         initial = self._evidence(entry, facts, at, logs)
         with self.ledger.db() as db:
             result = self._local_evidence(db, entry, at, initial)
         second_facts = self.facts(latest=True)
-        latest = self._evidence(entry, second_facts, self.clock(), latest_logs)
+        checked_at = self.clock()
+        latest_logs = self.usage(second_facts, checked_at, refresh=True)
+        latest = self._evidence(entry, second_facts, checked_at, latest_logs)
         def recheck(db, row):
             if self.source.token() != second_facts.token:
                 return None
@@ -290,13 +328,19 @@ class Maintenance:
 
     def prepare_recheck(self, row, when):
         facts = self.facts(latest=True)
+        with self.ledger.db() as db:
+            event = dispatch_event(db, row)
+        if not event_order_valid(facts, event, row['customer_id']):
+            return lambda db, fresh: 'event_invalid'
         config, _, _ = load_config(self.config_path)
         current = cohort(facts.customers.get(row['customer_id'], ()), facts.day, config, facts.covered).get(row['customer_id'])
         rule = row['rule_body']
         if current is None or current['tier'] != rule['tier']:
             return lambda db, fresh: 'tier_changed'
-        if current['email'] != row['email']:
+        if not valid_email(current['email']) or email_key(current['email']) != email_key(row['email']):
             return lambda db, fresh: 'recipient_changed'
+        if facts.email_conflict(row['customer_id'], current['email']):
+            raise LookupError('maintenance_email_identity_conflict')
         if rule['customer_type'] is not None and current['customer_type'] != rule['customer_type']:
             return lambda db, fresh: 'customer_type_changed'
         if RANK.get(current['stage'], -1) < RANK[rule['stage']]:
@@ -306,7 +350,9 @@ class Maintenance:
         def locked(db, fresh):
             if self.source.token() != facts.token or load_config(self.config_path)[1] != config['version']:
                 raise LookupError('maintenance_recheck_input_changed')
-            result = self._local_evidence(db, fresh, self.clock(), evidence)
+            if not event_order_valid(facts, dispatch_event(db, fresh), fresh['customer_id']):
+                return 'event_invalid'
+            result = self._local_evidence(db, fresh, self.clock(), evidence, current)
             return result['reasons'][0] if result['reasons'] else None
         return locked
 
@@ -328,11 +374,10 @@ class Maintenance:
             return
         latest = self.facts(latest=True)
         logs = self.usage(latest, at)
-        latest_logs = self.usage(latest, self.clock(), refresh=True)
         unprocessed = 0
         for entry in reviewing:
             try:
-                unprocessed += not self.review(entry, latest, at, logs, latest_logs)
+                unprocessed += not self.review(entry, latest, at, logs)
             except (LookupError, OSError, ValueError, KeyError, TypeError) as error:
                 unprocessed += 1
                 LOGGER.warning('Maintenance review %s pending: %s', entry['id'], type(error).__name__)
@@ -344,9 +389,6 @@ class Maintenance:
                 self.dispatcher.once(row['id'])
             except (LookupError, OSError, ValueError, KeyError, TypeError) as error:
                 LOGGER.warning('Maintenance dispatch %s deferred: %s', row['id'], type(error).__name__)
-
-    def reconcile(self):
-        reconcile(self.ledger, self.clock)
 
     def config_view(self):
         config, version, source = load_config(self.config_path)
@@ -400,8 +442,14 @@ class Maintenance:
                         FROM maintenance_customers s LEFT JOIN maintenance_cases c USING(customer_id)
                         LEFT JOIN vip_cases v ON v.id=c.case_id LEFT JOIN maintenance_overrides o USING(customer_id)
                         ORDER BY s.customer_id''').fetchall()
-        items = [dict(json.loads(row['body']), case_id=row['case_id'], case_status=row['status'],
-                      owner=row['owner'], override_tier=row['tier'], alert=bool(row['alert'])) for row in rows]
+        items = []
+        for row in rows:
+            customer = json.loads(row['body'])
+            conflict = customer.get('email_conflict')
+            items.append(dict(customer, case_id=None if conflict else row['case_id'],
+                              case_status='pending_identity' if conflict else row['status'],
+                              owner=None if conflict else row['owner'], override_tier=row['tier'],
+                              alert=bool(row['alert'])))
         counts = Counter((r['override_tier'] or r['tier'], r['stage'], r['customer_type']) for r in items)
         items = [row for row in items if row['stage'] in FOLLOW_UP]
         return dict(status='ready' if last and last['day'] == expected.isoformat() else 'waiting',
@@ -415,8 +463,10 @@ class Maintenance:
             row = db.execute('SELECT body FROM maintenance_customers WHERE customer_id=?', (ident,)).fetchone()
             if not row:
                 raise LookupError('maintenance_customer_missing')
-            link = db.execute('SELECT c.*,v.owner FROM maintenance_cases c LEFT JOIN vip_cases v ON v.id=c.case_id '
-                              'WHERE c.customer_id=?', (ident,)).fetchone()
+            customer = json.loads(row['body'])
+            case_id, status, exact, _ = case_binding(db, customer)
+            owner = db.execute('SELECT owner FROM vip_cases WHERE id=?', (case_id,)).fetchone() if case_id else None
+            link = dict(customer_id=ident, case_id=case_id, status=status, owner=owner['owner'] if owner else None)
             override = db.execute('SELECT tier FROM maintenance_overrides WHERE customer_id=?', (ident,)).fetchone()
             events = db.execute('SELECT id,event_at,status,alert,body FROM maintenance_events '
                                 'WHERE customer_id=? ORDER BY event_at DESC LIMIT 100', (ident,))
@@ -426,10 +476,8 @@ class Maintenance:
                 timeline.append(dict(id=event['id'], at=event['event_at'], stage=body['stage'],
                                      config_version=body['config_version'], status=event['status'],
                                      alert=bool(event['alert'])))
-            contacts = case_feedback(db, ident)
-            customer = json.loads(row['body'])
-            exact, _ = matching_cases(db, customer) if link and link['status'] == 'pending_identity' else ([], [])
-            return dict(customer=customer, case=dict(link) if link else None, matching_cases=exact,
+            contacts = events_for(db, case_id) if status == 'linked' else []
+            return dict(customer=customer, case=link, matching_cases=exact if status == 'pending_identity' else [],
                         display_tier=override['tier'] if override else None, timeline=timeline, contacts=contacts)
 
     def resolve_case(self, actor, body):
@@ -447,23 +495,27 @@ class Maintenance:
                 after = json.loads(prior['after_json'])
                 if after['selected'] != value:
                     raise ValueError('maintenance_request_conflict')
-                return after
-            link = db.execute('SELECT status FROM maintenance_cases WHERE customer_id=?', (customer_id,)).fetchone()
+                return {key: after[key] for key in ('selected', 'case_id')}
             row = db.execute('SELECT body FROM maintenance_customers WHERE customer_id=?', (customer_id,)).fetchone()
-            if not row or not link or link['status'] != 'pending_identity':
+            if not row:
                 raise ValueError('maintenance_case_already_resolved')
             customer = json.loads(row['body'])
+            _, status, exact, conflicts = case_binding(db, customer)
+            if status != 'pending_identity':
+                raise ValueError('maintenance_case_already_resolved')
+            if customer.get('email_conflict'):
+                raise ValueError('maintenance_email_identity_conflict')
             if not valid_email(customer['email']):
                 raise ValueError('maintenance_case_email_required')
-            exact, _ = matching_cases(db, customer)
             if (value is None and exact) or (value is not None and value not in exact):
                 raise ValueError('maintenance_case_email_mismatch')
             at = self.clock()
             ident = value or create_case(db, customer, at)
             store_case_link(db, customer_id, ident, 'linked')
             after = {'selected': value, 'case_id': ident}
+            resolution = dict(after, candidates=[exact if value else [ident], conflicts])
             db.execute('INSERT INTO maintenance_changes VALUES(?,?,?,?,?,?,?)',
-                       (request_id, actor, 'case_link', customer_id, 'null', canonical(after), stamp(at)))
+                       (request_id, actor, 'case_link', customer_id, 'null', canonical(resolution), stamp(at)))
             return after
 
     def queue_view(self, view, offset=0):
@@ -472,15 +524,23 @@ class Maintenance:
             'ready': ('ready',),
             'delivery': AWAITING + ('dispatching', 'issued', 'limited', 'rejected', 'unknown', 'pending_register',
                                     'manually_closed', 'recheck_failed', 'void', 'removed', 'expired'),
-            'manual': ('pending_register', 'unknown'),
         }
-        filter_sql = 'AND job_id IS NULL' if view == 'manual' else ''
-        rows = self.ledger.queue(state_sets[view], limit=21, offset=offset, sql_filter=filter_sql)
+        rows = self.ledger.queue(state_sets[view], limit=21, offset=offset)
         items = []
+        customer_ids = list({row['customer_id'] for row in rows[:20]})
+        conflicts = set()
+        if customer_ids:
+            with self.ledger.db() as db:
+                conflicts = {row[0] for row in db.execute(
+                    f"SELECT customer_id FROM maintenance_customers WHERE customer_id IN ({marks(customer_ids)}) "
+                    "AND json_extract(body,'$.email_conflict')=1", customer_ids)}
         for row in rows[:20]:
             reviews = self.ledger.reviews(row['id'])
-            items.append({key: value for key, value in row.items() if key != 'rule_body'})
-            items[-1]['review'] = reviews[-1] if reviews else None
+            item = {key: value for key, value in row.items() if key != 'rule_body'}
+            item['review'] = reviews[-1] if reviews else None
+            if row['customer_id'] in conflicts and row['state'] in ('reviewing', 'ready', *AWAITING):
+                item['identity_status'] = 'pending_identity'
+            items.append(item)
         return dict(status='ready', items=items, next_offset=offset+20 if len(rows) > 20 else None)
 
     def decide_entries(self, actor, body):
@@ -500,17 +560,6 @@ class Maintenance:
             changed = [row['id'] for row in rows if transition(db, row, decision, actor, at)]
         return dict(changed=changed, skipped=0 if ids == 'all' else len(ids)-len(changed))
 
-    def manual_result(self, actor, body):
-        keys(body, 'id batch state evidence')
-        ident = strict_id(body['id'])
-        proof = body['evidence']
-        row = self.ledger.entry(ident)
-        if (not isinstance(body['batch'], str) or BATCH.fullmatch(body['batch']) is None
-                or not row or body['batch'] != row['batch'] or not isinstance(proof, str)
-                or not 1 <= len(proof.strip()) <= 300 or any(ord(char) < 32 for char in proof)):
-            raise ValueError('maintenance_manual_evidence')
-        return dict(changed=self.ledger.manual_result(ident, body['state'], actor, self.clock(), proof.strip()))
-
     def modify(self, actor, action, body):
         if not actor:
             raise PermissionError('maintenance_actor_required')
@@ -525,16 +574,15 @@ class Maintenance:
                         actor, action, customer_id, canonical(expected), canonical(value)):
                     raise ValueError('maintenance_request_conflict')
                 return dict(changed=True, reused=True, request_id=request_id)
-            row = db.execute('SELECT 1 FROM maintenance_customers WHERE customer_id=?', (customer_id,)).fetchone()
+            row = db.execute('SELECT body FROM maintenance_customers WHERE customer_id=?', (customer_id,)).fetchone()
             if not row:
                 raise LookupError('maintenance_customer_missing')
             if action == 'owner':
                 if value is not None:
                     account(value)
-                case = db.execute('SELECT v.id,v.owner FROM maintenance_cases c JOIN vip_cases v ON c.case_id=v.id '
-                                  "WHERE c.customer_id=? AND c.status='linked' AND NOT EXISTS(SELECT 1 FROM vip_events e "
-                                  "WHERE e.case_id=v.id AND json_extract(e.payload,'$.event')='close')",
-                                  (customer_id,)).fetchone()
+                case_id, status, _, _ = case_binding(db, json.loads(row['body']))
+                case = (db.execute('SELECT id,owner FROM vip_cases WHERE id=?', (case_id,)).fetchone()
+                        if status == 'linked' else None)
                 if not case or case['owner'] != expected:
                     raise ValueError('maintenance_owner_conflict')
                 db.execute('UPDATE vip_cases SET owner=? WHERE id=? AND owner IS ?', (value, case['id'], expected))
