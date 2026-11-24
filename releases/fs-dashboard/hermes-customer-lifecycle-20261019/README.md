@@ -47,3 +47,7 @@
 5. **有界观察和读回**：只观察上述同一任务/Future，每次 `_poll_scan(original_day)` 后读取原行；整次恢复沿原扫描850秒总预算，不加超时、不无限循环、不新建请求。到期仍 pending 时停止继续观察并报告未完成；不重放，不强杀仍在途的 reader，也不在其退出前启动 Range。待原 Future 终止并消费一次结果后，确认原编号/版本、最终状态及 `permission_recovery` 中原失败、操作者、两份 SHA 均保留。只有原完整扫描结果才可为 available；失败如实保留。关闭该临时 reader 的线程池并退出会话，确认没有遗留 reader 后，按停前状态启动原 `fs-business-range.service`，读回健康状态及同一请求。失败不清 UNKNOWN/原 ES attempt，不回滚成可重复导出状态。
 
 该方法没有公开 HTTP 路由；重复 POST 原 `scan` 只读取幂等回执，不是恢复操作。无需新服务、定时器或队列。上线验证和真实补权恢复分别记录，不能把本地合成测试称作已恢复外部权限。
+
+## 阶段维护发布
+
+从 187 捕获现役目标和 SHA，使用 deploy/maintenance_release.py 生成申请发布和回退的增量。将原导航发布器绑定到本批目标后，在它的 CAS 写入之前调用 maintenance_release.bind_static_permissions(publisher)。静态目标逐文件安装时会确保新目录为 0755、文件为 0644，并用 nginx 用户验证可读，再切换路由。发布暂存和备份继续沿用原权限。完成原发布器的写后校验与 Nginx reload 后，检查该发布窗口的错误日志和真实入口。
