@@ -250,8 +250,10 @@ function setFinding(id, text) {
 }
 
 /* ---------- 回头率曲线 ---------- */
-function pickSeries(batches, focus, limit = 5) {
-  const usable = batches.filter(batch => batch.windows.some(window => window.rate != null));
+const hasRate = batch => Boolean(batch?.windows.some(window => window.rate != null));
+
+function pickSeries(batches, focus, limit = 5, usableBatch = hasRate) {
+  const usable = batches.filter(usableBatch);
   if (usable.length <= limit) return usable;
   const chosen = new Set();
   for (let i = 0; i < limit; i += 1) chosen.add(usable[Math.round(i * (usable.length - 1) / (limit - 1))]);
@@ -268,11 +270,13 @@ function curveChart(host, view) {
   const xmax = windows.at(-1);
   const lines = [];
   if (view.compare) {
-    const months = pickSeries(view.batches, view.batch, 3);
+    // A month qualifies when either population has rates; draw whichever is available.
+    const months = pickSeries(view.batches, view.batch, 3,
+      batch => hasRate(batch) || hasRate(sameMonth(view.oldBatches, batch.month)));
     months.forEach((batch, index) => {
-      lines.push({label: batch.month + ' 新客', batch, color: tones[index]});
+      if (hasRate(batch)) lines.push({label: batch.month + ' 新客', batch, color: tones[index]});
       const old = sameMonth(view.oldBatches, batch.month);
-      if (old) lines.push({label: batch.month + ' 老客', batch: old, color: tones[index], dashed: true});
+      if (hasRate(old)) lines.push({label: batch.month + ' 老客', batch: old, color: tones[index], dashed: true});
     });
   } else {
     pickSeries(view.batches, view.batch).forEach((batch, index) => lines.push({label: batch.month + ' 批', batch, color: tones[index]}));
@@ -412,7 +416,11 @@ function firstRepeat(view) {
     const old = view.compare && sameMonth(view.oldBatches, batch.month);
     if (old && mature(old)) rows.push({label: batch.month + ' 老', batch: old});
   }
-  el('first-repeat-basis').textContent = '只统计最长 ' + days + ' 天已全部满期的批次。每条横条 = 这批客户 100%，按第一次买第二单的时间分段。';
+  // Counts cover only customers with complete order coverage; excluded customers are reported per row.
+  const gaps = rows.map(({batch}) => windowOf(batch, days)?.coverage_gap || 0);
+  const excluded = gaps.reduce((sum, value) => sum + value, 0);
+  el('first-repeat-basis').textContent = '只统计最长 ' + days + ' 天已全部满期的批次。每条横条 = 这批订单数据完整的客户 100%，按第一次买第二单的时间分段。' +
+    (excluded ? '有 ' + n(excluded) + ' 人因订单数据缺口未计入，见下方明细。' : '');
   const host = el('first-repeat');
   if (!rows.length) {
     host.replaceChildren(element('p', '所选范围暂无已满期的批次。', 'hint'));
@@ -443,7 +451,8 @@ function firstRepeat(view) {
   grid.setAttribute('role', 'region');
   grid.setAttribute('aria-label', '首次回购人数明细');
   details.append(element('summary', '查看各段人数'), grid);
-  table(grid, ['批次', ...labels], rows.map(({label, batch}) => [label, ...batch.first_repeat.counts.map(n)]));
+  table(grid, ['批次', ...labels, '数据缺口未计入'], rows.map(({label, batch}, index) =>
+    [label, ...batch.first_repeat.counts.map(n), n(gaps[index]) + ' 人']));
   host.append(details);
 }
 

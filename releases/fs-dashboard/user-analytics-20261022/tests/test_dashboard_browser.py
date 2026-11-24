@@ -133,6 +133,10 @@ def check_page(browser, output=None):
     expect(page.locator('#return-amounts svg rect')).to_have_count(4)
     expect(page.locator('#return-amounts')).to_contain_text('含 3 笔金额未知')
 
+    # The 2026-04 coverage gap is reported next to the first-repeat distribution.
+    expect(page.locator('#first-repeat-basis')).to_contain_text('有 2 人因订单数据缺口未计入')
+    expect(page.locator('#first-repeat')).to_contain_text('数据缺口未计入')
+
     # Coverage gaps (2026-04) and customers still under observation (2026-05) mark both return charts.
     expect(page.locator('#return-rates svg text', has_text='部分')).to_have_count(2)
     expect(page.locator('#return-amounts svg text', has_text='部分')).to_have_count(3)
@@ -151,9 +155,19 @@ def check_page(browser, output=None):
     expect(page.locator('#first-repeat')).not_to_contain_text('2026-06 新')
     if output:
         page.screenshot(path=output / 'users-compare.png', full_page=True, animations='disabled')
+    # Each population reports its own excluded customers in comparison mode.
+    expect(page.locator('#first-repeat-basis')).to_contain_text('有 4 人')
     page.get_by_role('button', name='2026-04 180 天，查看详情').click()
     page.locator('#cohort-drill').get_by_role('button', name='查看老客名单').click()
     expect(page.locator('#members')).to_contain_text('cohort@example.invalid')
+    # Only an old-customer month selected: the curve still draws the old-customer line.
+    page.locator('input[name=cohort_start]').fill('2026-06')
+    page.locator('input[name=cohort_end]').fill('2026-06')
+    page.locator('#run-query').click()
+    expect(page.locator('#repeat-curve')).to_contain_text('2026-06 老客')
+    expect(page.locator('#repeat-curve')).not_to_contain_text('2026-06 新客')
+    page.locator('input[name=cohort_start]').fill('2026-01')
+    page.locator('input[name=cohort_end]').fill('2026-06')
     page.get_by_role('radio', name='新客').check()
     expect(page.locator('#segment-note')).to_be_hidden()
 
