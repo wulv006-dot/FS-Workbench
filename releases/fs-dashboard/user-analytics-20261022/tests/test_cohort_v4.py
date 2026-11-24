@@ -43,7 +43,10 @@ class CohortWindows(unittest.TestCase):
         window = cohort['windows'][0]
         self.assertEqual((window['numerator'], window['denominator'], window['rate']), (1, 2, .5))
         self.assertEqual(window['repeat_amount'], {'known_usd': None, 'unknown_orders': 1})
-        self.assertEqual(members[window['group']], {'exact', 'late'})
+        self.assertEqual(members[window['group']], {
+            'exact': {'window_status': 'denominator', 'in_numerator': True},
+            'late': {'window_status': 'denominator', 'in_numerator': False},
+        })
         self.assertEqual(cohort['first_repeat']['counts'], [1, 1, 0])
         returned = cohort['silent_return']
         self.assertEqual((returned['numerator'], returned['denominator'], returned['return_amount']),
@@ -52,7 +55,9 @@ class CohortWindows(unittest.TestCase):
 
     def test_cutoff_and_coverage_buckets_are_disjoint_and_frozen(self):
         orders = [purchase(1, 'mature', '2026-01-01'), purchase(2, 'gap', '2026-01-09'),
-                  purchase(3, 'observing', '2026-01-29')]
+                  purchase(3, 'observing', '2026-01-29'),
+                  purchase(4, 'mature', '2026-01-02'),
+                  purchase(5, 'observing', '2026-01-30')]
         flags = {json.loads(o['body'])['order_no_hash']: 'new' for o in orders}
         query = dict(game='all', cohort_start='2026-01', cohort_end='2026-01',
                      windows=[4], return_after=2, return_within=4)
@@ -60,7 +65,28 @@ class CohortWindows(unittest.TestCase):
         result, members = analyze_cohorts(orders, jobs, query, stamp('2026-02-01'), flags)
         window = result['batches'][0]['windows'][0]
         self.assertEqual([window[k] for k in ('denominator', 'observing', 'coverage_gap')], [1, 1, 1])
-        self.assertEqual(members[window['group']], {'mature', 'gap', 'observing'})
+        rows = members[window['group']]
+        self.assertEqual(rows, {
+            'mature': {'window_status': 'denominator', 'in_numerator': True},
+            'gap': {'window_status': 'coverage_gap', 'in_numerator': False},
+            'observing': {'window_status': 'observing', 'in_numerator': False},
+        })
+        for status in ('denominator', 'coverage_gap', 'observing'):
+            self.assertEqual(sum(row['window_status'] == status for row in rows.values()), window[status])
+        self.assertEqual(sum(row['in_numerator'] for row in rows.values()), window['numerator'])
+
+    def test_partial_repeat_amount_cannot_supply_per_customer_amount(self):
+        orders = [purchase(1, 'one', '2026-01-01'),
+                  purchase(2, 'one', '2026-01-02', amount='17.25'),
+                  purchase(3, 'one', '2026-01-03', amount=None)]
+        flags = {json.loads(orders[0]['body'])['order_no_hash']: 'new'}
+        query = dict(game='all', cohort_start='2026-01', cohort_end='2026-01',
+                     windows=[4], return_after=2, return_within=4)
+        result, _ = analyze_cohorts(orders, [covering('2026-01-01', '2026-02-01')],
+                                    query, stamp('2026-02-01'), flags)
+        window = result['batches'][0]['windows'][0]
+        self.assertEqual(window['repeat_amount'], {'known_usd': '17.25', 'unknown_orders': 1})
+        self.assertIsNone(window['repeat_per_customer_usd'])
 
 
 class CustomerStages(unittest.TestCase):
@@ -176,7 +202,8 @@ class V4Snapshot(unittest.TestCase):
             flag = hashlib.sha256(b'test-1').hexdigest()
             allowed = {'reader'}
             service = Service(store, lambda user, q, private: user in allowed and not private,
-                              clock=lambda: now, customer_type_reader=lambda q: ({flag: 'new'}, {'status': 'complete'}))
+                              clock=lambda: now, customer_type_reader=lambda q: ({flag: 'new'}, {'status': 'complete'}),
+                              permission_epoch=lambda user, q: 'fixture-user-policy')
             self.addCleanup(service.v4.jobs.pool.shutdown)
             query = {'cohort_start': '2026-01', 'cohort_end': '2026-01', 'windows': [2]}
             first = service.v4.query(query, 'reader')
@@ -188,7 +215,9 @@ class V4Snapshot(unittest.TestCase):
             self.assertEqual((page['rows'][0]['last_paid_at'], page['rows'][0]['stage']),
                              ('2026-01-02T00:00:00+08:00', 'silent'))
             code, export = get(service, '/users/private', dict(params, action=['export']), 'reader')
-            self.assertEqual((code, export['rows']), (200, page['rows']))
+            self.assertEqual((code, export['exported_rows']), (200, 1))
+            self.assertIn(email, export['csv'])
+            self.assertIn('"已满窗（分母）","是"', export['csv'])
             self.assertEqual(get(service, '/users/private', dict(params, action=['connector_members']), 'reader')[0], 403)
             status, found = search(service, {'snapshot_id': ident, 'email': email}, 'reader')
             self.assertTrue(found['found'])
@@ -198,7 +227,7 @@ class V4Snapshot(unittest.TestCase):
             self.assertEqual(search(service, {'source':'connector', 'snapshot_id':ident, 'email':email}, 'reader')[0], 403)
             store.replace_window('266', '2026-01-01', '2026-02-05', [], now.isoformat())
             code, frozen = get(service, '/users/private', dict(params, action=['export']), 'reader')
-            self.assertEqual((code, frozen['rows']), (200, page['rows']))
+            self.assertEqual((code, frozen['csv']), (200, export['csv']))
             allowed.clear()
             self.assertEqual(get(service, '/users/private', dict(params, action=['export']), 'reader')[0], 403)
             self.assertEqual(search(service, {'snapshot_id': ident, 'email': email}, 'reader')[0], 403)

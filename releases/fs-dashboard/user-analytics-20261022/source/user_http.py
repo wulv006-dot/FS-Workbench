@@ -59,8 +59,10 @@ def get(service, path, params, user):
             action = action[len('connector_'):] if admin else action
             if action == 'detail':
                 return 200, service.v4.detail(args, user, admin=admin)
-            if action in ('members', 'export') and (action != 'export' or not admin):
-                return 200, service.v4.members(args, user, admin=admin, export=action == 'export')
+            if action == 'members':
+                return 200, service.v4.members(args, user, admin=admin)
+            if action == 'export' and not admin:
+                return 200, service.v4.export(args, user)
             raise ValueError('private_action')
         if action in ('catalog', 'connector_catalog') and not args:
             return 200, service.v4.catalog(user, admin=action == 'connector_catalog')

@@ -47,7 +47,8 @@ class QueryContext:
         if self.configured():
             self.service = Service(service.store, self.source_authorized, clock=service.clock,
                                    customer_type_reader=service.customer_type_reader,
-                                   weekly_publication=service.weekly_publication)
+                                   weekly_publication=service.weekly_publication,
+                                   permission_epoch=service.permission_epoch)
 
     def configured(self):
         shape = (isinstance(self.identity, str) and bool(self.identity) and callable(self.validate)
@@ -156,18 +157,10 @@ class QueryContext:
         result = invoke(self.service, self.identity, {'snapshot_id': public['snapshot_id'], 'section': section})
         return self.receipt(public, {'data': result}, {'method': 'aggregate', 'section': section}, started, 2)
 
-    def aggregate_v4(self, args):
-        from user_tools import invoke_v4
-
-        if not self.guard():
-            return self.unavailable()
-        started = perf_counter()
-        value = invoke_v4(self.original, self.identity, {**args, **self.scope})
-        if 'snapshot_id' not in value:
-            return value
+    def v4_aggregate_receipt(self, value, started):
         if not self.source_authorized(self.identity, value['query']):
             raise PermissionError('host_scope_revoked')
-        section = args.get('section', 'summary')
+        section = value['result_section']
         return self.receipt(value, {'data': value}, {'method': 'aggregate', 'section': section}, started, 1)
 
     def cursor(self, snapshot, kind, fields, after=None, token=None):
@@ -259,6 +252,12 @@ class QueryContext:
                             'coverage_scope': 'selected_group_query', 'order': 'stable_opaque_customer_id'},
                             {'method': 'candidates', **fields, 'cursor': cursor, 'limit': limit}, started, 2, len(rows))
 
+    def customer_detail(self, public, customer_id):
+        args = {'snapshot_id': public['snapshot_id'], 'customer_id': customer_id}
+        if public.get('contract_version') == VERSION:
+            return self.service.v4.detail(args, self.identity, admin=True)
+        return self.service.detail(args, self.identity)
+
     def timeline(self, snapshot_id, opaque_customer_id, cursor=None, limit=50):
         if not self.guard():
             return self.unavailable()
@@ -266,9 +265,7 @@ class QueryContext:
         opaque(opaque_customer_id)
         started = perf_counter()
         public = self.public(snapshot_id)
-        arguments = {'snapshot_id': snapshot_id, 'customer_id': opaque_customer_id}
-        detail = (self.service.v4.detail(arguments, self.identity, admin=True)
-                  if public.get('contract_version') == VERSION else self.service.detail(arguments, self.identity))
+        detail = self.customer_detail(public, opaque_customer_id)
         fields = {'opaque_customer_id': opaque_customer_id}
         offset = self.cursor(snapshot_id, 'timeline', fields, token=cursor) if cursor is not None else 0
         events = detail['timeline']
@@ -306,7 +303,7 @@ class QueryContext:
         started = perf_counter()
         baseline, current = self.public(baseline_snapshot_id), self.public(current_snapshot_id)
         keys = ('contract_version', 'scope_version', 'identity_version', 'policy_version', 'lifecycle_policy')
-        qkeys = ('scope', 'scope_id', 'start', 'state_basis', 'policy_mode', 'H')
+        qkeys = ('scope', 'scope_id', 'game', 'start', 'state_basis', 'policy_mode', 'H')
         compatible = (all(baseline.get(k) is not None and baseline.get(k) == current.get(k) for k in keys)
                       and all(baseline['query'].get(k) == current['query'].get(k) for k in qkeys)
                       and stamp(baseline['query']['as_of']) <= stamp(current['query']['as_of']))
@@ -318,7 +315,8 @@ class QueryContext:
         coverage = current.get('coverage', {})
         cutoffs = [current['query']['as_of'], coverage.get('state_data_through'), (current.get('weekly_update') or {}).get('cutoff')]
         through = min(stamp(v) for v in cutoffs if v is not None)
-        fresh = (through >= at and current.get('status') == 'available' and coverage.get('period_complete') is True
+        stage_status = current.get('stages', {}).get('status', current.get('status'))
+        fresh = (through >= at and stage_status == 'available' and coverage.get('period_complete') is True
                  and coverage.get('identity_deduplication_complete') is True and not coverage.get('missing_identity_orders'))
         changes, calls = [], 2
         for cid in refs:
@@ -328,9 +326,9 @@ class QueryContext:
             checkpoint = min(aware(value) for value in check.values())
             try:
                 calls += 1
-                before = self.service.detail({'snapshot_id': baseline_snapshot_id, 'customer_id': cid}, self.identity)['customer']
+                before = self.customer_detail(baseline, cid)['customer']
                 calls += 1
-                after = self.service.detail({'snapshot_id': current_snapshot_id, 'customer_id': cid}, self.identity)['customer']
+                after = self.customer_detail(current, cid)['customer']
             except LookupError:
                 changes.append({'opaque_customer_id': cid, 'status': 'requires_review', 'reason': 'customer_not_in_both_snapshots'})
                 continue

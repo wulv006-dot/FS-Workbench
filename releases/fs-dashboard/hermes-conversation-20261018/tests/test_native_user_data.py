@@ -11,7 +11,11 @@ from unittest.mock import patch
 HERE=Path(__file__).resolve().parent
 USERS=HERE.parents[1]/'user-analytics-20261022'
 LIVE=HERE.parents[1]/'tiered-data-access-20261101'
-sys.path[:0]=[str(HERE),str(HERE.parent/'source'),str(USERS/'source'),str(LIVE/'source')]
+CORE = HERE.parents[1] / 'hermes-v2-core-20261020' / 'source'
+KNOWLEDGE = HERE.parents[1] / 'knowledge-layering-20261023' / 'source'
+SEGMENTS = HERE.parents[1] / 'customer-segments-20261124' / 'source'
+sys.path[:0] = [str(HERE), str(HERE.parent / 'source'), str(USERS / 'source'), str(LIVE / 'source'),
+                str(CORE), str(KNOWLEDGE), str(SEGMENTS)]
 spec=importlib.util.spec_from_file_location('native_user_real_a2_fixture',USERS/'tests/test_a2_query_context.py')
 fixtures=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixtures)
 import test_conversation_native as native_tests
@@ -63,6 +67,10 @@ class NativeUserRelay(unittest.TestCase):
         native.user_data=data
         return data
 
+    def current_snapshot(self):
+        args = dict(fixtures.SCOPE, start="2026-10-01", end_exclusive="2026-10-25")
+        return self.call("fs_query_user_analytics", args)["snapshot_id"]
+
     def call(self,name,args,binding=None):
         bound=self.binding if binding is None else binding
         return self.conversation.native.host_tool(bound,'fs.native.user_data',
@@ -106,8 +114,52 @@ class NativeUserRelay(unittest.TestCase):
         self.source_allowed=False
         with self.assertRaises(PermissionError):self.call('fs_describe_customer',{'snapshot_id':snapshot,'customer_id':cid})
 
+    def test_site_scoped_game_query_has_same_receipt_when_warm_or_continued(self):
+        from threading import Event
+
+        self.data()
+        self.original.customer_type_reader = lambda query: ({}, {"status": "complete"})
+        args = dict(scope="site", scope_id="266", game="1327", start="2026-10-01",
+                    end_exclusive="2026-10-25")
+        complete = Event()
+        materialize = self.original.v4.materialize
+
+        def delayed(*parts):
+            if not complete.wait(5):
+                raise AssertionError("fixture never released")
+            return materialize(*parts)
+
+        try:
+            with patch("user_summary_jobs.wait"), patch.object(self.original.v4, "materialize", side_effect=delayed):
+                pending = self.call("fs_query_user_analytics", args)
+                self.assertEqual(pending["http_status"], 202)
+                complete.set()
+                self.original.v4.jobs.pool.submit(lambda: None).result(5)
+                continued = self.call("fs_query_user_analytics", {"query_id": pending["query_id"]})
+            hot = self.call("fs_query_user_analytics", args)
+            for value in (continued, hot):
+                self.assertEqual(value["query"]["game"], "1327")
+                self.assertEqual(value["evidence_ref"]["scope"], {"scope": "site", "scope_id": "266"})
+                self.assertEqual(value["snapshot_id"], hot["snapshot_id"])
+            self.original.authorizer = lambda owner, query, private: query["scope"] != "site"
+            with self.assertRaises(PermissionError):
+                self.call("fs_query_user_analytics", {"query_id": pending["query_id"]})
+        finally:
+            complete.set()
+
+    def test_public_customer_tools_retire_legacy_snapshot(self):
+        self.data()
+        snapshot = self.snapshot(self.summary())
+        cid = self.cid(snapshot)
+        for name, extra in (("fs_customer_candidates", {}), ("fs_describe_customer", {"customer_id": cid})):
+            with self.subTest(name=name):
+                value = self.call(name, dict(snapshot_id=snapshot, **extra))
+                self.assertEqual(value, {"error": "snapshot_version_retired", "http_status": 422})
+
     def test_wrong_binding_revoked_run_and_different_customer_fail_before_source(self):
-        self.data();snapshot=self.snapshot(self.summary());cid=self.cid(snapshot)
+        self.data()
+        snapshot = self.current_snapshot()
+        cid = self.cid(snapshot)
         for key in ('owner','conversation_id','session_id','lease','run_id'):
             bound=dict(self.binding,**{key:'wrong'})
             with self.assertRaises((PermissionError,LookupError)):
@@ -187,7 +239,8 @@ class NativeUserRelay(unittest.TestCase):
         write();self.data()
         with patch.dict(sys.modules,{'rbac':rbac}),patch.object(rbac,'LIVE_POLICY',str(path)):
             self.original.authorizer=user_runtime.authorize
-            snapshot=self.snapshot(self.summary());cid=self.cid(snapshot)
+            snapshot = self.current_snapshot()
+            cid = self.cid(snapshot)
             self.assertEqual(self.call('fs_describe_customer',dict(snapshot_id=snapshot,customer_id=cid))['status'],'observed')
             self.assertTrue(user_runtime.authorize('reader',fixtures.SCOPE))
             self.assertFalse(user_runtime.authorize('reader',fixtures.SCOPE,True))

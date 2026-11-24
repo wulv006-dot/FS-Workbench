@@ -34,6 +34,7 @@ class Service:
         self.summary_jobs = SummaryJobs(self.query)
         from user_query_v4 import UsersV4
         self.v4 = UsersV4(self)
+        self.export_publication_lock = Lock()
         self.private_lock = RLock()
         self.private_cache = None
         self.private_cache_timer = None
@@ -427,15 +428,32 @@ class Service:
         from user_member_index import IndexUnavailable
         if self.store.config.get('member_keyset_index') is not True:raise IndexUnavailable('member_index_not_enabled')
         if not isinstance(args,dict) or set(args)-{'snapshot_id','group','repeat_status','customer_type'} or not {'snapshot_id','group'}<=set(args):raise ValueError('private_export_fields')
-        budget=self.store.config.get('member_export_max_bytes',8*1024*1024)
-        if type(budget) is not int or not 0<budget<=512*1024*1024:raise ValueError('private_export_budget')
+        yield from self.stream_export_rows(args, lambda request: self.members(request, user), completion)
+
+    def export_budget(self):
+        budget = self.store.config.get('member_export_max_bytes', 8 * 1024 * 1024)
+        if type(budget) is not int or not 0 < budget <= 512 * 1024 * 1024:
+            raise ValueError('private_export_budget')
+        return budget
+
+    def export_epoch(self, user, query):
+        from user_member_index import IndexUnavailable
+        epoch = self.permission_epoch(user, query) if callable(self.permission_epoch) else None
+        if not isinstance(epoch, str) or not epoch:
+            raise IndexUnavailable('permission_epoch_required')
+        return epoch
+
+    def stream_export_rows(self, args, read_page, completion=None):
+        from user_contract import canonical
+        from user_member_index import IndexUnavailable
+
+        budget = self.export_budget()
         cursor=None;count=size=0;checksum=hashlib.sha256()
         while True:
             request=dict(args,limit=200)
             if cursor is not None:request['cursor']=cursor
-            value=self.members(request,user)
+            value=read_page(request)
             for row in value['rows']:
-                from user_contract import canonical
                 raw=canonical(row).encode()+b'\n';size+=len(raw);checksum.update(raw)
                 if size>budget:raise IndexUnavailable('streaming_export_budget_exhausted')
                 count+=1

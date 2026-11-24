@@ -9,6 +9,8 @@ const stageNames = {
   first_order: '站内首单', repeat: '复购', purchase: '追加购买', enter: '进入阶段',
   new: '新客', old: '老客', unknown: '待核',
 };
+const windowNames = {denominator: '已满窗（分母）', observing: '观察中', coverage_gap: '覆盖缺口'};
+const yesNo = value => value == null ? '' : value ? '是' : '否';
 const errorText = {
   users_summary_query_expired: '查询已过期，请重新发起。',
   snapshot_version_retired: '旧版快照已退役，请重新查询。',
@@ -103,8 +105,12 @@ function memberButton(label, group, count) {
   return button;
 }
 
+function unknownAmount(value) {
+  return value.unknown_orders ? ' · 含 ' + n(value.unknown_orders) + ' 笔金额未知' : '';
+}
+
 function amount(value) {
-  return money(value.known_usd) + (value.unknown_orders ? ' · 含 ' + n(value.unknown_orders) + ' 笔金额未知' : '');
+  return money(value.known_usd) + unknownAmount(value);
 }
 
 function renderCohorts(data) {
@@ -120,7 +126,7 @@ function renderCohorts(data) {
         element('strong', rate(window.rate) + ' · ' + n(window.numerator) + '/' + n(window.denominator) + ' 人'),
         element('small', '观察中 ' + n(window.observing) + ' · 覆盖缺口 ' + n(window.coverage_gap)),
         element('small', '复购金额 ' + amount(window.repeat_amount)),
-        element('small', '复购人均 ' + money(window.repeat_per_customer_usd)),
+        element('small', '复购人均 ' + money(window.repeat_per_customer_usd) + unknownAmount(window.repeat_amount)),
       );
       button.setAttribute('aria-label', batch.month + ' ' + window.days + ' 天，复购率 ' +
           rate(window.rate) + '，' + button.textContent + '，查看名单');
@@ -265,8 +271,12 @@ async function memberPage(view) {
     });
     if (view !== memberView) return;
     view.next = value.next_cursor;
-    table(el('members'), ['客户邮箱', '站内首单', '末次购买', '阶段', '详情'], value.rows.map(row => [
+    view.total = value.total;
+    const cohort = view.group.startsWith('cohort:');
+    const windowColumns = cohort ? ['时间窗状态', '计入分子'] : [];
+    table(el('members'), ['客户邮箱', '站内首单', '末次购买', '阶段', ...windowColumns, '详情'], value.rows.map(row => [
       row.email, when(row.first_paid_at), when(row.last_paid_at), stageNames[row.stage],
+      ...(cohort ? [windowNames[row.window_status], yesNo(row.in_numerator)] : []),
       detailsButton(row.customer_id, view.snapshot),
     ]));
     el('member-status').textContent = '共 ' + n(value.total) + ' 人 · 第 ' + view.cursors.length + ' 页';
@@ -309,12 +319,6 @@ function showDetail(detail) {
   el('customer-detail').showModal();
 }
 
-function csvCell(value) {
-  let text = String(value ?? '');
-  if (/^[\s]*[=+\-@\t\r\n]/.test(text)) text = "'" + text;
-  return '"' + text.replaceAll('"', '""') + '"';
-}
-
 async function exportMembers() {
   const view = memberView;
   const button = el('export');
@@ -322,10 +326,11 @@ async function exportMembers() {
   try {
     const {value} = await request('/dashboard/users/private.json', {action: 'export', snapshot_id: view.snapshot, group: view.group});
     if (view !== memberView) return;
-    if (value.rows.length !== value.total) throw new Error('名单导出数据不完整。');
-    const rows = [['邮箱', '客户 ID', '站内首单', '末次购买', '阶段'],
-      ...value.rows.map(row => [row.email, row.customer_id, row.first_paid_at, row.last_paid_at, stageNames[row.stage]])];
-    const blob = new Blob(['\uFEFF', rows.map(row => row.map(csvCell).join(',')).join('\r\n')], {type: 'text/csv;charset=utf-8'});
+    if (value.snapshot_id !== view.snapshot || value.group !== view.group ||
+        value.exported_rows !== view.total || typeof value.csv !== 'string') {
+      throw new Error('名单导出数据不完整。');
+    }
+    const blob = new Blob([value.csv], {type: 'text/csv;charset=utf-8'});
     const href = URL.createObjectURL(blob);
     const link = element('a');
     link.href = href;

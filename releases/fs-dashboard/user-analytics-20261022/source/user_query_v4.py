@@ -1,6 +1,9 @@
 """Frozen user-analysis queries for the dashboard and authorized model consumers."""
+from bisect import bisect_right
 from collections import OrderedDict
+import csv
 from datetime import date, time, timedelta
+from io import StringIO
 import json
 import re
 from threading import RLock
@@ -9,6 +12,7 @@ from user_contract import TZ, aggregate_only, digest, stamp
 from user_lifecycle import (analyze_cohorts, analyze_stages, complete_coverage,
                             amount_summary, customer_orders, stage_events)
 from user_summary_jobs import SummaryJobs
+from user_member_index import IndexUnavailable, build as build_member_index, member_record, page as indexed_member_page
 
 VERSION = 'fs-users-v4'
 SECTIONS = ('summary', 'cohorts', 'stages', 'coverage')
@@ -28,10 +32,18 @@ def month(text):
     return date.fromisoformat(text + '-01')
 
 
-def project_scope(game, *, site=False):
+def project_scope(game):
     if game != 'all':
         return dict(scope='project', scope_id=game)
-    return dict(scope='site', scope_id='266') if site else dict(scope='global', scope_id='')
+    return dict(scope='global', scope_id='')
+
+
+def authorization_scope(args, game):
+    if args.get('scope') == 'site':
+        return dict(scope='site', scope_id='266')
+    if args.get('scope') == 'global':
+        return dict(scope='global', scope_id='')
+    return project_scope(game)
 
 
 def selection(args, config, cutoff):
@@ -68,7 +80,7 @@ def selection(args, config, cutoff):
     customer_type, repeat_status = args.get('customer_type', 'all'), args.get('repeat_status', 'all')
     if customer_type not in ('all', 'new', 'old', 'unknown') or repeat_status not in ('all', 'repeated', 'not_repeated'):
         raise ValueError('v4_stage_filter')
-    return dict(project_scope(game, site=scope == 'site'), game=game, start=start.isoformat(), end_exclusive=end.isoformat(),
+    return dict(authorization_scope(args, game), game=game, start=start.isoformat(), end_exclusive=end.isoformat(),
                 cohort_start=cohort_start, cohort_end=cohort_end, windows=windows,
                 return_after=after, return_within=within, customer_type=customer_type, repeat_status=repeat_status)
 
@@ -78,7 +90,48 @@ def section_result(value, section):
         raise ValueError('v4_section')
     if section == 'summary':
         return value
-    return {key: part for key, part in value.items() if key not in ('cohorts', 'stages') or key == section}
+    result = {key: part for key, part in value.items() if key not in ('cohorts', 'stages') or key == section}
+    if section in ('cohorts', 'stages') and 'status' in result[section]:
+        result['status'] = result[section]['status']
+    return result
+
+
+def member_csv(rows, cohort, budget):
+    columns = ['邮箱', '客户 ID', '站内首单', '末次购买', '阶段']
+    if cohort:
+        columns.extend(['时间窗状态', '计入分子'])
+    stage_names = {'recent': '近期', 'silent': '沉默', 'lost': '流失', 'long_lost': '长期流失', 'unverified': '待核'}
+    window_names = {'denominator': '已满窗（分母）', 'observing': '观察中', 'coverage_gap': '覆盖缺口'}
+    line = StringIO(newline='')
+    writer = csv.writer(line, quoting=csv.QUOTE_ALL)
+    output = StringIO(newline='')
+    output.write('\ufeff')
+    size = 3
+
+    def write(parts):
+        nonlocal size
+        line.seek(0)
+        line.truncate()
+        writer.writerow(parts)
+        text = line.getvalue()
+        size += len(text.encode('utf-8'))
+        if size > budget:
+            raise IndexUnavailable('streaming_export_budget_exhausted')
+        output.write(text)
+
+    write(columns)
+    for row in rows:
+        email = row['email']
+        if re.match(r'^\s*[=+\-@\t\r\n]', email):
+            email = "'" + email
+        parts = [email, row['customer_id'], row.get('first_paid_at'),
+                 row.get('last_paid_at'), stage_names.get(row.get('stage'))]
+        if cohort:
+            included = row.get('in_numerator')
+            parts.extend([window_names.get(row.get('window_status')),
+                          '' if included is None else '是' if included else '否'])
+        write(parts)
+    return output.getvalue()
 
 
 class UsersV4:
@@ -106,7 +159,7 @@ class UsersV4:
             raise ValueError('v4_query_fields')
         if 'snapshot_id' not in args and 'query_id' not in args:
             game = args.get('game', args.get('scope_id') if args.get('scope') == 'project' else 'all')
-            self.authorize(user, project_scope(game, site=args.get('scope') == 'site'))
+            self.authorize(user, authorization_scope(args, game))
             config, _, cutoff = self.read_context()
             args = selection(args, config, cutoff)
             self.authorize(user, args)
@@ -207,7 +260,15 @@ class UsersV4:
                                 stage=stage(last, observation, query['game'], segments, covered(last, cutoff)))
         query['as_of'] = cutoff.isoformat()
         period_complete = covered(stamp(query['start']), stamp(query['end_exclusive']))
-        public = dict(contract_version=VERSION, query=query, status='partial' if gaps or missing_identity else 'available',
+        flag_status = flag_source.get('status')
+        if flag_status not in ('complete', 'partial', 'unavailable'):
+            flag_status = 'unavailable'
+        cohorts.update(customer_type_source=flag_status,
+                       status='partial' if gaps or missing_identity or flag_status != 'complete' else 'available')
+        stages['status'] = ('partial' if not period_complete or missing_identity or stage_members['stage:unverified']
+                            else 'available')
+        public = dict(contract_version=VERSION, query=query,
+                      status='partial' if 'partial' in (cohorts['status'], stages['status']) else 'available',
                       scope_version=config['scope_version'], identity_version=config['identity_version'],
                       policy_version=version, lifecycle_policy={'thresholds_days': list(thresholds(query['game'], segments))},
                       data_version=revision, observation_date=observation.isoformat(),
@@ -222,9 +283,12 @@ class UsersV4:
         aggregate_only(public)
         members = {group: sorted(ids) for group, ids in {**cohort_members, **stage_members}.items()}
         private = dict(members=members, records=records, segments=segments,
+                       cohort_memberships=cohort_members,
                        jobs=[{key: job[key] for key in ('site', 'start', 'end', 'state')} for job in jobs])
         result = self.store.save_snapshot(query, public, private)
-        if flag_source.get('status') != 'unavailable':
+        if self.store.config.get('member_keyset_index') is True:
+            build_member_index(self.store, result, private)
+        if flag_status != 'unavailable':
             with self.lock:
                 if len(self.cache) >= 8:
                     self.cache.popitem(last=False)
@@ -235,31 +299,75 @@ class UsersV4:
         self.snapshot(ident, user, admin)
         return self.store.snapshot(ident)
 
-    def members(self, args, user, *, admin=False, export=False):
+    def members(self, args, user, *, admin=False):
         fields = {'snapshot_id', 'group'}
-        if set(args) - (fields if export else fields | {'limit', 'cursor'}) or not fields <= set(args):
+        if set(args) - (fields | {'limit', 'cursor'}) or not fields <= set(args):
             raise ValueError('v4_member_fields')
-        query, public, private = self.private(args['snapshot_id'], user, admin)
+        query, public = self.snapshot(args['snapshot_id'], user, admin)
+        private = None
+        if self.store.config.get('member_keyset_index') is not True:
+            _, _, private = self.store.snapshot(args['snapshot_id'])
+        return self.member_page(args, user, query, public, private, admin=admin)
+
+    def member_page(self, args, user, query, public, private, *, admin=False):
         group, limit, cursor = args['group'], args.get('limit', 50), args.get('cursor', '')
-        if not isinstance(group, str) or group not in private['members'] or type(limit) is not int or not 1 <= limit <= 200:
+        if not isinstance(group, str) or not isinstance(cursor, str) or type(limit) is not int or not 1 <= limit <= 200:
             raise ValueError('v4_member_group_or_limit')
-        ids = private['members'][group]
-        offset = 0
-        if cursor:
+        self.authorize(user, query, admin)
+        if private is None:
+            request = dict(args)
+            if not cursor:
+                request.pop('cursor', None)
+            epoch = self.service.export_epoch(user, query)
+            value = indexed_member_page(self.store, query, public, request, user, epoch)
+        else:
+            if group not in private['members']:
+                raise ValueError('v4_member_group_or_limit')
+            ids = private['members'][group]
+            offset = 0
             prefix = digest([args['snapshot_id'], group])[:16]
-            if not isinstance(cursor, str) or not cursor.startswith(prefix + ':') or cursor.split(':', 1)[1] not in ids:
-                raise ValueError('v4_member_cursor')
-            offset = ids.index(cursor.split(':', 1)[1]) + 1
-        page = ids if export else ids[offset:offset + limit]
-        rows = [dict(private['records'][cid]) for cid in page]
+            if cursor:
+                context, _, previous = cursor.partition(':')
+                offset = bisect_right(ids, previous)
+                if context != prefix or not offset or ids[offset - 1] != previous:
+                    raise ValueError('v4_member_cursor')
+            selected = ids[offset:offset + limit]
+            value = dict(snapshot_id=public['snapshot_id'], total=len(ids), group=group,
+                         rows=[dict(member_record(private, group, cid)) for cid in selected],
+                         next_cursor=prefix + ':' + selected[-1] if offset + limit < len(ids) else None)
         if not admin:
-            emails = self.store.emails(page)
-            for row in rows:
+            emails = self.store.emails([row['customer_id'] for row in value['rows']])
+            for row in value['rows']:
                 row['email'] = emails[row['customer_id']]
         self.authorize(user, query, admin)
-        return dict(snapshot_id=public['snapshot_id'], total=len(ids), group=group, rows=rows,
-                    next_cursor=(digest([args['snapshot_id'], group])[:16] + ':' + page[-1]
-                                 if not export and offset + limit < len(ids) else None))
+        return {key: value[key] for key in ('snapshot_id', 'total', 'group', 'rows', 'next_cursor')}
+
+    def export(self, args, user):
+        if set(args) != {'snapshot_id', 'group'} or not isinstance(args['group'], str):
+            raise ValueError('v4_member_fields')
+        query, public = self.snapshot(args['snapshot_id'], user)
+        epoch = self.service.export_epoch(user, query)
+        private = None
+        if self.store.config.get('member_keyset_index') is not True:
+            _, _, private = self.store.snapshot(args['snapshot_id'])
+
+        def read_page(request):
+            if self.service.export_epoch(user, query) != epoch:
+                raise PermissionError('export_permission_changed')
+            return self.member_page(request, user, query, public, private)
+
+        cohort = args['group'].startswith('cohort:')
+        completion = {}
+        rows = self.service.stream_export_rows(args, read_page, completion)
+        content = member_csv(rows, cohort, self.service.export_budget())
+        # The authenticated JSON host delivers this single bounded CSV in the
+        # current response. Publish only after the last live grant/epoch check.
+        with self.service.export_publication_lock:
+            self.authorize(user, query)
+            if self.service.export_epoch(user, query) != epoch:
+                raise PermissionError('export_permission_changed')
+            return dict(snapshot_id=public['snapshot_id'], group=args['group'],
+                        exported_rows=completion['rows'], csv=content)
 
     def search(self, args, user, *, admin=False):
         if not isinstance(args, dict) or set(args) != {'snapshot_id', 'email'} or not isinstance(args['email'], str):

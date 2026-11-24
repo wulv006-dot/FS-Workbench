@@ -332,7 +332,7 @@ def cohort_groups(batches, people, covered, query, cutoff, flags):
     windows = query['windows']
     min_return, max_return = (timedelta(days=query[key]) for key in ('return_after', 'return_within'))
     durations = [timedelta(days=days) for days in windows]
-    members = defaultdict(set)
+    members = defaultdict(dict)
     for cid, purchases in people.items():
         first = purchases[0]
         month = first[0].strftime('%Y-%m')
@@ -348,14 +348,17 @@ def cohort_groups(batches, people, covered, query, cutoff, flags):
         first_repeat = repeats[0][0] if repeats else cutoff
         for window, duration in zip(batch['windows'], durations):
             end = first[0] + duration
-            members[window['group']].add(cid)
             if end > cutoff:
-                window['observing'] += 1
+                status = 'observing'
             elif not covered(first[0], end):
-                window['coverage_gap'] += 1
+                status = 'coverage_gap'
             else:
-                window['denominator'] += 1
-                if first_repeat < end:
+                status = 'denominator'
+            in_numerator = status == 'denominator' and first_repeat < end
+            members[window['group']][cid] = dict(window_status=status, in_numerator=in_numerator)
+            window[status] += 1
+            if status == 'denominator':
+                if in_numerator:
                     window['numerator'] += 1
                     window['amount_orders'].extend(order for order in repeats if order[0] < end)
                 if duration == durations[-1]:
@@ -392,9 +395,11 @@ def analyze_cohorts(orders, jobs, query, cutoff, flags, *, people=None):
         for window in batch['windows']:
             members[window['group']]
             window['repeat_amount'] = amount_summary(window.pop('amount_orders'))
-            known = window['repeat_amount']['known_usd']
-            window['repeat_per_customer_usd'] = (format(Decimal(known) / window['numerator'], '.2f')
-                                                  if known is not None and window['numerator'] else None)
+            amount = window['repeat_amount']
+            known = amount['known_usd']
+            window['repeat_per_customer_usd'] = (
+                format(Decimal(known) / window['numerator'], '.2f')
+                if known is not None and window['numerator'] and not amount['unknown_orders'] else None)
             window['rate'] = window['numerator'] / window['denominator'] if window['denominator'] else None
         returned = batch['silent_return']
         returned['return_amount'] = amount_summary(returned.pop('amount_orders'))

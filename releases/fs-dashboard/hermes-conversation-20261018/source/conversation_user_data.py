@@ -335,14 +335,22 @@ class NativeUserData:
             raise PermissionError('native_user_scope_unavailable')
         return True
 
-    def context(self,binding,snapshot_id):
+    def scoped_context(self, binding, query):
         from a2_query_context import QueryContext
+
+        scope = {key: query[key] for key in ('scope', 'scope_id')}
+        return QueryContext(self.service, binding['owner'], scope,
+            lambda owner, selected: owner == binding['owner'] and selected == scope and self.guard(binding, scope))
+
+    def context(self,binding,snapshot_id,*,current_only=False):
         self.guard(binding,{'scope':'global','scope_id':''})
         # Read the authoritative frozen query; a model's scope cannot override it.
-        public=self.service.query({'snapshot_id':snapshot_id},binding['owner'])
-        scope={key:public['query'][key] for key in ('scope','scope_id')}
-        context=QueryContext(self.service,binding['owner'],scope,
-            lambda owner,selected: owner==binding['owner'] and selected==scope and self.guard(binding,scope))
+        if current_only:
+            query, _ = self.service.v4.snapshot(snapshot_id, binding['owner'])
+        else:
+            query = self.service.query({'snapshot_id':snapshot_id},binding['owner'])['query']
+        context = self.scoped_context(binding, query)
+        scope = context.scope
         if not context.configured():
             self.guard(binding,scope,True)  # A scope mismatch must not hide an actual private-access denial.
             raise _CustomerScopeRequired('customer_snapshot_scope_required')
@@ -368,17 +376,16 @@ class NativeUserData:
         if name=='fs_query_user_analytics':
             # The pre-ready approval hook must not initialize analytics on
             # ordinary native turns; load these original consumers on use.
-            from a2_query_context import QueryContext
+            from time import perf_counter
             from user_tools import invoke_v4
-            scope = {key: args.get(key) for key in ('scope', 'scope_id')}
-            if scope['scope'] in ('site', 'project') and not {'snapshot_id', 'query_id', 'evidence_id'} & args.keys():
-                context = QueryContext(self.service, binding['owner'], scope,
-                    lambda owner, selected: owner == binding['owner'] and selected == scope and self.guard(binding, scope))
-                result = context.aggregate_v4(args)
+
+            started = perf_counter()
+            value = invoke_v4(self.service, binding['owner'], args)
+            if 'snapshot_id' in value and value['query']['scope'] in ('site', 'project'):
+                context = self.scoped_context(binding, value['query'])
+                result = context.v4_aggregate_receipt(value, started)
                 value = dict(result['data'], source=result['source'], evidence_ref=result['evidence_ref'],
-                             status=result['status']) if 'data' in result else result
-            else:
-                value = invoke_v4(self.service, binding['owner'], args)
+                             status=result['status'])
             query=value.get('query') or (value.get('source') or {}).get('query') or {}
             value['customer_investigation']=self.customer_path(binding,{k:query.get(k) for k in ('scope','scope_id')})
         elif name=='fs_get_data_catalog':
@@ -396,7 +403,14 @@ class NativeUserData:
                 value=self.track(binding,args)
                 self.guard(binding,{'scope':'global','scope_id':''})
                 return value
-            try:context=self.context(binding,args['snapshot_id'])
+            from user_query_v4 import SnapshotVersionRetired
+
+            try:
+                context = self.context(binding, args['snapshot_id'],
+                                       current_only=name in ('fs_customer_candidates', 'fs_describe_customer'))
+            except SnapshotVersionRetired:
+                self.guard(binding, {'scope': 'global', 'scope_id': ''})
+                return {'error': 'snapshot_version_retired', 'http_status': 422}
             except _CustomerScopeRequired:
                 value=dict(status='unavailable',reason='customer_snapshot_scope_required',snapshot_id=args['snapshot_id'],
                            customer_investigation=self.customer_path(binding))

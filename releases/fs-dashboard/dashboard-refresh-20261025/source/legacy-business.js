@@ -2245,7 +2245,8 @@ function fcNativeAdminMetrics(query){
 }
 function fcUpdateMetrics(){
  if(KEY!=='FC27')return;
- const d=!exactPermissionDenied()&&fcSameQuery(fcDetailState.data?.query,fcQuery())?fcDetailState.data:null,t=d?.fc_dashboard?.totals;
+ const denied=exactPermissionDenied();
+ const d=!denied&&fcSameQuery(fcDetailState.data?.query,fcQuery())?fcDetailState.data:null,t=d?.fc_dashboard?.totals;
  const metric={revenueUsd:t?.revenue_usd,orders:t?.orders,profitCny:t?.gross_profit_cny,profitMarginPct:t?.gross_margin_pct,averageOrderUsd:t?.orders>0&&Number.isFinite(t.revenue_usd)?t.revenue_usd/t.orders:null};
  const query=fcQuery(),native=fcNativeAdminMetrics(query),nativeKeys=['newCustomers','payingCustomers','newCustomerRevenueUsd','newCustomerSharePct','pureSalesUsd','refundAmountUsd','refundOrders','fulfillmentRatePct','paymentSuccessRatePct','averageCustomerUsd'];
  const exact=currentExact()?.profile;
@@ -2258,6 +2259,13 @@ function fcUpdateMetrics(){
   for(const key of ['profitCny','profitMarginPct'])metric[key]=shipping[key]?.status==='available'?shipping[key].value:null;
  }
  for(const card of document.querySelectorAll('#supplement-insights .fsi-metric')){
+  if(denied){
+   const label=card.querySelector('small');
+   card.querySelector('details')?.replaceWith(label);
+   fcSetText(card.querySelector('strong'),'读取失败');
+   fcSetText(label,'当前登录或访问权限已失效');
+   continue;
+  }
   if(card.dataset.metric==='local_repeat_rate'){
    fcSetText(card.querySelector('strong'),localRepeat.value==null?'不适用':localRepeat.value.toFixed(2)+'%');
    fsSetRepeatDetail(card,localRepeat);
@@ -2269,7 +2277,7 @@ function fcUpdateMetrics(){
    continue;
   }
   const key=card.dataset.metric,isNative=nativeKeys.includes(key),item=isNative?native?.metrics[key]:null,v=isNative?(item?.status==='available'?item.value:null):metric[key],known=Number.isFinite(v),profit=['profitCny','profitMarginPct'].includes(key),label=card.querySelector('small');
-  const formatted=known?(key==='profitCny'?'¥'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):key.endsWith('Pct')?v.toFixed(2)+'%':key.endsWith('Usd')?fcMoney(v):fmtN(v)):exactPermissionDenied()?'读取失败':fcDetailState.error?'读取失败':isNative&&scope.summaryPolling||fcDetailPending&&!d?'待读取':'暂缺';
+  const formatted=known?(key==='profitCny'?'¥'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):key.endsWith('Pct')?v.toFixed(2)+'%':key.endsWith('Usd')?fcMoney(v):fmtN(v)):fcDetailState.error?'读取失败':isNative&&scope.summaryPolling||fcDetailPending&&!d?'待读取':'暂缺';
   fcSetText(card.querySelector('strong'),formatted);
   fcSetText(label,isNative?'Admin原生汇总 · '+(native?native.site+(native.cutoff?' · 统计截至 '+native.cutoff:'')+(native.stale||item?.stale?' · 缓存旧值':'')+(!known?' · 该指标未提供':''):'当前筛选未提供'):profit?'Order发货统计 · 交易时间 · 人民币 · 同一筛选'+(!known?' · 当前细分未提供':''):native?'Admin原生汇总 · '+native.site+' · 统计截至 '+native.cutoff+(native.stale?' · 缓存旧值':''):'Admin已付款订单 · USD · 同一筛选');
  }
@@ -2466,13 +2474,18 @@ async function fcExportCsv(){
  }catch(e){if(!scope.signal.aborted&&!exactPermissionDenied()){status.textContent=e.message;status.hidden=false;}}
 }
 async function fcReport(){
- const reportFilters={...fcFilters};
-  const core=[...document.querySelectorAll('#supplement-insights .fsi-metric')].filter(c=>['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','local_repeat_rate','newCustomerSharePct','averageOrderUsd'].includes(c.dataset.metric)).map(c=>[c.querySelector('span').textContent,c.querySelector('strong').textContent,c.querySelector('small').textContent]);
+ const reportQuery=fcQuery({mode:'fc-report',page:'1',format:'json'}),reportFilters={...fcFilters};
+ const cards=[...document.querySelectorAll('#supplement-insights .fsi-metric')];
+ const metricRows=keys=>fcTable(['指标','值','来源与口径'],cards.filter(c=>keys.includes(c.dataset.metric)).map(c=>
+  `<tr>${['span','strong','small'].map(tag=>`<td>${esc(c.querySelector(tag).textContent)}</td>`).join('')}</tr>`));
+ const core=metricRows(['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','local_repeat_rate','newCustomerSharePct','averageOrderUsd']);
+ const supplemental=metricRows(['native_repeat_rate']);
  const status=fcHost.querySelector('.fc-report-status');status.textContent='正在保存同一快照的事实日报…';
- try{const d=await fcRead(fcQuery({mode:'fc-report',page:'1',format:'json'}),scope.signal),r=d.report;
+ try{const d=await fcRead(reportQuery,scope.signal),r=d.report;
+  if(!fcSameQuery(reportQuery,fcQuery())||exactPermissionDenied())throw Error('当前范围或访问权限已变化，请重新导出。');
 
   const section=(title,records,keyLabel)=>`<h2>${esc(title)}</h2>${fcTable([keyLabel,'数量','USD','问题单'],records.map(x=>`<tr><td>${esc(fcName(x.key||x.label))}</td><td>${x.orders??x.users}</td><td>${fcMoney(x.revenue_usd)}</td><td>${x.issues??'—'}</td></tr>`))}`;
-  const text=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FC27事实日报 ${esc(r.query.start)}</title><style>body{font:15px system-ui;max-width:1080px;margin:32px auto;padding:0 20px;color:#202a35}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:9px;border-bottom:1px solid #ddd}h2{margin-top:30px}p{line-height:1.7}pre{white-space:pre-wrap}</style><h1>FC27 · 事实日报</h1><p>${esc(r.query.start)} 至 ${esc(r.query.end)} · ${esc(r.scope_label)}<br>数据读取 ${esc(r.as_of)} · 报告生成 ${esc(r.generated_at)} · 版本 ${esc(r.report_id)}</p><p>当前筛选：${esc(JSON.stringify(reportFilters))}</p><h2>00 核心指标与来源参考</h2>${fcTable(['指标','值','来源与口径'],core.map(c=>`<tr>${c.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`))}<p>订单 ${r.totals.orders} · USD ${fcMoney(r.totals.revenue_usd)} · 问题 ${r.totals.issues} · 新 / 老 / 未知 ${r.customer_status==='available'?r.totals.new:'待接通'} / ${r.customer_status==='available'?r.totals.returning:'待接通'} / ${r.totals.unknown}</p>${section('01 主站与卫星子站',r.site_groups,'范围')}${section('02 订单金额分档',r.buckets.map(b=>({...b,key:b.label})),'金额档')}${section('02B 用户累计消费',r.user_buckets.map(b=>({...b,key:b.label})),'累计金额档')}<h2>03 当前未结案池</h2><p>${r.backlog_summary?.orders??'暂缺'} 单；涉及 ${fcMoney(r.backlog_summary?.revenue_usd)}，资金待处理 ${r.backlog_summary?.funding??'暂缺'} 单；等待超过 24 小时 ${r.slow_orders??'暂缺'} 单；不按所选支付日期截断。</p>${Object.entries(r.dimensions).map(([key,rows])=>section('结构 · '+key,rows,key)).join('')}<h2>运营备注与跟进</h2><pre>${esc(fcNote||'未填写；不代运营确认。')}</pre><h2>数据说明</h2><p>状态 ${esc(r.data_status)}；缺失日期 ${esc(r.coverage.missing_days?.join('、')||'无')}；积压池 ${esc(r.coverage.backlog_status||'未验证')}。</p><p>${esc(r.customer_basis)}；按站内客户 ID 去重，访客缺标识不造人数。缺 USD ${r.totals.unpriced_orders} 单。原始联系方式、EA 资料及客服备注未导出。当前原因保留待确认。Admin 网站订单按用户本轮口径分主站与卫星子站；独立分销店铺字段未取得，不声称已完整排除。此为规则事实日报，AI未开启。</p></html>`;
+  const text=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FC27事实日报 ${esc(r.query.start)}</title><style>body{font:15px system-ui;max-width:1080px;margin:32px auto;padding:0 20px;color:#202a35}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:9px;border-bottom:1px solid #ddd}h2{margin-top:30px}p{line-height:1.7}pre{white-space:pre-wrap}</style><h1>FC27 · 事实日报</h1><p>${esc(r.query.start)} 至 ${esc(r.query.end)} · ${esc(r.scope_label)}<br>数据读取 ${esc(r.as_of)} · 报告生成 ${esc(r.generated_at)} · 版本 ${esc(r.report_id)}</p><p>当前筛选：${esc(JSON.stringify(reportFilters))}</p><h2>00 核心指标与来源参考</h2>${core}<h3>补充指标</h3>${supplemental}<p>订单 ${r.totals.orders} · USD ${fcMoney(r.totals.revenue_usd)} · 问题 ${r.totals.issues} · 新 / 老 / 未知 ${r.customer_status==='available'?r.totals.new:'待接通'} / ${r.customer_status==='available'?r.totals.returning:'待接通'} / ${r.totals.unknown}</p>${section('01 主站与卫星子站',r.site_groups,'范围')}${section('02 订单金额分档',r.buckets.map(b=>({...b,key:b.label})),'金额档')}${section('02B 用户累计消费',r.user_buckets.map(b=>({...b,key:b.label})),'累计金额档')}<h2>03 当前未结案池</h2><p>${r.backlog_summary?.orders??'暂缺'} 单；涉及 ${fcMoney(r.backlog_summary?.revenue_usd)}，资金待处理 ${r.backlog_summary?.funding??'暂缺'} 单；等待超过 24 小时 ${r.slow_orders??'暂缺'} 单；不按所选支付日期截断。</p>${Object.entries(r.dimensions).map(([key,rows])=>section('结构 · '+key,rows,key)).join('')}<h2>运营备注与跟进</h2><pre>${esc(fcNote||'未填写；不代运营确认。')}</pre><h2>数据说明</h2><p>状态 ${esc(r.data_status)}；缺失日期 ${esc(r.coverage.missing_days?.join('、')||'无')}；积压池 ${esc(r.coverage.backlog_status||'未验证')}。</p><p>${esc(r.customer_basis)}；按站内客户 ID 去重，访客缺标识不造人数。缺 USD ${r.totals.unpriced_orders} 单。原始联系方式、EA 资料及客服备注未导出。当前原因保留待确认。Admin 网站订单按用户本轮口径分主站与卫星子站；独立分销店铺字段未取得，不声称已完整排除。此为规则事实日报，AI未开启。</p></html>`;
   fcDownload(`FC27事实日报_${r.query.start}_${r.report_id}.html`,text,'text/html;charset=utf-8');status.textContent='服务器规则日报已保存 · '+r.report_id+'；已导出含本次人工备注的 HTML。';
  }catch(e){status.textContent=e.message;}
 }
