@@ -1,4 +1,4 @@
-"""D4 VIP interactive fixture pilot. Never calls Admin or delivers real mail/coupons."""
+"""D4 VIP fixtures plus an explicitly provisioned single-recipient test."""
 import asyncio
 import hashlib
 import os
@@ -47,7 +47,7 @@ async def allowed(interaction, owner=None):
     return ok
 
 
-async def show_spin(interaction, owner, tier, first):
+async def show_spin(interaction, owner, tier, first, receipt=None):
     left, middle, right = {
         'one': ('⚽', '⭐', '🪙'),
         'two': ('⚽', '⚽', '⭐'),
@@ -59,13 +59,49 @@ async def show_spin(interaction, owner, tier, first):
         (f'{left}  │  {middle}  │  🔄', 'One more to go…', 1.9),
     )
     for reels, caption, delay in frames:
-        await interaction.edit_original_response(embed=embed('🎰  Black Friday spin',
-            f'## {reels}\n{caption}'), view=None)
+        frame = embed('🎰  Black Friday spin', f'## {reels}\n{caption}')
+        if receipt:
+            frame.set_footer(text='D4 VIP · MMOEXP account reward')
+        await interaction.edit_original_response(embed=frame, view=None)
         await asyncio.sleep(delay)
+    if receipt:
+        card = discord.Embed(title='🎁  Your FC27 Black Friday coupon',
+            description=f'## {left}  │  {middle}  │  {right}\n{REWARDS[tier]} · Added to your MMOEXP account.\n'
+                        f'{TERMS}\nReceipt **{receipt}**', colour=0xE4AF45)
+        await interaction.edit_original_response(embed=card, view=None)
+        return
     title = '🎁  Your Black Friday drop' if first else '🧾  Your original drop'
     await interaction.edit_original_response(embed=embed(title,
         f'## {left}  │  {middle}  │  {right}\n{REWARDS[tier]}\n\n{TERMS} The 20% coupon has no discount cap.\n\n'
         '**Demo receipt** · Replay shows this same reward.'), view=Replay(owner, tier))
+
+
+class LiveTestEmail(discord.ui.Modal, title='Claim your real D4 test coupon'):
+    address = discord.ui.TextInput(label='Approved MMOEXP account email', max_length=254)
+
+    def __init__(self, owner):
+        super().__init__(timeout=180)
+        self.owner = owner
+
+    async def on_submit(self, interaction):
+        if not await allowed(interaction, self.owner):
+            return
+        from black_friday_test_grant import issue
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            status, receipt = await asyncio.get_running_loop().run_in_executor(
+                None, issue, STATE, self.owner, str(self.address))
+        except ValueError as ex:
+            if str(ex).startswith('Use the MMOEXP email'):
+                await interaction.edit_original_response(content=str(ex))
+                return
+            status, receipt = 'unknown', None
+        except Exception:
+            status, receipt = 'unknown', None
+        if status == 'confirmed':
+            await show_spin(interaction, self.owner, 'two', True, receipt)
+        else:
+            await interaction.edit_original_response(content='Delivery has not been confirmed. The host can check the original batch.')
 
 
 class Replay(discord.ui.View):
@@ -119,7 +155,10 @@ class ChooseClub(discord.ui.View):
         select = discord.ui.Select(placeholder='Pick your club', options=[discord.SelectOption(label=x) for x in CLUBS])
         async def pick(interaction):
             if await allowed(interaction,self.owner):
-                await interaction.response.send_modal(Email(self.owner, select.values[0]))
+                from black_friday_test_grant import entitlement
+                modal = (LiveTestEmail(self.owner) if entitlement(self.owner) else
+                         Email(self.owner, select.values[0]))
+                await interaction.response.send_modal(modal)
         select.callback = pick
         self.add_item(select)
 
@@ -131,8 +170,12 @@ class Home(discord.ui.View):
     @discord.ui.button(label='Play the test drop', emoji='🎰', style=discord.ButtonStyle.primary, custom_id='bf26:pilot:start')
     async def play(self, interaction, button):
         if await allowed(interaction):
-            await interaction.response.send_message(embed=embed('⚽  Choose your club',
-                'This selection simulates the FC27 + club role check in D4 VIP. Next, use the prefilled demo email.'),
+            from black_friday_test_grant import entitlement
+            card = (discord.Embed(title='⚽  D4 private coupon test',
+                    description='Pick a club, then submit your approved MMOEXP email to receive your real FC27 test coupon.')
+                    if entitlement(interaction.user.id) else embed('⚽  Choose your club',
+                    'This selection simulates the FC27 + club role check in D4 VIP. Next, use the prefilled demo email.'))
+            await interaction.response.send_message(embed=card,
                 view=ChooseClub(interaction.user.id), ephemeral=True)
 
     @discord.ui.button(label='See all test cases', emoji='📋', style=discord.ButtonStyle.secondary, custom_id='bf26:pilot:examples')
