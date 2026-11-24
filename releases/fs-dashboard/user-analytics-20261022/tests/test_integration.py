@@ -14,7 +14,7 @@ from unittest import TestCase
 import test_users as fixtures
 from test_users import order
 from user_contract import digest
-from user_tools import invoke
+from user_tools import invoke_v4
 
 ROOT = Path(__file__).resolve().parents[4]
 LOCAL = ROOT / '.agent_runtime/fs-user-analytics-20261022/integration'
@@ -29,7 +29,7 @@ class Integration(TestCase):
     setUp, load, query = fixtures.Users.setUp, fixtures.Users.load, fixtures.Users.query
     def test_native_and_research_use_same_snapshot_and_keep_original_tools(self):
         self.load([order(1, '2026-10-01')])
-        frozen = self.query()
+        frozen = self.service.v4.query({}, 'admin')
         args = dict(snapshot_id=frozen['snapshot_id'])
         native_path = source('releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py', 'fs_readonly.py')
         spec = importlib.util.spec_from_file_location('users_native_fixture', native_path)
@@ -49,14 +49,14 @@ class Integration(TestCase):
         env = dict(deepcopy=deepcopy, datetime=datetime, re=re, threading=threading, digest=digest)
         exec(compile(ast.Module(body=nodes, type_ignores=[]), str(research_path), 'exec'), env)
         book = env['ResearchBook'](dict(snapshot_id='fc-detail-fixture', as_of='2026-10-22T12:00:00+08:00'), {}, {})
-        book.user_analytics = lambda query: invoke(self.service, 'admin', query)
+        book.user_analytics = lambda query: invoke_v4(self.service, 'admin', query)
         with patch.dict(sys.modules, {'evidence_access': SimpleNamespace(model_view=lambda value: value)}):
             researched = book.call('fc.query_user_analytics', args)
         self.assertIn('fc.run_pricing_workflow', env['RESEARCH_NAMES'])
         self.assertEqual(researched['data']['snapshot_id'], normal['snapshot_id'])
-        self.assertEqual(researched['data']['metrics'], normal['metrics'])
+        self.assertEqual(researched['data']['cohorts'], normal['cohorts'])
         self.assertEqual(researched['snapshot_id'], frozen['snapshot_id'])
-        self.assertEqual(invoke(self.service, 'admin', {'evidence_id': frozen['evidence_id']})['metrics'], frozen['metrics'])
+        self.assertEqual(invoke_v4(self.service, 'admin', {'evidence_id': frozen['evidence_id']})['cohorts'], frozen['cohorts'])
 
     def test_users_reuse_current_analytics_resource_and_admin_boundary(self):
         path = source('opt/fs-access-policy/rbac.py', 'rbac.py')

@@ -11,18 +11,22 @@ import fs_readonly as plugin
 
 
 class ReadonlyTools(unittest.TestCase):
-    def test_latest_user_period_contract_is_registered_and_forwarded_unchanged(self):
+    def test_v4_user_contract_is_registered_and_forwarded_unchanged(self):
         import user_tools
         ctx = Mock()
         toolsets = types.ModuleType('toolsets'); toolsets.TOOLSET_SESSION_PLATFORMS = {}
         with patch.dict(sys.modules, {'toolsets': toolsets}): plugin.register(ctx)
         registered = next(c.kwargs for c in ctx.register_tool.call_args_list if c.kwargs['name'] == 'fs_query_user_analytics')
         self.assertEqual(registered['schema']['parameters']['properties'], user_tools.PROPERTIES)
-        self.assertEqual(user_tools.PROPERTIES['state_basis']['enum'], ['period_cohort', 'current', 'period_end'])
-        args = {'scope': 'project', 'scope_id': 'FC27', 'start': '2026-10-01', 'state_basis': 'period_cohort'}
+        self.assertEqual(user_tools.PROPERTIES['section']['enum'], ['summary', 'cohorts', 'stages', 'coverage'])
+        args = {'scope': 'project', 'scope_id': '1327', 'cohort_start': '2026-01', 'windows': '30,90,180'}
         with patch.object(plugin, 'read', return_value={'status': 'available'}) as read:
             plugin.call('fs_query_user_analytics', args)
             read.assert_called_once_with('/users', dict(args, action='tool'))
+            read.reset_mock()
+            poll = {'query_id': 'a'*32, 'section': 'cohorts'}
+            plugin.call('fs_query_user_analytics', poll)
+            read.assert_called_once_with('/users', dict(poll, action='tool'))
 
     def test_owner_url_and_extra_fields_cannot_be_overridden(self):
         for bad in [{'owner':'other'},{'url':'https://example.test'},{'headers':{}},{'force':True}]:

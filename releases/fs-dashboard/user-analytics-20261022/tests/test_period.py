@@ -56,14 +56,14 @@ class Period(unittest.TestCase):
     def test_summary_concurrency_keeps_catalog_cache_and_saved_snapshot_available(self):
         from user_http import get
         self.load([order(1, '2026-10-22')])
-        cached = self.query('2026-10-01')
+        cached = self.service.v4.query({'start': '2026-10-01'}, 'admin')
         with self.service.summary_slot:
             args = {'start': ['2026-10-02']}
             status, body = get(self.service, '/users', args, 'admin')
             self.assertEqual((status, body), (429, {'error': 'users_summary_busy', 'retryable': True, 'retryAfter': 5}))
             self.assertEqual(get(self.service, '/users', args, 'denied')[0], 403)
             self.assertEqual(get(self.service, '/users', {'action': ['catalog']}, 'admin')[0], 200)
-            self.assertEqual(self.query('2026-10-01'), cached)
+            self.assertEqual(self.service.v4.query({'start':'2026-10-01'}, 'admin'), cached)
             by_id = {'snapshot_id': [cached['snapshot_id']]}
             self.assertEqual(get(self.service, '/users', by_id, 'admin'), (200, cached))
         self.assertEqual(get(self.service, '/users', args, 'admin')[0], 200)
@@ -118,7 +118,7 @@ class Period(unittest.TestCase):
         result=self.service.search(args,'admin')
         self.assertTrue(result['found']);self.assertEqual(len(result['orders']),2)
         self.assertEqual(result['timeline'][0]['days_from_observed_first'],0)
-        self.assertEqual(search(self.service,args,'reader')[0],403)
+        self.assertEqual(search(self.service,dict(args,source='connector'),'reader')[0],403)
         self.assertEqual(search(self.service,args,None)[0],401)
         self.assertFalse(self.service.search(dict(args,email=email.lower()),'admin')['found'])
         self.assertFalse(self.service.search(dict(args,email='Case@example.test'),'admin')['found'])

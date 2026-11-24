@@ -19,7 +19,7 @@ class SearchHTTP(unittest.TestCase):
         tree=ast.parse(path.read_text('utf-8'))
         handler=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Handler')
         method=next(n for n in handler.body if isinstance(n,ast.FunctionDef) and n.name=='do_POST')
-        service=Mock();service.search.return_value={'found':False}
+        service=Mock();service.v4.search.return_value={'found':False}
         ns=dict(urlsplit=urlsplit,re=re,json=json,USERS=service)
         exec(compile(ast.Module(body=[method],type_ignores=[]),str(path),'exec'),ns)
         def call(headers,body=b'{}',path='/users/private/search'):
@@ -28,14 +28,14 @@ class SearchHTTP(unittest.TestCase):
             return request.reply.call_args.args
         headers={'X-Auth-User':'admin','Sec-Fetch-Site':'same-origin','Content-Type':'application/json','Content-Length':'2'}
         self.assertEqual(call(headers)[0],200)
-        service.search.assert_called_once_with({},'admin')
+        service.v4.search.assert_called_once_with({},'admin',admin=False)
         for remove,status in [('X-Auth-User',401),('Sec-Fetch-Site',403),('Content-Type',415),('Content-Length',413)]:
             self.assertEqual(call({k:v for k,v in headers.items() if k!=remove})[0],status)
         self.assertEqual(call(dict(headers,**{'Content-Length':'4097'}))[0],413)
         self.assertEqual(call(dict(headers,**{'Transfer-Encoding':'chunked'}))[0],415)
         self.assertEqual(call(headers,path='/users/private/search?email=bad')[0],403)
         self.assertEqual(call(headers,b'xx')[0],422)
-        service.search.assert_called_once()
+        service.v4.search.assert_called_once()
 
     def test_search_route_preserves_existing_routes_and_is_not_get(self):
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'deploy'))

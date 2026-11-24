@@ -13,10 +13,10 @@ class SummaryJobs:
         self.lock = Lock()
         self.jobs = OrderedDict()
 
-    def read(self, args, user):
+    def read(self, args, user, *, wait_seconds=3):
         if 'query_id' in args:
             query_id = args['query_id']
-            if set(args) != {'query_id'} or not re.fullmatch(r'[0-9a-f]{32}', query_id):
+            if set(args) != {'query_id'} or (not isinstance(query_id, str) or not re.fullmatch(r'[0-9a-f]{32}', query_id)):
                 raise ValueError('users_summary_query_id')
             with self.lock:
                 job = self.jobs.get(query_id)
@@ -44,7 +44,7 @@ class SummaryJobs:
                     self.jobs.popitem(last=False)
         # Keep short and cached reads synchronous within the connector's existing deadline.
         if created:
-            wait((future,), timeout=3)
+            wait((future,), timeout=wait_seconds)
         return self.reply(query_id, future, user)
 
     def run(self, args, user):

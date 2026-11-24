@@ -100,8 +100,8 @@ class MissingStore(unittest.TestCase):
 
     def test_http_is_503_not_empty_or_snapshot_404(self):
         service = Mock()
-        service.query.side_effect = StoreUnavailable('users_store_missing')
-        service.search.side_effect = StoreUnavailable('users_store_missing')
+        service.v4.get.side_effect = StoreUnavailable('users_store_missing')
+        service.v4.search.side_effect = StoreUnavailable('users_store_missing')
         self.assertEqual(user_http.get(service, '/users', {}, 'fixture-user'),
                          (503, {'error': 'users_store_unavailable', 'recovery_required': True}))
         self.assertEqual(user_http.search(service, {}, 'fixture-user')[0], 503)
@@ -133,10 +133,13 @@ class MissingStore(unittest.TestCase):
 
     def test_real_hot_store_loss_returns_503_without_creating_database(self):
         store=Store.__new__(Store);store.path=self.root/'customers.sqlite3';store.read_only=False
+        class Query:
+            def get(self, args, user, **options):
+                with store.db():
+                    return {'unexpected_empty_success': True}
+            search = get
         class Service:
-            def query(self,args,user):
-                with store.db():return {'unexpected_empty_success':True}
-            search=query
+            v4 = Query()
         self.assertEqual(user_http.get(Service(),'/users',{},'fixture-user'),
                          (503,{'error':'users_store_unavailable','recovery_required':True}))
         self.assertEqual(user_http.search(Service(),{},'fixture-user')[0],503)

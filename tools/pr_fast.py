@@ -1186,7 +1186,7 @@ def main():
         elif group=="customer-segments":
             units("releases/fs-dashboard/customer-segments-20261124/tests",["test_customer_segments"])
         elif group=="user-analytics":
-            units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context","test_missing_store","test_revision_range","test_member_keyset","test_archive_publication","test_shared_es_facts"])
+            units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context","test_missing_store","test_revision_range","test_member_keyset","test_archive_publication","test_shared_es_facts","test_cohort_v4"])
             node("releases/fs-dashboard/user-analytics-20261022/tests/test_weekly_dates.cjs")
         elif group=="tiered-data-access":
             units("releases/fs-dashboard/tiered-data-access-20261101/tests",["test_backup_inventory","test_date_policy","test_query_planner","test_daily_facts","test_range_jobs","test_query_checkpoint","test_eviction_policy","test_admin_orders_adapter","test_admin_live_page","test_admin_site_authorizer","test_admin_supervised_transport","test_admin_live_worker","test_admin_live_dispatch","test_admin_live_host","test_admin_live_admission","test_admin_live_session","test_live_global_authorization","test_admin_live_nginx","test_secure_live_route","test_live_order_pagination","test_live_order_consumer","test_live_customer_lookup","test_admin_order_email_export","test_admin_email_export_source"])
@@ -1516,6 +1516,7 @@ def main():
         elif group=="hermes-conversation":
             release="releases/fs-dashboard/hermes-conversation-20261018"
             units(release+"/tests",["test_conversation_native.NativeWorkspaceTests.test_reported_attachment_exports_when_build_files_exceed_workspace_limits"])
+            units(release+"/tests",["test_native_user_data"])
             # Class partitions require the complete two-class module, without a loader hook.
             layout=ast.parse((ROOT/release/"deploy/test_runtime_materials.py").read_text(encoding="utf-8"))
             if ({n.name for n in ast.walk(layout) if isinstance(n,ast.ClassDef)}!={"NativePublisher","RuntimeMaterials"}
@@ -1595,7 +1596,7 @@ def main():
             units("releases/fs-dashboard/hermes-v2-review-repair-20261021",["test_review_repair"])
             units("releases/fs-dashboard/hermes-v2-core-20261020",["test_core"])
         elif group=="hermes-v2-core":
-            units("releases/fs-dashboard/hermes-v2-core-20261020",["test_core"])
+            units("releases/fs-dashboard/hermes-v2-core-20261020",["test_core","test_b2_customer_followup"])
         elif group=="hermes-admin-recovery":
             units("releases/fs-dashboard/hermes-admin-recovery-20261020",["test_admin_recovery"])
         elif group=="hermes-report-method":

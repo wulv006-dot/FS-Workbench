@@ -1,15 +1,28 @@
 // Existing Admin-native summary metrics must survive FC's detail-card projection.
 // All sources are fictional local responses; customer list history stays unverified.
 const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
 const {chromium}=require('playwright');
 const {serve,server,detail}=require('./fc_rs_visual_fixture.cjs');
 const keys=['newCustomers','repeatRatePct','newCustomerSharePct'];
+const cardKey=key=>key==='repeatRatePct'?'native_repeat_rate':key;
 const native={newCustomers:24,repeatRatePct:12.5,newCustomerSharePct:20};
 const supplemental={payingCustomers:43,newCustomerRevenueUsd:4800,pureSalesUsd:6400,refundAmountUsd:80,refundOrders:2,fulfillmentRatePct:93.75,paymentSuccessRatePct:88.2,averageCustomerUsd:150.7};
 const supplementalText={payingCustomers:'43',newCustomerRevenueUsd:'$4,800.00',pureSalesUsd:'$6,400.00',refundAmountUsd:'$80.00',refundOrders:'2',fulfillmentRatePct:'93.75%',paymentSuccessRatePct:'88.20%',averageCustomerUsd:'$150.70'};
 const expected=['24','12.50%','20.00%'];
-const allNativeExpected={newCustomers:'24',repeatRatePct:'12.50%',newCustomerSharePct:'20.00%',...supplementalText};
+const allNativeExpected={newCustomers:'24',native_repeat_rate:'12.50%',newCustomerSharePct:'20.00%',...supplementalText};
 const selection={b_site:'all',b_profile:'FC27',b_group:'sports',b_grain:'day',b_range:'custom',b_start:'2026-10-17',b_end:'2026-10-23',b_fc_product:'all',b_fc_platform:'all',b_fc_site_group:'all',b_fc_customer:'all',b_fc_bucket:'all'};
+const legacyArchiveRepeat={
+ admin_repeat_rate_raw:'12.50%',
+ native_repeat_rate:{raw:'12.50%',raw_value:12.5,value:12.5,unit:'percent',numerator:null,denominator:null,
+  status:'available',definition:'Admin repeat_rete; numerator and denominator not published',
+  population:'upstream_native_buyers; membership_and_formula_unverified'},
+ local_repeat_rate:{value:81.25,numerator:13,denominator:16,status:'available',unit:'percent',
+  source:'user_replay_v1.period_cohort',definition:'at_least_two_distinct_valid_orders_within_selected_period',
+  identity_basis:'existing user_store.customer_id mapping; not a uid-only cohort',
+  population:'covered_identified_period_purchasers'},
+ reconciliation_status:'not_aligned',reconciliation_reason:'native_membership_formula_and_revision_not_verified',
+};
 const failures=[];
 async function check(name,run){try{await run();console.log('PASS '+name);}catch(error){failures.push(name+': '+error.message);console.error('FAIL '+name+': '+error.message);}}
 (async()=>{
@@ -20,6 +33,10 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
   await page.route('**/*',async route=>{
    const request=new URL(route.request().url()),q=Object.fromEntries(request.searchParams);
    if(request.hostname!=='127.0.0.1')return route.abort('blockedbyclient');
+   if(q.mode==='fc-report'){
+    const response=detail(q);
+    return route.fulfill({json:{...response,report:{...response,report_id:'legacy-archive-fixture',generated_at:'2026-10-24'}}});
+   }
    if(q.mode==='fc-detail'){
     const response=detail(q);response.snapshot_id='native-customer-fixture-'+revision;
     response.scope_label='MOCK native customer CASE-'+revision;
@@ -92,12 +109,18 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
     if(scenario==='wrong-order-status')a.filters.order_status='3';
     if(scenario==='wrong-endpoint')a.endpoint='/admin/order.Order/unrelated';
     if(scenario==='missing-share')a.metrics.newCustomerSharePct={value:null,status:'not_provided',source:'Admin',scope:a.scopeLabel};
+    if(scenario==='legacy-archive'){
+     response.origin='daily-archive';
+     Object.assign(a,structuredClone(legacyArchiveRepeat));
+     a.metrics.repeatRatePct.raw=legacyArchiveRepeat.admin_repeat_rate_raw;
+    }
+    if(scenario==='user-scope-denied')a.local_repeat_rate={status:'not_applicable',reason:'user_scope_denied'};
     if(scenario==='split-repeat'){
      a.metrics.repeatRatePct.value=4.33;
      a.native_repeat_rate={value:4.33,status:'available'};
      a.reconciliation_status='not_aligned';
      a.effective_scope={site:main?'266':'all',game:'1327',country_code:'all',period:a.period};
-     a.local_repeat_rate={value:100*13/280,numerator:13,denominator:280,status:'available',
+     a.local_repeat_rate={value:100*13/280,numerator:13,denominator:280,status:'available',definition:'period_first_plus_24h_within_selected_period',
       scope:{scope:'site',scope_id:'266',game:'1327',start:'2026-10-17T00:00:00+08:00',end_exclusive:'2026-10-24T00:00:00+08:00'}};
     }
     return route.fulfill({json:response});
@@ -105,7 +128,7 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
    return route.continue();
   });
   await page.goto(url);await page.waitForFunction(()=>window.api&&window.lastState?.b_profile==='MMOEXP');
-  const values=()=>Promise.all(keys.map(key=>page.locator(`[data-metric=${key}] strong`).innerText()));
+  const values=()=>Promise.all(keys.map(key=>page.locator(`[data-metric=${cardKey(key)}] strong`).innerText()));
   const allNativeValues=async()=>Object.fromEntries(await Promise.all(Object.keys(allNativeExpected).map(async key=>[key,await page.locator(`[data-metric=${key}] strong`).innerText()])));
   async function choose(changes={},kind='native'){
    scenario=kind;revision++;
@@ -119,28 +142,74 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
   }
   await check('all products and matching all-site period retain three Admin-native customer KPIs',async()=>{
    await choose();assert.deepEqual(await values(),expected);
-   for(const key of keys){assert.match(await page.locator(`[data-metric=${key}] small`).innerText(),/Admin/);assert.doesNotMatch(await page.locator(`[data-metric=${key}] small`).innerText(),/站内客户ID.*未验证/);}
+   for(const key of keys){assert.match(await page.locator(`[data-metric=${cardKey(key)}] small`).innerText(),/Admin/);assert.doesNotMatch(await page.locator(`[data-metric=${cardKey(key)}] small`).innerText(),/站内客户ID.*未验证/);}
   });
   await check('matching MMOEXP main-site period retains three Admin-native customer KPIs',async()=>{
    await choose({b_site:'mmoexp',b_fc_site_group:'main'});assert.deepEqual(await values(),expected);
   });
-  await check('native rate and identified period-cohort ratio stay distinct',async()=>{
+  await check('main card uses the matching local rate and supplemental card retains the native percentage',async()=>{
    await choose({b_site:'mmoexp',b_fc_site_group:'main'},'split-repeat');
-   const card=page.locator('[data-metric=repeatRatePct]');
-   assert.equal(await card.locator('span').innerText(),'Admin原生复购率');
-   assert.equal(await card.locator('strong').innerText(),'4.33%');
-   const audit=page.locator('.metric-audit');
-   await audit.locator('summary').click();
-   assert.match(await audit.innerText(),/区间复购用户占比 4.64%（13 \/ 280 人）.*MMOEXP主站.*FC 27|区间复购用户占比 4.64%（13 \/ 280 人）.*MMOEXP主站.*FC27/);
-   assert.match(await audit.textContent(),/仍待对账/);
+   const card=page.locator('[data-metric=local_repeat_rate]');
+   assert.equal(await card.locator('span').innerText(),'期间复购率');
+   assert.equal(await card.locator('strong').innerText(),'4.64%');
+   assert.match(await card.locator('small').textContent(),/13 \/ 280/);
+   const native=page.locator('[data-metric=native_repeat_rate]');
+   assert.equal(await native.isVisible(),false);
+   assert.equal(await native.locator('strong').textContent(),'4.33%');
+   await page.locator('#all-metrics').click();
+   await native.waitFor({state:'visible'});
+   assert.match(await native.locator('small').innerText(),/公式未公开/);
+   await page.locator('#all-metrics').click();
   });
-  await check('FC platform and website selections cannot present a whole-game local rate as their own',async()=>{
-   for(const filters of [{b_site:'mmoexp',b_fc_site_group:'main',b_fc_platform:'PC'},
+  await check('one old daily archive preserves the native supplement and exports the same period card',async()=>{
+   const site={b_site:'mmoexp',b_fc_site_group:'main',b_start:'2026-10-23'};
+   await choose(site,'legacy-archive');
+   const card=page.locator('[data-metric=local_repeat_rate]');
+   const nativeCard=page.locator('[data-metric=native_repeat_rate]');
+   const core=await card.locator('span,strong,small').allTextContents();
+   assert.deepEqual(core,['期间复购率','不适用','不适用 · 本地结果暂缺']);
+   assert.equal(await nativeCard.isVisible(),false);
+   await page.locator('#all-metrics').click();
+   await nativeCard.waitFor({state:'visible'});
+   const native=await nativeCard.locator('span,strong,small').allTextContents();
+   assert.equal(native[1],'12.50%');
+   assert.match(native[2],/公式未公开/);
+   // The dashboard registers a delegated report-export handler. Mount its
+   // trigger in this fixture so the real browser downloads the generated file.
+   await page.locator('.fc-toolbar-actions').evaluate(parent=>{
+    const button=document.createElement('button');
+    button.dataset.fcReport='';
+    button.textContent='导出事实日报';
+    const status=document.createElement('p');
+    status.className='fc-report-status';
+    parent.append(button,status);
+   });
+   const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'导出事实日报'}).click()]);
+   const html=await fs.readFile(await download.path(),'utf8');
+   const exported=await page.evaluate(content=>Array.from(
+    new DOMParser().parseFromString(content,'text/html').querySelectorAll('tbody tr'),
+    row=>Array.from(row.cells,cell=>cell.textContent)),html);
+   assert.deepEqual(exported.find(row=>row[0]==='期间复购率'),core);
+   assert.deepEqual(exported.find(row=>row[0]==='Admin 原生复购率'),native);
+   assert.doesNotMatch(html,/81\.25|首单后至少 24 小时/);
+   await page.locator('#all-metrics').click();
+  });
+  await check('missing user analytics access leaves the dashboard and native data available',async()=>{
+   await choose({b_site:'mmoexp',b_fc_site_group:'main'},'user-scope-denied');
+   const card=page.locator('[data-metric=local_repeat_rate]');
+   assert.equal(await card.locator('strong').innerText(),'不适用');
+   assert.match(await card.locator('small').innerText(),/无用户分析权限/);
+   assert.equal(await page.locator('[data-metric=orders] strong').innerText(),'120');
+   assert.equal(await page.locator('[data-metric=native_repeat_rate] strong').textContent(),'12.50%');
+  });
+  await check('FC product, platform and all-site filters never borrow the whole-game local rate',async()=>{
+   for(const filters of [{b_site:'mmoexp',b_fc_site_group:'main',b_fc_product:'Players'},
+                         {b_site:'mmoexp',b_fc_site_group:'main',b_fc_platform:'PC'},
                          {b_site:'all',b_fc_site_group:'all'}]){
     await choose(filters,'split-repeat');
-    const audit=page.locator('.metric-audit');
-    await audit.evaluate(node=>{node.open=true;});
-    assert.doesNotMatch(await audit.innerText(),/4\.64%|13 \/ 280/);
+    const card=page.locator('[data-metric=local_repeat_rate]');
+    assert.equal(await card.locator('strong').innerText(),'不适用');
+    assert.doesNotMatch(await card.locator('small').textContent(),/13 \/ 280/);
    }
   });
   for(const [label,changes]of [
@@ -148,20 +217,20 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
    ['specified customer cohort',{b_fc_customer:'new'}],['specified amount bucket',{b_fc_bucket:'20-50'}],
    ['independent-site subset',{b_fc_site_group:'satellite'}]
   ])await check(label+' never borrows whole-game Admin-native totals',async()=>{
-   await choose(changes);assert.deepEqual(await values(),['暂缺','暂缺','暂缺']);
+   await choose(changes);assert.deepEqual(await values(),['暂缺','未知','暂缺']);
    for(const [key,value]of Object.entries(supplementalText))assert.notEqual(await page.locator(`[data-metric=${key}] strong`).innerText(),value,key+' cannot borrow its native whole-game value');
   });
   await check('native summary from a different period cannot fill current FC cards',async()=>{
-   await choose({},'wrong-period');assert.deepEqual(await values(),['暂缺','暂缺','暂缺']);
+   await choose({},'wrong-period');assert.deepEqual(await values(),['暂缺','未知','暂缺']);
   });
   await check('all-site native summary cannot fill an MMOEXP-main selection',async()=>{
-   await choose({b_site:'mmoexp',b_fc_site_group:'main'},'wrong-site');assert.deepEqual(await values(),['暂缺','暂缺','暂缺']);
+   await choose({b_site:'mmoexp',b_fc_site_group:'main'},'wrong-site');assert.deepEqual(await values(),['暂缺','未知','暂缺']);
   });
   await check('unavailable native source cannot revive its stored numeric fields',async()=>{
-   await choose({},'unavailable');assert.deepEqual(await values(),['暂缺','暂缺','暂缺']);
+   await choose({},'unavailable');assert.deepEqual(await values(),['暂缺','未知','暂缺']);
   });
   for(const kind of ['wrong-game','wrong-paid-status','wrong-order-status','wrong-endpoint'])await check(kind+' native metadata cannot fill FC cards',async()=>{
-   await choose({},kind);assert.deepEqual(await values(),['暂缺','暂缺','暂缺']);
+   await choose({},kind);assert.deepEqual(await values(),['暂缺','未知','暂缺']);
   });
   await check('native zero values remain known zero rather than missing',async()=>{
    await choose({},'zero');assert.deepEqual(await values(),['0','0.00%','0.00%']);
@@ -192,11 +261,11 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
   });
   await check('actual native cutoff beyond current request cutoff is rejected',async()=>{
    await choose({b_grain:'hour',b_start:'2026-10-24 14:00',b_end:'2026-10-24 14:00'},'wrong-hour-actual-period');
-   assert.deepEqual(await allNativeValues(),Object.fromEntries(Object.keys(allNativeExpected).map(key=>[key,'暂缺'])));
+   assert.deepEqual(await allNativeValues(),Object.fromEntries(Object.keys(allNativeExpected).map(key=>[key,key==='native_repeat_rate'?'未知':'暂缺'])));
   });
   for(const kind of ['wrong-start','empty-request','partial-request','reversed-request','beyond-selected-hour','open-no-request'])await check('hour boundary '+kind+' rejects all native metrics',async()=>{
    await choose({b_grain:'hour',b_start:'2026-10-24 14:00',b_end:'2026-10-24 14:00'},'hour-boundary-'+kind);
-   assert.deepEqual(await allNativeValues(),Object.fromEntries(Object.keys(allNativeExpected).map(key=>[key,'暂缺'])));
+   assert.deepEqual(await allNativeValues(),Object.fromEntries(Object.keys(allNativeExpected).map(key=>[key,key==='native_repeat_rate'?'未知':'暂缺'])));
   });
   await check('missing request.period accepts only the exact closed final hour',async()=>{
    await choose({b_grain:'hour',b_start:'2026-10-24 14:00',b_end:'2026-10-24 14:00'},'hour-boundary-closed-no-request');
