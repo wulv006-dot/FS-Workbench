@@ -58,7 +58,7 @@ def official(config, action):
     pending = STATE / 'official-publish.pending'
     description = ('Pick your club in FC27 Welcome, then reveal your reward privately.\n\n'
                    '**No paid orders** · $1 off\n**At least one paid order** · $2 off\n'
-                   '**At least five completed orders** · $2 off + 20% off\n\n'
+                   '**At least five completed orders** · $2 off + 15% off\n\n'
                    'MMOEXP orders across all games since October 1 count. '
                    'Coupons are FC27-only, valid for 7 days from claim, and have no minimum spend. '
                    'One coupon per order. One drop per Discord account and MMOEXP member.')

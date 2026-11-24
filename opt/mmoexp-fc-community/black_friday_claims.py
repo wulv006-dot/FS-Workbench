@@ -5,6 +5,7 @@ from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
 
+from black_friday import BONUS_PERCENT
 from match_rewards_delivery import EMAIL
 
 
@@ -23,7 +24,7 @@ class Receipt:
 
 
 def validate_coupon(bridge, label, coupon):
-    mode, value = {'one': (1, 1), 'two': (1, 2), 'bonus': (2, 80)}[label]
+    mode, value = {'one': (1, 1), 'two': (1, 2), 'bonus': (2, 100 - BONUS_PERCENT)}[label]
     required = dict(id=coupon, type=1, status=1, site_id=266, game_id=1327, mode_type=mode,
                     fetch_scene=4, time_effect=2, days=7, is_open=0, repeat_qty=1,
                     goods_id=0, product_type=0, attain=0, max_reduce=0, reduce=value)

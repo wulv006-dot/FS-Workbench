@@ -4,6 +4,7 @@ from contextlib import closing
 from datetime import datetime
 
 ORDER_START = datetime.fromisoformat('2026-10-01T00:00:00+08:00')
+BONUS_PERCENT = 15
 
 
 def reward_tier(orders, as_of):
