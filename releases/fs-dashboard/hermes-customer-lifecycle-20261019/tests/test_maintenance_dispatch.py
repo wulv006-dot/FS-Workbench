@@ -95,6 +95,31 @@ class DispatchTest(unittest.TestCase):
         reconcile(self.ledger, lambda: NOW, lookup)
         self.assertEqual('issued', self.ledger.entry(entries[-1])['state'])
 
+    def test_reconciler_revisits_old_job_while_each_round_adds_a_full_page(self):
+        self.rule('busy', quota=500)
+        original = self.approved('original', 'original', 'busy')
+        self.ledger.claim(original, NOW)
+        self.ledger.result(original, 'dispatching', dict(state='pending', job_id='old-job'), NOW)
+        checked = []
+
+        def lookup(job, email, batch):
+            checked.append(job)
+            if job == 'old-job' and checked.count(job) == 2:
+                return dict(state='confirmed', member_coupon_id='23')
+            return dict(state='pending', job_id=job)
+
+        reconcile(self.ledger, lambda: NOW, lookup)
+        for wave in range(3):
+            at = NOW + timedelta(minutes=wave + 1)
+            for idx in range(100):
+                job = f'job-{wave}-{idx}'
+                entry = self.approved(job, job, 'busy')
+                self.ledger.claim(entry, at)
+                self.ledger.result(entry, 'dispatching', dict(state='pending', job_id=job), at)
+            reconcile(self.ledger, lambda: at, lookup)
+        self.assertEqual('issued', self.ledger.entry(original)['state'])
+        self.assertEqual(2, checked.count('old-job'))
+
     def test_reconciler_addresses_only_original_job_and_batch_and_recovers_missing_job(self):
         first = self.approved('known-job', 'c1', 'r1')
         second = self.approved('interrupted', 'c2', 'r2')

@@ -5,13 +5,15 @@ import json
 import logging
 from pathlib import Path
 import re
+import sqlite3
+import subprocess
 from threading import Lock
 
 from customer_segments import ConfigCommitUnknown, load_config, thresholds, write_config
 from maintenance_dispatch import Bridge, Dispatcher, checked_template
 from maintenance_effects import effects
 from maintenance_ledger import (AWAITING, Ledger, SHANGHAI, active_customer, enqueue_entry, fetch_rule,
-                                marks, stamp, transition)
+                                marks, record_dispatch_identity, stamp, transition)
 from maintenance_review import (CouponIndex, canonical, coupon_time, digest, email_key,
                                 manual_evidence, member_id, review_evidence, valid_email)
 from maintenance_sources import AdminFacts, UserProjection
@@ -50,6 +52,10 @@ CREATE TABLE IF NOT EXISTS maintenance_outcomes (
     days INTEGER PRIMARY KEY, observed_at TEXT NOT NULL, body TEXT NOT NULL
 );
 '''
+
+
+class PendingIdentity(LookupError):
+    pass
 
 
 def strict_id(value):
@@ -266,10 +272,12 @@ class Maintenance:
                 end = min(start + timedelta(days=7), at)
                 logs.extend(self.admin.logs(start, end))
                 start = end
-        except (OSError, ValueError, KeyError, TypeError) as error:
+            numbers = {str(log['order_no']) for log in logs if log.get('order_no')}
+            owners = self.source.coupon_orders(numbers, facts.token)
+            index = CouponIndex(owners, logs, facts.uid_customers)
+        except (LookupError, OSError, ValueError, TypeError, sqlite3.Error) as error:
             LOGGER.warning('Maintenance coupon usage unavailable: %s', type(error).__name__)
             return None
-        index = CouponIndex(facts.orders, logs, facts.uid_customers)
         self._usage = (at, index, facts.token)
         return index
 
@@ -300,59 +308,82 @@ class Maintenance:
             exceptions=self.admin.exceptions(orders))
 
     @staticmethod
-    def _local_evidence(db, entry, at, evidence, current=None):
+    def _review_identity(entry, facts):
         customer = entry['customer_id']
-        if current is None:
-            saved = db.execute('SELECT body FROM maintenance_customers WHERE customer_id=?', (customer,)).fetchone()
-            current = json.loads(saved['body']) if saved else None
-        feedback = case_feedback(db, current) if current else None
-        if feedback is None:
+        orders = (row for row in facts.customers.get(customer, ())
+                  if row['valid'] and str(row['gid']) == GID)
+        last = max(orders, key=lambda row: (payment(row), row['order_key']), default=None)
+        if last is None:
             raise LookupError('maintenance_contact_evidence_missing')
+        email = last.get('email')
+        return dict(customer_id=customer, email=email, uid=last.get('uid'),
+                    email_conflict=facts.email_conflict(customer, email))
+
+    @staticmethod
+    def _local_evidence(db, entry, at, evidence, current):
+        customer = entry['customer_id']
+        feedback = case_feedback(db, current)
+        if feedback is None:
+            raise PendingIdentity('case_binding_pending')
         contacts = [dict(at=row['at'], actor=row['actor'], contacted_at=row.get('contacted_at'))
                     for row in feedback if row['event'] == 'contacted']
         return review_evidence(**evidence, automatic=active_customer(db, customer, at), contacts=contacts)
 
     def review(self, entry, facts, at, logs):
         initial = self._evidence(entry, facts, at, logs)
+        identity = self._review_identity(entry, facts)
         with self.ledger.db() as db:
-            result = self._local_evidence(db, entry, at, initial)
+            result = self._local_evidence(db, entry, at, initial, identity)
         second_facts = self.facts(latest=True)
         checked_at = self.clock()
         latest_logs = self.usage(second_facts, checked_at, refresh=True)
         latest = self._evidence(entry, second_facts, checked_at, latest_logs)
+        latest_identity = self._review_identity(entry, second_facts)
+
         def recheck(db, row):
             if self.source.token() != second_facts.token:
                 return None
-            return self._local_evidence(db, row, self.clock(), latest)['digest']
+            return self._local_evidence(db, row, self.clock(), latest, latest_identity)['digest']
         return self.ledger.commit_review(entry['id'], result, recheck, self.clock())
 
     def prepare_recheck(self, row, when):
         facts = self.facts(latest=True)
         with self.ledger.db() as db:
             event = dispatch_event(db, row)
-        if not event_order_valid(facts, event, row['customer_id']):
-            return lambda db, fresh: 'event_invalid'
-        config, _, _ = load_config(self.config_path)
-        current = cohort(facts.customers.get(row['customer_id'], ()), facts.day, config, facts.covered).get(row['customer_id'])
+        config, version, _ = load_config(self.config_path)
+        customer = row['customer_id']
+        current = cohort(facts.customers.get(customer, ()), facts.day, config, facts.covered).get(customer)
         rule = row['rule_body']
-        if current is None or current['tier'] != rule['tier']:
-            return lambda db, fresh: 'tier_changed'
-        if not valid_email(current['email']) or email_key(current['email']) != email_key(row['email']):
-            return lambda db, fresh: 'recipient_changed'
-        if facts.email_conflict(row['customer_id'], current['email']):
-            raise LookupError('maintenance_email_identity_conflict')
-        if rule['customer_type'] is not None and current['customer_type'] != rule['customer_type']:
-            return lambda db, fresh: 'customer_type_changed'
-        if RANK.get(current['stage'], -1) < RANK[rule['stage']]:
-            return lambda db, fresh: 'stage_changed'
-        evidence = self._evidence(row, facts, when, self.usage(facts, when, refresh=True))
+        reason = None
+        evidence = None
+        if not event_order_valid(facts, event, customer):
+            reason = 'event_invalid'
+        elif current is None or current['tier'] != rule['tier']:
+            reason = 'tier_changed'
+        elif not valid_email(current['email']) or email_key(current['email']) != email_key(row['email']):
+            reason = 'recipient_changed'
+        elif facts.email_conflict(customer, current['email']):
+            raise PendingIdentity('email_conflict')
+        elif rule['customer_type'] is not None and current['customer_type'] != rule['customer_type']:
+            reason = 'customer_type_changed'
+        elif RANK.get(current['stage'], -1) < RANK[rule['stage']]:
+            reason = 'stage_changed'
+        else:
+            evidence = self._evidence(row, facts, when, self.usage(facts, when, refresh=True))
 
         def locked(db, fresh):
-            if self.source.token() != facts.token or load_config(self.config_path)[1] != config['version']:
+            if self.source.token() != facts.token or load_config(self.config_path)[1] != version:
                 raise LookupError('maintenance_recheck_input_changed')
-            if not event_order_valid(facts, dispatch_event(db, fresh), fresh['customer_id']):
+            latest_event = dispatch_event(db, fresh)
+            if not event_order_valid(facts, latest_event, fresh['customer_id']):
                 return 'event_invalid'
-            result = self._local_evidence(db, fresh, self.clock(), evidence, current)
+            if latest_event != event:
+                raise LookupError('maintenance_recheck_input_changed')
+            if reason:
+                return reason
+            checked_at = self.clock()
+            result = self._local_evidence(db, fresh, checked_at, evidence, current)
+            record_dispatch_identity(db, fresh['id'], checked_at)
             return result['reasons'][0] if result['reasons'] else None
         return locked
 
@@ -387,7 +418,9 @@ class Maintenance:
         for row in self.ledger.dispatch_queue(self.clock()):
             try:
                 self.dispatcher.once(row['id'])
-            except (LookupError, OSError, ValueError, KeyError, TypeError) as error:
+            except (LookupError, OSError, ValueError, TypeError, subprocess.SubprocessError) as error:
+                identity_reason = str(error) if isinstance(error, PendingIdentity) else None
+                self.ledger.defer_dispatch(row['id'], self.clock(), identity_reason)
                 LOGGER.warning('Maintenance dispatch %s deferred: %s', row['id'], type(error).__name__)
 
     def config_view(self):
@@ -528,9 +561,13 @@ class Maintenance:
         rows = self.ledger.queue(state_sets[view], limit=21, offset=offset)
         items = []
         customer_ids = list({row['customer_id'] for row in rows[:20]})
-        conflicts = set()
+        conflicts, identities = set(), {}
         if customer_ids:
             with self.ledger.db() as db:
+                entry_ids = [row['id'] for row in rows[:20]]
+                identities = {row['entry_id']: row for row in db.execute(
+                    'SELECT entry_id,identity_checked_at,identity_reason FROM maintenance_dispatch_checks '
+                    f'WHERE identity_checked_at IS NOT NULL AND entry_id IN ({marks(entry_ids)})', entry_ids)}
                 conflicts = {row[0] for row in db.execute(
                     f"SELECT customer_id FROM maintenance_customers WHERE customer_id IN ({marks(customer_ids)}) "
                     "AND json_extract(body,'$.email_conflict')=1", customer_ids)}
@@ -538,8 +575,13 @@ class Maintenance:
             reviews = self.ledger.reviews(row['id'])
             item = {key: value for key, value in row.items() if key != 'rule_body'}
             item['review'] = reviews[-1] if reviews else None
-            if row['customer_id'] in conflicts and row['state'] in ('reviewing', 'ready', *AWAITING):
-                item['identity_status'] = 'pending_identity'
+            identity = identities.get(row['id'])
+            if identity and row['state'] in AWAITING:
+                reason = identity['identity_reason']
+                item.update(identity_status='pending_identity' if reason else 'verified',
+                            identity_reason=reason, identity_checked_at=identity['identity_checked_at'])
+            elif row['customer_id'] in conflicts and row['state'] in ('reviewing', 'ready', *AWAITING):
+                item.update(identity_status='pending_identity', identity_reason='email_conflict')
             items.append(item)
         return dict(status='ready', items=items, next_offset=offset+20 if len(rows) > 20 else None)
 

@@ -20,6 +20,7 @@
     tier_changed: '当前价值档不符', customer_type_changed: '当前新老客条件不符', stage_changed: '当前阶段不符',
     recipient_changed: '收件邮箱变化', rule_changed: '规则已变更', template_changed: '券模板已变更或过期',
     event_invalid: '原末购已失效', pending_identity: '身份待核',
+    email_conflict: '邮箱与其他客户冲突', case_binding_pending: '案件归属待确认',
     customer_quota: '客户 30 天内已占用额度', daily_quota: '当日规则额度已满',
     owner_conflict: '当前负责人已变化'
   };
@@ -227,7 +228,12 @@
           {id: row.id, batch: row.batch, state: nextState.value, evidence: proof.value}));
         actions.append(form);
       }
-      return [row.email, row.rule_id, label(row.identity_status || row.state), row.batch || '—', evidence, actions];
+      let state = label(row.state);
+      if (row.identity_status === 'pending_identity') {
+        state += ' · ' + label(row.identity_status);
+        if (row.identity_reason) state += '：' + label(row.identity_reason);
+      }
+      return [row.email, row.rule_id, state, row.batch || '—', evidence, actions];
     });
     content.replaceChildren(controls, table(['收件邮箱', '规则', '状态', '原批次', '复核依据', '操作'], rows));
   }

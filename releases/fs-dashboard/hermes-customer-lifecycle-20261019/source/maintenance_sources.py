@@ -192,11 +192,33 @@ class UserProjection:
             raise ValueError('maintenance_publication_budget')
         return checked(json.loads(row[0]))
 
+    def _token(self, db):
+        receipt = self.receipt(db)
+        revision = db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0]
+        return receipt['publication_id'], revision
+
     def token(self):
         with self.db() as db:
-            receipt = self.receipt(db)
-            revision = db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0]
-            return receipt['publication_id'], revision
+            return self._token(db)
+
+    def coupon_orders(self, numbers, token):
+        """Resolve usage-log orders against the current private projection, outside the daily window."""
+        keys = {'admin:' + SITE + ':' + number: number for number in numbers}
+        if not keys:
+            return []
+        order_keys = list(keys)
+        with self.db() as db:
+            if self._token(db) != token:
+                raise LookupError('maintenance_coupon_projection_changed')
+            owners = []
+            for offset in range(0, len(order_keys), 500):
+                batch = order_keys[offset:offset + 500]
+                placeholders = ','.join('?' for _ in batch)
+                rows = db.execute('SELECT order_key,customer_id FROM orders WHERE site=? '
+                                  f'AND order_key IN ({placeholders})', (SITE, *batch))
+                owners.extend(dict(order_no=keys[row['order_key']], customer_id=row['customer_id'])
+                              for row in rows)
+        return owners
 
     def _flags(self, publication, start):
         from user_customer_types import read_pinned_flags

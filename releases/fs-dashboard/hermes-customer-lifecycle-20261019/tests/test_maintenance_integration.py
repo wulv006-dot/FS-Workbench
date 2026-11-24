@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sqlite3
+import subprocess
 import sys
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -45,6 +46,10 @@ class Source:
 
     def token(self):
         return 'publication', self.revision
+
+    def coupon_orders(self, numbers, token):
+        assert self.token() == token
+        return [row for row in self.orders if row['order_no'] in numbers]
 
     def read(self, now, latest=False):
         receipt = dict(publication_id='publication', cutoff=self.current.isoformat())
@@ -213,6 +218,45 @@ class Integration(unittest.TestCase):
         self.assertEqual(['manual_coupons'], review['reasons'])
         self.assertEqual(1, review['matches']['manual_coupons'])
 
+    def test_coupon_use_after_publication_cutoff_uses_exact_private_order_owner(self):
+        entry = self.create()
+        path = self.path.with_name('customer-projection.sqlite3')
+        path.touch(mode=0o600)
+        cutoff = self.source.current.isoformat()
+        projection = UserProjection(path)
+        publication = dict(contract=PUBLICATION_CONTRACT, cadence='daily', cutoff=cutoff,
+                           published_at=self.now.isoformat(), captured_at=self.now.isoformat(),
+                           refresh_health={}, coverage_context={}, source_status_rule_versions=[],
+                           data_version='1', config=dict(sites=['266']), flag_manifests=[],
+                           jobs=[dict(site='266', state='complete', start='2026-10-01T00:00:00+08:00',
+                                      end=cutoff, body='{}')])
+        publication['publication_id'] = 'uw_' + publication_digest(publication)[:32]
+        with closing(sqlite3.connect(path)) as db, db:
+            db.executescript("""
+                CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
+                INSERT INTO meta VALUES ('revision', '1');
+                CREATE TABLE orders(order_key TEXT PRIMARY KEY,site TEXT,gid TEXT,customer_id TEXT,
+                                    paid_at TEXT,valid INTEGER,body TEXT,revision INTEGER);
+                CREATE TABLE identities(customer_id TEXT,email TEXT);
+                INSERT INTO identities VALUES ('customer-A', 'buyer@example.net');
+            """)
+            db.execute('INSERT INTO meta VALUES (?,?)', (PUBLICATION_META, json.dumps(publication)))
+            orders = [('a', order()['paid_at'], 'customer-A'),
+                      ('after-cutoff', cutoff, 'customer-A'), ('unverified-order', cutoff, None)]
+            for number, paid_at, customer in orders:
+                body = json.dumps(dict(order_no=number, uid=100, amount_usd='500', pay_status=1))
+                db.execute('INSERT INTO orders VALUES(?,?,?,?,?,?,?,?)',
+                           ('admin:266:'+number, '266', '1327', customer, paid_at, 1, body, 1))
+        self.service.source = projection
+        self.admin_rows(usage=lambda: [self.coupon_use(order_no='after-cutoff'),
+                                      self.coupon_use(id=8, order_no='unverified-order', member_id=100)])
+        with patch('user_customer_types.read_pinned_flags', return_value=({}, {})):
+            self.assertEqual(['a'], [row['order_no'] for row in projection.read(self.now).orders])
+            self.service.update()
+        review, = self.service.ledger.reviews(entry['id'])
+        self.assertEqual(['manual_coupons'], review['reasons'])
+        self.assertEqual(1, review['unattributed_coupon_logs'])
+
     def test_usage_and_grant_for_same_coupon_count_once_and_both_pin_evidence(self):
         entry = self.create()
         self.admin_rows(usage=lambda: [self.coupon_use()], grants=lambda: [self.grant(22)])
@@ -304,6 +348,33 @@ class Integration(unittest.TestCase):
                 self.assertEqual('template_changed', row['result'].get('reason'))
                 self.assertEqual([], self.bridge.sent)
 
+    def test_template_process_failure_does_not_stop_another_coupons_dispatch(self):
+        for failure in (subprocess.TimeoutExpired('node', 1), subprocess.CalledProcessError(1, 'node')):
+            with self.subTest(failure=type(failure).__name__):
+                self.setUp()
+                self.bridge.detail = lambda coupon: dict(TEMPLATE, id=coupon)
+                self.source.orders.append(dict(order('b', 'customer-B', 101, 'second@example.net'),
+                                               amount_usd='1000'))
+                self.rule()
+                self.service.save_rule('admin', dict(id='second', expected_version=0, tier='ultra', stage='silent',
+                    customer_type='new', enabled=True, priority=1, daily_quota=1, coupon_id=456,
+                    alert=True, owner=None))
+                self.tick()
+                self.tick(2)
+                self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+                entries = {item['rule_id']: item['id'] for item in self.service.queue_view('delivery')['items']}
+
+                def detail(coupon):
+                    if coupon == 123:
+                        raise failure
+                    return dict(TEMPLATE, id=coupon)
+
+                self.bridge.detail = detail
+                self.service.dispatch()
+                self.assertEqual('confirmed', self.service.ledger.entry(entries['first'])['state'])
+                self.assertEqual('issued', self.service.ledger.entry(entries['second'])['state'])
+                self.assertEqual([456], [item[0] for item in self.bridge.sent])
+
     def test_latest_projection_invalidates_event_before_daily_void_even_if_tier_still_matches(self):
         older = dict(order('older'), paid_at='2026-10-01T10:00:00+08:00')
         self.source.orders = [older, dict(order(), amount_usd='100')]
@@ -316,6 +387,30 @@ class Integration(unittest.TestCase):
         row = self.service.ledger.entry(entry['id'])
         self.assertEqual('event_invalid', row['result'].get('reason'))
         self.assertEqual([], self.bridge.sent)
+
+    def test_dispatch_discards_failure_if_source_changes_during_template_read(self):
+        for first_order in (order(valid=False), dict(order(), amount_usd='499')):
+            with self.subTest(first_order=first_order):
+                self.setUp()
+                entry = self.create()
+                self.service.update()
+                self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+                self.source.orders = [first_order]
+                self.tick(run=False)
+
+                def detail(coupon):
+                    self.source.orders = [order()]
+                    self.tick(run=False)
+                    return TEMPLATE.copy()
+
+                self.bridge.detail = detail
+                self.service.dispatch()
+                self.assertEqual('confirmed', self.service.ledger.entry(entry['id'])['state'])
+                self.assertEqual([], self.bridge.sent)
+                self.bridge.detail = lambda coupon: TEMPLATE.copy()
+                self.now += timedelta(minutes=2)
+                self.service.dispatch()
+                self.assertEqual('issued', self.service.ledger.entry(entry['id'])['state'])
 
     def test_claim_rechecks_event_status_after_template_read(self):
         entry = self.create()
@@ -359,6 +454,29 @@ class Integration(unittest.TestCase):
             db.execute('INSERT INTO vip_cases(id,week,opened_at,baseline) VALUES(?,?,?,?)',
                        (ident, '2026-10-05', self.now.isoformat(), json.dumps(baseline)))
 
+    def test_review_rechecks_case_binding_with_each_projections_latest_identity(self):
+        for move_during_review in (False, True):
+            with self.subTest(move_during_review=move_during_review):
+                self.setUp()
+                entry = self.create()
+                self.insert_case('a'*32, 'other@example.net', uid='101')
+
+                def change_identity():
+                    self.source.orders = [order(uid=101)]
+                    self.tick(run=False)
+
+                def exceptions(orders):
+                    if move_during_review and self.source.orders[0]['uid'] == 100:
+                        change_identity()
+                    return []
+
+                self.admin.exceptions = exceptions
+                if not move_during_review:
+                    change_identity()
+                self.service.update()
+                self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
+                self.assertEqual([], self.service.ledger.reviews(entry['id']))
+
     def test_ambiguous_cases_keep_review_pending_until_admin_selection(self):
         first, second = 'a'*32, 'b'*32
         self.insert_case(first)
@@ -383,6 +501,7 @@ class Integration(unittest.TestCase):
         self.assertEqual([], self.bridge.sent)
         self.assertEqual('pending_identity', self.service.customer_view('customer-A')['case']['status'])
         self.service.resolve_case('admin', dict(customer_id='customer-A', case_id='a'*32, request_id='selected'))
+        self.now += timedelta(minutes=1)
         self.service.dispatch()
         self.assertEqual('issued', self.service.ledger.entry(entry['id'])['state'])
 
@@ -464,8 +583,72 @@ class Integration(unittest.TestCase):
         self.source.orders.append(order('b', 'customer-B', 101, 'buyer@example.com'))
         self.tick(run=False)
         self.service.dispatch()
-        self.assertEqual('confirmed', self.service.ledger.entry(entry['id'])['state'])
+        item, = self.service.queue_view('delivery')['items']
+        self.assertEqual('confirmed', item['state'])
+        self.assertEqual('pending_identity', item['identity_status'])
+        self.assertEqual('email_conflict', item['identity_reason'])
         self.assertEqual([], self.bridge.sent)
+
+        self.source.orders.pop()
+        self.tick(run=False)
+        self.now += timedelta(minutes=2)
+        self.service.dispatch()
+        item, = self.service.queue_view('delivery')['items']
+        self.assertEqual('issued', item['state'])
+        self.assertIsNone(item.get('identity_reason'))
+        self.assertEqual(1, len(self.bridge.sent))
+
+    def test_dispatch_reaches_the_101st_item_while_earlier_identities_stay_pending(self):
+        self.source.orders = [order(str(i), f'customer-{i}', 1000+i, f'buyer-{i}@example.net')
+                              for i in range(101)]
+        self.rule()
+        self.tick()
+        self.tick(2)
+        for _ in range(4):
+            self.service.update()
+        confirmed = self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.assertEqual(101, len(confirmed['changed']))
+        entries = self.service.ledger.queue(('confirmed',), limit=101)
+        blocked, last = entries[:100], entries[-1]
+        for i, entry in enumerate(blocked):
+            self.source.orders.append(order(f'collision-{i}', f'collision-{i}', 2000+i, entry['email']))
+        self.tick(run=False)
+
+        with self.assertLogs('maintenance_service', level='WARNING'):
+            self.service.dispatch()
+        self.assertEqual([], self.bridge.sent)
+        self.now += timedelta(minutes=2)
+        with self.assertLogs('maintenance_service', level='WARNING'):
+            self.service.dispatch()
+        self.assertEqual('issued', self.service.ledger.entry(last['id'])['state'])
+        self.assertEqual([last['email']], [item[1] for item in self.bridge.sent])
+        self.assertTrue(all(self.service.ledger.entry(entry['id'])['state'] == 'confirmed' for entry in blocked))
+
+    def test_dispatch_keeps_rule_priority_while_an_earlier_rule_waits_to_retry(self):
+        self.bridge.detail = lambda coupon: dict(TEMPLATE, id=coupon)
+        self.rule()
+        self.service.save_rule('admin', dict(id='second', expected_version=0, tier='high', stage='silent',
+            customer_type='new', enabled=True, priority=1, daily_quota=1, coupon_id=456, alert=True, owner=None))
+        self.tick()
+        self.tick(2)
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+
+        def detail(coupon):
+            if coupon == 123:
+                raise subprocess.TimeoutExpired('node', 1)
+            return dict(TEMPLATE, id=coupon)
+
+        self.bridge.detail = detail
+        self.service.dispatch()
+        self.now += timedelta(seconds=15)
+        self.service.dispatch()
+        self.assertEqual([], self.bridge.sent)
+        self.bridge.detail = lambda coupon: dict(TEMPLATE, id=coupon)
+        self.now += timedelta(minutes=1)
+        self.service.dispatch()
+        self.assertEqual([123], [item[0] for item in self.bridge.sent])
+        self.service.dispatch()
+        self.assertEqual([123], [item[0] for item in self.bridge.sent])
 
     def test_assignment_only_fills_empty_and_manual_change_uses_cas(self):
         self.rule(owner='operator')

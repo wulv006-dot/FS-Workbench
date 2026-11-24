@@ -149,6 +149,9 @@ def install(page, *, admin=True, bulk=False):
             value = CONFIG
         elif view == 'phase_groups':
             value = dict(status='waiting', waiting_for='2026-11-23', items=[], groups=[])
+        elif view == 'phase_delivery':
+            value = dict(items=[dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state='confirmed',
+                                     identity_status='pending_identity', identity_reason='email_conflict')])
         elif view in ('phase_ready', 'phase_manual'):
             action = 'phase_decide' if view == 'phase_ready' else 'phase_result'
             mode = 'ready' if view == 'phase_ready' else 'unknown'
@@ -472,6 +475,8 @@ def check_phase(browser):
     expect(page.locator('#phase-content')).to_contain_text('暂无条目')
     assert state['phase_posts'][0]['action'] == 'phase_decide'
     assert state['phase_posts'][0]['ids'] == ['fixture-entry']
+    page.locator('#phase-view').select_option('delivery')
+    expect(page.locator('#phase-content')).to_contain_text('已确认 · 身份待核：邮箱与其他客户冲突')
     page.get_by_role('button', name='英美队列', exact=True).click()
     expect(page.locator('#vip-week-panel')).to_be_visible()
     page.goto('https://fs.invalid/dashboard/customers/reconcile/')

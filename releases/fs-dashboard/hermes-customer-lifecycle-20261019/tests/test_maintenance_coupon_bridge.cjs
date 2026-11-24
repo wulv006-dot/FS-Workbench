@@ -52,6 +52,28 @@ if (require.main === module) {
     }
   });
 
+  test('rejects foreign recipients even when Admin marks the grant asynchronous', async () => {
+    const args = {coupon_id: 123, email: 'buyer@example.net', batch: 'FCSM_' + 'C'.repeat(32), job: 'foreign-77'};
+    for (const overrides of [
+      {mode: 'async', rows: [{email: 'other@example.net'}]},
+      {mode: 'async', batch_no: 'FCSM_' + 'D'.repeat(32), rows: []},
+    ]) {
+      const foreign = await submit({...args, overrides});
+      assert.equal(foreign.state, 'unknown');
+      assert.equal(foreign.job_id, undefined);
+    }
+  });
+
+  test('keeps a scoped job from Admin when counters cannot confirm the result', async () => {
+    const args = {coupon_id: 123, email: 'buyer@example.net', batch: 'FCSM_' + 'E'.repeat(32)};
+    const receipt = await submit({...args, job: 77, overrides: {processed: 0, pending_register: undefined}});
+    assert.equal(receipt.state, 'unknown');
+    assert.equal(receipt.job_id, '77');
+    const malformed = await submit({...args, job: '../77', overrides: {mode: 'async', rows: []}});
+    assert.equal(malformed.state, 'unknown');
+    assert.equal(malformed.job_id, undefined);
+  });
+
   test('reconciliation uses only GET by the original job and verifies recipient', async () => {
     const batch = 'FCSM_' + 'B'.repeat(32);
     const email = 'buyer@example.net';

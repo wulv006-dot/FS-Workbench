@@ -44,6 +44,9 @@ CREATE TABLE IF NOT EXISTS maintenance_entries (
 CREATE INDEX IF NOT EXISTS maintenance_customer_quota ON maintenance_entries(customer_id,dispatch_at,state);
 CREATE INDEX IF NOT EXISTS maintenance_rule_quota ON maintenance_entries(rule_id,dispatch_day,state);
 CREATE INDEX IF NOT EXISTS maintenance_entry_state ON maintenance_entries(state,created_at);
+CREATE TABLE IF NOT EXISTS maintenance_dispatch_checks (
+    entry_id TEXT PRIMARY KEY, retry_at TEXT, identity_checked_at TEXT, identity_reason TEXT
+);
 CREATE TABLE IF NOT EXISTS maintenance_reconcile_checks (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT, entry_id TEXT UNIQUE NOT NULL
 );
@@ -115,6 +118,12 @@ def enqueue_entry(db, event, customer, email, rule, at):
                   VALUES(?,?,?,?,?,?,?,'reviewing',?) ON CONFLICT(customer_id,rule_id,event_id) DO NOTHING''',
                (ident, event, customer, email, rule['id'], rule['version'], canonical(rule), stamp(at)))
     return ident
+
+
+def record_dispatch_identity(db, ident, at, reason=None):
+    db.execute('INSERT INTO maintenance_dispatch_checks(entry_id,identity_checked_at,identity_reason) VALUES(?,?,?) '
+               'ON CONFLICT(entry_id) DO UPDATE SET identity_checked_at=excluded.identity_checked_at,'
+               'identity_reason=excluded.identity_reason', (ident, stamp(at), reason))
 
 
 def active_customer(db, customer, at):
@@ -279,11 +288,9 @@ class Ledger:
             if not row or row['state'] not in AWAITING:
                 return None
             rule = fetch_rule(db, row['rule_id'])
-            reason = None
+            reason = recheck(db, row) if recheck is not None else None
             if not rule or not rule['enabled'] or rule['version'] != row['rule_version']:
                 reason = 'rule_changed'
-            elif recheck is not None:
-                reason = recheck(db, row)
             at = at() if callable(at) else at
             day = at.astimezone(SHANGHAI).date().isoformat()
             if row['deferred_day'] and row['deferred_day'] >= day:
@@ -339,7 +346,11 @@ class Ledger:
                 details['member_coupon_id'] = coupon_id
             if state == 'dispatching' and row['job_id'] == job:
                 return False
-            return transition(db, row, state, source, at, details, job_id=job)
+            updated = transition(db, row, state, source, at, details, job_id=job)
+            if updated and state in IN_FLIGHT and job and not row['job_id']:
+                # First lookup joins the same queue as subsequent lookups.
+                db.execute('INSERT OR IGNORE INTO maintenance_reconcile_checks(entry_id) VALUES(?)', (ident,))
+            return updated
 
     def manual_result(self, ident, state, actor, at, proof):
         if state not in ('issued', 'rejected', 'manually_closed') or not proof:
@@ -356,13 +367,35 @@ class Ledger:
                               (*states, *params, limit, offset))
             return [entry_view(row) for row in rows]
 
+    def defer_dispatch(self, ident, at, identity_reason=None):
+        with self.db(write=True) as db:
+            row = fetch_entry(db, ident)
+            if not row or row['state'] not in AWAITING:
+                return
+            retry_at = stamp(at + timedelta(minutes=1))
+            db.execute('INSERT INTO maintenance_dispatch_checks(entry_id,retry_at) VALUES(?,?) '
+                       'ON CONFLICT(entry_id) DO UPDATE SET retry_at=excluded.retry_at', (ident, retry_at))
+            if identity_reason:
+                record_dispatch_identity(db, ident, at, identity_reason)
+
     def dispatch_queue(self, at):
         day = at.astimezone(SHANGHAI).date().isoformat()
+        # Rank before filtering by retry time so a lower-priority rule cannot overtake
+        # a rule for the same event that is waiting for fresh evidence.
         with self.db() as db:
-            rows = db.execute(
-                f'SELECT * FROM maintenance_entries WHERE state IN ({marks(AWAITING)}) '
-                "AND (deferred_day IS NULL OR deferred_day<?) ORDER BY created_at,json_extract(rule_body,'$.priority'),id LIMIT 100",
-                (*AWAITING, day))
+            rows = db.execute(f"""
+                WITH pending AS (
+                    SELECT e.id,c.retry_at,ROW_NUMBER() OVER (
+                        PARTITION BY e.event_id ORDER BY json_extract(e.rule_body,'$.priority'),e.created_at,e.id
+                    ) AS event_rank
+                    FROM maintenance_entries e LEFT JOIN maintenance_dispatch_checks c ON c.entry_id=e.id
+                    WHERE e.state IN ({marks(AWAITING)}) AND (e.deferred_day IS NULL OR e.deferred_day<?)
+                )
+                SELECT e.* FROM pending p JOIN maintenance_entries e ON e.id=p.id
+                WHERE p.event_rank=1 AND (p.retry_at IS NULL OR p.retry_at<=?)
+                ORDER BY COALESCE(p.retry_at,e.created_at),json_extract(e.rule_body,'$.priority'),e.id
+                LIMIT 100
+            """, (*AWAITING, day, stamp(at)))
             return [entry_view(row) for row in rows]
 
     def manual_queue(self, *, limit=100, offset=0):

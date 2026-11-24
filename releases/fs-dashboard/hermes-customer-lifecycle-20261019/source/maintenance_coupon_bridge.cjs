@@ -21,15 +21,27 @@ async function grant(couponId, email, batch, grantResult) {
   const {code, data} = JSON.parse(raw);
   if (code !== 1) throw Error('coupon_grant_response_unconfirmed');
 
-  if (data && Object.hasOwn(data, 'batch_no') && data.batch_no !== batch) {
-    return {state: 'unknown', error_code: 'coupon_grant_batch_mismatch'};
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {state: 'unknown'};
+  for (const field of ['batch_no', 'grant_batch_no']) {
+    if (Object.hasOwn(data, field) && data[field] !== batch) {
+      return {state: 'unknown', error_code: 'coupon_grant_batch_mismatch'};
+    }
   }
+  if (Object.hasOwn(data, 'rows') && (!Array.isArray(data.rows) || data.rows.length > 1
+      || data.rows.some(row => typeof row?.email !== 'string' || row.email.toLowerCase() !== email))) {
+    return {state: 'unknown', error_code: 'coupon_grant_recipient_mismatch'};
+  }
+  const value = data.job_id;
+  const job = Number.isSafeInteger(value) && value > 0 ? String(value) : value;
+  if (value != null && !accepts(job, JOB)) {
+    return {state: 'unknown', error_code: 'coupon_grant_invalid_job'};
+  }
+
+  // Admin may omit echoes for an asynchronous receipt. The scoped single-recipient POST
+  // binds the job in that case. Keep it even when the result counters are inconclusive.
   const result = grantResult(data, email, batch);
-  // The direct POST binds the batch; grantResult verifies the single recipient and counters.
-  if (result.state === 'pending_register') {
-    const value = data.job_id;
-    const job = Number.isSafeInteger(value) && value > 0 ? String(value) : value;
-    if (accepts(job, JOB)) return {...result, job_id: job};
+  if (job && ['pending', 'pending_register', 'unknown'].includes(result.state)) {
+    return {...result, job_id: job};
   }
   return result;
 }
