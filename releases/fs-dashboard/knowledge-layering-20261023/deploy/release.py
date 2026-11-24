@@ -17,32 +17,36 @@ RUNTIME = {'runtime/' + n: '/opt/fs-hermes-fc/' + n for n in
 PREFIX = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + RELEASE + '/'
 SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r3'
 FC_V61 = 'fc-v61-average-discount-20261113-r1'
+CUSTOMER_LIFECYCLE = 'users-v4-maintenance-20261125-v1'
 BASELINE_CANDIDATE = 'runtime/business-baseline.md'
 BASELINE_TARGET = '/opt/fs-hermes-fc/business-baseline.md'
-BASELINE_PATCH_CONTRACT = 'fc-v61-current-baseline-patch-v1'
+BASELINE_PATCH_CONTRACTS = {
+    FC_V61: 'fc-v61-current-baseline-patch-v1',
+    CUSTOMER_LIFECYCLE: 'users-maintenance-current-baseline-patch-v1',
+}
 
 
 def targets(manifest):
     runtime, prefix = RUNTIME, PREFIX
-    fc_v61_only = False
+    baseline_contract = None
     if manifest.get('knowledgeOnly') is True:
         commit = manifest.get('sourceCommit', '')
         release = manifest.get('knowledgeRelease', '')
         if (not re.fullmatch('[a-f0-9]{40}', commit) or
                 release not in ('fc-reporting-knowledge-20261105-' + commit[:8], SHARED_ADMIN_ES + '-' + commit,
-                                FC_V61 + '-' + commit) or
+                                FC_V61 + '-' + commit, CUSTOMER_LIFECYCLE + '-' + commit) or
                 manifest.get('scope') != SCOPE or manifest.get('businessWrites') is not False or
                 manifest.get('timersChanged') is not False):
             raise ValueError('knowledge_only_identity_or_authority')
         runtime = {'runtime/knowledge-load-policy.json': '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'}
         prefix = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + release + '/'
-        fc_v61_only = release == FC_V61 + '-' + commit
+        baseline_contract = BASELINE_PATCH_CONTRACTS.get(release.removesuffix('-' + commit))
     if 'baselinePatch' in manifest:
-        if not fc_v61_only:
+        if baseline_contract is None:
             raise ValueError('knowledge_baseline_patch_scope')
         patch = manifest['baselinePatch']
         if (not isinstance(patch, dict) or set(patch) != {'contract', 'before_sha256', 'after_sha256'} or
-                patch['contract'] != BASELINE_PATCH_CONTRACT):
+                patch['contract'] != baseline_contract):
             raise ValueError('knowledge_baseline_patch_contract')
         before, after = patch['before_sha256'], patch['after_sha256']
         if (before == after or not all(isinstance(digest, str) and re.fullmatch('[a-f0-9]{64}', digest)

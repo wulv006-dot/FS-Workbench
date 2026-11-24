@@ -2,7 +2,7 @@
 
 通过远程 MCP 提供 FS 只读数据。每位用户在原 FS 登录后独立授权；查询复用原网关及权限，不把管理员身份、FS Cookie 或后台凭据交给 AI 客户端。
 
-当前源码目录登记116个业务读取操作、36个范围记录；精确映射及剩余范围以 `catalog.json` 为准。目录不接入Hermes会话、代理和历史生成报告；客户追踪业务明细、活动统计及获准FS知识文本保留。当前AI获得数据和方法后自主分析，不要求固定报告模板。数量不证明所有数据已完整接通；部署、真实入口与客户端证据分别见 [验收记录](../docs/planning/fs-data-connector-20261109/ACCEPTANCE.md) 和 [真实验收](../docs/planning/fs-data-connector-20261109/LIVE-ACCEPTANCE.md)。本轮目录调整须单独发布后才生效。
+当前业务操作、范围与覆盖缺项以 `catalog.json` 为准。目录不接入Hermes会话、代理和历史生成报告；客户追踪业务明细、活动统计及获准FS知识文本保留。当前AI获得数据和方法后自主分析，不要求固定报告模板。数量不证明所有数据已完整接通；部署、真实入口与客户端证据分别见 [验收记录](../docs/planning/fs-data-connector-20261109/ACCEPTANCE.md) 和 [真实验收](../docs/planning/fs-data-connector-20261109/LIVE-ACCEPTANCE.md)。本轮目录调整须单独发布后才生效。
 
 ## 本地验证
 
@@ -15,6 +15,10 @@ python -m venv .venv
 ```
 
 Linux 将 Python 路径替换为 `.venv/bin/python`。测试使用临时数据库、模拟上游和本机 HTTP，不读取生产业务数据。
+
+## 用户分析和客户维护
+
+用户分析按 `users.catalog` 的范围和截止发起 v4 查询，FC 系列用 `game=series:FC`。按同一 `snapshot_id` 查汇总、分节或获准名单。管理员查 FC27 维护分组用 `customer_tracking.stage_groups`，同传 `tier`、`stage`、`customer_type`，按 `next_offset` 继续。版本和详细口径见[数据方法](../docs/planning/fs-data-connector-20261109/DATA-METHODS.md)。
 
 ## 启动配置
 

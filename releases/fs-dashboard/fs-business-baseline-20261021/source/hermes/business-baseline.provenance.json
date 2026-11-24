@@ -4,16 +4,16 @@
   "source_commit": null,
   "source_state": "authorized_worktree_exact_sha",
   "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-  "canonical_base_commit": "16aa5c0b783c25383c9b3697fc4d688679a089f7",
-  "canonical_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+  "canonical_base_commit": "56b4b6b9eecbf45e4ec70ff3ddffcc50eff448bd",
+  "canonical_sha256": "8920902074a35afd4f577c1b971f41119d43349d03c6601bc7e5babb11e872de",
   "target": "/opt/fs-hermes-fc/business-baseline.md",
-  "before_sha256": "2d2e6abcc8c65ce0e3cff10c81d32a705d60b820ba9d3056221008f0663178a3",
-  "after_sha256": "64d1761e7bc4aab923a9599bac577b98d3668d67c1b5d4e74b820f39e81ea285",
-  "bytes": 55447,
-  "prior_provenance_commit": "16aa5c0b783c25383c9b3697fc4d688679a089f7",
-  "prior_provenance_sha256": "5a946c941fa49ebe29ee93252216a2cae728c584e1660fe9906764b2fdf426a2",
+  "before_sha256": "64d1761e7bc4aab923a9599bac577b98d3668d67c1b5d4e74b820f39e81ea285",
+  "after_sha256": "98bc7c053e3ad7d06c92269cc9c24ca9672f538a262ccf3a7ba9179308775cfa",
+  "bytes": 56432,
+  "prior_provenance_commit": "56b4b6b9eecbf45e4ec70ff3ddffcc50eff448bd",
+  "prior_provenance_sha256": "20d7b811276b5a52de420e9c4269483a564e1e5913d8cae197d67db1249420d2",
   "changes": [
-    "Use U4GM as the sole FC27 observation source in the active Hermes baseline."
+    "Bind user-analysis v4 and single-game FC27 stage maintenance to the current customer lifecycle entry."
   ],
   "previous_provenance": {
     "contract": "fc-current-baseline-patch-v1",
@@ -21,16 +21,16 @@
     "source_commit": null,
     "source_state": "authorized_worktree_exact_sha",
     "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-    "canonical_base_commit": "e11b4a0a6fc8857db938fafed11103e26337ef2e",
-    "canonical_sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
+    "canonical_base_commit": "16aa5c0b783c25383c9b3697fc4d688679a089f7",
+    "canonical_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
     "target": "/opt/fs-hermes-fc/business-baseline.md",
-    "before_sha256": "a65c4efbc64831f63689d511d62ee36af77d1fe44eb115dabcb903c3e9ec39fb",
-    "after_sha256": "2d2e6abcc8c65ce0e3cff10c81d32a705d60b820ba9d3056221008f0663178a3",
-    "bytes": 55454,
-    "prior_provenance_commit": "e11b4a0a6fc8857db938fafed11103e26337ef2e",
-    "prior_provenance_sha256": "6829fbaeafd3be6e58c08a8f27459f924e45d4559500843a208ef18c12abf3f3",
+    "before_sha256": "2d2e6abcc8c65ce0e3cff10c81d32a705d60b820ba9d3056221008f0663178a3",
+    "after_sha256": "64d1761e7bc4aab923a9599bac577b98d3668d67c1b5d4e74b820f39e81ea285",
+    "bytes": 55447,
+    "prior_provenance_commit": "16aa5c0b783c25383c9b3697fc4d688679a089f7",
+    "prior_provenance_sha256": "5a946c941fa49ebe29ee93252216a2cae728c584e1660fe9906764b2fdf426a2",
     "changes": [
-      "Clarify the distinction between a blocked source, a local job that was never claimed, and a failed local read. Preserve the existing market roles and price evidence."
+      "Use U4GM as the sole FC27 observation source in the active Hermes baseline."
     ],
     "previous_provenance": {
       "contract": "fc-current-baseline-patch-v1",
@@ -38,16 +38,16 @@
       "source_commit": null,
       "source_state": "authorized_worktree_exact_sha",
       "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-      "canonical_base_commit": "fa7bfa0392e11a811120c53a2afb3e85fbf45c30",
-      "canonical_sha256": "78592862e9aca9427867f8f99f744ff102627360a141d37b38604d33256c5255",
+      "canonical_base_commit": "e11b4a0a6fc8857db938fafed11103e26337ef2e",
+      "canonical_sha256": "d656cbfa267182d27b49e1c33903d1594a0f409f7e96c6a256e39a5ac7fadccc",
       "target": "/opt/fs-hermes-fc/business-baseline.md",
-      "before_sha256": "5d18ee931116571882133d0043869c5b4857fe6df3bc92f926124c2080b903cc",
-      "after_sha256": "a65c4efbc64831f63689d511d62ee36af77d1fe44eb115dabcb903c3e9ec39fb",
-      "bytes": 55410,
-      "prior_provenance_commit": "fa7bfa0392e11a811120c53a2afb3e85fbf45c30",
-      "prior_provenance_sha256": "53831460f4393cfbe1d47e8ef89d914a18ef4e08f8f5c2e89f3d142f16c2baf7",
+      "before_sha256": "a65c4efbc64831f63689d511d62ee36af77d1fe44eb115dabcb903c3e9ec39fb",
+      "after_sha256": "2d2e6abcc8c65ce0e3cff10c81d32a705d60b820ba9d3056221008f0663178a3",
+      "bytes": 55454,
+      "prior_provenance_commit": "e11b4a0a6fc8857db938fafed11103e26337ef2e",
+      "prior_provenance_sha256": "6829fbaeafd3be6e58c08a8f27459f924e45d4559500843a208ef18c12abf3f3",
       "changes": [
-        "Identify the existing market package baseline in the format consumed by coins_evidence and learning_service. Preserve every business rule."
+        "Clarify the distinction between a blocked source, a local job that was never claimed, and a failed local read. Preserve the existing market roles and price evidence."
       ],
       "previous_provenance": {
         "contract": "fc-current-baseline-patch-v1",
@@ -55,16 +55,16 @@
         "source_commit": null,
         "source_state": "authorized_worktree_exact_sha",
         "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "canonical_base_commit": "515b16bfb24bda0c3c8de8d6f53ebbadd652703a",
+        "canonical_base_commit": "fa7bfa0392e11a811120c53a2afb3e85fbf45c30",
         "canonical_sha256": "78592862e9aca9427867f8f99f744ff102627360a141d37b38604d33256c5255",
         "target": "/opt/fs-hermes-fc/business-baseline.md",
-        "before_sha256": "d3116a7fcb1fd4ac2b5ad52b87a40bd94abe8f7ebb2158c2f2c1bce19beb273c",
-        "after_sha256": "5d18ee931116571882133d0043869c5b4857fe6df3bc92f926124c2080b903cc",
-        "bytes": 55349,
-        "prior_provenance_commit": "8e290c60d5f27eaf3a23a8f86e5a8922cce8f2b9",
-        "prior_provenance_sha256": "5521acf8d559ffe4c629b8f5dc5f0abfc3282ab90aa08c7d11eac4a6eb05a443",
+        "before_sha256": "5d18ee931116571882133d0043869c5b4857fe6df3bc92f926124c2080b903cc",
+        "after_sha256": "a65c4efbc64831f63689d511d62ee36af77d1fe44eb115dabcb903c3e9ec39fb",
+        "bytes": 55410,
+        "prior_provenance_commit": "fa7bfa0392e11a811120c53a2afb3e85fbf45c30",
+        "prior_provenance_sha256": "53831460f4393cfbe1d47e8ef89d914a18ef4e08f8f5c2e89f3d142f16c2baf7",
         "changes": [
-          "Apply the revised FC27 ordinary-package market comparison to the direct Hermes baseline. Preserve historical receipt interpretation and all other runtime content."
+          "Identify the existing market package baseline in the format consumed by coins_evidence and learning_service. Preserve every business rule."
         ],
         "previous_provenance": {
           "contract": "fc-current-baseline-patch-v1",
@@ -72,16 +72,16 @@
           "source_commit": null,
           "source_state": "authorized_worktree_exact_sha",
           "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-          "canonical_base_commit": "49fd88d90423956e6dff5587b6635df517223086",
-          "canonical_sha256": "840e7b68bc81ffc46f98cf90ae3b94a6b5767a0341169abd20f0b271fa18646f",
+          "canonical_base_commit": "515b16bfb24bda0c3c8de8d6f53ebbadd652703a",
+          "canonical_sha256": "78592862e9aca9427867f8f99f744ff102627360a141d37b38604d33256c5255",
           "target": "/opt/fs-hermes-fc/business-baseline.md",
-          "before_sha256": "00e5dfe01b7c2e341c64b61629f5113bd3ef4830bd7cce6f3ea86c3be705e962",
-          "after_sha256": "d3116a7fcb1fd4ac2b5ad52b87a40bd94abe8f7ebb2158c2f2c1bce19beb273c",
-          "bytes": 55159,
-          "prior_provenance_commit": "30766ed7d9152dc037ca636a2d0b3798983abe4e",
-          "prior_provenance_sha256": "7143ae42f6efc11b617ff151e948c3da4ca1ca72f5b5db3835566a34874fca02",
+          "before_sha256": "d3116a7fcb1fd4ac2b5ad52b87a40bd94abe8f7ebb2158c2f2c1bce19beb273c",
+          "after_sha256": "5d18ee931116571882133d0043869c5b4857fe6df3bc92f926124c2080b903cc",
+          "bytes": 55349,
+          "prior_provenance_commit": "8e290c60d5f27eaf3a23a8f86e5a8922cce8f2b9",
+          "prior_provenance_sha256": "5521acf8d559ffe4c629b8f5dc5f0abfc3282ab90aa08c7d11eac4a6eb05a443",
           "changes": [
-            "Preserve the verified direct production baseline; add the current V6 cadence, same-order/today query and activity entry points."
+            "Apply the revised FC27 ordinary-package market comparison to the direct Hermes baseline. Preserve historical receipt interpretation and all other runtime content."
           ],
           "previous_provenance": {
             "contract": "fc-current-baseline-patch-v1",
@@ -89,16 +89,16 @@
             "source_commit": null,
             "source_state": "authorized_worktree_exact_sha",
             "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-            "canonical_base_commit": "27fe0962a8b51fcfb64a415603101ece8097dff8",
-            "canonical_sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
+            "canonical_base_commit": "49fd88d90423956e6dff5587b6635df517223086",
+            "canonical_sha256": "840e7b68bc81ffc46f98cf90ae3b94a6b5767a0341169abd20f0b271fa18646f",
             "target": "/opt/fs-hermes-fc/business-baseline.md",
-            "before_sha256": "1a6df0e355845110b4956a6c44f1792936511d8ad82e8669f2f23505ece30b17",
-            "after_sha256": "ab9564e3d5cf626713603ef17a1fe1397f3916b0a2879902b326aa7c0f6e8ece",
-            "bytes": 55962,
-            "prior_provenance_commit": "27fe0962a8b51fcfb64a415603101ece8097dff8",
-            "prior_provenance_sha256": "7b201480188942f2b509d2b5a52e411074320a84b773ff9a5f2a066544674eba",
+            "before_sha256": "00e5dfe01b7c2e341c64b61629f5113bd3ef4830bd7cce6f3ea86c3be705e962",
+            "after_sha256": "d3116a7fcb1fd4ac2b5ad52b87a40bd94abe8f7ebb2158c2f2c1bce19beb273c",
+            "bytes": 55159,
+            "prior_provenance_commit": "30766ed7d9152dc037ca636a2d0b3798983abe4e",
+            "prior_provenance_sha256": "7143ae42f6efc11b617ff151e948c3da4ca1ca72f5b5db3835566a34874fca02",
             "changes": [
-              "Read configured decision hours and document the 00:00–00:15 Beijing discount-refresh hold."
+              "Preserve the verified direct production baseline; add the current V6 cadence, same-order/today query and activity entry points."
             ],
             "previous_provenance": {
               "contract": "fc-current-baseline-patch-v1",
@@ -106,16 +106,16 @@
               "source_commit": null,
               "source_state": "authorized_worktree_exact_sha",
               "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-              "canonical_base_commit": "b12cb55f9dc346dfb27980d53028f79579891bb4",
-              "canonical_sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
+              "canonical_base_commit": "27fe0962a8b51fcfb64a415603101ece8097dff8",
+              "canonical_sha256": "aabd75b6f791315957b9fe86e3178af987207eade1828298ad7a70cb297c1b26",
               "target": "/opt/fs-hermes-fc/business-baseline.md",
-              "before_sha256": "65f19949e8baeeaf29011d227db426f34bf54071165d2baf89de8ed006062352",
-              "after_sha256": "1a6df0e355845110b4956a6c44f1792936511d8ad82e8669f2f23505ece30b17",
-              "bytes": 56067,
-              "prior_provenance_commit": "b12cb55f9dc346dfb27980d53028f79579891bb4",
-              "prior_provenance_sha256": "a94ea10f3f4785dab73f52f35ec6526d45427365692b57734ac65e93fd20235c",
+              "before_sha256": "1a6df0e355845110b4956a6c44f1792936511d8ad82e8669f2f23505ece30b17",
+              "after_sha256": "ab9564e3d5cf626713603ef17a1fe1397f3916b0a2879902b326aa7c0f6e8ece",
+              "bytes": 55962,
+              "prior_provenance_commit": "27fe0962a8b51fcfb64a415603101ece8097dff8",
+              "prior_provenance_sha256": "7b201480188942f2b509d2b5a52e411074320a84b773ff9a5f2a066544674eba",
               "changes": [
-                "Synchronize the Stage 5 rule conditional on the actual plan revision, weekly target evaluation, and stable Hermes reporting and pricing knowledge links."
+                "Read configured decision hours and document the 00:00–00:15 Beijing discount-refresh hold."
               ],
               "previous_provenance": {
                 "contract": "fc-current-baseline-patch-v1",
@@ -123,16 +123,16 @@
                 "source_commit": null,
                 "source_state": "authorized_worktree_exact_sha",
                 "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-                "canonical_base_commit": "47e76130f96358d6d2d5e18067058f4c6288f5f4",
-                "canonical_sha256": "8311e714793eea59f3458463992aa84f5965ed75179030cb65b939cca597590a",
+                "canonical_base_commit": "b12cb55f9dc346dfb27980d53028f79579891bb4",
+                "canonical_sha256": "71f931a99685c95b956744c2b8f94d31eb1a072d00f43fd4f8f7b1864c450de5",
                 "target": "/opt/fs-hermes-fc/business-baseline.md",
-                "before_sha256": "08205faa2c3d7ee716bb25f109d1cb4c34be5a3a8c6b81cad1c69fb621ae4379",
-                "after_sha256": "65f19949e8baeeaf29011d227db426f34bf54071165d2baf89de8ed006062352",
-                "bytes": 57249,
-                "prior_provenance_commit": "47e76130f96358d6d2d5e18067058f4c6288f5f4",
-                "prior_provenance_sha256": "a62e9aff09e6dddf72f59a14fe5fc878a2eb807d1b2a1b7aab64b2e6488e106d",
+                "before_sha256": "65f19949e8baeeaf29011d227db426f34bf54071165d2baf89de8ed006062352",
+                "after_sha256": "1a6df0e355845110b4956a6c44f1792936511d8ad82e8669f2f23505ece30b17",
+                "bytes": 56067,
+                "prior_provenance_commit": "b12cb55f9dc346dfb27980d53028f79579891bb4",
+                "prior_provenance_sha256": "a94ea10f3f4785dab73f52f35ec6526d45427365692b57734ac65e93fd20235c",
                 "changes": [
-                  "Update only FC27 insurance to single-round +/-15% and rolling-24h +/-40%; preserve financial targets, other business rules and historical provenance."
+                  "Synchronize the Stage 5 rule conditional on the actual plan revision, weekly target evaluation, and stable Hermes reporting and pricing knowledge links."
                 ],
                 "previous_provenance": {
                   "contract": "fc-current-baseline-patch-v1",
@@ -140,16 +140,16 @@
                   "source_commit": null,
                   "source_state": "authorized_worktree_exact_sha",
                   "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-                  "canonical_base_commit": "97f178ff42a18c6fa1e4a33948afacaca12606ba",
-                  "canonical_sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
+                  "canonical_base_commit": "47e76130f96358d6d2d5e18067058f4c6288f5f4",
+                  "canonical_sha256": "8311e714793eea59f3458463992aa84f5965ed75179030cb65b939cca597590a",
                   "target": "/opt/fs-hermes-fc/business-baseline.md",
-                  "before_sha256": "9cd55ead0628b1a4d4228c4fb3643da08b301308523436d928e2d5bdadcf5579",
-                  "after_sha256": "08205faa2c3d7ee716bb25f109d1cb4c34be5a3a8c6b81cad1c69fb621ae4379",
-                  "bytes": 57154,
-                  "prior_provenance_commit": "97f178ff42a18c6fa1e4a33948afacaca12606ba",
-                  "prior_provenance_sha256": "6f52ecfa3025d1c23a01efe7e2bf53f9c7b6f3a65d6ac7789b922796c12beb30",
+                  "before_sha256": "08205faa2c3d7ee716bb25f109d1cb4c34be5a3a8c6b81cad1c69fb621ae4379",
+                  "after_sha256": "65f19949e8baeeaf29011d227db426f34bf54071165d2baf89de8ed006062352",
+                  "bytes": 57249,
+                  "prior_provenance_commit": "47e76130f96358d6d2d5e18067058f4c6288f5f4",
+                  "prior_provenance_sha256": "a62e9aff09e6dddf72f59a14fe5fc878a2eb807d1b2a1b7aab64b2e6488e106d",
                   "changes": [
-                    "Synchronize confirmed V6 discount window, market anchor, smoothed cost, insurance and weekly ladder only; preserve non-FC and historical content."
+                    "Update only FC27 insurance to single-round +/-15% and rolling-24h +/-40%; preserve financial targets, other business rules and historical provenance."
                   ],
                   "previous_provenance": {
                     "contract": "fc-current-baseline-patch-v1",
@@ -157,17 +157,35 @@
                     "source_commit": null,
                     "source_state": "authorized_worktree_exact_sha",
                     "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-                    "canonical_base_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
-                    "canonical_sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
+                    "canonical_base_commit": "97f178ff42a18c6fa1e4a33948afacaca12606ba",
+                    "canonical_sha256": "e9b091ab4a476e206d86a1fe91257d4232bc04decabfd4f527f0ce72d0560a8c",
                     "target": "/opt/fs-hermes-fc/business-baseline.md",
-                    "before_sha256": "0389965b78bc509243fa2e794dc5ce15e2ab304ff8ec5295446d6cf00296e372",
-                    "after_sha256": "12a58ebfe3f687f586b253600323ffe3bb45727ec76d8d8a29e3dae22703955e",
-                    "bytes": 55392,
-                    "prior_provenance_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
-                    "prior_provenance_sha256": "192adf34e2faf8d90f35012edd37da8a6abf68106434a7f00c24e18451d75011",
+                    "before_sha256": "9cd55ead0628b1a4d4228c4fb3643da08b301308523436d928e2d5bdadcf5579",
+                    "after_sha256": "08205faa2c3d7ee716bb25f109d1cb4c34be5a3a8c6b81cad1c69fb621ae4379",
+                    "bytes": 57154,
+                    "prior_provenance_commit": "97f178ff42a18c6fa1e4a33948afacaca12606ba",
+                    "prior_provenance_sha256": "6f52ecfa3025d1c23a01efe7e2bf53f9c7b6f3a65d6ac7789b922796c12beb30",
                     "changes": [
-                      "Separate active V6 and legacy scalar rules in existing injected baseline; retain non-FC content and historical evidence."
-                    ]
+                      "Synchronize confirmed V6 discount window, market anchor, smoothed cost, insurance and weekly ladder only; preserve non-FC and historical content."
+                    ],
+                    "previous_provenance": {
+                      "contract": "fc-current-baseline-patch-v1",
+                      "runtime_source": "releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md",
+                      "source_commit": null,
+                      "source_state": "authorized_worktree_exact_sha",
+                      "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+                      "canonical_base_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+                      "canonical_sha256": "2f9d334673c97c4e592620c101aabc9693680ba29eddd31ab03e0df3f5136952",
+                      "target": "/opt/fs-hermes-fc/business-baseline.md",
+                      "before_sha256": "0389965b78bc509243fa2e794dc5ce15e2ab304ff8ec5295446d6cf00296e372",
+                      "after_sha256": "12a58ebfe3f687f586b253600323ffe3bb45727ec76d8d8a29e3dae22703955e",
+                      "bytes": 55392,
+                      "prior_provenance_commit": "d1b364212929bbe4e3c24f58c93f508f4d9c06a3",
+                      "prior_provenance_sha256": "192adf34e2faf8d90f35012edd37da8a6abf68106434a7f00c24e18451d75011",
+                      "changes": [
+                        "Separate active V6 and legacy scalar rules in existing injected baseline; retain non-FC content and historical evidence."
+                      ]
+                    }
                   }
                 }
               }

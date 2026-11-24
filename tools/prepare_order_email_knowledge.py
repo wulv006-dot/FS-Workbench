@@ -15,6 +15,7 @@ The 100K revision also updates the existing parameter and learning rule entries.
 --fc-v61-reporting overlays the three report entries and the shared data-source
 section against their previous Git bodies, retaining the current V6 pricing entries.
 --email-only refreshes existing email entries and retains route selections and baseline.
+--customer-lifecycle refreshes the existing customer lifecycle entry and its baseline binding.
 """
 import argparse
 import copy
@@ -32,6 +33,9 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULE = 'releases/fs-dashboard/knowledge-layering-20261023'
 EMAIL = 'fs.orders.email_export'
 OVERLAYS = (EMAIL, 'fs.data.sources')
+CUSTOMER_LIFECYCLE = 'fs.customer.lifecycle'
+CUSTOMER_LIFECYCLE_REVISION = 'users-v4-maintenance-20261125-v1'
+CUSTOMER_BASELINE_PATCH = 'users-maintenance-current-baseline-patch-v1'
 SHARED_ADMIN_ES = 'fs-fc-admin-es-shared-20261113-r3'
 SHARED_BASE_RELEASE = 'fs-fc-admin-es-shared-20261113-r2'
 SHARED_BASE_COMMIT = '3110c1530ebc56a8cc51bcf56e3c2cb7d219ec49'
@@ -283,11 +287,11 @@ def write_payloads(root, payloads):
 
 
 def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=False,
-            fc_v61_reporting=False, email_only=False, fc_baseline_identity=False):
-    if sum((shared_admin_es, fc_v61, fc_v61_reporting, email_only, fc_baseline_identity)) > 1:
+            fc_v61_reporting=False, email_only=False, fc_baseline_identity=False, customer_lifecycle=False):
+    if sum((shared_admin_es, fc_v61, fc_v61_reporting, email_only, fc_baseline_identity, customer_lifecycle)) > 1:
         raise ValueError('one_knowledge_overlay_scope_required')
     fc_overlay = fc_v61 or fc_v61_reporting or fc_baseline_identity
-    preserve_routes = shared_admin_es or fc_overlay or email_only
+    preserve_routes = shared_admin_es or fc_overlay or email_only or customer_lifecycle
     root, snapshot, output = Path(root).absolute(), Path(snapshot).absolute(), Path(output).absolute()
     if not re.fullmatch('[a-f0-9]{40}', commit):
         raise ValueError('full_source_commit_required')
@@ -306,6 +310,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         overlay_ids = ()
     if email_only:
         overlay_ids = (EMAIL,)
+    if customer_lifecycle:
+        overlay_ids = (CUSTOMER_LIFECYCLE,)
     if fc_v61_reporting:
         overlay_ids = tuple(FC_V61_REPORTING_REVISIONS)
     if fc_v61 and any(r['id'] == 'fc.pricing.v3' and r['revision'] == FC_V61_100K_MARKET_REVISION
@@ -338,6 +344,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         if len(found) != 1:
             raise ValueError('canonical_current_required:' + identity)
         current[identity] = found[0]
+    if customer_lifecycle and current[CUSTOMER_LIFECYCLE]['revision'] != CUSTOMER_LIFECYCLE_REVISION:
+        raise ValueError('customer_lifecycle_revision_required')
     if margin_band_scope:
         if any(row['revision'] != constraints_revision for row in current.values()):
             raise ValueError('exact_margin_band_revisions_required')
@@ -375,13 +383,16 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
         raise ValueError('snapshot_routes_required')
     release = (FC_V61 + '-' + commit if fc_overlay else SHARED_ADMIN_ES + '-' + commit
                if shared_admin_es else 'fc-reporting-knowledge-20261105-' + commit[:8])
+    if customer_lifecycle:
+        release = CUSTOMER_LIFECYCLE_REVISION + '-' + commit
     if shared_admin_es:
         changes = shared_changes(root, commit, catalog, canonical, current)
     carnival = fc_v61 and constraints_revision == FC_V61_CARNIVAL_REVISION
     retain_baseline = email_only or carnival
     if preserve_routes:
         preflight, baseline_proof = shared_preflight(root, snapshot, commit, release,
-            allow_baseline_patch=fc_baseline_identity or fc_v61 and FC_V61_PARAMETER_ID in current,
+            allow_baseline_patch=(fc_baseline_identity or customer_lifecycle or
+                                  fc_v61 and FC_V61_PARAMETER_ID in current),
             revision=constraints_revision if fc_v61 else None, retain_baseline=retain_baseline)
         if fc_baseline_identity:
             before = bound(snapshot, 'business-baseline.md').read_bytes()
@@ -461,7 +472,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
             existing = [r for r in index['entries'] if r['id'] == identity and r['layer'] == 'current']
             if len(existing) > 1 or any(r['status'] != 'effective' for r in existing):
                 raise ValueError('snapshot_current_conflict:' + identity)
-            if (fc_overlay or email_only) and not existing:
+            if (fc_overlay or email_only or customer_lifecycle) and not existing:
                 continue
             if margin_band_scope:
                 live = existing[0]
@@ -498,7 +509,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                     raise ValueError('canonical_source_changed:' + identity)
                 content = catalog.extract(source_data.decode('utf-8-sig'), source.get('selector'))
                 overlay_root = 'overlay/'
-                if email_only:
+                if email_only or customer_lifecycle:
                     overlay_root += row['revision'] + '/'
                 if fc_v61 and (margin_band_scope or row['revision'] in (
                         FC_V61_TWO_BAND_REVISION, FC_V61_100K_MARKET_REVISION, FC_V61_ADMIN_ONLY_REVISION,
@@ -521,7 +532,7 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
                                                 live_body, previous_bodies[identity], content)
                 else:
                     source.update(path=overlay_root + canonical_path, canonical_path=canonical_path)
-                if fc_overlay or email_only:
+                if fc_overlay or email_only or customer_lifecycle:
                     shared_rows.append(dict(catalog=old_name, id=identity, previous_revision=existing[0]['revision'],
                                             previous_source_sha256=existing[0]['source']['sha256'],
                                             revision=row['revision'], source_sha256=row['source']['sha256']))
@@ -553,7 +564,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
     if (preserve_routes and not retain_baseline and not baseline_proof.get('retained_current_git')
             and baseline_proof['after_sha256'] != preflight['protected'][BASELINE_TARGET]):
         before_digest = preflight['protected'][BASELINE_TARGET]
-        baseline_patch = dict(contract='fc-v61-current-baseline-patch-v1',
+        baseline_patch = dict(contract=(CUSTOMER_BASELINE_PATCH if customer_lifecycle
+                                        else 'fc-v61-current-baseline-patch-v1'),
                               before_sha256=before_digest, after_sha256=baseline_proof['after_sha256'])
         payloads['runtime/business-baseline.md'] = git_bytes(root, commit, BASELINE_SOURCE)
         payloads['artifact/originals/business-baseline.md'] = bound(snapshot, 'business-baseline.md').read_bytes()
@@ -580,6 +592,8 @@ def prepare(root, snapshot, output, commit, *, shared_admin_es=False, fc_v61=Fal
             raise ValueError('fc_v61_existing_overlay_inventory_required')
         if email_only and not shared_rows:
             raise ValueError('email_overlay_existing_entry_required')
+        if customer_lifecycle and not shared_rows:
+            raise ValueError('customer_lifecycle_existing_entry_required')
         policy_row = next(row for row in manifest['files'] if row['candidate'] == 'runtime/knowledge-load-policy.json')
         policy_row['beforeSha256'] = sha(policy_raw)
         manifest.update(imageId=PUBLISHER_IMAGE, runtimeRequired=preflight['runtime'],
@@ -626,9 +640,11 @@ if __name__ == '__main__':
     mode.add_argument('--fc-v61-reporting', action='store_true')
     mode.add_argument('--email-only', action='store_true')
     mode.add_argument('--fc-baseline-identity', action='store_true')
+    mode.add_argument('--customer-lifecycle', action='store_true')
     args = parser.parse_args()
     print(json.dumps(prepare(ROOT, args.snapshot, args.output, args.commit,
                              shared_admin_es=args.shared_admin_es, fc_v61=args.fc_v61,
                              fc_v61_reporting=args.fc_v61_reporting, email_only=args.email_only,
-                             fc_baseline_identity=args.fc_baseline_identity),
+                             fc_baseline_identity=args.fc_baseline_identity,
+                             customer_lifecycle=args.customer_lifecycle),
                      ensure_ascii=False, indent=2))
