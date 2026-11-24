@@ -360,8 +360,19 @@ function applyChoice(c){
   if(curGame==='wow'&&c.wow)for(const [k,id] of [['region','wowRegion'],['faction','wowFaction'],['realm','wowRealm']])document.getElementById(id).value=c.wow[k];
   if(curGame==='aion2'&&c.aion){document.getElementById('aionRegion').value=c.aion.region;document.getElementById('aionFaction').value=c.aion.faction;aionSelectionChanged(true);document.getElementById('aionServer').value=c.aion.server;}
 }
-function itemWithChoice(i,c){
-  const it=gameItems().items[i];if(!it)return null;
+// Rounds store item positions only. Rounds drawn before the 2026-11-24 line-up change
+// (FC 27: 1500K coins and new players; MapleStory: 200K -> 300K Mesos) keep the products
+// the member actually drew; new rounds use the current line-up.
+const LINEUP_CHANGED_AT=Date.parse('2026-11-24T02:37:55Z');
+const LEGACY_FC27=[{"name":"100K FC 27 Coins","nameZh":"100K FC 27 金币","icon":"🪙","image":"fc27-generated-coin","price":null,"modelId":"41217957","productIds":{"ps":"163329311","xbox":"163329277","pc":"163329345"}},{"name":"500K FC 27 Coins","nameZh":"500K FC 27 金币","icon":"🪙","image":"fc27-generated-coin","price":null,"modelId":"41217957","productIds":{"ps":"163329311","xbox":"163329277","pc":"163329345"}},{"name":"1000K FC 27 Coins","nameZh":"1000K FC 27 金币","icon":"🪙","image":"fc27-generated-coin","price":null,"modelId":"41217957","productIds":{"ps":"163329311","xbox":"163329277","pc":"163329345"}},{"name":"2000K FC 27 Coins","nameZh":"2000K FC 27 金币","icon":"🪙","image":"fc27-generated-coin","price":null,"modelId":"41217957","productIds":{"ps":"163329311","xbox":"163329277","pc":"163329345"}},{"name":"Jude Bellingham","nameZh":"贝林厄姆","variant":"90 / CAM++ / Gold Non Rare","icon":"⚽","image":"assets/carnival-51becfa32612.webp","price":null,"modelId":"43167715","productIds":{"ps":"170015253","xbox":"170026713","pc":"170015257"}},{"name":"Lamine Yamal","nameZh":"亚马尔","variant":"90 / RW++ / Gold Non Rare","icon":"⚽","image":"assets/carnival-3ae22da86322.webp","price":null,"modelId":"43167713","productIds":{"ps":"170015245","xbox":"170026709","pc":"170015249"}},{"name":"Achraf Hakimi","nameZh":"哈基米","variant":"88 / RB++ / Gold Non Rare","icon":"⚽","image":"assets/carnival-a8188bbf1b8a.webp","price":null,"modelId":"43168463","productIds":{"ps":"170017913","xbox":"170025661","pc":"170017917"}},{"name":"Aitana Bonmatí Conca","nameZh":"邦马蒂","variant":"90 / CM++ / Gold Non Rare","icon":"⚽","image":"assets/carnival-410772ca7f74.webp","price":null,"modelId":"43167579","productIds":{"ps":"170015181","xbox":"170026841","pc":"170015185"}},{"name":"Ousmane Dembélé","nameZh":"登贝莱","variant":"90 / ST++ / Gold Non Rare","icon":"⚽","image":"assets/carnival-055cfa3eb65e.webp","price":null,"modelId":"43167585","productIds":{"ps":"170015205","xbox":"170026853","pc":"170015209"}}];
+function legacyItems(game){
+  if(game==='fc27')return LEGACY_FC27;
+  if(game==='maple'){const items=gameItems().items.slice();if(items[0])items[0]={...items[0],name:'200K Mesos',nameZh:'200K Mesos'};return items;}
+  return null;
+}
+const legacyRound=drawnAt=>Date.parse(drawnAt)<LINEUP_CHANGED_AT;
+function itemWithChoice(i,c,drawnAt){
+  const it=(legacyRound(drawnAt)&&legacyItems(curGame)||gameItems().items)[i];if(!it)return null;
   if(marketGames.includes(curGame))return {...it,marketChoice:c?.market||marketSelections[curGame]};
   if(curGame==='wow')return {...it,wowChoice:c?.wow||wowChoice()};
   return it;
@@ -371,7 +382,7 @@ syncMysteryCooldown=function(){msDrawsLeft=mystery[curGame]?.current?0:1;};
 restoreMysteryResult=function(){
   picked=[];revealed=null;const cur=mystery[curGame]?.current;
   if(cur){let c=null;try{c=JSON.parse(localStorage.getItem(choiceKey(curGame,cur.round))||'null');}catch{}
-    applyChoice(c);revealed=cur.picks.map(p=>({it:itemWithChoice(p.item,c),off:p.off,couponId:p.coupon_id})).filter(r=>r.it);picked=cur.picks.map(p=>p.item);}
+    applyChoice(c);revealed=cur.picks.map(p=>({it:itemWithChoice(p.item,c,cur.drawn_at),off:p.off,couponId:p.coupon_id})).filter(r=>r.it);picked=legacyRound(cur.drawn_at)&&legacyItems(curGame)?[]:cur.picks.map(p=>p.item);}
   syncMysteryCooldown();
 };
 persistMysteryProgress=function(){};
@@ -390,7 +401,7 @@ drawDeal=async function(){
   mystery[game]=j;if(curGame!==game)return;
   try{localStorage.setItem(choiceKey(game,j.current.round),JSON.stringify(choice));}catch{}
   track('fcactivity:selection',{action:'mystery_draw',ids:j.current.picks.map(p=>String(p.item))});
-  revealed=j.current.picks.map(p=>({it:itemWithChoice(p.item,choice),off:p.off,couponId:p.coupon_id}));picked=j.current.picks.map(p=>p.item);
+  revealed=j.current.picks.map(p=>({it:itemWithChoice(p.item,choice,j.current.drawn_at),off:p.off,couponId:p.coupon_id}));picked=j.current.picks.map(p=>p.item);
   syncMysteryCooldown();
   ['marketChoiceSelect','fc27Platform','wowRegion','wowFaction','wowRealm','aionRegion','aionFaction','aionServer'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=true;});
   document.getElementById('msPool').style.display='none';

@@ -207,3 +207,20 @@ test('a localized formatted price cannot be quoted as USD or reach the cart',asy
  assert.deepEqual(site.cart.adds,[]);
  assert.equal(await unavailable.isVisible(),true);
 });
+
+// Rounds keep item positions only; the 2026-11-24 FC 27 line-up change must not swap the
+// products of rounds drawn before it.
+for(const [when,clock,names] of [
+ ['before',"2026-11-23T12:00:00-05:00",['2000K FC 27 Coins','Jude Bellingham','Lamine Yamal']],
+ ['after',"2026-11-28T13:00:00-05:00",['1500K FC 27 Coins','2000K FC 27 Coins','Caroline Graham Hansen']],
+]){
+ test(`an FC 27 round drawn ${when} the line-up change shows the products it was drawn with`,async t=>{
+  const {page,carnival}=await open(t,{clock});
+  carnival.draw({uid:'123456',game:'fc27',items:[3,4,5]});
+  await page.reload();
+  await page.locator('a[href="#mystery"]').first().click();
+  await page.locator('.gtab.game-fc27').first().click();
+  for(const name of names)await page.locator('#msResult .fcard').filter({hasText:name}).first().waitFor();
+  assert.equal(await page.locator('#msResult .fcard').count(),3);
+ });
+}
