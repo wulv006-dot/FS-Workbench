@@ -88,6 +88,32 @@ class CohortWindows(unittest.TestCase):
         self.assertEqual(window['repeat_amount'], {'known_usd': '17.25', 'unknown_orders': 1})
         self.assertIsNone(window['repeat_per_customer_usd'])
 
+    def test_customer_segments_select_new_old_or_everyone_with_distinct_groups(self):
+        orders = [purchase(1, 'n', '2026-01-02'), purchase(2, 'n', '2026-01-05'),
+                  purchase(3, 'o', '2026-01-03'), purchase(4, 'o', '2026-01-04'),
+                  purchase(5, 'o2', '2026-01-06'),
+                  purchase(6, 'u', '2026-01-07'), purchase(7, 'u', '2026-01-09')]
+        hashes = {o['customer_id']: json.loads(o['body'])['order_no_hash'] for o in orders[::-1]}
+        flags = {hashes['n']: 'new', hashes['o']: 'old', hashes['o2']: 'old'}
+        query = dict(game='all', cohort_start='2026-01', cohort_end='2026-01',
+                     windows=[10], return_after=2, return_within=4)
+        jobs = [covering('2026-01-01', '2026-02-01')]
+        cutoff = stamp('2026-02-01')
+        # o buys again exactly 24h after the first order, which counts as a repeat.
+        expected = {'new': ({'n'}, 1, 1, 'cohort:2026-01:10'), 'old': ({'o', 'o2'}, 1, 1, 'cohort:old:2026-01:10'),
+                    'all': ({'n', 'o', 'o2', 'u'}, 3, 1, 'cohort:all:2026-01:10')}
+        for segment, (people, repeaters, pending, group) in expected.items():
+            with self.subTest(segment=segment):
+                result, members = analyze_cohorts(orders, jobs, query, cutoff, flags, segment=segment)
+                batch = result['batches'][0]
+                window = batch['windows'][0]
+                self.assertEqual(window['group'], group)
+                self.assertEqual(set(members[group]), people)
+                self.assertEqual((window['numerator'], window['denominator']), (repeaters, len(people)))
+                self.assertEqual(batch['pending_classification'], pending)
+        with self.assertRaises(ValueError):
+            analyze_cohorts(orders, jobs, query, cutoff, flags, segment='compare')
+
 
 class CustomerStages(unittest.TestCase):
     def test_stage_population_daily_returns_inflow_and_cross_game_use_game_thresholds(self):
@@ -123,6 +149,17 @@ class CustomerStages(unittest.TestCase):
 
 
 class V4Snapshot(unittest.TestCase):
+    def test_cohort_type_defaults_to_new_and_rejects_unknown_values(self):
+        from user_query_v4 import selection
+
+        config = dict(projects={'1327': {'label': 'FC27'}}, history_backfill_start='2026-01-01T00:00:00+08:00')
+        cutoff = stamp('2026-11-24')
+        self.assertEqual(selection({}, config, cutoff)['cohort_type'], 'new')
+        for value in ('old', 'all', 'compare'):
+            self.assertEqual(selection({'cohort_type': value}, config, cutoff)['cohort_type'], value)
+        with self.assertRaisesRegex(ValueError, 'v4_cohort_type'):
+            selection({'cohort_type': 'everyone'}, config, cutoff)
+
     def test_frozen_result_is_shared_and_a_retired_snapshot_cannot_be_reinterpreted(self):
         from unittest.mock import Mock
         from user_query import Service
