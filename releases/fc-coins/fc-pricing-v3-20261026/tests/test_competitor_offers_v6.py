@@ -476,7 +476,7 @@ class CompetitorOffersV6(unittest.TestCase):
         def read(node, request, started):
             source = request['source']
             if source == 'U4GM':
-                return dict(request, offers=[], errors=['http_403'])
+                return dict(request, offers=[], errors=['http_403'] if node == '187' else ['browser_snapshot_unavailable'])
             offers = [raw(q, source=source, run_id=run_id, platform=p) for p,q in request['wanted']]
             return dict(request, offers=offers, errors=[])
         with tempfile.TemporaryDirectory() as folder:
@@ -485,11 +485,12 @@ class CompetitorOffersV6(unittest.TestCase):
             with patch.object(runtime,'ledger',return_value=db),patch('fc_collection.package_routes.read_node',side_effect=read) as reader:
                 result=observations.observe(run_id)
                 self.assertEqual(observations.observe(run_id),result)
-            self.assertEqual(reader.call_count,2)
+            self.assertEqual(reader.call_count,3)
             self.assertEqual(result['package_status']['IGGM']['status'],'captured')
             self.assertEqual(result['package_status']['U4GM']['status'],'missing')
             market = _curve_market_quotes(dict(snapshot, snapshot_id=run_id), result)
-            attempt, = market['monitoring_attempts']['U4GM']
+            attempt, cached = market['monitoring_attempts']['U4GM']
+            self.assertEqual(cached['node'], 'local')
             self.assertEqual((attempt['node'], attempt['response_received'], attempt['errors']), ('187', True, ['http_403']))
             self.assertIn(['PC', '1000'], attempt['requested'])
             self.assertEqual(attempt['accepted'], [])
