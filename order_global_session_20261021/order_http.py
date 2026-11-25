@@ -6,6 +6,7 @@ from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 import json
 import re
+from threading import Lock
 from time import monotonic
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit
@@ -94,9 +95,17 @@ def form_values(root):
     for node in root.find('select'):
         key = node.attrs.get('id') or node.attrs.get('name')
         options = list(node.find('option'))
-        if key and options:
-            option = next((item for item in options if 'selected' in item.attrs), options[0])
-            value = option.attrs.get('value', option.text().strip())
+        if key:
+            selected = [item for item in options if 'selected' in item.attrs]
+            choices = tuple(item.attrs.get('value', item.text().strip()) for item in selected)
+            if 'multiple' in node.attrs:
+                value = choices
+            elif choices:
+                value = choices[0]
+            elif options:
+                value = options[0].attrs.get('value', options[0].text().strip())
+            else:
+                value = ''
             values[key] = value
             if node.attrs.get('name'):
                 values[node.attrs['name']] = value
@@ -194,35 +203,45 @@ class OrderHTTP:
     def __init__(self, fetch=None):
         self._fetch = fetch
         self._opener = None
+        self._session_lock = Lock()
 
-    def _request(self, path, timeout):
-        if self._fetch is not None:
-            return self._fetch(path, timeout)
-        if self._opener is None:
-            from fs_order_client import fill_jar
-            jar = CookieJar()
-            fill_jar(jar)
-            self._opener = build_opener(ProxyHandler({}), HTTPCookieProcessor(jar), NoRedirect())
-        with self._opener.open(BASE + path, timeout=timeout) as response:
-            return response.geturl(), response.read()
+    def _shared_opener(self):
+        with self._session_lock:
+            if self._opener is None:
+                from fs_order_client import fill_jar
+                jar = CookieJar()
+                fill_jar(jar)
+                self._opener = build_opener(ProxyHandler({}), HTTPCookieProcessor(jar), NoRedirect())
+            return self._opener
 
     def _document(self, path, timeout):
-        url, raw = self._request(path, timeout)
+        opener = self._shared_opener() if self._fetch is None else None
         try:
-            root = Document(raw.decode('utf-8-sig')).root
-        except UnicodeError as exc:
-            raise OrderReadError('response_encoding_invalid') from exc
-        if (login_url(url) or any(node.attrs.get('type', '').lower() == 'password'
-                                 or node.attrs.get('name') == 'password'
-                                 for node in root.find('input'))
-                or any('dologin' in node.attrs.get('action', '')
-                       for node in root.find('form'))):
-            raise OrderReadError('login_lost')
-        return root, raw, url
+            if opener is None:
+                url, raw = self._fetch(path, timeout)
+            else:
+                with opener.open(BASE + path, timeout=timeout) as response:
+                    url, raw = response.geturl(), response.read()
+            try:
+                root = Document(raw.decode('utf-8-sig')).root
+            except UnicodeError as exc:
+                raise OrderReadError('response_encoding_invalid') from exc
+            if (login_url(url) or any(node.attrs.get('type', '').lower() == 'password'
+                                     or node.attrs.get('name') == 'password'
+                                     for node in root.find('input'))
+                    or any('dologin' in node.attrs.get('action', '') for node in root.find('form'))):
+                raise OrderReadError('login_lost')
+            return root, raw, url
+        except OrderReadError as exc:
+            if str(exc) == 'login_lost' and opener is not None:
+                with self._session_lock:
+                    if self._opener is opener:
+                        self._opener = None
+            raise
 
     def delivery_page(self, query, *, timeout):
         number = int(query.get('page', 1))
-        root, raw, url = self._document(DELIVERY + '?' + urlencode(dict(query, page=number)), timeout)
+        root, raw, url = self._document(DELIVERY + '?' + urlencode(dict(query, page=number), doseq=True), timeout)
         if parse_qs(urlsplit(url).query).get('page') != [str(number)]:
             raise OrderReadError('delivery_page_unverified')
         table = next(root.find('table', 'table-list'), None)
@@ -269,8 +288,8 @@ class OrderHTTP:
             if exc.code == 404:
                 return DetailResult('not_found')
             return DetailResult('parse_failed', reason=f'http_{exc.code}')
-        except (TimeoutError, URLError) as exc:
-            if isinstance(exc, TimeoutError) or isinstance(exc.reason, TimeoutError):
+        except OSError as exc:
+            if isinstance(exc, TimeoutError) or (isinstance(exc, URLError) and isinstance(exc.reason, TimeoutError)):
                 return DetailResult('timeout')
             return DetailResult('parse_failed', reason='transport_error')
         except OrderReadError as exc:
@@ -280,7 +299,7 @@ class OrderHTTP:
             return DetailResult('parse_failed', reason='detail_payload_invalid')
 
     def shipping_stats(self, filters, *, timeout=35):
-        root, raw, _ = self._document(STATS + '?' + urlencode(filters), timeout)
+        root, raw, _ = self._document(STATS + '?' + urlencode(filters, doseq=True), timeout)
         tables = [table for table in root.find('table')
                   if any(node.text().strip() == '订单总数' for node in table.find('th'))]
         if len(tables) != 1:
