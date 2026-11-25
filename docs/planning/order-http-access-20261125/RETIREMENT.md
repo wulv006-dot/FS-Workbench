@@ -1,17 +1,27 @@
-# Order 浏览器路径退役盘点（5A）
+# Order 浏览器路径退役盘点（阶段 5）
 
-基线 `1b724d1b`，187 只读取证于 2026-11-25。**本轮没有组件达到可退役证据要求。**
+187 只读取证于 2026-11-25 上海时间。仓库基线 `f5f1776f1e2806e3e52be5587986a45f84105973`（#1373）。前次盘点保留在 Git 历史。
 
-| 组件 | 判定及证据 |
-| --- | --- |
-| `price_writer.py` 旧标量 DOM 路径 | **暂不可退役。** 现役 V6.1 合同在 `docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md:35,96` 使用 Admin 完整价表。旧标量仍有独立合同（`AGENTS.md:3`），仓库 `releases/fc-coins/fc-pricing-v3-20261026/source/price_writer.py:151–220,471` 保有 Order DOM 实现，`execute_price.sh:27,45` 和 `reconcile_price.sh:19,39` 保有 CDP 及 DOM 挂载。187 coordinator active，目标文件哈希 `9a3ea3c6…`。活跃旧标量计划、在途请求、原 ID UNKNOWN 和 Hermes/API 的现网可达性均未核。 |
-| `fc27_cloud_browser/repricing_dom.js` | **暂不可退役。** 执行与对账沿上述挂载，`fc27_cloud_browser/preview_backend.py:39,46` 和 `restore_price.sh:23` 还有预览与恢复引用。发布来源见 `docs/collaboration/SOURCE-MAP.json:1371–1376`。187 目标存在（`b704dd17…`）。活跃预览/恢复入口的路由和调用频率未核，须随旧标量逐项解除。 |
-| `range_primary_reader` | **证据不足。** 映射 `docs/planning/business-shipping-profit-20261024/ACTIVE-SOURCE-MAP.json:129–133`，187 目标存在（`4b599c31…`）且第 14 行导入 Playwright。187 `fs-transaction-collect.timer` 每 120 分钟 active，范围服务亦 active。静态查找直接 Python import 无命中，尚缺定时单元到实际读取器的调用证明、HTTP/Hermes/MCP 动态分派及失败回退核验。 |
-| `fc_order_reader` | **证据不足。** FC 导航发布要求带此文件（`releases/fc-coins/fc-pricing-v3-20261026/deploy/release_navigation_base.py:150,403`）。187 文件存在（`72f251f7…`），第 15–16 行导入 Playwright 和诊断模块，现网 `range_api.py:281` 导入诊断入口。静态查找直接 Python import 无命中，尚缺诊断到该读取器的实际运行路径、Hermes/MCP 按需注册、定时与回退读回。 |
-| 成本容器的 `FC27_CDP_ENDPOINT` | **暂不可退役。** 187 coordinator 与浏览器容器 active，已见成本目标（`9a61aa4c…`）和 cost image。`releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh:11–18` 明确设 CDP，现有采集源码在页内读取发货及订单详情。阶段 2 按用户 2026-11-25 决定直接切换到 HTTP（不做影子比对），包装脚本随切换去掉 CDP；切换部署后核对一次三平台真实自然轮，保留原版本可回发。187 进程在取证时点是否正在采集未判定。 |
+**事务定时采集仍要求 `fs-order-browser` 在线，本轮保留容器。** P0 成本采集自己的 CDP 依赖已随此前 HTTP 发布退役。阶段 3B 的发货统计与渠道成本已切换，事务快照、原生范围及问题订单深查另有运行路径。
+
+| 对象 | 阶段 5 判定 | 证据 |
+| --- | --- | --- |
+| `fs-order-browser` | **保留** | 187 容器在运行。`fs-transaction-collect.timer` 每 120 分钟调度 `/opt/fs-transaction-snapshot/collector.py`。其 `order_call` 为主源、类目、利润三类脚本调用 `order_reader_runner.run`。runner 检查容器 Running 状态，从其镜像启动短命读取器，并复用该容器网络命名空间访问 CDP。上轮 14:09 启动，journal 记录 `success` 和快照 `20261125T062039Z-a8ec38aa682bee64`。现役范围 API 也在 `fc27-categories` 分支调用这条 runner 路径。指定 systemd、cron 和 Nginx 配置中未找到容器名的直接引用，已通过应用分派确认间接依赖。 |
+| `/opt/fs-order-session/raw_node_helper.js` | **保留作旧版回退依赖** | 现役 HTTP `service.py` 无 helper 调用。五份浏览器版回退 `service.py`（`/var/backups/order-http-20261125T031300Z/` 至 `order-http-20261125T045400Z/`）仍引用 helper 与 `fs-order-browser`，最近两份 HTTP 回退不引用。保留旧恢复材料与其依赖。本基线 Git 仅在交付文档中提及 helper，未找到待撤的活动发布映射。 |
+| `fc27-cloud-cost:1` 的 CDP 依赖 | **已退役（此前发布）** | 现役 `collect_p2pah_cost.sh` 使用同一成本镜像，挂载 HTTP 会话模块和 socket，无 `FC27_CDP_ENDPOINT`、9225 或 9226；`collect_p2pah_cost.py` 导入 `OrderHTTP`，无 Playwright/CDP 读取。187 文件 SHA-256 前缀分别为 `3ed23e6e88b2`、`d97f22b8494c`。发布备份 `/var/backups/fs-navigation-20261006/nav-20261125T062730Z/` 仍在，15:15 自然轮结果见 [交付记录](DELIVERY.md)。列表正常单免详情复核由独立 PR 负责。 |
+| `price_writer.py` 旧标量分支、`repricing_dom.js` | **保留** | 187 现役 coordinator 的适配器仍调用 `execute_price.sh`、`reconcile_price.sh`，旧标量复核会调用 `preview_backend.sh`。部署侧的 `restore_price.sh`、`preview_backend.sh` 同样挂载 DOM 模块。旧 worker 提供对应任务分派，服务 active。本轮已核运行计划、在途和 UNKNOWN 聚合状态，旧入口的实际按需调用频率和退场条件仍待核。 |
+| `range_primary_reader`（含发布副本） | **保留** | 187 `/opt/fs-exact-range-20261001/range_api.py:52` 通过 `Path.read_bytes()` 载入读取器并将程序传入 `fc27-cloud-browser`，用于原生范围主源读取。模块接入共享会话并通过 Playwright/CDP 取数。当前 FS MCP 目录仍公开 `business.native_range`。活动映射保留，见 [发货利润来源映射](../business-shipping-profit-20261024/ACTIVE-SOURCE-MAP.json)。 |
+| `fc_order_reader` | **保留** | 187 `range_api.py:281–290` 将问题单诊断交给 DeepService 和可选 Hermes 控制器。`fc_order_diagnostics.py:88` 在缓存失效时动态载入该文件，经 `fc27-cloud-browser` 执行。Hermes 能力目录中也有文件读取引用。当前 FS MCP 目录未见对应的独立问题单诊断 operation。保留 [导航发布器映射](../../../releases/fc-coins/fc-pricing-v3-20261026/deploy/release_navigation_base.py)。 |
+| `fc27-cloud-browser` 对 Order 的使用 | **保留** | 现役原生范围和深查读取仍使用该容器。宿主 `127.0.0.1:9225` 映射至该容器的 9226，竞品采集也使用此端点。竞品浏览器整体不在退役范围。 |
 
 ## 旧标量原操作
 
-按根 `AGENTS.md` 的 2026-11-10 AI 执行入口规则，在途、现态缺失或新 UNKNOWN 沿原 ID 对账。历史 UNKNOWN 如有同一商品、已结束原任务、后续真实 Admin 现态和时间的有效覆盖，退出当前阻断，原账本历史继续保留。本次只读取服务、源码和哈希，未取得可关联的原 ID 与覆盖证据。活跃新旧计划数、在途数和未覆盖 UNKNOWN 数均为未知。服务活跃仅证明宿主入口在运行。独立原回执观察入口 `fs-pricing-alerts.path` 与 timer 在 187 均 active，未读取业务回执。
+- 定价 V3 账本 `/var/lib/fc27-cloud/v3/control.sqlite3` 以 SQLite 只读事务统计。两个旧标量计划的状态字段仍为 `ACTIVE`，其资源所有权均为空。单一 V6 计划持有全部六个资源。旧标量 346 条操作中，232 条 `COMPLETED`、111 条 `NO_CHANGE`、3 条 `CANCELLED_NOT_SENT`。该账本无资源租约、无在途定价操作、无 `UNKNOWN` 状态，另有一项 `outcomes` 汇总任务排队。
+- 旧 worker 的 `/var/lib/fc27-cloud/queue` 为空，jobs 未见 queued/running。其 `executions` 状态聚合未见 `UNKNOWN`。另见 3 个历史 `interrupted` job，本次未逐 ID 关联执行结果或后续真实 Admin 现态，不能将这些 job 认定为已经覆盖的历史 UNKNOWN。任何后续从其他历史来源发现的 UNKNOWN 仍按 AGENTS.md 核同商品、真实 Admin 现态及时间、原任务终态。
+- `fs-pricing-alerts.path` 和 timer 均 active，现役 `pricing_probe.py:318` 还读取独立 Order 容器内存。`browser_lifecycle.py:178–182` 仍依赖原隔离记录及会话源码 SHA。本轮保留监控及回退关系。
 
-187 证据取自 `systemctl list-units/list-timers`、`systemctl show`、固定源码路径的 `grep` 与 `sha256sum`、`docker ps` 及镜像非敏感字段。按需调用和回退只核了可见代码与发布映射，真实入口调用未执行。
+## 生产操作与验收
+
+- 187 会话 `/health` 只读回 `ready=true`、`last_error=null`、`login_attempts=1`、`sessions_lost_externally=0`。销售定时任务 15:14:21 退出码为 0，状态 API 返回生成时间 15:14:20。销售状态 API 不返回 `order_alive`，此前单独的 `order_alive` 读回见 [交付记录](DELIVERY.md)。
+- 本轮无生产变更，阶段 5 备份目录未创建。容器和文件保留，未禁用调度，现存历史回退及发布映射继续保留。
+- 15:15 P0 自然轮及已验的 HTTP 消费者沿用 #1373 证据。本轮没有退役后自然轮，未触发采集、登录、改价或深查作业。再次评估容器退役前，须先消除事务定时读取器和范围类目对容器的直接运行依赖，并验证替代链路及回退。
