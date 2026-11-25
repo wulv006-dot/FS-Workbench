@@ -1,7 +1,12 @@
+import ast
 import importlib.util
 import json
 from pathlib import Path
+import sys
+import tempfile
+import types
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timezone, timedelta
 
 spec=importlib.util.spec_from_file_location('pricing_probe',Path(__file__).parent/'source/pricing_probe.py')
@@ -103,5 +108,46 @@ class Receipts(unittest.TestCase):
         mem=dict(running=True,usage_bytes=500000000,restart_count=0,started_at='old',oom_killed=False)
         value=P.collect(now,{},[],dict(status='healthy'),[],mem,lifecycle=dict(transport_failed_at=now.timestamp()))
         self.assertEqual(value['issues'],['fc_pricing_actual_browser_connection_failed'])
+    def test_main_does_not_probe_retired_order_browser(self):
+        source=(Path(__file__).parent/'source/pricing_probe.py').read_text(encoding='utf-8')
+        ast.parse(source,feature_version=(3,9))
+        self.assertFalse(hasattr(P,'add_order_memory'))
+        self.assertNotIn('fs-order-browser',source)
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            state=root/'state';profile=root/'profile'
+            state.mkdir();profile.mkdir()
+            (state/'legacy-baseline.json').write_text(json.dumps({'job_ids':[]}),encoding='utf-8')
+            written={}
+            collector=types.ModuleType('collector')
+            collector.probe=lambda:dict(status='healthy',issues=[])
+            def atomic(path,value):
+                path.parent.mkdir(parents=True,exist_ok=True)
+                path.write_text(json.dumps(value),encoding='utf-8')
+                written[str(path)]=value
+            collector.atomic=atomic
+            common=types.ModuleType('common')
+            common.assess=lambda raw,now:[]
+            fcntl=types.ModuleType('fcntl')
+            fcntl.LOCK_EX,fcntl.LOCK_NB=2,4
+            fcntl.flock=lambda *args:None
+            inspected=[]
+            def fake_memory(container='fc27-cloud-browser'):
+                inspected.append(container)
+                return dict(id='a'*64,running=True,usage_bytes=500000000,rss_bytes=200000000,
+                            cache_bytes=100000000,limit=2*1024*1024*1024,restart_count=0,
+                            started_at='2026-11-25T00:00:00+00:00',oom_killed=False)
+            done=types.SimpleNamespace(returncode=0,stdout='{"state":"unchanged_quiet"}',stderr='')
+            with patch.dict(sys.modules,{'collector':collector,'common':common,'fcntl':fcntl}), \
+                 patch.object(P,'STATE',state),patch.object(P,'PROFILE',profile), \
+                 patch.object(P,'rpg_rows',return_value=[]), \
+                 patch.object(P,'browser_memory',side_effect=fake_memory), \
+                 patch.object(P,'owner_price_review',return_value=([],{})), \
+                 patch.object(P.subprocess,'run',return_value=done):
+                P.main()
+            self.assertEqual(inspected,['fc27-cloud-browser'])
+            snapshot=written[str(profile/'pricing-snapshot.json')]
+            self.assertEqual(snapshot['issues'],[])
+            self.assertNotIn('order_memory',snapshot)
 
 if __name__=='__main__':unittest.main()
