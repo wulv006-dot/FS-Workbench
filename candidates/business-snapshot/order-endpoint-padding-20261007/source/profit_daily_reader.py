@@ -96,7 +96,6 @@ def read_one(reader,item,timeout_ms):
     filters={'status':item.get('status',''),'gid':str(item['gid']),'tid':item.get('tid',''),
              'start_paytime':item['start'],'end_paytime':item['end']}
     raw=reader.native_order_stats(filters,timeout=timeout_ms/1000)
-    if raw['filters']!=filters:raise ValueError('primary_filter_mismatch')
     if len(raw['names']) < 5 or not ('订单数量' in raw['names'][0] and '订单金额' in raw['names'][1]):raise ValueError('primary_metric_labels_mismatch')
     orders=number(raw['metrics'][0],True);sales=number(raw['metrics'][1]);avg=number(raw['metrics'][4])
     if orders and abs(sales/orders-avg)>.031:raise ValueError('primary_average_mismatch')
@@ -148,5 +147,7 @@ if __name__=='__main__':
     from order_http import OrderHTTP
     payload=json.loads(sys.argv[1]);wanted,budget=validate_requests(payload)
     started=time.monotonic();deadline=started+budget-10
-    results=collect_bounded(OrderHTTP(),wanted,deadline)
+    reader=OrderHTTP()
+    reader.acquire_session(timeout=min(40,budget-10))
+    results=collect_bounded(reader,wanted,deadline)
     print(json.dumps(results,ensure_ascii=False,allow_nan=False))

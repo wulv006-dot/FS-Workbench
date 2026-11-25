@@ -13,8 +13,10 @@ SAFE_REASONS = {'source_login_or_page', 'source_filter_contract', 'source_scope_
 
 
 def run(capability=None, *, reader=None):
-    reader = reader if reader is not None else OrderHTTP()
     deadline = time.monotonic() + 105
+    if reader is None:
+        reader = OrderHTTP()
+        reader.acquire_session()
     rows, samples, errors = [], [], []
     pages, has_more = 0, None
     for page in range(1, (capability['pages'] if capability else 3) + 1):

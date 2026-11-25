@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import re
 import socket
+import subprocess
 from threading import Barrier, Event, Thread
 from time import monotonic, sleep
 from urllib.error import HTTPError, URLError
@@ -49,7 +50,7 @@ class OrderHTTPTests(unittest.TestCase):
           var option = {
             title: {text: '订单数量和金额'},
             legend: {data: ['订单数', '订单金额']},
-            xAxis: {type: 'category', data: ["2026-11-24 08"] // displayed bucket
+            xAxis: {type: 'category', data: ['2026-11-24 08'] // displayed bucket
             },
             tooltip: {formatter: function (data) { return data[0].value; }},
             series: [
@@ -117,6 +118,36 @@ class OrderHTTPTests(unittest.TestCase):
         self.assertNotIn('PRIVATE', str(events))
         self.assertNotIn('等待客户回复', str(events))
 
+        for body in (order_list.split('<tbody>', 1)[0] + '<tbody>',
+                     order_list.replace('<td>Coins</td>', '', 1),
+                     order_list.replace('<tbody>', '').replace('</tbody>', '')):
+            invalid = OrderHTTP(lambda path, timeout: (path, body.encode()))
+            with self.assertRaisesRegex(ValueError, 'source_filter_contract'):
+                invalid.problem_order_page(1, timeout=1)
+        empty = re.sub(r'<tbody>.*?</tbody>', '<tbody><tr><td colspan="13">暂无数据</td></tr></tbody>',
+                       order_list, flags=re.S).split('<ul class="pagination"', 1)[0]
+        valid = OrderHTTP(lambda path, timeout: (path, empty.encode()))
+        self.assertEqual(valid.problem_order_page(1, timeout=1), ([], False))
+
+    def test_sanitized_native_stats_fixture_preserves_aggregate_and_chart_fields(self):
+        raw = (Path(__file__).with_name('fixtures') / 'real_native_order_stats.html').read_bytes()
+        filters = dict(status='', gid='1322', aid='0', tid='1',
+                       start_paytime='2026-11-24 00:00', end_paytime='2026-11-25 00:00')
+        reader = OrderHTTP(lambda path, timeout: (path, raw))
+        result = reader.native_order_stats(filters, timeout=1)
+        self.assertEqual(result['filters'], filters)
+        self.assertEqual(result['metrics'][:5], ['3', '$24.00', '$8.00', '$8.00', '$8.00'])
+        labelled = dict(zip(result['names'], result['metrics']))
+        self.assertEqual(labelled['12.50%利润率'], '12.50%')
+        self.assertEqual(labelled['100.00%发货完成率'], '100.00%')
+        self.assertEqual([chart['title'][0] for chart in result['charts']],
+                         ['订单数量和金额', '来源', '订单状态', '产品类型'])
+        self.assertEqual(result['charts'][0], {
+            'title': ['订单数量和金额'], 'labels': ['2026-11-24 00', '2026-11-25 00'],
+            'series': [{'name': '订单数', 'data': [3, 0]},
+                       {'name': '订单金额', 'data': ['24.00', 0]}],
+        })
+
     def test_remaining_consumer_manifest_pins_sources_and_range_overlay(self):
         from prepare_remaining_readers import prepare_range_api
 
@@ -162,6 +193,17 @@ class OrderHTTPTests(unittest.TestCase):
         mismatched = OrderHTTP(lambda path, timeout: (path, b'<form><input name="gid" value="0"></form>'))
         with self.assertRaisesRegex(ValueError, 'primary_filter_mismatch'):
             mismatched.native_order_stats({'gid': '1322'}, timeout=1)
+
+    def test_session_is_acquired_before_a_batch_and_reused(self):
+        broker = SimpleNamespace(fill_jar=Mock(side_effect=RuntimeError('global_order_unavailable:transport:timeout')))
+        reader = OrderHTTP()
+        with patch.dict('sys.modules', {'fs_order_client': broker}):
+            with self.assertRaisesRegex(RuntimeError, '^global_order_unavailable$'):
+                reader.acquire_session(timeout=1)
+            broker.fill_jar.side_effect = None
+            reader.acquire_session(timeout=1)
+            reader.acquire_session(timeout=1)
+        self.assertEqual(broker.fill_jar.call_count, 2)
 
     def test_dashboard_shipping_preserves_single_selection_and_nested_text(self):
         body = shipping_fixture(
@@ -234,7 +276,12 @@ class OrderHTTPTests(unittest.TestCase):
             '/opt/sales-dashboard/collector/fetch_all.py',
         })
         for row in release['files'] + consumers['files']:
-            data = (root / row['source']).read_bytes().replace(b'\r\n', b'\n')
+            if row['source'] == reader['source']:
+                # Phase 3B remains tied to the last released version of the shared reader.
+                ref = '961e43083f5580658070bf34dff82cfe7a4d3b8f'
+                data = subprocess.check_output(['git', 'show', f"{ref}:{row['source']}"], cwd=root)
+            else:
+                data = (root / row['source']).read_bytes().replace(b'\r\n', b'\n')
             self.assertEqual(sha256(data).hexdigest(), row['sha256'], row['source'])
 
     def test_http_reads_bound_compressed_and_decoded_responses(self):

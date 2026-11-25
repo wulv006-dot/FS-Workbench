@@ -21,7 +21,6 @@ def collect(requests, reader):
                  'start_paytime':item['start'],'end_paytime':item['end']}
         timeout = 180 if item['start'][:10] != item['end'][:10] else 45
         raw = reader.native_order_stats(filters, timeout=timeout)
-        if raw['filters']!=filters:raise ValueError('primary_filter_mismatch')
         if len(raw['names']) < 5 or not ('订单数量' in raw['names'][0] and '订单金额' in raw['names'][1]):raise ValueError('primary_metric_labels_mismatch')
         orders=number(raw['metrics'][0],True);sales=number(raw['metrics'][1]);avg=number(raw['metrics'][4])
         if orders and abs(sales/orders-avg)>.031:raise ValueError('primary_average_mismatch')
@@ -54,4 +53,7 @@ def collect(requests, reader):
 
 if __name__ == '__main__':
     requests = json.loads(sys.argv[1])
-    print(json.dumps(collect(requests, OrderHTTP()), ensure_ascii=False, allow_nan=False))
+    reader = OrderHTTP()
+    if requests:
+        reader.acquire_session()
+    print(json.dumps(collect(requests, reader), ensure_ascii=False, allow_nan=False))

@@ -18,7 +18,6 @@ def read(reader,item,deadline):
  if remaining<5000:raise ValueError('primary_batch_budget_exhausted')
  filters={'status':'','gid':'1322','aid':'0','tid':str(item.get('tid','')),'start_paytime':item['start'],'end_paytime':item['end']}
  raw=reader.native_order_stats(filters,timeout=min(45,remaining/1000))
- if raw['filters']!=filters:raise ValueError('primary_filter_mismatch')
  if len(raw['names']) < 5 or not ('订单数量' in raw['names'][0] and '订单金额' in raw['names'][1]):raise ValueError('primary_metric_labels_mismatch')
  orders=number(raw['metrics'][0],True);sales=number(raw['metrics'][1]);avg=number(raw['metrics'][4])
  if orders and abs(sales/orders-avg)>.031:raise ValueError('primary_average_mismatch')
@@ -50,6 +49,7 @@ def main():
  budget=min(540,max(20,int(requests[0].get('batchBudgetSeconds',540)))) if requests else 20
  deadline=time.monotonic()+budget
  reader=OrderHTTP()
+ if requests:reader.acquire_session(timeout=min(40,budget))
  for item in requests:
   try:results[item['key']]=read(reader,item,deadline)
   except Exception as e:

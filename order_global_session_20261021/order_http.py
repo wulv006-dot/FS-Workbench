@@ -456,13 +456,25 @@ def _chart_string(value):
         text = json.loads(value)
         if isinstance(text, str):
             return text
-    if re.fullmatch(r"'[^'\\]*'", value):
-        return value[1:-1]
+    single = re.fullmatch(r"'((?:\\.|[^'\\])*)'", value, re.S)
+    if single:
+        def escape(token):
+            return {"\\'": "'", '"': '\\"'}.get(token[0], token[0])
+        return json.loads('"' + re.sub(r'\\.|"', escape, single[1], flags=re.S) + '"')
     raise ValueError('chart_string_unverified')
 
 
 def _chart_array(source):
-    data, end = json.JSONDecoder().raw_decode(source)
+    decoder = json.JSONDecoder()
+    try:
+        data, end = decoder.raw_decode(source)
+    except json.JSONDecodeError:
+        source = _JS_TOKEN.sub(
+            lambda token: json.dumps(_chart_string(token[0]))
+            if token.lastgroup == 'string' and token[0].startswith("'") else token[0],
+            source,
+        )
+        data, end = decoder.raw_decode(source)
     tail = source[end:]
     if not isinstance(data, list) or not re.fullmatch(r'(?:\s|//[^\n]*|/\*.*?\*/)*', tail, re.S):
         raise ValueError('chart_data_unverified')
@@ -562,6 +574,17 @@ class OrderHTTP:
                 self._transport = OrderTransport(jar)
             return self._transport
 
+    def acquire_session(self, *, timeout=40):
+        """Prepare one broker session before a bounded batch starts emitting results."""
+        if self._fetch is not None:
+            return
+        try:
+            self._shared_transport(monotonic() + timeout)
+        except OrderReadError as exc:
+            if str(exc).partition(':')[0] == 'global_order_unavailable':
+                raise RuntimeError('global_order_unavailable') from exc
+            raise
+
     def _document(self, path, timeout):
         deadline = monotonic() + timeout
         transport = self._shared_transport(deadline) if self._fetch is None else None
@@ -660,14 +683,16 @@ class OrderHTTP:
                 table = candidate
                 break
         if (table is None or headers not in (PROBLEM_HEADERS, PROBLEM_HEADERS[:-1] + ['Actions'])
-                or selected != {key: [value] for key, value in filters.items()}):
+                or selected != {key: [value] for key, value in filters.items()}
+                or next(table.find('tbody'), None) is None):
             raise ValueError('source_filter_contract')
+        try:
+            _, records, _ = table_rows(table)
+        except OrderReadError as exc:
+            raise ValueError('source_filter_contract') from exc
 
         rows = []
-        for row in table_body_rows(table):
-            cells = row.direct('td')
-            if len(cells) != len(PROBLEM_HEADERS):
-                continue
+        for cells in records:
             order_id = cells[1].text().strip()
             game = cells[3].text().strip()
             source = cells[2].text()
@@ -698,28 +723,31 @@ class OrderHTTP:
         root = self._read_order_page(DETAIL.format(order_id), 'detail_unavailable', timeout)
         table = next((table for table in root.find('table')
                       if [th.text().strip() for th in table.find('th')] == PROBLEM_LOG_HEADERS), None)
-        if table is None:
+        if table is None or not table.closed:
             raise ValueError('detail_unavailable')
-        return root, list(table.find('tr'))[1:]
+        rows = list(table.find('tr'))[1:]
+        logs = [(cells[0], cells[1].text().strip(), cells[3].text().strip(), cells[4])
+                for row in rows[:100] if len(cells := row.direct('td')) == 5]
+        return root, len(rows), logs
 
     def problem_order_logs(self, order_id, *, timeout):
         """Return the transient log fields used by the existing clue classifier."""
-        _, rows = self._problem_order_detail(order_id, timeout)
-        return [{'time': cells[1].text().strip(), 'status': cells[3].text().strip(),
-                 'content': cells[4].text()[:4000]}
-                for row in rows[:100] if len(cells := row.direct('td')) == 5]
+        _, _, logs = self._problem_order_detail(order_id, timeout)
+        # The browser used String.slice(0, 4000), counted in UTF-16 code units.
+        return [{'time': stamp, 'status': status, 'content':
+                 content.text().encode('utf-16-le')[:8000].decode('utf-16-le', 'surrogatepass')}
+                for _, stamp, status, content in logs]
 
     def problem_order_events(self, order_id, *, timeout):
         """Return the Hermes event projection without customer or log content."""
-        root, rows = self._problem_order_detail(order_id, timeout)
+        root, event_count, logs = self._problem_order_detail(order_id, timeout)
         items = [row for row in root.find('tr', 'jq-each-cg')
                  if all('data-' + key in row.attrs for key in ('gid', 'aid', 'cid'))]
         fields = ('gid', 'aid', 'cid', 'pid', 'qty', 'used', 'unit', 'currency')
-        return {'item_count': len(items), 'event_count': len(rows),
+        return {'item_count': len(items), 'event_count': event_count,
                 'items': [{key: row.attrs.get('data-' + key) for key in fields} for row in items[:20]],
-                'events': [{'id': cells[0].text().strip(), 'time': cells[1].text().strip(),
-                            'status': cells[3].text().strip()}
-                           for row in rows[:100] if len(cells := row.direct('td')) == 5]}
+                'events': [{'id': event_id.text().strip(), 'time': stamp, 'status': status}
+                           for event_id, stamp, status, _ in logs]}
 
     def dashboard_shipping(self, filters, *, timeout, reject_pagination=True):
         # The dashboard projects its exact six-column layout and single-site controls.
