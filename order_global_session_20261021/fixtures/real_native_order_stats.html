@@ -1,0 +1,42 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- 187 native Order statistics. All business values and sources replaced. -->
+<form>
+<select name="status"><option selected value="">Fixture</option></select>
+<select name="gid"><option selected value="1322">Fixture</option></select>
+<select name="aid"><option selected value="0">Fixture</option></select>
+<select name="tid"><option selected value="1">Fixture</option></select>
+<input name="start_paytime" value="2026-11-24 00:00">
+<input name="end_paytime" value="2026-11-25 00:00">
+</form>
+<div><h2>3</h2><span>订单数量</span></div>
+<div><h2>$24.00</h2><span>订单金额</span></div>
+<div><h2>$8.00</h2><span>最大订单金额</span></div>
+<div><h2>$8.00</h2><span>最小订单金额</span></div>
+<div><h2>$8.00</h2><span>单均价</span></div>
+<div><h2>￥170.00</h2><span>收款总额</span></div>
+<div><h2>100.00%</h2><span>发货完成率</span></div>
+<div><h2>￥148.75</h2><span>货款总额</span></div>
+<div><h2>12.50%</h2><span>利润率</span></div>
+<div id="master-chart"></div>
+<div id="source"></div>
+<div id="status"></div>
+<div id="types"></div>
+<script>
+var chartDom0 = document.getElementById('master-chart');
+var myChart0 = echarts.init(chartDom0);
+var option0 = {title: {text: '订单数量和金额'}, xAxis: {type: "category", data: ["2026-11-24 00", "2026-11-25 00"]}, series: [{name: '订单数', data: [3, 0]}, {name: '订单金额', data: ["24.00", 0]}]};
+option0 && myChart0.setOption(option0);
+var chartDom1 = document.getElementById('source');
+var myChart1 = echarts.init(chartDom1);
+var option1 = {title: {text: '来源'}, xAxis: {type: "category", data: ["example.test"]}, series: [{name: '订单金额', data: ["24.00"]}]};
+option1 && myChart1.setOption(option1);
+var chartDom2 = document.getElementById('status');
+var myChart2 = echarts.init(chartDom2);
+var option2 = {title: {text: '订单状态'}, series: [{name: '订单状态', data: [{"status": 3, "value": "24.00", "counts": 3, "name": "已完成"}]}]};
+option2 && myChart2.setOption(option2);
+var chartDom3 = document.getElementById('types');
+var myChart3 = echarts.init(chartDom3);
+var option3 = {title: {text: '产品类型'}, series: [{name: '产品类型', data: [{"name": "Game Coins", "value": "24.00", "count": 3, "type": "1"}]}]};
+option3 && myChart3.setOption(option3);
+</script>

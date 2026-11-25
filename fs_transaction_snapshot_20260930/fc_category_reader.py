@@ -1,9 +1,10 @@
-"""Read FC27 aggregate pages in the existing Chrome session; never order details."""
+"""Read FC27 category aggregates through the shared Order HTTP session."""
 from datetime import datetime,timezone,date
 from decimal import Decimal
-from urllib.parse import urlencode
 import sys,json,re,time
-from playwright.sync_api import sync_playwright
+if '/opt/fs-order-session' not in sys.path:
+    sys.path.insert(0, '/opt/fs-order-session')
+from order_http import OrderHTTP
 from primary_fields import extract
 
 def number(raw,integer=False):
@@ -11,19 +12,13 @@ def number(raw,integer=False):
  if not n.is_finite() or n<0 or (integer and n!=n.to_integral_value()):raise ValueError('primary_invalid_metric')
  return int(n) if integer else float(n)
 
-def read(page,item,deadline):
+def read(reader,item,deadline):
  if item['gid']!=1322 or str(item.get('tid','')) not in ('','1','2','4'):raise ValueError('primary_invalid_fc_filter')
  remaining=int((deadline-time.monotonic())*1000)
  if remaining<5000:raise ValueError('primary_batch_budget_exhausted')
  filters={'status':'','gid':'1322','aid':'0','tid':str(item.get('tid','')),'start_paytime':item['start'],'end_paytime':item['end']}
- response=page.goto('https://order.p2pah.cn/stats/admin_order/index.html?'+urlencode(filters),wait_until='domcontentloaded',timeout=min(45000,remaining))
- raw=page.evaluate('''() => ({origin:location.origin,path:location.pathname,login:!!document.querySelector('input[type=password]'),
- filters:Object.fromEntries([...document.querySelectorAll('form input,form select')].filter(e=>['status','gid','aid','tid','start_paytime','end_paytime'].includes(e.name)).map(e=>[e.name,e.value])),
- names:[...document.querySelectorAll('h2')].map(e=>e.parentElement.textContent.trim()),metrics:[...document.querySelectorAll('h2')].map(e=>e.textContent.trim()),
- charts:typeof echarts==='undefined'?[]:[...document.querySelectorAll('[_echarts_instance_]')].map(e=>{const o=echarts.getInstanceByDom(e)?.getOption();return o?{title:o.title?.map(t=>t.text),labels:o.xAxis?.[0]?.data||[],series:o.series?.map(s=>({name:s.name,data:s.data}))}:null;})})''')
- if not response or response.status!=200 or raw['login'] or raw['origin']!='https://order.p2pah.cn' or raw['path']!='/stats/admin_order/index.html':raise ValueError('primary_login_or_page_unavailable')
- if raw['filters']!=filters:raise ValueError('primary_filter_mismatch')
- if not raw['names'] or not ('订单数量' in raw['names'][0] and '订单金额' in raw['names'][1]):raise ValueError('primary_metric_labels_mismatch')
+ raw=reader.native_order_stats(filters,timeout=min(45,remaining/1000))
+ if len(raw['names']) < 5 or not ('订单数量' in raw['names'][0] and '订单金额' in raw['names'][1]):raise ValueError('primary_metric_labels_mismatch')
  orders=number(raw['metrics'][0],True);sales=number(raw['metrics'][1]);avg=number(raw['metrics'][4])
  if orders and abs(sales/orders-avg)>.031:raise ValueError('primary_average_mismatch')
  chart=next((c for c in raw['charts'] if c and '订单数量和金额' in (c['title'] or [])),None)
@@ -53,14 +48,12 @@ def main():
  if not isinstance(requests,list) or len(requests)>20:raise ValueError('invalid_batch')
  budget=min(540,max(20,int(requests[0].get('batchBudgetSeconds',540)))) if requests else 20
  deadline=time.monotonic()+budget
- with sync_playwright() as p:
-  browser=p.chromium.connect_over_cdp('http://127.0.0.1:9226',timeout=8000,no_defaults=True);page=browser.contexts[0].new_page()
-  try:
-   for item in requests:
-    try:results[item['key']]=read(page,item,deadline)
-    except Exception as e:
-     safe=str(e) if isinstance(e,ValueError) and str(e).startswith('primary_') else 'primary_category_unavailable'
-     results[item['key']]={'status':'unavailable','period':{'start':item['start'],'end':item['end']},'error':safe}
-  finally:page.close()
+ reader=OrderHTTP()
+ if requests:reader.acquire_session(timeout=min(40,budget))
+ for item in requests:
+  try:results[item['key']]=read(reader,item,deadline)
+  except Exception as e:
+   safe=str(e) if isinstance(e,ValueError) and str(e).startswith('primary_') else 'primary_category_unavailable'
+   results[item['key']]={'status':'unavailable','period':{'start':item['start'],'end':item['end']},'error':safe}
  print(json.dumps(results,ensure_ascii=False,allow_nan=False))
 if __name__=='__main__':main()

@@ -36,6 +36,174 @@ def page(body):
 
 
 class OrderHTTPTests(unittest.TestCase):
+    def test_native_order_stats_reads_browser_projection_from_literals(self):
+        page = """<form>
+          <select name="gid"><option>0</option><option selected value="1322">FC 27</option></select>
+          <input name="start_paytime" value="2026-11-24 00:00">
+          </form><div><h2>3</h2>订单数量</div>
+          <div><h2>24.00</h2>订单金额</div>
+          <div id="master-chart"></div><div id="status"></div>
+          <script>
+          var chartDom = document.getElementById('master-chart');
+          var myChart = echarts.init(chartDom);
+          var option = {
+            title: {text: '订单数量和金额'},
+            legend: {data: ['订单数', '订单金额']},
+            xAxis: {type: 'category', data: ['2026-11-24 08'] // displayed bucket
+            },
+            tooltip: {formatter: function (data) { return data[0].value; }},
+            series: [
+              {name: '订单数', type: 'line', data: [3]},
+              {name: '订单金额', type: 'line', data: ["24.00"]}
+            ]
+          };
+          option && myChart.setOption(option);
+          var chartDom5 = document.getElementById('status');
+          var myChart5 = echarts.init(chartDom5);
+          option5 = {title: {text: '订单状态'}, series: [
+              {name: '订单状态', type: 'pie', data: [{"status":3,"value":"24.00","counts":3,"name":"已完成"}]}
+          ]};
+          option5 && myChart5.setOption(option5);
+          </script>"""
+        reader = OrderHTTP(lambda path, timeout: (path, page.encode()))
+        filters = {'gid': '1322', 'start_paytime': '2026-11-24 00:00'}
+        actual = reader.native_order_stats(filters, timeout=1)
+        self.assertEqual(actual, {
+            'filters': filters, 'names': ['3订单数量', '24.00订单金额'],
+            'metrics': ['3', '24.00'],
+            'charts': [
+                {'title': ['订单数量和金额'], 'labels': ['2026-11-24 08'],
+                 'series': [{'name': '订单数', 'data': [3]}, {'name': '订单金额', 'data': ['24.00']}]},
+                {'title': ['订单状态'], 'labels': [],
+                 'series': [{'name': '订单状态', 'data': [
+                     {'status': 3, 'value': '24.00', 'counts': 3, 'name': '已完成'}]}]},
+            ],
+        })
+
+    def test_problem_orders_preserve_filters_pagination_and_minimal_detail(self):
+        order_list = """<form>
+            <select name="status"><option value="6" selected>问题单</option></select>
+            <select multiple name="gid[]"><option value="1322" selected>FC 27</option></select>
+            <select multiple name="source[]"><option value="www.mmoexp.com" selected>MMOEXP</option></select>
+            </form><table><thead><tr><th></th><th>ID</th><th>来源/ 商户订单号</th>
+            <th>游戏/ 服务器</th><th>产品</th><th>角色名</th><th>金额</th><th>总量/已交量</th>
+            <th>状态历时</th><th>提单时间</th><th>管理员/绑定下家/分组</th><th>状态</th><th>Actions</th>
+            </tr></thead><tbody><tr><td></td><td>123</td><td>www.mmoexp.com PRIVATE</td><td>FC 27 ▶ PS</td>
+            <td>Coins</td><td>PRIVATE</td><td>USD 24.00</td><td></td><td></td><td></td><td></td><td>问题单</td>
+            <td><a href="javascript:open('/order/admin_order/look/id/123.html')">查看</a></td>
+            </tr></tbody></table><ul class="pagination"><li><a href="?page=2">2</a></li></ul>"""
+        detail = """<table><thead><tr><th>日志ID</th><th>生成时间</th><th>操作人</th><th>订单状态</th>
+            <th>内容</th></tr></thead><tbody><tr><td>42</td><td>26-11-24 10:00:00</td><td>PRIVATE</td>
+            <td>问题单</td><td>等待客户回复</td></tr></tbody></table>
+            <table><tbody><tr class="jq-each-cg" data-gid="1322" data-aid="0" data-cid="1" data-qty="100">
+            <td>PRIVATE</td></tr></tbody></table>"""
+        paths = []
+        def fetch(path, timeout):
+            paths.append(path)
+            return path, (order_list if '?' in path else detail).encode()
+
+        reader = OrderHTTP(fetch)
+        rows, has_next = reader.problem_order_page(1, timeout=1)
+        self.assertTrue(has_next)
+        self.assertEqual(rows, [{'id': '123', 'platform': 'PS', 'amount_usd': 24.0,
+                                 'detail': '/order/admin_order/look/id/123.html'}])
+        self.assertIn('page=1', paths[0])
+        logs = reader.problem_order_logs('123', timeout=1)
+        self.assertEqual(logs, [{'time': '26-11-24 10:00:00', 'status': '问题单', 'content': '等待客户回复'}])
+        events = reader.problem_order_events('123', timeout=1)
+        self.assertEqual(events['events'], [{'id': '42', 'time': '26-11-24 10:00:00', 'status': '问题单'}])
+        self.assertEqual(events['item_count'], 1)
+        self.assertEqual(events['items'][0]['qty'], '100')
+        self.assertNotIn('PRIVATE', str(events))
+        self.assertNotIn('等待客户回复', str(events))
+
+        for body in (order_list.split('<tbody>', 1)[0] + '<tbody>',
+                     order_list.replace('<td>Coins</td>', '', 1),
+                     order_list.replace('<tbody>', '').replace('</tbody>', '')):
+            invalid = OrderHTTP(lambda path, timeout: (path, body.encode()))
+            with self.assertRaisesRegex(ValueError, 'source_filter_contract'):
+                invalid.problem_order_page(1, timeout=1)
+        empty = re.sub(r'<tbody>.*?</tbody>', '<tbody><tr><td colspan="13">暂无数据</td></tr></tbody>',
+                       order_list, flags=re.S).split('<ul class="pagination"', 1)[0]
+        valid = OrderHTTP(lambda path, timeout: (path, empty.encode()))
+        self.assertEqual(valid.problem_order_page(1, timeout=1), ([], False))
+
+    def test_sanitized_native_stats_fixture_preserves_aggregate_and_chart_fields(self):
+        raw = (Path(__file__).with_name('fixtures') / 'real_native_order_stats.html').read_bytes()
+        filters = dict(status='', gid='1322', aid='0', tid='1',
+                       start_paytime='2026-11-24 00:00', end_paytime='2026-11-25 00:00')
+        reader = OrderHTTP(lambda path, timeout: (path, raw))
+        result = reader.native_order_stats(filters, timeout=1)
+        self.assertEqual(result['filters'], filters)
+        self.assertEqual(result['metrics'][:5], ['3', '$24.00', '$8.00', '$8.00', '$8.00'])
+        labelled = dict(zip(result['names'], result['metrics']))
+        self.assertEqual(labelled['12.50%利润率'], '12.50%')
+        self.assertEqual(labelled['100.00%发货完成率'], '100.00%')
+        self.assertEqual([chart['title'][0] for chart in result['charts']],
+                         ['订单数量和金额', '来源', '订单状态', '产品类型'])
+        self.assertEqual(result['charts'][0], {
+            'title': ['订单数量和金额'], 'labels': ['2026-11-24 00', '2026-11-25 00'],
+            'series': [{'name': '订单数', 'data': [3, 0]},
+                       {'name': '订单金额', 'data': ['24.00', 0]}],
+        })
+
+    def test_remaining_consumer_manifest_pins_sources_and_range_overlay(self):
+        from prepare_remaining_readers import prepare_range_api
+
+        root = Path(__file__).resolve().parents[1]
+        manifest = json.loads((root / 'docs/planning/order-http-access-20261125/'
+                               'consumer-release-3c-manifest.json').read_text(encoding='utf-8'))
+        targets = {row['target'] for row in manifest['files']}
+        self.assertEqual(len(targets), 10)
+        self.assertIn('/opt/fs-order-session/order_http.py', targets)
+        self.assertIn('/opt/fs-exact-range-20261001/fc_order_reader.py', targets)
+        range_target = '/opt/fs-exact-range-20261001/range_api.py'
+        for row in manifest['files']:
+            source = (root / row['source']).read_bytes().replace(b'\r\n', b'\n')
+            if row['target'] == range_target:
+                self.assertEqual(sha256(source).hexdigest(), row['maintenanceSourceSha256'])
+                builder = (root / row['preparation']).read_bytes().replace(b'\r\n', b'\n')
+                self.assertEqual(sha256(builder).hexdigest(), row['preparationSha256'])
+                range_source = source
+            else:
+                self.assertEqual(sha256(source).hexdigest(), row['sha256'], row['source'])
+
+        baseline = (b"def call(container, script, requests, timeout):\n"
+                    b" return dispatch_browser(container, script, requests, timeout)\n\n"
+                    b"def extra_live_route():\n return 'preserved'\n\n"
+                    b"def capture():\n"
+                    b" existing_call('fs-order-browser','fc_category_reader.py', [], 5)\n"
+                    b" return call('fc27-cloud-browser','primary_reader.py', [], 5)\n")
+        before = sha256(baseline).hexdigest()
+        prepared = prepare_range_api(baseline, range_source, before)
+        self.assertIn(b"def extra_live_route():\n return 'preserved'\n", prepared)
+        self.assertIn(b"existing_call(None,'fc_category_reader.py'", prepared)
+        self.assertIn(b"call(None,'primary_reader.py'", prepared)
+        self.assertIn(b"sys.executable,'-B',str(reader)", prepared)
+        with self.assertRaisesRegex(ValueError, 'range_api_baseline_drift'):
+            prepare_range_api(baseline + b'\n', range_source, before)
+
+    def test_stats_and_problem_read_preserve_unavailable_and_filter_errors(self):
+        blocked = OrderHTTP(lambda path, timeout: (path, b'<form><input type="password"></form>'))
+        with self.assertRaisesRegex(ValueError, 'primary_login_or_page_unavailable'):
+            blocked.native_order_stats({}, timeout=1)
+        with self.assertRaisesRegex(ValueError, 'source_login_or_page'):
+            blocked.problem_order_page(1, timeout=1)
+        mismatched = OrderHTTP(lambda path, timeout: (path, b'<form><input name="gid" value="0"></form>'))
+        with self.assertRaisesRegex(ValueError, 'primary_filter_mismatch'):
+            mismatched.native_order_stats({'gid': '1322'}, timeout=1)
+
+    def test_session_is_acquired_before_a_batch_and_reused(self):
+        broker = SimpleNamespace(fill_jar=Mock(side_effect=RuntimeError('global_order_unavailable:transport:timeout')))
+        reader = OrderHTTP()
+        with patch.dict('sys.modules', {'fs_order_client': broker}):
+            with self.assertRaisesRegex(RuntimeError, '^global_order_unavailable$'):
+                reader.acquire_session(timeout=1)
+            broker.fill_jar.side_effect = None
+            reader.acquire_session(timeout=1)
+            reader.acquire_session(timeout=1)
+        self.assertEqual(broker.fill_jar.call_count, 2)
+
     def test_dashboard_shipping_preserves_single_selection_and_nested_text(self):
         body = shipping_fixture(
             '<select name="source[]" multiple><option selected value="main">Main</option></select>',
@@ -107,6 +275,13 @@ class OrderHTTPTests(unittest.TestCase):
             '/opt/sales-dashboard/collector/fetch_all.py',
         })
         for row in release['files'] + consumers['files']:
+            if row['source'] == reader['source']:
+                # Phase 3B's released bytes are the 3C manifest's live before image.
+                latest = json.loads((root / source_map['orderHttpRemainingReaders20261125']['release'])
+                                    .read_text(encoding='utf-8'))
+                previous, = [item for item in latest['files'] if item['target'] == row['target']]
+                self.assertEqual(previous['beforeSha256'], row['sha256'])
+                continue
             data = (root / row['source']).read_bytes().replace(b'\r\n', b'\n')
             self.assertEqual(sha256(data).hexdigest(), row['sha256'], row['source'])
 

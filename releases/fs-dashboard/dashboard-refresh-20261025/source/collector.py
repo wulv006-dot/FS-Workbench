@@ -1,4 +1,4 @@
-"""One server-only transaction collector. Browser sessions stay in their containers."""
+"""Server-only transaction collector using the shared Order HTTP session."""
 from pathlib import Path
 from datetime import datetime,timezone,timedelta,date
 import json,subprocess,sys,copy,hashlib,time
@@ -33,32 +33,30 @@ PROFILES=[('MMOEXP','所有网站合计',0,'','mmoexp'),('POE2','Path Of Exile 2
  ('COD_BO7', 'CoD BO7', 838, 859, 'general')]
 
 def order_call(script,requests,timeout):
-    """Hold the existing browser mutex only for a real Order batch."""
+    """Hold the existing Order mutex only for a real Order batch."""
     import fcntl
     if script not in ('primary_reader.py','fc_category_reader.py','profit_daily_reader.py'):
         raise ValueError('order_reader_required')
     with (WEB/'collector.lock').open('a+b') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:raise OrderSourceBusy('collector_busy') from None
-        return call('fs-order-browser',script,requests,timeout)
+        return call(None,script,requests,timeout)
 
 
 def call(container,script,requests,timeout):
-    program=(HERE/script).read_bytes()
-    if script in ('supplement_reader.py','primary_reader.py','fc_category_reader.py','fc_product_reader.py','profit_daily_reader.py'):
-        # Load the pure field mapper in memory inside the existing container; no credentials copied.
-        module_name='fc_product_contract' if script=='fc_product_reader.py' else 'supplement_fields' if script=='supplement_reader.py' else 'primary_fields'
-        helper=(HERE/(module_name+'.py')).read_text()
-        prefix='import types,sys\nmodule=types.ModuleType('+repr(module_name)+')\nexec('+repr(helper)+',module.__dict__)\nsys.modules['+repr(module_name)+']=module\n'
-        program=prefix.encode()+program
-    if script in ('supplement_reader.py','fc_product_reader.py'):
-        r=subprocess.run([sys.executable,'-B','-',json.dumps(requests)],input=program,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
-    elif script in ('primary_reader.py','fc_category_reader.py','profit_daily_reader.py'):
-        if container != 'fs-order-browser':raise ValueError('order_reader_isolation_required')
-        from order_reader_runner import run
-        r=run(program,requests,timeout)
+    if script in ('primary_reader.py','fc_category_reader.py','profit_daily_reader.py'):
+        r=subprocess.run([sys.executable,'-B',str(HERE/script),json.dumps(requests)],
+                         stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
     else:
-        r=subprocess.run(['docker','exec','-i',container,'python3','-',json.dumps(requests)],input=program,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
+        program=(HERE/script).read_bytes()
+        if script in ('supplement_reader.py','fc_product_reader.py'):
+            module_name='fc_product_contract' if script=='fc_product_reader.py' else 'supplement_fields'
+            helper=(HERE/(module_name+'.py')).read_text()
+            prefix='import types,sys\nmodule=types.ModuleType('+repr(module_name)+')\nexec('+repr(helper)+',module.__dict__)\nsys.modules['+repr(module_name)+']=module\n'
+            program=prefix.encode()+program
+            r=subprocess.run([sys.executable,'-B','-',json.dumps(requests)],input=program,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
+        else:
+            r=subprocess.run(['docker','exec','-i',container,'python3','-',json.dumps(requests)],input=program,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
     if r.returncode:
         # Known contract errors only; never print arbitrary upstream stderr/session data.
         last=r.stderr.decode('utf-8','replace').strip().splitlines()

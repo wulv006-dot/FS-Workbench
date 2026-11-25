@@ -26,16 +26,11 @@ def order_read(q,config,web,source_root=Path('/opt/fs-exact-range-20261001'),tim
     with (Path(web)/'collector.lock').open('a+b') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:return {'contract':'fc-order-events-raw-v1','status':'not_sent','reason':'collector_busy'}
-        diagnostics=(source_root/'fc_order_diagnostics.py').read_text('utf-8')
-        reader=(source_root/'fc_order_reader.py').read_text('utf-8')
-        projection=Path(__file__).with_name('order_detail_projection.py').read_text('utf-8')
-        program=('import sys,types,json\n'
-                 'm=types.ModuleType("fc_order_diagnostics");exec(%r,m.__dict__);sys.modules[m.__name__]=m\n'
-                 'p=types.ModuleType("fc_capability_projection");exec(%r,p.__dict__)\n'
-                 'r=types.ModuleType("fc_capability_reader");exec(%r,r.__dict__)\n'
-                 'print(json.dumps(r.run(%r,p.read_open_detail),ensure_ascii=True,allow_nan=False))\n')%(diagnostics,projection,reader,{k:checked[k] for k in ('platform','pages','samples')})
+        reader=source_root/'fc_order_reader.py'
+        payload=json.dumps({k:checked[k] for k in ('platform','pages','samples')})
         try:
-            proc=subprocess.run(['docker','exec','-i','fc27-cloud-browser','python3','-'],input=program.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
+            proc=subprocess.run([sys.executable,'-B',str(reader),payload],
+                                stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
             if proc.returncode or len(proc.stdout)>1000000:raise ValueError('order_reader_failed')
             value=json.loads(proc.stdout)
             if value.get('contract')!='fc-order-events-raw-v1':raise ValueError('order_reader_contract')

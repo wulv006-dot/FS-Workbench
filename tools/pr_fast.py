@@ -371,6 +371,10 @@ def selfcheck():
         raise RuntimeError("admin_continuity_affected_tests_missing")
     if select(["order_global_session_20261021/service.py"]) != ["order-global-session"]:
         raise RuntimeError("order_global_affected_tests_missing")
+    if select(["fs_transaction_snapshot_20260930/primary_reader.py"]) != ["order-global-session"]:
+        raise RuntimeError("order_transaction_affected_tests_missing")
+    if select(["candidates/business-snapshot/order-endpoint-padding-20261007/source/profit_daily_reader.py"]) != ["order-daily-profit"]:
+        raise RuntimeError("order_daily_profit_affected_tests_missing")
     if select(["shared_backend_session/shared_admin.py"]) != ["admin-single-owner"]:
         raise RuntimeError("shared_admin_affected_tests_missing")
     if select(['releases/fc-evolutions/admin-session-20261110/source/evolutions.py']) != ['fc-evo-admin-session']:
@@ -715,8 +719,13 @@ def select(paths):
             groups.add("channel-effects");continue
         if name.startswith("admin_session_continuity_20261021/"):
             groups.add("admin-session-continuity");continue
-        if name.startswith("order_global_session_20261021/"):
+        if name.startswith("order_global_session_20261021/") or name in (
+            "fs_transaction_snapshot_20260930/primary_reader.py",
+            "fs_transaction_snapshot_20260930/fc_category_reader.py",
+        ):
             groups.add("order-global-session");continue
+        if name.startswith("candidates/business-snapshot/order-endpoint-padding-20261007/"):
+            groups.add("order-daily-profit");continue
         if name.startswith("shared_backend_session/") or (name.startswith("sales_shared_session_20261021/") and not (ROOT/name).exists()):
             groups.add("admin-single-owner");continue
         if name.startswith("releases/fs-dashboard/fs-business-baseline-20261021/"):
@@ -839,6 +848,8 @@ def select(paths):
             groups.add("hermes-nightly-publisher");continue
         if name in ("mmoexp_google_data/deployment/server_run_integrated.py","mmoexp_google_data/deployment/mmoexp-marketing-daily.timer","mmoexp_google_data/deployment/mmoexp-marketing-daily.service"):
             groups.add("hermes-fc-pilot");continue
+        if name == "releases/fs-dashboard/hermes-fc-pilot-20261013/admin_order_capabilities_20261014/shared_candidate/fc_order_diagnostics.py":
+            groups.update(("hermes-fc-pilot","fc-deep-advisor"));continue
         if name.startswith("releases/fs-dashboard/hermes-fc-pilot-20261013/"):
             groups.add("hermes-fc-pilot");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/deep/"):
@@ -1289,6 +1300,9 @@ def main():
             units("admin_session_continuity_20261021",["test_continuity"])
             units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
         elif group=="order-global-session":units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch","test_order_http","test_real_tables"])
+        elif group=="order-daily-profit":
+            units("candidates/business-snapshot/order-endpoint-padding-20261007/tests",
+                  ["test_backfill","test_endpoint_padding","test_review_counterexamples"])
         elif group=="sales-system":
             units("shared_backend_session",["test_sales_regions","test_history_db"])
             node("releases/sales/system-20261105/test_ui.cjs")
