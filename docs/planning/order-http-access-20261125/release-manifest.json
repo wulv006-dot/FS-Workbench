@@ -1,0 +1,10 @@
+{
+  "status": "candidate",
+  "files": [
+    {
+      "source": "order_global_session_20261021/order_http.py",
+      "target": "/opt/fs-order-session/order_http.py",
+      "sha256": "87719f75a59329a29ff5c6aab2f8d6caf1f6cdd2f921454c3e8cabf586f0f291"
+    }
+  ]
+}
