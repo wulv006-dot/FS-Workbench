@@ -3,6 +3,8 @@ import json
 import re
 import unittest
 from datetime import datetime, timedelta, timezone
+from http.client import BadStatusLine
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
 
@@ -91,6 +93,14 @@ class CostListVerification(unittest.TestCase):
             self.assertEqual(rows[record_id]['quantity_evidence']['ordered_k'], '111')
         self.assertEqual(rows['800004']['verification'], 'list_fast_path')
 
+    def test_cost_page_classifies_an_http_protocol_failure(self):
+        def read_page(*args, **kwargs):
+            raise BadStatusLine('invalid response')
+
+        reader = SimpleNamespace(delivery_page=read_page)
+        with self.assertRaisesRegex(self.collector.CostPageError, 'order_page_transport_error:1'):
+            self.collector.read_page(reader, 1)
+
     def test_no_reference_requires_detail_for_all_platforms(self):
         for references in (None, {}):
             with self.subTest(references=references):
@@ -99,6 +109,15 @@ class CostListVerification(unittest.TestCase):
                 self.assertCountEqual(self.detail_reads, [r['order'] for r in self.rows])
                 self.assertEqual(len(rows), 18)
                 self.assertEqual({r['verification'] for r in rows.values()}, {'order_detail'})
+
+    def test_invalid_reference_requires_detail_for_that_platform(self):
+        for reference in ('invalid', 'NaN', 'sNaN', 'Infinity', '-.4', '0'):
+            with self.subTest(reference=reference):
+                self.detail_reads.clear()
+                rows = self.run_round({'PS': '.4', 'XBOX': reference, 'PC': '.4'})
+                self.assertCountEqual(self.detail_reads, [r['order'] for r in self.rows if r['platform'] == 'XBOX'])
+                self.assertEqual(rows['800000']['verification'], 'list_fast_path')
+                self.assertEqual(rows['800001']['verification'], 'order_detail')
 
     def test_missing_platform_reference_uses_its_own_details(self):
         rows = self.run_round({'PS': '.4', 'PC': '.4'})

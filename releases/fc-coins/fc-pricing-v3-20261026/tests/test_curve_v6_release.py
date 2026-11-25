@@ -233,7 +233,7 @@ class CurveV6Release(unittest.TestCase):
             self.assertEqual({row['candidate']: row['beforeSha256'] for row in candidate_release['files']}, before)
             self.assertEqual({row['candidate']: row['sha256'] for row in candidate_release['files']}, after)
             self.assertEqual([name for name in after if before[name] != after[name]],
-                             ['source/collect_p2pah_cost.py'])
+                             ['source/order_http.py', 'source/collect_p2pah_cost.py'])
 
             live_hashes = {Path(target): before[name] for name, target in expected_targets.items()}
 

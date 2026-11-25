@@ -5,6 +5,7 @@ from order_http import OrderHTTP, OrderReadError, is_timeout
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
+from http.client import HTTPException
 from itertools import islice
 import json
 import os
@@ -199,7 +200,7 @@ def read_page(reader, number, observations=None, window=None):
         diagnostic['ps_window'] = {key: window[key].isoformat() for key in ('start', 'end')}
     try:
         page = reader.delivery_page(cost_query(number, window), timeout=35)
-    except OSError as exc:
+    except (OSError, HTTPException) as exc:
         if isinstance(exc, HTTPError):
             diagnostic['http_status'] = exc.code
             if exc.fp is not None:
@@ -311,7 +312,17 @@ def collect_ps_cost(reader, observations, order_cache):
     raise ValueError('ps_valid_delivery_sample_incomplete')
 
 
+def positive_reference(value):
+    try:
+        reference = Decimal(str(value))
+    except InvalidOperation:
+        return None
+    return reference if reference.is_finite() and reference > 0 else None
+
+
 def list_verified_cost(record, reference, repeated_orders):
+    # The list proves only visible shipments. A split outside the scanned window
+    # or a tiny, still-open shipment can pass without order-level evidence.
     order_id = delivery_order_id(record)
     if reference is None or order_id is None or order_id in repeated_orders:
         return None
@@ -384,10 +395,9 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
     end = datetime.now(SHANGHAI).replace(microsecond=0)
     recent_start = end - timedelta(hours=3)
     result = {p: dict(records=[], window_complete=False, history_complete=False) for p in PLATFORMS}
-    references = {p: (confirmed_costs or {}).get(p) for p in PLATFORMS}
-    bounds = {p: (Decimal(str(ref)) / 2, Decimal(str(ref)) * 2) if ref is not None
-              else (Decimal('.05'), Decimal('5')) for p, ref in references.items()}
-    list_references = {p: Decimal(str(ref)) if ref is not None else None for p, ref in references.items()}
+    references = {p: positive_reference((confirmed_costs or {}).get(p)) for p in PLATFORMS}
+    bounds = {p: (ref / 2, ref * 2) if ref is not None else (Decimal('.05'), Decimal('5'))
+              for p, ref in references.items()}
     previous = None
     first_delivery_by_order = {}
     repeated_orders = set()
@@ -430,7 +440,7 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
 
         list_verified = {}
         for _, record in deliveries.values():
-            normal = list_verified_cost(record, list_references[record['platform']], repeated_orders)
+            normal = list_verified_cost(record, references[record['platform']], repeated_orders)
             if normal is not None:
                 list_verified[record['record_id']] = normal
         ordered = sorted(deliveries.values(), key=lambda item: item[0], reverse=True)

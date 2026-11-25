@@ -6,12 +6,13 @@ from dataclasses import dataclass
 from gzip import GzipFile
 from hashlib import sha256
 from html.parser import HTMLParser
-from http.client import HTTPResponse, HTTPSConnection, IncompleteRead
+from http.client import HTTPException, HTTPResponse, HTTPSConnection, IncompleteRead
 from http.cookiejar import CookieJar
 from io import BufferedReader, BytesIO, RawIOBase
 import json
 import re
 import socket
+from ssl import SSLEOFError, SSLZeroReturnError
 from sys import version_info
 from threading import Lock
 from time import monotonic, sleep
@@ -105,7 +106,9 @@ class Document(HTMLParser):
 
 
 def login_url(url):
-    return 'login' in urlsplit(url).path.lower()
+    target = urlsplit(url)
+    return (target.netloc in ('', urlsplit(BASE).netloc)
+            and target.path.lower() in ('/admin', '/admin/', '/login.html', '/admin/public/login.html'))
 
 
 def field_value(node):
@@ -131,6 +134,8 @@ def form_values(root):
 
 
 def table_body_rows(table):
+    if not table.closed:
+        raise OrderReadError('table_truncated')
     return [row for body in table.find('tbody') for row in body.find('tr')]
 
 
@@ -370,7 +375,7 @@ class OrderTransport:
             if connection is not None:
                 try:
                     response = self._request(connection, request, headers, deadline)
-                except ConnectionError:
+                except (ConnectionError, SSLEOFError, SSLZeroReturnError):
                     # An idle peer can close without sending Connection: close.
                     # Replay this read-only GET at most once, before any response.
                     connection.close()
@@ -519,6 +524,8 @@ class OrderHTTP:
         self._fetch = fetch
         self._transport = None
         self._session_lock = Lock()
+        # Publishing or invalidating a transport never waits for the broker RPC.
+        self._transport_lock = Lock()
 
     @classmethod
     def from_order_session(cls, session):
@@ -562,7 +569,9 @@ class OrderHTTP:
 
     def _shared_transport(self, deadline):
         with self._session_access(deadline):
-            if self._transport is None:
+            with self._transport_lock:
+                transport = self._transport
+            if transport is None:
                 from fs_order_client import fill_jar
                 jar = CookieJar()
                 try:
@@ -571,8 +580,10 @@ class OrderHTTP:
                     if str(exc).partition(':')[0] != 'global_order_unavailable':
                         raise
                     raise OrderReadError(str(exc)) from exc
-                self._transport = OrderTransport(jar)
-            return self._transport
+                transport = OrderTransport(jar)
+                with self._transport_lock:
+                    self._transport = transport
+            return transport
 
     def acquire_session(self, *, timeout=40):
         """Prepare one broker session before a bounded batch starts emitting results."""
@@ -612,9 +623,11 @@ class OrderHTTP:
             return root, raw, url
         except IncompleteRead as exc:
             raise OrderReadError('response_truncated') from exc
+        except HTTPException as exc:
+            raise OSError('order_response_transport') from exc
         except OrderReadError as exc:
             if str(exc) == 'login_lost' and transport is not None:
-                with self._session_access(deadline):
+                with self._transport_lock:
                     if self._transport is transport:
                         self._transport = None
             raise
@@ -741,6 +754,10 @@ class OrderHTTP:
     def problem_order_events(self, order_id, *, timeout):
         """Return the Hermes event projection without customer or log content."""
         root, event_count, logs = self._problem_order_detail(order_id, timeout)
+        if any(not table.closed and ('look-goods-table' in table.attrs.get('class', '').split()
+                                     or next(table.find('tr', 'jq-each-cg'), None) is not None)
+               for table in root.find('table')):
+            raise ValueError('detail_unavailable')
         items = [row for row in root.find('tr', 'jq-each-cg')
                  if all('data-' + key in row.attrs for key in ('gid', 'aid', 'cid'))]
         fields = ('gid', 'aid', 'cid', 'pid', 'qty', 'used', 'unit', 'currency')

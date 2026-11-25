@@ -232,7 +232,7 @@ class Session:
         self.probing = False
         self.probe_seconds = None
         self.last_ready = None
-        self.last_ready_at = 0
+        self.last_ready_at = None
         self.degraded = None
         self.login_attempts = 0
         self.login_posts = deque()
@@ -468,13 +468,17 @@ class Session:
     def get(self, refresh=False):
         # Consumers take a recent ready result without waiting; the upkeep thread
         # (refresh=True) is the one that pays for slow Order probes.
-        if (self.result.get('ready') is True and self.checked
-                and time.monotonic() - self.checked <= STALE_SERVE
-                and (self.probing or not refresh)):
-            return self.result
-        if self.probing and self.result.get('error') == 'order_session_renewing':
+        last_ready_at = self.last_ready_at
+        result = self.result
+        now = time.monotonic()
+        if (result.get('ready') is True and last_ready_at is not None and self.checked
+                and now - self.checked <= STALE_SERVE and (self.probing or not refresh)):
+            if now - last_ready_at > TRANSPORT_GRACE:
+                return self.failure(self.degraded or 'order_probe_stale')
+            return result
+        if self.probing and result.get('error') == 'order_session_renewing':
             # Renewal can take minutes; consumers get the answer now, not a lock wait.
-            return self.result
+            return result
         if not self.lock.acquire(timeout=WAIT_TIMEOUT):
             return self.failure('order_probe_wait_timeout')
         try:
@@ -491,6 +495,8 @@ class Session:
                     self.checked = time.monotonic()
                     self.probe_seconds = round(self.checked - started, 3)
                     self.probing = False
+            if self.result.get('ready') is True and time.monotonic() - self.last_ready_at > TRANSPORT_GRACE:
+                return self.failure(self.degraded or 'order_probe_stale')
             return self.result
         finally:
             self.lock.release()
@@ -512,12 +518,23 @@ class Session:
 
     def health(self):
         # Health never waits behind an upstream request; cookie issuance still uses get().
-        age = time.monotonic() - self.checked if self.checked else None
-        fresh = age is not None and age <= STALE_SERVE + PROBE_TIMEOUT
+        now = time.monotonic()
+        last_ready_at = self.last_ready_at
+        result = self.result
+        probe_age = now - self.checked if self.checked else None
+        verified_age = now - last_ready_at if last_ready_at is not None else None
+        fresh = probe_age is not None and probe_age <= STALE_SERVE + PROBE_TIMEOUT
+        within_grace = verified_age is not None and verified_age <= TRANSPORT_GRACE
+        error = result.get('error')
+        if probe_age is not None and not fresh:
+            error = 'order_probe_stale'
+        elif result.get('ready') is True and not within_grace:
+            error = self.degraded or 'order_probe_stale'
         sessions_lost_externally, last_external_loss_at = self.external_losses
-        return {'service': 'fs-order-session', 'ready': fresh and self.result.get('ready') is True,
-                'last_error': self.result.get('error') if fresh or age is None else 'order_probe_stale',
-                'checking': self.probing, 'verified_age_seconds': round(age, 1) if age is not None else None,
+        return {'service': 'fs-order-session', 'ready': fresh and within_grace and result.get('ready') is True,
+                'last_error': error,
+                'checking': self.probing,
+                'verified_age_seconds': round(verified_age, 1) if verified_age is not None else None,
                 'probe_seconds': self.probe_seconds, 'probe_path': '/admin/index/index.html', 'login_attempts': self.login_attempts,
                 'sessions_lost_externally': sessions_lost_externally, 'last_external_loss_at': last_external_loss_at,
                 'degraded': self.degraded}

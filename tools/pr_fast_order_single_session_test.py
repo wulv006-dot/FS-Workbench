@@ -48,6 +48,21 @@ class OrderSingleSessionTests(unittest.TestCase):
                      "tools/pr_fast_order_single_session_test.py"):
             cls.write(name, 'path = "/admin/public/dologin.html"\n')
         cls.write("example/order_global_session_20261021/service.py", 'path = "/new_captcha.html"\n')
+        for name in ("docs/example.md", "docs/planning/example.md",
+                     "order_global_session_20261021/test_order_http.py",
+                     "order_global_session_20261021/test_real_tables.py",
+                     "order_global_session_20261021/fixtures/expired.html"):
+            cls.write(name, 'Example path: /admin/public/dologin.html\n')
+        cls.write("parse_login.py", 'base = "https://order.p2pah.cn"\n'
+                  'response = http.get(base + "?" + urlencode(filters))\n'
+                  'is_login = \'name="password"\' in response.text\n')
+        cls.write("browser.py", 'page.goto("https://order.p2pah.cn/admin")\n'
+                  'page.locator("#password").fill(value)\n'
+                  'page.get_by_role("button").click()\n')
+        cls.write("requests.py", 'requests.request("POST", "https://order.p2pah.cn/admin",\n'
+                  '                 data={"password": value})\n')
+        cls.write("curl_form.sh", 'curl -F "password=$value" "https://order.p2pah.cn/admin"\n')
+        cls.write("curl_data.sh", 'curl --data "password=$value" "https://order.p2pah.cn/admin"\n')
         cls.head = cls.commit("head")
 
         cls.git("checkout", "--quiet", "--detach", cls.base)
@@ -81,6 +96,7 @@ class OrderSingleSessionTests(unittest.TestCase):
             ("login.py", 1), ("two_factor.py", 1), ("captcha.py", 1),
             ("existing_host.py", 2), ("existing_form.py", 3), ("login.html", 2), ("login.cjs", 2),
             ("example/order_global_session_20261021/service.py", 1),
+            ("browser.py", 2), ("requests.py", 2), ("curl_form.sh", 1), ("curl_data.sh", 1),
         ):
             with self.subTest(name=name):
                 with self.assertRaisesRegex(RuntimeError, "order-single-session.*fs_order_client.*order_http.*AGENTS.md") as error:
@@ -94,6 +110,16 @@ class OrderSingleSessionTests(unittest.TestCase):
             "order_global_session_20261021/test_session.py",
             "tools/pr_fast_order_single_session_test.py",
         ])
+
+    def test_ignores_explanatory_markdown_fixtures_and_read_only_html_detection(self):
+        for name in (
+            "docs/example.md", "docs/planning/example.md",
+            "order_global_session_20261021/test_order_http.py",
+            "order_global_session_20261021/test_real_tables.py",
+            "order_global_session_20261021/fixtures/expired.html", "parse_login.py",
+        ):
+            with self.subTest(name=name):
+                pr_fast.check_order_single_session(self.repo, self.base, self.head, [name])
 
     def test_old_pr_branch_is_measured_from_its_common_ancestor(self):
         pr_fast.check_order_single_session(self.repo, self.base_tip, self.stale_head, ["legacy.py"])
