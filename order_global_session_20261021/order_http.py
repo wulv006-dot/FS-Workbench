@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from hashlib import sha256
 from html.parser import HTMLParser
+from http.client import IncompleteRead
 from http.cookiejar import CookieJar
 import json
 import re
@@ -232,6 +233,8 @@ class OrderHTTP:
                     or any('dologin' in node.attrs.get('action', '') for node in root.find('form'))):
                 raise OrderReadError('login_lost')
             return root, raw, url
+        except IncompleteRead as exc:
+            raise OrderReadError('response_truncated') from exc
         except OrderReadError as exc:
             if str(exc) == 'login_lost' and opener is not None:
                 with self._session_lock:

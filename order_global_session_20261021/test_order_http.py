@@ -1,6 +1,8 @@
 
 import ast
 from contextlib import contextmanager
+from http.client import IncompleteRead
+from io import BytesIO
 from pathlib import Path
 import re
 from time import monotonic
@@ -20,7 +22,7 @@ def page(body):
 class OrderHTTPTests(unittest.TestCase):
     def test_missing_detail_is_explicit(self):
         def fetch(path, timeout):
-            raise HTTPError(path, 404, 'missing', {}, None)
+            raise HTTPError(path, 404, 'missing', {}, BytesIO())
         self.assertEqual(OrderHTTP(fetch).order_detail('123', timeout=1).status, 'not_found')
 
     def test_detail_statuses(self):
@@ -151,3 +153,13 @@ class OrderHTTPTests(unittest.TestCase):
             self.assertEqual(reader.order_detail('123', timeout=1).status, 'found')
             self.assertEqual(reader.order_detail('123', timeout=1).status, 'found')
         self.assertEqual(fill_jar.call_count, 2)
+
+    def test_truncated_response_fails_instead_of_yielding_an_empty_page(self):
+        def fetch(path, timeout):
+            raise IncompleteRead(b'<html>', 20)
+
+        reader = OrderHTTP(fetch)
+        pages = reader.iter_delivery_pages({}, max_pages=2, deadline=monotonic()+5)
+        self.assertEqual(list(pages), [])
+        self.assertEqual(pages.end_reason, 'failed')
+        self.assertEqual(str(pages.failure), 'response_truncated')
