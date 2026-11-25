@@ -476,6 +476,11 @@ class CurveV6Release(unittest.TestCase):
         self.assertEqual(set(provenance['files']), set(adapter.SCOPED_TARGETS[target_map.CURVE_STABILITY_SCOPE]))
         self.assertIn(b'--env PYTHONPATH=/opt:/opt/fs-order-session', shell)
         self.assertIn(b'-e FC_V6_COST_REFERENCES', shell)
+        self.assertIn(b'timeout 180s docker run', shell)
+        self.assertIn(b'src=/opt/fs-order-session,dst=/opt/fs-order-session,readonly', shell)
+        self.assertIn(b'src=/run/fs-order-session,dst=/run/fs-order-session,readonly', shell)
+        self.assertNotIn(b'FC27_CDP_ENDPOINT', shell)
+        self.assertNotIn(b'isolated_backend.py', shell)
         self.assertNotIn(b'/etc/fc27-cloud/fc27.env', shell)
 
     def test_insurance_release_contains_only_nine_price_guard_targets(self):

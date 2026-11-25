@@ -3,7 +3,6 @@ import importlib.util
 import sys
 import types
 import unittest
-from contextlib import nullcontext
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -12,6 +11,8 @@ from unittest.mock import Mock, patch
 
 SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
+sys.path.insert(0, str(SOURCE.parents[3] / 'order_global_session_20261021'))
+from order_http import OrderHTTP
 from fc_pricing_v3.financial import common_cost
 
 
@@ -24,16 +25,8 @@ def load(name, path):
 
 class SixCost(unittest.TestCase):
     def setUp(self):
-        self.closed = 0
-        tab = self.tab = types.SimpleNamespace()
-        browser = types.SimpleNamespace(contexts=[types.SimpleNamespace(new_page=lambda: tab)])
-        def close(page):
-            self.closed += 1
+        self.tab = types.SimpleNamespace()
         stubs = {
-            'isolated_backend': types.SimpleNamespace(open_backend=lambda _: browser, close_backend=close),
-            'fs_order_client': types.SimpleNamespace(apply=lambda _: None),
-            'p2pah_session_service': types.SimpleNamespace(read_private_config=lambda: {}),
-            'playwright.sync_api': types.SimpleNamespace(TimeoutError=TimeoutError, sync_playwright=lambda: nullcontext(None)),
             'fc27_quote_engine': types.SimpleNamespace(source_coverage=lambda _: None),
         }
         with patch.dict(sys.modules, stubs):
@@ -43,6 +36,18 @@ class SixCost(unittest.TestCase):
                 with patch('zoneinfo.ZoneInfo', lambda _: timezone(timedelta(hours=8))):
                     self.collector = load('six_cost_collector', SOURCE/'collect_p2pah_cost.py')
             self.snapshot = load('six_snapshot', SOURCE/'snapshot_layer.py')
+        self.reader_patch = patch.object(self.collector, 'OrderHTTP', return_value=self.tab)
+        self.reader_patch.start()
+        self.addCleanup(self.reader_patch.stop)
+        self.real_detail_pair = self.collector.read_detail_pair
+        single = self.single_patch = patch.object(self.collector, 'read_detail',
+                              side_effect=lambda reader, order, timeout: reader.single(order, timeout))
+        single.start()
+        self.addCleanup(single.stop)
+        pair = patch.object(self.collector, 'read_detail_pair',
+                            side_effect=lambda reader, orders: reader.pair(orders))
+        pair.start()
+        self.addCleanup(pair.stop)
         self.native_verifier = patch.object(self.collector, 'verified_delivery_cost',
             side_effect=lambda _, row, __, **kwargs: {k: v for k, v in row.items() if k != 'order_delivery'})
         self.native_verifier.start()
@@ -85,7 +90,6 @@ class SixCost(unittest.TestCase):
         self.assertEqual(cost, Decimal('.9'))
         self.assertEqual(proof['sample_size'], 6)
         self.assertEqual(len(proof['observations']), 6)
-        self.assertEqual(self.closed, 1)
 
     def test_v6_retains_each_platforms_three_hour_deliveries_without_console_aliasing(self):
         rows = [self.raw(1000+index*100+i, '.4', i*2, platform)
@@ -122,9 +126,7 @@ class SixCost(unittest.TestCase):
                 return {'timed_out': True}
             return details[order_id]
 
-        def evaluate(expression, request):
-            if expression == self.collector.READ_ORDER:
-                return read_order(*request)
+        def read_pair(request):
             batches.append(request)
             values = []
             for order_id in request:
@@ -132,12 +134,11 @@ class SixCost(unittest.TestCase):
                 values.append(read_order(order_id, 16000) if detail.get('timed_out') else detail)
             return values
 
-        self.tab.evaluate = Mock(side_effect=evaluate)
+        self.tab.pair = Mock(side_effect=read_pair)
         result = self.run_collect([rows, []], curve_v6=True)
         self.assertEqual([item[1] for item in attempts if item[0] == slow_order], [8000, 16000])
         self.assertEqual(len(attempts), 19)
         self.assertEqual([len(batch) for batch in batches], [2] * 9)
-        self.assertEqual(self.closed, 1)
         for cost in result['costs']:
             samples = cost['v6_delivery_samples']
             self.assertTrue(samples['window_complete'])
@@ -145,7 +146,7 @@ class SixCost(unittest.TestCase):
             self.assertEqual(Decimal(cost['cny_per_1k']), Decimal('.4'))
 
         # A single unverified order keeps only its own platform out of pricing.
-        self.tab.evaluate = Mock(side_effect=lambda expression, request: [
+        self.tab.pair = Mock(side_effect=lambda request: [
             {'timed_out': True} if order_id == slow_order else details[order_id] for order_id in request])
         partial = self.snapshot.cost_snapshots(
             'offline', self.run_collect([rows, []], curve_v6=True), curve_v6=True)
@@ -154,42 +155,42 @@ class SixCost(unittest.TestCase):
         self.assertEqual(partial[0]['reason'], 'cost_order_detail_timeout')
         self.assertFalse(partial[0]['v6_delivery_samples']['window_complete'])
         self.assertEqual([len(row['v6_delivery_samples']['records']) for row in partial[1:]], [6, 6])
-        self.assertEqual([order_id for call in self.tab.evaluate.call_args_list for order_id in call.args[1]
+        self.assertEqual([order_id for call in self.tab.pair.call_args_list for order_id in call.args[0]
                           if str(order_id).startswith('30')], [slow_order])
 
-        self.tab.evaluate = Mock(return_value=[None, None])
+        self.tab.pair = Mock(return_value=[None, None])
         with self.assertRaisesRegex(ValueError, 'cost_order_detail_unavailable'):
             self.run_collect([rows, []], curve_v6=True)
-        self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list],
+        self.assertEqual([call.args[0] for call in self.tab.pair.call_args_list],
                          [[slow_order, '310']])
 
         first_pair = [details[slow_order], details['310']]
         for response in (first_pair[:1], [first_pair[0], {'goods': [], 'complete': True}]):
             with self.subTest(response=response):
-                self.tab.evaluate = Mock(return_value=response)
+                self.tab.pair = Mock(return_value=response)
                 with self.assertRaisesRegex(ValueError, 'cost_order_detail_response_unverified'):
                     self.run_collect([rows, []], curve_v6=True)
-                self.assertEqual(self.tab.evaluate.call_count, 1)
+                self.assertEqual(self.tab.pair.call_count, 1)
 
-        self.tab.evaluate = Mock(return_value=first_pair)
+        self.tab.pair = Mock(return_value=first_pair)
         with patch.object(self.collector, 'verified_delivery_cost', side_effect=ValueError('verification_failed')):
             with self.assertRaisesRegex(ValueError, 'verification_failed'):
                 self.run_collect([rows, []], curve_v6=True)
-        self.assertEqual(self.tab.evaluate.call_count, 1)
+        self.assertEqual(self.tab.pair.call_count, 1)
 
     def test_v6_pending_pairs_include_current_order_after_a_platform_times_out(self):
         deliveries = [(None, dict(platform=platform, order_delivery={'order_id': order}))
                       for order, platform in (('1', 'PS'), ('2', 'PS'), ('3', 'PS'), ('4', 'PS'),
                                               ('5', 'PC'), ('2', 'XBOX'), ('3', 'XBOX'), ('4', 'XBOX'))]
         detail = dict(complete=True, goods=[], deliveries=[])
-        self.tab.evaluate = Mock(side_effect=lambda expression, pair: [
+        self.tab.pair = Mock(side_effect=lambda pair: [
             {'timed_out': True} if order == '1' else detail for order in pair])
         timed_out = set()
         with patch.object(self.collector, 'verified_delivery_cost', return_value=None):
             evidence = list(self.collector.verified_v6_deliveries(self.tab, deliveries, {}, timed_out))
         self.assertEqual(timed_out, {'PS'})
         self.assertEqual([record['platform'] for record, _ in evidence], ['PC', 'XBOX', 'XBOX', 'XBOX'])
-        self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list],
+        self.assertEqual([call.args[0] for call in self.tab.pair.call_args_list],
                          [['1', '2'], ['5', '3'], ['4']])
 
     def test_sparse_ps_does_not_block_independent_v6_xbox_and_pc_costs(self):
@@ -241,7 +242,7 @@ class SixCost(unittest.TestCase):
         self.native_verifier.stop()
         requests, windows = [], []
 
-        def evaluate(_, ids):
+        def read_pair(ids):
             requests.extend(ids)
             return [details[order_id] for order_id in ids]
 
@@ -252,7 +253,7 @@ class SixCost(unittest.TestCase):
                              datetime.fromisoformat(row['trade_at']).replace(tzinfo=self.collector.SHANGHAI)
                              <= window['end']] if page == 1 else [])
 
-        self.tab.evaluate = evaluate
+        self.tab.pair = read_pair
         with patch.object(self.collector, 'read_page', side_effect=read):
             result = self.collector.collect(curve_v6=True, confirmed_costs={p: '.4' for p in self.collector.PLATFORMS})
         self.assertEqual([w['end'] - w['start'] for w in windows],
@@ -281,7 +282,7 @@ class SixCost(unittest.TestCase):
                        cost_total=str(Decimal(row['cny_per_1k']) * 100))
         windows = []
 
-        def evaluate(_, ids):
+        def read_pair(ids):
             requests.extend(ids)
             current = rows if len(windows) == 1 else [amended, *rows[1:], late, older]
             lookup = {row['order_id']: row for row in current}
@@ -297,7 +298,7 @@ class SixCost(unittest.TestCase):
             return self.data(rows if len(windows) == 1 else [amended, *rows[1:], late, older])
 
         self.native_verifier.stop()
-        self.tab.evaluate = evaluate
+        self.tab.pair = read_pair
         with patch.object(self.collector, 'read_page', side_effect=read):
             result = self.collector.collect(curve_v6=True)
         self.assertEqual(requests.count('1000'), 2)
@@ -325,7 +326,7 @@ class SixCost(unittest.TestCase):
                 goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty=ordered,
                             used=ordered if i in (1, 4, 5) else quantity)],
                 deliveries=[dict(id=did, pid='9', qty=quantity, gift='0', price=cost, total=total)])
-        self.tab.evaluate = lambda expression, request: details[request[0]]
+        self.tab.single = lambda order_id, timeout: details[order_id]
         ps, xbox, pc = self.run_collect([rows, []])['costs']
         self.assertEqual(Decimal(ps['cny_per_1k']), Decimal('.4'))
         self.assertEqual(Decimal(xbox['observed_cost']['cny_per_1k']), Decimal('.42'))
@@ -373,16 +374,16 @@ class SixCost(unittest.TestCase):
             goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty='500', used='500')],
             deliveries=[dict(id='100', pid='9', qty='500', gift='0', price='.4', total='200')])
         timeout = {'timed_out': True}
-        self.tab.evaluate = Mock(side_effect=[timeout, detail])
+        self.tab.single = Mock(side_effect=[timeout, detail])
         verified = self.collector.verified_delivery_cost(self.tab, row, {})
         self.assertEqual(Decimal(verified['cny_per_1k']), Decimal('.4'))
-        self.assertEqual([call.args[1] for call in self.tab.evaluate.call_args_list], [['300', 8000], ['300', 8000]])
+        self.assertEqual([list(call.args) for call in self.tab.single.call_args_list], [['300', 8000], ['300', 8000]])
 
-        self.tab.evaluate = Mock(return_value=timeout)
+        self.tab.single = Mock(return_value=timeout)
         cache = {}
         with self.assertRaisesRegex(ValueError, 'cost_order_detail_timeout'):
             self.collector.verified_delivery_cost(self.tab, row, cache)
-        self.assertEqual(self.tab.evaluate.call_count, 2)
+        self.assertEqual(self.tab.single.call_count, 2)
         self.assertEqual(cache, {})
 
     def test_duplicate_same_record_does_not_count_twice(self):
@@ -392,7 +393,6 @@ class SixCost(unittest.TestCase):
     def test_conflicting_duplicate_fails(self):
         with self.assertRaisesRegex(ValueError, 'cost_duplicate_record_conflict'):
             self.run_collect([self.rows, [dict(self.rows[0], cny_per_1k='999')], []])
-        self.assertEqual(self.closed, 1)
 
     def test_five_unique_valid_ps_records_do_not_pass(self):
         with self.assertRaisesRegex(ValueError, 'ps_valid_delivery_sample_incomplete'):
@@ -457,67 +457,40 @@ class SixCost(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'cost_time_window_filter_unverified'):
                 self.collector.collect()
 
-    def empty_page(self, *, ready='complete'):
-        return dict(login=False,ready=ready,page='1',game='1322',area='21942',product='1',genre='1',
-                    typeHeader='交货类型',table=True,hasDataRows=False,empty=False,deliveryRowCount=0,rows=[],
-                    start=self.now.strftime('%Y-%m-%d %H:%M'),end=(self.now+timedelta(hours=1)).strftime('%Y-%m-%d %H:%M'))
+    def test_http_detail_pair_retries_only_the_timed_out_order(self):
+        self.single_patch.stop()
+        attempts = []
 
-    def test_real_ps_page_reader_accepts_verified_zero_rows_without_empty_text(self):
-        data=self.empty_page()
-        page=types.SimpleNamespace(goto=lambda *a,**k:types.SimpleNamespace(status=200),evaluate=lambda _:data,
-                                   wait_for_timeout=lambda _:self.fail('verified empty PS page should not wait'))
-        window=dict(start=self.now,end=self.now+timedelta(hours=1))
-        self.assertEqual(self.collector.read_page(page,1,[],window=window),data)
+        def fetch(path, timeout):
+            order_id = path.split('/')[-1].split('.')[0]
+            attempts.append((order_id, timeout))
+            if order_id == '300' and timeout == 8:
+                raise TimeoutError
+            html = ('<table class="look-goods-table"><tbody><tr data-pid="9"></tr></tbody></table>'
+                    '<script>var orderDeliveryData = {};</script>')
+            return path, html.encode()
 
-    def test_native_all_platform_window_keeps_area_separate_from_timestamps(self):
-        data = dict(self.empty_page(), area='0')
-        page = types.SimpleNamespace(goto=lambda *a, **k: types.SimpleNamespace(status=200),
-            evaluate=lambda _: data, wait_for_timeout=lambda _: self.fail('complete native window'))
-        window = dict(start=self.now, end=self.now+timedelta(hours=1), area='0')
-        self.assertEqual(self.collector.read_page(page, 1, [], window=window), data)
+        details = self.real_detail_pair(OrderHTTP(fetch), ['300', '301'])
+        self.assertCountEqual(attempts, [('300', 8), ('300', 16), ('301', 8)])
+        self.assertEqual([detail['goods'][0]['pid'] for detail in details], ['9', '9'])
 
-    def test_native_all_platform_wait_returns_on_dom_ready_and_rechecks_window(self):
+    def test_http_page_requires_native_filter_readback(self):
+        def reader(area):
+            headers = ('', '编号', '交货类型', '来源', '商户订单号', '交易时间',
+                       '游戏', '数量', '赠送', '单价', '总额')
+            fields = {'game': '1322', 'type': '1', 'genre': '1', 'area': area,
+                      'start': self.now.strftime('%Y-%m-%d %H:%M'),
+                      'end': (self.now + timedelta(hours=1)).strftime('%Y-%m-%d %H:%M')}
+            html = ''.join(f'<input id="lot-{key}" value="{value}">' for key, value in fields.items())
+            html += '<table class="table-list"><tr>' + ''.join(f'<th>{h}</th>' for h in headers)
+            html += '</tr><tbody></tbody></table>'
+            return OrderHTTP(lambda path, timeout: (path, html.encode()))
+
         window = dict(start=self.now, end=self.now + timedelta(hours=1), area='0')
-        loading = dict(self.empty_page(ready='loading'), area='0')
-        ready = dict(self.empty_page(ready='interactive'), area='0')
-        for wait_error, expected in ((None, ready), (TimeoutError, ready)):
-            with self.subTest(wait_error=wait_error):
-                observed = []
-                page = types.SimpleNamespace(goto=Mock(return_value=types.SimpleNamespace(status=200)),
-                    evaluate=Mock(side_effect=[loading, expected]),
-                    wait_for_function=Mock(side_effect=wait_error),
-                    wait_for_timeout=Mock())
-                self.assertEqual(self.collector.read_page(page, 1, observed, window=window), expected)
-                self.assertEqual([row['observed']['ready'] for row in observed], ['interactive'])
-                self.assertEqual(page.wait_for_function.call_count, 1)
-                self.assertEqual(page.wait_for_function.call_args.kwargs['timeout'], 500)
-                page.wait_for_timeout.assert_not_called()
-
-        page.evaluate = Mock(side_effect=[loading, dict(ready, area='21942')])
+        result = self.collector.read_page(reader('0'), 1, [], window=window)
+        self.assertEqual(result['deliveryRowCount'], 0)
         with self.assertRaisesRegex(self.collector.CostPageError, 'cost_ps_filter_unverified'):
-            self.collector.read_page(page, 1, [], window=window)
-
-    def test_native_all_platform_dom_wait_keeps_original_loading_budget(self):
-        window = dict(start=self.now, end=self.now + timedelta(hours=1), area='0')
-        page = types.SimpleNamespace(goto=Mock(return_value=types.SimpleNamespace(status=200)),
-            evaluate=Mock(return_value=dict(self.empty_page(ready='loading'), area='0')),
-            wait_for_function=Mock(side_effect=TimeoutError), wait_for_timeout=Mock())
-        with self.assertRaisesRegex(self.collector.CostPageError, 'filter_or_rows_unverified:1'):
-            self.collector.read_page(page, 1, [], window=window)
-        self.assertEqual(page.wait_for_function.call_count, 40)
-        self.assertTrue(all(call.kwargs['timeout'] == 500 for call in page.wait_for_function.call_args_list))
-        self.assertEqual(page.goto.call_args.kwargs['timeout'], 35000)
-        page.wait_for_timeout.assert_not_called()
-
-    def test_ps_empty_page_waits_for_document_parsing_and_pc_gate_is_unchanged(self):
-        values=iter([self.empty_page(ready='loading'),self.empty_page()]);waits=[]
-        page=types.SimpleNamespace(goto=lambda *a,**k:types.SimpleNamespace(status=200),evaluate=lambda _:next(values),
-                                   wait_for_timeout=waits.append)
-        self.collector.read_page(page,1,[],window=dict(start=self.now,end=self.now+timedelta(hours=1)))
-        self.assertEqual(waits,[500])
-        page.evaluate=lambda _:self.empty_page()
-        with self.assertRaisesRegex(self.collector.CostPageError,'filter_or_rows_unverified:1'):
-            self.collector.read_page(page,1,[])
+            self.collector.read_page(reader('21942'), 1, [], window=window)
 
     def test_completely_empty_hour_expands_to_two_hours(self):
         windows=[]
