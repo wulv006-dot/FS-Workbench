@@ -4,6 +4,7 @@
 
 - `real_delivery_v6.html`、`real_delivery_scalar.html` 来自 FC27 Coins 近 3 小时与默认历史窗口。两页各有 19 列明细，表尾一行 8 个单元格，首尾的单元格各有 `colspan="6"`。
 - `real_delivery_v6_page2.html` 来自随后定位的 V6 第 2 页，其中一条明细的交货类型单元格含独立操作下拉菜单。
+- `real_delivery_order_links.html` 来自已知旧采集成功窗口的首屏。商户订单链接保留 JavaScript 包裹形态，包装内容换为无操作表达式。
 - `real_channel_delivery.html`、`real_sales_delivery.html` 分别使用渠道成本的主站全游戏筛选和销售采集的 Aion 2 订单发货筛选。两页具有相同的表尾结构。
 - `real_shipping_stats.html`、`real_shipping_stats_rs.html` 来自经营看板的 FC27 主站与 RS 全站发货统计，保留各自的六列表头和筛选读回。
 - `real_order_detail.html`、`real_attribution_list.html` 来自同一笔去标识化订单的详情页和活动归因精确查询列表，用于核对商品属性、订单链接和发货脚本结构。

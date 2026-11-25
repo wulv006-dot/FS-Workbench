@@ -28,7 +28,9 @@ def text(cell):
 
 class OrderRealTableTests(unittest.TestCase):
     def test_cost_collects_the_same_delivery_rows_as_the_browser(self):
-        for name, number in (('delivery_v6', 1), ('delivery_scalar', 1), ('delivery_v6_page2', 2)):
+        cases = [('delivery_v6', 1), ('delivery_scalar', 1), ('delivery_v6_page2', 2),
+                 ('delivery_order_links', 1)]
+        for name, number in cases:
             with self.subTest(fixture=name):
                 reader, tree = load_page(name)
                 old_data_rows = [row.xpath('./td') for row in tree.xpath('//table//tr')
@@ -47,7 +49,7 @@ class OrderRealTableTests(unittest.TestCase):
                                              quantity=text(cells[7]), gift=text(cells[8]), cost_total=text(cells[10])))
                 self.assertTrue(expected)
                 window = None
-                if name.startswith('delivery_v6'):
+                if name != 'delivery_scalar':
                     window = {key: datetime.strptime(tree.xpath(f'//*[@id="lot-{key}"]/@value')[0],
                                                      '%Y-%m-%d %H:%M')
                               for key in ('start', 'end')}

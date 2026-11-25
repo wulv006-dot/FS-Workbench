@@ -20,6 +20,7 @@ from urllib.request import (HTTPCookieProcessor, HTTPRedirectHandler, HTTPSHandl
 BASE = 'https://order.p2pah.cn'
 DELIVERY = '/order/admin_delivery/index.html'
 DETAIL = '/order/admin_order/look/id/{}.html'
+DETAIL_LINK = re.compile(r'/order/admin_order/look/id/([0-9]+)\.html')
 STATS = '/stats/admin_index/delivery.html'
 SHIPPING_HEADERS = frozenset(('游戏', '￥销售总额', '￥采购总额', '利润率', '订单总数', '交易总数'))
 VOID = set('area base br col embed hr img input link meta param source track wbr'.split())
@@ -162,9 +163,7 @@ def table_rows(table, *, shipping=False):
             # colspan covering the ID column. The DOM collector counts 10+ cells.
             has_id = (len(cells) > 1 and 'colspan' not in cells[0].attrs
                       and cells[1].text().strip().isdigit())
-            has_order = any(re.fullmatch(r'/order/admin_order/look/id/\d+\.html',
-                                         urlsplit(link.attrs.get('href', '')).path)
-                            for link in row.find('a'))
+            has_order = any(DETAIL_LINK.search(link.attrs.get('href', '')) for link in row.find('a'))
             has_selector = any(node.attrs.get('type') == 'checkbox' for node in row.find('input'))
             if not (has_id or has_order or has_selector):
                 continue
@@ -532,12 +531,15 @@ class OrderHTTP:
         # The delivery type cell can contain a separate menu of editing options.
         rows = tuple({header: node.text(skip_tag='select' if header == '交货类型' else None).strip()
                       for header, node in zip(headers, row) if header} for row in cells)
-        ids = []
-        for row in cells:
-            matches = [match[1] for cell in row for link in cell.find('a')
-                       if (match := re.fullmatch(r'/order/admin_order/look/id/(\d+)\.html',
-                                                urlsplit(link.attrs.get('href', '')).path))]
-            ids.append(matches[0] if len(set(matches)) == 1 else None)
+        ids = [None] * len(cells)
+        if '商户订单号' in headers:
+            order_column = headers.index('商户订单号')
+            for index, row in enumerate(cells):
+                # The first merchant link can wrap the detail route in JavaScript.
+                # Extract the numeric ID for order_detail's fixed GET route.
+                link = next(row[order_column].find('a'), None)
+                if link is not None and (match := DETAIL_LINK.search(link.attrs.get('href', ''))):
+                    ids[index] = match[1]
         # The active collector proves the tail by requesting the first empty page.
         return DeliveryPage(number, headers, rows, tuple(ids), form_values(root),
                             bool(rows), sha256(raw).hexdigest(), explicit_empty)
