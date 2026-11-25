@@ -427,8 +427,10 @@ class Session:
         identity = self.check_identity(deadline)
         if identity == 'expired':
             # Expiry is confirmed: the cached cookies must never be revived by a
-            # transport failure later in this renewal.
+            # transport failure later in this renewal, nor handed to consumers
+            # through the no-wait path while the renewal runs.
             self.last_ready = None
+            self.result = self.failure('order_session_renewing')
             if (self.last_valid_login_attempts is not None
                     and self.last_valid_login_attempts == self.login_attempts):
                 detected_at = datetime.now(timezone.utc).isoformat()
@@ -469,6 +471,9 @@ class Session:
         if (self.result.get('ready') is True and self.checked
                 and time.monotonic() - self.checked <= STALE_SERVE
                 and (self.probing or not refresh)):
+            return self.result
+        if self.probing and self.result.get('error') == 'order_session_renewing':
+            # Renewal can take minutes; consumers get the answer now, not a lock wait.
             return self.result
         if not self.lock.acquire(timeout=WAIT_TIMEOUT):
             return self.failure('order_probe_wait_timeout')
