@@ -30,7 +30,7 @@ ALLOWED_UIDS = {0, 994, 11027}
 
 BASE = 'https://order.p2pah.cn'
 PROBE_PATH = '/admin/index/index.html'
-PRIVATE_CONFIG = '/opt/mlb-admin-write/_cred_order.json'
+PRIVATE_CONFIG = '/etc/fs-order-session/order-account.json'
 # The live 187 session exports only PHPSESSID at path / and every consumer works
 # with it; the authenticated page check is the identity proof.
 REQUIRED_COOKIES = {'PHPSESSID'}
