@@ -45,15 +45,16 @@ class Node:
                     yield child
                 yield from child.find(tag, css)
 
-    def text_parts(self):
+    def text_parts(self, *, skip_tag=None):
         for child in self.children:
             if isinstance(child, Node):
-                yield from child.text_parts()
+                if child.tag != skip_tag:
+                    yield from child.text_parts(skip_tag=skip_tag)
             else:
                 yield child
 
-    def text(self, separator=''):
-        return separator.join(self.text_parts())
+    def text(self, separator='', *, skip_tag=None):
+        return separator.join(self.text_parts(skip_tag=skip_tag))
 
     def direct(self, tag):
         return [child for child in self.children if isinstance(child, Node) and child.tag == tag]
@@ -139,10 +140,11 @@ def table_rows(table, *, shipping=False):
         raise OrderReadError('shipping_headers_unverified')
     if not headers or len(set(filter(None, headers))) != sum(bool(header) for header in headers):
         raise OrderReadError('table_headers_unverified')
+    delivery = len(headers) >= 11 and headers[2] == '交货类型' and headers[4] == '商户订单号'
     rows = []
     explicit_empty = False
     for row in table.find('tr'):
-        cells = [node for node in row.children if isinstance(node, Node) and node.tag == 'td']
+        cells = row.direct('td')
         if not cells:
             continue
         if len(cells) == 1:
@@ -154,7 +156,19 @@ def table_rows(table, *, shipping=False):
             if not shipping and message == '暂无数据':
                 explicit_empty = True
                 continue
-        if len(cells) != len(headers):
+        merged = any('colspan' in cell.attrs or 'rowspan' in cell.attrs for cell in cells)
+        if delivery and len(cells) < 10:
+            # The native delivery footer has eight cells, with its leading
+            # colspan covering the ID column. The DOM collector counts 10+ cells.
+            has_id = (len(cells) > 1 and 'colspan' not in cells[0].attrs
+                      and cells[1].text().strip().isdigit())
+            has_order = any(re.fullmatch(r'/order/admin_order/look/id/\d+\.html',
+                                         urlsplit(link.attrs.get('href', '')).path)
+                            for link in row.find('a'))
+            has_selector = any(node.attrs.get('type') == 'checkbox' for node in row.find('input'))
+            if not (has_id or has_order or has_selector):
+                continue
+        if len(cells) != len(headers) or merged:
             raise OrderReadError('table_columns_unverified')
         rows.append(cells)
     return headers, rows, explicit_empty and not rows
@@ -515,7 +529,9 @@ class OrderHTTP:
         if table is None:
             raise OrderReadError('delivery_table_missing')
         headers, cells, explicit_empty = table_rows(table)
-        rows = tuple({header: node.text().strip() for header, node in zip(headers, row) if header} for row in cells)
+        # The delivery type cell can contain a separate menu of editing options.
+        rows = tuple({header: node.text(skip_tag='select' if header == '交货类型' else None).strip()
+                      for header, node in zip(headers, row) if header} for row in cells)
         ids = []
         for row in cells:
             matches = [match[1] for cell in row for link in cell.find('a')
