@@ -14,18 +14,6 @@ from pathlib import Path
 from channel_effects import TZ
 
 
-_LXML_HTML = None
-
-
-def _lxml_html():
-    # Import once at startup to avoid concurrent initialization during collection.
-    global _LXML_HTML
-    if _LXML_HTML is None:
-        from lxml import html
-        _LXML_HTML = html
-    return _LXML_HTML
-
-
 def delivery_timestamps(value):
     parts = value.split('改')
     if len(parts) > 2: raise ValueError('delivery_date_format_changed')
@@ -43,7 +31,10 @@ def delivery_timestamp(value):
 
 
 def collect(session, start, end, progress=lambda page, total: None, until=None, since=None, source='www.mmoexp.com', gid='0'):
-    html = _lxml_html()
+    if '/opt/fs-order-session' not in sys.path:
+        sys.path.insert(0, '/opt/fs-order-session')
+    from order_http import OrderHTTP
+
     if not isinstance(source,str) or source and not __import__('re').fullmatch(r'www\.[a-z0-9.-]+',source) or not str(gid).isdigit():
         raise ValueError('invalid_delivery_scope')
     result, seen, page_count = [], set(), None
@@ -55,23 +46,15 @@ def collect(session, start, end, progress=lambda page, total: None, until=None, 
     datetime.strptime(begin, '%Y-%m-%d %H:%M:%S'); datetime.strptime(stop, '%Y-%m-%d %H:%M:%S')
     if not start + ' 00:00:00' <= begin <= stop <= end + ' 23:59:59':
         raise ValueError('invalid_delivery_window')
+    reader = OrderHTTP.from_order_session(session.order)
     while True:
-        status, text = session.get_order('/order/admin_delivery/index.html', gid=str(gid), aid='0', cid='-1', genre='1', status='-1', op_id='0', show_ccy='-1', is_stock='', keyword='', sn='', start=begin, end=stop, page=str(page), **{'source[]': source})
-        if status in (301,302,401,403):raise PermissionError('shared_order_denied')
-        doc = html.fromstring(text)
-        if status != 200 or doc.xpath('//input[@name="password"]'):
-            raise ValueError('shared_order_unavailable')
-        pages = [int(v) for v in doc.xpath('//*[contains(@class,"pagination")]//a/@href') for v in __import__('re').findall(r'[?&]page=(\d+)', v)]
-        total = max(pages + [page])
-        if page_count is None: page_count = total
-        if total != page_count: raise ValueError('delivery_page_count_changed')
-        table = doc.xpath('//table[contains(@class,"table-list")][.//th[normalize-space()="商户订单号"]]')
-        if len(table) != 1: raise ValueError('delivery_table_missing')
-        rows = table[0].xpath('.//tbody/tr')
-        for tr in rows:
-            if tr.xpath('./td[@colspan]'): continue
-            cells = [' '.join(td.itertext()).strip() for td in tr.xpath('./td')]
-            if len(cells) == 1 and not cells[0].strip(): continue
+        query = dict(gid=str(gid), aid='0', cid='-1', genre='1', status='-1', op_id='0',
+                     show_ccy='-1', is_stock='', keyword='', sn='', start=begin, end=stop,
+                     page=str(page), **{'source[]': source})
+        report = reader.delivery_export_page(query, timeout=120)
+        if page_count is None: page_count = report.page_count
+        if report.page_count != page_count: raise ValueError('delivery_page_count_changed')
+        for cells in report.rows:
             if len(cells) != len(headers): raise ValueError('delivery_columns_changed')
             record = dict(zip(headers, cells))
             record['trade_at'], amended_at = delivery_timestamps(record['trade_at'])
@@ -87,7 +70,7 @@ def collect(session, start, end, progress=lambda page, total: None, until=None, 
                 'genre': 1, 'trade_amended_at': amended_at, 'settle_status': record['settle_status'] or None})
         progress(page, page_count)
         if page == page_count: return result
-        if not rows or page >= 2000: raise ValueError('delivery_incomplete_pages')
+        if not report.has_body_rows or page >= 2000: raise ValueError('delivery_incomplete_pages')
         page += 1
 
 
@@ -119,10 +102,3 @@ def main():
 
 
 if __name__ == '__main__': main()
-
-
-try:
-    _lxml_html()
-except Exception:
-    # Preserve importability for callers that do not collect. collect() surfaces failures.
-    pass

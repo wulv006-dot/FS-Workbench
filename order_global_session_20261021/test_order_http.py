@@ -1,10 +1,11 @@
 
-import ast
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from http.client import HTTPConnection, HTTPSConnection, IncompleteRead
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
+from hashlib import sha256
+import json
 from pathlib import Path
 import re
 import socket
@@ -33,6 +34,77 @@ def page(body):
 
 
 class OrderHTTPTests(unittest.TestCase):
+    def test_dashboard_shipping_preserves_single_selection_and_nested_text(self):
+        body = shipping_fixture(
+            '<select name="source[]" multiple><option selected value="main">Main</option></select>',
+            '<tr><td><b>506</b> | RS</td><td>10</td><td>8</td><td>20%</td><td>1</td><td>2</td></tr>'
+            '<tr><td colspan="6">查询期间暂无发货记录</td></tr>')
+        reader = OrderHTTP(lambda path, timeout: (path, body.encode()))
+        result = reader.dashboard_shipping({'source[]': 'main'}, timeout=1)
+        self.assertEqual(result, dict(filters={'source[]': 'main'}, headers=list(STATS_HEADERS),
+                                      rows=[['506  | RS', '10', '8', '20%', '1', '2']]))
+
+    def test_delivery_export_preserves_channel_and_sales_page_evidence(self):
+        cells = '<td></td><td>123</td><td>订单发货</td><td>www.mmoexp.com</td>' + '<td></td>' * 15
+        body = ('<table class="table-list"><thead><tr><th>商户订单号</th></tr></thead>'
+                '<tbody><tr>' + cells + '</tr></tbody></table>'
+                '<div class="pagination"><a href="?page=2">2</a> 共 100 条</div>')
+        reader = OrderHTTP(lambda path, timeout: (path, body.encode()))
+        channel = reader.delivery_export_page({'page': 1}, timeout=1)
+        sales = reader.delivery_export_page({'page': 1}, timeout=1, sales=True)
+        self.assertEqual(channel.page_count, 2)
+        self.assertEqual(sales.page_count, 100)
+        self.assertTrue(channel.has_body_rows)
+        self.assertEqual(channel.rows, sales.rows)
+        self.assertEqual(channel.rows[0][:4], ('', '123', '订单发货', 'www.mmoexp.com'))
+
+    def test_delivery_export_reuses_callers_session_and_refreshes_shared_cookie_jar(self):
+        body = '<table class="table-list"><tbody><tr><td>暂无数据</td></tr></tbody></table>'
+        session = SimpleNamespace(cookies=object(), get=Mock(side_effect=lambda url, **kwargs:
+            nullcontext(SimpleNamespace(url=url, status_code=200, content=body.encode()))))
+        broker = SimpleNamespace(fill_jar=Mock())
+        with patch.dict('sys.modules', {'fs_order_client': broker}):
+            reader = OrderHTTP.from_order_session(session)
+            for number in (1, 2):
+                self.assertEqual(reader.delivery_export_page({'page': number}, timeout=1, sales=True).rows, ())
+        self.assertEqual(session.get.call_count, 2)
+        self.assertEqual(broker.fill_jar.call_count, 2)
+        for number, (args, kwargs) in enumerate(session.get.call_args_list, 1):
+            self.assertTrue(args[0].endswith(f'?page={number}'))
+            self.assertFalse(kwargs['allow_redirects'])
+        self.assertTrue(all(entry.args == (session.cookies,) for entry in broker.fill_jar.call_args_list))
+
+    def test_dashboard_shipping_pagination_matches_the_consumers(self):
+        body = shipping_fixture() + '<div class="pagination"><a href="?page=2">2</a></div>'
+        reader = OrderHTTP(lambda path, timeout: (path, body.encode()))
+        with self.assertRaisesRegex(ValueError, 'shipping_pagination_unhandled'):
+            reader.dashboard_shipping({'gid': '1322'}, timeout=1)
+        rs = reader.dashboard_shipping({'gid': '1322'}, timeout=1, reject_pagination=False)
+        self.assertEqual(rs['rows'], [])
+
+    def test_consumer_candidate_pins_bind_runtime_dependencies_and_payloads(self):
+        root = Path(__file__).resolve().parents[1]
+        source_map = json.loads((root / 'docs/collaboration/SOURCE-MAP.json').read_text(encoding='utf-8'))
+        reader = source_map['orderHttpReader20261125']
+        consumer_map = source_map['orderHttpConsumers20261125']
+        release = json.loads((root / reader['release']).read_text(encoding='utf-8'))
+        consumers = json.loads((root / consumer_map['release']).read_text(encoding='utf-8'))
+        self.assertEqual(consumers['status'], 'candidate')
+        deps = {reader['runtime'].split(':', 1)[1]: reader['sha256'],
+                reader['brokerClientRuntime'].split(':', 1)[1]: reader['brokerClientSha256']}
+        self.assertEqual({row['target']: row['sha256'] for row in consumers['prerequisites']}, deps)
+        self.assertEqual({row['target']: row['sha256'] for row in release['files']
+                          if row['target'] in deps}, deps)
+        self.assertEqual({row['target'] for row in consumers['files']}, {
+            '/opt/fs-exact-range-20261001/business_shipping.py',
+            '/opt/fs-exact-range-20261001/rs_shipping.py',
+            '/opt/fs-hermes-fc/channel_cost_source.py',
+            '/opt/sales-dashboard/collector/fetch_all.py',
+        })
+        for row in release['files'] + consumers['files']:
+            data = (root / row['source']).read_bytes().replace(b'\r\n', b'\n')
+            self.assertEqual(sha256(data).hexdigest(), row['sha256'], row['source'])
+
     def test_dripped_headers_and_body_share_request_deadline(self):
         prefix = b'HTTP/1.1 200 OK\r\nContent-Length: 9'
         for headers_slow in (True, False):
@@ -182,15 +254,6 @@ class OrderHTTPTests(unittest.TestCase):
     def test_delivery_matches_existing_lxml_parser(self):
         from lxml import html as LH
 
-        # Load only the legacy parser. Importing the sales job creates its data folder.
-        source = Path(__file__).resolve().parents[1] / 'shared_backend_session/sales_collection.py'
-        tree = ast.parse(source.read_text(encoding='utf-8'))
-        tree.body = [node for node in tree.body if
-                     isinstance(node, ast.FunctionDef) and node.name in {'lxml_login', '_parse_delivery'}
-                     or isinstance(node, ast.Assign) and any(
-                         isinstance(target, ast.Name) and target.id == '_DELIV_HEAD' for target in node.targets)]
-        namespace = dict(LH=LH, re=re)
-        exec(compile(tree, str(source), 'exec'), namespace)
         labels = ('', '编号', '交货类型', '来源', '商户订单号', '交易时间', '游戏', '数量',
                   '赠送', '单价', '采购总额', '销售总额', '利润率', '供货商', '收款人',
                   '操作人', '备注', '结算状态', '操作')
@@ -202,11 +265,13 @@ class OrderHTTPTests(unittest.TestCase):
                 ''.join(f'<th>{label}</th>' for label in labels) + '</tr></thead><tbody><tr>' +
                 ''.join(f'<td>{cell}</td>' for cell in cells) + '</tr></tbody></table>')
         current = OrderHTTP(lambda path, timeout: (path, html.encode())).delivery_page({}, timeout=1)
-        old, _ = namespace['_parse_delivery'](html, 1)
-        projected = {name: current.rows[0][label] for label, name in zip(labels, namespace['_DELIV_HEAD'])
-                     if label}
-        self.assertEqual(projected, {key: value for key, value in old[0].items() if key not in ('', 'genre')})
-        self.assertEqual(current.order_ids, ('123',))
+        old = LH.fromstring(html).xpath('//tbody/tr/td')
+        expected = tuple(''.join(cell.itertext()).strip() for cell in old)
+        self.assertEqual(current.rows[0], dict(zip(labels[1:], expected[1:])))
+        export = OrderHTTP(lambda path, timeout: (path, html.encode())).delivery_export_page(
+            {'page': 1}, timeout=1, sales=True)
+        self.assertEqual(export.rows, (expected,))
+
 
     def test_shipping_preserves_empty_and_multiple_values(self):
         combined = shipping_fixture(
