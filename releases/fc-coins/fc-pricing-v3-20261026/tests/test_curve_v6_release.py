@@ -193,8 +193,8 @@ class CurveV6Release(unittest.TestCase):
                 'releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh',
         }
         before = {
-            'source/order_http.py': '1e6d91152718b5dc29dce1b454c0777f64b1f3806e3e4531913cb223d4c78bf7',
-            'source/collect_p2pah_cost.py': 'd97f22b8494c1519ad07f6b3c1854777bc926402437fee3d5f87129beb4e4cc2',
+            'source/order_http.py': '4bc456a1146df3934b071c694607f2692424fb9ff8c2724cf5912247ab564256',
+            'source/collect_p2pah_cost.py': 'ffff1ea5ee7e5218c47f9a91b451c8f47862bb02c029ed4c8f732e18aae810f8',
             'source/collect_p2pah_cost.sh': '3ed23e6e88b27247164559e06d5884fd3fda57aeb086e9442970ff9da04e65cd',
         }
         expected_targets = {
@@ -233,7 +233,7 @@ class CurveV6Release(unittest.TestCase):
             self.assertEqual({row['candidate']: row['beforeSha256'] for row in candidate_release['files']}, before)
             self.assertEqual({row['candidate']: row['sha256'] for row in candidate_release['files']}, after)
             self.assertEqual([name for name in after if before[name] != after[name]],
-                             ['source/order_http.py', 'source/collect_p2pah_cost.py'])
+                             ['source/collect_p2pah_cost.py'])
 
             live_hashes = {Path(target): before[name] for name, target in expected_targets.items()}
 
