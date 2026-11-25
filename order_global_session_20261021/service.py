@@ -414,9 +414,12 @@ class Session:
         return {'ready': True, 'cookies': rows, 'error': None}
 
 
-    def get(self):
-        if (self.probing and self.result.get('ready') is True and self.checked
-                and time.monotonic() - self.checked <= STALE_SERVE):
+    def get(self, refresh=False):
+        # Consumers take a recent ready result without waiting; the upkeep thread
+        # (refresh=True) is the one that pays for slow Order probes.
+        if (self.result.get('ready') is True and self.checked
+                and time.monotonic() - self.checked <= STALE_SERVE
+                and (self.probing or not refresh)):
             return self.result
         if not self.lock.acquire(timeout=WAIT_TIMEOUT):
             return self.failure('order_probe_wait_timeout')
@@ -484,7 +487,7 @@ def main():
     try:
         def upkeep():
             while True:
-                SESSION.get()
+                SESSION.get(refresh=True)
                 time.sleep(5)
         threading.Thread(target=upkeep, daemon=True).start()
         Path('/run/fs-order-session').mkdir(mode=0o755, exist_ok=True)
