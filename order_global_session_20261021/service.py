@@ -40,6 +40,8 @@ RESPONSE_LIMIT = 1048576
 OCR_COMMAND = (sys.executable, str(Path(__file__).resolve()), '--recognize-captcha')
 LOGIN_POST_PATH = '/admin/public/dologin.html'
 CAPTCHA_PATH = '/new_captcha.html'
+# Order rejects dologin as "非法登录!" unless this page was opened in the same session.
+LOGIN_PAGE_PATH = '/login.html'
 LOGOUT_PATH = '/admin/public/logout.html'
 CAPTCHA_CODE = re.compile(r'[0-9A-Za-z]{3,6}')
 
@@ -216,8 +218,8 @@ class Session:
     def failure(error):
         return {'ready': False, 'cookies': [], 'error': error}
 
-    def request(self, path, deadline, form=None):
-        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': BASE + '/admin'}
+    def request(self, path, deadline, form=None, referer='/admin'):
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': BASE + referer}
         data = None
         if form is not None:
             headers.update({'Origin': BASE, 'X-Requested-With': 'XMLHttpRequest'})
@@ -304,8 +306,15 @@ class Session:
                 return 'order_login_cooldown'
             self.jar.clear()
             try:
+                status, _, page = self.request(LOGIN_PAGE_PATH, deadline)
+            except (OSError, HTTPException, ValueError):
+                return 'order_login_page_unavailable'
+            if status != 200 or b'dologin' not in page:
+                return 'order_login_page_unavailable'
+            try:
                 status, _, image = self.request(
-                    CAPTCHA_PATH + '?height=32&width=150&font_size=18', deadline)
+                    CAPTCHA_PATH + '?height=32&width=150&font_size=18', deadline,
+                    referer=LOGIN_PAGE_PATH)
             except (OSError, HTTPException, ValueError):
                 return 'order_captcha_unavailable'
             if (status != 200 or not image.startswith(b'\x89PNG\r\n\x1a\n')
@@ -321,7 +330,8 @@ class Session:
                     '_captcha_id': '', 'redirect': ''}
             remaining_posts -= 1
             try:
-                status, _, payload = self.request(LOGIN_POST_PATH, deadline, form)
+                status, _, payload = self.request(LOGIN_POST_PATH, deadline, form,
+                                                  referer=LOGIN_PAGE_PATH)
                 reply = json.loads(payload) if status == 200 else None
             except RequestNotSent as error:
                 return str(error)

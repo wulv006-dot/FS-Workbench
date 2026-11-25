@@ -166,6 +166,8 @@ class HTTPTests(unittest.TestCase):
         self.probes = []
         self.replies = []
         self.probe_headers = {}
+        self.login_page_visits = 0
+        self.login_referers = []
         self.response_stream = io.BytesIO
         self.outcome = (200, LOGIN)
         self.session.opener.open = Mock(side_effect=self.respond)
@@ -195,11 +197,16 @@ class HTTPTests(unittest.TestCase):
                 raise self.outcome
             status, body = self.outcome
             payload = body.encode()
-        elif path == '/new_captcha.html':
+        elif path == '/login.html':
+            self.login_page_visits += 1
             self.cookie('PHPSESSID')
+            status, payload = 200, LOGIN.encode()
+        elif path == '/new_captcha.html':
+            self.login_referers.append(req.get_header('Referer'))
             status, payload = 200, PNG
         else:
             self.assertEqual(path, '/admin/public/dologin.html')
+            self.login_referers.append(req.get_header('Referer'))
             self.posts.append(req.data)
             reply = self.replies.pop(0)
             if reply['code'] == 1:
@@ -211,6 +218,14 @@ class HTTPTests(unittest.TestCase):
         response.status = status
         response.headers = self.probe_headers if path == service.PROBE_PATH else {}
         return response
+
+    def test_each_login_attempt_opens_login_page_before_captcha(self):
+        # Order answers "非法登录!" unless /login.html was opened in the same session.
+        self.replies = [{'code': 0, 'msg': '验证码错误！'}, {'code': 1, 'msg': 'ok'}]
+        self.assertTrue(self.session.get()['ready'])
+        self.assertEqual(self.login_page_visits, 2)
+        self.assertEqual(len(self.posts), 2)
+        self.assertEqual(set(self.login_referers), {service.BASE + '/login.html'})
 
     def test_restart_logs_in_after_positive_login_page_evidence(self):
         self.assertEqual(list(self.session.jar), [])
