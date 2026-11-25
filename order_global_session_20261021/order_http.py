@@ -374,7 +374,8 @@ class OrderHTTP:
         try:
             root, _, _ = self._document(STATS + '?' + urlencode(filters), timeout)
         except HTTPError as exc:
-            exc.close()
+            if exc.fp is not None:
+                exc.close()
             if exc.code in (301, 302, 401, 403):
                 raise PermissionError('shipping_session_denied') from exc
             raise OSError('shipping_page_unavailable') from exc
@@ -434,7 +435,8 @@ class OrderHTTP:
                 root, _, _ = self._document(path, timeout)
                 break
             except HTTPError as exc:
-                exc.close()
+                if exc.fp is not None:
+                    exc.close()
                 if sales:
                     raise RuntimeError('发货记录 HTTP=%s page=%d' % (exc.code, page)) from exc
                 if exc.code in (301, 302, 401, 403):
