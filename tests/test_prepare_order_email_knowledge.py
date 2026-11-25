@@ -511,11 +511,18 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         self.assert_fc_revision_migration(builder.FC_V61_HOURLY_REVISION,
                                           builder.FC_V61_CARNIVAL_REVISION)
 
+    def test_cost_list_updates_only_constraints_and_preserves_live_wording(self):
+        self.assert_fc_revision_migration(
+            'fc_v61_u4gm_only_observation_20261125',
+            'fc_v61_cost_list_verification_20261125',
+            constraints_only_base='961e43083f5580658070bf34dff82cfe7a4d3b8f')
+
     def test_margin_band_refuses_to_overwrite_newer_live_reporting(self):
         self.assert_fc_revision_migration(builder.FC_V61_INSURANCE_REVISION,
                                           builder.FC_V61_MARGIN_BAND_REVISION, drift_reporting=True)
 
-    def assert_fc_revision_migration(self, old_revision, new_revision, baseline_patch=False, drift_reporting=False):
+    def assert_fc_revision_migration(self, old_revision, new_revision, baseline_patch=False, drift_reporting=False,
+                                     *, constraints_only_base=None):
         old_data = b'Original amount-weighted discount and ALL propagation.\n'
         new_data = b'Two native price bands and main catalogue readback.\n'
         carnival = new_revision == builder.FC_V61_CARNIVAL_REVISION
@@ -530,6 +537,12 @@ class SharedAdminESOverlayTest(unittest.TestCase):
         if new_revision in (builder.FC_V61_WEEKLY_REVISION, builder.FC_V61_INSURANCE_REVISION):
             overlay_ids.update((builder.FC_V61_PARAMETER_ID, 'fs.procurement.inputs'))
         margin_band_scope = builder.FC_V61_MARGIN_BAND_SCOPES.get(new_revision)
+        if constraints_only_base:
+            overlay_ids = {'fc.pricing.constraints'}
+            self.set_fc_v61_candidate((new_revision, old_revision), new_data)
+            self.git[constraints_only_base, canonical_path] = old_data
+            self.git[constraints_only_base, 'knowledge/index.json'] = builder.encoded(dict(
+                entries=[row('fc.pricing.constraints', old_revision, canonical_path, old_data)]))
         if margin_band_scope:
             ids, base = margin_band_scope
             overlay_ids = set(ids)
@@ -552,7 +565,7 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                 entries[entries.index(previous)] = row(previous['id'], old_revision, old_path, old_data)
             if number == 0:
                 identity = 'fc.pricing.constraints'
-                if new_revision == builder.FC_V61_OBSERVATION_RECEIPTS_REVISION:
+                if constraints_only_base or new_revision == builder.FC_V61_OBSERVATION_RECEIPTS_REVISION:
                     live_path = 'entries/original-live-constraint.md'
                     live_data = old_data + b'\nLive-only working rule.\n'
                     self.put_snapshot(index['source_root'] + '/' + live_path, live_data)
@@ -620,7 +633,12 @@ class SharedAdminESOverlayTest(unittest.TestCase):
             index = json.loads((artifact / slot).read_bytes())
             sources = artifact / index['source_root'].split(result['release'] + '/', 1)[1]
             self.assertEqual((sources / old_path).read_bytes(), old_data)
-            if new_revision in (builder.FC_V61_HOURLY_REVISION, builder.FC_V61_CARNIVAL_REVISION):
+            if constraints_only_base:
+                prior_index = json.loads((self.snapshot / old['catalog']).read_bytes())
+                before_entries = [r for r in prior_index['entries'] if r['id'] not in overlay_ids]
+                self.assertEqual([r for r in index['entries'] if r['id'] not in overlay_ids], before_entries)
+                self.assertNotIn('baselinePatch', result['manifest'])
+            if constraints_only_base or new_revision in (builder.FC_V61_HOURLY_REVISION, builder.FC_V61_CARNIVAL_REVISION):
                 method = next(r for r in index['entries'] if r['id'] == 'fc.pricing.v3')
                 self.assertEqual(method['revision'], old_revision)
                 self.assertEqual(method['source']['path'], old_path)
@@ -631,7 +649,8 @@ class SharedAdminESOverlayTest(unittest.TestCase):
                 self.assertIn(identity + '@' + old_revision, item['supersedes'])
                 self.assertEqual(item['source']['canonical_path'], canonical_path)
                 expected_data = new_data.replace(b'Unrelated Git-only paragraph.', b'Live-only paragraph.') if carnival else new_data
-                if new_revision == builder.FC_V61_OBSERVATION_RECEIPTS_REVISION and identity == 'fc.pricing.constraints':
+                if (constraints_only_base or new_revision == builder.FC_V61_OBSERVATION_RECEIPTS_REVISION) \
+                        and identity == 'fc.pricing.constraints':
                     expected_data += b'\nLive-only working rule.\n'
                     final_body = (sources / item['source']['path']).read_bytes()
                     self.assertEqual(final_body.count(b'Live-only working rule.'), 1)
