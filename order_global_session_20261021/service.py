@@ -46,6 +46,10 @@ RENEW_TIMEOUT = 180
 # While a probe runs, hand out the last ready result if it is this recent, so
 # consumers never queue behind a slow Order page.
 STALE_SERVE = 120
+# A probe that only failed to reach Order (timeout, 5xx, 429) says nothing about
+# the session; keep handing out the last ready cookies for this long.
+TRANSPORT_GRACE = 300
+TRANSIENT_ERRORS = {'order_probe_transport_unavailable', 'order_probe_unavailable'}
 WAIT_TIMEOUT = 34
 RESPONSE_LIMIT = 1048576
 OCR_COMMAND = (sys.executable, str(Path(__file__).resolve()), '--recognize-captcha')
@@ -227,6 +231,9 @@ class Session:
         self.result = self.failure('not_checked')
         self.probing = False
         self.probe_seconds = None
+        self.last_ready = None
+        self.last_ready_at = 0
+        self.degraded = None
         self.login_attempts = 0
         self.login_posts = deque()
         self.last_valid_at = None
@@ -467,9 +474,11 @@ class Session:
                 started = time.monotonic()
                 self.probing = True
                 try:
-                    self.result = self.probe()
+                    result = self.probe()
                 except Exception:
-                    self.result = self.failure('order_probe_unavailable')
+                    result = self.failure('order_probe_unavailable')
+                try:
+                    self.accept(result)
                 finally:
                     self.checked = time.monotonic()
                     self.probe_seconds = round(self.checked - started, 3)
@@ -477,6 +486,21 @@ class Session:
             return self.result
         finally:
             self.lock.release()
+
+    def accept(self, result):
+        now = time.monotonic()
+        if result.get('ready') is True:
+            self.result, self.last_ready, self.last_ready_at, self.degraded = result, result, now, None
+            return
+        if (result.get('error') in TRANSIENT_ERRORS and self.last_ready is not None
+                and now - self.last_ready_at <= TRANSPORT_GRACE):
+            self.result, self.degraded = self.last_ready, result.get('error')
+            log_event('probe_degraded_kept_session', reason=self.degraded,
+                      ready_age_seconds=round(now - self.last_ready_at, 1))
+            return
+        self.result, self.degraded = result, None
+        if result.get('error') not in TRANSIENT_ERRORS:
+            self.last_ready = None
 
     def health(self):
         # Health never waits behind an upstream request; cookie issuance still uses get().
@@ -487,7 +511,8 @@ class Session:
                 'last_error': self.result.get('error') if fresh or age is None else 'order_probe_stale',
                 'checking': self.probing, 'verified_age_seconds': round(age, 1) if age is not None else None,
                 'probe_seconds': self.probe_seconds, 'probe_path': '/admin/index/index.html', 'login_attempts': self.login_attempts,
-                'sessions_lost_externally': sessions_lost_externally, 'last_external_loss_at': last_external_loss_at}
+                'sessions_lost_externally': sessions_lost_externally, 'last_external_loss_at': last_external_loss_at,
+                'degraded': self.degraded}
 
 
 SESSION = Session()
