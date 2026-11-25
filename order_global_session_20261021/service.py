@@ -1,5 +1,6 @@
 """One Order session owner with an in-memory HTTP cookie jar."""
 from collections import deque
+from datetime import datetime, timezone
 from html.parser import HTMLParser
 from http.client import HTTPException, HTTPResponse, HTTPSConnection, IncompleteRead
 from http.cookiejar import CookieJar
@@ -226,6 +227,9 @@ class Session:
         self.probe_seconds = None
         self.login_attempts = 0
         self.login_posts = deque()
+        self.last_valid_at = None
+        self.last_valid_login_attempts = None
+        self.external_losses = (0, None)
         self.login_failures = 0
         self.login_retry_after = 0
         self.login_blocked = None
@@ -390,6 +394,14 @@ class Session:
         deadline = time.monotonic() + PROBE_TIMEOUT
         identity = self.check_identity(deadline)
         if identity == 'expired':
+            if (self.last_valid_login_attempts is not None
+                    and self.last_valid_login_attempts == self.login_attempts):
+                detected_at = datetime.now(timezone.utc).isoformat()
+                self.external_losses = (self.external_losses[0] + 1, detected_at)
+                log_event('session_lost_externally', last_valid_at=self.last_valid_at,
+                          detected_at=detected_at)
+            # This verification can account for only one loss, even if renewal fails.
+            self.last_valid_login_attempts = None
             if self.login_blocked:
                 identity = self.login_blocked
             elif time.monotonic() < self.login_retry_after:
@@ -411,6 +423,8 @@ class Session:
         self.login_retry_after = 0
         if self.login_blocked == 'order_login_outcome_unverified':
             self.login_blocked = None
+        self.last_valid_at = datetime.now(timezone.utc).isoformat()
+        self.last_valid_login_attempts = self.login_attempts
         return {'ready': True, 'cookies': rows, 'error': None}
 
 
@@ -443,10 +457,12 @@ class Session:
         # Health never waits behind an upstream request; cookie issuance still uses get().
         age = time.monotonic() - self.checked if self.checked else None
         fresh = age is not None and age <= STALE_SERVE + PROBE_TIMEOUT
+        sessions_lost_externally, last_external_loss_at = self.external_losses
         return {'service': 'fs-order-session', 'ready': fresh and self.result.get('ready') is True,
                 'last_error': self.result.get('error') if fresh or age is None else 'order_probe_stale',
                 'checking': self.probing, 'verified_age_seconds': round(age, 1) if age is not None else None,
-                'probe_seconds': self.probe_seconds, 'probe_path': '/admin/index/index.html', 'login_attempts': self.login_attempts}
+                'probe_seconds': self.probe_seconds, 'probe_path': '/admin/index/index.html', 'login_attempts': self.login_attempts,
+                'sessions_lost_externally': sessions_lost_externally, 'last_external_loss_at': last_external_loss_at}
 
 
 SESSION = Session()
