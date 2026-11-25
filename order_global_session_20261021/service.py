@@ -426,6 +426,9 @@ class Session:
         deadline = time.monotonic() + PROBE_TIMEOUT
         identity = self.check_identity(deadline)
         if identity == 'expired':
+            # Expiry is confirmed: the cached cookies must never be revived by a
+            # transport failure later in this renewal.
+            self.last_ready = None
             if (self.last_valid_login_attempts is not None
                     and self.last_valid_login_attempts == self.login_attempts):
                 detected_at = datetime.now(timezone.utc).isoformat()

@@ -334,6 +334,27 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(len(self.probes), 2)
         self.assertEqual(len(self.posts), 1)
 
+    def test_confirmed_expiry_is_not_revived_by_renewal_transport_failure(self):
+        self.cookie('PHPSESSID')
+        self.outcome = (200, HOME)
+        self.assertTrue(self.session.get(refresh=True)['ready'])
+        self.session.checked -= 21
+        self.outcome = (200, LOGIN)
+        self.replies = [{'code': 1}]
+        real_check = self.session.check_identity
+        calls = []
+
+        def check(deadline):
+            calls.append(1)
+            if len(calls) == 1:
+                return real_check(deadline)
+            return 'order_probe_transport_unavailable'
+
+        with patch.object(self.session, 'check_identity', side_effect=check):
+            result = self.session.get(refresh=True)
+        self.assertFalse(result['ready'])
+        self.assertIsNone(self.session.health()['degraded'])
+
     def test_external_loss_after_valid_is_logged_once_per_session(self):
         self.replies = [{'code': 1}, {'code': 1}]
         clock = [100]
