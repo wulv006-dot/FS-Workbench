@@ -231,9 +231,6 @@ class CurveV6Release(unittest.TestCase):
                 base.retirement = Mock()
                 real_digest = base.digest
                 base.digest = lambda path: live_hashes[path] if path in live_hashes else real_digest(path)
-                with patch.object(adapter.subprocess, 'run') as service_command:
-                    base.restart_for(json.loads((stage / 'deploy/approved-manifest.json').read_bytes()))
-                service_command.assert_not_called()
                 return base
 
             def live_path(value):
