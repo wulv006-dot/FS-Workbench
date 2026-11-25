@@ -11,7 +11,16 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from order_http import OrderHTTP
+from order_http import OrderHTTP, OrderReadError
+
+
+STATS_HEADERS = ('游戏', '￥销售总额', '￥采购总额', '利润率', '订单总数', '交易总数')
+
+
+def shipping_fixture(fields='<input name="gid" value="1322">', rows='', headers=STATS_HEADERS):
+    return ('<form action="/stats/admin_index/delivery.html">' + fields + '</form>' +
+            '<table><thead><tr>' + ''.join(f'<th>{h}</th>' for h in headers) +
+            '</tr></thead><tbody>' + rows + '</tbody></table>')
 
 
 def page(body):
@@ -92,12 +101,14 @@ class OrderHTTPTests(unittest.TestCase):
                     self.assertEqual(str(pages.failure), failure)
 
     def test_shipping_filter_readback(self):
-        html = ('<select name="gid"><option value="0">全部</option>'
-                '<option selected value="1322">FC</option></select>'
-                '<table><tr><th>订单总数</th></tr><tr><td>6</td></tr></table>')
+        html = shipping_fixture(
+            '<select name="gid"><option value="0">全部</option>'
+            '<option selected value="1322">FC</option></select>',
+            '<tr><td>1322&nbsp;| FC 27<td>1,250.00<td>800.00<td>36%<td>6<td>7</tr>')
         result = OrderHTTP(lambda path, timeout: (path, html.encode())).shipping_stats({'gid': '1322'})
-        self.assertEqual(result.filters['gid'], '1322')
-        self.assertEqual(result.rows, ({'订单总数': '6'},))
+        self.assertEqual(result.filters, {'gid': '1322'})
+        self.assertEqual(result.rows[0]['￥销售总额'], '1,250.00')
+        self.assertEqual(result.rows[0]['订单总数'], '6')
 
     def test_delivery_matches_existing_lxml_parser(self):
         from lxml import html as LH
@@ -129,18 +140,18 @@ class OrderHTTPTests(unittest.TestCase):
         self.assertEqual(current.order_ids, ('123',))
 
     def test_shipping_preserves_empty_and_multiple_values(self):
-        combined = ('<select name="empty[]" multiple><option value="0">Ordinary</option></select>'
-                    '<select name="source[]" multiple><option selected value="1">A</option>'
-                    '<option value="2">B</option><option selected value="3">C</option></select>'
-                    '<table><tr><th>订单总数</th></tr><tr><td>6</td></tr></table>')
+        combined = shipping_fixture(
+            '<select name="empty[]" multiple><option value="0">Ordinary</option></select>'
+            '<select name="source[]" multiple><option selected value="1">A</option>'
+            '<option value="2">B</option><option selected value="3">C</option></select>')
 
         def fetch(path, timeout):
             self.assertIn('source%5B%5D=1&source%5B%5D=3', path)
             return path, combined.encode()
 
-        result = OrderHTTP(fetch).shipping_stats({'source[]': ('1', '3')})
-        self.assertEqual(result.filters['empty[]'], ())
-        self.assertEqual(result.filters['source[]'], ('1', '3'))
+        result = OrderHTTP(fetch).shipping_stats({'source[]': ('1', '3'), 'empty[]': ''})
+        self.assertEqual(result.filters['empty[]'], [])
+        self.assertEqual(result.filters['source[]'], ['1', '3'])
 
     def test_login_loss_reacquires_shared_session_on_next_request(self):
         @contextmanager
@@ -170,3 +181,81 @@ class OrderHTTPTests(unittest.TestCase):
         self.assertEqual(list(pages), [])
         self.assertEqual(pages.end_reason, 'failed')
         self.assertEqual(str(pages.failure), 'response_truncated')
+
+    def test_shipping_rejects_pagination(self):
+        html = shipping_fixture() + '<ul class="pagination"><li><a href="?page=2">2</a></li></ul>'
+        reader = OrderHTTP(lambda path, timeout: (path, html.encode()))
+        with self.assertRaisesRegex(OrderReadError, 'shipping_pagination_unhandled'):
+            reader.shipping_stats({'gid': '1322'})
+
+    def test_shipping_scope_reads_one_matching_form_with_unique_fields(self):
+        other = '<form action="/other"><input name="gid" value="0"></form>'
+        reader = OrderHTTP(lambda path, timeout: (path, (shipping_fixture() + other).encode()))
+        self.assertEqual(reader.shipping_stats({'gid': '1322'}).filters, {'gid': '1322'})
+        cases = [
+            (shipping_fixture().replace('/stats/admin_index/delivery.html', '/unrelated'),
+             'shipping_form_changed'),
+            (shipping_fixture() + shipping_fixture().split('</form>')[0] + '</form>',
+             'shipping_form_changed'),
+            (shipping_fixture('<input name="cid" value="1">') + other, 'shipping_filter_missing'),
+            (shipping_fixture('<input name="gid" value="1"><input name="gid" value="2">'),
+             'shipping_filter_missing'),
+        ]
+        for html, reason in cases:
+            with self.subTest(reason=reason):
+                reader = OrderHTTP(lambda path, timeout: (path, html.encode()))
+                with self.assertRaisesRegex(OrderReadError, reason):
+                    reader.shipping_stats({'gid': '1322'})
+
+    def test_shipping_empty_rows_require_a_known_marker_and_six_headers(self):
+        for marker in ('暂无', '暂无数据', '没有数据'):
+            with self.subTest(marker=marker):
+                html = shipping_fixture(rows=f'<tr><td colspan="6">{marker}</td></tr>')
+                result = OrderHTTP(lambda path, timeout: (path, html.encode())).shipping_stats({'gid': '1322'})
+                self.assertEqual(result.rows, ())
+                self.assertEqual(result.headers, STATS_HEADERS)
+        for marker, headers, reason in [
+            ('无权限', STATS_HEADERS, 'shipping_unknown_empty_state'),
+            ('暂无', STATS_HEADERS[:-1], 'shipping_headers_unverified'),
+        ]:
+            with self.subTest(marker=marker, headers=headers):
+                html = shipping_fixture(rows=f'<tr><td colspan="6">{marker}</td></tr>', headers=headers)
+                reader = OrderHTTP(lambda path, timeout: (path, html.encode()))
+                with self.assertRaisesRegex(OrderReadError, reason):
+                    reader.shipping_stats({'gid': '1322'})
+
+    def test_unavailable_shared_session_is_reported_at_public_read_interfaces(self):
+        broker = SimpleNamespace(fill_jar=Mock(side_effect=RuntimeError('global_order_unavailable')))
+        with patch.dict('sys.modules', fs_order_client=broker):
+            reader = OrderHTTP()
+            pages = reader.iter_delivery_pages({}, max_pages=2, deadline=monotonic()+5)
+            self.assertEqual(list(pages), [])
+            self.assertEqual(pages.end_reason, 'failed')
+            self.assertEqual(str(pages.failure), 'global_order_unavailable')
+            result = reader.order_detail('123', timeout=1)
+            self.assertEqual((result.status, result.reason), ('parse_failed', 'global_order_unavailable'))
+
+    def test_broker_and_order_request_share_page_deadline(self):
+        for elapsed, expected in ((3, 2), (5, None)):
+            with self.subTest(elapsed=elapsed):
+                current = [10]
+                def fill_jar(jar, *, timeout):
+                    self.assertEqual(timeout, 5)
+                    current[0] += elapsed
+
+                @contextmanager
+                def response(url, timeout):
+                    yield SimpleNamespace(geturl=lambda: url, read=lambda: page('').encode())
+
+                opener = SimpleNamespace(open=Mock(side_effect=response))
+                with patch('order_http.monotonic', side_effect=lambda: current[0]), \
+                     patch.dict('sys.modules', fs_order_client=SimpleNamespace(fill_jar=fill_jar)), \
+                     patch('order_http.build_opener', return_value=opener):
+                    pages = OrderHTTP().iter_delivery_pages({}, max_pages=1, deadline=15)
+                    if expected is None:
+                        self.assertEqual(list(pages), [])
+                        self.assertEqual(pages.end_reason, 'deadline')
+                        opener.open.assert_not_called()
+                    else:
+                        self.assertEqual(len(list(pages)), 1)
+                        self.assertEqual(opener.open.call_args.kwargs['timeout'], expected)

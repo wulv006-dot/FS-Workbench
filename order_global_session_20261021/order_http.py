@@ -17,6 +17,7 @@ BASE = 'https://order.p2pah.cn'
 DELIVERY = '/order/admin_delivery/index.html'
 DETAIL = '/order/admin_order/look/id/{}.html'
 STATS = '/stats/admin_index/delivery.html'
+SHIPPING_HEADERS = frozenset(('游戏', '￥销售总额', '￥采购总额', '利润率', '订单总数', '交易总数'))
 VOID = set('area base br col embed hr img input link meta param source track wbr'.split())
 
 
@@ -31,10 +32,10 @@ class Node:
         self.children = []
         self.closed = False
 
-    def find(self, tag, css=None):
+    def find(self, tag=None, css=None):
         for child in self.children:
             if isinstance(child, Node):
-                if child.tag == tag and (css is None or css in child.attrs.get('class', '').split()):
+                if (tag is None or child.tag == tag) and (css is None or css in child.attrs.get('class', '').split()):
                     yield child
                 yield from child.find(tag, css)
 
@@ -51,6 +52,8 @@ class Document(HTMLParser):
         self.close()
 
     def handle_starttag(self, tag, attrs):
+        if tag in ('td', 'th') and self.stack[-1].tag in ('td', 'th'):
+            self.stack.pop().closed = True
         node = Node(tag, attrs)
         self.stack[-1].children.append(node)
         if tag not in VOID:
@@ -82,41 +85,34 @@ def login_url(url):
     return 'login' in urlsplit(url).path.lower()
 
 
+def field_value(node):
+    if node.tag == 'input':
+        return node.attrs.get('value', '')
+    options = list(node.find('option'))
+    selected = [item for item in options if 'selected' in item.attrs]
+    if 'multiple' in node.attrs:
+        return [item.attrs.get('value', item.text().strip()) for item in selected]
+    option = next(iter(selected or options), None)
+    return option.attrs.get('value', option.text().strip()) if option is not None else ''
+
+
 def form_values(root):
     values = {}
-    for node in root.find('input'):
-        key = node.attrs.get('id') or node.attrs.get('name')
+    for node in list(root.find('input')) + list(root.find('select')):
         if node.attrs.get('type') in ('checkbox', 'radio') and 'checked' not in node.attrs:
             continue
-        if key:
-            value = node.attrs.get('value', '')
-            values[key] = value
-            if node.attrs.get('name'):
-                values[node.attrs['name']] = value
-    for node in root.find('select'):
-        key = node.attrs.get('id') or node.attrs.get('name')
-        options = list(node.find('option'))
-        if key:
-            selected = [item for item in options if 'selected' in item.attrs]
-            choices = tuple(item.attrs.get('value', item.text().strip()) for item in selected)
-            if 'multiple' in node.attrs:
-                value = choices
-            elif choices:
-                value = choices[0]
-            elif options:
-                value = options[0].attrs.get('value', options[0].text().strip())
-            else:
-                value = ''
-            values[key] = value
-            if node.attrs.get('name'):
-                values[node.attrs['name']] = value
+        for key in (node.attrs.get('id'), node.attrs.get('name')):
+            if key:
+                values[key] = field_value(node)
     return values
 
 
-def table_rows(table):
+def table_rows(table, *, shipping=False):
     if not table.closed:
         raise OrderReadError('table_truncated')
     headers = tuple(node.text().strip() for node in table.find('th'))
+    if shipping and (len(headers) != len(SHIPPING_HEADERS) or frozenset(headers) != SHIPPING_HEADERS):
+        raise OrderReadError('shipping_headers_unverified')
     if not headers or len(set(filter(None, headers))) != sum(bool(header) for header in headers):
         raise OrderReadError('table_headers_unverified')
     rows = []
@@ -124,8 +120,14 @@ def table_rows(table):
         cells = [node for node in row.children if isinstance(node, Node) and node.tag == 'td']
         if not cells:
             continue
-        if len(cells) == 1 and '暂无数据' in cells[0].text():
-            continue
+        if len(cells) == 1:
+            message = cells[0].text().strip()
+            if shipping and 'colspan' in cells[0].attrs:
+                if message not in ('暂无', '暂无数据', '没有数据'):
+                    raise OrderReadError('shipping_unknown_empty_state')
+                continue
+            if not shipping and message == '暂无数据':
+                continue
         if len(cells) != len(headers):
             raise OrderReadError('table_columns_unverified')
         rows.append(cells)
@@ -154,6 +156,7 @@ class DetailResult:
 
 @dataclass(frozen=True)
 class ShippingStats:
+    headers: tuple
     filters: dict
     rows: tuple
     raw_sha256: str
@@ -200,29 +203,44 @@ class DeliveryPages:
         self.end_reason = 'page_limit'
 
 
+def remaining_time(deadline):
+    remaining = deadline - monotonic()
+    if remaining <= 0:
+        raise TimeoutError('order_http_deadline')
+    return remaining
+
+
 class OrderHTTP:
     def __init__(self, fetch=None):
         self._fetch = fetch
         self._opener = None
         self._session_lock = Lock()
 
-    def _shared_opener(self):
+    def _shared_opener(self, deadline):
         with self._session_lock:
             if self._opener is None:
                 from fs_order_client import fill_jar
                 jar = CookieJar()
-                fill_jar(jar)
+                try:
+                    fill_jar(jar, timeout=min(40, remaining_time(deadline)))
+                except RuntimeError as exc:
+                    if str(exc).partition(':')[0] != 'global_order_unavailable':
+                        raise
+                    remaining_time(deadline)
+                    raise OrderReadError('global_order_unavailable') from exc
                 self._opener = build_opener(ProxyHandler({}), HTTPCookieProcessor(jar), NoRedirect())
             return self._opener
 
     def _document(self, path, timeout):
-        opener = self._shared_opener() if self._fetch is None else None
+        deadline = monotonic() + timeout
+        opener = self._shared_opener(deadline) if self._fetch is None else None
         try:
             if opener is None:
-                url, raw = self._fetch(path, timeout)
+                url, raw = self._fetch(path, remaining_time(deadline))
             else:
-                with opener.open(BASE + path, timeout=timeout) as response:
+                with opener.open(BASE + path, timeout=remaining_time(deadline)) as response:
                     url, raw = response.geturl(), response.read()
+            remaining_time(deadline)
             try:
                 root = Document(raw.decode('utf-8-sig')).root
             except UnicodeError as exc:
@@ -304,11 +322,30 @@ class OrderHTTP:
 
     def shipping_stats(self, filters, *, timeout=35):
         root, raw, _ = self._document(STATS + '?' + urlencode(filters, doseq=True), timeout)
+        if any(next(node.find('a'), None) is not None for node in root.find(css='pagination')):
+            raise OrderReadError('shipping_pagination_unhandled')
+
+        forms = []
+        for form in root.find('form'):
+            action = urlsplit(form.attrs.get('action', ''))
+            if action.path == STATS and (not action.netloc or action.netloc == urlsplit(BASE).netloc):
+                forms.append(form)
+        if len(forms) != 1:
+            raise OrderReadError('shipping_form_changed')
+        form = forms[0]
+        controls = list(form.find('input')) + list(form.find('select'))
+        selected = {}
+        for name in filters:
+            fields = [node for node in controls if node.attrs.get('name') == name]
+            if len(fields) != 1:
+                raise OrderReadError('shipping_filter_missing')
+            selected[name] = field_value(fields[0])
+
         tables = [table for table in root.find('table')
                   if any(node.text().strip() == '订单总数' for node in table.find('th'))]
         if len(tables) != 1:
             raise OrderReadError('shipping_table_missing')
-        headers, rows = table_rows(tables[0])
-        return ShippingStats(form_values(root),
+        headers, rows = table_rows(tables[0], shipping=True)
+        return ShippingStats(headers, selected,
                              tuple(dict(zip(headers, (cell.text().strip() for cell in row))) for row in rows),
                              sha256(raw).hexdigest())

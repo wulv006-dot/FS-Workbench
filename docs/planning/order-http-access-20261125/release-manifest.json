@@ -2,9 +2,14 @@
   "status": "candidate",
   "files": [
     {
+      "source": "order_global_session_20261021/client.py",
+      "target": "/opt/fs-order-session/fs_order_client.py",
+      "sha256": "1681427bcc48e936744d67b11c70851620814bd5e872265e315d4ccf8bd274fe"
+    },
+    {
       "source": "order_global_session_20261021/order_http.py",
       "target": "/opt/fs-order-session/order_http.py",
-      "sha256": "2bacb9e68adc388f61e3ed020232d94fdd966eb3ecc63406f5bcd3488c3f6dc4"
+      "sha256": "4690169ec3b6f8083a4c1edfd288334d81cf7f63e38a96d6e2a95cc628659224"
     }
   ]
 }

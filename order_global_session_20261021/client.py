@@ -3,6 +3,7 @@ import http.cookiejar
 import json
 import os
 import socket
+from time import monotonic
 
 SOCKETS = ('/run/fs-order-session/session.sock',
            '/var/lib/fc27-cloud/browser/lootbar/fs-order-session.sock',
@@ -10,17 +11,26 @@ SOCKETS = ('/run/fs-order-session/session.sock',
            '/srv/.fs-order-session.sock')
 
 
-def cookies():
+def cookies(*, timeout=None):
+    deadline = monotonic() + timeout if timeout is not None else None
     path = next((p for p in SOCKETS if os.path.exists(p)), None)
     if not path:
         raise RuntimeError('global_order_unavailable')
     try:
         with socket.socket(socket.AF_UNIX) as stream:
-            stream.settimeout(40)
+            def set_remaining_timeout():
+                remaining = 40 if deadline is None else deadline - monotonic()
+                if remaining <= 0:
+                    raise TimeoutError
+                stream.settimeout(remaining)
+
+            set_remaining_timeout()
             stream.connect(path)
+            set_remaining_timeout()
             stream.sendall(b'cookies\n')
             chunks = bytearray()
             while not chunks.endswith(b'\n'):
+                set_remaining_timeout()
                 part = stream.recv(16384)
                 if not part or len(chunks) + len(part) > 65536:
                     raise ValueError()
@@ -52,8 +62,8 @@ def new_page(context):
     return context.new_page()
 
 
-def fill_jar(jar):
-    rows = cookies()
+def fill_jar(jar, *, timeout=None):
+    rows = cookies(timeout=timeout)
     jar.clear()
     for row in rows:
         jar.set_cookie(http.cookiejar.Cookie(

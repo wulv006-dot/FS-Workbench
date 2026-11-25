@@ -1,5 +1,5 @@
 {
-  "orderHttpReader20261125": {"source": "order_global_session_20261021/order_http.py", "runtime": "play187:/opt/fs-order-session/order_http.py", "release": "docs/planning/order-http-access-20261125/release-manifest.json", "status": "candidate"},
+  "orderHttpReader20261125": {"source": "order_global_session_20261021/order_http.py", "runtime": "play187:/opt/fs-order-session/order_http.py", "brokerClientSource": "order_global_session_20261021/client.py", "brokerClientRuntime": "play187:/opt/fs-order-session/fs_order_client.py", "release": "docs/planning/order-http-access-20261125/release-manifest.json", "status": "candidate"},
   "luckyLoot20261112": {"source": "opt/mmoexp-lucky-loot", "runtime": "play187:/opt/mmoexp-lucky-loot", "dashboard": "https://47.85.224.112/bots/giveaway.html", "integration": "opt/bot-console/server.py hook; lucky_proxy.py; static/index.html link; source giveaway.* copied to console/static", "release": "/opt/mmoexp-lucky-loot-release-20261112/release.py", "evidence": "docs/planning/lucky-loot-20261112/DELIVERY.md", "observedAt": "2026-11-12 Asia/Shanghai"},
   "_recordScope": {"policyPath":"docs/ops/HOTFIX.md","historicalReadinessAndApprovalAssertions":true,"notGlobalAdmissionGate":true,"preserveOwnerSourceAndEvidenceRows":true},
   "recordedAt": "2026-10-05T16:37:07.843320+00:00",
