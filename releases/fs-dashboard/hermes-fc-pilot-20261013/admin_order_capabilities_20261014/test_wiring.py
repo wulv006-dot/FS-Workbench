@@ -71,8 +71,10 @@ class WiringTests(unittest.TestCase):
             def detail(order):
                 paths.append(order)
 
-        with patch.dict(sys.modules,{'fc_order_diagnostics':diagnostics}):
-            reader=load('cap_reader_fixture',HERE/'shared_candidate/fc_order_reader.py')
+        shared_reader = HERE.parents[3] / 'order_global_session_20261021'
+        with patch.object(sys, 'path', [str(shared_reader), *sys.path]), \
+                patch.dict(sys.modules, {'fc_order_diagnostics': diagnostics}):
+            reader = load('cap_reader_fixture', HERE/'shared_candidate/fc_order_reader.py')
         result=reader.run({'platform':'PS','pages':1,'samples':1},reader=Reader())
         self.assertEqual(result['contract'],'fc-order-events-raw-v1')
         self.assertEqual(result['samples'][0]['events'][0]['id'],'7')
