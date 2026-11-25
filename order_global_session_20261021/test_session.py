@@ -1,7 +1,7 @@
 import io
 import json
 import socket
-import sys
+import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from http.cookiejar import Cookie
@@ -336,17 +336,22 @@ class HTTPTests(unittest.TestCase):
                     self.assertLess(time.monotonic() - started, 1.5)
                     self.assertEqual(session.health()['login_attempts'], 0)
 
-    def test_stuck_ocr_is_terminated_and_waiter_does_not_renew(self):
+    def test_stuck_ocr_is_bounded_and_waiter_does_not_renew(self):
         started_ocr = Event()
+        halted_ocr = Event()
         original_recognize = HTTPTests.real_recognize
 
-        def recognize(*args):
+        def stalled_worker(command, *, timeout, **kwargs):
+            self.assertEqual(command, service.OCR_COMMAND)
+            self.assertEqual(kwargs['input'], PNG)
+            self.assertGreater(timeout, 0)
+            self.assertLessEqual(timeout, 0.8)
             started_ocr.set()
-            return original_recognize(*args)
+            halted_ocr.wait(timeout)
+            raise subprocess.TimeoutExpired(command, timeout)
 
-        command = (sys.executable, '-c', 'import time; time.sleep(10)')
-        with (patch.object(service, 'recognize', side_effect=recognize),
-              patch.object(service, 'OCR_COMMAND', command),
+        with (patch.object(service, 'recognize', side_effect=original_recognize),
+              patch.object(subprocess, 'run', side_effect=stalled_worker),
               patch.object(service, 'PROBE_TIMEOUT', 0.8),
               patch.object(service, 'WAIT_TIMEOUT', 0.05),
               ThreadPoolExecutor(max_workers=2) as pool):
