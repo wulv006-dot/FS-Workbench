@@ -475,6 +475,15 @@ class SixCost(unittest.TestCase):
         self.assertCountEqual(attempts, [('300', 8), ('300', 16), ('301', 8)])
         self.assertEqual([detail['goods'][0]['pid'] for detail in details], ['9', '9'])
 
+    def test_collection_reports_a_missing_shared_session(self):
+        self.reader_patch.stop()
+        broker = types.SimpleNamespace(fill_jar=Mock(side_effect=RuntimeError('global_order_unavailable')))
+        with patch.dict(sys.modules, fs_order_client=broker):
+            with self.assertRaises(self.collector.CostPageError) as failed:
+                self.collector.collect(curve_v6=True)
+        result = self.collector.failure_result(failed.exception)
+        self.assertEqual((result['status'], result['reason']), ('missing', 'global_order_session_unavailable'))
+
     def test_http_page_preserves_error_status_without_a_body(self):
         def fetch(path, timeout):
             raise HTTPError(path, 503, 'unavailable', {}, None)

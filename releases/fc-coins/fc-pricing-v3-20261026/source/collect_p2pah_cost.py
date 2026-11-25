@@ -37,6 +37,8 @@ def read_detail(reader, order_id, timeout_ms):
         return {'timed_out': True}
     if result.status == 'login_lost':
         raise ValueError('login_expired')
+    if result.reason == 'global_order_unavailable':
+        raise ValueError('global_order_session_unavailable')
     if result.status != 'found':
         return None
     return dict(goods=list(result.goods), deliveries=list(result.deliveries), complete=result.complete)
@@ -194,7 +196,8 @@ def read_page(reader, number, observations=None, window=None):
         reason = 'order_page_navigation_timeout' if timeout else 'order_page_transport_error'
         raise CostPageError(f'{reason}:{number}', diagnostic) from None
     except OrderReadError as exc:
-        reason = 'login_expired' if str(exc) == 'login_lost' else f'filter_or_rows_unverified:{number}'
+        reason = {'login_lost': 'login_expired', 'global_order_unavailable': 'global_order_session_unavailable'}.get(
+            str(exc), f'filter_or_rows_unverified:{number}')
         raise CostPageError(reason, diagnostic) from exc
     diagnostic['http_status'] = 200
     fields = page.filters
