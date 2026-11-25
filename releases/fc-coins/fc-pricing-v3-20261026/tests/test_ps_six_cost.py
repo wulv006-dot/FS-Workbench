@@ -181,7 +181,7 @@ class SixCost(unittest.TestCase):
         self.assertEqual(self.tab.pair.call_count, 1)
 
     def test_v6_pending_pairs_include_current_order_after_a_platform_times_out(self):
-        deliveries = [(None, dict(platform=platform, order_delivery={'order_id': order}))
+        deliveries = [(None, dict(platform=platform, record_id=order, order_delivery={'order_id': order}))
                       for order, platform in (('1', 'PS'), ('2', 'PS'), ('3', 'PS'), ('4', 'PS'),
                                               ('5', 'PC'), ('2', 'XBOX'), ('3', 'XBOX'), ('4', 'XBOX'))]
         detail = dict(complete=True, goods=[], deliveries=[])
@@ -189,7 +189,7 @@ class SixCost(unittest.TestCase):
             {'timed_out': True} if order == '1' else detail for order in pair])
         timed_out = set()
         with patch.object(self.collector, 'verified_delivery_cost', return_value=None):
-            evidence = list(self.collector.verified_v6_deliveries(self.tab, deliveries, {}, timed_out))
+            evidence = list(self.collector.verified_v6_deliveries(self.tab, deliveries, {}, timed_out, {}))
         self.assertEqual(timed_out, {'PS'})
         self.assertEqual([record['platform'] for record, _ in evidence], ['PC', 'XBOX', 'XBOX', 'XBOX'])
         self.assertEqual([call.args[0] for call in self.tab.pair.call_args_list],
@@ -261,8 +261,7 @@ class SixCost(unittest.TestCase):
         self.assertEqual([w['end'] - w['start'] for w in windows],
                          [timedelta(hours=3), timedelta(hours=6)])
         self.assertEqual(windows[0]['end'], windows[1]['end'])
-        self.assertEqual(len(requests), 20)
-        self.assertEqual(set(requests) & {r['order_id'] for r in extras}, {'9999'})
+        self.assertEqual(requests, ['9999'])
         costs = [smooth_delivery_cost(row, row['platform'], datetime.now(timezone.utc), '.4')
                  for row in result['costs']]
         self.assertEqual([row['selected_count'] for row in costs], [7, 7, 6])
