@@ -37,9 +37,12 @@ REQUIRED_COOKIES = {'PHPSESSID'}
 LOGIN_PATHS = {'/admin', '/admin/', '/login.html', '/admin/public/login.html'}
 LOGIN_WINDOW = 300
 # /admin/index/index.html is ~250 KB and takes 10-20 s to stream from 187.
-PROBE_TIMEOUT = 45
+PROBE_TIMEOUT = 90
 # Login page redirects (~11 s), captcha, OCR, dologin and the identity check.
-RENEW_TIMEOUT = 120
+RENEW_TIMEOUT = 180
+# While a probe runs, hand out the last ready result if it is this recent, so
+# consumers never queue behind a slow Order page.
+STALE_SERVE = 120
 WAIT_TIMEOUT = 34
 RESPONSE_LIMIT = 1048576
 OCR_COMMAND = (sys.executable, str(Path(__file__).resolve()), '--recognize-captcha')
@@ -412,6 +415,9 @@ class Session:
 
 
     def get(self):
+        if (self.probing and self.result.get('ready') is True and self.checked
+                and time.monotonic() - self.checked <= STALE_SERVE):
+            return self.result
         if not self.lock.acquire(timeout=WAIT_TIMEOUT):
             return self.failure('order_probe_wait_timeout')
         try:
@@ -433,7 +439,7 @@ class Session:
     def health(self):
         # Health never waits behind an upstream request; cookie issuance still uses get().
         age = time.monotonic() - self.checked if self.checked else None
-        fresh = age is not None and age <= 90
+        fresh = age is not None and age <= STALE_SERVE + PROBE_TIMEOUT
         return {'service': 'fs-order-session', 'ready': fresh and self.result.get('ready') is True,
                 'last_error': self.result.get('error') if fresh or age is None else 'order_probe_stale',
                 'checking': self.probing, 'verified_age_seconds': round(age, 1) if age is not None else None,

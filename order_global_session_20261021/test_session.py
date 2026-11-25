@@ -55,8 +55,44 @@ class SessionTests(unittest.TestCase):
             self.assertNotIn('synthetic-only', str(health))
         finally:
             session.lock.release()
-        session.checked -= 91
+        session.checked -= service.STALE_SERVE + service.PROBE_TIMEOUT + 1
         self.assertFalse(session.health()['ready'])
+
+    def test_waiter_gets_recent_ready_result_while_probe_runs(self):
+        # Probes take 10-45 s on 187; consumers must not queue behind them.
+        gate = Event()
+        calls = []
+
+        def probe():
+            calls.append(1)
+            if len(calls) > 1:
+                gate.wait(2)
+            return {'ready': True, 'cookies': [{'name': 'PHPSESSID', 'value': 'x'}], 'error': None}
+
+        session = Session(probe)
+        self.assertTrue(session.get()['ready'])
+        session.checked -= 21
+        with patch.object(service, 'WAIT_TIMEOUT', 0.05), ThreadPoolExecutor(max_workers=2) as pool:
+            owner = pool.submit(session.get)
+            for _ in range(100):
+                if session.probing:
+                    break
+                time.sleep(0.01)
+            self.assertTrue(pool.submit(session.get).result(1)['ready'])
+            gate.set()
+            self.assertTrue(owner.result(2)['ready'])
+
+    def test_waiter_does_not_get_stale_result(self):
+        session = Session(lambda: {'ready': True, 'cookies': [], 'error': None})
+        session.get()
+        session.checked -= service.STALE_SERVE + 1
+        session.probing = True
+        session.lock.acquire()
+        try:
+            with patch.object(service, 'WAIT_TIMEOUT', 0.05):
+                self.assertEqual(session.get()['error'], 'order_probe_wait_timeout')
+        finally:
+            session.lock.release()
 
     def test_identity_failure_immediately_drops_ready(self):
         session = Session(lambda: {'ready': False, 'cookies': [], 'error': 'order_identity_unverified'})
