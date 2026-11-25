@@ -84,14 +84,22 @@ def form_values(root):
     values = {}
     for node in root.find('input'):
         key = node.attrs.get('id') or node.attrs.get('name')
+        if node.attrs.get('type') in ('checkbox', 'radio') and 'checked' not in node.attrs:
+            continue
         if key:
-            values[key] = node.attrs.get('value', '')
+            value = node.attrs.get('value', '')
+            values[key] = value
+            if node.attrs.get('name'):
+                values[node.attrs['name']] = value
     for node in root.find('select'):
         key = node.attrs.get('id') or node.attrs.get('name')
         options = list(node.find('option'))
         if key and options:
             option = next((item for item in options if 'selected' in item.attrs), options[0])
-            values[key] = option.attrs.get('value', option.text().strip())
+            value = option.attrs.get('value', option.text().strip())
+            values[key] = value
+            if node.attrs.get('name'):
+                values[node.attrs['name']] = value
     return values
 
 
@@ -169,6 +177,9 @@ class DeliveryPages:
                 self.end_reason = 'deadline' if monotonic() >= deadline else 'failed'
                 self.failure = exc
                 return
+            if monotonic() >= deadline:
+                self.end_reason = 'deadline'
+                return
             if not page.has_next:
                 self.end_reason = 'source_exhausted'
             elif number == start + max_pages - 1:
@@ -202,6 +213,7 @@ class OrderHTTP:
         except UnicodeError as exc:
             raise OrderReadError('response_encoding_invalid') from exc
         if (login_url(url) or any(node.attrs.get('type', '').lower() == 'password'
+                                 or node.attrs.get('name') == 'password'
                                  for node in root.find('input'))
                 or any('dologin' in node.attrs.get('action', '')
                        for node in root.find('form'))):

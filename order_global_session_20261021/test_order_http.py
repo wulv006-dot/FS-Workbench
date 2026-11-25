@@ -1,4 +1,7 @@
 
+import ast
+from pathlib import Path
+import re
 from time import monotonic
 from urllib.error import HTTPError
 import unittest
@@ -83,3 +86,32 @@ class OrderHTTPTests(unittest.TestCase):
         result = OrderHTTP(lambda path, timeout: (path, html.encode())).shipping_stats({'gid': '1322'})
         self.assertEqual(result.filters['gid'], '1322')
         self.assertEqual(result.rows, ({'订单总数': '6'},))
+
+    def test_delivery_matches_existing_lxml_parser(self):
+        from lxml import html as LH
+
+        # Load only the legacy parser. Importing the sales job creates its data folder.
+        source = Path(__file__).resolve().parents[1] / 'shared_backend_session/sales_collection.py'
+        tree = ast.parse(source.read_text(encoding='utf-8'))
+        tree.body = [node for node in tree.body if
+                     isinstance(node, ast.FunctionDef) and node.name in {'lxml_login', '_parse_delivery'}
+                     or isinstance(node, ast.Assign) and any(
+                         isinstance(target, ast.Name) and target.id == '_DELIV_HEAD' for target in node.targets)]
+        namespace = dict(LH=LH, re=re)
+        exec(compile(tree, str(source), 'exec'), namespace)
+        labels = ('', '编号', '交货类型', '来源', '商户订单号', '交易时间', '游戏', '数量',
+                  '赠送', '单价', '采购总额', '销售总额', '利润率', '供货商', '收款人',
+                  '操作人', '备注', '结算状态', '操作')
+        cells = ('', '<b>7</b>', '订单发货', 'www.example.test',
+                 '<a href="/order/admin_order/look/id/123.html">TEST-123</a>',
+                 '2026-11-25 02:01:02', 'FC 27 ▶ PS', '500', '0', '0.4', '200',
+                 '250', '20%', 'fixture supplier', '', '', '', '未结算', '')
+        html = ('<table class="table-list"><thead><tr>' +
+                ''.join(f'<th>{label}</th>' for label in labels) + '</tr></thead><tbody><tr>' +
+                ''.join(f'<td>{cell}</td>' for cell in cells) + '</tr></tbody></table>')
+        current = OrderHTTP(lambda path, timeout: (path, html.encode())).delivery_page({}, timeout=1)
+        old, _ = namespace['_parse_delivery'](html, 1)
+        projected = {name: current.rows[0][label] for label, name in zip(labels, namespace['_DELIV_HEAD'])
+                     if label}
+        self.assertEqual(projected, {key: value for key, value in old[0].items() if key not in ('', 'genre')})
+        self.assertEqual(current.order_ids, ('123',))
