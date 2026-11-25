@@ -165,18 +165,10 @@ class CurveV6Release(unittest.TestCase):
                 }
                 self.assertEqual(built['targets'], 4)
                 self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)
-                collector = 'source/collect_p2pah_cost.py'
-                # Evidence from the pre-HTTP origin/main blob at a4b7f7b9.
-                old_collector_sha = '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5'
-                with tarfile.open(output) as bundle:
-                    new_collector = bundle.extractfile(prefix+'candidate/'+collector).read()
-                new_collector_sha = hashlib.sha256(new_collector).hexdigest()
-                self.assertNotEqual(old_collector_sha, new_collector_sha)
-                self.assertEqual(provenance['files'][collector], new_collector_sha)
-                active_hashes = dict(target_map.ORDER_COST_FC_BASELINES)
-                active_hashes[collector] = old_collector_sha
+                self.assertEqual(target_map.ORDER_COST_FC_BASELINES['source/collect_p2pah_cost.py'],
+                                 '7c60ad5d4dc517b7e6c6b9a93cf6e8fba2f5ef0f2df9fed96411b94335ae351e')
                 files = [dict(candidate=name, target=path, sha256=provenance['files'][name],
-                              beforeSha256=active_hashes.get(name, before),
+                              beforeSha256=target_map.ORDER_COST_FC_BASELINES.get(name, before),
                               owner='0:0', mode='0o644') for name, path in expected.items()]
                 manifest = dict(scope=provenance['scope'], releaseReady=True, businessWrites=False,
                                 timersChanged=False, files=files)
@@ -191,6 +183,94 @@ class CurveV6Release(unittest.TestCase):
                 live.write_bytes(active+b'# drift\n')
                 with self.assertRaisesRegex(ValueError, 'order_cost_channel_baseline_drift'):
                     build_stage.build(ROOT, output, curve_recovery='order-cost', order_cost_channel_baseline=live)
+
+    def test_order_http_cost_prepares_only_the_two_collectors_from_the_live_baseline(self):
+        key = 'order-http-cost'
+        expected_sources = {
+            'source/collect_p2pah_cost.py': RELEASE + '/source/collect_p2pah_cost.py',
+            'source/collect_p2pah_cost.sh':
+                'releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh',
+        }
+        before = {
+            'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',
+            'source/collect_p2pah_cost.sh': '6fe775b14dafea86aa3cdedf5e64b5b81e0ce84d0114142a96413a8477f8fef7',
+        }
+        expected_targets = {name: '/opt/fc27-cloud-browser/' + Path(name).name for name in expected_sources}
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = root / 'cost.tar.gz'
+            with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']) as git, \
+                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, rev:
+                              path.read_bytes().replace(b'\r\n', b'\n')):
+                built = build_stage.build(ROOT, output, curve_recovery=key)
+            self.assertEqual(built['targets'], 2)
+            self.assertTrue(set(expected_sources.values()) <= set(git.call_args.args[0]))
+            with tarfile.open(output) as bundle:
+                bundle.extractall(root, filter='data')
+            stage = root / 'fc-pricing-v3-20261026'
+            source_manifest = stage / 'source-manifest.json'
+            provenance = json.loads(source_manifest.read_bytes())
+            self.assertEqual(provenance['repositorySources'], expected_sources)
+            after = {}
+            for name, source in expected_sources.items():
+                payload = (ROOT / source).read_bytes().replace(b'\r\n', b'\n')
+                self.assertEqual((stage / 'candidate' / name).read_bytes(), payload)
+                after[name] = hashlib.sha256(payload).hexdigest()
+                self.assertNotEqual(before[name], after[name])
+            self.assertEqual(provenance['files'], after)
+
+            live_hashes = {Path(target): before[name] for name, target in expected_targets.items()}
+
+            publisher = root / 'original_fc_publisher.py'
+            publisher.write_bytes(b'# FC publisher fixture; inspect checks are supplied below\n')
+            load_adapter = adapter.load_base
+
+            def load_with_live_checks_stubbed():
+                base = load_adapter()
+                base.guards = Mock()
+                base.retirement = Mock()
+                real_digest = base.digest
+                base.digest = lambda path: live_hashes[path] if path in live_hashes else real_digest(path)
+                with patch.object(adapter.subprocess, 'run') as service_command:
+                    base.restart_for(json.loads((stage / 'deploy/approved-manifest.json').read_bytes()))
+                service_command.assert_not_called()
+                return base
+
+            def live_path(value):
+                path = Path(value)
+                if path in live_hashes:
+                    return SimpleNamespace(exists=lambda: True, parents=path.parents, digest=live_hashes[path],
+                                           stat=lambda: SimpleNamespace(st_uid=0, st_gid=0, st_mode=0o755))
+                return path
+
+            real_sha = prepare.sha
+            with patch.object(prepare, 'STAGE', stage), patch.object(prepare, 'HERE', stage / 'deploy'), \
+                 patch.object(prepare, 'regular'), \
+                 patch.object(prepare, 'sha', side_effect=lambda path:
+                              real_sha(path) if stage in path.parents else getattr(path, 'digest', 'e' * 64)), \
+                 patch.object(prepare, 'Path', side_effect=live_path), \
+                 patch.object(prepare.subprocess, 'check_output', return_value='ActiveState=active'), \
+                 patch.object(adapter, 'HERE', stage / 'deploy'), \
+                 patch.object(adapter, 'FC_PUBLISHER', publisher), \
+                 patch.object(adapter, 'FC_SHA', hashlib.sha256(publisher.read_bytes()).hexdigest()), \
+                 patch.object(adapter, 'load_base', side_effect=load_with_live_checks_stubbed):
+                source_manifest.write_text(json.dumps(dict(provenance, repositorySources={})), encoding='utf-8')
+                with self.assertRaisesRegex(ValueError, 'order_http_cost_source_provenance_changed'):
+                    prepare.prepare(curve_recovery=key)
+                source_manifest.write_text(json.dumps(provenance), encoding='utf-8')
+                result = prepare.prepare(curve_recovery=key)
+            self.assertEqual((result['files'], result['existing'], result['new']), (2, 2, 0))
+            self.assertEqual(result['inspect']['sourceCAS'], 'passed')
+            self.assertFalse(result['inspect']['mutations'])
+            manifest = json.loads((stage / 'approved-manifest.json').read_bytes())
+            rows = manifest['files']
+            self.assertEqual({row['candidate']: row['target'] for row in rows}, expected_targets)
+            self.assertEqual({row['candidate']: row['beforeSha256'] for row in rows}, before)
+            self.assertEqual({row['candidate']: row['sha256'] for row in rows}, after)
+            for row in rows:
+                changed = [dict(item, beforeSha256='f' * 64) if item is row else item for item in rows]
+                with self.assertRaisesRegex(ValueError, 'order_http_cost_baseline_drift'):
+                    adapter.checked_manifest(dict(manifest, files=changed))
 
     def test_hourly_cost_stage_and_original_adapter_require_the_exact_seven_targets(self):
         key = 'hourly-order-cost'

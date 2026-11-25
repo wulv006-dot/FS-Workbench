@@ -294,10 +294,20 @@ def hourly_cost_channel_overlay(live, updated, *, repository_before=None):
 
 
 ORDER_COST_FC_BASELINES = {
-    'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',
+    'source/collect_p2pah_cost.py': '7c60ad5d4dc517b7e6c6b9a93cf6e8fba2f5ef0f2df9fed96411b94335ae351e',
     'source/fc_pricing_v3/business_source.py': 'f1b86fc89b947425b84eba2d7cdcd4ac9f316cf83b2f4e1b6da8a2082773eef5',
     'source/hermes-copy/fc_pricing_v3/business_source.py': 'f1b86fc89b947425b84eba2d7cdcd4ac9f316cf83b2f4e1b6da8a2082773eef5',
 }
+ORDER_HTTP_COST_REPOSITORY_SOURCES = {
+    'source/collect_p2pah_cost.py':
+        'releases/fc-coins/fc-pricing-v3-20261026/source/collect_p2pah_cost.py',
+    'source/collect_p2pah_cost.sh': CURVE_STABILITY_REPOSITORY_SOURCES['source/collect_p2pah_cost.sh'],
+}
+ORDER_HTTP_COST_BASELINES = {
+    'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',
+    'source/collect_p2pah_cost.sh': '6fe775b14dafea86aa3cdedf5e64b5b81e0ce84d0114142a96413a8477f8fef7',
+}
+
 ORDER_COST_CHANNEL_INSERT = (b"        if data.get('include_cost_delivery_rows') is True:\n"
                              b"            data['cost_delivery_rows'] = deliveries\n")
 
@@ -361,6 +371,10 @@ CURVE_RECOVERY_TARGETS = {
         'channel_source.py': ORDER_COST_CHANNEL_OVERLAY['target'],
         **module_targets(('business_source.py',)),
     },
+    'order-http-cost': {
+        'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
+        'collect_p2pah_cost.sh': '/opt/fc27-cloud-browser/collect_p2pah_cost.sh',
+    },
     'live-order-cost': {
         'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
         'snapshot_layer.py': '/opt/fc27-cloud-browser/snapshot_layer.py',
@@ -401,6 +415,7 @@ CURVE_RECOVERY_SCOPES['market-packages'] = 'fc-pricing-v6-market-packages-202611
 CURVE_RECOVERY_SCOPES['observer-status'] = 'fc-pricing-v6-observer-status-20261124'
 CURVE_RECOVERY_SCOPES['observer-cache'] = 'fc-pricing-v6-observer-cache-20261124'
 CURVE_RECOVERY_SCOPES['observer-retirement'] = 'fc-pricing-v6-observer-retirement-20261125'
+CURVE_RECOVERY_SCOPES['order-http-cost'] = 'fc-pricing-v6-order-http-cost-20261125'
 CURVE_RECOVERY_SCOPES['shared-evidence'] = 'fc-pricing-v6-recovery-shared-evidence-20261120'
 
 
