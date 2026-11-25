@@ -355,6 +355,24 @@ class HTTPTests(unittest.TestCase):
         self.assertFalse(result['ready'])
         self.assertIsNone(self.session.health()['degraded'])
 
+    def test_consumers_do_not_get_expired_cookies_while_renewing(self):
+        self.cookie('PHPSESSID')
+        self.outcome = (200, HOME)
+        self.assertTrue(self.session.get(refresh=True)['ready'])
+        self.session.checked -= 21
+        self.outcome = (200, LOGIN)
+        seen = []
+
+        def renew(deadline):
+            # A consumer arrives while the upkeep thread is renewing.
+            seen.append(self.session.get())
+            return 'order_captcha_attempts_exhausted'
+
+        with patch.object(self.session, 'renew', side_effect=renew):
+            self.session.get(refresh=True)
+        self.assertFalse(seen[0]['ready'])
+        self.assertEqual(seen[0]['error'], 'order_session_renewing')
+
     def test_external_loss_after_valid_is_logged_once_per_session(self):
         self.replies = [{'code': 1}, {'code': 1}]
         clock = [100]
@@ -649,7 +667,7 @@ class HTTPTests(unittest.TestCase):
             owner = pool.submit(self.session.get)
             self.assertTrue(started_ocr.wait(1))
             waiter = pool.submit(self.session.get)
-            self.assertEqual(waiter.result(1)['error'], 'order_probe_wait_timeout')
+            self.assertEqual(waiter.result(1)['error'], 'order_session_renewing')
             self.assertEqual(owner.result(2)['error'], 'order_captcha_ocr_unavailable')
             self.assertEqual(len(self.probes), 1)
         self.assertEqual(self.posts, [])
