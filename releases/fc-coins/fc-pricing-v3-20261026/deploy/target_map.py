@@ -306,9 +306,9 @@ ORDER_HTTP_COST_REPOSITORY_SOURCES = {
 }
 # Live CAS pins. The candidate reader digest comes from the staged Git blob.
 ORDER_HTTP_COST_BASELINES = {
-    'source/order_http.py': '9ac00d8a5dcb5ae5f06245392f89cefe51b536f4ad054d0eb5545ea7b9724c45',
-    'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',
-    'source/collect_p2pah_cost.sh': '6fe775b14dafea86aa3cdedf5e64b5b81e0ce84d0114142a96413a8477f8fef7',
+    'source/order_http.py': '1e6d91152718b5dc29dce1b454c0777f64b1f3806e3e4531913cb223d4c78bf7',
+    'source/collect_p2pah_cost.py': 'd97f22b8494c1519ad07f6b3c1854777bc926402437fee3d5f87129beb4e4cc2',
+    'source/collect_p2pah_cost.sh': '3ed23e6e88b27247164559e06d5884fd3fda57aeb086e9442970ff9da04e65cd',
 }
 
 ORDER_COST_CHANNEL_INSERT = (b"        if data.get('include_cost_delivery_rows') is True:\n"

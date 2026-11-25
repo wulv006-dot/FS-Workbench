@@ -311,9 +311,32 @@ def collect_ps_cost(reader, observations, order_cache):
     raise ValueError('ps_valid_delivery_sample_incomplete')
 
 
-def verified_v6_deliveries(reader, deliveries, order_cache, timed_out):
+def list_verified_cost(record, reference, repeated_orders):
+    order_id = delivery_order_id(record)
+    if reference is None or order_id is None or order_id in repeated_orders:
+        return None
+    price = Decimal(record['cny_per_1k'])
+    if not reference * Decimal('.7') <= price <= reference * Decimal('1.3'):
+        return None
+    native = record['order_delivery']
+    quantity, gift, total = (shipment_number(native[key]) for key in ('quantity', 'gift', 'cost_total'))
+    if None in (quantity, gift, total):
+        return None
+    delivered = quantity + gift
+    if not delivered or not total or abs(price * delivered - total) > Decimal('.01'):
+        return None
+    result = {key: value for key, value in record.items() if key != 'order_delivery'}
+    return dict(result, verification='list_fast_path',
+                quantity_evidence=dict(delivered_k=str(delivered), ordered_k=None,
+                                       native_quantity=str(delivered), native_unit='K',
+                                       total_cny=str(total)))
+
+
+def verified_v6_deliveries(reader, deliveries, order_cache, timed_out, list_verified):
     order_platforms = {}
     for _, record in deliveries:
+        if record['record_id'] in list_verified:
+            continue
         order_id = delivery_order_id(record)
         if order_id is not None:
             order_platforms.setdefault(order_id, set()).add(record['platform'])
@@ -322,6 +345,9 @@ def verified_v6_deliveries(reader, deliveries, order_cache, timed_out):
     prefetched = {}
     for _, record in deliveries:
         if record['platform'] in timed_out:
+            continue
+        if record['record_id'] in list_verified:
+            yield record, list_verified[record['record_id']]
             continue
         order_id = delivery_order_id(record)
         if order_id is not None and order_id not in order_cache:
@@ -349,7 +375,8 @@ def verified_v6_deliveries(reader, deliveries, order_cache, timed_out):
         if order_cache.get(order_id, {}).get('timed_out') is True:
             timed_out.update(order_platforms[order_id])
             continue
-        yield record, verified_delivery_cost(reader, record, order_cache, retry_timeout_ms=16000)
+        normal = verified_delivery_cost(reader, record, order_cache, retry_timeout_ms=16000)
+        yield record, dict(normal, verification='order_detail') if normal is not None else None
 
 
 def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_costs=None):
@@ -360,15 +387,27 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
     references = {p: (confirmed_costs or {}).get(p) for p in PLATFORMS}
     bounds = {p: (Decimal(str(ref)) / 2, Decimal(str(ref)) * 2) if ref is not None
               else (Decimal('.05'), Decimal('5')) for p, ref in references.items()}
+    list_references = {p: Decimal(str(ref)) if ref is not None else None for p, ref in references.items()}
     previous = None
+    first_delivery_by_order = {}
+    repeated_orders = set()
     timed_out = set()
     for hours in (3, 6, 12, 24, 48, 96, 192):
         start = end - timedelta(hours=hours)
         window = dict(start=start, end=end, area='0')
         deliveries = {}
+        orders_in_window = set()
         for page in range(1, 16):
             data = read_page(reader, page, observations, window=window)
             for raw in data['rows']:
+                # Widening the window rereads earlier rows. Count new deliveries
+                # across windows and repeated appearances within a single scan.
+                order_id = raw.get('order_id')
+                if order_id is not None:
+                    first_delivery = first_delivery_by_order.setdefault(order_id, raw['record_id'])
+                    if order_id in orders_in_window or raw['record_id'] != first_delivery:
+                        repeated_orders.add(order_id)
+                    orders_in_window.add(order_id)
                 valid = valid_record(raw)
                 if valid and not start <= valid[0] <= end:
                     raise ValueError('cost_time_window_filter_unverified')
@@ -389,13 +428,18 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
                             order_cache.pop(delivery_order_id(value[1]), None)
         previous = deliveries
 
+        list_verified = {}
+        for _, record in deliveries.values():
+            normal = list_verified_cost(record, list_references[record['platform']], repeated_orders)
+            if normal is not None:
+                list_verified[record['record_id']] = normal
         ordered = sorted(deliveries.values(), key=lambda item: item[0], reverse=True)
         recent = [item for item in ordered if item[0] >= recent_start]
         older = {p: [] for p in PLATFORMS}
         for item in ordered[len(recent):]:
             older[item[1]['platform']].append(item)
         verified = {p: [] for p in PLATFORMS}
-        for record, normal in verified_v6_deliveries(reader, recent, order_cache, timed_out):
+        for record, normal in verified_v6_deliveries(reader, recent, order_cache, timed_out, list_verified):
             if normal is not None:
                 verified[record['platform']].append(normal)
 
@@ -413,7 +457,7 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
                 if not batch:
                     break
                 inspected += len(batch)
-                for _, normal in verified_v6_deliveries(reader, batch, order_cache, timed_out):
+                for _, normal in verified_v6_deliveries(reader, batch, order_cache, timed_out, list_verified):
                     if normal is not None:
                         records.append(normal)
                         within_bounds += lower <= Decimal(normal['cny_per_1k']) <= upper

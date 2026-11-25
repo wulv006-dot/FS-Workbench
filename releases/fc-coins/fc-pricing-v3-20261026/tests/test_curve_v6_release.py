@@ -193,9 +193,9 @@ class CurveV6Release(unittest.TestCase):
                 'releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh',
         }
         before = {
-            'source/order_http.py': '9ac00d8a5dcb5ae5f06245392f89cefe51b536f4ad054d0eb5545ea7b9724c45',
-            'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',
-            'source/collect_p2pah_cost.sh': '6fe775b14dafea86aa3cdedf5e64b5b81e0ce84d0114142a96413a8477f8fef7',
+            'source/order_http.py': '1e6d91152718b5dc29dce1b454c0777f64b1f3806e3e4531913cb223d4c78bf7',
+            'source/collect_p2pah_cost.py': 'd97f22b8494c1519ad07f6b3c1854777bc926402437fee3d5f87129beb4e4cc2',
+            'source/collect_p2pah_cost.sh': '3ed23e6e88b27247164559e06d5884fd3fda57aeb086e9442970ff9da04e65cd',
         }
         expected_targets = {
             'source/order_http.py': '/opt/fs-order-session/order_http.py',
@@ -222,14 +222,18 @@ class CurveV6Release(unittest.TestCase):
                 payload = (ROOT / source).read_bytes().replace(b'\r\n', b'\n')
                 self.assertEqual((stage / 'candidate' / name).read_bytes(), payload)
                 after[name] = hashlib.sha256(payload).hexdigest()
-                self.assertNotEqual(before[name], after[name])
             self.assertEqual(provenance['files'], after)
-            shared_release = json.loads(
-                (ROOT / 'docs/planning/order-http-access-20261125/release-manifest.json').read_bytes())
-            shared_reader = next(row for row in shared_release['files']
-                                 if row['target'] == expected_targets['source/order_http.py'])
-            self.assertEqual(shared_reader['beforeSha256'], before['source/order_http.py'])
-            self.assertEqual(shared_reader['sha256'], after['source/order_http.py'])
+            candidate_release = json.loads(
+                (ROOT / 'docs/planning/order-http-access-20261125/fc-cost-list-release-manifest.json').read_bytes())
+            self.assertEqual(candidate_release['scope'], provenance['scope'])
+            self.assertEqual({row['candidate']: row['source'] for row in candidate_release['files']},
+                             expected_sources)
+            self.assertEqual({row['candidate']: row['target'] for row in candidate_release['files']},
+                             expected_targets)
+            self.assertEqual({row['candidate']: row['beforeSha256'] for row in candidate_release['files']}, before)
+            self.assertEqual({row['candidate']: row['sha256'] for row in candidate_release['files']}, after)
+            self.assertEqual([name for name in after if before[name] != after[name]],
+                             ['source/collect_p2pah_cost.py'])
 
             live_hashes = {Path(target): before[name] for name, target in expected_targets.items()}
 
