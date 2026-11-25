@@ -188,6 +188,19 @@ def band_price_usd(anchor_price, anchor_quantity, purchase):
     return Decimal(str(_editor_fixed(amount, 2)))
 
 
+def two_band_unit_price(tiers):
+    """Admin unit_price follows the large band: 1000K price / 1000.
+
+    The storefront prices custom quantities with max(tier rate, unit_price),
+    so a stale unit_price above the band rate overcharges them.
+    """
+    anchor = COIN_BAND_ANCHORS['large']
+    amount = next((row['native_price_usd'] for row in tiers if row['purchase_k'] == anchor), None)
+    if amount is None:
+        return None
+    return _number((Decimal(amount) / Decimal(anchor)).quantize(Decimal('1e-8')), positive=True)
+
+
 def _compile_two_band_prices(checked, anchors, native_contract):
     """Change one or both band rates while retaining all other native controls."""
     payload = checked['native_payload']
@@ -201,6 +214,11 @@ def _compile_two_band_prices(checked, anchors, native_contract):
         if amount <= 0:
             return _editor_gap('editor_tier_price_outside_reader_domain', purchase_k=quantity)
         more['price'][index] = float(amount)
+    unit = two_band_unit_price([dict(tier, native_price_usd=_number(more['price'][tier['native_index']]))
+                                for tier in checked['tiers']])
+    if unit is None:
+        return _editor_gap('editor_two_band_large_anchor_missing', anchor_k=COIN_BAND_ANCHORS['large'])
+    payload['unit_price'] = float(unit)
     if isinstance(payload['more'], str):
         payload['more'] = json.dumps(more, ensure_ascii=False, separators=(',', ':'))
     result = read_curve(payload, checked['identity'], dict(native_contract, catalogue_origin=EDITOR_CATALOGUE_ORIGIN))

@@ -44,6 +44,15 @@ def saved(row, origin=None):
     return read_curve(row, {key: row[key] for key in IDENTITY_FIELDS}, contract)
 
 
+def two_band(curve):
+    """Switch a fixture curve to two-band with unit_price synced to 1000K / 1000."""
+    from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT, two_band_unit_price
+
+    curve['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+    curve['native_payload']['unit_price'] = curve['unit_price_usd_per_k'] = two_band_unit_price(curve['tiers'])
+    return curve
+
+
 def setup_bundle(small='10', large='103', *, before_large='100', target_override=None, cost_evidence=None):
     before = goods(ALL_ID, 0, large=before_large)
     after = goods(ALL_ID, 0, small, large)
@@ -241,12 +250,26 @@ class CurveWriter(unittest.TestCase):
         self.assertEqual(mapping['actual_site266_curve_key'], curve_key(actual))
         self.assertNotEqual(mapping['actual_site266_curve_key'], mapping['target_curve_key'])
 
+    def _two_band_target(self):
+        target = two_band(self.bundle['action']['curves'][PLATFORM])
+        proof = self.bundle['curve_proofs'][PLATFORM]
+        proof['curve_key'] = curve_key(target)
+        proof['proof_hash'] = fingerprint({k: v for k, v in proof.items() if k != 'proof_hash'})
+
+    def test_two_band_writer_rejects_unit_price_not_synced_to_large_band(self):
+        from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
+
+        self.prepare()
+        target = self.bundle['action']['curves'][PLATFORM]
+        target['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        with self.assertRaisesRegex(ValueError, 'pricing_curve_two_band_unit_price_unsynced'):
+            writer.curve_catalog_plan(self.bundle, PLATFORM, self.capabilities[PLATFORM])
+
     def test_two_band_writer_accepts_primary_complete_table_without_post_save_all_read(self):
         from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
 
         self.prepare(extra_recipients={575: goods(999, 575)})
-        target = self.bundle['action']['curves'][PLATFORM]
-        target['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        self._two_band_target()
         self.item = dict(writer.curve_catalog_plan(self.bundle, PLATFORM, self.capabilities[PLATFORM]), operation_id=OPERATION)
         self.audit['curve_results'][PLATFORM] = self.item
         original = self.transport.request
@@ -272,7 +295,7 @@ class CurveWriter(unittest.TestCase):
         from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
 
         self.prepare(propagate=False)
-        self.bundle['action']['curves'][PLATFORM]['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        self._two_band_target()
         self.item = dict(writer.curve_catalog_plan(self.bundle, PLATFORM, self.capabilities[PLATFORM]), operation_id=OPERATION)
         self.audit['curve_results'][PLATFORM] = self.item
         self.assertEqual(self.dispatch()['status'], 'PARTIAL')
@@ -286,8 +309,10 @@ class CurveWriter(unittest.TestCase):
 
         for small, before_large, large in (('8.62', '81.60', '86.12'), ('8.35', '86.00', '86.00')):
             with self.subTest(small=small, large=large):
+                unit = str(Decimal(large) / 1000)
+
                 def admin_target(row):
-                    row['unit_price'] = '0.10'
+                    row['unit_price'] = unit
 
                 bundle, capability, before, recipient = setup_bundle(
                     small=small, large=large, before_large=before_large, target_override=admin_target,
@@ -312,7 +337,7 @@ class CurveWriter(unittest.TestCase):
                 for row in self.transport.rows.values():
                     self.assertEqual(row['more']['price'], [small, large])
                     self.assertEqual(row['more']['give'], ['0', '30'])
-                    self.assertEqual(row['unit_price'], '0.10')
+                    self.assertEqual(row['unit_price'], unit)
 
     def _modern_preflight(self, *, extra=16):
         from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT

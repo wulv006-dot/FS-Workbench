@@ -33,15 +33,15 @@ class PlayerV3Followup(unittest.TestCase):
         from fc_pricing_v3.dispatch import CURVE_WRITE_PROTOCOL
         from fc_pricing_v3.financial import fingerprint
         from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
-        from test_curve_writer_v6 import PLATFORM, Transport, saved, setup_bundle, writer
+        from test_curve_writer_v6 import PLATFORM, Transport, saved, setup_bundle, two_band, writer
         from fc_pricing_v3.price_curve import curve_key
 
         bundle, capability, before, recipient = setup_bundle()
         target = deepcopy(bundle['action']['curves'][PLATFORM]['native_payload'])
         target['more']['price'][0] = '10.20'
         bundle['action']['curves'][PLATFORM] = saved(target, 'editor_candidate')
-        for action in ('before_action', 'action'):
-            bundle[action]['curves'][PLATFORM]['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        bundle['before_action']['curves'][PLATFORM]['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        two_band(bundle['action']['curves'][PLATFORM])
         curve_proof = bundle['curve_proofs'][PLATFORM]
         curve_proof['curve_key'] = curve_key(bundle['action']['curves'][PLATFORM])
         curve_proof['proof_hash'] = fingerprint({k: v for k, v in curve_proof.items() if k != 'proof_hash'})

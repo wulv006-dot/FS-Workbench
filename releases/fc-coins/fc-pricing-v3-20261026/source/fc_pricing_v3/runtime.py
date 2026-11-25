@@ -876,20 +876,27 @@ def original_restore_curves(db, operation_id, plan, conn=None):
 
 
 def _curve_restore_target(current, original):
-    from .price_curve import EDITOR_CATALOGUE_ORIGIN, _more, read_curve
+    from .price_curve import EDITOR_CATALOGUE_ORIGIN, TWO_BAND_PRICE_EDIT, _more, read_curve, two_band_unit_price
 
     # Tier order belongs to the native editor. Every retained quantity, gift,
     # discount, and compatibility unit price must match the original table.
+    # Two-band unit_price is re-derived from the restored large-band prices.
     saved = original['native_payload']
     live = current['native_payload']
+    two_band = current['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
     spec = ('purchase_k', 'promised_bonus_k', 'native_discount')
     if (current['identity'] != original['identity']
-            or current['unit_price_usd_per_k'] != original['unit_price_usd_per_k']
+            or not two_band and current['unit_price_usd_per_k'] != original['unit_price_usd_per_k']
             or live.get('discount') != saved.get('discount')
             or [tuple(row[k] for k in spec) for row in current['tiers']]
             != [tuple(row[k] for k in spec) for row in original['tiers']]):
         raise ValueError('pricing_restore_quantity_or_offer_changed')
     payload = dict(live, more=dict(_more(live), price=_more(saved)['price']))
+    if two_band:
+        unit = two_band_unit_price(original['tiers'])
+        if unit is None:
+            raise ValueError('pricing_restore_large_anchor_missing')
+        payload['unit_price'] = float(unit)
     contract = dict(current['native_contract'], catalogue_origin=EDITOR_CATALOGUE_ORIGIN)
     return read_curve(payload, current['identity'], contract)
 

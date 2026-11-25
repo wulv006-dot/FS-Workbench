@@ -1025,6 +1025,7 @@ class CurveRuntime(unittest.TestCase):
         old = read(self.transport.rows[all_id])
         changed_row = deepcopy(old['native_payload'])
         changed_row['more']['price'] = ['10', '103', '154.50']
+        changed_row['unit_price'] = '0.103'
         changed = read(changed_row)
         self.bundle['before_action']['curves'][PLATFORM] = old
         self.bundle['action']['curves'][PLATFORM] = changed
