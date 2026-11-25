@@ -120,6 +120,7 @@ def table_rows(table, *, shipping=False):
     if not headers or len(set(filter(None, headers))) != sum(bool(header) for header in headers):
         raise OrderReadError('table_headers_unverified')
     rows = []
+    explicit_empty = False
     for row in table.find('tr'):
         cells = [node for node in row.children if isinstance(node, Node) and node.tag == 'td']
         if not cells:
@@ -131,11 +132,12 @@ def table_rows(table, *, shipping=False):
                     raise OrderReadError('shipping_unknown_empty_state')
                 continue
             if not shipping and message == '暂无数据':
+                explicit_empty = True
                 continue
         if len(cells) != len(headers):
             raise OrderReadError('table_columns_unverified')
         rows.append(cells)
-    return headers, rows
+    return headers, rows, explicit_empty and not rows
 
 
 @dataclass(frozen=True)
@@ -147,6 +149,7 @@ class DeliveryPage:
     filters: dict
     has_next: bool
     raw_sha256: str
+    explicit_empty: bool = False
 
 
 @dataclass(frozen=True)
@@ -347,7 +350,7 @@ class OrderHTTP:
         table = next(root.find('table', 'table-list'), None)
         if table is None:
             raise OrderReadError('delivery_table_missing')
-        headers, cells = table_rows(table)
+        headers, cells, explicit_empty = table_rows(table)
         rows = tuple({header: node.text().strip() for header, node in zip(headers, row) if header} for row in cells)
         ids = []
         for row in cells:
@@ -357,7 +360,7 @@ class OrderHTTP:
             ids.append(matches[0] if len(set(matches)) == 1 else None)
         # The active collector proves the tail by requesting the first empty page.
         return DeliveryPage(number, headers, rows, tuple(ids), form_values(root),
-                            bool(rows), sha256(raw).hexdigest())
+                            bool(rows), sha256(raw).hexdigest(), explicit_empty)
 
     def iter_delivery_pages(self, query, *, max_pages, deadline):
         return DeliveryPages(self, query, max_pages, deadline)
@@ -424,7 +427,7 @@ class OrderHTTP:
                   if any(node.text().strip() == '订单总数' for node in table.find('th'))]
         if len(tables) != 1:
             raise OrderReadError('shipping_table_missing')
-        headers, rows = table_rows(tables[0], shipping=True)
+        headers, rows, _ = table_rows(tables[0], shipping=True)
         return ShippingStats(headers, selected,
                              tuple(dict(zip(headers, (cell.text().strip() for cell in row))) for row in rows),
                              sha256(raw).hexdigest())

@@ -1,5 +1,6 @@
 """Offline contracts for PS latest-six maximum and shared console costs."""
 import importlib.util
+import socket
 import sys
 import types
 import unittest
@@ -8,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import Mock, patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
@@ -485,6 +486,40 @@ class SixCost(unittest.TestCase):
         result = self.collector.failure_result(failed.exception)
         self.assertEqual((result['status'], result['reason']), ('missing', 'global_order_session_unavailable'))
 
+    def test_page_timeout_keeps_the_navigation_recovery_code_and_page_number(self):
+        for error in (socket.timeout(), TimeoutError(), URLError(socket.timeout()), URLError(TimeoutError())):
+            with self.subTest(error=type(error), reason=type(getattr(error, 'reason', None))):
+                try:
+                    self.collector.read_page(OrderHTTP(Mock(side_effect=error)), 3)
+                except (OSError, ValueError) as failure:
+                    result = self.collector.failure_result(failure)
+                else:
+                    self.fail('the timed-out page must fail closed')
+                self.assertEqual((result['status'], result['reason']),
+                                 ('missing', 'order_page_navigation_timeout:3'))
+                self.assertEqual(result['diagnostic']['requested_page'], 3)
+
+    def test_broker_recovery_code_reaches_final_list_and_detail_receipts(self):
+        self.single_patch.stop()
+        cases = (
+            ('no_socket', 'global_order_transport_unavailable'),
+            ('transport:ConnectionRefusedError', 'global_order_transport_unavailable'),
+            ('transport:timeout', 'global_order_transport_unavailable'),
+            ('order_probe_transport_unavailable', 'global_order_transport_unavailable'),
+            ('order_identity_unverified', 'global_order_session_unavailable'),
+        )
+        for reason, expected in cases:
+            broker = types.SimpleNamespace(fill_jar=Mock(
+                side_effect=RuntimeError('global_order_unavailable:' + reason)))
+            with self.subTest(reason=reason), patch.dict(sys.modules, fs_order_client=broker):
+                reader = OrderHTTP()
+                for read in (lambda: self.collector.read_page(reader, 1),
+                             lambda: self.collector.read_detail(reader, '300', 8000)):
+                    with self.assertRaises(ValueError) as failure:
+                        read()
+                    receipt = self.collector.failure_result(failure.exception)
+                    self.assertEqual((receipt['status'], receipt['reason']), ('missing', expected))
+
     def test_http_page_preserves_error_status_without_a_body(self):
         def fetch(path, timeout):
             raise HTTPError(path, 503, 'unavailable', {}, None)
@@ -494,7 +529,7 @@ class SixCost(unittest.TestCase):
         self.assertEqual(failure.exception.diagnostic['http_status'], 503)
 
     def test_http_page_requires_native_filter_readback(self):
-        def reader(area):
+        def reader(area, rows=""):
             headers = ('', '编号', '交货类型', '来源', '商户订单号', '交易时间',
                        '游戏', '数量', '赠送', '单价', '总额')
             fields = {'game': '1322', 'type': '1', 'genre': '1', 'area': area,
@@ -502,8 +537,15 @@ class SixCost(unittest.TestCase):
                       'end': (self.now + timedelta(hours=1)).strftime('%Y-%m-%d %H:%M')}
             html = ''.join(f'<input id="lot-{key}" value="{value}">' for key, value in fields.items())
             html += '<table class="table-list"><tr>' + ''.join(f'<th>{h}</th>' for h in headers)
-            html += '</tr><tbody></tbody></table>'
+            html += '</tr><tbody>' + rows + '</tbody></table>'
             return OrderHTTP(lambda path, timeout: (path, html.encode()))
+
+        with self.assertRaisesRegex(self.collector.CostPageError, 'filter_or_rows_unverified:4'):
+            self.collector.read_page(reader('0'), 4)
+        result = self.collector.read_page(reader('0', '<tr><td colspan="11">\u6682\u65e0\u6570\u636e</td></tr>'), 4)
+        self.assertTrue(result['empty'])
+        self.assertFalse(result['hasDataRows'])
+        self.assertEqual(result['deliveryRowCount'], 0)
 
         window = dict(start=self.now, end=self.now + timedelta(hours=1), area='0')
         result = self.collector.read_page(reader('0'), 1, [], window=window)

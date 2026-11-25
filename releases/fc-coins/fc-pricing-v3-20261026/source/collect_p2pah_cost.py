@@ -1,7 +1,7 @@
 """Read current FC27 Game Coins procurement records over Order HTTP."""
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
-from order_http import OrderHTTP, OrderReadError
+from order_http import OrderHTTP, OrderReadError, is_timeout
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
@@ -10,7 +10,7 @@ import json
 import os
 import re
 import traceback
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from zoneinfo import ZoneInfo
 
 PLATFORMS = ("PS", "XBOX", "PC")
@@ -31,14 +31,27 @@ def cost_query(page: int, window=None) -> dict:
     return query
 
 
+def broker_failure(reason):
+    prefix, _, category = reason.partition(':')
+    if prefix != 'global_order_unavailable':
+        return None
+    if category.startswith('transport:') or category in {
+            'TimeoutError', 'OSError', 'ConnectionError', 'ConnectionRefusedError',
+            'ConnectionResetError', 'BrokenPipeError', 'FileNotFoundError', 'no_socket',
+            'order_probe_unavailable', 'order_probe_transport_unavailable',
+            'order_probe_wait_timeout', 'order_login_transport_unavailable', 'order_login_deadline'}:
+        return 'global_order_transport_unavailable'
+    return 'global_order_session_unavailable'
+
+
 def read_detail(reader, order_id, timeout_ms):
     result = reader.order_detail(order_id, timeout=timeout_ms / 1000)
     if result.status == 'timeout':
         return {'timed_out': True}
     if result.status == 'login_lost':
         raise ValueError('login_expired')
-    if result.reason == 'global_order_unavailable':
-        raise ValueError('global_order_session_unavailable')
+    if reason := broker_failure(result.reason):
+        raise ValueError(reason)
     if result.status != 'found':
         return None
     return dict(goods=list(result.goods), deliveries=list(result.deliveries), complete=result.complete)
@@ -186,18 +199,17 @@ def read_page(reader, number, observations=None, window=None):
         diagnostic['ps_window'] = {key: window[key].isoformat() for key in ('start', 'end')}
     try:
         page = reader.delivery_page(cost_query(number, window), timeout=35)
-    except (TimeoutError, URLError) as exc:
+    except OSError as exc:
         if isinstance(exc, HTTPError):
             diagnostic['http_status'] = exc.code
             if exc.fp is not None:
                 exc.close()
             raise CostPageError(f'order_page_http_error:{number}:{exc.code}', diagnostic) from None
-        timeout = isinstance(exc, TimeoutError) or isinstance(exc.reason, TimeoutError)
-        reason = 'order_page_navigation_timeout' if timeout else 'order_page_transport_error'
+        reason = 'order_page_navigation_timeout' if is_timeout(exc) else 'order_page_transport_error'
         raise CostPageError(f'{reason}:{number}', diagnostic) from None
     except OrderReadError as exc:
-        reason = {'login_lost': 'login_expired', 'global_order_unavailable': 'global_order_session_unavailable'}.get(
-            str(exc), f'filter_or_rows_unverified:{number}')
+        reason = ('login_expired' if str(exc) == 'login_lost'
+                  else broker_failure(str(exc)) or f'filter_or_rows_unverified:{number}')
         raise CostPageError(reason, diagnostic) from exc
     diagnostic['http_status'] = 200
     fields = page.filters
@@ -208,8 +220,11 @@ def read_page(reader, number, observations=None, window=None):
     observed = diagnostic['observed'] = dict(
         login=False, ready='complete', page=str(number), game=game, area=area,
         start=start, end=end, product=product, genre=genre, typeHeader=type_header,
-        table=True, hasDataRows=bool(page.rows), empty=not page.rows, deliveryRowCount=len(page.rows))
+        table=True, hasDataRows=bool(page.rows),
+        empty=page.explicit_empty or (window is not None and not page.rows), deliveryRowCount=len(page.rows))
     if (game, product, genre, type_header) != ('1322', '1', '1', '交货类型') or len(headers) < 11:
+        raise CostPageError(f'filter_or_rows_unverified:{number}', diagnostic)
+    if not observed['hasDataRows'] and not observed['empty']:
         raise CostPageError(f'filter_or_rows_unverified:{number}', diagnostic)
     # These are the column positions verified by the former Order DOM reader.
     # The known Order headers anchor the layout before those fields are consumed.
@@ -481,12 +496,8 @@ def collect(*, curve_v6=False, confirmed_costs=None):
 
 def failure_result(exc):
     reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
-    if isinstance(exc, RuntimeError) and str(exc).startswith('global_order_unavailable:'):
-        category = str(exc).split(':', 1)[1]
-        reason = ('global_order_transport_unavailable' if category in {
-            'TimeoutError', 'OSError', 'ConnectionError', 'ConnectionRefusedError',
-            'ConnectionResetError', 'BrokenPipeError', 'FileNotFoundError',
-            'no_socket', 'order_probe_unavailable'} else 'global_order_session_unavailable')
+    if isinstance(exc, RuntimeError):
+        reason = broker_failure(str(exc)) or reason
     result = {"status": "missing", "reason": reason[:120], "diagnostic": {
         "exception_type": type(exc).__name__,
         "stack": [{"file": os.path.basename(frame.filename), "function": frame.name,

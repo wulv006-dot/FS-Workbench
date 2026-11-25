@@ -165,8 +165,18 @@ class CurveV6Release(unittest.TestCase):
                 }
                 self.assertEqual(built['targets'], 4)
                 self.assertEqual(adapter.SCOPED_TARGETS[provenance['scope']], expected)
+                collector = 'source/collect_p2pah_cost.py'
+                # Evidence from the pre-HTTP origin/main blob at a4b7f7b9.
+                old_collector_sha = '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5'
+                with tarfile.open(output) as bundle:
+                    new_collector = bundle.extractfile(prefix+'candidate/'+collector).read()
+                new_collector_sha = hashlib.sha256(new_collector).hexdigest()
+                self.assertNotEqual(old_collector_sha, new_collector_sha)
+                self.assertEqual(provenance['files'][collector], new_collector_sha)
+                active_hashes = dict(target_map.ORDER_COST_FC_BASELINES)
+                active_hashes[collector] = old_collector_sha
                 files = [dict(candidate=name, target=path, sha256=provenance['files'][name],
-                              beforeSha256=target_map.ORDER_COST_FC_BASELINES.get(name, before),
+                              beforeSha256=active_hashes.get(name, before),
                               owner='0:0', mode='0o644') for name, path in expected.items()]
                 manifest = dict(scope=provenance['scope'], releaseReady=True, businessWrites=False,
                                 timersChanged=False, files=files)
