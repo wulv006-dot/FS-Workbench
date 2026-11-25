@@ -1446,7 +1446,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
     from .average_discount_v6 import minimum_band_price
     from .curve_strategy_v6 import (ANCHORS, band_anchors, large_market_reference,
                                     large_market_comparison, market_anchor_targets, market_direction, segment_changes)
-    from .price_curve import coin_quantity_band, compile_curve, curve_key
+    from .price_curve import TWO_BAND_PRICE_EDIT, coin_quantity_band, compile_curve, curve_key, two_band_unit_price
     from .pricing_proof_v6 import FAILED, PROVEN
 
     current, editor = entry['primary_curve'], entry['editor_contract']
@@ -1510,10 +1510,14 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
             observed = band_anchors(current)
             prices.update({band: prior['normal'] for band, prior in active.items()
                            if band not in position['anchors'] and observed[band] == prior['target']})
+        # A hold round still recompiles when the saved unit_price is stale, so
+        # the two-band compile writes it back to the 1000K rate.
+        recompile = prices or (editor.get('price_edit_policy') == TWO_BAND_PRICE_EDIT
+                               and current['unit_price_usd_per_k'] != two_band_unit_price(current['tiers']))
         normal = (compile_curve(current, dict(anchor_prices_usd={ANCHORS[band]: value
-                    for band, value in prices.items()}), editor) if prices else current)
+                    for band, value in prices.items()}), editor) if recompile else current)
         candidate = dict(curve=normal, labels=['A'], write_gaps=(normal.get('gaps') or ['market_anchor_compile_failed'])
-                         if prices and normal.get('compilation_status') != 'EDITOR_CANDIDATE' else [])
+                         if recompile and normal.get('compilation_status') != 'EDITOR_CANDIDATE' else [])
         preference = dict(preference, market_anchor=position)
         frozen.update(preference=preference, market_anchor=position)
     else:
