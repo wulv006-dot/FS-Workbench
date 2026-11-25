@@ -471,7 +471,8 @@ class SixCost(unittest.TestCase):
                     '<script>var orderDeliveryData = {};</script>')
             return path, html.encode()
 
-        details = self.real_detail_pair(OrderHTTP(fetch), ['300', '301'])
+        with patch('order_http.monotonic', return_value=100):
+            details = self.real_detail_pair(OrderHTTP(fetch), ['300', '301'])
         self.assertCountEqual(attempts, [('300', 8), ('300', 16), ('301', 8)])
         self.assertEqual([detail['goods'][0]['pid'] for detail in details], ['9', '9'])
 
