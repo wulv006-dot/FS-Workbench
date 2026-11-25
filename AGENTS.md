@@ -66,6 +66,8 @@ FS 由创建者吴律统一掌控，是以 Hermes 为智能中枢的 AI 驱动�
 
 CodeGraph 是本地程序与 MCP 服务，不是 Skill。工具不可用或索引过期时说明原因，使用源码检索继续，不为工具故障阻塞开发；索引和临时锁文件留在本地，不入库。纯文案、简单配置或范围明确的微小改动不必全仓建图。原业务规则继续适用。
 
+CodeGraph 只覆盖本任务 Worktree 当前磁盘上的已索引源码，不含 git 历史、其他分支或 PR；这些用 `git log/blame/show`、`git grep <pat> origin/main` 或 `gh`。配置与 `docs/` 仍用 Grep/Read。
+
 <!-- users-live-query-current-20261102 -->
 ## 用户订单按需查询（2026-11-02 已上线）
 
