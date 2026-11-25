@@ -5,8 +5,10 @@ from datetime import datetime,timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock,patch
+from urllib.parse import parse_qs,urlsplit
 
 SOURCE=Path(__file__).resolve().parents[1]/'source'
+sys.path.append(str(SOURCE.parents[3]/'order_global_session_20261021'))
 sys.path.insert(0,str(SOURCE));sys.path.append(str(Path(__file__).parent/'fixtures'))
 if os.name=='nt':sys.modules['fcntl']=SimpleNamespace(LOCK_EX=2,LOCK_NB=4,flock=lambda *args:None)
 from actual_profit import ActualProfitService,selection,normalized,order_rows,main_scope,_closed_complete
@@ -35,22 +37,36 @@ class ActualProfit(unittest.TestCase):
         cells=['','1','订单发货','www.rsorders.com','A','2026-10-20 12:00:00 改2026-10-20 12:01:00',
                'RS','1','0','35','35','70','50%','','','','','已结算','']
         html='<table class="table-list"><thead><tr><th>商户订单号</th></tr></thead><tbody><tr>'+''.join('<td>'+x+'</td>' for x in cells)+'</tr></tbody></table>'
-        session=Mock();session.get_order.return_value=(200,html)
-        native = collect(session,'2026-10-20','2026-10-20',source='www.rsorders.com',gid='506')[0]
-        self.assertEqual(native['cost_total'],'35')
-        self.assertEqual(native['trade_at'],'2026-10-20 12:00:00')
-        self.assertEqual(native['trade_amended_at'],'2026-10-20 12:01:00')
-        self.assertEqual(native['settle_status'],'已结算')
-        self.assertNotIn('completed_at', native)
-        self.assertEqual(session.get_order.call_args.kwargs['source[]'],'www.rsorders.com');self.assertEqual(session.get_order.call_args.kwargs['gid'],'506')
-        with self.assertRaises(ValueError):collect(session,'2026-10-20','2026-10-20',source='www.mmoexp.com')
-        self.assertEqual(len(collect(session,'2026-10-20','2026-10-20',source='',gid='0')),1)
-        session.get_order.return_value=(200,html.replace('<td>www.rsorders.com</td>','<td></td>'))
-        unassigned=collect(session,'2026-10-20','2026-10-20',source='',gid='0')
-        self.assertEqual(profit_view(data(costs=unassigned),{})['denominator']['coveredOrders'],0)
-        with self.assertRaises(ValueError):collect(session,'2026-10-20','2026-10-20',source='www.rsorders.com',gid='506')
-        session.get_order.return_value=(403,'denied')
-        with self.assertRaises(PermissionError):collect(session,'2026-10-20','2026-10-20')
+        def response(url, **kwargs):
+            return nullcontext(SimpleNamespace(url=url, status_code=status, reason='fixture',
+                                               headers={}, content=html.encode('utf-8')))
+
+        status=200
+        fetch=Mock(side_effect=response)
+        session=SimpleNamespace(order=SimpleNamespace(get=fetch,cookies=object()))
+        broker=SimpleNamespace(fill_jar=Mock())
+        with patch.dict(sys.modules, {'fs_order_client': broker}):
+            native = collect(session,'2026-10-20','2026-10-20',source='www.rsorders.com',gid='506')[0]
+            self.assertEqual(native['cost_total'],'35')
+            self.assertEqual(native['trade_at'],'2026-10-20 12:00:00')
+            self.assertEqual(native['trade_amended_at'],'2026-10-20 12:01:00')
+            self.assertEqual(native['settle_status'],'已结算')
+            self.assertNotIn('completed_at', native)
+            params=parse_qs(urlsplit(fetch.call_args.args[0]).query)
+            self.assertEqual(params['source[]'],['www.rsorders.com'])
+            self.assertEqual(params['gid'],['506'])
+            with self.assertRaisesRegex(ValueError,'delivery_filter_not_honored'):
+                collect(session,'2026-10-20','2026-10-20',source='www.mmoexp.com')
+            self.assertEqual(len(collect(session,'2026-10-20','2026-10-20',source='',gid='0')),1)
+            html=html.replace('<td>www.rsorders.com</td>','<td></td>')
+            unassigned=collect(session,'2026-10-20','2026-10-20',source='',gid='0')
+            self.assertEqual(profit_view(data(costs=unassigned),{})['denominator']['coveredOrders'],0)
+            with self.assertRaisesRegex(ValueError,'delivery_filter_not_honored'):
+                collect(session,'2026-10-20','2026-10-20',source='www.rsorders.com',gid='506')
+            broker.fill_jar.assert_called_with(session.order.cookies,timeout=40)
+            status=403
+            with self.assertRaisesRegex(PermissionError,'shared_order_denied'):
+                collect(session,'2026-10-20','2026-10-20')
     def test_same_order_income_once_multiple_deliveries_and_daily_sum(self):
         d=data([raw(),raw('B',id=4,paytime='2026-10-21 02:00:00',amount_rmb_format='¥ 200')],[delivery(),delivery(delivery_id='two',cost_total='15'),delivery('B',delivery_id='three',cost_total='100')])
         v=profit_view(d,{});m=v['denominator']
