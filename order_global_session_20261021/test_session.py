@@ -55,7 +55,7 @@ class SessionTests(unittest.TestCase):
             self.assertNotIn('synthetic-only', str(health))
         finally:
             session.lock.release()
-        session.checked -= 46
+        session.checked -= 91
         self.assertFalse(session.health()['ready'])
 
     def test_identity_failure_immediately_drops_ready(self):
@@ -272,11 +272,29 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.session.get()['error'], 'order_identity_unverified')
         self.assertEqual(self.posts, [])
 
-    def test_valid_identity_requires_all_cookies(self):
-        self.cookie('PHPSESSID')
+    def test_valid_identity_requires_session_cookie(self):
         self.outcome = (200, HOME)
         self.assertEqual(self.session.get()['error'], 'order_session_cookies_missing')
         self.assertEqual(self.posts, [])
+
+    def test_live_session_with_only_phpsessid_is_ready(self):
+        # 187 live browser session exports only PHPSESSID at path / and every
+        # consumer works with it; identity proof comes from the page itself.
+        self.cookie('PHPSESSID')
+        self.outcome = (200, HOME)
+        result = self.session.get()
+        self.assertTrue(result['ready'])
+        self.assertEqual([row['name'] for row in result['cookies']], ['PHPSESSID'])
+
+    def test_renewal_gets_its_own_deadline(self):
+        # The authenticated page alone takes 10-20 s on 187; renewal must not
+        # inherit what is left of the probe budget.
+        self.outcome = (200, LOGIN)
+        seen = []
+        with patch.object(self.session, 'renew', side_effect=lambda d: seen.append(d - time.monotonic()) or 'order_captcha_attempts_exhausted'):
+            self.session.get()
+        self.assertEqual(len(seen), 1)
+        self.assertGreater(seen[0], service.RENEW_TIMEOUT - 1)
 
     def test_valid_then_expired(self):
         for name in ('PHPSESSID', 'user', 'admin_username'):
@@ -367,7 +385,7 @@ class HTTPTests(unittest.TestCase):
         self.replies = [{'code': 1}]
         with patch.object(service.time, 'monotonic', return_value=100) as clock:
             def late_ocr(_image, _deadline):
-                clock.return_value = 134
+                clock.return_value = 100 + service.RENEW_TIMEOUT + 1
                 return '1234'
 
             with patch.object(service, 'recognize', side_effect=late_ocr):
@@ -398,7 +416,7 @@ class HTTPTests(unittest.TestCase):
             def read1(self, *args):
                 reading.set()
                 finish_chunk.wait(2)
-                clock.return_value = 134
+                clock.return_value = 100 + service.PROBE_TIMEOUT + 1
                 return io.BytesIO.read(self, 1)
 
             read = read1
@@ -459,6 +477,7 @@ class HTTPTests(unittest.TestCase):
         with (patch.object(service, 'recognize', side_effect=original_recognize),
               patch.object(subprocess, 'run', side_effect=stalled_worker),
               patch.object(service, 'PROBE_TIMEOUT', 0.8),
+              patch.object(service, 'RENEW_TIMEOUT', 0.8),
               patch.object(service, 'WAIT_TIMEOUT', 0.05),
               ThreadPoolExecutor(max_workers=2) as pool):
             owner = pool.submit(self.session.get)
