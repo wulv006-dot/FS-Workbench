@@ -8,7 +8,7 @@
 | `fc27_cloud_browser/repricing_dom.js` | **暂不可退役。** 执行与对账沿上述挂载，`fc27_cloud_browser/preview_backend.py:39,46` 和 `restore_price.sh:23` 还有预览与恢复引用。发布来源见 `docs/collaboration/SOURCE-MAP.json:1371–1376`。187 目标存在（`b704dd17…`）。活跃预览/恢复入口的路由和调用频率未核，须随旧标量逐项解除。 |
 | `range_primary_reader` | **证据不足。** 映射 `docs/planning/business-shipping-profit-20261024/ACTIVE-SOURCE-MAP.json:129–133`，187 目标存在（`4b599c31…`）且第 14 行导入 Playwright。187 `fs-transaction-collect.timer` 每 120 分钟 active，范围服务亦 active。静态查找直接 Python import 无命中，尚缺定时单元到实际读取器的调用证明、HTTP/Hermes/MCP 动态分派及失败回退核验。 |
 | `fc_order_reader` | **证据不足。** FC 导航发布要求带此文件（`releases/fc-coins/fc-pricing-v3-20261026/deploy/release_navigation_base.py:150,403`）。187 文件存在（`72f251f7…`），第 15–16 行导入 Playwright 和诊断模块，现网 `range_api.py:281` 导入诊断入口。静态查找直接 Python import 无命中，尚缺诊断到该读取器的实际运行路径、Hermes/MCP 按需注册、定时与回退读回。 |
-| 成本容器的 `FC27_CDP_ENDPOINT` | **暂不可退役。** 187 coordinator 与浏览器容器 active，已见成本目标（`9a61aa4c…`）和 cost image。`releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh:11–18` 明确设 CDP，现有采集源码在页内读取发货及订单详情。须等阶段 2 六个有效且可比的自然轮及切换后自然轮验收，保留原版本回发所需依赖，随后按阶段 5B 处理。187 进程在取证时点是否正在采集未判定。 |
+| 成本容器的 `FC27_CDP_ENDPOINT` | **暂不可退役。** 187 coordinator 与浏览器容器 active，已见成本目标（`9a61aa4c…`）和 cost image。`releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh:11–18` 明确设 CDP，现有采集源码在页内读取发货及订单详情。阶段 2 按用户 2026-11-25 决定直接切换到 HTTP（不做影子比对），包装脚本随切换去掉 CDP；切换部署后核对一次三平台真实自然轮，保留原版本可回发。187 进程在取证时点是否正在采集未判定。 |
 
 ## 旧标量原操作
 
