@@ -243,6 +243,9 @@ class SupersededAllCodePublish(unittest.TestCase):
                 expected = ('fc27-cloud-api.service', 'fc27-cloud-worker.service', 'fc-pricing-v3.service')
                 if kind == CURVE_RECOVERY_SCOPES['observer-cache']:
                     expected = ('fc-pricing-v3.service',)
+                elif kind == CURVE_RECOVERY_SCOPES['order-http-cost']:
+                    expected = ()
+                    process.run.assert_not_called()
                 self.assertEqual(restarts, [['systemctl', 'restart', name] for name in expected])
                 if kind in (CURVE_RECOVERY_SCOPES['market-packages'], CURVE_RECOVERY_SCOPES['observer-retirement']):
                     scope['restart_with_hermes_readiness'].assert_called_once_with(

@@ -25,6 +25,7 @@ from target_map import CURVE_ARAB_QUOTE_SCOPE, CURVE_ARAB_QUOTE_TARGET_COUNT, cu
 from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
 from target_map import OBSERVER_CONTROL_FILES
 from target_map import ORDER_COST_CHANNEL_OVERLAY, order_cost_channel_overlay
+from target_map import ORDER_HTTP_COST_REPOSITORY_SOURCES
 from target_map import HOURLY_COST_CHANNEL_BASE, HOURLY_COST_CHANNEL_OVERLAY, hourly_cost_channel_overlay
 from target_map import ORDER_COST_CHANNEL_REPOSITORY
 from target_map import CURVE_MARGIN_BAND_SCOPE, CURVE_MARGIN_BAND_TARGET_COUNT, curve_margin_band_targets
@@ -102,6 +103,10 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
         raise ValueError('curve_arab_quote_source_provenance_changed')
     if curve_recovery and provenance.get('scope') != CURVE_RECOVERY_SCOPES[curve_recovery]:
         raise ValueError('curve_recovery_source_provenance_changed')
+    if curve_recovery == 'order-http-cost' and (
+            provenance.get('repositorySources') != ORDER_HTTP_COST_REPOSITORY_SOURCES
+            or 'liveSourceOverlays' in provenance):
+        raise ValueError('order_http_cost_source_provenance_changed')
     channel_overlay = None
     if curve_recovery in ('order-cost', 'hourly-order-cost'):
         hourly = curve_recovery == 'hourly-order-cost'

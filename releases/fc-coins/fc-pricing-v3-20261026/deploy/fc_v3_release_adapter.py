@@ -23,7 +23,7 @@ from target_map import CURVE_INSURANCE_SCOPE, curve_insurance_targets
 from target_map import CURVE_WEEKLY_SCOPE, CURVE_WEEKLY_TARGET_COUNT, CURVE_WEEKLY_NEW, curve_weekly_targets
 from target_map import CURVE_MARKET_SCOPE, CURVE_MARKET_TARGET_COUNT, curve_market_targets
 from target_map import CURVE_ARAB_QUOTE_SCOPE, curve_arab_quote_targets
-from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS
+from target_map import CURVE_RECOVERY_SCOPES, CURVE_RECOVERY_TARGETS, ORDER_HTTP_COST_BASELINES
 from target_map import ORDER_COST_CHANNEL_OVERLAY, ORDER_COST_FC_BASELINES
 from target_map import CURVE_MARGIN_BAND_SCOPE, curve_margin_band_targets
 from target_map import CURVE_REVIEW_SCOPE, curve_review_targets
@@ -280,6 +280,11 @@ def checked_manifest(value):
             raise ValueError('order_cost_channel_baseline_drift')
         if active_hashes != ORDER_COST_FC_BASELINES:
             raise ValueError('order_cost_fc_baseline_drift')
+    if scope == CURVE_RECOVERY_SCOPES['order-http-cost']:
+        if {row['candidate']: row['beforeSha256'] for row in rows} != ORDER_HTTP_COST_BASELINES:
+            raise ValueError('order_http_cost_baseline_drift')
+        if any(row['candidate'] == 'source/collect_p2pah_cost.sh' and row['mode'] == '0o644' for row in rows):
+            raise ValueError('order_http_cost_launcher_must_be_executable')
     if value.get('businessWrites') is not False or value.get('timersChanged') is not False:
         raise ValueError('code_release_does_not_change_business_or_timer_state')
     if value.get('releaseReady') is not True:
@@ -433,6 +438,9 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
+        if manifest.get('scope') == CURVE_RECOVERY_SCOPES['order-http-cost']:
+            # Each collection runs the launcher and mounts the Python collector afresh.
+            return
         if manifest.get('scope') == CURVE_RECOVERY_SCOPES['observer-cache']:
             subprocess.run(['systemctl', 'restart', 'fc-pricing-v3.service'], check=True, timeout=30)
             subprocess.run(['systemctl', 'is-active', '--quiet', 'fc-pricing-v3.service'], check=True, timeout=10)
