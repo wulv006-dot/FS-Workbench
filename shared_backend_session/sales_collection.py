@@ -370,7 +370,8 @@ def _delivery_page(s, page, lo, hi, gid, genre):
         "gid": str(gid), "aid": "0", "cid": "1", "genre": genre, "status": "-1",
         "op_id": "0", "show_ccy": "-1", "is_stock": "", "keyword": "", "sn": "",
         "start": str(lo)[:16], "end": str(hi)[:16], "page": str(page)}
-    result = OrderHTTP().delivery_export_page(query, timeout=120, sales=True)
+    reader = OrderHTTP.from_order_session(s.order)
+    result = reader.delivery_export_page(query, timeout=120, sales=True)
     rows = []
     for cells in result.rows:
         rec = {key: cells[i] if i < len(cells) else '' for i, key in enumerate(_DELIV_HEAD)}

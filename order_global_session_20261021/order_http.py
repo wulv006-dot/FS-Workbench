@@ -303,6 +303,23 @@ class OrderHTTP:
         self._opener = None
         self._session_lock = Lock()
 
+    @classmethod
+    def from_order_session(cls, session):
+        """Reuse the caller's Order connection pool for paginated exports."""
+        def fetch(path, timeout):
+            from fs_order_client import fill_jar
+
+            fill_jar(session.cookies, timeout=min(40, timeout))
+            with session.get(BASE + path, timeout=timeout, allow_redirects=False) as response:
+                status = response.status_code
+                if 300 <= status < 400 and login_url(response.headers.get('Location', '')):
+                    raise OrderReadError('login_lost', status=status)
+                if status != 200:
+                    raise HTTPError(response.url, status, response.reason, response.headers, None)
+                return response.url, response.content
+
+        return cls(fetch)
+
     @contextmanager
     def _session_access(self, deadline):
         if not self._session_lock.acquire(timeout=remaining_time(deadline)):

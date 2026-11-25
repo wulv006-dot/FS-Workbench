@@ -1,15 +1,34 @@
 {
   "status": "candidate",
+  "beforeSource": "187 live read-only sha256sum 2026-11-25 CST",
   "files": [
+    {
+      "source": "order_global_session_20261021/service.py",
+      "target": "/opt/fs-order-session/service.py",
+      "beforeSha256": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
+      "sha256": "807842eea853b30e72990a91f73624dca21703b723a92a00af0cd345c76f9776"
+    },
     {
       "source": "order_global_session_20261021/client.py",
       "target": "/opt/fs-order-session/fs_order_client.py",
+      "beforeSha256": "981439c5e07f4cf849c48b644d8f413d5705a75988dfaa441535fdaa76096dad",
       "sha256": "9080a04bf51614bec8fb5c5b51eb90f9db047dbe933a1bcc88878f7ab066e3a3"
     },
     {
       "source": "order_global_session_20261021/order_http.py",
       "target": "/opt/fs-order-session/order_http.py",
-      "sha256": "f4e15930e2ccc74946e5fecf6e71b714bf61a0d3b7b9d8a6dfaac35722c9e2d3"
+      "beforeSha256": null,
+      "sha256": "ff4525e522f9935f33d9927a313d1f05cecf5211cd718cd630eeb27c9b15fe60"
+    },
+    {
+      "source": "order_global_session_20261021/fs-order-session.service",
+      "target": "/etc/systemd/system/fs-order-session.service",
+      "beforeSha256": "99c53780e64b16691c6c816456485d481796f67aca16c64978fbac464cb071e5",
+      "sha256": "fa1e62e9bf51244846385559dbed20c9a9781542ce71bbd538b84dbe0bd70841"
     }
-  ]
+  ],
+  "postDeploy": {
+    "isolationRecord": "/var/lib/fs-order-session/browser-isolation-20261023.json",
+    "action": "back up, then set service_sha256 to the new service.py sha256 and add order_session_transport=http; browser_lifecycle.py gate keeps working, Order session no longer uses any browser"
+  }
 }

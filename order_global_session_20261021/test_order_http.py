@@ -1,6 +1,6 @@
 
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from http.client import HTTPConnection, HTTPSConnection, IncompleteRead
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
@@ -58,6 +58,22 @@ class OrderHTTPTests(unittest.TestCase):
         self.assertEqual(channel.rows, sales.rows)
         self.assertEqual(channel.rows[0][:4], ('', '123', '订单发货', 'www.mmoexp.com'))
 
+    def test_delivery_export_reuses_callers_session_and_refreshes_shared_cookie_jar(self):
+        body = '<table class="table-list"><tbody><tr><td>暂无数据</td></tr></tbody></table>'
+        session = SimpleNamespace(cookies=object(), get=Mock(side_effect=lambda url, **kwargs:
+            nullcontext(SimpleNamespace(url=url, status_code=200, content=body.encode()))))
+        broker = SimpleNamespace(fill_jar=Mock())
+        with patch.dict('sys.modules', {'fs_order_client': broker}):
+            reader = OrderHTTP.from_order_session(session)
+            for number in (1, 2):
+                self.assertEqual(reader.delivery_export_page({'page': number}, timeout=1, sales=True).rows, ())
+        self.assertEqual(session.get.call_count, 2)
+        self.assertEqual(broker.fill_jar.call_count, 2)
+        for number, (args, kwargs) in enumerate(session.get.call_args_list, 1):
+            self.assertTrue(args[0].endswith(f'?page={number}'))
+            self.assertFalse(kwargs['allow_redirects'])
+        self.assertTrue(all(entry.args == (session.cookies,) for entry in broker.fill_jar.call_args_list))
+
     def test_dashboard_shipping_pagination_matches_the_consumers(self):
         body = shipping_fixture() + '<div class="pagination"><a href="?page=2">2</a></div>'
         reader = OrderHTTP(lambda path, timeout: (path, body.encode()))
@@ -74,10 +90,11 @@ class OrderHTTPTests(unittest.TestCase):
         release = json.loads((root / reader['release']).read_text(encoding='utf-8'))
         consumers = json.loads((root / consumer_map['release']).read_text(encoding='utf-8'))
         self.assertEqual(consumers['status'], 'candidate')
-        self.assertEqual(consumers['prerequisites'], [
-            {'target': row['target'], 'sha256': row['sha256']} for row in release['files']])
-        self.assertEqual(reader['sha256'], release['files'][1]['sha256'])
-        self.assertEqual(reader['brokerClientSha256'], release['files'][0]['sha256'])
+        deps = {reader['runtime'].split(':', 1)[1]: reader['sha256'],
+                reader['brokerClientRuntime'].split(':', 1)[1]: reader['brokerClientSha256']}
+        self.assertEqual({row['target']: row['sha256'] for row in consumers['prerequisites']}, deps)
+        self.assertEqual({row['target']: row['sha256'] for row in release['files']
+                          if row['target'] in deps}, deps)
         self.assertEqual({row['target'] for row in consumers['files']}, {
             '/opt/fs-exact-range-20261001/business_shipping.py',
             '/opt/fs-exact-range-20261001/rs_shipping.py',

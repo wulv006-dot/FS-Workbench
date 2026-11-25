@@ -31,7 +31,6 @@ def delivery_timestamp(value):
 
 
 def collect(session, start, end, progress=lambda page, total: None, until=None, since=None, source='www.mmoexp.com', gid='0'):
-    # Keep the session argument for the existing range, cache and scheduled callers.
     if '/opt/fs-order-session' not in sys.path:
         sys.path.insert(0, '/opt/fs-order-session')
     from order_http import OrderHTTP
@@ -47,11 +46,12 @@ def collect(session, start, end, progress=lambda page, total: None, until=None, 
     datetime.strptime(begin, '%Y-%m-%d %H:%M:%S'); datetime.strptime(stop, '%Y-%m-%d %H:%M:%S')
     if not start + ' 00:00:00' <= begin <= stop <= end + ' 23:59:59':
         raise ValueError('invalid_delivery_window')
+    reader = OrderHTTP.from_order_session(session.order)
     while True:
         query = dict(gid=str(gid), aid='0', cid='-1', genre='1', status='-1', op_id='0',
                      show_ccy='-1', is_stock='', keyword='', sn='', start=begin, end=stop,
                      page=str(page), **{'source[]': source})
-        report = OrderHTTP().delivery_export_page(query, timeout=120)
+        report = reader.delivery_export_page(query, timeout=120)
         if page_count is None: page_count = report.page_count
         if report.page_count != page_count: raise ValueError('delivery_page_count_changed')
         for cells in report.rows:
@@ -83,9 +83,13 @@ def main():
     if not date.fromisoformat(args.start) <= date.fromisoformat(args.end) < datetime.now(TZ).date():
         raise ValueError('closed_period_required')
     output = Path(args.output); output.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    sys.path.insert(0, '/opt/sales-dashboard/collector'); import p2pah_auth as auth
+    session = auth.Session()
     with output.with_suffix('.lock').open('a+b') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        rows = collect(None, args.start, args.end, lambda p, n: print(json.dumps({'page': p, 'pages': n}), flush=True) if p == 1 or p % 40 == 0 else None)
+        try:
+            rows = collect(session, args.start, args.end, lambda p, n: print(json.dumps({'page': p, 'pages': n}), flush=True) if p == 1 or p % 40 == 0 else None)
+        finally: session.close()
         data = dict(contract='channel-order-deliveries-v1', complete=True, generatedAt=datetime.now(TZ).isoformat(), period=dict(start=args.start, end=args.end), rows=rows)
         fd, temp = tempfile.mkstemp(dir=output.parent)
         try:
