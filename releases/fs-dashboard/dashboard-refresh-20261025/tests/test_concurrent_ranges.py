@@ -500,7 +500,7 @@ class TransactionLockScopeTests(unittest.TestCase):
                     second.assert_not_called(); self.assertFalse((root / 'current.json').exists())
                 finally:
                     release.set(); manifest = future.result(timeout=2)
-            reader.assert_called_once_with('fs-order-browser', 'primary_reader.py', [{'key': 'original'}], 900)
+            reader.assert_called_once_with(None, 'primary_reader.py', [{'key': 'original'}], 900)
             self.assertEqual(json.loads((root / 'current.json').read_text())['snapshotId'], manifest['snapshotId'])
             self.assertEqual(json.loads((root / 'attempt.json').read_text())['status'], 'success')
 

@@ -46,9 +46,9 @@ def call(container,script,requests,timeout):
  if script!='primary_reader.py':return existing_call(container,script,requests,timeout)
  # A native range may use weekly/monthly labels. Read exact h2 aggregates, retain
  # undated chart buckets verbatim, and never reinterpret them as daily counts.
- module=(Path('/opt/fs-transaction-snapshot')/'primary_fields.py').read_text()
- program=('import types,sys\nmodule=types.ModuleType("primary_fields")\nexec('+repr(module)+',module.__dict__)\nsys.modules["primary_fields"]=module\n').encode()+(Path(__file__).parent/'range_primary_reader.py').read_bytes()
- r=subprocess.run(['docker','exec','-i',container,'python3','-',json.dumps(requests)],input=program,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
+ reader=Path(__file__).with_name('range_primary_reader.py')
+ r=subprocess.run([sys.executable,'-B',str(reader),json.dumps(requests)],
+                  stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
  if r.returncode:
   lines=r.stderr.decode('utf-8','replace').strip().splitlines()
   raise RuntimeError(lines[-1] if lines and lines[-1].startswith('ValueError: primary_') else 'native_primary_read_failed')
@@ -121,7 +121,7 @@ def _capture(q,jobid):
    requests.extend({'key':key,'gid':1322,'tid':tid,**period} for key,tid,_ in TYPES)
    with (WEB/'collector.lock').open('a+b') as lock:
     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    records=existing_call('fs-order-browser','fc_category_reader.py',requests,200)
+    records=existing_call(None,'fc_category_reader.py',requests,200)
    if not all(records.get(k,{}).get('status')=='available' for k in ['all']+[v[0] for v in TYPES]):raise RuntimeError('native_category_read_failed')
    if any(v.get('period')!=period for v in records.values()):raise RuntimeError('source_period_mismatch')
    extension=analysis(records['all'],records,{key:key for key,_,_ in TYPES},period,{})
@@ -136,7 +136,7 @@ def _capture(q,jobid):
   def primary_read():
    with (WEB/'collector.lock').open('a+b') as lock:
     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    return call('fc27-cloud-browser','primary_reader.py',[order],210)
+    return call(None,'primary_reader.py',[order],210)
   with ThreadPoolExecutor(max_workers=2) as pool:
    pf=pool.submit(primary_read)
    af=pool.submit(call,None,'supplement_reader.py',[admin],90)

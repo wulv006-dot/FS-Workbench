@@ -1,7 +1,6 @@
-"""Execute inside existing authorized Chrome container; aggregate pages only."""
+"""Read bounded daily profit aggregates from the shared Order HTTP session."""
 from datetime import datetime,timezone,date,timedelta
 from decimal import Decimal
-from urllib.parse import urlencode
 import sys,json,re
 from primary_fields import extract
 
@@ -93,19 +92,12 @@ def parse_native_series(chart,orders,sales,begin,stop):
         raise ValueError('primary_series_totals_mismatch')
     return rows,dict(schemaVersion=1,contractId=SENTINEL_CONTRACT,excludedZeroEndpointCount=sentinel_count,exclusiveEndPreserved=True)
 
-def read_one(page,item,timeout_ms):
+def read_one(reader,item,timeout_ms):
     filters={'status':item.get('status',''),'gid':str(item['gid']),'tid':item.get('tid',''),
              'start_paytime':item['start'],'end_paytime':item['end']}
-    response=page.goto('https://order.p2pah.cn/stats/admin_order/index.html?'+urlencode(filters),wait_until='domcontentloaded',timeout=timeout_ms)
-    raw=page.evaluate('''() => ({origin:location.origin,path:location.pathname,
-      login:!!document.querySelector('input[type=password]'),
-      filters:Object.fromEntries([...document.querySelectorAll('form input,form select')].filter(e=>['status','gid','tid','start_paytime','end_paytime'].includes(e.name)).map(e=>[e.name,e.value])),
-      names:[...document.querySelectorAll('h2')].map(e=>e.parentElement.textContent.trim()),
-      metrics:[...document.querySelectorAll('h2')].map(e=>e.textContent.trim()),
-      charts:typeof echarts==='undefined'?[]:[...document.querySelectorAll('[_echarts_instance_]')].map(e=>{const o=echarts.getInstanceByDom(e)?.getOption();return o?{title:o.title?.map(t=>t.text),labels:o.xAxis?.[0]?.data||[],series:o.series?.map(s=>({name:s.name,data:s.data}))}:null;})})''')
-    if not response or response.status!=200 or raw['login'] or raw['origin']!='https://order.p2pah.cn' or raw['path']!='/stats/admin_order/index.html':raise ValueError('primary_login_or_page_unavailable')
+    raw=reader.native_order_stats(filters,timeout=timeout_ms/1000)
     if raw['filters']!=filters:raise ValueError('primary_filter_mismatch')
-    if not ('订单数量' in raw['names'][0] and '订单金额' in raw['names'][1]):raise ValueError('primary_metric_labels_mismatch')
+    if len(raw['names']) < 5 or not ('订单数量' in raw['names'][0] and '订单金额' in raw['names'][1]):raise ValueError('primary_metric_labels_mismatch')
     orders=number(raw['metrics'][0],True);sales=number(raw['metrics'][1]);avg=number(raw['metrics'][4])
     if orders and abs(sales/orders-avg)>.031:raise ValueError('primary_average_mismatch')
     chart=next((c for c in raw['charts'] if c and '订单数量和金额' in (c['title'] or [])),None)
@@ -134,7 +126,7 @@ def validate_requests(payload):
         seen.add(item['key'])
     return wanted,float(budget)
 
-def collect_bounded(page,wanted,deadline,clock=time.monotonic,read=read_one):
+def collect_bounded(reader,wanted,deadline,clock=time.monotonic,read=read_one):
     results={};abort=False
     for item in wanted:
         remaining=deadline-clock()
@@ -142,8 +134,7 @@ def collect_bounded(page,wanted,deadline,clock=time.monotonic,read=read_one):
             results[item['key']]={'status':'not_started_budget'};continue
         attempted=datetime.now(timezone.utc).isoformat()
         try:
-            page.set_default_timeout(max(1,int(min(20,remaining)*1000)))
-            results[item['key']]=read(page,item,max(1,int(min(20,remaining)*1000)))
+            results[item['key']]=read(reader,item,max(1,int(min(20,remaining)*1000)))
         except Exception as exc:
             # No raw exception/upstream error/session values leave the container.
             code=safe_failure_code(exc)
@@ -152,12 +143,10 @@ def collect_bounded(page,wanted,deadline,clock=time.monotonic,read=read_one):
     return results
 
 if __name__=='__main__':
+    if '/opt/fs-order-session' not in sys.path:
+        sys.path.insert(0, '/opt/fs-order-session')
+    from order_http import OrderHTTP
     payload=json.loads(sys.argv[1]);wanted,budget=validate_requests(payload)
     started=time.monotonic();deadline=started+budget-10
-    from playwright.sync_api import sync_playwright
-    with sync_playwright() as p:
-        browser=p.chromium.connect_over_cdp('http://127.0.0.1:9226',timeout=min(8000,int(budget*1000)),no_defaults=True)
-        page=browser.contexts[0].new_page()
-        try:results=collect_bounded(page,wanted,deadline)
-        finally:page.close()
+    results=collect_bounded(OrderHTTP(),wanted,deadline)
     print(json.dumps(results,ensure_ascii=False,allow_nan=False))

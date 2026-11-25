@@ -28,6 +28,12 @@ DELIVERY = '/order/admin_delivery/index.html'
 DETAIL = '/order/admin_order/look/id/{}.html'
 DETAIL_LINK = re.compile(r'/order/admin_order/look/id/([0-9]+)\.html')
 STATS = '/stats/admin_index/delivery.html'
+ORDER_STATS = '/stats/admin_order/index.html'
+ORDER_LIST = '/order/admin_order/index.html'
+PROBLEM_ID = re.compile(r'[0-9]{1,12}')
+PROBLEM_HEADERS = ['', 'ID', '来源/ 商户订单号', '游戏/ 服务器', '产品', '角色名', '金额', '总量/已交量',
+                   '状态历时', '提单时间', '管理员/绑定下家/分组', '状态', '操作']
+PROBLEM_LOG_HEADERS = ['日志ID', '生成时间', '操作人', '订单状态', '内容']
 SHIPPING_HEADERS = frozenset(('游戏', '￥销售总额', '￥采购总额', '利润率', '订单总数', '交易总数'))
 VOID = set('area base br col embed hr img input link meta param source track wbr'.split())
 
@@ -400,6 +406,102 @@ class OrderTransport:
         return connection.getresponse()
 
 
+_JS_TOKEN = re.compile(r"""(?P<string>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(?P<comment>//[^\n]*|/\*.*?\*/)|[{}\[\](),]""", re.S)
+_CHART = re.compile(
+    r"""\bvar\s+(?P<dom>\w+)\s*=\s*document\.getElementById\(['"](?P<id>[\w-]+)['"]\);"""
+    r"\s*var\s+(?P<chart>\w+)\s*=\s*echarts\.init\((?P=dom)\);"
+)
+_OPTION = re.compile(r"(?m)^\s*(?:var\s+)?(?P<name>option\w*)\s*=\s*(?P<object>\{)")
+_JS_KEY = re.compile(r"\s*([A-Za-z_]\w*)\s*:\s*")
+
+
+def _js_entries(source):
+    """Split the observed ECharts object/array at its own separators."""
+    if not source or source[0] not in '{[':
+        raise ValueError('chart_container_missing')
+    stack = [source[0]]
+    closing = {'}': '{', ']': '[', ')': '('}
+    start = 1
+    for token in _JS_TOKEN.finditer(source, 1):
+        if token.lastgroup:
+            continue
+        symbol = token[0]
+        if symbol in '{[(':
+            stack.append(symbol)
+        elif symbol in closing:
+            if not stack or stack.pop() != closing[symbol]:
+                break
+            if not stack:
+                value = source[start:token.start()].strip()
+                if value:
+                    yield value
+                return
+        elif len(stack) == 1:
+            yield source[start:token.start()].strip()
+            start = token.end()
+    raise ValueError('chart_container_truncated')
+
+
+def _js_fields(source):
+    fields = {}
+    for entry in _js_entries(source):
+        match = _JS_KEY.match(entry)
+        if match:
+            fields[match[1]] = entry[match.end():]
+    return fields
+
+
+def _chart_string(value):
+    if value.startswith('"'):
+        text = json.loads(value)
+        if isinstance(text, str):
+            return text
+    if re.fullmatch(r"'[^'\\]*'", value):
+        return value[1:-1]
+    raise ValueError('chart_string_unverified')
+
+
+def _chart_array(source):
+    data, end = json.JSONDecoder().raw_decode(source)
+    tail = source[end:]
+    if not isinstance(data, list) or not re.fullmatch(r'(?:\s|//[^\n]*|/\*.*?\*/)*', tail, re.S):
+        raise ValueError('chart_data_unverified')
+    return data
+
+
+def _native_charts(root):
+    order = {node.attrs['id']: index for index, node in enumerate(root.find())
+             if 'id' in node.attrs}
+    charts = {}
+    for node in root.find('script'):
+        source = node.text()
+        setups = list(_CHART.finditer(source))
+        for index, setup in enumerate(setups):
+            end = setups[index + 1].start() if index + 1 < len(setups) else len(source)
+            block = source[setup.end():end]
+            chart_id = setup['id']
+            if chart_id not in order:
+                raise ValueError('chart_dom_missing')
+            options = [option for option in _OPTION.finditer(block)
+                       if re.search(r'\b' + re.escape(setup['chart']) + r'\.setOption\(\s*' +
+                                    re.escape(option['name']) + r'\s*\)', block)]
+            if len(options) != 1:
+                raise ValueError('chart_options_unverified')
+            fields = _js_fields(block[options[0].start('object'):])
+            title = _chart_string(_js_fields(fields['title'])['text'])
+            axis = _js_fields(fields['xAxis']) if 'xAxis' in fields else {}
+            labels = _chart_array(axis.get('data', '[]'))
+            series = []
+            for entry in _js_entries(fields['series']):
+                item = _js_fields(entry)
+                data = _chart_array(item['data'])
+                series.append({'name': _chart_string(item['name']), 'data': data})
+            if chart_id in charts:
+                raise ValueError('chart_data_unverified')
+            charts[chart_id] = {'title': [title], 'labels': labels, 'series': series}
+    return [charts[key] for key in sorted(charts, key=order.__getitem__)]
+
+
 class OrderHTTP:
     def __init__(self, fetch=None):
         self._fetch = fetch
@@ -493,6 +595,131 @@ class OrderHTTP:
                     if self._transport is transport:
                         self._transport = None
             raise
+
+    def native_order_stats(self, filters, *, timeout):
+        """Read the statistics form and the ECharts values in document order."""
+        path = ORDER_STATS + '?' + urlencode(filters)
+        root = self._read_order_page(path, 'primary_login_or_page_unavailable', timeout)
+        controls = {}
+        for form in root.find('form'):
+            for node in form.find():
+                name = node.attrs.get('name')
+                if node.tag in ('input', 'select') and name in filters:
+                    controls[name] = field_value(node)
+        if controls != filters:
+            raise ValueError('primary_filter_mismatch')
+        parents = {heading: parent for parent in root.find() for heading in parent.direct('h2')}
+        headings = [(parents.get(heading, root), heading) for heading in root.find('h2')]
+        try:
+            charts = _native_charts(root)
+        except (KeyError, ValueError) as exc:
+            raise ValueError('primary_series_unavailable') from exc
+        return {'filters': controls, 'names': [parent.text().strip() for parent, _ in headings],
+                'metrics': [heading.text().strip() for _, heading in headings], 'charts': charts}
+
+    def _read_order_page(self, path, unavailable, timeout):
+        try:
+            root, _, url = self._document(path, timeout)
+        except OrderReadError as exc:
+            code = str(exc).partition(':')[0]
+            if code == 'login_lost':
+                raise ValueError(unavailable) from exc
+            if code == 'global_order_unavailable':
+                raise RuntimeError(code) from exc
+            raise ValueError(str(exc)) from exc
+        except HTTPError as exc:
+            if exc.fp is not None:
+                exc.close()
+            raise ValueError(unavailable) from exc
+        except OSError as exc:
+            if is_timeout(exc):
+                raise TimeoutError('order_read_timeout') from exc
+            raise
+        parsed = urlsplit(url)
+        if parsed.path != urlsplit(path).path or (parsed.netloc and
+                (parsed.scheme, parsed.netloc) != ('https', urlsplit(BASE).netloc)):
+            raise ValueError(unavailable)
+        return root
+
+    def problem_order_page(self, page, *, timeout):
+        filters = {'gid[]': '1322', 'status': '6', 'source[]': 'www.mmoexp.com'}
+        path = ORDER_LIST + '?' + urlencode(dict(filters, page=page))
+        root = self._read_order_page(path, 'source_login_or_page', timeout)
+        selected = {}
+        for form in root.find('form'):
+            for select in form.find('select'):
+                name = select.attrs.get('name')
+                if name in filters:
+                    value = field_value(select)
+                    selected[name] = value if isinstance(value, list) else [value]
+
+        table = None
+        for candidate in root.find('table'):
+            headers = [th.text().strip() for head in candidate.find('thead') for th in head.find('th')]
+            if headers[1:2] == ['ID']:
+                table = candidate
+                break
+        if (table is None or headers not in (PROBLEM_HEADERS, PROBLEM_HEADERS[:-1] + ['Actions'])
+                or selected != {key: [value] for key, value in filters.items()}):
+            raise ValueError('source_filter_contract')
+
+        rows = []
+        for row in table_body_rows(table):
+            cells = row.direct('td')
+            if len(cells) != len(PROBLEM_HEADERS):
+                continue
+            order_id = cells[1].text().strip()
+            game = cells[3].text().strip()
+            source = cells[2].text()
+            if (not re.search(r'(?:^|\s)www\.mmoexp\.com(?:\s|$)', source)
+                    or not re.match(r'^FC\s*27(?:\s|$)', game)
+                    or cells[11].text().strip() != '问题单'
+                    or not PROBLEM_ID.fullmatch(order_id)):
+                raise ValueError('source_scope_contract')
+            detail = next((match[0] for link in cells[12].find('a')
+                           if (match := DETAIL_LINK.search(link.attrs.get('href')
+                                                        or link.attrs.get('onclick', '')))), None)
+            if detail != DETAIL.format(order_id):
+                raise ValueError('detail_contract')
+            platform = ('XBOX' if re.search('XBOX', game, re.I) else
+                        'PC' if re.search(r'\bPC\b', game, re.I) else
+                        'PS' if re.search(r'\bPS\b|PlayStation', game, re.I) else 'unknown')
+            amount = re.search(r'USD\s*([\d,.]+)', cells[6].text())
+            rows.append({'id': order_id, 'platform': platform, 'detail': detail,
+                         'amount_usd': float(amount[1].replace(',', '')) if amount else None})
+        has_next = any(label.isascii() and label.isdecimal() and int(label) > page
+                       for pagination in root.find(css='pagination') for link in pagination.find('a')
+                       if (label := link.text().strip()))
+        return rows, has_next
+
+    def _problem_order_detail(self, order_id, timeout):
+        if not PROBLEM_ID.fullmatch(str(order_id)):
+            raise ValueError('detail_contract')
+        root = self._read_order_page(DETAIL.format(order_id), 'detail_unavailable', timeout)
+        table = next((table for table in root.find('table')
+                      if [th.text().strip() for th in table.find('th')] == PROBLEM_LOG_HEADERS), None)
+        if table is None:
+            raise ValueError('detail_unavailable')
+        return root, list(table.find('tr'))[1:]
+
+    def problem_order_logs(self, order_id, *, timeout):
+        """Return the transient log fields used by the existing clue classifier."""
+        _, rows = self._problem_order_detail(order_id, timeout)
+        return [{'time': cells[1].text().strip(), 'status': cells[3].text().strip(),
+                 'content': cells[4].text()[:4000]}
+                for row in rows[:100] if len(cells := row.direct('td')) == 5]
+
+    def problem_order_events(self, order_id, *, timeout):
+        """Return the Hermes event projection without customer or log content."""
+        root, rows = self._problem_order_detail(order_id, timeout)
+        items = [row for row in root.find('tr', 'jq-each-cg')
+                 if all('data-' + key in row.attrs for key in ('gid', 'aid', 'cid'))]
+        fields = ('gid', 'aid', 'cid', 'pid', 'qty', 'used', 'unit', 'currency')
+        return {'item_count': len(items), 'event_count': len(rows),
+                'items': [{key: row.attrs.get('data-' + key) for key in fields} for row in items[:20]],
+                'events': [{'id': cells[0].text().strip(), 'time': cells[1].text().strip(),
+                            'status': cells[3].text().strip()}
+                           for row in rows[:100] if len(cells := row.direct('td')) == 5]}
 
     def dashboard_shipping(self, filters, *, timeout, reject_pagination=True):
         # The dashboard projects its exact six-column layout and single-site controls.

@@ -1,4 +1,4 @@
-"""Bounded read-only problem-order evidence using the existing Order browser and lock."""
+"""Bounded read-only problem-order evidence using the shared Order HTTP session and lock."""
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 import time
 
 SHANGHAI = timezone(timedelta(hours=8))
@@ -84,12 +85,10 @@ def read_live(root, web, timeout=120):
     with (Path(web)/'collector.lock').open('a+b') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:return {'status':'not_sent','reason':'collector_busy'}
-        path=Path(__file__).resolve()
-        reader=path.with_name('fc_order_reader.py').read_text('utf-8')
-        prefix='import types,sys\nm=types.ModuleType("fc_order_diagnostics")\nexec(%r,m.__dict__)\nsys.modules["fc_order_diagnostics"]=m\n'%path.read_text('utf-8')
+        reader=Path(__file__).with_name('fc_order_reader.py')
         try:
-            proc=subprocess.run(['docker','exec','-i','fc27-cloud-browser','python3','-'],
-                                input=(prefix+reader).encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
+            proc=subprocess.run([sys.executable,'-B',str(reader)],
+                                stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
             if proc.returncode or len(proc.stdout)>48000:return {'status':'unavailable','reason':'reader_failed'}
             result=json.loads(proc.stdout)
             if result.get('contract')!='fc-order-problem-clues-v1':raise ValueError('contract')

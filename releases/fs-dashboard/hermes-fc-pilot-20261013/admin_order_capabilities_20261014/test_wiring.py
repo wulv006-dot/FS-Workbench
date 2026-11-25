@@ -51,27 +51,35 @@ class WiringTests(unittest.TestCase):
 
     def test_existing_order_loop_projects_actual_opened_detail_and_preserves_legacy(self):
         diagnostics=load('cap_diagnostics_fixture',HERE/'shared_candidate/fc_order_diagnostics.py')
-        class Page:
-            def __init__(self):self.urls=[];self.routes=[];self.closed=False
-            def route(self,path,handler):self.routes.append(handler)
-            def goto(self,url,**kwargs):self.urls.append(url);return types.SimpleNamespace(status=200)
-            def evaluate(self,script):
-                if '/look/' in self.urls[-1]:return {'origin':'https://order.p2pah.cn','path':'/order/admin_order/look/id/12.html','login':False,'found':True,'logs':[{'time':'26-10-14 01:00:00','status':'问题单','content':'等待客户回复'}]}
-                return {'origin':'https://order.p2pah.cn','path':'/order/admin_order/index.html','login':False,'filters':{'status':['6'],'gid[]':['1322'],'source[]':['www.mmoexp.com']},'headers':['','ID','来源/ 商户订单号','游戏/ 服务器','产品','角色名','金额','总量/已交量','状态历时','提单时间','管理员/绑定下家/分组','状态','操作'],'rows':[{'id':'12','main':True,'fc':True,'platform':'PS','amount':'10','status':'问题单','detail':'/order/admin_order/look/id/12.html'}],'hasNext':False}
-            def close(self):self.closed=True
-        page=Page()
-        class Context:
-            def __enter__(self):return types.SimpleNamespace(chromium=types.SimpleNamespace(connect_over_cdp=lambda *a,**k:types.SimpleNamespace(contexts=[types.SimpleNamespace(new_page=lambda:page)])))
-            def __exit__(self,*unused):pass
-        with patch.dict(sys.modules,{'playwright.sync_api':types.SimpleNamespace(sync_playwright=Context),'fc_order_diagnostics':diagnostics}):
+        paths=[]
+        class Reader:
+            def problem_order_page(self, page, *, timeout):
+                paths.append(page)
+                return [{'id':'12','platform':'PS','amount_usd':10,'detail':'/order/admin_order/look/id/12.html'}],False
+
+            def problem_order_events(self, order, *, timeout):
+                self.detail(order)
+                return {'items':[{'gid':'1322','qty':'100','used':'20','unit':'K'}],
+                        'events':[{'id':'7','time':'26-10-14 01:00:00','status':'问题单'}],
+                        'item_count':1,'event_count':1}
+
+            def problem_order_logs(self, order, *, timeout):
+                self.detail(order)
+                return [{'time':'26-10-14 01:00:00','status':'问题单','content':'等待客户回复'}]
+
+            @staticmethod
+            def detail(order):
+                paths.append(order)
+
+        with patch.dict(sys.modules,{'fc_order_diagnostics':diagnostics}):
             reader=load('cap_reader_fixture',HERE/'shared_candidate/fc_order_reader.py')
-        hits=[]
-        def projection(opened,path):
-            self.assertIs(opened,page);self.assertTrue(page.urls[-1].endswith(path));hits.append(path)
-            return {'items':[{'gid':'1322','qty':'100','used':'20','unit':'K'}],'events':[{'id':'7','time':'26-10-14 01:00:00','status':'问题单'}],'item_count':1,'event_count':1}
-        result=reader.run({'platform':'PS','pages':1,'samples':1},projection)
-        self.assertEqual(result['contract'],'fc-order-events-raw-v1');self.assertEqual(len(hits),1);self.assertEqual(result['samples'][0]['events'][0]['id'],'7');self.assertTrue(page.closed)
-        legacy=reader.run();self.assertEqual(legacy['contract'],'fc-order-problem-clues-v1');self.assertEqual(legacy['samples'][0]['category'],'customer_wait')
+        result=reader.run({'platform':'PS','pages':1,'samples':1},reader=Reader())
+        self.assertEqual(result['contract'],'fc-order-events-raw-v1')
+        self.assertEqual(result['samples'][0]['events'][0]['id'],'7')
+        legacy=reader.run(reader=Reader())
+        self.assertEqual(legacy['contract'],'fc-order-problem-clues-v1')
+        self.assertEqual(legacy['samples'][0]['category'],'customer_wait')
+        self.assertEqual(paths,[1,'12',1,'12'])
         self.assertNotIn('等待客户回复',json.dumps(result,ensure_ascii=False))
 
 if __name__=='__main__':unittest.main()

@@ -1,0 +1,76 @@
+{
+  "status": "candidate",
+  "runtime": "play187",
+  "beforeSource": "187 live read-only sha256sum 2026-11-25 CST",
+  "prerequisites": [
+    {
+      "target": "/opt/fs-order-session/fs_order_client.py",
+      "sha256": "9080a04bf51614bec8fb5c5b51eb90f9db047dbe933a1bcc88878f7ab066e3a3"
+    }
+  ],
+  "files": [
+    {
+      "source": "order_global_session_20261021/order_http.py",
+      "target": "/opt/fs-order-session/order_http.py",
+      "beforeSha256": "1e6d91152718b5dc29dce1b454c0777f64b1f3806e3e4531913cb223d4c78bf7",
+      "sha256": "bd83cb9370b9d89d644e4d97a69c888c28c9702d54aff3326b875d5f2be5a1e2"
+    },
+    {
+      "source": "fs_transaction_snapshot_20260930/primary_reader.py",
+      "target": "/opt/fs-transaction-snapshot/primary_reader.py",
+      "beforeSha256": "b008ab89502b31ed817e3d03575298a4d9c5b6cf824d506bc5e6dbad63de9333",
+      "sha256": "126bf07e56a75384c93bc5fd554bd4cedbda7d9ab35412a37da0a4f1e5bc57ae"
+    },
+    {
+      "source": "fs_transaction_snapshot_20260930/fc_category_reader.py",
+      "target": "/opt/fs-transaction-snapshot/fc_category_reader.py",
+      "beforeSha256": "7e01d568687a825b2843307af29d097f7dbd84ade52edd4d0b5a609bb95ab5d1",
+      "sha256": "603cddfef48f57ad66bb34a70a536e890a8fc4f768303e62e162e06a40b47f52"
+    },
+    {
+      "source": "candidates/business-snapshot/order-endpoint-padding-20261007/source/profit_daily_reader.py",
+      "target": "/opt/fs-transaction-snapshot/profit_daily_reader.py",
+      "beforeSha256": "06a4ae8502579ad439d99db0ac30115a95956b361f4ddd1919f69822ad163c62",
+      "sha256": "776b72fbafce176c4dac59e66344974f76484ba0a3b50ef786334996a66535db"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/collector.py",
+      "target": "/opt/fs-transaction-snapshot/collector.py",
+      "beforeSha256": "2140a4b7a39d8697ce6ea47f468302c32b0077f2a6d05507db843caad2e0afc1",
+      "sha256": "1ed08ff2a1f15745de3228ce4ba7c0ac9c3f1fd34d49fc2f2f62138110c46b26"
+    },
+    {
+      "source": "releases/fs-dashboard/shipping-profit-20261024/source/range_primary_reader.py",
+      "target": "/opt/fs-exact-range-20261001/range_primary_reader.py",
+      "beforeSha256": "4b599c319bd67fc0fef2076b6e1543cf53ee8f26267094d37b7ac464208e4028",
+      "sha256": "56aec8b994e55753d05ddf157bf565e9fb289513af6ad76d236a49a845b0f596"
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-fc-pilot-20261013/admin_order_capabilities_20261014/shared_candidate/fc_order_reader.py",
+      "target": "/opt/fs-exact-range-20261001/fc_order_reader.py",
+      "beforeSha256": "72f251f7d41a95c8c1aaaeae1f50a8aec230f91659f7b2439dbeb2b7b1bcff97",
+      "sha256": "d051d0600eb1452e0f9e49b33099adb08f46c51d30149cbc36c29bd9b1a40e66"
+    },
+    {
+      "source": "releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_order_diagnostics.py",
+      "target": "/opt/fs-exact-range-20261001/fc_order_diagnostics.py",
+      "beforeSha256": "a3a870efea3113ab51127430715ca95d8318af428731583fe43d262c49437c05",
+      "sha256": "2cbe9398dd07cea4bc07451bb22ef9d00eee8dce8cbf5f03bab758c3ac3188be"
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-fc-pilot-20261013/admin_order_capabilities_20261014/fs_reader.py",
+      "target": "/opt/fs-hermes-fc/admin_order_capabilities_20261014/fs_reader.py",
+      "beforeSha256": "05a8684a44bb27c5773f5bdd2aa6aeebd48e505fb7cfe12c9bf3075d6e2cb4a6",
+      "sha256": "ec42dc1ac9cc7cc8c83b692db5fa7ed0350afac85cbfb5d5d12849ff80ba0326"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "beforeSha256": "f7527f89b2c021e2f5d961c3e723d4bcf3fa43297db14fb49a2286debbaf1dbc",
+      "sha256": "929dc3ed5d967baac5cde168bf396a169734489bea42c13f0128c02bf17a27e1",
+      "preparation": "order_global_session_20261021/prepare_remaining_readers.py",
+      "preparationSha256": "a4c5d32e580b2697c15164762e462361a7fda189de5f68dad506306becb3ee76",
+      "maintenanceSourceSha256": "97e35e3017c6d9c1ac482cded1e792acea5cb5598338956a6c6c206077deb51e"
+    }
+  ]
+}

@@ -120,10 +120,10 @@ class NativeDateLabelTests(unittest.TestCase):
         raw=dict(origin='https://order.p2pah.cn',path='/stats/admin_order/index.html',login=False,
             filters=source()['filters'],names=names,metrics=vals,
             charts=[dict(title=['订单数量和金额'],labels=labels,series=[dict(name='订单数',data=counts),dict(name='订单金额',data=amounts)])])
-        class Page:
-            def goto(self,*args,**kwargs):return type('Response',(),dict(status=200))()
-            def evaluate(self,*args):return copy.deepcopy(raw)
-        return Page(),item
+        class Reader:
+            def native_order_stats(self, filters, *, timeout):
+                return copy.deepcopy(raw)
+        return Reader(),item
     def test_wrong_previous_right_end_invalid_calendar_and_hours_rejected(self):
         labels=['2021-10-04','2021-10-06','10-06','2021-10-05 24','2021-10-05 99','2021-10-06 00','2021-02-30','02-30','2021-13-01','2021-10-04 23']
         for label in labels:
@@ -157,7 +157,6 @@ class NativeDateLabelTests(unittest.TestCase):
             with self.assertRaises(ValueError):parse_daily_label(label,datetime(2021,2,28),datetime(2021,3,1))
     def test_bad_label_becomes_unavailable_keeps_old_point(self):
         page,item=self.fake_page(['10-06'])
-        page.set_default_timeout=lambda value:None
         result=collect_bounded(page,[item],30,clock=lambda:0)
         self.assertEqual(result[item['key']]['status'],'unavailable')
         records,a=b.apply_results([item],result,EXPECTED)

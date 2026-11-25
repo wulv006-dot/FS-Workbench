@@ -15,16 +15,16 @@ from profit_daily import normalise, merge
 EXPECTED = {k: dict(sites='all-websites', gid=gid, tid='', status='')
             for k, gid in [('MMOEXP','0'), ('FC27','1322')]}
 
-class Page:
+class Reader:
     def __init__(self, raw): self.raw=raw; self.timeouts=[]
-    def goto(self, *args, **kwargs): return type('Response', (), {'status':200})()
-    def evaluate(self, *args): return copy.deepcopy(self.raw)
-    def set_default_timeout(self, value): self.timeouts.append(value)
+    def native_order_stats(self, filters, *, timeout):
+        self.timeouts.append(timeout)
+        return copy.deepcopy(self.raw)
 
 def fixture(name='all-sites'):
     return json.loads((ROOT/'tests/fixtures'/('synthetic-'+name+'.json')).read_text(encoding='utf-8'))
 
-def parsed(f): return r.read_one(Page(f['raw']), f['item'], 20000)
+def parsed(f): return r.read_one(Reader(f['raw']), f['item'], 20000)
 
 class BoundaryTests(unittest.TestCase):
     def check_bad(self, mutate, code=None):
@@ -159,15 +159,15 @@ class SafeDiagnosticsTests(unittest.TestCase):
             rows,a=b.apply_results([f['item']],{f['item']['key']:out},EXPECTED)
             self.assertEqual((a['available'],a['zeroEndpointExclusions']),(1,0))
     def test_auth_failure_still_aborts_remaining_without_raw_text(self):
-        f=fixture();other=fixture('fc27');page=Page(f['raw'])
+        f=fixture();other=fixture('fc27');page=Reader(f['raw'])
         def bad(*args):raise ValueError('primary_login_or_page_unavailable')
         out=r.collect_bounded(page,[f['item'],other['item']],30,clock=lambda:0,read=bad)
         self.assertEqual(out[f['item']['key']]['errorCode'],'primary_login_or_page_unavailable')
         self.assertEqual(out[other['item']['key']]['status'],'not_started_budget')
     def test_per_request_timeout_max20_and_budget_stops(self):
-        f=fixture();g=fixture('fc27');clock=iter([0,28]);page=Page(f['raw'])
+        f=fixture();g=fixture('fc27');clock=iter([0,28]);page=Reader(f['raw'])
         out=r.collect_bounded(page,[f['item'],g['item']],30,clock=lambda:next(clock))
-        self.assertEqual(page.timeouts,[20000]);self.assertEqual(out[g['item']['key']]['status'],'not_started_budget')
+        self.assertEqual(page.timeouts,[20]);self.assertEqual(out[g['item']['key']]['status'],'not_started_budget')
     def test_request_batch_limit_stays12_and_budget240(self):
         f=fixture();items=[dict(f['item'],key='synthetic-'+str(i)) for i in range(13)]
         with self.assertRaises(ValueError):r.validate_requests({'requests':items,'budgetSeconds':240})
