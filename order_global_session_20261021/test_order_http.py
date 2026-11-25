@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 import re
 import socket
-import subprocess
 from threading import Barrier, Event, Thread
 from time import monotonic, sleep
 from urllib.error import HTTPError, URLError
@@ -277,11 +276,13 @@ class OrderHTTPTests(unittest.TestCase):
         })
         for row in release['files'] + consumers['files']:
             if row['source'] == reader['source']:
-                # Phase 3B remains tied to the last released version of the shared reader.
-                ref = '961e43083f5580658070bf34dff82cfe7a4d3b8f'
-                data = subprocess.check_output(['git', 'show', f"{ref}:{row['source']}"], cwd=root)
-            else:
-                data = (root / row['source']).read_bytes().replace(b'\r\n', b'\n')
+                # Phase 3B's released bytes are the 3C manifest's live before image.
+                latest = json.loads((root / source_map['orderHttpRemainingReaders20261125']['release'])
+                                    .read_text(encoding='utf-8'))
+                previous, = [item for item in latest['files'] if item['target'] == row['target']]
+                self.assertEqual(previous['beforeSha256'], row['sha256'])
+                continue
+            data = (root / row['source']).read_bytes().replace(b'\r\n', b'\n')
             self.assertEqual(sha256(data).hexdigest(), row['sha256'], row['source'])
 
     def test_http_reads_bound_compressed_and_decoded_responses(self):

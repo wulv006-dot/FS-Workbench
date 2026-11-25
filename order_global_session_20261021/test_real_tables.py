@@ -3,7 +3,10 @@ from datetime import datetime
 import json
 from pathlib import Path
 import re
+import sys
+from time import monotonic
 import unittest
+from unittest.mock import patch
 
 from lxml import html
 from order_http import OrderHTTP, OrderReadError
@@ -27,6 +30,47 @@ def text(cell):
 
 
 class OrderRealTableTests(unittest.TestCase):
+    def test_native_stats_fixture_preserves_each_consumers_window_contract(self):
+        root = FIXTURES.parents[1]
+        primary_path = root / 'fs_transaction_snapshot_20260930'
+        paths = (
+            primary_path / 'primary_reader.py',
+            primary_path / 'fc_category_reader.py',
+            root / 'releases/fs-dashboard/shipping-profit-20261024/source/range_primary_reader.py',
+            root / 'candidates/business-snapshot/order-endpoint-padding-20261007/source/profit_daily_reader.py',
+        )
+
+        def load(path):
+            spec = importlib.util.spec_from_file_location('fixture_' + path.stem, path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+
+        fields = load(primary_path / 'primary_fields.py')
+        with patch.dict(sys.modules, {'primary_fields': fields}):
+            primary, category, exact, profit = map(load, paths)
+        raw = (FIXTURES / 'real_native_order_stats.html').read_bytes()
+        reader = OrderHTTP(lambda path, timeout: (path, raw))
+        request = dict(key='range', gid=1322, tid='1', start='2026-11-24 00:00', end='2026-11-25 00:00')
+        collected = primary.collect([request], reader)['range']
+        native = exact.collect([request], reader)['range']
+        categorized = category.read(reader, request, monotonic() + 30)
+        daily = profit.read_one(reader, request, 20000)
+
+        for value in (collected, native, categorized, daily):
+            self.assertEqual(value['status'], 'available')
+            self.assertEqual((value['orders'], value['revenueUsd']), (3, 24.0))
+            self.assertEqual(value['metrics']['profitMarginPct']['value'], 12.5)
+            self.assertEqual(value['period'], dict(start=request['start'], end=request['end']))
+        rows = [{'date': '2026-11-24 00:00', 'orders': 3, 'amount': 24.0},
+                {'date': '2026-11-25 00:00', 'orders': 0, 'amount': 0.0}]
+        self.assertEqual(collected['rows'], rows)
+        self.assertEqual(native['rows'], rows)
+        self.assertEqual(categorized['rows'], rows)
+        self.assertEqual(daily['rows'], rows[:1])
+        self.assertEqual(daily['seriesBoundaryAudit']['excludedZeroEndpointCount'], 1)
+        self.assertEqual(native['nativeSeries'], categorized['nativeSeries'])
+
     def test_cost_collects_the_same_delivery_rows_as_the_browser(self):
         cases = [('delivery_v6', 1), ('delivery_scalar', 1), ('delivery_v6_page2', 2),
                  ('delivery_order_links', 1)]
