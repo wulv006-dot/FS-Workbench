@@ -1,5 +1,5 @@
 """One offline affected-test dispatcher. Unmapped code fails explicitly."""
-import ast, io, json, os, subprocess, sys, unittest
+import ast, io, json, os, re, subprocess, sys, unittest
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -13,6 +13,66 @@ OPS_MODULE_PATHS = (
     "opt/nba-reprice/",          # NBA 2K27 改价后端
     "opt/mmoexp-taskboard/",     # 任务台（含 green_plan）
 )
+
+
+# 新增白名单须经吴律确认。
+ORDER_SINGLE_SESSION_ALLOWLIST = frozenset({
+    "order_global_session_20261021/service.py",
+    "order_global_session_20261021/test_session.py",
+    "tools/pr_fast_order_single_session_test.py",
+})
+ORDER_LOGIN_MARKER = re.compile(
+    r"/admin/public/do(?:login)\b|\bdo(?:googlelogin)\b|\bnew_captcha[.]html\b", re.I
+)
+ORDER_HOST = re.compile(r"(?<![\w.-])order[.]p2pah[.]cn(?![\w.-])", re.I)
+ORDER_FORM_FIELD = re.compile(r"""(?:["'](?:password|captcha)["']\s*:|\b(?:password|captcha)\s*=)""", re.I)
+ORDER_FORM_SUBMIT = re.compile(
+    r"""\b(?:post|urlencode|formdata)\s*\(|\bmethod["']?\s*[:=]\s*["']?post\b|"""
+    r"""\bcurl\b[^\n]*(?:\s-d\s|\s--data(?:[-\w]*)(?:[=\s]))""", re.I
+)
+DIFF_HEAD_LINE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+
+
+def check_order_single_session(root, base, head, paths):
+    git = ["git", "-c", "safe.directory=" + str(root), "--literal-pathspecs", "-C", str(root)]
+    violations = []
+    for name in paths:
+        if name in ORDER_SINGLE_SESSION_ALLOWLIST:
+            continue
+        patch = subprocess.check_output(
+            git + ["diff", "--no-renames", "--no-ext-diff", "--no-textconv", "--no-color",
+                   "--unified=0", "--inter-hunk-context=0", base, head, "--", name], timeout=30
+        ).decode("utf-8", errors="replace")
+        line_number = None
+        form_lines = []
+        for line in patch.split("\n"):
+            hunk = DIFF_HEAD_LINE.match(line)
+            if hunk:
+                line_number = int(hunk[1])
+            elif line_number is not None and line.startswith("+"):
+                added = line[1:]
+                if ORDER_LOGIN_MARKER.search(added):
+                    violations.append(f"{name}:{line_number}")
+                elif any(pattern.search(added) for pattern in (ORDER_HOST, ORDER_FORM_FIELD, ORDER_FORM_SUBMIT)):
+                    form_lines.append(line_number)
+                line_number += 1
+
+        # All three signals must be in the same head file, and at least one
+        # must occur on an added line. A host or a password key alone is common.
+        if form_lines:
+            source = subprocess.check_output(git + ["show", f"{head}:{name}"], timeout=30).decode(
+                "utf-8", errors="replace"
+            )
+            if all(pattern.search(source) for pattern in (ORDER_HOST, ORDER_FORM_FIELD, ORDER_FORM_SUBMIT)):
+                violations.append(f"{name}:{form_lines[0]}")
+
+    if violations:
+        raise RuntimeError(
+            "order-single-session: Do not log in to Order. Use fs_order_client.fill_jar or order_http "
+            "for the shared session. See the Order single-session rule in AGENTS.md. "
+            + ", ".join(violations)
+        )
+
 
 def require_success(result):
     if result.testsRun <= 0 or not result.wasSuccessful() or result.skipped:
@@ -466,6 +526,11 @@ def selfcheck():
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
+    if select(["tools/pr_fast_order_single_session_test.py"]) != ["self"]:
+        raise RuntimeError("order_single_session_selfcheck_mapping_missing")
+    # This fixture creates two commits in a disposable local repository.
+    subprocess.run([sys.executable, "-B", "-m", "unittest", "pr_fast_order_single_session_test"],
+                   cwd=ROOT/"tools", check=True, timeout=45)
     print("selfcheck: PASS and FAIL/error/skip/zero propagate correctly")
 
 def select(paths):
@@ -942,6 +1007,7 @@ def main():
         elif p.suffix==".sh":subprocess.run(["bash","-n",str(p)],check=True,timeout=20)
         elif p.suffix==".json":json.loads(p.read_text(encoding="utf-8-sig"))
         elif p.suffix in (".html",".css"):frontend_structure(name,p.read_text(encoding="utf-8-sig"))
+    check_order_single_session(ROOT, sys.argv[2], sys.argv[3], paths)
     groups=select(paths)
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
