@@ -1,5 +1,6 @@
 
 """Read-only HTTP access to the shared Order session."""
+from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
 from gzip import GzipFile
@@ -11,12 +12,13 @@ from io import BufferedReader, BytesIO, RawIOBase
 import json
 import re
 import socket
+from sys import version_info
 from threading import Lock
 from time import monotonic, sleep
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit
-from urllib.request import (HTTPCookieProcessor, HTTPRedirectHandler, HTTPSHandler,
-                            ProxyHandler, Request, build_opener)
+from urllib.request import Request
+from weakref import finalize
 import zlib
 
 BASE = 'https://order.p2pah.cn'
@@ -94,13 +96,6 @@ class Document(HTMLParser):
 
     def handle_data(self, data):
         self.stack[-1].children.append(data)
-
-
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        if login_url(newurl):
-            raise OrderReadError('login_lost', status=code)
-        return None
 
 
 def login_url(url):
@@ -343,18 +338,72 @@ class OrderHTTPSConnection(HTTPSConnection):
         return HTTPResponse(DeadlineReader(stream, self.deadline), **kwargs)
 
 
-class OrderHTTPSHandler(HTTPSHandler):
-    def https_open(self, req):
-        def connection(host, **kwargs):
-            return OrderHTTPSConnection(host, req.deadline, **kwargs)
+class OrderTransport:
+    """Lease up to two idle connections for the shared Order session."""
 
-        return self.do_open(connection, req, context=self._context)
+    def __init__(self, jar):
+        self.jar = jar
+        self._idle = deque()
+        self._lock = Lock()
+        finalize(self, self._close_idle, self._idle)
+
+    @staticmethod
+    def _close_idle(idle):
+        while idle:
+            idle.pop().close()
+
+    @contextmanager
+    def open(self, request, deadline):
+        self.jar.add_cookie_header(request)
+        headers = dict(request.header_items())
+        headers.setdefault('User-Agent', f'Python-urllib/{version_info.major}.{version_info.minor}')
+        with self._lock:
+            connection = self._idle.pop() if self._idle else None
+        reusable = False
+        try:
+            if connection is not None:
+                try:
+                    response = self._request(connection, request, headers, deadline)
+                except ConnectionError:
+                    # An idle peer can close without sending Connection: close.
+                    # Replay this read-only GET at most once, before any response.
+                    connection.close()
+                    connection = None
+            if connection is None:
+                connection = OrderHTTPSConnection(request.host, deadline)
+                response = self._request(connection, request, headers, deadline)
+            with response:
+                self.jar.extract_cookies(response, request)
+                if 300 <= response.status < 400 and login_url(response.headers.get('Location', '')):
+                    raise OrderReadError('login_lost', status=response.status)
+                if response.status != 200:
+                    raise HTTPError(request.full_url, response.status, response.reason, response.headers, None)
+                yield response
+                # The caller drains and validates the body before returning.
+                reusable = connection.sock is not None
+        finally:
+            if connection is not None:
+                if reusable:
+                    with self._lock:
+                        if len(self._idle) < 2:
+                            self._idle.append(connection)
+                            connection = None
+                if connection is not None:
+                    connection.close()
+
+    @staticmethod
+    def _request(connection, request, headers, deadline):
+        connection.deadline = deadline
+        if connection.sock is not None:
+            connection.sock.settimeout(remaining_time(deadline))
+        connection.request('GET', request.selector, headers=headers)
+        return connection.getresponse()
 
 
 class OrderHTTP:
     def __init__(self, fetch=None):
         self._fetch = fetch
-        self._opener = None
+        self._transport = None
         self._session_lock = Lock()
 
     @classmethod
@@ -397,9 +446,9 @@ class OrderHTTP:
         finally:
             self._session_lock.release()
 
-    def _shared_opener(self, deadline):
+    def _shared_transport(self, deadline):
         with self._session_access(deadline):
-            if self._opener is None:
+            if self._transport is None:
                 from fs_order_client import fill_jar
                 jar = CookieJar()
                 try:
@@ -408,21 +457,20 @@ class OrderHTTP:
                     if str(exc).partition(':')[0] != 'global_order_unavailable':
                         raise
                     raise OrderReadError(str(exc)) from exc
-                self._opener = build_opener(ProxyHandler({}), HTTPCookieProcessor(jar),
-                                            NoRedirect(), OrderHTTPSHandler())
-            return self._opener
+                self._transport = OrderTransport(jar)
+            return self._transport
 
     def _document(self, path, timeout):
         deadline = monotonic() + timeout
-        opener = self._shared_opener(deadline) if self._fetch is None else None
+        transport = self._shared_transport(deadline) if self._fetch is None else None
         try:
-            if opener is None:
+            if transport is None:
                 url, raw = self._fetch(path, remaining_time(deadline))
             else:
+                remaining_time(deadline)
                 request = Request(BASE + path, headers=ACCEPT_ENCODING)
-                request.deadline = deadline
-                with opener.open(request, timeout=remaining_time(deadline)) as response:
-                    url = response.geturl()
+                with transport.open(request, deadline) as response:
+                    url = request.full_url
                     raw = read_body(response.read1, response.headers, response.length, deadline)
             if len(raw) > RESPONSE_LIMIT:
                 raise OrderReadError('response_too_large')
@@ -440,10 +488,10 @@ class OrderHTTP:
         except IncompleteRead as exc:
             raise OrderReadError('response_truncated') from exc
         except OrderReadError as exc:
-            if str(exc) == 'login_lost' and opener is not None:
+            if str(exc) == 'login_lost' and transport is not None:
                 with self._session_access(deadline):
-                    if self._opener is opener:
-                        self._opener = None
+                    if self._transport is transport:
+                        self._transport = None
             raise
 
     def dashboard_shipping(self, filters, *, timeout, reject_pagination=True):

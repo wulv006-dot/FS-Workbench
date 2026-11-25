@@ -42,6 +42,12 @@ class CostTimeout(unittest.TestCase):
         self.assertEqual(value['diagnostic'], {'exit_code': 124, 'timeout_seconds': 180})
         self.assertEqual(value['evidence_file'], filename)
 
+    def test_order_http_wrapper_keeps_p0_budget_and_shared_session_mounts(self):
+        shell = (HERE / 'source/collect_p2pah_cost.sh').read_text()
+        self.assertIn('timeout 180s docker run', shell)
+        self.assertIn('src=/opt/fs-order-session,dst=/opt/fs-order-session,readonly', shell)
+        self.assertIn('src=/run/fs-order-session,dst=/run/fs-order-session,readonly', shell)
+
     def test_other_failures_and_invalid_success_stay_failures(self):
         for code, payload, reason in ((137, '', 'collector_output_empty'), (1, '', 'collector_output_empty'),
                                       (0, '{}', 'collector_payload_invalid')):
