@@ -55,8 +55,54 @@ class SessionTests(unittest.TestCase):
             self.assertNotIn('synthetic-only', str(health))
         finally:
             session.lock.release()
-        session.checked -= 46
+        session.checked -= service.STALE_SERVE + service.PROBE_TIMEOUT + 1
         self.assertFalse(session.health()['ready'])
+
+    def test_waiter_gets_recent_ready_result_while_probe_runs(self):
+        # Probes take 10-45 s on 187; consumers must not queue behind them.
+        gate = Event()
+        calls = []
+
+        def probe():
+            calls.append(1)
+            if len(calls) > 1:
+                gate.wait(2)
+            return {'ready': True, 'cookies': [{'name': 'PHPSESSID', 'value': 'x'}], 'error': None}
+
+        session = Session(probe)
+        self.assertTrue(session.get()['ready'])
+        session.checked -= 21
+        with patch.object(service, 'WAIT_TIMEOUT', 0.05), ThreadPoolExecutor(max_workers=2) as pool:
+            owner = pool.submit(session.get, True)
+            for _ in range(100):
+                if session.probing:
+                    break
+                time.sleep(0.01)
+            self.assertTrue(pool.submit(session.get).result(1)['ready'])
+            gate.set()
+            self.assertTrue(owner.result(2)['ready'])
+
+    def test_consumer_never_triggers_probe_while_recent_result_is_ready(self):
+        calls = []
+        session = Session(lambda: calls.append(1) or {'ready': True, 'cookies': [], 'error': None})
+        session.get()
+        session.checked -= 21
+        self.assertTrue(session.get()['ready'])
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(session.get(refresh=True)['ready'])
+        self.assertEqual(len(calls), 2)
+
+    def test_waiter_does_not_get_stale_result(self):
+        session = Session(lambda: {'ready': True, 'cookies': [], 'error': None})
+        session.get()
+        session.checked -= service.STALE_SERVE + 1
+        session.probing = True
+        session.lock.acquire()
+        try:
+            with patch.object(service, 'WAIT_TIMEOUT', 0.05):
+                self.assertEqual(session.get()['error'], 'order_probe_wait_timeout')
+        finally:
+            session.lock.release()
 
     def test_identity_failure_immediately_drops_ready(self):
         session = Session(lambda: {'ready': False, 'cookies': [], 'error': 'order_identity_unverified'})
@@ -272,11 +318,29 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.session.get()['error'], 'order_identity_unverified')
         self.assertEqual(self.posts, [])
 
-    def test_valid_identity_requires_all_cookies(self):
-        self.cookie('PHPSESSID')
+    def test_valid_identity_requires_session_cookie(self):
         self.outcome = (200, HOME)
         self.assertEqual(self.session.get()['error'], 'order_session_cookies_missing')
         self.assertEqual(self.posts, [])
+
+    def test_live_session_with_only_phpsessid_is_ready(self):
+        # 187 live browser session exports only PHPSESSID at path / and every
+        # consumer works with it; identity proof comes from the page itself.
+        self.cookie('PHPSESSID')
+        self.outcome = (200, HOME)
+        result = self.session.get()
+        self.assertTrue(result['ready'])
+        self.assertEqual([row['name'] for row in result['cookies']], ['PHPSESSID'])
+
+    def test_renewal_gets_its_own_deadline(self):
+        # The authenticated page alone takes 10-20 s on 187; renewal must not
+        # inherit what is left of the probe budget.
+        self.outcome = (200, LOGIN)
+        seen = []
+        with patch.object(self.session, 'renew', side_effect=lambda d: seen.append(d - time.monotonic()) or 'order_captcha_attempts_exhausted'):
+            self.session.get()
+        self.assertEqual(len(seen), 1)
+        self.assertGreater(seen[0], service.RENEW_TIMEOUT - 1)
 
     def test_valid_then_expired(self):
         for name in ('PHPSESSID', 'user', 'admin_username'):
@@ -307,36 +371,36 @@ class HTTPTests(unittest.TestCase):
         self.replies = [{'code': 0, 'msg': '验证码错误'}] * 12
         with patch.object(service.time, 'monotonic', return_value=100) as clock:
             with patch.object(service, 'ocr_attempts', return_value=2):
-                self.assertEqual(self.session.get()['error'], 'order_captcha_attempts_exhausted')
+                self.assertEqual(self.session.get(refresh=True)['error'], 'order_captcha_attempts_exhausted')
                 for instant in (121, 142, 163):
                     clock.return_value = instant
-                    self.assertFalse(self.session.get()['ready'])
+                    self.assertFalse(self.session.get(refresh=True)['ready'])
                 self.assertEqual(len(self.posts), 2)
                 self.assertEqual(len(self.probes), 4)
                 clock.return_value = 184
                 for name in ('PHPSESSID', 'user', 'admin_username'):
                     self.cookie(name)
                 self.outcome = (200, HOME)
-                self.assertTrue(self.session.get()['ready'])
+                self.assertTrue(self.session.get(refresh=True)['ready'])
                 self.assertEqual(len(self.posts), 2)
 
     def test_transient_login_success_does_not_reset_post_budget(self):
         self.replies = [{'code': 1}] * 5
         with patch.object(service.time, 'monotonic', return_value=100) as clock:
             with patch.object(service, 'ocr_attempts', return_value=2):
-                self.assertTrue(self.session.get()['ready'])
+                self.assertTrue(self.session.get(refresh=True)['ready'])
                 clock.return_value = 121
                 self.outcome = (200, LOGIN)
-                self.assertTrue(self.session.get()['ready'])
+                self.assertTrue(self.session.get(refresh=True)['ready'])
                 clock.return_value = 142
                 self.outcome = (200, LOGIN)
-                self.assertFalse(self.session.get()['ready'])
+                self.assertFalse(self.session.get(refresh=True)['ready'])
                 self.assertEqual(len(self.posts), 2)
                 clock.return_value = 163
-                self.assertFalse(self.session.get()['ready'])
+                self.assertFalse(self.session.get(refresh=True)['ready'])
                 self.assertEqual(len(self.posts), 2)
                 clock.return_value = 421
-                self.assertTrue(self.session.get()['ready'])
+                self.assertTrue(self.session.get(refresh=True)['ready'])
                 self.assertEqual(len(self.posts), 3)
 
     def test_incomplete_login_receipt_is_reconciled_by_read_only_probe(self):
@@ -367,7 +431,7 @@ class HTTPTests(unittest.TestCase):
         self.replies = [{'code': 1}]
         with patch.object(service.time, 'monotonic', return_value=100) as clock:
             def late_ocr(_image, _deadline):
-                clock.return_value = 134
+                clock.return_value = 100 + service.RENEW_TIMEOUT + 1
                 return '1234'
 
             with patch.object(service, 'recognize', side_effect=late_ocr):
@@ -398,7 +462,7 @@ class HTTPTests(unittest.TestCase):
             def read1(self, *args):
                 reading.set()
                 finish_chunk.wait(2)
-                clock.return_value = 134
+                clock.return_value = 100 + service.PROBE_TIMEOUT + 1
                 return io.BytesIO.read(self, 1)
 
             read = read1
@@ -459,6 +523,7 @@ class HTTPTests(unittest.TestCase):
         with (patch.object(service, 'recognize', side_effect=original_recognize),
               patch.object(subprocess, 'run', side_effect=stalled_worker),
               patch.object(service, 'PROBE_TIMEOUT', 0.8),
+              patch.object(service, 'RENEW_TIMEOUT', 0.8),
               patch.object(service, 'WAIT_TIMEOUT', 0.05),
               ThreadPoolExecutor(max_workers=2) as pool):
             owner = pool.submit(self.session.get)

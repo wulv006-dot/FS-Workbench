@@ -31,10 +31,18 @@ ALLOWED_UIDS = {0, 994, 11027}
 BASE = 'https://order.p2pah.cn'
 PROBE_PATH = '/admin/index/index.html'
 PRIVATE_CONFIG = '/opt/mlb-admin-write/_cred_order.json'
-REQUIRED_COOKIES = {'PHPSESSID', 'user', 'admin_username'}
+# The live 187 session exports only PHPSESSID at path / and every consumer works
+# with it; the authenticated page check is the identity proof.
+REQUIRED_COOKIES = {'PHPSESSID'}
 LOGIN_PATHS = {'/admin', '/admin/', '/login.html', '/admin/public/login.html'}
 LOGIN_WINDOW = 300
-PROBE_TIMEOUT = 33
+# /admin/index/index.html is ~250 KB and takes 10-20 s to stream from 187.
+PROBE_TIMEOUT = 90
+# Login page redirects (~11 s), captcha, OCR, dologin and the identity check.
+RENEW_TIMEOUT = 180
+# While a probe runs, hand out the last ready result if it is this recent, so
+# consumers never queue behind a slow Order page.
+STALE_SERVE = 120
 WAIT_TIMEOUT = 34
 RESPONSE_LIMIT = 1048576
 OCR_COMMAND = (sys.executable, str(Path(__file__).resolve()), '--recognize-captcha')
@@ -48,6 +56,14 @@ LOGIN_PAGE_HOPS = 4
 REQUEST_TIMEOUT = 15
 LOGOUT_PATH = '/admin/public/logout.html'
 CAPTCHA_CODE = re.compile(r'[0-9A-Za-z]{3,6}')
+
+
+def log_event(event, **fields):
+    # journald picks up stderr; never pass credentials, captcha codes or cookie values.
+    try:
+        print(json.dumps(dict(event=event, **fields), ensure_ascii=False), file=sys.stderr, flush=True)
+    except Exception:
+        pass
 
 
 class RequestNotSent(TimeoutError):
@@ -272,7 +288,8 @@ class Session:
     def check_identity(self, deadline):
         try:
             status, headers, payload = self.request(PROBE_PATH, deadline)
-        except (OSError, HTTPException):
+        except (OSError, HTTPException) as error:
+            log_event('probe_transport', error=type(error).__name__)
             return 'order_probe_transport_unavailable'
         if status == 429 or status >= 500:
             return 'order_probe_transport_unavailable'
@@ -362,6 +379,7 @@ class Session:
             if type(reply.get('code')) is int and reply['code'] == 1:
                 return self.check_identity(deadline)
             message = reply.get('msg')
+            log_event('login_reply', code=reply.get('code'), msg=message if isinstance(message, str) else None)
             if (not isinstance(message, str)
                     or not re.fullmatch(r'(?:图形)?验证码(?:输入)?(?:错误|不正确|不匹配|已过期)[。！!！]?', message.strip())):
                 self.login_blocked = 'order_login_rejected'
@@ -377,13 +395,15 @@ class Session:
             elif time.monotonic() < self.login_retry_after:
                 identity = 'order_login_cooldown'
             else:
-                identity = self.renew(deadline)
+                identity = self.renew(time.monotonic() + RENEW_TIMEOUT)
                 if identity not in ('valid', 'order_login_cooldown'):
                     self.login_failures = min(self.login_failures + 1, 4)
                     backoff = min(LOGIN_WINDOW, 60 * 2 ** (self.login_failures - 1))
                     self.login_retry_after = time.monotonic() + backoff
         if identity != 'valid':
-            return self.failure('order_identity_unverified' if identity == 'expired' else identity)
+            reason = 'order_identity_unverified' if identity == 'expired' else identity
+            log_event('probe_failed', reason=reason, login_attempts=self.login_attempts)
+            return self.failure(reason)
         rows = self.cookie_rows()
         if not REQUIRED_COOKIES.issubset(row['name'] for row in rows if row['value']):
             return self.failure('order_session_cookies_missing')
@@ -394,7 +414,13 @@ class Session:
         return {'ready': True, 'cookies': rows, 'error': None}
 
 
-    def get(self):
+    def get(self, refresh=False):
+        # Consumers take a recent ready result without waiting; the upkeep thread
+        # (refresh=True) is the one that pays for slow Order probes.
+        if (self.result.get('ready') is True and self.checked
+                and time.monotonic() - self.checked <= STALE_SERVE
+                and (self.probing or not refresh)):
+            return self.result
         if not self.lock.acquire(timeout=WAIT_TIMEOUT):
             return self.failure('order_probe_wait_timeout')
         try:
@@ -416,7 +442,7 @@ class Session:
     def health(self):
         # Health never waits behind an upstream request; cookie issuance still uses get().
         age = time.monotonic() - self.checked if self.checked else None
-        fresh = age is not None and age <= 45
+        fresh = age is not None and age <= STALE_SERVE + PROBE_TIMEOUT
         return {'service': 'fs-order-session', 'ready': fresh and self.result.get('ready') is True,
                 'last_error': self.result.get('error') if fresh or age is None else 'order_probe_stale',
                 'checking': self.probing, 'verified_age_seconds': round(age, 1) if age is not None else None,
@@ -461,7 +487,7 @@ def main():
     try:
         def upkeep():
             while True:
-                SESSION.get()
+                SESSION.get(refresh=True)
                 time.sleep(5)
         threading.Thread(target=upkeep, daemon=True).start()
         Path('/run/fs-order-session').mkdir(mode=0o755, exist_ok=True)
