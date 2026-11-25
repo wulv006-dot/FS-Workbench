@@ -1,0 +1,15 @@
+{
+  "status": "candidate",
+  "files": [
+    {
+      "source": "order_global_session_20261021/client.py",
+      "target": "/opt/fs-order-session/fs_order_client.py",
+      "sha256": "9080a04bf51614bec8fb5c5b51eb90f9db047dbe933a1bcc88878f7ab066e3a3"
+    },
+    {
+      "source": "order_global_session_20261021/order_http.py",
+      "target": "/opt/fs-order-session/order_http.py",
+      "sha256": "a54382ce70869bfc2847e5a309334088d5fe8882eb48e4f44721b261017d19b5"
+    }
+  ]
+}
