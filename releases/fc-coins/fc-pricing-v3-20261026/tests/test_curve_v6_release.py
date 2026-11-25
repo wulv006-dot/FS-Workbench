@@ -82,6 +82,7 @@ class CurveV6Release(unittest.TestCase):
             'catalogue-inputs': ('runtime.py',),
             'cycle-recovery': ('scheduler.py',),
             'targeted-price-reads': ('business_source.py', 'daily.py'),
+            'unit-price-sync': ('curve_strategy_v6.py', 'price_curve.py', 'runtime.py'),
             'outcomes': ('business_source.py', 'daily.py'),
             'cost-incidents': ('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py'),
             'shared-evidence': ('api.py', 'pricing_proof_v6.py', 'runtime.py'),
@@ -103,7 +104,7 @@ class CurveV6Release(unittest.TestCase):
                     expected['source/snapshot_layer.py'] = '/opt/fc27-cloud-browser/snapshot_layer.py'
                 if fix == 'round-latency':
                     expected['source/fc27_cloud_worker.py'] = '/opt/fc27-cloud-browser/fc27_cloud_worker.py'
-                if fix == 'targeted-price-reads':
+                if fix in ('targeted-price-reads', 'unit-price-sync'):
                     expected['source/coin_all_sync_job.py'] = '/opt/fc27-cloud-browser/coin_all_sync_job.py'
                 if fix == 'cycle-recovery':
                     expected['source/snapshot_layer.py'] = '/opt/fc27-cloud-browser/snapshot_layer.py'
