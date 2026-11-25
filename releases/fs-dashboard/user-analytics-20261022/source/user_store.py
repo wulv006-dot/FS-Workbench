@@ -514,6 +514,67 @@ class Store:
         with self.db() as db:
             return db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0]
 
+    def publication_inputs(self):
+        """Pin the order revision and its source coverage in one read transaction."""
+        with self.db() as db:
+            db.execute('BEGIN')
+            revision = db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0]
+            jobs = [dict(row) for row in db.execute('SELECT * FROM jobs')]
+        return revision, jobs
+
+    @staticmethod
+    def source_evidence(jobs):
+        receipts = [json.loads(job['body']) for job in jobs]
+        return dict(captured_at=max((row.get('captured_at', '') for row in receipts), default=None),
+                    source_status_rule_versions=sorted({row['source_status_rule_sha256'] for row in receipts
+                                                        if row.get('source_status_rule_sha256')}))
+
+    def history_config(self, config, jobs):
+        from user_lifecycle import covered
+
+        path = self.root / 'history-origin.json'
+        if not path.is_file():
+            return config
+        safe(path)
+        proof = json.loads(path.read_text('utf-8'))
+        inventory = self.root / 'history-full-inventory.json'
+        safe(inventory)
+        if (proof.get('contract') != 'fs-users-available-source-history-v1'
+                or proof.get('sites') != sorted(config['sites'])
+                or proof.get('inventory_sha256') != digest(json.loads(inventory.read_text('utf-8')))
+                or not covered(jobs, list(config['sites']), stamp(proof['start']), stamp(proof['end_exclusive']))):
+            raise ValueError('history_completion_proof_mismatch')
+        return dict(config, available_history_origin=proof['start'])
+
+    def history_context(self, config, jobs):
+        from user_lifecycle import covered
+
+        result = dict(backfill_target_start=config.get('history_backfill_start'))
+        progress = self.root / 'history-backfill.json'
+        if progress.is_file():
+            receipt = json.loads(progress.read_text('utf-8'))
+            result['backfill'] = {key: receipt[key] for key in (
+                'status', 'start', 'end_exclusive', 'target_start', 'target_end_exclusive',
+                'completed_windows', 'source_rows', 'at') if key in receipt}
+        path = self.root / 'history-coverage.json'
+        if not path.is_file():
+            return result
+        bounded = json.loads(path.read_text('utf-8'))
+        inventory_file = bounded.get('inventory_file', 'history-full-inventory.json')
+        if inventory_file != 'history-full-inventory.json' and not re.fullmatch(r'history-inventory-[a-f0-9]{64}\.json', inventory_file):
+            raise ValueError('bounded_history_inventory_path')
+        inventory = self.root / inventory_file
+        safe(inventory)
+        if (bounded.get('contract') != 'fs-users-bounded-history-v1'
+                or bounded.get('sites') != sorted(config['sites'])
+                or stamp(bounded['start']) < stamp(config['history_backfill_start'])
+                or bounded.get('inventory_sha256') != digest(json.loads(inventory.read_text('utf-8')))
+                or not covered(jobs, list(config['sites']), stamp(bounded['start']), stamp(bounded['end_exclusive']))):
+            raise ValueError('bounded_history_proof_mismatch')
+        result['history_window'] = dict(start=bounded['start'], end_exclusive=bounded['end_exclusive'],
+                                        complete=True, earlier_history_included=False)
+        return result
+
     def coverage(self):
         with self.db() as db:
             return [dict(r) for r in db.execute('SELECT * FROM jobs')]

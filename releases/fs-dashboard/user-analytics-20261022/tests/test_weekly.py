@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 BASE = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(BASE/'source'))
+sys.path[:0] = [str(BASE/'source'), str(BASE.parent/'customer-segments-20261124/source')]
 from user_contract import checked_query, stamp
 from user_query import Service
 from user_store import Store
@@ -223,10 +223,20 @@ class Worker(WeeklyFixture):
 
     def test_daily_publication_advances_non_monday_and_reuses_same_day(self):
         now=stamp('2026-10-31T04:18:00+08:00')
-        value=self.wake(now,cadence='daily')
+        with patch.object(Service, 'query', side_effect=AssertionError('legacy calculation must not run')):
+            value=self.wake(now,cadence='daily')
         self.assertEqual(value['status'],'complete')
         published=weekly.stored_publication(self.store)
         self.assertEqual(published['cutoff'],'2026-10-31T00:00:00+08:00')
+        self.assertEqual(published['data_version'], self.store.revision())
+        self.assertEqual(published['captured_at'], MONDAY.isoformat())
+        self.assertEqual(published['coverage_context']['backfill_target_start'], self.config['history_backfill_start'])
+        self.addCleanup(self.service.v4.jobs.pool.shutdown)
+        with patch('user_query_v4.SEGMENTS_PATH', str(self.store.root/'segments.json')):
+            status, summary = self.service.v4.get({}, 'admin')
+        self.assertEqual(status, 200)
+        self.assertEqual(summary['publication_id'], published['publication_id'])
+        self.assertEqual(summary['data_version'], published['data_version'])
         self.assertEqual(weekly.public_info(published)['cadence'],'daily')
         self.assertEqual(weekly.public_info(published)['next_planned_update'],'2026-11-01T04:18:00+08:00')
         self.assertEqual([a for _,a,_ in self.synced if a>=OLD.isoformat()],['2026-10-30T00:00:00+08:00'])
@@ -250,6 +260,13 @@ class Worker(WeeklyFixture):
         self.assertEqual(self.wake(stamp('2026-10-31T04:18:00+08:00'),cadence='daily')['status'],'deferred')
         self.assertEqual(weekly.stored_publication(self.store),self.publication)
 
+    def test_daily_publication_rejects_private_identity_in_source_receipt(self):
+        receipt = self.store.root / 'history-backfill.json'
+        receipt.write_text(json.dumps({'source_rows': {'email': 'private@example.test'}}), encoding='utf-8')
+        result = self.wake(stamp('2026-10-31T04:18:00+08:00'), cadence='daily')
+        self.assertEqual(result['reason'], 'private_identity_in_aggregate')
+        self.assertEqual(weekly.stored_publication(self.store), self.publication)
+
     def test_daily_finishes_original_weekly_work_before_next_day(self):
         original = self.sync.side_effect
         self.sync.side_effect = TimeoutError('fixture source timeout')
@@ -266,7 +283,8 @@ class Worker(WeeklyFixture):
         self.assertEqual(weekly.stored_publication(self.store)['cadence'], 'daily')
 
     def test_daily_monday_reviews_exact_calendar_months_without_old_rotation_or_targeted(self):
-        self.assertEqual(self.wake(cadence='daily')['status'], 'complete')
+        with patch.object(Service, 'query', side_effect=AssertionError('legacy calculation must not run')):
+            self.assertEqual(self.wake(cadence='daily')['status'], 'complete')
         self.assertEqual(len(self.synced), 62)
         self.assertEqual(min(a for _,a,_ in self.synced), '2026-09-01T00:00:00+08:00')
         self.assertEqual(max(b for _,_,b in self.synced), '2026-11-02T00:00:00+08:00')

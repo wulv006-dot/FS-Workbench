@@ -568,7 +568,7 @@ class SharedFacts(unittest.TestCase):
         self.store.config = {'sites': {'266': {}}}
         with patch.dict(sys.modules, user_jobs=Mock()), \
                 patch.object(self.store, 'coverage', return_value=[]), patch('user_lifecycle.covered', return_value=True), \
-                patch.object(weekly, 'snapshot_candidate', return_value=(candidate, {})), \
+                patch.object(weekly, 'publication_candidate', return_value=(candidate, {})), \
                 patch('shared_es_facts.prepare_publication', return_value=revisions) as prepare, \
                 patch('user_source.shared_discount_catalog',side_effect=PermissionError()) as discounts:
             result = weekly.run(self.store, state, old, stamp(cutoff + 'T04:18:00+08:00'), lambda: 0, shared_es=True)

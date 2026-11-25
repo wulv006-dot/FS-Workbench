@@ -124,29 +124,19 @@ class Service:
             version, orders, jobs = self.store.read(analytics=True, **period)
         if period_cohort:
             config = dict(config, period_customer_types=flags)
-        if not publication and proof_path.is_file():
-            from user_store import safe
-            safe(proof_path)
-            proof = json.loads(proof_path.read_text('utf-8'))
-            inventory = self.store.root/'history-full-inventory.json'
-            safe(inventory)
-            if (proof.get('contract') != 'fs-users-available-source-history-v1' or proof.get('sites') != sorted(config['sites'])
-                    or proof.get('inventory_sha256') != digest(json.loads(inventory.read_text('utf-8')))
-                    or not covered(jobs,list(config['sites']),stamp(proof['start']),stamp(proof['end_exclusive']))):
-                raise ValueError('history_completion_proof_mismatch')
-            config = dict(config,available_history_origin=proof['start'])
+        if not publication:
+            config = self.store.history_config(config, jobs)
         result, private = analyze(orders, jobs, query, config)
         result.update(contract_version='fs-users-v3-period-cohort' if period_cohort else 'fs-users-v2', query=query, timezone='Asia/Shanghai',
                       scope_version=config['scope_version'], identity_version=config['identity_version'],
                       policy_version=query['policy_version'], data_version=version,
                       lifecycle_policy=dict(version=query['policy_version'], thresholds_days=list(config['policies'][query['policy_version']]), day_basis='Asia/Shanghai calendar days since last effective purchase'),
                       lifecycle_policies={name: list(points) for name, points in config['policies'].items()},
-                      captured_at=max((json.loads(j['body']).get('captured_at', '') for j in jobs), default=None),
                       source_watermark=[dict(site=j['site'], start=j['start'], end_exclusive=j['end'], state=j['state']) for j in jobs],
-                      source_status_rule_versions=sorted({json.loads(j['body'])['source_status_rule_sha256'] for j in jobs if json.loads(j['body']).get('source_status_rule_sha256')}),
                       refresh_health=refresh_health,
                       scope_label='已接入站点的购买客户', full_company_coverage=config.get('full_company_coverage', False),
-                      status='available' if result['coverage']['period_complete'] and result['coverage']['identity_deduplication_complete'] and not result['coverage']['missing_identity_orders'] else 'partial')
+                      status='available' if result['coverage']['period_complete'] and result['coverage']['identity_deduplication_complete'] and not result['coverage']['missing_identity_orders'] else 'partial',
+                      **self.store.source_evidence(jobs))
         if period_cohort:
             result['customer_type_source'] = flag_source
             result['metric_definitions'] = {**METRIC_DEFINITIONS,
@@ -166,25 +156,9 @@ class Service:
         self.store.decorate_private_v1(private, orders, query, config, global_allowed)
         result['requires_global_scope'] = global_allowed
         result['coverage'].update(series_history_complete=config.get('series_history_complete', False), satellite_gaps=config.get('satellite_gaps', []), refund_policy=config.get('refund_policy'))
-        progress = self.store.root / 'history-backfill.json'
-        if not publication and progress.is_file():
-            # Purpose-specific aggregate receipt only; never expose raw source diagnostics.
-            receipt = json.loads(progress.read_text('utf-8'))
-            result['coverage']['backfill'] = {key: receipt[key] for key in ('status', 'start', 'end_exclusive', 'target_start','target_end_exclusive','completed_windows', 'source_rows', 'at') if key in receipt}
         result['coverage']['backfill_target_start'] = config.get('history_backfill_start')
-        if not publication and bounded_path.is_file():
-            bounded = json.loads(bounded_path.read_text('utf-8'))
-            inventory_file = bounded.get('inventory_file', 'history-full-inventory.json')
-            if inventory_file != 'history-full-inventory.json' and not re.fullmatch(r'history-inventory-[a-f0-9]{64}\.json', inventory_file):
-                raise ValueError('bounded_history_inventory_path')
-            from user_store import safe
-            safe(self.store.root/inventory_file)
-            if (bounded.get('contract') != 'fs-users-bounded-history-v1' or bounded.get('sites') != sorted(config['sites'])
-                    or stamp(bounded['start']) < stamp(config['history_backfill_start'])
-                    or bounded.get('inventory_sha256') != digest(json.loads((self.store.root/inventory_file).read_text('utf-8')))
-                    or not covered(jobs,list(config['sites']),stamp(bounded['start']),stamp(bounded['end_exclusive']))):
-                raise ValueError('bounded_history_proof_mismatch')
-            result['coverage']['history_window'] = dict(start=bounded['start'],end_exclusive=bounded['end_exclusive'],complete=True,earlier_history_included=False)
+        if not publication:
+            result['coverage'].update(self.store.history_context(config, jobs))
         if publication:
             from user_weekly import public_info
             result.update(captured_at=publication['captured_at'], source_status_rule_versions=publication['source_status_rule_versions'], weekly_update=public_info(publication))

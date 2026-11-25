@@ -5,7 +5,7 @@ from pathlib import Path
 import sqlite3
 from time import monotonic
 
-from user_contract import TZ, canonical, digest, stamp
+from user_contract import TZ, aggregate_only, canonical, digest, stamp
 from user_store import safe
 
 CONTRACT = 'fs-users-weekly-publication-v1'
@@ -147,18 +147,20 @@ def from_snapshot(store, ident, cutoff, manifests, at, origin='weekly'):
         recipe = store._snapshot_members(db, row[0])
     if recipe.get('contract') != 'fs-users-private-replay-v1' or recipe['data_version'] != public['data_version']:
         raise ValueError('weekly_recipe_baseline_required')
-    config = dict(recipe['config'], update_cadence='daily-v1' if origin == 'daily' else 'weekly-v1', snapshot_storage='recipe-v1')
+    return publication_value(recipe['config'], recipe['jobs'], public, cutoff, manifests, at, origin)
+
+
+def publication_value(config, source_jobs, evidence, cutoff, manifests, at, origin):
+    config = dict(config, update_cadence='daily-v1' if origin == 'daily' else 'weekly-v1', snapshot_storage='recipe-v1')
     config.pop('period_customer_types', None)
-    jobs = []
-    for job in recipe['jobs']:
-        if stamp(job['start']) < cutoff:
-            jobs.append(dict(job, end=min(stamp(job['end']), cutoff).isoformat(), body='{}'))
+    jobs = [dict(site=job['site'], start=job['start'], end=min(stamp(job['end']), cutoff).isoformat(),
+                 state=job['state'], body='{}') for job in source_jobs if stamp(job['start']) < cutoff]
     value = dict(contract=CONTRACT, cutoff=cutoff.isoformat(), published_at=at, origin=origin, cadence='daily' if origin == 'daily' else 'weekly',
-                 data_version=public['data_version'], config=config, jobs=jobs,
-                 captured_at=public.get('captured_at'), refresh_health=public.get('refresh_health', {}),
-                 coverage_context={k: v for k, v in public['coverage'].items()
+                 data_version=evidence['data_version'], config=config, jobs=jobs,
+                 captured_at=evidence.get('captured_at'), refresh_health=evidence.get('refresh_health', {}),
+                 coverage_context={k: v for k, v in evidence['coverage'].items()
                                    if k in ('backfill', 'backfill_target_start', 'history_window')},
-                 source_status_rule_versions=public.get('source_status_rule_versions', []),
+                 source_status_rule_versions=evidence.get('source_status_rule_versions', []),
                  flag_manifests=manifests)
     if value['coverage_context'].get('history_window'):
         bound = dict(value['coverage_context']['history_window'])
@@ -312,10 +314,9 @@ def review_cycle_id(state):
     return 'ur_' + digest({key: state[key] for key in ('review_policy', 'cutoff', 'started_at')})[:24]
 
 
-def snapshot_candidate(store, start, cutoff, now, cadence):
+def publication_candidate(store, start, cutoff, now, cadence):
     """Shared daily/review publication over complete facts and pinned ES files."""
     from user_customer_types import manifest_inventory, read_pinned_flags, read_pinned_identities
-    from user_query import Service
     manifests = manifest_inventory()
     _, flags = read_pinned_flags(dict(start=min(stamp(start), cutoff-timedelta(days=7)).isoformat(), end_exclusive=cutoff.isoformat()), manifests)
     if flags['status'] != 'complete':
@@ -323,12 +324,14 @@ def snapshot_candidate(store, start, cutoff, now, cadence):
     identity_rows, identity_info = read_pinned_identities(dict(start=start, end_exclusive=cutoff.isoformat()), manifests)
     if identity_info['status'] != 'complete':
         return None, 'identity_archive_pending'
-    evidence = store.enrich_order_identities(start, cutoff.isoformat(), identity_rows, identity_info['sourceVersion'])
-    service = Service(store, lambda *_: True, clock=lambda: cutoff,
-                      customer_type_reader=lambda query: read_pinned_flags(query, manifests), weekly_publication=False)
-    result = service.query(dict(start=(cutoff-timedelta(days=7)).isoformat()), 'internal_weekly_calculation')
-    value = from_snapshot(store, result['snapshot_id'], cutoff, manifests, now.isoformat(), origin=cadence)
-    return value, evidence
+    identity_evidence = store.enrich_order_identities(start, cutoff.isoformat(), identity_rows, identity_info['sourceVersion'])
+    revision, jobs = store.publication_inputs()
+    config = store.history_config(store.config, jobs)
+    source_evidence = dict(data_version=revision, refresh_health=store.job_health(),
+                           coverage=store.history_context(config, jobs), **store.source_evidence(jobs))
+    aggregate_only(source_evidence)
+    value = publication_value(config, jobs, source_evidence, cutoff, manifests, now.isoformat(), origin=cadence)
+    return value, identity_evidence
 
 
 def retry_shared_es(store, checkpoint, force=False, *, publication_id=None, now=None):
@@ -384,7 +387,7 @@ def advance_daily_during_review(store, state, published, now, checkpoint, *, sha
     flags = ensure_period(min(start, cutoff-timedelta(days=7)).isoformat(), cutoff.isoformat(), now, daily=True)
     if flags['status'] != 'complete':
         return dict(status='deferred', reason='daily_customer_type_pending', cutoff=cutoff.isoformat())
-    value, evidence = snapshot_candidate(store, start.isoformat(), cutoff, now, 'daily')
+    value, evidence = publication_candidate(store, start.isoformat(), cutoff, now, 'daily')
     if value is None:
         return dict(status='deferred', reason=evidence, cutoff=cutoff.isoformat())
     if not state.get('review_complete'):
@@ -525,7 +528,7 @@ def run(store, state, published, now, clock, force=False, *, shared_es=False):
         if not covered(jobs, list(store.config['sites']), stamp(state['start']), cutoff):
             raise ValueError('weekly_complete_day_coverage_required')
         publish_cutoff = max(cutoff, stamp(published['cutoff'])) if calendar_policy and published else cutoff
-        value, evidence = snapshot_candidate(store, state['start'], publish_cutoff, at(), 'daily' if state.get('cadence') == 'daily' else 'weekly')
+        value, evidence = publication_candidate(store, state['start'], publish_cutoff, at(), 'daily' if state.get('cadence') == 'daily' else 'weekly')
         if value is None:
             state['phase'] = 'flags'; record_state(store, state)
             return dict(status='deferred', reason=evidence, cutoff=state['cutoff'])
