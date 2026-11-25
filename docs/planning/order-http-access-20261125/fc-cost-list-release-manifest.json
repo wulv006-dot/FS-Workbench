@@ -16,7 +16,7 @@
       "source": "releases/fc-coins/fc-pricing-v3-20261026/source/collect_p2pah_cost.py",
       "target": "/opt/fc27-cloud-browser/collect_p2pah_cost.py",
       "beforeSha256": "d97f22b8494c1519ad07f6b3c1854777bc926402437fee3d5f87129beb4e4cc2",
-      "sha256": "551c223a18148cd34fa7cca8699bc3fa25a2f970a669f173d01a0126bdf5a7e1"
+      "sha256": "ab5b12daedd01f12dd9750e40a3dfc359632efe9c428267656ab9869fe43540f"
     },
     {
       "candidate": "source/collect_p2pah_cost.sh",

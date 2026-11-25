@@ -395,7 +395,8 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
     end = datetime.now(SHANGHAI).replace(microsecond=0)
     recent_start = end - timedelta(hours=3)
     result = {p: dict(records=[], window_complete=False, history_complete=False) for p in PLATFORMS}
-    references = {p: positive_reference((confirmed_costs or {}).get(p)) for p in PLATFORMS}
+    reference_inputs = confirmed_costs or {}
+    references = {p: positive_reference(reference_inputs.get(p)) for p in PLATFORMS}
     bounds = {p: (ref / 2, ref * 2) if ref is not None else (Decimal('.05'), Decimal('5'))
               for p, ref in references.items()}
     previous = None
@@ -478,7 +479,9 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
                          full_detail_start=recent_start.isoformat(), older_detail_rows_checked=inspected,
                          older_detail_rows_not_checked=unchecked)
             if unchecked:
-                scope['qualification_reference_cny_per_k'] = references[platform]
+                # Keep the CLI's original JSON scalar type for usable references.
+                scope['qualification_reference_cny_per_k'] = (
+                    reference_inputs[platform] if references[platform] is not None else None)
             result[platform] = dict(records=records, window_complete=True,
                                     history_complete=hours == 192 and not unchecked, detail_scope=scope)
             enough.append(within_bounds >= 6)

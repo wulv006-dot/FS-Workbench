@@ -1,9 +1,12 @@
 """Offline Order HTML coverage of the V6 cost collector."""
 import json
 import re
+import runpy
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from http.client import BadStatusLine
+from io import StringIO
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
@@ -124,6 +127,29 @@ class CostListVerification(unittest.TestCase):
         self.assertCountEqual(self.detail_reads, [r['order'] for r in self.rows if r['platform'] == 'XBOX'])
         self.assertEqual(rows['800000']['verification'], 'list_fast_path')
         self.assertEqual(rows['800001']['verification'], 'order_detail')
+
+    def test_cli_preserves_json_reference_types_with_unchecked_older_rows(self):
+        for row in self.rows[12:]:
+            row['trade'] -= timedelta(hours=4)
+        for offset, row in enumerate(self.rows[12:15]):
+            self.rows.append(dict(row, id=str(800018 + offset), order=str(900018 + offset),
+                                  trade=row['trade'] - timedelta(minutes=1)))
+        references = {'PS': '.40', 'XBOX': .4, 'PC': 'invalid'}
+        output = StringIO()
+        with patch('order_http.OrderHTTP', return_value=OrderHTTP(fetch=self.fetch)), \
+                patch.dict('os.environ', FC_V6_COST_REFERENCES=json.dumps(references)), \
+                redirect_stdout(output), self.assertRaises(SystemExit) as exit_status:
+            runpy.run_path(str(SOURCE / 'collect_p2pah_cost.py'), run_name='__main__')
+
+        report = json.loads(output.getvalue())
+        self.assertEqual((exit_status.exception.code, report['status']), (0, 'valid'), report.get('reason'))
+        for platform, cost in zip(PLATFORMS, report['costs']):
+            samples = cost['v6_delivery_samples']
+            self.assertEqual(len(samples['records']), 6)
+            scope = samples['detail_scope']
+            self.assertEqual(scope['older_detail_rows_not_checked'], 1)
+            expected = None if platform == 'PC' else references[platform]
+            self.assertEqual(scope['qualification_reference_cny_per_k'], expected)
 
     def test_expanded_window_rechecks_a_recent_order_found_again_on_an_older_row(self):
         self.rows[-1]['trade'] -= timedelta(hours=4)
