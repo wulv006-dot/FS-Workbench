@@ -31,7 +31,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import p2pah_auth as A  # noqa: E402
 import history_db as HDB  # noqa: E402
-from lxml import html as LH  # noqa: E402
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 DATA.mkdir(parents=True, exist_ok=True)
@@ -361,46 +360,24 @@ _DELIV_HEAD = ["", "delivery_id", "genre_text", "source", "sn", "trade_at", "gam
                "supplier", "payee", "operator", "note", "settle_status", "action"]
 
 
-def lxml_login(doc):
-    try:
-        return bool(doc.xpath('//input[@name="password"]'))
-    except Exception:
-        return False
-
-
-def _parse_delivery(txt, page):
-    doc = LH.fromstring(txt)
-    if lxml_login(doc):
-        raise RuntimeError("发货记录需要重新登录（返回了登录页）")
-    tbls = doc.xpath('//table[contains(@class,"table-list")]')
-    if not tbls:
-        return [], None
-    trs = tbls[0].xpath('.//tbody/tr')
-    out = []
-    for tr in trs:
-        tds = ["".join(td.itertext()).strip() for td in tr.xpath('./td')]
-        if len(tds) < 16:
-            continue
-        rec = {}
-        for i, k in enumerate(_DELIV_HEAD):
-            rec[k] = tds[i] if i < len(tds) else ""
-        rec["genre_text"] = re.sub(r"\s+", " ", rec["genre_text"]).strip()
-        rec["genre"] = rec["genre_text"].split(" ")[0] if rec["genre_text"] else ""
-        out.append(rec)
-    pg_txt = " ".join(doc.xpath('//*[contains(@class,"pagination")]//text()'))
-    nums = [int(x) for x in re.findall(r"\d+", pg_txt)]
-    return out, (max(nums) if nums else page)
-
-
 def _delivery_page(s, page, lo, hi, gid, genre):
     """lo/hi 是完整时间串，页面参数只认到分钟。"""
-    st, txt = s.get_order("/order/admin_delivery/index.html", **{
+    if '/opt/fs-order-session' not in sys.path:
+        sys.path.insert(0, '/opt/fs-order-session')
+    from order_http import OrderHTTP
+
+    query = {
         "gid": str(gid), "aid": "0", "cid": "1", "genre": genre, "status": "-1",
         "op_id": "0", "show_ccy": "-1", "is_stock": "", "keyword": "", "sn": "",
-        "start": str(lo)[:16], "end": str(hi)[:16], "page": str(page)})
-    if st != 200:
-        raise RuntimeError("发货记录 HTTP=%s page=%d" % (st, page))
-    return _parse_delivery(txt, page)
+        "start": str(lo)[:16], "end": str(hi)[:16], "page": str(page)}
+    result = OrderHTTP().delivery_export_page(query, timeout=120, sales=True)
+    rows = []
+    for cells in result.rows:
+        rec = {key: cells[i] if i < len(cells) else '' for i, key in enumerate(_DELIV_HEAD)}
+        rec["genre_text"] = re.sub(r"\s+", " ", rec["genre_text"]).strip()
+        rec["genre"] = rec["genre_text"].split(" ")[0] if rec["genre_text"] else ""
+        rows.append(rec)
+    return rows, result.page_count
 
 
 def fetch_deliveries_range(s, lo, hi, gid=ORDER_GID, genre=GENRE_ORDER_SHIP, known=None):

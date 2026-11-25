@@ -11,7 +11,7 @@ import json
 import re
 import socket
 from threading import Lock
-from time import monotonic
+from time import monotonic, sleep
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit
 from urllib.request import (HTTPCookieProcessor, HTTPRedirectHandler, HTTPSHandler,
@@ -26,7 +26,9 @@ VOID = set('area base br col embed hr img input link meta param source track wbr
 
 
 class OrderReadError(ValueError):
-    pass
+    def __init__(self, reason, *, status=None):
+        super().__init__(reason)
+        self.status = status
 
 
 class Node:
@@ -43,8 +45,18 @@ class Node:
                     yield child
                 yield from child.find(tag, css)
 
-    def text(self):
-        return ''.join(child.text() if isinstance(child, Node) else child for child in self.children)
+    def text_parts(self):
+        for child in self.children:
+            if isinstance(child, Node):
+                yield from child.text_parts()
+            else:
+                yield child
+
+    def text(self, separator=''):
+        return separator.join(self.text_parts())
+
+    def direct(self, tag):
+        return [child for child in self.children if isinstance(child, Node) and child.tag == tag]
 
 
 class Document(HTMLParser):
@@ -81,7 +93,7 @@ class Document(HTMLParser):
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if login_url(newurl):
-            raise OrderReadError('login_lost')
+            raise OrderReadError('login_lost', status=code)
         return None
 
 
@@ -109,6 +121,14 @@ def form_values(root):
             if key:
                 values[key] = field_value(node)
     return values
+
+
+def table_body_rows(table):
+    return [row for body in table.find('tbody') for row in body.find('tr')]
+
+
+def class_contains(root, name, tag=None):
+    return (node for node in root.find(tag) if name in node.attrs.get('class', ''))
 
 
 def table_rows(table, *, shipping=False):
@@ -147,6 +167,13 @@ class DeliveryPage:
     filters: dict
     has_next: bool
     raw_sha256: str
+
+
+@dataclass(frozen=True)
+class DeliveryExportPage:
+    rows: tuple
+    page_count: int
+    has_body_rows: bool
 
 
 @dataclass(frozen=True)
@@ -338,6 +365,124 @@ class OrderHTTP:
                     if self._opener is opener:
                         self._opener = None
             raise
+
+    def dashboard_shipping(self, filters, *, timeout, reject_pagination=True):
+        # The dashboard projects its exact six-column layout and single-site controls.
+        try:
+            root, _, _ = self._document(STATS + '?' + urlencode(filters), timeout)
+        except HTTPError as exc:
+            exc.close()
+            if exc.code in (301, 302, 401, 403):
+                raise PermissionError('shipping_session_denied') from exc
+            raise OSError('shipping_page_unavailable') from exc
+        except OrderReadError as exc:
+            if str(exc) == 'login_lost':
+                if exc.status is None or exc.status in (301, 302, 401, 403):
+                    raise PermissionError('shipping_session_denied') from exc
+                raise OSError('shipping_page_unavailable') from exc
+            if str(exc).partition(':')[0] == 'global_order_unavailable':
+                raise RuntimeError(str(exc)) from exc
+            raise
+
+        forms = [form for form in root.find('form') if form.attrs.get('action') == STATS]
+        if len(forms) != 1:
+            raise ValueError('shipping_form_changed')
+        controls = list(forms[0].find())
+        selected = {}
+        for name in filters:
+            fields = [node for node in controls if node.attrs.get('name') == name]
+            if len(fields) != 1:
+                raise ValueError('shipping_filter_missing')
+            field = fields[0]
+            if field.tag == 'select':
+                options = field.direct('option')
+                chosen = [item for item in options if 'selected' in item.attrs]
+                if not chosen and 'multiple' not in field.attrs:
+                    chosen = options[:1]
+                if len(chosen) > 1:
+                    raise ValueError('shipping_multiple_sources')
+                selected[name] = chosen[0].attrs.get('value', '') if chosen else ''
+            else:
+                selected[name] = field.attrs.get('value', '')
+
+        tables = [table for table in root.find('table')
+                  if any(node.text().strip() == '订单总数' for node in table.find('th'))]
+        if len(tables) != 1:
+            raise ValueError('shipping_table_missing')
+        headers = [node.text(' ').strip() for node in tables[0].find('th')]
+        rows = []
+        for row in table_body_rows(tables[0]):
+            cells = row.direct('td')
+            if cells and not any('colspan' in cell.attrs for cell in cells):
+                rows.append([cell.text(' ').strip() for cell in cells])
+            elif cells and not any(message in row.text() for message in ('没有数据', '暂无')):
+                raise ValueError('shipping_unknown_empty_state')
+        if reject_pagination and any(next(node.find('a'), None) is not None
+                                     for node in class_contains(root, 'pagination')):
+            raise ValueError('shipping_pagination_unhandled')
+        return dict(filters=selected, headers=headers, rows=rows)
+
+    def delivery_export_page(self, query, *, timeout, sales=False):
+        """Read one delivery list page for the original channel or sales export format."""
+        page = int(query.get('page', 1))
+        path = DELIVERY + '?' + urlencode(query, doseq=True)
+        for attempt in range(3):
+            try:
+                root, _, _ = self._document(path, timeout)
+                break
+            except HTTPError as exc:
+                exc.close()
+                if sales:
+                    raise RuntimeError('发货记录 HTTP=%s page=%d' % (exc.code, page)) from exc
+                if exc.code in (301, 302, 401, 403):
+                    raise PermissionError('shared_order_denied') from exc
+                raise ValueError('shared_order_unavailable') from exc
+            except OrderReadError as exc:
+                if str(exc) == 'login_lost':
+                    if sales:
+                        raise RuntimeError('发货记录需要重新登录（返回了登录页）') from exc
+                    if exc.status in (301, 302, 401, 403):
+                        raise PermissionError('shared_order_denied') from exc
+                    raise ValueError('shared_order_unavailable') from exc
+                if str(exc).partition(':')[0] == 'global_order_unavailable':
+                    raise RuntimeError(str(exc)) from exc
+                raise
+            except OSError as exc:
+                if attempt < 2:
+                    sleep(1.5 * (attempt + 1))
+                    continue
+                if sales:
+                    raise RuntimeError('发货记录 HTTP=0 page=%d' % page) from exc
+                raise ValueError('shared_order_unavailable') from exc
+
+        pagination = class_contains(root, 'pagination')
+        tables = class_contains(root, 'table-list', 'table')
+        if sales:
+            table = next(tables, None)
+            if table is None:
+                return DeliveryExportPage((), None, False)
+            numbers = re.findall(r'\d+', ' '.join(node.text(' ') for node in pagination))
+            rows = table_body_rows(table)
+            cells = (tuple(cell.text().strip() for cell in row.direct('td')) for row in rows)
+            return DeliveryExportPage(tuple(row for row in cells if len(row) >= 16),
+                                      max(map(int, numbers), default=page), bool(rows))
+
+        numbers = [int(value) for node in pagination for link in node.find('a')
+                   for value in re.findall(r'[?&]page=(\d+)', link.attrs.get('href', ''))]
+        tables = [table for table in tables
+                  if any(node.text().strip() == '商户订单号' for node in table.find('th'))]
+        if len(tables) != 1:
+            raise ValueError('delivery_table_missing')
+        rows = table_body_rows(tables[0])
+        cells = []
+        for row in rows:
+            columns = row.direct('td')
+            if any('colspan' in cell.attrs for cell in columns):
+                continue
+            values = tuple(cell.text(' ').strip() for cell in columns)
+            if values != ('',):
+                cells.append(values)
+        return DeliveryExportPage(tuple(cells), max([page] + numbers), bool(rows))
 
     def delivery_page(self, query, *, timeout):
         number = int(query.get('page', 1))

@@ -55,41 +55,13 @@ def project(raw,q):
                 timeBasis='交易时间',orders=orders,transactions=trades,metrics=metrics,rows=[],dimensions={},labelsVerified=True)
 
 def collect(q,timeout=85):
-    from lxml import html
-    sys.path.insert(0,'/opt/sales-dashboard/collector')
-    import p2pah_auth as auth
-    session=auth.Session()
-    try:
-        auth._global_order.fill_jar(session.order.cookies)
-        response=session.order.get(auth.ORDER_SITE+ENDPOINT,params=filters(q),timeout=timeout,verify=False,allow_redirects=False)
-        if response.status_code in (301,302,401,403):raise PermissionError('shipping_session_denied')
-        if response.status_code!=200:raise OSError('shipping_page_unavailable')
-        doc=html.fromstring(response.text)
-        if doc.xpath('//input[@type="password"]'):raise PermissionError('shipping_session_denied')
-        forms=doc.xpath('//form[@action="'+ENDPOINT+'"]')
-        if len(forms)!=1:raise ValueError('shipping_form_changed')
-        echoed={}
-        for name in filters(q):
-            fields=forms[0].xpath('.//*[@name=$name]',name=name)
-            if len(fields)!=1:raise ValueError('shipping_filter_missing')
-            e=fields[0]
-            if e.tag=='select':
-                options=e.xpath('./option[@selected]')
-                if not options and e.get('multiple') is None:options=e.xpath('./option')[:1]
-                if len(options)>1:raise ValueError('shipping_multiple_sources')
-                echoed[name]=options[0].get('value','') if options else ''
-            else:echoed[name]=e.get('value','')
-        tables=doc.xpath('//table[.//th[normalize-space()="订单总数"]]')
-        if len(tables)!=1:raise ValueError('shipping_table_missing')
-        headers=[' '.join(e.itertext()).strip() for e in tables[0].xpath('.//th')]
-        rows=[]
-        for tr in tables[0].xpath('.//tbody/tr'):
-            cells=tr.xpath('./td')
-            if cells and not tr.xpath('./td[@colspan]'):rows.append([' '.join(e.itertext()).strip() for e in cells])
-            elif cells and '没有数据' not in ''.join(tr.itertext()) and '暂无' not in ''.join(tr.itertext()):raise ValueError('shipping_unknown_empty_state')
-        if doc.xpath('//*[contains(@class,"pagination")]//a'):raise ValueError('shipping_pagination_unhandled')
-        return project(dict(filters=echoed,headers=headers,rows=rows),q)
-    finally:session.close()
+    requested = filters(q)
+    if '/opt/fs-order-session' not in sys.path:
+        sys.path.insert(0, '/opt/fs-order-session')
+    from order_http import OrderHTTP
+
+    return project(OrderHTTP().dashboard_shipping(requested, timeout=timeout), q)
+
 
 def daily(raw,expected):
     from profit_daily import check_scope,stamp,utc

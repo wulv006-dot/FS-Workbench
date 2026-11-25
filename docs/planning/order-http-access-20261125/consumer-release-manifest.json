@@ -1,0 +1,36 @@
+{
+  "status": "candidate",
+  "runtime": "play187",
+  "prerequisites": [
+    {
+      "target": "/opt/fs-order-session/fs_order_client.py",
+      "sha256": "9080a04bf51614bec8fb5c5b51eb90f9db047dbe933a1bcc88878f7ab066e3a3"
+    },
+    {
+      "target": "/opt/fs-order-session/order_http.py",
+      "sha256": "517d7393a1baee88811cc73f3d825e5387c399686c186d035060e41d9514996b"
+    }
+  ],
+  "files": [
+    {
+      "source": "releases/fs-dashboard/management-november-20261103/source/business_shipping.py",
+      "target": "/opt/fs-exact-range-20261001/business_shipping.py",
+      "sha256": "359c6a11ddf2e8bea865f0688cdb279a1ca264ab1ef6c5c485f2c6f1dccf6794"
+    },
+    {
+      "source": "releases/fs-dashboard/shipping-profit-20261024/source/rs_shipping.py",
+      "target": "/opt/fs-exact-range-20261001/rs_shipping.py",
+      "sha256": "e55ba04b8ecf47e54e817cbe578fd269cdac575d96ad71222167b48921a9285c"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/channel_cost_source.py",
+      "target": "/opt/fs-hermes-fc/channel_cost_source.py",
+      "sha256": "50556f5903f4fc5c912ca9ba372c03577a60f6af740ec79985f08879f4f23c6b"
+    },
+    {
+      "source": "shared_backend_session/sales_collection.py",
+      "target": "/opt/sales-dashboard/collector/fetch_all.py",
+      "sha256": "a7446f2db5a03a7e1f9b8c50402a305684123802faa20bcc5650fdb49bb5323a"
+    }
+  ]
+}
