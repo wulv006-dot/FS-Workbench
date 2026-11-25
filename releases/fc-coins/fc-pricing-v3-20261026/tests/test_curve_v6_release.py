@@ -193,7 +193,7 @@ class CurveV6Release(unittest.TestCase):
                 'releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh',
         }
         before = {
-            'source/order_http.py': 'ff4525e522f9935f33d9927a313d1f05cecf5211cd718cd630eeb27c9b15fe60',
+            'source/order_http.py': '9ac00d8a5dcb5ae5f06245392f89cefe51b536f4ad054d0eb5545ea7b9724c45',
             'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',
             'source/collect_p2pah_cost.sh': '6fe775b14dafea86aa3cdedf5e64b5b81e0ce84d0114142a96413a8477f8fef7',
         }

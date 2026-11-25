@@ -2,7 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextlib import contextmanager, nullcontext
 from http.client import HTTPConnection, HTTPSConnection, IncompleteRead
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from io import BytesIO
 from hashlib import sha256
 import gzip
@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import re
 import socket
-from threading import Event, Thread
+from threading import Barrier, Event, Thread
 from time import monotonic, sleep
 from urllib.error import HTTPError, URLError
 import unittest
@@ -124,7 +124,7 @@ class OrderHTTPTests(unittest.TestCase):
         for pooled in (False, True):
             for encoding, wire, error in cases:
                 with self.subTest(pooled=pooled, encoding=encoding, error=error):
-                    def respond(url, **kwargs):
+                    def respond(url, *args, **kwargs):
                         headers = {'Content-Encoding': encoding}
                         if pooled:
                             self.assertEqual(kwargs['headers']['Accept-Encoding'], 'gzip, deflate')
@@ -143,7 +143,7 @@ class OrderHTTPTests(unittest.TestCase):
                             raw=SimpleNamespace(length_remaining=None, read=read)))
 
                     with patch.dict('sys.modules', fs_order_client=SimpleNamespace(fill_jar=Mock())), \
-                         patch('order_http.build_opener', return_value=SimpleNamespace(open=respond)), \
+                         patch('order_http.OrderTransport', return_value=SimpleNamespace(open=respond)), \
                          patch('order_http.RESPONSE_LIMIT', 256, create=True):
                         reader = OrderHTTP.from_order_session(
                             SimpleNamespace(get=respond, cookies=object())) if pooled else OrderHTTP()
@@ -154,6 +154,82 @@ class OrderHTTPTests(unittest.TestCase):
                             result = reader.delivery_page({}, timeout=1)
                             self.assertEqual(result.rows[0]['编号'], '7')
                             self.assertEqual(result.raw_sha256, sha256(html).hexdigest())
+
+    def test_detail_reads_reuse_connection_and_reconnect_after_unannounced_close(self):
+        ports = []
+        wire = gzip.compress(b'<table class="look-goods-table"></table>'
+                             b'<script>var orderDeliveryData = {};</script>')
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+
+            def do_GET(self):
+                ports.append(self.client_address[1])
+                self.send_response(200)
+                self.send_header('Content-Encoding', 'gzip')
+                self.send_header('Content-Length', str(len(wire)))
+                self.end_headers()
+                self.wfile.write(wire)
+                if self.path.endswith('/124.html'):
+                    self.close_connection = True
+
+            def log_message(self, *_):
+                pass
+
+        with ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
+            worker = Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            try:
+                with patch.dict('sys.modules', fs_order_client=SimpleNamespace(fill_jar=Mock())), \
+                     patch('order_http.BASE', f'https://127.0.0.1:{server.server_port}'), \
+                     patch.object(HTTPSConnection, 'connect', HTTPConnection.connect):
+                    reader = OrderHTTP()
+                    for order_id in ('123', '124', '125'):
+                        self.assertEqual(reader.order_detail(order_id, timeout=1).status, 'found')
+            finally:
+                server.shutdown()
+                worker.join(2)
+        self.assertEqual(ports[0], ports[1])
+        self.assertNotEqual(ports[1], ports[2])
+
+    def test_parallel_detail_batches_lease_distinct_connections_and_reuse_them(self):
+        arrived = Barrier(2, timeout=2)
+        ports = {}
+        body = (b'<table class="look-goods-table"></table>'
+                b'<script>var orderDeliveryData = {};</script>')
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+
+            def do_GET(self):
+                ports[self.path.rsplit('/', 1)[-1]] = self.client_address[1]
+                arrived.wait()
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_):
+                pass
+
+        with ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
+            worker = Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            try:
+                with patch.dict('sys.modules', fs_order_client=SimpleNamespace(fill_jar=Mock())), \
+                     patch('order_http.BASE', f'https://127.0.0.1:{server.server_port}'), \
+                     patch.object(HTTPSConnection, 'connect', HTTPConnection.connect):
+                    reader = OrderHTTP()
+                    for ids in (('123', '124'), ('125', '126')):
+                        with ThreadPoolExecutor(2) as pool:
+                            work = [pool.submit(reader.order_detail, order_id, timeout=3) for order_id in ids]
+                        self.assertEqual([job.result().status for job in work], ['found', 'found'])
+            finally:
+                server.shutdown()
+                worker.join(2)
+        first, second = (ports[f'{order_id}.html'] for order_id in ('123', '124'))
+        self.assertNotEqual(first, second)
+        self.assertEqual({ports['125.html'], ports['126.html']}, {first, second})
 
     def test_dripped_headers_and_body_share_request_deadline(self):
         prefix = b'HTTP/1.1 200 OK\r\nContent-Length: 9'
@@ -346,11 +422,11 @@ class OrderHTTPTests(unittest.TestCase):
         login = '<input name="password">'
         updated = ('<table class="look-goods-table"></table>'
                    '<script>var orderDeliveryData = {};</script>')
-        old_opener = SimpleNamespace(open=lambda url, timeout: response(login, url))
-        new_opener = SimpleNamespace(open=lambda url, timeout: response(updated, url))
+        old_opener = SimpleNamespace(open=lambda url, deadline: response(login, url))
+        new_opener = SimpleNamespace(open=lambda url, deadline: response(updated, url))
         fill_jar = Mock()
         with patch.dict('sys.modules', {'fs_order_client': SimpleNamespace(fill_jar=fill_jar)}), \
-             patch('order_http.build_opener', side_effect=[old_opener, new_opener]):
+             patch('order_http.OrderTransport', side_effect=[old_opener, new_opener]):
             reader = OrderHTTP()
             self.assertEqual(reader.order_detail('123', timeout=1).status, 'login_lost')
             self.assertEqual(reader.order_detail('123', timeout=1).status, 'found')
@@ -441,14 +517,14 @@ class OrderHTTPTests(unittest.TestCase):
                     current[0] += elapsed
 
                 @contextmanager
-                def response(url, timeout):
+                def response(url, deadline):
                     yield SimpleNamespace(geturl=lambda: url.full_url, length=None, headers={},
                                           read1=Mock(side_effect=[page('').encode(), b'']))
 
                 opener = SimpleNamespace(open=Mock(side_effect=response))
                 with patch('order_http.monotonic', side_effect=lambda: current[0]), \
                      patch.dict('sys.modules', fs_order_client=SimpleNamespace(fill_jar=fill_jar)), \
-                     patch('order_http.build_opener', return_value=opener):
+                     patch('order_http.OrderTransport', return_value=opener):
                     pages = OrderHTTP().iter_delivery_pages({}, max_pages=1, deadline=15)
                     if expected is None:
                         self.assertEqual(list(pages), [])
@@ -456,4 +532,4 @@ class OrderHTTPTests(unittest.TestCase):
                         opener.open.assert_not_called()
                     else:
                         self.assertEqual(len(list(pages)), 1)
-                        self.assertEqual(opener.open.call_args.kwargs['timeout'], expected)
+                        self.assertEqual(opener.open.call_args.args[1] - current[0], expected)
