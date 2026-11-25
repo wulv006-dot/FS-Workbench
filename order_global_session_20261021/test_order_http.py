@@ -5,6 +5,8 @@ from http.client import HTTPConnection, HTTPSConnection, IncompleteRead
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
 from hashlib import sha256
+import gzip
+import zlib
 import json
 from pathlib import Path
 import re
@@ -60,8 +62,11 @@ class OrderHTTPTests(unittest.TestCase):
 
     def test_delivery_export_reuses_callers_session_and_refreshes_shared_cookie_jar(self):
         body = '<table class="table-list"><tbody><tr><td>暂无数据</td></tr></tbody></table>'
-        session = SimpleNamespace(cookies=object(), get=Mock(side_effect=lambda url, **kwargs:
-            nullcontext(SimpleNamespace(url=url, status_code=200, content=body.encode()))))
+        def get(url, **kwargs):
+            raw = SimpleNamespace(length_remaining=None, read=Mock(side_effect=[body.encode(), b'']))
+            return nullcontext(SimpleNamespace(url=url, status_code=200, headers={}, raw=raw))
+
+        session = SimpleNamespace(cookies=object(), get=Mock(side_effect=get))
         broker = SimpleNamespace(fill_jar=Mock())
         with patch.dict('sys.modules', {'fs_order_client': broker}):
             reader = OrderHTTP.from_order_session(session)
@@ -104,6 +109,51 @@ class OrderHTTPTests(unittest.TestCase):
         for row in release['files'] + consumers['files']:
             data = (root / row['source']).read_bytes().replace(b'\r\n', b'\n')
             self.assertEqual(sha256(data).hexdigest(), row['sha256'], row['source'])
+
+    def test_http_reads_bound_compressed_and_decoded_responses(self):
+        html = page('<tr><td>7</td><td>订单发货</td></tr>').encode()
+        large = html + b' ' * 512
+        cases = [
+            ('gzip', gzip.compress(html), None),
+            ('deflate', zlib.compress(html), None),
+            ('br', html, 'response_encoding_unsupported'),
+            ('identity', large, 'response_too_large'),
+            ('gzip', gzip.compress(large), 'response_too_large'),
+            ('gzip', gzip.compress(html)[:-4], 'response_compression_invalid'),
+        ]
+        for pooled in (False, True):
+            for encoding, wire, error in cases:
+                with self.subTest(pooled=pooled, encoding=encoding, error=error):
+                    def respond(url, **kwargs):
+                        headers = {'Content-Encoding': encoding}
+                        if pooled:
+                            self.assertEqual(kwargs['headers']['Accept-Encoding'], 'gzip, deflate')
+                            self.assertTrue(kwargs['stream'])
+                        else:
+                            self.assertEqual(url.get_header('Accept-encoding'), 'gzip, deflate')
+                            url = url.full_url
+                        source = BytesIO(wire)
+                        def read(size, **kwargs):
+                            if pooled:
+                                self.assertFalse(kwargs['decode_content'])
+                            return source.read(size)
+                        return nullcontext(SimpleNamespace(
+                            url=url, geturl=lambda: url, status_code=200, headers=headers,
+                            length=None, read1=read,
+                            raw=SimpleNamespace(length_remaining=None, read=read)))
+
+                    with patch.dict('sys.modules', fs_order_client=SimpleNamespace(fill_jar=Mock())), \
+                         patch('order_http.build_opener', return_value=SimpleNamespace(open=respond)), \
+                         patch('order_http.RESPONSE_LIMIT', 256, create=True):
+                        reader = OrderHTTP.from_order_session(
+                            SimpleNamespace(get=respond, cookies=object())) if pooled else OrderHTTP()
+                        if error:
+                            with self.assertRaisesRegex(OrderReadError, error):
+                                reader.delivery_page({}, timeout=1)
+                        else:
+                            result = reader.delivery_page({}, timeout=1)
+                            self.assertEqual(result.rows[0]['编号'], '7')
+                            self.assertEqual(result.raw_sha256, sha256(html).hexdigest())
 
     def test_dripped_headers_and_body_share_request_deadline(self):
         prefix = b'HTTP/1.1 200 OK\r\nContent-Length: 9'
@@ -290,7 +340,7 @@ class OrderHTTPTests(unittest.TestCase):
     def test_login_loss_reacquires_shared_session_on_next_request(self):
         @contextmanager
         def response(body, url):
-            yield SimpleNamespace(geturl=lambda: url.full_url, length=None,
+            yield SimpleNamespace(geturl=lambda: url.full_url, length=None, headers={},
                                   read1=Mock(side_effect=[body.encode(), b'']))
 
         login = '<input name="password">'
@@ -392,7 +442,7 @@ class OrderHTTPTests(unittest.TestCase):
 
                 @contextmanager
                 def response(url, timeout):
-                    yield SimpleNamespace(geturl=lambda: url.full_url, length=None,
+                    yield SimpleNamespace(geturl=lambda: url.full_url, length=None, headers={},
                                           read1=Mock(side_effect=[page('').encode(), b'']))
 
                 opener = SimpleNamespace(open=Mock(side_effect=response))

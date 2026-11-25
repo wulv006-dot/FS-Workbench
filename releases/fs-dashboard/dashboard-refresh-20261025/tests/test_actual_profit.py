@@ -2,6 +2,8 @@
 import copy,hashlib,json,os,sys,tempfile,threading,time,unittest
 from contextlib import nullcontext
 from datetime import datetime,timezone
+from gzip import compress
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock,patch
@@ -38,8 +40,14 @@ class ActualProfit(unittest.TestCase):
                'RS','1','0','35','35','70','50%','','','','','已结算','']
         html='<table class="table-list"><thead><tr><th>商户订单号</th></tr></thead><tbody><tr>'+''.join('<td>'+x+'</td>' for x in cells)+'</tr></tbody></table>'
         def response(url, **kwargs):
+            self.assertEqual(kwargs['headers']['Accept-Encoding'], 'gzip, deflate')
+            self.assertTrue(kwargs['stream'])
+            wire = compress(html.encode('utf-8'))
+            source = BytesIO(wire)
+            raw = SimpleNamespace(length_remaining=len(wire),
+                                  read=lambda size, *, decode_content: source.read(size))
             return nullcontext(SimpleNamespace(url=url, status_code=status, reason='fixture',
-                                               headers={}, content=html.encode('utf-8')))
+                                               headers={'Content-Encoding': 'gzip'}, raw=raw))
 
         status=200
         fetch=Mock(side_effect=response)

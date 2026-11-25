@@ -299,11 +299,14 @@ ORDER_COST_FC_BASELINES = {
     'source/hermes-copy/fc_pricing_v3/business_source.py': 'f1b86fc89b947425b84eba2d7cdcd4ac9f316cf83b2f4e1b6da8a2082773eef5',
 }
 ORDER_HTTP_COST_REPOSITORY_SOURCES = {
+    'source/order_http.py': 'order_global_session_20261021/order_http.py',
     'source/collect_p2pah_cost.py':
         'releases/fc-coins/fc-pricing-v3-20261026/source/collect_p2pah_cost.py',
     'source/collect_p2pah_cost.sh': CURVE_STABILITY_REPOSITORY_SOURCES['source/collect_p2pah_cost.sh'],
 }
+# Live CAS pins. The candidate reader digest comes from the staged Git blob.
 ORDER_HTTP_COST_BASELINES = {
+    'source/order_http.py': 'ff4525e522f9935f33d9927a313d1f05cecf5211cd718cd630eeb27c9b15fe60',
     'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',
     'source/collect_p2pah_cost.sh': '6fe775b14dafea86aa3cdedf5e64b5b81e0ce84d0114142a96413a8477f8fef7',
 }
@@ -372,6 +375,7 @@ CURVE_RECOVERY_TARGETS = {
         **module_targets(('business_source.py',)),
     },
     'order-http-cost': {
+        'order_http.py': '/opt/fs-order-session/order_http.py',
         'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
         'collect_p2pah_cost.sh': '/opt/fc27-cloud-browser/collect_p2pah_cost.sh',
     },

@@ -1288,7 +1288,7 @@ def main():
         elif group=="admin-session-continuity":
             units("admin_session_continuity_20261021",["test_continuity"])
             units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
-        elif group=="order-global-session":units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch","test_order_http"])
+        elif group=="order-global-session":units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch","test_order_http","test_real_tables"])
         elif group=="sales-system":
             units("shared_backend_session",["test_sales_regions","test_history_db"])
             node("releases/sales/system-20261105/test_ui.cjs")

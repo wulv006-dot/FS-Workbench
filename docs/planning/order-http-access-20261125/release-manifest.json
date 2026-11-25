@@ -5,25 +5,25 @@
     {
       "source": "order_global_session_20261021/service.py",
       "target": "/opt/fs-order-session/service.py",
-      "beforeSha256": "35b950f23ba45d662b755ef33f415e7ca22c749331baad4fd43de04aa59e76b0",
-      "sha256": "caa19bce1b27de3409520d2b62849d22d7c5d802f8ce7b56f153844c9e5f35c6"
+      "beforeSha256": "34f90debc892dfb54fc33519c8b84344f6a8a9e6aef01d8b223c907a32baac6d",
+      "sha256": "ef31db881607ad0e172c2756d393e403fa475c69646ba504bfb9ffd311967e41"
     },
     {
       "source": "order_global_session_20261021/client.py",
       "target": "/opt/fs-order-session/fs_order_client.py",
-      "beforeSha256": "981439c5e07f4cf849c48b644d8f413d5705a75988dfaa441535fdaa76096dad",
+      "beforeSha256": "9080a04bf51614bec8fb5c5b51eb90f9db047dbe933a1bcc88878f7ab066e3a3",
       "sha256": "9080a04bf51614bec8fb5c5b51eb90f9db047dbe933a1bcc88878f7ab066e3a3"
     },
     {
       "source": "order_global_session_20261021/order_http.py",
       "target": "/opt/fs-order-session/order_http.py",
-      "beforeSha256": null,
-      "sha256": "ff4525e522f9935f33d9927a313d1f05cecf5211cd718cd630eeb27c9b15fe60"
+      "beforeSha256": "ff4525e522f9935f33d9927a313d1f05cecf5211cd718cd630eeb27c9b15fe60",
+      "sha256": "9ac00d8a5dcb5ae5f06245392f89cefe51b536f4ad054d0eb5545ea7b9724c45"
     },
     {
       "source": "order_global_session_20261021/fs-order-session.service",
       "target": "/etc/systemd/system/fs-order-session.service",
-      "beforeSha256": "99c53780e64b16691c6c816456485d481796f67aca16c64978fbac464cb071e5",
+      "beforeSha256": "fa1e62e9bf51244846385559dbed20c9a9781542ce71bbd538b84dbe0bd70841",
       "sha256": "fa1e62e9bf51244846385559dbed20c9a9781542ce71bbd538b84dbe0bd70841"
     }
   ],

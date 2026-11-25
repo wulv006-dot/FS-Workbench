@@ -1,11 +1,12 @@
 """One Order session owner with an in-memory HTTP cookie jar."""
 from collections import deque
 from datetime import datetime, timezone
+from gzip import GzipFile
 from html.parser import HTMLParser
 from http.client import HTTPException, HTTPResponse, HTTPSConnection, IncompleteRead
 from http.cookiejar import CookieJar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from io import BufferedReader, RawIOBase
+from io import BufferedReader, BytesIO, RawIOBase
 import json
 import os
 from pathlib import Path
@@ -22,6 +23,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import (HTTPCookieProcessor, HTTPRedirectHandler, HTTPSHandler,
                             ProxyHandler, Request, build_opener)
+import zlib
 
 SOCKETS = ('/run/fs-order-session/session.sock',
            '/var/lib/fc27-cloud/browser/lootbar/fs-order-session.sock',
@@ -243,7 +245,8 @@ class Session:
         return {'ready': False, 'cookies': [], 'error': error}
 
     def request(self, path, deadline, form=None, referer='/admin'):
-        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': BASE + referer}
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': BASE + referer,
+                   'Accept-Encoding': 'gzip, deflate'}
         data = None
         if form is not None:
             headers.update({'Origin': BASE, 'X-Requested-With': 'XMLHttpRequest'})
@@ -266,7 +269,12 @@ class Session:
                     raise error.reason from error
                 raise
             with response:
+                encoding = response.headers.get('Content-Encoding', '').strip().lower()
+                if encoding not in ('', 'identity', 'gzip', 'deflate'):
+                    raise HTTPException('order_response_encoding_unsupported')
                 expected = getattr(response, 'length', None)
+                if expected is not None and expected > RESPONSE_LIMIT:
+                    raise HTTPException('order_response_too_large')
                 payload = bytearray()
                 while True:
                     if time.monotonic() >= deadline:
@@ -278,10 +286,27 @@ class Session:
                         break
                     payload.extend(chunk)
                     if len(payload) > RESPONSE_LIMIT:
-                        raise ValueError('order_response_too_large')
+                        raise HTTPException('order_response_too_large')
                 if expected is not None and len(payload) != expected:
                     raise IncompleteRead(b'', expected - len(payload))
-                return response.status, response.headers, bytes(payload)
+                try:
+                    if encoding == 'gzip':
+                        with GzipFile(fileobj=BytesIO(payload)) as source:
+                            body = source.read(RESPONSE_LIMIT + 1)
+                    elif encoding == 'deflate':
+                        decoder = zlib.decompressobj()
+                        body = decoder.decompress(payload, RESPONSE_LIMIT + 1)
+                        if len(body) <= RESPONSE_LIMIT and (not decoder.eof or decoder.unused_data):
+                            raise HTTPException('order_response_compression_invalid')
+                    else:
+                        body = bytes(payload)
+                except (OSError, EOFError, zlib.error) as error:
+                    raise HTTPException('order_response_compression_invalid') from error
+                if time.monotonic() >= deadline:
+                    raise TimeoutError()
+                if len(body) > RESPONSE_LIMIT:
+                    raise HTTPException('order_response_too_large')
+                return response.status, response.headers, body
         finally:
             if post_maybe_sent:
                 # Age the budget from completion so network delay cannot let an

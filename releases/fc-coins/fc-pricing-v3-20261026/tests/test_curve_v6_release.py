@@ -184,18 +184,24 @@ class CurveV6Release(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'order_cost_channel_baseline_drift'):
                     build_stage.build(ROOT, output, curve_recovery='order-cost', order_cost_channel_baseline=live)
 
-    def test_order_http_cost_prepares_only_the_two_collectors_from_the_live_baseline(self):
+    def test_order_http_cost_prepares_shared_reader_and_collectors_from_the_live_baseline(self):
         key = 'order-http-cost'
         expected_sources = {
+            'source/order_http.py': 'order_global_session_20261021/order_http.py',
             'source/collect_p2pah_cost.py': RELEASE + '/source/collect_p2pah_cost.py',
             'source/collect_p2pah_cost.sh':
                 'releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh',
         }
         before = {
+            'source/order_http.py': 'ff4525e522f9935f33d9927a313d1f05cecf5211cd718cd630eeb27c9b15fe60',
             'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',
             'source/collect_p2pah_cost.sh': '6fe775b14dafea86aa3cdedf5e64b5b81e0ce84d0114142a96413a8477f8fef7',
         }
-        expected_targets = {name: '/opt/fc27-cloud-browser/' + Path(name).name for name in expected_sources}
+        expected_targets = {
+            'source/order_http.py': '/opt/fs-order-session/order_http.py',
+            'source/collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
+            'source/collect_p2pah_cost.sh': '/opt/fc27-cloud-browser/collect_p2pah_cost.sh',
+        }
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             output = root / 'cost.tar.gz'
@@ -203,7 +209,7 @@ class CurveV6Release(unittest.TestCase):
                  patch.object(build_stage, 'git_blob', side_effect=lambda _, path, rev:
                               path.read_bytes().replace(b'\r\n', b'\n')):
                 built = build_stage.build(ROOT, output, curve_recovery=key)
-            self.assertEqual(built['targets'], 2)
+            self.assertEqual(built['targets'], 3)
             self.assertTrue(set(expected_sources.values()) <= set(git.call_args.args[0]))
             with tarfile.open(output) as bundle:
                 bundle.extractall(root, filter='data')
@@ -218,6 +224,12 @@ class CurveV6Release(unittest.TestCase):
                 after[name] = hashlib.sha256(payload).hexdigest()
                 self.assertNotEqual(before[name], after[name])
             self.assertEqual(provenance['files'], after)
+            shared_release = json.loads(
+                (ROOT / 'docs/planning/order-http-access-20261125/release-manifest.json').read_bytes())
+            shared_reader = next(row for row in shared_release['files']
+                                 if row['target'] == expected_targets['source/order_http.py'])
+            self.assertEqual(shared_reader['beforeSha256'], before['source/order_http.py'])
+            self.assertEqual(shared_reader['sha256'], after['source/order_http.py'])
 
             live_hashes = {Path(target): before[name] for name, target in expected_targets.items()}
 
@@ -237,7 +249,7 @@ class CurveV6Release(unittest.TestCase):
                 path = Path(value)
                 if path in live_hashes:
                     return SimpleNamespace(exists=lambda: True, parents=path.parents, digest=live_hashes[path],
-                                           stat=lambda: SimpleNamespace(st_uid=0, st_gid=0, st_mode=0o755))
+                                           stat=lambda: SimpleNamespace(st_uid=0, st_gid=0, st_mode=0o644 if path.name == 'order_http.py' else 0o755))
                 return path
 
             real_sha = prepare.sha
@@ -256,7 +268,7 @@ class CurveV6Release(unittest.TestCase):
                     prepare.prepare(curve_recovery=key)
                 source_manifest.write_text(json.dumps(provenance), encoding='utf-8')
                 result = prepare.prepare(curve_recovery=key)
-            self.assertEqual((result['files'], result['existing'], result['new']), (2, 2, 0))
+            self.assertEqual((result['files'], result['existing'], result['new']), (3, 3, 0))
             self.assertEqual(result['inspect']['sourceCAS'], 'passed')
             self.assertFalse(result['inspect']['mutations'])
             manifest = json.loads((stage / 'approved-manifest.json').read_bytes())
