@@ -1,11 +1,13 @@
 import io
+import gzip
+import zlib
 import json
 import socket
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from http.cookiejar import Cookie
-from http.client import IncompleteRead
+from http.client import HTTPException, IncompleteRead
 from threading import Event
 import unittest
 from unittest.mock import Mock, patch
@@ -487,6 +489,34 @@ class HTTPTests(unittest.TestCase):
                 self.outcome = (200, html)
                 self.assertEqual(self.session.get()['error'], 'order_identity_unverified')
                 self.assertEqual(self.posts, [])
+
+    def test_probe_http_decodes_and_bounds_compressed_responses(self):
+        body = HOME.encode()
+        large = body + b' ' * 512
+        for encoding, wire, error in (
+            ('gzip', gzip.compress(body), None),
+            ('deflate', zlib.compress(body), None),
+            ('br', body, 'order_response_encoding_unsupported'),
+            ('identity', large, 'order_response_too_large'),
+            ('gzip', gzip.compress(large), 'order_response_too_large'),
+            ('deflate', zlib.compress(body)[:-2], 'order_response_compression_invalid'),
+        ):
+            with self.subTest(encoding=encoding, error=error):
+                response = io.BytesIO(wire)
+                response.status = 200
+                response.headers = {'Content-Encoding': encoding}
+                self.session.opener.open.reset_mock(side_effect=True)
+                self.session.opener.open.return_value = response
+                with patch.object(service, 'RESPONSE_LIMIT', 256):
+                    if error:
+                        with self.assertRaisesRegex(HTTPException, error):
+                            self.session.request(service.PROBE_PATH, time.monotonic() + 1)
+                    else:
+                        status, _, payload = self.session.request(service.PROBE_PATH, time.monotonic() + 1)
+                        self.assertEqual((status, payload), (200, body))
+                request = self.session.opener.open.call_args.args[0]
+                self.assertEqual(request.get_header('Accept-encoding'), 'gzip, deflate')
+                self.assertEqual(self.session.login_attempts, 0)
 
     def test_slow_probe_body_releases_waiters_and_never_posts(self):
         reading = Event()

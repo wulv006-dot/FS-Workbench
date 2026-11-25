@@ -304,6 +304,7 @@ ORDER_HTTP_COST_REPOSITORY_SOURCES = {
         'releases/fc-coins/fc-pricing-v3-20261026/source/collect_p2pah_cost.py',
     'source/collect_p2pah_cost.sh': CURVE_STABILITY_REPOSITORY_SOURCES['source/collect_p2pah_cost.sh'],
 }
+# Live CAS pins. The candidate reader digest comes from the staged Git blob.
 ORDER_HTTP_COST_BASELINES = {
     'source/order_http.py': 'ff4525e522f9935f33d9927a313d1f05cecf5211cd718cd630eeb27c9b15fe60',
     'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',

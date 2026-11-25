@@ -8,7 +8,7 @@
     },
     {
       "target": "/opt/fs-order-session/order_http.py",
-      "sha256": "8cda9eaba285e1984f80d566f0e98a50d32861d16e6545a8cbdbd2295d03af16"
+      "sha256": "9ac00d8a5dcb5ae5f06245392f89cefe51b536f4ad054d0eb5545ea7b9724c45"
     }
   ],
   "files": [

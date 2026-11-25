@@ -224,6 +224,12 @@ class CurveV6Release(unittest.TestCase):
                 after[name] = hashlib.sha256(payload).hexdigest()
                 self.assertNotEqual(before[name], after[name])
             self.assertEqual(provenance['files'], after)
+            shared_release = json.loads(
+                (ROOT / 'docs/planning/order-http-access-20261125/release-manifest.json').read_bytes())
+            shared_reader = next(row for row in shared_release['files']
+                                 if row['target'] == expected_targets['source/order_http.py'])
+            self.assertEqual(shared_reader['beforeSha256'], before['source/order_http.py'])
+            self.assertEqual(shared_reader['sha256'], after['source/order_http.py'])
 
             live_hashes = {Path(target): before[name] for name, target in expected_targets.items()}
 

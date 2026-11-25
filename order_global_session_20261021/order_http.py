@@ -2,11 +2,12 @@
 """Read-only HTTP access to the shared Order session."""
 from contextlib import contextmanager
 from dataclasses import dataclass
+from gzip import GzipFile
 from hashlib import sha256
 from html.parser import HTMLParser
 from http.client import HTTPResponse, HTTPSConnection, IncompleteRead
 from http.cookiejar import CookieJar
-from io import BufferedReader, RawIOBase
+from io import BufferedReader, BytesIO, RawIOBase
 import json
 import re
 import socket
@@ -16,8 +17,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit
 from urllib.request import (HTTPCookieProcessor, HTTPRedirectHandler, HTTPSHandler,
                             ProxyHandler, Request, build_opener)
+import zlib
 
 BASE = 'https://order.p2pah.cn'
+ACCEPT_ENCODING = {'Accept-Encoding': 'gzip, deflate'}
+RESPONSE_LIMIT = 1048576
 DELIVERY = '/order/admin_delivery/index.html'
 DETAIL = '/order/admin_order/look/id/{}.html'
 DETAIL_LINK = re.compile(r'/order/admin_order/look/id/([0-9]+)\.html')
@@ -257,6 +261,43 @@ def remaining_time(deadline):
     return remaining
 
 
+def read_body(read, headers, expected, deadline):
+    encoding = headers.get('Content-Encoding', '').strip().lower()
+    if encoding not in ('', 'identity', 'gzip', 'deflate'):
+        raise OrderReadError('response_encoding_unsupported')
+    if expected is not None and expected > RESPONSE_LIMIT:
+        raise OrderReadError('response_too_large')
+    wire = bytearray()
+    while True:
+        remaining_time(deadline)
+        chunk = read(min(65536, RESPONSE_LIMIT + 1 - len(wire)))
+        if not chunk:
+            break
+        wire.extend(chunk)
+        if len(wire) > RESPONSE_LIMIT:
+            raise OrderReadError('response_too_large')
+    remaining_time(deadline)
+    if expected is not None and len(wire) != expected:
+        raise IncompleteRead(b'', expected - len(wire))
+    try:
+        if encoding == 'gzip':
+            with GzipFile(fileobj=BytesIO(wire)) as source:
+                body = source.read(RESPONSE_LIMIT + 1)
+        elif encoding == 'deflate':
+            decoder = zlib.decompressobj()
+            body = decoder.decompress(wire, RESPONSE_LIMIT + 1)
+            if len(body) <= RESPONSE_LIMIT and (not decoder.eof or decoder.unused_data):
+                raise OrderReadError('response_compression_invalid')
+        else:
+            body = bytes(wire)
+    except (OSError, EOFError, zlib.error) as error:
+        raise OrderReadError('response_compression_invalid') from error
+    remaining_time(deadline)
+    if len(body) > RESPONSE_LIMIT:
+        raise OrderReadError('response_too_large')
+    return body
+
+
 def is_timeout(error):
     if isinstance(error, URLError):
         error = error.reason
@@ -322,14 +363,28 @@ class OrderHTTP:
         def fetch(path, timeout):
             from fs_order_client import fill_jar
 
+            deadline = monotonic() + timeout
             fill_jar(session.cookies, timeout=min(40, timeout))
-            with session.get(BASE + path, timeout=timeout, allow_redirects=False) as response:
+            with session.get(BASE + path, headers=ACCEPT_ENCODING, stream=True,
+                             timeout=remaining_time(deadline), allow_redirects=False) as response:
                 status = response.status_code
                 if 300 <= status < 400 and login_url(response.headers.get('Location', '')):
                     raise OrderReadError('login_lost', status=status)
                 if status != 200:
                     raise HTTPError(response.url, status, response.reason, response.headers, None)
-                return response.url, response.content
+                def read(size):
+                    try:
+                        return response.raw.read(size, decode_content=False)
+                    except Exception as error:
+                        # requests wraps these as OSError when consuming response.content.
+                        # The raw stream is needed here to bound compressed bytes too.
+                        from urllib3.exceptions import HTTPError as PoolHTTPError
+                        if not isinstance(error, PoolHTTPError):
+                            raise
+                        raise OSError('order_response_transport') from error
+
+                return response.url, read_body(read, response.headers,
+                                               response.raw.length_remaining, deadline)
 
         return cls(fetch)
 
@@ -364,21 +419,13 @@ class OrderHTTP:
             if opener is None:
                 url, raw = self._fetch(path, remaining_time(deadline))
             else:
-                request = Request(BASE + path)
+                request = Request(BASE + path, headers=ACCEPT_ENCODING)
                 request.deadline = deadline
                 with opener.open(request, timeout=remaining_time(deadline)) as response:
                     url = response.geturl()
-                    expected = response.length
-                    body = bytearray()
-                    while True:
-                        remaining_time(deadline)
-                        chunk = response.read1(65536)
-                        if not chunk:
-                            break
-                        body.extend(chunk)
-                    if expected is not None and len(body) != expected:
-                        raise IncompleteRead(b'', expected - len(body))
-                    raw = bytes(body)
+                    raw = read_body(response.read1, response.headers, response.length, deadline)
+            if len(raw) > RESPONSE_LIMIT:
+                raise OrderReadError('response_too_large')
             remaining_time(deadline)
             try:
                 root = Document(raw.decode('utf-8-sig')).root
