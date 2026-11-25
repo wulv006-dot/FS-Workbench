@@ -8,7 +8,7 @@ from statistics import median
 
 from .financial import fingerprint, instant
 from .price_curve import (COIN_BAND_ANCHORS, FORWARD_TIER_EDIT, TWO_BAND_PRICE_EDIT, coin_quantity_band,
-                          compile_curve, curve_key, quote_native, read_curve)
+                          compile_curve, curve_key, quote_native, read_curve, two_band_unit_price)
 from .pricing_proof_v6 import CONTRACT as PROOF_CONTRACT, FAILED, INCOMPLETE, PROVEN
 from .admin_readback import GID_FC27, MID_FC27_COINS, PLATFORM_AID, SITE_MAIN
 
@@ -339,8 +339,10 @@ def _repair_rank(current, target, affected_segments):
     new_unit = Decimal(target['unit_price_usd_per_k'])
     forward = target['native_contract'].get('price_edit_policy') == FORWARD_TIER_EDIT
     two_band = target['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
+    # Two-band unit_price is derived from the large tiers, so the tier checks cover it.
     if (current['identity'] != target['identity'] or _shape(current) != _shape(target)
-            or new_unit < old_unit or not forward and new_unit != old_unit and 'small' not in affected_segments):
+            or not two_band and (new_unit < old_unit
+                                 or not forward and new_unit != old_unit and 'small' not in affected_segments)):
         return None
     moves = {}
     for before, after in zip(current['tiers'], target['tiers']):
@@ -411,7 +413,9 @@ def _group(quantity):
 
 def segment_terms(curve, segment):
     tiers = [tier for tier in curve['tiers'] if _group(tier['purchase_k']) == segment]
-    return dict(tiers=tiers, unit_price_usd_per_k=curve['unit_price_usd_per_k'] if segment == 'small' else None)
+    # Two-band unit_price is derived from the large tiers, not a separate term.
+    owns_unit = segment == 'small' and curve['native_contract'].get('price_edit_policy') != TWO_BAND_PRICE_EDIT
+    return dict(tiers=tiers, unit_price_usd_per_k=curve['unit_price_usd_per_k'] if owns_unit else None)
 
 
 def segment_changes(before, after):
@@ -454,6 +458,10 @@ def update_reference_segments(reference, confirmed, segments, reference_id, rece
             index = row['native_index']
             for field in ('price', 'discount'):
                 more[field][index] = old_more[field][index]
+    if confirmed['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT:
+        large = next(row for row in confirmed['tiers'] if row['purchase_k'] == ANCHORS['large'])
+        payload['unit_price'] = float(two_band_unit_price(
+            [dict(large, native_price_usd=more['price'][large['native_index']])]))
     if not isinstance(raw, dict):
         payload['more'] = json.dumps(more, ensure_ascii=False, separators=(',', ':'))
     baseline = (confirmed if payload == confirmed['native_payload'] else

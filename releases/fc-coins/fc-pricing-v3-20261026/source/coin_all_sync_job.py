@@ -268,7 +268,8 @@ def curve_catalog_plan(bundle, platform, capability):
     from fc_pricing_v3.financial import fingerprint
     from fc_pricing_v3.price_curve import (COIN_BAND_ANCHORS, EDITOR_ASSET_SHA256, EDITOR_HANDLER_SHA256,
         FORWARD_TIER_EDIT, TWO_BAND_PRICE_EDIT, _editor_discount_input, _editor_price,
-        _editor_price_derived_factor, band_price_usd, coin_quantity_band, curve_key, read_curve)
+        _editor_price_derived_factor, band_price_usd, coin_quantity_band, curve_key, read_curve,
+        two_band_unit_price)
     from fc_pricing_v3.pricing_proof_v6 import CONTRACT, PROVEN, DOMAIN_REVISIONS
 
     before = bundle['before_action']['curves'][platform]
@@ -306,8 +307,8 @@ def curve_catalog_plan(bundle, platform, capability):
     if protected(before_row, tier_price_factors=tier_price_factors) != protected(
             target_row, tier_price_factors=tier_price_factors):
         raise ValueError('pricing_curve_non_price_field_changed')
-    if two_band and before['unit_price_usd_per_k'] != target['unit_price_usd_per_k']:
-        raise ValueError('pricing_curve_two_band_unit_price_changed')
+    if two_band and target['unit_price_usd_per_k'] != two_band_unit_price(target['tiers']):
+        raise ValueError('pricing_curve_two_band_unit_price_unsynced')
     if two_band and not restore:
         for anchor in COIN_BAND_ANCHORS.values():
             tiers = [(old,new) for old,new in zip(before['tiers'],target['tiers'])

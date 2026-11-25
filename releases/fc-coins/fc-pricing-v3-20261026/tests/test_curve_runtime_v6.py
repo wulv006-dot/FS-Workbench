@@ -212,7 +212,8 @@ class CurveRuntime(unittest.TestCase):
         self.prepare()
         current, reference, episode = fixture()
         editor = dict(current['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
-        current = read_curve(current['native_payload'], current['identity'], editor)
+        stale = read_curve(current['native_payload'], current['identity'], editor)
+        current = read_curve(dict(current['native_payload'], unit_price='0.095'), current['identity'], editor)
         all_row = dict(current['native_payload'], id=writer.PRODUCTS[PLATFORM][0], site_id=0)
         before = read_curve(all_row, dict(current['identity'], id=all_row['id'], site_id=0), editor)
         def inputs(curve):
@@ -271,6 +272,20 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(shadow['status'], 'KEEP' if loot is None else 'READY', shadow)
             self.assertEqual(shadow['would_write'], loot is not None)
             self.assertEqual(shadow['plan_revision'], 4)
+            if loot is None:
+                # Same prices, stale unit_price: the hold round must still write the 1000K rate.
+                stale_all = dict(stale['native_payload'], id=all_row['id'], site_id=0)
+                stale_entry = dict(deepcopy(actual_entry), primary_curve=stale, all_before=read_curve(
+                    stale_all, dict(stale['identity'], id=all_row['id'], site_id=0), editor))
+                with patch.object(writer, 'curve_writer_capabilities', return_value=self.capabilities):
+                    runtime._freeze_anchor_shadow(PLATFORM, stale_entry, inputs, dict(reference=reference, episode=episode),
+                        old_plan, dict(run_id='source', competitor_offers=[]), now, {})
+                stale_shadow = stale_entry.pop('anchor_shadow')
+                self.assertEqual(stale_shadow['status'], 'READY', stale_shadow)
+                self.assertTrue(stale_shadow['would_write'])
+                self.assertEqual(stale_shadow['target_curve']['unit_price_usd_per_k'], '0.095')
+                self.assertEqual([row['native_price_usd'] for row in stale_shadow['target_curve']['tiers']],
+                                 [row['native_price_usd'] for row in stale['tiers']])
 
     def test_market_anchor_plan_selects_both_bands_without_a_three_hour_trial(self):
         from test_curve_strategy_v6 import fixture
@@ -1025,6 +1040,7 @@ class CurveRuntime(unittest.TestCase):
         old = read(self.transport.rows[all_id])
         changed_row = deepcopy(old['native_payload'])
         changed_row['more']['price'] = ['10', '103', '154.50']
+        changed_row['unit_price'] = '0.103'
         changed = read(changed_row)
         self.bundle['before_action']['curves'][PLATFORM] = old
         self.bundle['action']['curves'][PLATFORM] = changed
