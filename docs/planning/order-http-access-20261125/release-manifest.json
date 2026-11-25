@@ -6,7 +6,7 @@
       "source": "order_global_session_20261021/service.py",
       "target": "/opt/fs-order-session/service.py",
       "beforeSha256": "34f90debc892dfb54fc33519c8b84344f6a8a9e6aef01d8b223c907a32baac6d",
-      "sha256": "ef31db881607ad0e172c2756d393e403fa475c69646ba504bfb9ffd311967e41"
+      "sha256": "f7b9e0005c0e33927a820e5432eeafe572f03aac07a109caf293054fa8b3df54"
     },
     {
       "source": "order_global_session_20261021/client.py",

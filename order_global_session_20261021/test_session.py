@@ -32,6 +32,7 @@ class SessionTests(unittest.TestCase):
         self.assertTrue(session.get()['ready'])
         self.assertEqual(len(calls), 1)
         session.checked = 0
+        session.last_ready_at -= service.TRANSPORT_GRACE + 1
         self.assertEqual(session.get(), {'ready': False, 'cookies': [], 'error': 'order_probe_unavailable'})
 
     def test_protected_home_rejects_anonymous_and_wrong_origin(self):
@@ -105,6 +106,37 @@ class SessionTests(unittest.TestCase):
                 self.assertEqual(session.get()['error'], 'order_probe_wait_timeout')
         finally:
             session.lock.release()
+
+    def test_transport_blip_keeps_last_ready_session(self):
+        # 187 saw 4 probe timeouts in 2 minutes while the session stayed valid;
+        # consumers must keep the cookies instead of failing the P0 round.
+        results = [{'ready': True, 'cookies': [{'name': 'PHPSESSID', 'value': 'x'}], 'error': None},
+                   {'ready': False, 'cookies': [], 'error': 'order_probe_transport_unavailable'}]
+        session = Session(lambda: results.pop(0))
+        self.assertTrue(session.get()['ready'])
+        session.checked -= 21
+        kept = session.get(refresh=True)
+        self.assertTrue(kept['ready'])
+        self.assertEqual(kept['cookies'], [{'name': 'PHPSESSID', 'value': 'x'}])
+        self.assertEqual(session.health()['degraded'], 'order_probe_transport_unavailable')
+        self.assertTrue(session.health()['ready'])
+
+    def test_transport_failure_beyond_grace_drops_ready(self):
+        results = [{'ready': True, 'cookies': [], 'error': None},
+                   {'ready': False, 'cookies': [], 'error': 'order_probe_transport_unavailable'}]
+        session = Session(lambda: results.pop(0))
+        session.get()
+        session.last_ready_at -= service.TRANSPORT_GRACE + 1
+        session.checked -= 21
+        self.assertEqual(session.get(refresh=True)['error'], 'order_probe_transport_unavailable')
+
+    def test_identity_failure_is_not_masked_by_grace(self):
+        results = [{'ready': True, 'cookies': [], 'error': None},
+                   {'ready': False, 'cookies': [], 'error': 'order_identity_unverified'}]
+        session = Session(lambda: results.pop(0))
+        session.get()
+        session.checked -= 21
+        self.assertEqual(session.get(refresh=True)['error'], 'order_identity_unverified')
 
     def test_identity_failure_immediately_drops_ready(self):
         session = Session(lambda: {'ready': False, 'cookies': [], 'error': 'order_identity_unverified'})
@@ -302,6 +334,27 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(len(self.probes), 2)
         self.assertEqual(len(self.posts), 1)
 
+    def test_confirmed_expiry_is_not_revived_by_renewal_transport_failure(self):
+        self.cookie('PHPSESSID')
+        self.outcome = (200, HOME)
+        self.assertTrue(self.session.get(refresh=True)['ready'])
+        self.session.checked -= 21
+        self.outcome = (200, LOGIN)
+        self.replies = [{'code': 1}]
+        real_check = self.session.check_identity
+        calls = []
+
+        def check(deadline):
+            calls.append(1)
+            if len(calls) == 1:
+                return real_check(deadline)
+            return 'order_probe_transport_unavailable'
+
+        with patch.object(self.session, 'check_identity', side_effect=check):
+            result = self.session.get(refresh=True)
+        self.assertFalse(result['ready'])
+        self.assertIsNone(self.session.health()['degraded'])
+
     def test_external_loss_after_valid_is_logged_once_per_session(self):
         self.replies = [{'code': 1}, {'code': 1}]
         clock = [100]
@@ -313,7 +366,9 @@ class HTTPTests(unittest.TestCase):
 
             clock[0] += 21
             self.outcome = (503, '')
-            self.assertFalse(self.session.get(refresh=True)['ready'])
+            # A transport blip keeps the last ready session (degraded), no loss counted.
+            self.assertTrue(self.session.get(refresh=True)['ready'])
+            self.assertEqual(self.session.health()['degraded'], 'order_probe_transport_unavailable')
             self.assertEqual(self.session.health()['sessions_lost_externally'], 0)
 
             clock[0] += 21
