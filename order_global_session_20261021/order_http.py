@@ -287,7 +287,8 @@ class OrderHTTP:
             return DetailResult('found', goods, deliveries,
                                 log is not None and next(log.find('td', 'order-status-3'), None) is not None)
         except HTTPError as exc:
-            exc.close()
+            if exc.fp is not None:
+                exc.close()
             if exc.code == 404:
                 return DetailResult('not_found')
             return DetailResult('parse_failed', reason=f'http_{exc.code}')

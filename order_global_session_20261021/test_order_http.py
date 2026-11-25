@@ -25,6 +25,13 @@ class OrderHTTPTests(unittest.TestCase):
             raise HTTPError(path, 404, 'missing', {}, BytesIO())
         self.assertEqual(OrderHTTP(fetch).order_detail('123', timeout=1).status, 'not_found')
 
+    def test_http_error_without_body_is_classified_by_status(self):
+        def fetch(path, timeout):
+            raise HTTPError(path, 502, 'gateway error', {}, None)
+
+        detail = OrderHTTP(fetch).order_detail('123', timeout=1)
+        self.assertEqual((detail.status, detail.reason), ('parse_failed', 'http_502'))
+
     def test_detail_statuses(self):
         detail = (
             '<table class="look-goods-table"><tbody><tr data-pid="9" data-unit="K">'
