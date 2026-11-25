@@ -383,10 +383,18 @@ body.armory-embed #toast{background:#333240;color:#eae6f5;border:1px solid #6961
 #cartWork::backdrop{background:#08070cca}
 #cartWork h2{margin:0 0 .75rem;font:600 1.3rem/1.3 Roboto,Arial,sans-serif}
 #cartWork p,#cartWork li{line-height:1.5;font-size:.95rem;color:#d4cfdd}
-#cartWork ul{margin:0;padding-inline-start:1.2rem;max-height:9rem;overflow:auto}
+#cartWork ul{margin:0;padding:0;list-style:none;max-height:min(40vh,16rem);overflow:auto}
+#cartWork .receipt-line{display:flex;align-items:center;gap:.6rem;padding:.4rem 0;border-bottom:1px solid #37323d}
+.receipt-line img{object-fit:contain}
+.slot-image .photo-label{display:none}
+.slot-image .listing-photo{object-fit:contain}
+.receipt-line span{flex:1;min-width:0;overflow-wrap:anywhere}
+.receipt-line small{display:block}
+.receipt-line strong{white-space:nowrap;font-variant-numeric:tabular-nums}
 #cartWork progress{width:100%;height:.55rem;accent-color:#bea1e7;border:0;border-radius:1rem;overflow:hidden}
 #cartWork progress::-webkit-progress-bar{background:#39343f}
 #cartWork progress::-webkit-progress-value{background:#bea1e7;transition:width .2s linear}
+#cartWork progress[value="100"]::-webkit-progress-value{transition:none}
 #cartWork [hidden]{display:none}
 .work-actions{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin-top:1rem}
 .work-actions a{color:#ddc9f7}
