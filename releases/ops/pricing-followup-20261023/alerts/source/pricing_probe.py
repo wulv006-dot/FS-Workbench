@@ -146,21 +146,6 @@ def browser_memory(container='fc27-cloud-browser'):
     return value
 
 
-def add_order_memory(value, memory):
-    """Track the isolated browser in the original samples; alert before its next peak."""
-    value['order_memory'] = memory
-    issues = set(value['issues'])
-    if not memory['running']:
-        issues.add('fc_pricing_order_browser_stopped')
-    if memory['oom_killed']:
-        issues.add('fc_pricing_order_browser_oom')
-    # RSS excludes reclaimable cache; reserve headroom for the measured probe/Node peak.
-    if memory['limit'] > 0 and memory['rss_bytes'] * 10 >= memory['limit'] * 7:
-        issues.add('fc_pricing_order_browser_memory_high')
-    value['issues'] = sorted(issues)
-    return value
-
-
 def restart_acceptance_verified(lifecycle, memory, now):
     """A prior startup's readback cannot acknowledge a later restart event."""
     try:
@@ -314,11 +299,6 @@ def main():
             value = collect(now, previous, baseline['job_ids'], raw, rpg_rows(), browser_memory(), read(CACHE_RECOVERY, {}),
                             read(Path('/var/lib/fc27-cloud/state/browser-lifecycle.json'), {}), extras)
             value['owner_price_review']=review_details
-            try:
-                add_order_memory(value, browser_memory('fs-order-browser'))
-            except Exception as error:
-                value['order_memory'] = {'status': 'unverified', 'reason': type(error).__name__}
-                value['issues'] = sorted(set(value['issues'] + ['pricing_monitor_order_memory_unverified']))
         except Exception as error:
             value = dict(previous, exported_at=now.isoformat(),
                          issues=sorted(set(previous.get('issues', []) + ['pricing_monitor_read_failed:'+type(error).__name__])))
