@@ -1,10 +1,15 @@
 import io
 import json
+import socket
+import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from http.cookiejar import Cookie
+from http.client import IncompleteRead
 from threading import Event
 import unittest
 from unittest.mock import Mock, patch
+from urllib.parse import parse_qs
 
 import client
 import service
@@ -74,17 +79,20 @@ class SessionTests(unittest.TestCase):
 
 
 HOME = '<a href="/admin/public/logout.html">logout</a>'
-LOGIN = '<input type="password">'
+LOGIN = '<form action="/admin/public/dologin.html"><input type="password"></form>'
 PNG = b'\x89PNG\r\n\x1a\nsynthetic'
 
 
 class HTTPTests(unittest.TestCase):
+    real_recognize = staticmethod(service.recognize)
+
     def setUp(self):
         self.session = service.Session()
         self.posts = []
         self.probes = []
         self.replies = []
         self.probe_headers = {}
+        self.response_stream = io.BytesIO
         self.outcome = (200, LOGIN)
         self.session.opener.open = Mock(side_effect=self.respond)
         self.entered = Event()
@@ -125,7 +133,7 @@ class HTTPTests(unittest.TestCase):
                 self.cookie('admin_username')
                 self.outcome = (200, HOME)
             status, payload = 200, json.dumps(reply).encode()
-        response = io.BytesIO(payload)
+        response = self.response_stream(payload)
         response.status = status
         response.headers = self.probe_headers if path == service.PROBE_PATH else {}
         return response
@@ -138,6 +146,12 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual({row['name'] for row in result['cookies']},
                          {'PHPSESSID', 'user', 'admin_username'})
         self.assertEqual(len(self.probes), 2)
+        self.assertEqual(len(self.posts), 1)
+
+    def test_order_captcha_on_login_page_triggers_renewal(self):
+        self.outcome = (200, '<input type="password"><img src="/new_captcha.html?width=150">')
+        self.replies = [{'code': 1}]
+        self.assertTrue(self.session.get()['ready'])
         self.assertEqual(len(self.posts), 1)
 
     def test_known_login_redirect_triggers_renewal(self):
@@ -182,6 +196,177 @@ class HTTPTests(unittest.TestCase):
         with patch.object(service, 'ocr_attempts', return_value=2):
             self.assertEqual(self.session.get()['error'], 'order_captcha_attempts_exhausted')
         self.assertEqual(len(self.posts), 2)
+
+    def test_login_posts_are_bounded_across_cache_expirations(self):
+        self.replies = [{'code': 0, 'msg': '验证码错误'}] * 12
+        with patch.object(service.time, 'monotonic', return_value=100) as clock:
+            with patch.object(service, 'ocr_attempts', return_value=2):
+                self.assertEqual(self.session.get()['error'], 'order_captcha_attempts_exhausted')
+                for instant in (121, 142, 163):
+                    clock.return_value = instant
+                    self.assertFalse(self.session.get()['ready'])
+                self.assertEqual(len(self.posts), 2)
+                self.assertEqual(len(self.probes), 4)
+                clock.return_value = 184
+                for name in ('PHPSESSID', 'user', 'admin_username'):
+                    self.cookie(name)
+                self.outcome = (200, HOME)
+                self.assertTrue(self.session.get()['ready'])
+                self.assertEqual(len(self.posts), 2)
+
+    def test_transient_login_success_does_not_reset_post_budget(self):
+        self.replies = [{'code': 1}] * 5
+        with patch.object(service.time, 'monotonic', return_value=100) as clock:
+            with patch.object(service, 'ocr_attempts', return_value=2):
+                self.assertTrue(self.session.get()['ready'])
+                clock.return_value = 121
+                self.outcome = (200, LOGIN)
+                self.assertTrue(self.session.get()['ready'])
+                clock.return_value = 142
+                self.outcome = (200, LOGIN)
+                self.assertFalse(self.session.get()['ready'])
+                self.assertEqual(len(self.posts), 2)
+                clock.return_value = 163
+                self.assertFalse(self.session.get()['ready'])
+                self.assertEqual(len(self.posts), 2)
+                clock.return_value = 421
+                self.assertTrue(self.session.get()['ready'])
+                self.assertEqual(len(self.posts), 3)
+
+    def test_incomplete_login_receipt_is_reconciled_by_read_only_probe(self):
+        class TruncatedReceipt(io.BytesIO):
+            def read(self, *args):
+                raise IncompleteRead(b'partial')
+
+            read1 = read
+
+        self.replies = [{'code': 1}]
+        stream = self.response_stream
+        def truncated_if_receipt(payload):
+            if payload.startswith(b'{'):
+                return TruncatedReceipt(payload)
+            return stream(payload)
+
+        self.response_stream = truncated_if_receipt
+        self.assertEqual(self.session.get()['error'], 'order_login_outcome_unverified')
+        self.assertEqual(len(self.posts), 1)
+        self.assertEqual(len(self.probes), 1)
+
+        self.session.checked = 0
+        self.assertTrue(self.session.get()['ready'])
+        self.assertEqual(len(self.posts), 1)
+        self.assertEqual(len(self.probes), 2)
+
+    def test_expired_deadline_before_post_has_no_unknown_receipt(self):
+        self.replies = [{'code': 1}]
+        with patch.object(service.time, 'monotonic', return_value=100) as clock:
+            def late_ocr(_image, _deadline):
+                clock.return_value = 134
+                return '1234'
+
+            with patch.object(service, 'recognize', side_effect=late_ocr):
+                self.assertEqual(self.session.get()['error'], 'order_login_deadline')
+            self.assertEqual(self.posts, [])
+            self.assertEqual(self.session.health()['login_attempts'], 0)
+
+            clock.return_value = 435
+            self.assertTrue(self.session.get()['ready'])
+            self.assertEqual(len(self.posts), 1)
+
+    def test_password_controls_without_order_login_evidence_never_post(self):
+        password = '<input type="password" name="new_password">'
+        for html in (f'<form action="/admin/profile/password.html">{password}</form>',
+                     HOME + password):
+            with self.subTest(html=html):
+                self.session.checked = 0
+                self.outcome = (200, html)
+                self.assertEqual(self.session.get()['error'], 'order_identity_unverified')
+                self.assertEqual(self.posts, [])
+
+    def test_slow_probe_body_releases_waiters_and_never_posts(self):
+        reading = Event()
+        finish_chunk = Event()
+        self.addCleanup(finish_chunk.set)
+
+        class SlowBody(io.BytesIO):
+            def read1(self, *args):
+                reading.set()
+                finish_chunk.wait(2)
+                clock.return_value = 134
+                return io.BytesIO.read(self, 1)
+
+            read = read1
+
+        self.response_stream = SlowBody
+        with patch.object(service.time, 'monotonic', return_value=100) as clock:
+            with patch.object(service, 'WAIT_TIMEOUT', 0.05):
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    owner = pool.submit(self.session.get)
+                    self.assertTrue(reading.wait(1))
+                    waiter = pool.submit(self.session.get)
+                    try:
+                        self.assertEqual(waiter.result(0.5)['error'], 'order_probe_wait_timeout')
+                        self.assertEqual(len(self.probes), 1)
+                        self.assertEqual(self.posts, [])
+                    finally:
+                        finish_chunk.set()
+                    self.assertEqual(owner.result(1)['error'], 'order_probe_transport_unavailable')
+        self.assertEqual(self.posts, [])
+
+    def test_socket_read_deadline_includes_headers_and_chunk_framing(self):
+        stalled_responses = (
+            b'HTTP/1.1 200 OK\r\nContent-Length: 100\r\n',
+            b'HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\na',
+        )
+        for response in stalled_responses:
+            with self.subTest(response=response):
+                client_stream, server_stream = socket.socketpair()
+                with client_stream, server_stream:
+                    server_stream.sendall(response)
+
+                    def connect(connection):
+                        client_stream.settimeout(3)
+                        connection.sock = client_stream
+
+                    session = service.Session()
+                    started = time.monotonic()
+                    with (patch.object(service.HTTPSConnection, 'connect', connect),
+                          patch.object(service, 'PROBE_TIMEOUT', 0.2)):
+                        self.assertEqual(session.get()['error'], 'order_probe_transport_unavailable')
+                    self.assertLess(time.monotonic() - started, 1.5)
+                    self.assertEqual(session.health()['login_attempts'], 0)
+
+    def test_stuck_ocr_is_terminated_and_waiter_does_not_renew(self):
+        started_ocr = Event()
+        original_recognize = HTTPTests.real_recognize
+
+        def recognize(*args):
+            started_ocr.set()
+            return original_recognize(*args)
+
+        command = (sys.executable, '-c', 'import time; time.sleep(10)')
+        with (patch.object(service, 'recognize', side_effect=recognize),
+              patch.object(service, 'OCR_COMMAND', command),
+              patch.object(service, 'PROBE_TIMEOUT', 0.8),
+              patch.object(service, 'WAIT_TIMEOUT', 0.05),
+              ThreadPoolExecutor(max_workers=2) as pool):
+            owner = pool.submit(self.session.get)
+            self.assertTrue(started_ocr.wait(1))
+            waiter = pool.submit(self.session.get)
+            self.assertEqual(waiter.result(1)['error'], 'order_probe_wait_timeout')
+            self.assertEqual(owner.result(2)['error'], 'order_captcha_ocr_unavailable')
+            self.assertEqual(len(self.probes), 1)
+        self.assertEqual(self.posts, [])
+
+    def test_order_captcha_post_preserves_alphanumeric_ocr(self):
+        model = Mock()
+        model.classification.side_effect = ['A', ' A9-b7 ']
+        self.replies = [{'code': 1}]
+        with (patch.object(service, 'ocr_model', return_value=model),
+              patch.object(service, 'recognize',
+                           side_effect=lambda image, _: service.recognize_in_worker(image))):
+            self.assertTrue(self.session.get()['ready'])
+        self.assertEqual([parse_qs(post.decode())['captcha'] for post in self.posts], [['A9b7']])
 
     def test_probe_failure_never_logs_in(self):
         for outcome in (TimeoutError(), (503, LOGIN), (429, LOGIN), (200, 'unexpected')):
