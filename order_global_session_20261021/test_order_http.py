@@ -1,10 +1,13 @@
 
 import ast
+from contextlib import contextmanager
 from pathlib import Path
 import re
 from time import monotonic
 from urllib.error import HTTPError
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from order_http import OrderHTTP
 
@@ -115,3 +118,36 @@ class OrderHTTPTests(unittest.TestCase):
                      if label}
         self.assertEqual(projected, {key: value for key, value in old[0].items() if key not in ('', 'genre')})
         self.assertEqual(current.order_ids, ('123',))
+
+    def test_shipping_preserves_empty_and_multiple_values(self):
+        combined = ('<select name="empty[]" multiple><option value="0">Ordinary</option></select>'
+                    '<select name="source[]" multiple><option selected value="1">A</option>'
+                    '<option value="2">B</option><option selected value="3">C</option></select>'
+                    '<table><tr><th>订单总数</th></tr><tr><td>6</td></tr></table>')
+
+        def fetch(path, timeout):
+            self.assertIn('source%5B%5D=1&source%5B%5D=3', path)
+            return path, combined.encode()
+
+        result = OrderHTTP(fetch).shipping_stats({'source[]': ('1', '3')})
+        self.assertEqual(result.filters['empty[]'], ())
+        self.assertEqual(result.filters['source[]'], ('1', '3'))
+
+    def test_login_loss_reacquires_shared_session_on_next_request(self):
+        @contextmanager
+        def response(body, url):
+            yield SimpleNamespace(geturl=lambda: url, read=lambda: body.encode())
+
+        login = '<input name="password">'
+        updated = ('<table class="look-goods-table"></table>'
+                   '<script>var orderDeliveryData = {};</script>')
+        old_opener = SimpleNamespace(open=lambda url, timeout: response(login, url))
+        new_opener = SimpleNamespace(open=lambda url, timeout: response(updated, url))
+        fill_jar = Mock()
+        with patch.dict('sys.modules', {'fs_order_client': SimpleNamespace(fill_jar=fill_jar)}), \
+             patch('order_http.build_opener', side_effect=[old_opener, new_opener]):
+            reader = OrderHTTP()
+            self.assertEqual(reader.order_detail('123', timeout=1).status, 'login_lost')
+            self.assertEqual(reader.order_detail('123', timeout=1).status, 'found')
+            self.assertEqual(reader.order_detail('123', timeout=1).status, 'found')
+        self.assertEqual(fill_jar.call_count, 2)

@@ -4,7 +4,7 @@
     {
       "source": "order_global_session_20261021/order_http.py",
       "target": "/opt/fs-order-session/order_http.py",
-      "sha256": "65656e078273616f019035840ae8bbc6abbee9d6dc02aacf98a4f5bceb6f3458"
+      "sha256": "cd58fa1bccc7ee849d8e5252445849e7d07aa41fa17a9447d2737a19560c7640"
     }
   ]
 }
