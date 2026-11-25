@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import Mock, patch
+from urllib.error import HTTPError
 
 SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
@@ -473,6 +474,14 @@ class SixCost(unittest.TestCase):
         details = self.real_detail_pair(OrderHTTP(fetch), ['300', '301'])
         self.assertCountEqual(attempts, [('300', 8), ('300', 16), ('301', 8)])
         self.assertEqual([detail['goods'][0]['pid'] for detail in details], ['9', '9'])
+
+    def test_http_page_preserves_error_status_without_a_body(self):
+        def fetch(path, timeout):
+            raise HTTPError(path, 503, 'unavailable', {}, None)
+
+        with self.assertRaisesRegex(self.collector.CostPageError, 'order_page_http_error:1:503') as failure:
+            self.collector.read_page(OrderHTTP(fetch), 1)
+        self.assertEqual(failure.exception.diagnostic['http_status'], 503)
 
     def test_http_page_requires_native_filter_readback(self):
         def reader(area):

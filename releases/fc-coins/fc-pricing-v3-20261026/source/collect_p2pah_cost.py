@@ -187,7 +187,8 @@ def read_page(reader, number, observations=None, window=None):
     except (TimeoutError, URLError) as exc:
         if isinstance(exc, HTTPError):
             diagnostic['http_status'] = exc.code
-            exc.close()
+            if exc.fp is not None:
+                exc.close()
             raise CostPageError(f'order_page_http_error:{number}:{exc.code}', diagnostic) from None
         timeout = isinstance(exc, TimeoutError) or isinstance(exc.reason, TimeoutError)
         reason = 'order_page_navigation_timeout' if timeout else 'order_page_transport_error'
