@@ -294,7 +294,7 @@ def hourly_cost_channel_overlay(live, updated, *, repository_before=None):
 
 
 ORDER_COST_FC_BASELINES = {
-    'source/collect_p2pah_cost.py': '7c60ad5d4dc517b7e6c6b9a93cf6e8fba2f5ef0f2df9fed96411b94335ae351e',
+    'source/collect_p2pah_cost.py': '9a61aa4c52b8be84fbfb0bf1fceb4c18643e9a8ac9032b47864f0ace876559e5',
     'source/fc_pricing_v3/business_source.py': 'f1b86fc89b947425b84eba2d7cdcd4ac9f316cf83b2f4e1b6da8a2082773eef5',
     'source/hermes-copy/fc_pricing_v3/business_source.py': 'f1b86fc89b947425b84eba2d7cdcd4ac9f316cf83b2f4e1b6da8a2082773eef5',
 }
