@@ -8,13 +8,12 @@ exec 9>"$state/p2pah-cost.lock"
 flock -n 9 || { printf '%s\n' '{"status":"busy"}'; exit 75; }
 trace=$(mktemp "$evidence/p2pah-cost-XXXXXXXX.tmp")
 collector_exit=0
-if timeout 180s docker run --rm --init --memory 2g --memory-swap 2g --env PYTHONPATH=/opt:/opt/fs-order-session --mount type=bind,src=/opt/fc27-cloud-browser/isolated_backend.py,dst=/opt/isolated_backend.py,readonly --network host --read-only \
+if timeout 180s docker run --rm --init --memory 2g --memory-swap 2g --env PYTHONPATH=/opt:/opt/fs-order-session --network host --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=256m \
   --mount type=bind,src=/opt/fs-order-session,dst=/opt/fs-order-session,readonly \
   --mount type=bind,src=/run/fs-order-session,dst=/run/fs-order-session,readonly \
   --cap-drop ALL --security-opt no-new-privileges --group-add 11028 \
   -e FC_V6_COST_REFERENCES \
-  -e FC27_CDP_ENDPOINT=http://127.0.0.1:9225 \
   --mount type=bind,src=/opt/fc27-cloud-browser/collect_p2pah_cost.py,dst=/usr/local/bin/collect_p2pah_cost.py,readonly \
   fc27-cloud-cost:1 > "$trace"; then
   if python3 - "$trace" <<'PY'
