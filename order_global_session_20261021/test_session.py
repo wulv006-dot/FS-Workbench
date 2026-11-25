@@ -121,6 +121,21 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(session.health()['degraded'], 'order_probe_transport_unavailable')
         self.assertTrue(session.health()['ready'])
 
+    def test_degraded_session_age_and_cookie_grace_use_last_success(self):
+        ready = {'ready': True, 'cookies': [{'name': 'PHPSESSID', 'value': 'x'}], 'error': None}
+        failed = {'ready': False, 'cookies': [], 'error': 'order_probe_transport_unavailable'}
+        session = Session(Mock(side_effect=[ready, failed]))
+        with patch.object(service.time, 'monotonic', return_value=100) as clock:
+            self.assertEqual(session.get(), ready)
+            clock.return_value = 100 + service.TRANSPORT_GRACE - 1
+            self.assertEqual(session.get(refresh=True), ready)
+            self.assertEqual(session.health()['verified_age_seconds'], service.TRANSPORT_GRACE - 1)
+            clock.return_value += 2
+            self.assertEqual(session.get(), failed)
+            self.assertEqual(session.get(refresh=True), failed)
+            self.assertFalse(session.health()['ready'])
+            self.assertEqual(session.health()['verified_age_seconds'], service.TRANSPORT_GRACE + 1)
+
     def test_transport_failure_beyond_grace_drops_ready(self):
         results = [{'ready': True, 'cookies': [], 'error': None},
                    {'ready': False, 'cookies': [], 'error': 'order_probe_transport_unavailable'}]

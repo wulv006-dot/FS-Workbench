@@ -19,6 +19,8 @@ OPS_MODULE_PATHS = (
 ORDER_SINGLE_SESSION_ALLOWLIST = frozenset({
     "order_global_session_20261021/service.py",
     "order_global_session_20261021/test_session.py",
+    "order_global_session_20261021/test_order_http.py",
+    "order_global_session_20261021/test_real_tables.py",
     "tools/pr_fast_order_single_session_test.py",
 })
 ORDER_LOGIN_MARKER = re.compile(
@@ -27,17 +29,28 @@ ORDER_LOGIN_MARKER = re.compile(
 ORDER_HOST = re.compile(r"(?<![\w.-])order[.]p2pah[.]cn(?![\w.-])", re.I)
 ORDER_FORM_FIELD = re.compile(
     r"""["'](?:password|captcha)["']\s*:|(?:^|[{,])\s*(?:password|captcha)\s*:|"""
-    r"""\b(?:password|captcha)\s*=|\bname\s*=\s*["'](?:password|captcha)["']""", re.I
+    r"""\b(?:password|captcha)\s*=""", re.I
+)
+ORDER_HTML_FIELD = re.compile(r"""\bname\s*=\s*["'](?:password|captcha)["']""", re.I)
+ORDER_HTML_POST_FORM = re.compile(
+    r"""<form\b[^>]*\bmethod\s*=\s*["']?post\b[^>]*>(?:(?!</?form\b).)*?"""
+    + ORDER_HTML_FIELD.pattern, re.I | re.S
 )
 ORDER_FORM_SUBMIT = re.compile(
-    r"""\b(?:post|urlencode|formdata)\s*\(|\bmethod["']?\s*[:=]\s*["']?post\b|"""
-    r"""\bcurl\b[^\n]*(?:\s-d\s|\s--data(?:[-\w]*)(?:[=\s]))""", re.I
+    r"""\b(?:post|urlencode|formdata)\s*\(|\brequest\s*\(\s*["']post["']|\bmethod["']?\s*[:=]\s*["']?post\b|"""
+    r"""\bcurl\b(?:[^\r\n\\]|\\\r?\n|\\[^\r\n])*?\s(?:-[dF]|--form(?:-string)?|--data[-\w]*)(?:=|\s)""",
+    re.I
 )
+ORDER_BROWSER_FILL = re.compile(r"\bfill\s*\(")
+ORDER_BROWSER_FIELD = re.compile(r"\b(?:password|captcha)\b", re.I)
 DIFF_HEAD_LINE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
 def order_login_form(source):
-    return all(pattern.search(source) for pattern in (ORDER_HOST, ORDER_FORM_FIELD, ORDER_FORM_SUBMIT))
+    return ORDER_HOST.search(source) and (
+        ORDER_HTML_POST_FORM.search(source)
+        or (ORDER_FORM_FIELD.search(source) and ORDER_FORM_SUBMIT.search(source))
+    )
 
 
 def check_order_single_session(root, base, head, paths):
@@ -51,7 +64,9 @@ def check_order_single_session(root, base, head, paths):
         ).decode("utf-8").split("\0")
     violations = []
     for name in paths:
-        if not name or name in ORDER_SINGLE_SESSION_ALLOWLIST:
+        if (not name or name in ORDER_SINGLE_SESSION_ALLOWLIST
+                or name.startswith("order_global_session_20261021/fixtures/")
+                or (name.startswith("docs/") and name.endswith(".md"))):
             continue
         patch = subprocess.check_output(
             git + ["diff", "--no-renames", "--no-ext-diff", "--no-textconv", "--no-color",
@@ -59,19 +74,29 @@ def check_order_single_session(root, base, head, paths):
         ).decode("utf-8", errors="replace")
         line_number = None
         form_line = field_line = None
+        added_hunks = []
         for line in patch.split("\n"):
             hunk = DIFF_HEAD_LINE.match(line)
             if hunk:
                 line_number = int(hunk[1])
+                added_hunks.append([])
             elif line_number is not None and line.startswith("+"):
                 added = line[1:]
+                added_hunks[-1].append((line_number, added))
                 if ORDER_LOGIN_MARKER.search(added):
                     violations.append(f"{name}:{line_number}")
-                elif ORDER_FORM_FIELD.search(added):
+                elif ORDER_FORM_FIELD.search(added) or ORDER_HTML_FIELD.search(added):
                     field_line = field_line or line_number
                 elif ORDER_HOST.search(added) or ORDER_FORM_SUBMIT.search(added):
                     form_line = form_line or line_number
                 line_number += 1
+
+        for lines in added_hunks:
+            added = "\n".join(line for _, line in lines)
+            if ORDER_HOST.search(added) and ORDER_BROWSER_FIELD.search(added):
+                fill_line = next((number for number, line in lines if ORDER_BROWSER_FILL.search(line)), None)
+                if fill_line is not None:
+                    violations.append(f"{name}:{fill_line}")
 
         if field_line is None and form_line is None:
             continue

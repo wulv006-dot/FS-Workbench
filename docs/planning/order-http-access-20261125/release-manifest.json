@@ -6,7 +6,7 @@
       "source": "order_global_session_20261021/service.py",
       "target": "/opt/fs-order-session/service.py",
       "beforeSha256": "34f90debc892dfb54fc33519c8b84344f6a8a9e6aef01d8b223c907a32baac6d",
-      "sha256": "53192edadf56c93cbd84701b7691f097e6b9cae7c9e9acbe0138c5a331561779"
+      "sha256": "6911641b475fd4b30c9432d9b3ceb43a37cb97b8727190a09e6fb523a9b357f6"
     },
     {
       "source": "order_global_session_20261021/client.py",
@@ -18,7 +18,7 @@
       "source": "order_global_session_20261021/order_http.py",
       "target": "/opt/fs-order-session/order_http.py",
       "beforeSha256": "9ac00d8a5dcb5ae5f06245392f89cefe51b536f4ad054d0eb5545ea7b9724c45",
-      "sha256": "1e6d91152718b5dc29dce1b454c0777f64b1f3806e3e4531913cb223d4c78bf7"
+      "sha256": "4bc456a1146df3934b071c694607f2692424fb9ff8c2724cf5912247ab564256"
     },
     {
       "source": "order_global_session_20261021/fs-order-session.service",

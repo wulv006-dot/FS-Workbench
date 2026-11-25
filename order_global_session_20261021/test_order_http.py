@@ -1,7 +1,7 @@
 
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextlib import contextmanager, nullcontext
-from http.client import HTTPConnection, HTTPSConnection, IncompleteRead
+from http.client import HTTPConnection, HTTPSConnection, BadStatusLine, IncompleteRead
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from io import BytesIO
 from hashlib import sha256
@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import re
 import socket
+from ssl import SSLEOFError, SSLZeroReturnError
 from threading import Barrier, Event, Thread
 from time import monotonic, sleep
 from urllib.error import HTTPError, URLError
@@ -116,6 +117,9 @@ class OrderHTTPTests(unittest.TestCase):
         self.assertEqual(events['items'][0]['qty'], '100')
         self.assertNotIn('PRIVATE', str(events))
         self.assertNotIn('等待客户回复', str(events))
+        truncated = OrderHTTP(lambda path, timeout: (path, detail.removesuffix('</table>').encode()))
+        with self.assertRaisesRegex(ValueError, '^detail_unavailable$'):
+            truncated.problem_order_events('123', timeout=1)
 
         for body in (order_list.split('<tbody>', 1)[0] + '<tbody>',
                      order_list.replace('<td>Coins</td>', '', 1),
@@ -275,13 +279,6 @@ class OrderHTTPTests(unittest.TestCase):
             '/opt/sales-dashboard/collector/fetch_all.py',
         })
         for row in release['files'] + consumers['files']:
-            if row['source'] == reader['source']:
-                # Phase 3B's released bytes are the 3C manifest's live before image.
-                latest = json.loads((root / source_map['orderHttpRemainingReaders20261125']['release'])
-                                    .read_text(encoding='utf-8'))
-                previous, = [item for item in latest['files'] if item['target'] == row['target']]
-                self.assertEqual(previous['beforeSha256'], row['sha256'])
-                continue
             data = (root / row['source']).read_bytes().replace(b'\r\n', b'\n')
             self.assertEqual(sha256(data).hexdigest(), row['sha256'], row['source'])
 
@@ -608,6 +605,78 @@ class OrderHTTPTests(unittest.TestCase):
             self.assertEqual(reader.order_detail('123', timeout=1).status, 'found')
         self.assertEqual(fill_jar.call_count, 2)
 
+    def test_login_redirect_at_deadline_invalidates_the_shared_transport(self):
+        for location in ('/admin', '/admin/', '/login.html'):
+            with self.subTest(location=location):
+                clock = [10.0]
+                redirect = Mock(status=302, headers={'Location': location})
+                redirect.__enter__ = Mock(return_value=redirect)
+                redirect.__exit__ = Mock(return_value=False)
+                good = '<table class="look-goods-table"></table><script>var orderDeliveryData = {};</script>'
+
+                def respond(*args):
+                    if clock[0] == 10.0:
+                        clock[0] = 11.0
+                        return redirect
+                    response = Mock(status=200, headers={}, length=None)
+                    response.__enter__ = Mock(return_value=response)
+                    response.__exit__ = Mock(return_value=False)
+                    response.read1.side_effect = [good.encode(), b'']
+                    return response
+
+                broker = SimpleNamespace(fill_jar=Mock())
+                with patch.dict('sys.modules', fs_order_client=broker), \
+                     patch('order_http.monotonic', side_effect=lambda: clock[0]), \
+                     patch('order_http.OrderHTTPSConnection'), \
+                     patch('order_http.OrderTransport._request', side_effect=respond), \
+                     patch('order_http.CookieJar.extract_cookies'):
+                    reader = OrderHTTP()
+                    result = reader.order_detail('123', timeout=1)
+                    self.assertEqual(result.status, 'login_lost')
+                    self.assertEqual(reader.order_detail('123', timeout=1).status, 'found')
+                self.assertEqual(broker.fill_jar.call_count, 2)
+
+    def test_idle_tls_close_reconnects_once_for_the_next_detail(self):
+        body = b'<table class="look-goods-table"></table><script>var orderDeliveryData = {};</script>'
+        for failure in (SSLEOFError, SSLZeroReturnError):
+            with self.subTest(failure=failure):
+                def response():
+                    value = Mock(status=200, headers={}, length=None)
+                    value.__enter__ = Mock(return_value=value)
+                    value.__exit__ = Mock(return_value=False)
+                    value.read1.side_effect = [body, b'']
+                    return value
+
+                idle, fresh = Mock(), Mock()
+                idle.getresponse.side_effect = [response(), failure()]
+                fresh.getresponse.return_value = response()
+                broker = SimpleNamespace(fill_jar=Mock())
+                with patch.dict('sys.modules', fs_order_client=broker), \
+                     patch('order_http.OrderHTTPSConnection', side_effect=[idle, fresh]) as connect, \
+                     patch('order_http.CookieJar.extract_cookies'):
+                    reader = OrderHTTP()
+                    self.assertEqual(reader.order_detail('123', timeout=1).status, 'found')
+                    self.assertEqual(reader.order_detail('124', timeout=1).status, 'found')
+                    self.assertEqual(connect.call_count, 2)
+                    idle.close.assert_called_once()
+                    broker.fill_jar.assert_called_once()
+
+    def test_bad_status_line_is_a_transport_failure_at_read_interfaces(self):
+        def fetch(path, timeout):
+            raise BadStatusLine('invalid response')
+
+        reader = OrderHTTP(fetch)
+        pages = reader.iter_delivery_pages({}, max_pages=2, deadline=monotonic() + 5)
+        self.assertEqual(list(pages), [])
+        self.assertEqual(pages.end_reason, 'failed')
+        self.assertIsInstance(pages.failure, OSError)
+        detail = reader.order_detail('123', timeout=1)
+        self.assertEqual((detail.status, detail.reason), ('parse_failed', 'transport_error'))
+        with self.assertRaises(OSError):
+            reader.shipping_stats({}, timeout=1)
+        with self.assertRaises(OSError):
+            reader.dashboard_shipping({}, timeout=1)
+
     def test_truncated_response_fails_instead_of_yielding_an_empty_page(self):
         def fetch(path, timeout):
             raise IncompleteRead(b'<html>', 20)
@@ -617,6 +686,23 @@ class OrderHTTPTests(unittest.TestCase):
         self.assertEqual(list(pages), [])
         self.assertEqual(pages.end_reason, 'failed')
         self.assertEqual(str(pages.failure), 'response_truncated')
+
+    def test_table_readers_reject_a_missing_end_tag(self):
+        shipping = shipping_fixture().removesuffix('</table>').encode()
+        delivery = ('<table class="table-list"><thead><tr><th>商户订单号</th></tr></thead>'
+                    '<tbody><tr>' + '<td>123</td>' * 19 + '</tr></tbody>').encode()
+        readers = (
+            ('dashboard_shipping', {'gid': '1322'}, shipping, {}),
+            ('shipping_stats', {'gid': '1322'}, shipping, {}),
+            ('delivery_export_page', {'page': 1}, delivery, {}),
+            ('delivery_export_page', {'page': 1}, delivery, {'sales': True}),
+            ('delivery_page', {'page': 1}, delivery, {}),
+        )
+        for method, query, body, kwargs in readers:
+            with self.subTest(method=method, kwargs=kwargs):
+                reader = OrderHTTP(lambda path, timeout: (path, body))
+                with self.assertRaisesRegex(OrderReadError, '^table_truncated$'):
+                    getattr(reader, method)(query, timeout=1, **kwargs)
 
     def test_shipping_rejects_pagination(self):
         html = shipping_fixture() + '<ul class="pagination"><li><a href="?page=2">2</a></li></ul>'
