@@ -25,7 +25,10 @@ ORDER_LOGIN_MARKER = re.compile(
     r"/admin/public/do(?:login)\b|\bdo(?:googlelogin)\b|\bnew_captcha[.]html\b", re.I
 )
 ORDER_HOST = re.compile(r"(?<![\w.-])order[.]p2pah[.]cn(?![\w.-])", re.I)
-ORDER_FORM_FIELD = re.compile(r"""(?:["'](?:password|captcha)["']\s*:|\b(?:password|captcha)\s*=)""", re.I)
+ORDER_FORM_FIELD = re.compile(
+    r"""["'](?:password|captcha)["']\s*:|(?:^|[{,])\s*(?:password|captcha)\s*:|"""
+    r"""\b(?:password|captcha)\s*=|\bname\s*=\s*["'](?:password|captcha)["']""", re.I
+)
 ORDER_FORM_SUBMIT = re.compile(
     r"""\b(?:post|urlencode|formdata)\s*\(|\bmethod["']?\s*[:=]\s*["']?post\b|"""
     r"""\bcurl\b[^\n]*(?:\s-d\s|\s--data(?:[-\w]*)(?:[=\s]))""", re.I
@@ -33,18 +36,29 @@ ORDER_FORM_SUBMIT = re.compile(
 DIFF_HEAD_LINE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
+def order_login_form(source):
+    return all(pattern.search(source) for pattern in (ORDER_HOST, ORDER_FORM_FIELD, ORDER_FORM_SUBMIT))
+
+
 def check_order_single_session(root, base, head, paths):
     git = ["git", "-c", "safe.directory=" + str(root), "--literal-pathspecs", "-C", str(root)]
+    merge_base = subprocess.check_output(git + ["merge-base", base, head], text=True, timeout=30).strip()
+    if merge_base != base:
+        # The affected-test dispatcher uses the workflow's tip-to-tip list.
+        # A stale PR branch must still be scanned against its own common ancestor.
+        paths = subprocess.check_output(
+            git + ["diff", "--no-renames", "--name-only", "-z", merge_base, head], timeout=30
+        ).decode("utf-8").split("\0")
     violations = []
     for name in paths:
-        if name in ORDER_SINGLE_SESSION_ALLOWLIST:
+        if not name or name in ORDER_SINGLE_SESSION_ALLOWLIST:
             continue
         patch = subprocess.check_output(
             git + ["diff", "--no-renames", "--no-ext-diff", "--no-textconv", "--no-color",
-                   "--unified=0", "--inter-hunk-context=0", base, head, "--", name], timeout=30
+                   "--unified=0", "--inter-hunk-context=0", merge_base, head, "--", name], timeout=30
         ).decode("utf-8", errors="replace")
         line_number = None
-        form_lines = []
+        form_line = field_line = None
         for line in patch.split("\n"):
             hunk = DIFF_HEAD_LINE.match(line)
             if hunk:
@@ -53,18 +67,29 @@ def check_order_single_session(root, base, head, paths):
                 added = line[1:]
                 if ORDER_LOGIN_MARKER.search(added):
                     violations.append(f"{name}:{line_number}")
-                elif any(pattern.search(added) for pattern in (ORDER_HOST, ORDER_FORM_FIELD, ORDER_FORM_SUBMIT)):
-                    form_lines.append(line_number)
+                elif ORDER_FORM_FIELD.search(added):
+                    field_line = field_line or line_number
+                elif ORDER_HOST.search(added) or ORDER_FORM_SUBMIT.search(added):
+                    form_line = form_line or line_number
                 line_number += 1
 
-        # All three signals must be in the same head file, and at least one
-        # must occur on an added line. A host or a password key alone is common.
-        if form_lines:
-            source = subprocess.check_output(git + ["show", f"{head}:{name}"], timeout=30).decode(
+        if field_line is None and form_line is None:
+            continue
+        source = subprocess.check_output(git + ["show", f"{head}:{name}"], timeout=30).decode(
+            "utf-8", errors="replace"
+        )
+        if not order_login_form(source):
+            continue
+        if field_line is None:
+            # An unrelated new POST in a historical login client is allowed.
+            # If the head has a credential field but added lines don't, the
+            # file already existed at the comparison base.
+            prior = subprocess.check_output(git + ["show", f"{merge_base}:{name}"], timeout=30).decode(
                 "utf-8", errors="replace"
             )
-            if all(pattern.search(source) for pattern in (ORDER_HOST, ORDER_FORM_FIELD, ORDER_FORM_SUBMIT)):
-                violations.append(f"{name}:{form_lines[0]}")
+            if order_login_form(prior):
+                continue
+        violations.append(f"{name}:{field_line or form_line}")
 
     if violations:
         raise RuntimeError(
