@@ -1,7 +1,6 @@
 [Unit]
 Description=FS global Order session broker
-Requires=docker.service
-After=docker.service network-online.target
+After=network-online.target
 
 [Service]
 Type=simple
