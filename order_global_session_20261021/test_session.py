@@ -300,6 +300,41 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(len(self.probes), 2)
         self.assertEqual(len(self.posts), 1)
 
+    def test_external_loss_after_valid_is_logged_once_per_session(self):
+        self.replies = [{'code': 1}, {'code': 1}]
+        clock = [100]
+        with patch('service.time.monotonic', side_effect=lambda: clock[0]), \
+             patch('service.log_event') as journal:
+            self.assertTrue(self.session.get(refresh=True)['ready'])
+            self.assertEqual(self.session.health()['sessions_lost_externally'], 0)
+            self.assertIsNone(self.session.health()['last_external_loss_at'])
+
+            clock[0] += 21
+            self.outcome = (503, '')
+            self.assertFalse(self.session.get(refresh=True)['ready'])
+            self.assertEqual(self.session.health()['sessions_lost_externally'], 0)
+
+            clock[0] += 21
+            self.outcome = (200, LOGIN)
+            with patch('service.recognize', return_value=''):
+                self.assertFalse(self.session.get(refresh=True)['ready'])
+            self.assertEqual(self.session.health()['sessions_lost_externally'], 1)
+
+            clock[0] += 21
+            self.assertEqual(self.session.get(refresh=True)['error'], 'order_login_cooldown')
+            self.assertEqual(self.session.health()['sessions_lost_externally'], 1)
+
+            clock[0] += 40
+            self.assertTrue(self.session.get(refresh=True)['ready'])
+            self.assertEqual(len(self.posts), 2)
+            health = self.session.health()
+            self.assertEqual(health['sessions_lost_externally'], 1)
+            self.assertRegex(health['last_external_loss_at'], r'^\d{4}-\d{2}-\d{2}T')
+            events = [call for call in journal.call_args_list if call.args == ('session_lost_externally',)]
+            self.assertEqual(len(events), 1)
+            self.assertEqual(set(events[0].kwargs), {'last_valid_at', 'detected_at'})
+            self.assertEqual(events[0].kwargs['detected_at'], health['last_external_loss_at'])
+
     def test_order_captcha_on_login_page_triggers_renewal(self):
         self.outcome = (200, '<input type="password"><img src="/new_captcha.html?width=150">')
         self.replies = [{'code': 1}]

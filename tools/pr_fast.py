@@ -1,5 +1,5 @@
 """One offline affected-test dispatcher. Unmapped code fails explicitly."""
-import ast, io, json, os, subprocess, sys, unittest
+import ast, io, json, os, re, subprocess, sys, unittest
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -13,6 +13,91 @@ OPS_MODULE_PATHS = (
     "opt/nba-reprice/",          # NBA 2K27 改价后端
     "opt/mmoexp-taskboard/",     # 任务台（含 green_plan）
 )
+
+
+# 新增白名单须经吴律确认。
+ORDER_SINGLE_SESSION_ALLOWLIST = frozenset({
+    "order_global_session_20261021/service.py",
+    "order_global_session_20261021/test_session.py",
+    "tools/pr_fast_order_single_session_test.py",
+})
+ORDER_LOGIN_MARKER = re.compile(
+    r"/admin/public/do(?:login)\b|\bdo(?:googlelogin)\b|\bnew_captcha[.]html\b", re.I
+)
+ORDER_HOST = re.compile(r"(?<![\w.-])order[.]p2pah[.]cn(?![\w.-])", re.I)
+ORDER_FORM_FIELD = re.compile(
+    r"""["'](?:password|captcha)["']\s*:|(?:^|[{,])\s*(?:password|captcha)\s*:|"""
+    r"""\b(?:password|captcha)\s*=|\bname\s*=\s*["'](?:password|captcha)["']""", re.I
+)
+ORDER_FORM_SUBMIT = re.compile(
+    r"""\b(?:post|urlencode|formdata)\s*\(|\bmethod["']?\s*[:=]\s*["']?post\b|"""
+    r"""\bcurl\b[^\n]*(?:\s-d\s|\s--data(?:[-\w]*)(?:[=\s]))""", re.I
+)
+DIFF_HEAD_LINE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+
+
+def order_login_form(source):
+    return all(pattern.search(source) for pattern in (ORDER_HOST, ORDER_FORM_FIELD, ORDER_FORM_SUBMIT))
+
+
+def check_order_single_session(root, base, head, paths):
+    git = ["git", "-c", "safe.directory=" + str(root), "--literal-pathspecs", "-C", str(root)]
+    merge_base = subprocess.check_output(git + ["merge-base", base, head], text=True, timeout=30).strip()
+    if merge_base != base:
+        # The affected-test dispatcher uses the workflow's tip-to-tip list.
+        # A stale PR branch must still be scanned against its own common ancestor.
+        paths = subprocess.check_output(
+            git + ["diff", "--no-renames", "--name-only", "-z", merge_base, head], timeout=30
+        ).decode("utf-8").split("\0")
+    violations = []
+    for name in paths:
+        if not name or name in ORDER_SINGLE_SESSION_ALLOWLIST:
+            continue
+        patch = subprocess.check_output(
+            git + ["diff", "--no-renames", "--no-ext-diff", "--no-textconv", "--no-color",
+                   "--unified=0", "--inter-hunk-context=0", merge_base, head, "--", name], timeout=30
+        ).decode("utf-8", errors="replace")
+        line_number = None
+        form_line = field_line = None
+        for line in patch.split("\n"):
+            hunk = DIFF_HEAD_LINE.match(line)
+            if hunk:
+                line_number = int(hunk[1])
+            elif line_number is not None and line.startswith("+"):
+                added = line[1:]
+                if ORDER_LOGIN_MARKER.search(added):
+                    violations.append(f"{name}:{line_number}")
+                elif ORDER_FORM_FIELD.search(added):
+                    field_line = field_line or line_number
+                elif ORDER_HOST.search(added) or ORDER_FORM_SUBMIT.search(added):
+                    form_line = form_line or line_number
+                line_number += 1
+
+        if field_line is None and form_line is None:
+            continue
+        source = subprocess.check_output(git + ["show", f"{head}:{name}"], timeout=30).decode(
+            "utf-8", errors="replace"
+        )
+        if not order_login_form(source):
+            continue
+        if field_line is None:
+            # An unrelated new POST in a historical login client is allowed.
+            # If the head has a credential field but added lines don't, the
+            # file already existed at the comparison base.
+            prior = subprocess.check_output(git + ["show", f"{merge_base}:{name}"], timeout=30).decode(
+                "utf-8", errors="replace"
+            )
+            if order_login_form(prior):
+                continue
+        violations.append(f"{name}:{field_line or form_line}")
+
+    if violations:
+        raise RuntimeError(
+            "order-single-session: Do not log in to Order. Use fs_order_client.fill_jar or order_http "
+            "for the shared session. See the Order single-session rule in AGENTS.md. "
+            + ", ".join(violations)
+        )
+
 
 def require_success(result):
     if result.testsRun <= 0 or not result.wasSuccessful() or result.skipped:
@@ -466,6 +551,11 @@ def selfcheck():
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
+    if select(["tools/pr_fast_order_single_session_test.py"]) != ["self"]:
+        raise RuntimeError("order_single_session_selfcheck_mapping_missing")
+    # This fixture creates two commits in a disposable local repository.
+    subprocess.run([sys.executable, "-B", "-m", "unittest", "pr_fast_order_single_session_test"],
+                   cwd=ROOT/"tools", check=True, timeout=45)
     print("selfcheck: PASS and FAIL/error/skip/zero propagate correctly")
 
 def select(paths):
@@ -942,6 +1032,7 @@ def main():
         elif p.suffix==".sh":subprocess.run(["bash","-n",str(p)],check=True,timeout=20)
         elif p.suffix==".json":json.loads(p.read_text(encoding="utf-8-sig"))
         elif p.suffix in (".html",".css"):frontend_structure(name,p.read_text(encoding="utf-8-sig"))
+    check_order_single_session(ROOT, sys.argv[2], sys.argv[3], paths)
     groups=select(paths)
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
