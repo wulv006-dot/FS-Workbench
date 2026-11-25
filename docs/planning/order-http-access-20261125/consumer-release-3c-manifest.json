@@ -52,7 +52,7 @@
       "sha256": "290325d35bfdd75ae47d7472d70b4e7ac27509f5baeea797c00e8bef12f22d9f"
     },
     {
-      "source": "releases/fs-dashboard/ai-advisor-20261013/deep/source/fc_order_diagnostics.py",
+      "source": "releases/fs-dashboard/hermes-fc-pilot-20261013/admin_order_capabilities_20261014/shared_candidate/fc_order_diagnostics.py",
       "target": "/opt/fs-exact-range-20261001/fc_order_diagnostics.py",
       "beforeSha256": "a3a870efea3113ab51127430715ca95d8318af428731583fe43d262c49437c05",
       "sha256": "2cbe9398dd07cea4bc07451bb22ef9d00eee8dce8cbf5f03bab758c3ac3188be"

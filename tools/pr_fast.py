@@ -848,6 +848,8 @@ def select(paths):
             groups.add("hermes-nightly-publisher");continue
         if name in ("mmoexp_google_data/deployment/server_run_integrated.py","mmoexp_google_data/deployment/mmoexp-marketing-daily.timer","mmoexp_google_data/deployment/mmoexp-marketing-daily.service"):
             groups.add("hermes-fc-pilot");continue
+        if name == "releases/fs-dashboard/hermes-fc-pilot-20261013/admin_order_capabilities_20261014/shared_candidate/fc_order_diagnostics.py":
+            groups.update(("hermes-fc-pilot","fc-deep-advisor"));continue
         if name.startswith("releases/fs-dashboard/hermes-fc-pilot-20261013/"):
             groups.add("hermes-fc-pilot");continue
         if name.startswith("releases/fs-dashboard/ai-advisor-20261013/deep/"):
