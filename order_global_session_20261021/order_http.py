@@ -1,17 +1,21 @@
 
 """Read-only HTTP access to the shared Order session."""
+from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from html.parser import HTMLParser
-from http.client import IncompleteRead
+from http.client import HTTPResponse, HTTPSConnection, IncompleteRead
 from http.cookiejar import CookieJar
+from io import BufferedReader, RawIOBase
 import json
 import re
+import socket
 from threading import Lock
 from time import monotonic
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit
-from urllib.request import HTTPCookieProcessor, HTTPRedirectHandler, ProxyHandler, build_opener
+from urllib.request import (HTTPCookieProcessor, HTTPRedirectHandler, HTTPSHandler,
+                            ProxyHandler, Request, build_opener)
 
 BASE = 'https://order.p2pah.cn'
 DELIVERY = '/order/admin_delivery/index.html'
@@ -210,14 +214,76 @@ def remaining_time(deadline):
     return remaining
 
 
+def is_timeout(error):
+    if isinstance(error, URLError):
+        error = error.reason
+    return isinstance(error, (socket.timeout, TimeoutError))
+
+
+class DeadlineReader(RawIOBase):
+    def __init__(self, stream, deadline):
+        super().__init__()
+        self.stream = stream
+        self.raw = stream.makefile('rb', buffering=0)
+        self.deadline = deadline
+
+    def makefile(self, mode):
+        # HTTPResponse uses this buffer for headers, chunk framing and the body.
+        return BufferedReader(self)
+
+    def readable(self):
+        return True
+
+    def readinto(self, buffer):
+        self.stream.settimeout(remaining_time(self.deadline))
+        return self.raw.readinto(buffer)
+
+    def close(self):
+        try:
+            self.raw.close()
+        finally:
+            super().close()
+
+
+class OrderHTTPSConnection(HTTPSConnection):
+    def __init__(self, host, deadline, **kwargs):
+        super().__init__(host, **kwargs)
+        self.deadline = deadline
+
+    def connect(self):
+        self.timeout = remaining_time(self.deadline)
+        super().connect()
+        self.sock.settimeout(remaining_time(self.deadline))
+
+    def response_class(self, stream, **kwargs):
+        return HTTPResponse(DeadlineReader(stream, self.deadline), **kwargs)
+
+
+class OrderHTTPSHandler(HTTPSHandler):
+    def https_open(self, req):
+        def connection(host, **kwargs):
+            return OrderHTTPSConnection(host, req.deadline, **kwargs)
+
+        return self.do_open(connection, req, context=self._context)
+
+
 class OrderHTTP:
     def __init__(self, fetch=None):
         self._fetch = fetch
         self._opener = None
         self._session_lock = Lock()
 
+    @contextmanager
+    def _session_access(self, deadline):
+        if not self._session_lock.acquire(timeout=remaining_time(deadline)):
+            raise TimeoutError('order_http_deadline')
+        try:
+            yield
+        finally:
+            self._session_lock.release()
+
     def _shared_opener(self, deadline):
-        with self._session_lock:
+        with self._session_access(deadline):
             if self._opener is None:
                 from fs_order_client import fill_jar
                 jar = CookieJar()
@@ -226,9 +292,9 @@ class OrderHTTP:
                 except RuntimeError as exc:
                     if str(exc).partition(':')[0] != 'global_order_unavailable':
                         raise
-                    remaining_time(deadline)
-                    raise OrderReadError('global_order_unavailable') from exc
-                self._opener = build_opener(ProxyHandler({}), HTTPCookieProcessor(jar), NoRedirect())
+                    raise OrderReadError(str(exc)) from exc
+                self._opener = build_opener(ProxyHandler({}), HTTPCookieProcessor(jar),
+                                            NoRedirect(), OrderHTTPSHandler())
             return self._opener
 
     def _document(self, path, timeout):
@@ -238,8 +304,21 @@ class OrderHTTP:
             if opener is None:
                 url, raw = self._fetch(path, remaining_time(deadline))
             else:
-                with opener.open(BASE + path, timeout=remaining_time(deadline)) as response:
-                    url, raw = response.geturl(), response.read()
+                request = Request(BASE + path)
+                request.deadline = deadline
+                with opener.open(request, timeout=remaining_time(deadline)) as response:
+                    url = response.geturl()
+                    expected = response.length
+                    body = bytearray()
+                    while True:
+                        remaining_time(deadline)
+                        chunk = response.read1(65536)
+                        if not chunk:
+                            break
+                        body.extend(chunk)
+                    if expected is not None and len(body) != expected:
+                        raise IncompleteRead(b'', expected - len(body))
+                    raw = bytes(body)
             remaining_time(deadline)
             try:
                 root = Document(raw.decode('utf-8-sig')).root
@@ -255,7 +334,7 @@ class OrderHTTP:
             raise OrderReadError('response_truncated') from exc
         except OrderReadError as exc:
             if str(exc) == 'login_lost' and opener is not None:
-                with self._session_lock:
+                with self._session_access(deadline):
                     if self._opener is opener:
                         self._opener = None
             raise
@@ -311,7 +390,7 @@ class OrderHTTP:
                 return DetailResult('not_found')
             return DetailResult('parse_failed', reason=f'http_{exc.code}')
         except OSError as exc:
-            if isinstance(exc, TimeoutError) or (isinstance(exc, URLError) and isinstance(exc.reason, TimeoutError)):
+            if is_timeout(exc):
                 return DetailResult('timeout')
             return DetailResult('parse_failed', reason='transport_error')
         except OrderReadError as exc:

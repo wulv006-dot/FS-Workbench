@@ -1,12 +1,16 @@
 
 import ast
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextlib import contextmanager
-from http.client import IncompleteRead
+from http.client import HTTPConnection, HTTPSConnection, IncompleteRead
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
 from pathlib import Path
 import re
-from time import monotonic
-from urllib.error import HTTPError
+import socket
+from threading import Event, Thread
+from time import monotonic, sleep
+from urllib.error import HTTPError, URLError
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -29,6 +33,65 @@ def page(body):
 
 
 class OrderHTTPTests(unittest.TestCase):
+    def test_dripped_headers_and_body_share_request_deadline(self):
+        prefix = b'HTTP/1.1 200 OK\r\nContent-Length: 9'
+        for headers_slow in (True, False):
+            with self.subTest(headers_slow=headers_slow):
+                immediate, dripped = (prefix, b'\r\nX: 1234\r\n\r\n123456789') if headers_slow else (
+                    prefix + b'\r\n\r\n', b'123456789')
+
+                class Handler(BaseHTTPRequestHandler):
+                    def do_GET(self):
+                        try:
+                            self.connection.sendall(immediate)
+                            for byte in dripped:
+                                sleep(0.05)
+                                self.connection.sendall(bytes([byte]))
+                        except OSError:
+                            pass
+
+                broker = SimpleNamespace(fill_jar=Mock())
+                with HTTPServer(('127.0.0.1', 0), Handler) as server:
+                    worker = Thread(target=server.handle_request, daemon=True)
+                    worker.start()
+                    try:
+                        # Keep urllib, HTTPResponse and the real socket reads. TLS is
+                        # replaced with plain loopback transport for the offline test.
+                        with patch.dict('sys.modules', fs_order_client=broker), \
+                             patch('order_http.BASE', f'https://127.0.0.1:{server.server_port}'), \
+                             patch.object(HTTPSConnection, 'connect', HTTPConnection.connect):
+                            start = monotonic()
+                            result = OrderHTTP().order_detail('123', timeout=0.12)
+                            elapsed = monotonic() - start
+                    finally:
+                        worker.join(2)
+                self.assertLess(elapsed, 0.30)
+                self.assertEqual(result.status, 'timeout')
+
+    def test_waiting_for_another_broker_acquisition_uses_own_deadline(self):
+        entered, release = Event(), Event()
+
+        def fill_jar(jar, *, timeout):
+            entered.set()
+            release.wait(2)
+            raise RuntimeError('global_order_unavailable')
+
+        broker = SimpleNamespace(fill_jar=fill_jar)
+        with patch.dict('sys.modules', fs_order_client=broker), ThreadPoolExecutor(2) as pool:
+            reader = OrderHTTP()
+            first = pool.submit(reader.order_detail, '123', timeout=2)
+            try:
+                self.assertTrue(entered.wait(1))
+                second = pool.submit(reader.order_detail, '456', timeout=0.05)
+                try:
+                    result = second.result(timeout=0.30)
+                except FutureTimeout:
+                    self.fail('the second read stayed blocked on the session lock')
+                self.assertEqual(result.status, 'timeout')
+            finally:
+                release.set()
+            first.result(timeout=1)
+
     def test_missing_detail_is_explicit(self):
         def fetch(path, timeout):
             raise HTTPError(path, 404, 'missing', {}, BytesIO())
@@ -61,6 +124,12 @@ class OrderHTTPTests(unittest.TestCase):
         def timed_out(path, timeout):
             raise TimeoutError
         self.assertEqual(OrderHTTP(timed_out).order_detail('123', timeout=1).status, 'timeout')
+
+    def test_detail_classifies_socket_and_wrapped_timeouts(self):
+        for error in (socket.timeout(), TimeoutError(), URLError(socket.timeout()), URLError(TimeoutError())):
+            with self.subTest(error=type(error), reason=type(getattr(error, 'reason', None))):
+                fetch = Mock(side_effect=error)
+                self.assertEqual(OrderHTTP(fetch).order_detail('123', timeout=1).status, 'timeout')
 
     def test_delivery_iteration_and_boundaries(self):
         calls = []
@@ -156,7 +225,8 @@ class OrderHTTPTests(unittest.TestCase):
     def test_login_loss_reacquires_shared_session_on_next_request(self):
         @contextmanager
         def response(body, url):
-            yield SimpleNamespace(geturl=lambda: url, read=lambda: body.encode())
+            yield SimpleNamespace(geturl=lambda: url.full_url, length=None,
+                                  read1=Mock(side_effect=[body.encode(), b'']))
 
         login = '<input name="password">'
         updated = ('<table class="look-goods-table"></table>'
@@ -224,6 +294,18 @@ class OrderHTTPTests(unittest.TestCase):
                 with self.assertRaisesRegex(OrderReadError, reason):
                     reader.shipping_stats({'gid': '1322'})
 
+    def test_broker_failure_reason_reaches_list_and_detail(self):
+        for reason in ('no_socket', 'transport:ConnectionRefusedError', 'transport:timeout', 'order_identity_unverified'):
+            with self.subTest(reason=reason):
+                failure = 'global_order_unavailable:' + reason
+                broker = SimpleNamespace(fill_jar=Mock(side_effect=RuntimeError(failure)))
+                with patch.dict('sys.modules', fs_order_client=broker):
+                    reader = OrderHTTP()
+                    with self.assertRaisesRegex(OrderReadError, '^' + failure + '$'):
+                        reader.delivery_page({}, timeout=1)
+                    result = reader.order_detail('123', timeout=1)
+                self.assertEqual((result.status, result.reason), ('parse_failed', failure))
+
     def test_unavailable_shared_session_is_reported_at_public_read_interfaces(self):
         broker = SimpleNamespace(fill_jar=Mock(side_effect=RuntimeError('global_order_unavailable')))
         with patch.dict('sys.modules', fs_order_client=broker):
@@ -245,7 +327,8 @@ class OrderHTTPTests(unittest.TestCase):
 
                 @contextmanager
                 def response(url, timeout):
-                    yield SimpleNamespace(geturl=lambda: url, read=lambda: page('').encode())
+                    yield SimpleNamespace(geturl=lambda: url.full_url, length=None,
+                                          read1=Mock(side_effect=[page('').encode(), b'']))
 
                 opener = SimpleNamespace(open=Mock(side_effect=response))
                 with patch('order_http.monotonic', side_effect=lambda: current[0]), \
