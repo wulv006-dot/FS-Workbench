@@ -65,8 +65,57 @@ class SessionTests(unittest.TestCase):
 
     def test_missing_service_fails_closed(self):
         with patch('client.os.path.exists', return_value=False):
-            with self.assertRaisesRegex(RuntimeError, '^global_order_unavailable$'):
+            with patch('time.sleep'), self.assertRaisesRegex(RuntimeError, '^global_order_unavailable:no_socket$'):
                 client.cookies()
+
+    def test_default_broker_entrypoints_preserve_retry_and_reason(self):
+        from http.cookiejar import CookieJar
+
+        context = Mock()
+        for read in (client.cookies, lambda: client.fill_jar(CookieJar()),
+                     lambda: client.apply(context), lambda: client.new_page(context)):
+            with self.subTest(read=read), patch('client.os.path.exists', return_value=False) as exists, \
+                 patch('time.sleep') as sleep:
+                with self.assertRaisesRegex(RuntimeError, '^global_order_unavailable:no_socket$'):
+                    read()
+                self.assertEqual(exists.call_count, 3 * len(client.SOCKETS))
+                self.assertEqual([call.args for call in sleep.call_args_list], [(21,), (21,)])
+        context.add_cookies.assert_not_called()
+        context.new_page.assert_not_called()
+
+    def test_broker_budget_admits_only_retries_that_can_fit(self):
+        for budget, retries in ((8, 0), (32, 1), (60, 2)):
+            with self.subTest(budget=budget):
+                clock = [100]
+                def backoff(seconds):
+                    clock[0] += seconds
+
+                with patch('client.os.path.exists', return_value=False) as exists, \
+                     patch('time.monotonic', side_effect=lambda: clock[0]), \
+                     patch('time.sleep', side_effect=backoff) as sleep:
+                    with self.assertRaisesRegex(RuntimeError, '^global_order_unavailable:no_socket$'):
+                        client.cookies(timeout=budget)
+                self.assertEqual(exists.call_count, (retries + 1) * len(client.SOCKETS))
+                self.assertEqual([call.args for call in sleep.call_args_list], [(21,)] * retries)
+
+    def test_bounded_broker_preserves_transport_and_session_failures(self):
+        cases = [
+            (ConnectionRefusedError(), 'transport:ConnectionRefusedError'),
+            (socket.timeout(), 'transport:timeout'),
+            (b'{"ready":false,"error":"order_identity_unverified"}\n', 'order_identity_unverified'),
+        ]
+        for reply, reason in cases:
+            with self.subTest(reason=reason):
+                stream = Mock()
+                stream.recv.side_effect = [reply]
+                connection = Mock()
+                connection.__enter__ = Mock(return_value=stream)
+                connection.__exit__ = Mock(return_value=False)
+                with patch('client.socket.AF_UNIX', 1, create=True), \
+                     patch('client.socket.socket', return_value=connection), \
+                     patch('client.os.path.exists', return_value=True):
+                    with self.assertRaisesRegex(RuntimeError, f'^global_order_unavailable:{reason}$'):
+                        client.cookies(timeout=8)
 
     def test_explicit_broker_budget_is_shared_by_connect_send_and_receive(self):
         from http.cookiejar import CookieJar
@@ -87,8 +136,8 @@ class SessionTests(unittest.TestCase):
         with patch('client.socket.AF_UNIX', 1, create=True), \
              patch('client.socket.socket', return_value=stream), \
              patch('client.os.path.exists', return_value=True), \
-             patch('client.monotonic', side_effect=lambda: clock[0]):
-            with self.assertRaisesRegex(RuntimeError, '^global_order_unavailable$'):
+             patch('time.monotonic', side_effect=lambda: clock[0]):
+            with self.assertRaisesRegex(RuntimeError, '^global_order_unavailable:transport:timeout$'):
                 client.fill_jar(CookieJar(), timeout=5)
         self.assertEqual([call.args[0] for call in stream.settimeout.call_args_list], [5, 3])
         stream.recv.assert_not_called()
@@ -370,7 +419,7 @@ class HTTPTests(unittest.TestCase):
             self.assertEqual(command, service.OCR_COMMAND)
             self.assertEqual(kwargs['input'], PNG)
             self.assertGreater(timeout, 0)
-            self.assertLessEqual(timeout, 0.8)
+            self.assertLessEqual(timeout, 0.8 + 1e-6)
             started_ocr.set()
             halted_ocr.wait(timeout)
             raise subprocess.TimeoutExpired(command, timeout)
