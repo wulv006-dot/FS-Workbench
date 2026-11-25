@@ -42,6 +42,10 @@ LOGIN_POST_PATH = '/admin/public/dologin.html'
 CAPTCHA_PATH = '/new_captcha.html'
 # Order rejects dologin as "非法登录!" unless this page was opened in the same session.
 LOGIN_PAGE_PATH = '/login.html'
+LOGIN_PAGE_HOPS = 4
+# Order regularly needs 2-3 s per response and sometimes more; the total
+# probe/renewal deadline still bounds the whole operation.
+REQUEST_TIMEOUT = 15
 LOGOUT_PATH = '/admin/public/logout.html'
 CAPTCHA_CODE = re.compile(r'[0-9A-Za-z]{3,6}')
 
@@ -73,7 +77,7 @@ class DeadlineReader(RawIOBase):
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError()
-        self.stream.settimeout(min(8, remaining))
+        self.stream.settimeout(min(REQUEST_TIMEOUT, remaining))
         return self.raw.readinto(buffer)
 
     def close(self):
@@ -96,7 +100,7 @@ class OrderHTTPSConnection(HTTPSConnection):
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise RequestNotSent('order_login_deadline')
-        self.sock.settimeout(min(8, remaining))
+        self.sock.settimeout(min(REQUEST_TIMEOUT, remaining))
 
     def response_class(self, stream, **kwargs):
         return HTTPResponse(DeadlineReader(stream, self.deadline), **kwargs)
@@ -232,7 +236,7 @@ class Session:
         post_maybe_sent = form is not None
         try:
             try:
-                response = self.opener.open(req, timeout=min(8, remaining))
+                response = self.opener.open(req, timeout=min(REQUEST_TIMEOUT, remaining))
             except HTTPError as error:
                 with error:
                     return error.code, error.headers, b''
@@ -280,6 +284,25 @@ class Session:
                 return 'expired'
         return page_identity(status, BASE + PROBE_PATH, body)
 
+    def open_login_page(self, deadline):
+        # Without PHPSESSID Order answers /login.html -> / -> /login.html; follow
+        # only same-site hops so the jar collects the session before the captcha.
+        path = LOGIN_PAGE_PATH
+        for _ in range(LOGIN_PAGE_HOPS):
+            try:
+                status, headers, page = self.request(path, deadline)
+            except (OSError, HTTPException, ValueError):
+                return False
+            if status == 200:
+                return path == LOGIN_PAGE_PATH and b'dologin' in page
+            if status not in (301, 302, 303, 307, 308):
+                return False
+            target = urlsplit(urljoin(BASE + path, headers.get('Location', '')))
+            if target.scheme != 'https' or target.netloc != 'order.p2pah.cn':
+                return False
+            path = target.path or '/'
+        return False
+
     def cookie_rows(self):
         self.jar.clear_expired_cookies()
         return [
@@ -305,11 +328,7 @@ class Session:
             if remaining_posts == 0:
                 return 'order_login_cooldown'
             self.jar.clear()
-            try:
-                status, _, page = self.request(LOGIN_PAGE_PATH, deadline)
-            except (OSError, HTTPException, ValueError):
-                return 'order_login_page_unavailable'
-            if status != 200 or b'dologin' not in page:
+            if not self.open_login_page(deadline):
                 return 'order_login_page_unavailable'
             try:
                 status, _, image = self.request(

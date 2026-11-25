@@ -167,6 +167,7 @@ class HTTPTests(unittest.TestCase):
         self.replies = []
         self.probe_headers = {}
         self.login_page_visits = 0
+        self.login_redirects = 0
         self.login_referers = []
         self.response_stream = io.BytesIO
         self.outcome = (200, LOGIN)
@@ -197,9 +198,24 @@ class HTTPTests(unittest.TestCase):
                 raise self.outcome
             status, body = self.outcome
             payload = body.encode()
-        elif path == '/login.html':
+        elif path in ('/login.html', '/'):
+            # Real Order: without PHPSESSID, /login.html -> / -> /login.html.
+            if not any(c.name == 'PHPSESSID' for c in self.session.jar):
+                self.cookie('PHPSESSID')
+                self.login_redirects += 1
+                status, payload = 302, b''
+                response = self.response_stream(payload)
+                response.status = status
+                response.headers = {'Location': '/'}
+                return response
+            if path == '/':
+                self.login_redirects += 1
+                status, payload = 302, b''
+                response = self.response_stream(payload)
+                response.status = status
+                response.headers = {'Location': '/login.html'}
+                return response
             self.login_page_visits += 1
-            self.cookie('PHPSESSID')
             status, payload = 200, LOGIN.encode()
         elif path == '/new_captcha.html':
             self.login_referers.append(req.get_header('Referer'))
@@ -224,6 +240,7 @@ class HTTPTests(unittest.TestCase):
         self.replies = [{'code': 0, 'msg': '验证码错误！'}, {'code': 1, 'msg': 'ok'}]
         self.assertTrue(self.session.get()['ready'])
         self.assertEqual(self.login_page_visits, 2)
+        self.assertEqual(self.login_redirects, 4)
         self.assertEqual(len(self.posts), 2)
         self.assertEqual(set(self.login_referers), {service.BASE + '/login.html'})
 
