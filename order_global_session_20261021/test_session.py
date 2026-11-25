@@ -57,6 +57,31 @@ class SessionTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, '^global_order_unavailable$'):
                 client.cookies()
 
+    def test_explicit_broker_budget_is_shared_by_connect_send_and_receive(self):
+        from http.cookiejar import CookieJar
+        from unittest.mock import MagicMock
+
+        stream = MagicMock()
+        clock = [10]
+        stream.__enter__.return_value = stream
+
+        def connect(path):
+            clock[0] += 2
+
+        def sendall(data):
+            clock[0] += 3
+
+        stream.connect.side_effect = connect
+        stream.sendall.side_effect = sendall
+        with patch('client.socket.AF_UNIX', 1, create=True), \
+             patch('client.socket.socket', return_value=stream), \
+             patch('client.os.path.exists', return_value=True), \
+             patch('client.monotonic', side_effect=lambda: clock[0]):
+            with self.assertRaisesRegex(RuntimeError, '^global_order_unavailable$'):
+                client.fill_jar(CookieJar(), timeout=5)
+        self.assertEqual([call.args[0] for call in stream.settimeout.call_args_list], [5, 3])
+        stream.recv.assert_not_called()
+
     def test_jar_replaces_old_identity(self):
         import http.cookiejar
         jar = http.cookiejar.CookieJar()

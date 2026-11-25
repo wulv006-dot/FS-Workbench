@@ -4,7 +4,8 @@
 
 | 状态 | 协议和边界 | 来源 |
 |---|---|---|
-| RPG 实测，2026-09-23 | 先取验证码建立 PHPSESSID。登录表单 POST 到 /admin/public/dologin.html，返回 JSON code。会话使用 PHPSESSID、user、admin_username。验证码错误可重试，其他错误立即停止。 | opt/d4follow/core_p2pah.py:17–30，mlb_admin_import_20261012/src/p2pah_price.py:248–290 |
+| RPG 实测，2026-09-23 | 先取验证码建立 PHPSESSID。登录表单 POST 到 /admin/public/dologin.html，返回 JSON code。会话使用 PHPSESSID、user、admin_username。 | opt/d4follow/core_p2pah.py:17–30 |
+| 待核 | MLB 历史实现仅在验证码错误时重试，其他错误立即停止。未实测 FC 登录。 | mlb_admin_import_20261012/src/p2pah_price.py:248–290 |
 | FC 已核 | 发货记录 GET /order/admin_delivery/index.html，按 gid、aid、cid、genre、start、end、page 和其余原筛选取 HTML。表为 table.table-list，现役成本核对 lot-game、lot-type、lot-genre、页号及窄窗读回。 | releases/fc-coins/fc-pricing-v3-20261026/source/collect_p2pah_cost.py:32–76,254–306 |
 | FC 已核 | 发货分页沿实际数据到首个空页，页限触达单列。分页控件文本可只显示局部页码，或混入记录总数，不作为完成证明。 | shared_backend_session/sales_collection.py:390–414 |
 | FC 已核 | 详情 GET /order/admin_order/look/id/{id}.html。商品取 look-goods-table 的 data 属性，发货取内嵌 orderDeliveryData，完成状态取首条 log-item 的 order-status-3。 | releases/fc-coins/fc-pricing-v3-20261026/source/collect_p2pah_cost.py:79–96 |
