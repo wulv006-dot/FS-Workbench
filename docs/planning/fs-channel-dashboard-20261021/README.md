@@ -1,6 +1,6 @@
 # 渠道效果看板实施与验收
 
-看板已受控发布并从真实 wulv 入口验证：[渠道效果看板](https://47.85.224.112/dashboard/channel-effects/)。维护源：`fs_channel_dashboard_20261021/`；私库路径：`releases/fs-dashboard/channel-effects-20261021/`。代码、CI、合并、发布与业务覆盖分别见 [ACCEPTANCE.md](ACCEPTANCE.md)，文件映射见 [SOURCE-MAP.json](SOURCE-MAP.json)。
+看板已受控发布并从真实 wulv 入口验证：[渠道效果看板](https://47.85.224.112/dashboard/channel-effects/)。维护源：`fs_channel_dashboard_20261021/`；仓库路径：`releases/fs-dashboard/channel-effects-20261021/`。代码、CI、合并、发布与业务覆盖分别见 [ACCEPTANCE.md](ACCEPTANCE.md)，文件映射见 [SOURCE-MAP.json](SOURCE-MAP.json)。
 
 ## 用户已确认口径
 

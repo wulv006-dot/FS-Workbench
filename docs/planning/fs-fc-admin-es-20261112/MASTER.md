@@ -2066,7 +2066,7 @@ initial_episode_curve_id / cumulative_change / real_branch_evidence_status
 
 | 优先级/链路 | 固定 main 证据 | V6 必须处理 | 证据边界 |
 |---|---|---|---|
-| 当前开工规则 | AGENTS.md:1–5、78–88；现行三平台段仍写100K双20、Lootbar/Arab/ItemD2R、A=P0、103%上界 | 顶部当前合同指向 V6；0/18硬线、25软目标、完整曲线A、Lootbar/U7Buy/Arab；保留三平台、P0、唯一writer、原ID | 源码确认，不代表现场已读 |
+| 当前开工规则 | [当时固定 main 的 AGENTS.md](https://github.com/wulv006-dot/FS-Workbench/blob/c47cfc651f5fc5b7fe93e866b6d0e16155f83250/AGENTS.md)；当时三平台段仍写100K双20、Lootbar/Arab/ItemD2R、A=P0、103%上界 | 顶部当前合同指向 V6；0/18硬线、25软目标、完整曲线A、Lootbar/U7Buy/Arab；保留三平台、P0、唯一writer、原ID | 源码确认，不代表现场已读。现行入口见[定价合同](../../agents/fc-pricing.md#pricing-contracts) |
 | 当前策略入口 | docs/planning/fc-pricing-v3-20261026/CURRENT-BASELINE.md:11–18、23、27；DUAL20-NO-BUDGET-CHANGE.md:8–12、17 | 替换100K-only、90–95%、103%、双缺最低价、daily30%；现行文件明确新合同版本，不在顶部新增一句后保留相反现行条款 | 源码确认 |
 | Hermes 教材 | 同目录 HERMES-OPERATING-CONTRACT.md:21、25、43–44、63、69–87、91、98；USER-GUIDE.md | 旧竞争硬约束/双20/每轮重算A退出当前；默认elasticity=2只保留敏感性和历史解释；普通经营采用不附加长期实验门槛 | 源码确认 |
 | 每日复盘直接注入 | releases/fc-coins/fc-pricing-v3-20261026/source/hermes_pricing_bridge.py::daily_review_text，141–149，尤其147 | 直接提示词仍写“双20%采购毛利底线…不能豁免”；必须按本次冻结版本输出0/18/25及完整曲线，不因改catalog漏掉此入口；沿 pricing_review_v3 原通道，不新建provider | 源码确认；实际已加载进程/下一原任务待187 |

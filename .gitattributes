@@ -19,3 +19,6 @@ releases/fc-players/single-card-normal-20261107/** -text
 /tools/pr_fast.py whitespace=cr-at-eol
 
 /releases/fc-coins/fc-pricing-v3-20261026/tests/fixtures/collection-node-20261107.json text eol=lf
+
+/.agents/skills/** text=auto eol=lf
+/.claude/skills/** text=auto eol=lf

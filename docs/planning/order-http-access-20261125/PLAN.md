@@ -102,7 +102,7 @@ shipping_stats(filters) -> ShippingStats
 
 ### 阶段 5｜退役浏览器路径
 
-**5A 盘点（只读，可并行）**：对每个拟移除组件——`price_writer` 旧标量 DOM 路径与 `repricing_dom.js`、`range_primary_reader`、`fc_order_reader`、成本容器的 CDP 依赖——逐项确认：活跃调度、在途旧标量操作、尚须原 ID 对账的 UNKNOWN、按需调用（Hermes/MCP、路由）、回退依赖。已有后续真实现态覆盖的历史 UNKNOWN 按 AGENTS.md 既有规则退出阻断。产出 `RETIREMENT.md`。
+**5A 盘点（只读，可并行）**：对每个拟移除组件——`price_writer` 旧标量 DOM 路径与 `repricing_dom.js`、`range_primary_reader`、`fc_order_reader`、成本容器的 CDP 依赖——逐项确认：活跃调度、在途旧标量操作、尚须原 ID 对账的 UNKNOWN、按需调用（Hermes/MCP、路由）、回退依赖。已有后续真实现态覆盖的历史 UNKNOWN 按[现态覆盖规则](../../agents/agent-workflow.md#execution)退出阻断。产出 `RETIREMENT.md`。
 
 **5B 退役（依赖 2、3B 验收）**：5A 确认无用途的组件，从活动发布清单与 SOURCE-MAP 移除；历史目录保留。仍有用途的停在报告，不删除，不新建 HTTP 写价。旧标量若仍在用，其 `getweb=0` 是否推送 mmoexp 与 RPG 实测结论可能冲突，只记录待核，不改行为。
 

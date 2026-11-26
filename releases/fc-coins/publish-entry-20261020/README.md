@@ -99,7 +99,7 @@ PR 合并本身不构成生产授权。
 sudo bash releases/fc-coins/publish-entry-20261020/install.sh     # FC27_PUBLISH_GROUP=fc27ops 可覆盖
 ```
 
-脚本只做六件事：校验源码可解析并打印 sha256 → 检查 `/opt/fc27-workbench` 检出是否有 `refs/remotes/origin/main`（缺则给命令，不自动 clone，私有仓库凭据由 root 侧准备）→ `install -m 0755` 到 `/usr/local/sbin/fc27-publish` →
+脚本只做六件事：校验源码可解析并打印 sha256 → 检查 `/opt/fc27-workbench` 检出是否有 `refs/remotes/origin/main`（缺则给命令，不自动 clone，受控工作区和既有 Git 身份由 root 侧管理）→ `install -m 0755` 到 `/usr/local/sbin/fc27-publish` →
 **策略存在则不覆盖** → 检查 `/etc/fc27-cloud/monitor-user` 是否存在（不打印内容）→ 打印 sudoers 片段。
 不启停单元、不碰 `/opt` 源码、不写 `/var/lib/fc27-cloud`。最后用"无参数应返回 2"自检。
 
