@@ -1,5 +1,5 @@
 """One offline affected-test dispatcher. Unmapped code fails explicitly."""
-import ast, io, json, os, re, subprocess, sys, unittest
+import ast, hashlib, io, json, os, re, subprocess, sys, unittest
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS_MD_MAX_BYTES = 16_384
@@ -657,7 +657,8 @@ def selfcheck():
     if select(["tools/pr_fast_order_single_session_test.py"]) != ["self"]:
         raise RuntimeError("order_single_session_selfcheck_mapping_missing")
     subprocess.run([sys.executable, "-B", "-m", "unittest",
-                    "pr_fast_order_single_session_test", "pr_fast_agent_docs_test"],
+                    "pr_fast_order_single_session_test", "pr_fast_knowledge_source_test",
+                    "pr_fast_agent_docs_test"],
                    cwd=ROOT/"tools", check=True, timeout=45)
     print("selfcheck: PASS and FAIL/error/skip/zero propagate correctly")
 
@@ -1124,6 +1125,34 @@ def select(paths):
     if unmapped:raise RuntimeError("UNMAPPED: add minimal affected synthetic test mapping in this PR: "+", ".join(unmapped))
     return sorted(groups)
 
+def check_knowledge_source_hashes(root, paths):
+    index = root / "knowledge/index.json"
+    if not index.is_file():
+        return
+    changed = set(paths)
+    mismatches = []
+    for row in json.loads(index.read_text(encoding="utf-8-sig"))["entries"]:
+        if row["layer"] != "current" or row["status"] != "effective":
+            continue
+        source = row["source"]
+        name = source["path"]
+        if name not in changed:
+            continue
+        path = root / name
+        if not path.is_file():
+            mismatches.append(f'{row["id"]} ({name}): source is missing; restore it or update source.path')
+            continue
+        expected = hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+        if source["sha256"] != expected:
+            mismatches.append(f'{row["id"]} ({name}): expected utf8_lf SHA-256 {expected}')
+    if mismatches:
+        raise RuntimeError(
+            "Knowledge source check failed:\n" + "\n".join(mismatches)
+            + "\nUpdate source.sha256 in knowledge/index.json. For semantic changes, follow "
+            "docs/planning/knowledge-layering-20261023/CLOSEOUT.md."
+        )
+
+
 def main():
     if sys.argv[1:]==["--selfcheck"]:
         selfcheck();return
@@ -1142,6 +1171,7 @@ def main():
         elif p.suffix==".sh":subprocess.run(["bash","-n",str(p)],check=True,timeout=20)
         elif p.suffix==".json":json.loads(p.read_text(encoding="utf-8-sig"))
         elif p.suffix in (".html",".css"):frontend_structure(name,p.read_text(encoding="utf-8-sig"))
+    check_knowledge_source_hashes(ROOT, paths)
     check_order_single_session(ROOT, sys.argv[2], sys.argv[3], paths)
     groups=select(paths)
     # Workflow/governance-only PR still tests the stable failure gate.
