@@ -49,6 +49,9 @@ STALE_SERVE = 120
 # A probe that only failed to reach Order (timeout, 5xx, 429) says nothing about
 # the session; keep handing out the last ready cookies for this long.
 TRANSPORT_GRACE = 300
+# A rejected login (e.g. the account lost its authenticator whitelist) is not
+# retried for this long, then tried once again so recovery needs no restart.
+REJECTED_RETRY = 1800
 TRANSIENT_ERRORS = {'order_probe_transport_unavailable', 'order_probe_unavailable'}
 WAIT_TIMEOUT = 34
 RESPONSE_LIMIT = 1048576
@@ -242,6 +245,7 @@ class Session:
         self.login_failures = 0
         self.login_retry_after = 0
         self.login_blocked = None
+        self.rejected_at = 0
         self.jar = CookieJar()
         self.opener = build_opener(ProxyHandler({}), NoRedirect(), OrderHTTPSHandler(),
                                    HTTPCookieProcessor(self.jar))
@@ -419,6 +423,7 @@ class Session:
             if (not isinstance(message, str)
                     or not re.fullmatch(r'(?:图形)?验证码(?:输入)?(?:错误|不正确|不匹配|已过期)[。！!！]?', message.strip())):
                 self.login_blocked = 'order_login_rejected'
+                self.rejected_at = time.monotonic()
                 return self.login_blocked
         return 'order_captcha_attempts_exhausted'
 
@@ -439,6 +444,11 @@ class Session:
                           detected_at=detected_at)
             # This verification can account for only one loss, even if renewal fails.
             self.last_valid_login_attempts = None
+            if (self.login_blocked == 'order_login_rejected'
+                    and time.monotonic() - self.rejected_at >= REJECTED_RETRY):
+                self.login_blocked = None
+                self.login_retry_after = 0
+                log_event('login_rejected_retry')
             if self.login_blocked:
                 identity = self.login_blocked
             elif time.monotonic() < self.login_retry_after:

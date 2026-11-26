@@ -388,6 +388,20 @@ class HTTPTests(unittest.TestCase):
         self.assertFalse(seen[0]['ready'])
         self.assertEqual(seen[0]['error'], 'order_session_renewing')
 
+    def test_rejected_login_is_retried_after_hold(self):
+        # 2026-11-26: the account whitelist was removed and later restored; the
+        # broker must recover without a manual restart, but not hammer Order.
+        self.replies = [{'code': 0, 'msg': '未设置谷歌验证器，请联系管理员'}, {'code': 1}]
+        clock = [100]
+        with patch('service.time.monotonic', side_effect=lambda: clock[0]):
+            self.assertEqual(self.session.get(refresh=True)['error'], 'order_login_rejected')
+            clock[0] += 21
+            self.assertEqual(self.session.get(refresh=True)['error'], 'order_login_rejected')
+            self.assertEqual(len(self.posts), 1)
+            clock[0] += service.REJECTED_RETRY
+            self.assertTrue(self.session.get(refresh=True)['ready'])
+            self.assertEqual(len(self.posts), 2)
+
     def test_external_loss_after_valid_is_logged_once_per_session(self):
         self.replies = [{'code': 1}, {'code': 1}]
         clock = [100]
