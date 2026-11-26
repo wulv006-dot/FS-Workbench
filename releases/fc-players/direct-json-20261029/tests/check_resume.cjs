@@ -13,36 +13,73 @@ class Element{
   click(){if(!this.disabled)return this.onclick?.();}
 }
 function all(root){return [root,...root.children.flatMap(all)];}
-function fixture({role='admin',auth=true,can_resume=true,image_resume=false}={}){
-  const roots={jobResult:new Element('div'),jobsList:new Element('div')},requests=[];
+function fixture({role='admin',auth=true,can_resume=true,image_resume=false,imagePanel=true}={}){
+  const roots={jobResult:new Element('div'),jobsList:new Element('div'),imageResult:imagePanel?new Element('p'):null},requests=[];
   const id='2b24ac5661fb404e8bef25f2e6c791f5';
   let job={id,created_at:'original-created',updated_at:'now',status:'needs_reconcile',step:'unknown',can_resume,image_resume,items:[],events:[]};
-  let resolvePost,rejectPost,recoveries=0;
+  let resolvePost,rejectPost,recoveries=0,listStatus=200;
   const deferred=new Promise((resolve,reject)=>{resolvePost=resolve;rejectPost=reject;});
   const response=(status,data)=>({ok:status>=200&&status<300,status,json:async()=>data});
   const scheduled=new Map();
   let timerId=0;
   const context={clearTimeout:id=>scheduled.delete(id),setTimeout:callback=>{
       const id=++timerId;scheduled.set(id,callback);return id;
-    },state:{role,auth,csrf:'csrf-fixture'},prefix:'/tools/fc27-players',
-    $:id=>{assert.ok(roots[id],id);return roots[id];},document:{createElement:tag=>new Element(tag)},
+    },state:{role,auth,csrf:'csrf-fixture'},prefix:'/tools/fc27-players',window:{},
+    $:id=>{assert.ok(Object.hasOwn(roots,id),id);return roots[id];},document:{createElement:tag=>new Element(tag)},
     fetch:async(url,options)=>{
       requests.push({url,options});
       if(options.method==='POST')return deferred;
       if(url.endsWith('/api/jobs/'+id))return response(200,{...job});
-      if(url.endsWith('/api/jobs'))return response(200,{items:[{...job}]});
+      if(url.endsWith('/api/jobs/other'))return response(200,{...job,id:'other',status:'completed_readback',step:'done'});
+      if(url.endsWith('/api/jobs'))return response(listStatus,listStatus===200?{items:[{...job}]}:{error:'list unavailable'});
       assert.fail('Unexpected request '+url);
     },recoverSession:async()=>{recoveries++;assert.fail('Resume must never automatically replay a POST');},
     table:(root,heads,rows)=>root.append(Object.assign(new Element('table'),{heads,rows})),
-    msg:()=>assert.fail('unexpected list error'),Math,encodeURIComponent};
+    msg:(id,value,kind)=>{Object.assign(roots[id],{textContent:value,className:kind});},
+    Math,encodeURIComponent};
   vm.createContext(context);vm.runInContext(helper+api+jobs,context);
   return {context,roots,requests,id,response,resolvePost,rejectPost,setJob:value=>{job={...job,...value};},recoveries:()=>recoveries,
-    scheduled,
-    show:()=>vm.runInContext('showJob('+JSON.stringify(id)+')',context),
+    scheduled,failList:()=>{listStatus=503;},
+    show:(selected=id)=>vm.runInContext('showJob('+JSON.stringify(selected)+')',context),
     buttons:()=>all(roots.jobResult).filter(node=>node.tag==='button'&&node.textContent===(image_resume?'继续上传':'继续原任务'))};
 }
 (async()=>{
   let scenarios=0;
+  {
+    const f=fixture({image_resume:true});
+    const items=[{model_id:1,status:'planned'},{model_id:2,status:'planned'}];
+    f.setJob({status:'queued',step:'precheck',can_resume:false,items});
+    await f.context.window.fc27PlayersFollowImageJob(f.id);
+    assert.match(f.roots.imageResult.textContent,/排队.*0\s*\/\s*2/);
+    assert.equal(f.scheduled.size,1);
+    f.setJob({status:'failed',step:'image_not_started',can_resume:false,image_resume:false,
+      items:[{...items[0],status:'not_started'},items[1]],
+      events:[{step:'image_not_started',status:'failed',detail:{error_code:'IMAGE_UPLOAD_SIGNER_NOT_FOUND'}}]});
+    await [...f.scheduled.values()][0]();
+    assert.match(f.roots.imageResult.textContent,/上传组件.*0\s*\/\s*2/);
+    assert.match(f.roots.imageResult.textContent,new RegExp(f.id));
+    assert.equal(f.roots.imageResult.className,'error');
+    assert.ok(all(f.roots.jobResult).some(node=>/上传组件/.test(node.textContent)));
+    assert.equal(f.buttons().length,0,'the original preflight failure released its scope');
+    assert.equal(f.scheduled.size,0);
+    assert.equal(f.requests.filter(request=>request.options.method==='POST').length,0);
+    scenarios++;
+  }
+  {
+    const f=fixture();
+    f.setJob({status:'running',step:'image_upload_intent',can_resume:false,items:[{model_id:1,status:'planned'}]});
+    await f.context.window.fc27PlayersFollowImageJob(f.id);
+    await f.show('other');
+    assert.equal(f.scheduled.size,1,'opening another job preserves image polling');
+    f.failList();
+    f.setJob({status:'completed_readback',step:'done',items:[{model_id:1,status:'verified'}]});
+    await [...f.scheduled.values()][0]();
+    assert.match(f.roots.imageResult.textContent,/已完成.*1\s*\/\s*1/);
+    assert.match(f.roots.jobsList.textContent,/list unavailable/);
+    assert.match(f.roots.jobResult.children[0].textContent,/other/);
+    assert.equal(f.scheduled.size,0);
+    scenarios++;
+  }
   for(const can_resume of [false,true])for(const role of ['admin','readonly'])for(const auth of [false,true]){
     const f=fixture({can_resume,role,auth});await f.show();
     assert.equal(f.buttons().length,Number(can_resume&&role==='admin'&&auth));
@@ -104,6 +141,20 @@ function fixture({role='admin',auth=true,can_resume=true,image_resume=false}={})
     assert.ok(all(f.roots.jobResult).some(node=>/completed_readback/.test(node.textContent)));
     assert.equal(f.scheduled.size,0);
     assert.equal(f.requests.filter(request=>request.options.method==='POST').length,1);scenarios++;
+  }
+  {
+    const f=fixture({image_resume:true,imagePanel:false});
+    await f.show();
+    const pending=f.buttons()[0].click();
+    f.setJob({status:'running',can_resume:false});
+    f.resolvePost(f.response(202,{execution_id:f.id,status:'queued'}));
+    await pending;
+    assert.equal(f.scheduled.size,1,'the new-player page follows the original job in task details');
+    f.setJob({status:'completed_readback',step:'done'});
+    await [...f.scheduled.values()][0]();
+    assert.ok(all(f.roots.jobResult).some(node=>/completed_readback/.test(node.textContent)));
+    assert.equal(f.requests.filter(request=>request.options.method==='POST').length,1);
+    scenarios++;
   }
   for(const failure of ['http403','network']){
     const f=fixture();await f.show();const resume=f.buttons()[0],pending=resume.click();

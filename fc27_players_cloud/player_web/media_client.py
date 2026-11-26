@@ -12,8 +12,8 @@ from typing import Any
 
 from 球员维护工具.admin_client import AdminAuthError, AdminContractError, _multipart_body, _NoRedirect
 
-AUTH_MODULE_URL = "https://admin.p2pah.cn/assets/uploadAuth-e88263af.js"
-AUTH_MODULE_SHA = "108604361886ac92e1616191569d5a9c76364115b2afe2d04cb672a87f3c94a7"
+AUTH_MODULE_URL = "https://admin.p2pah.cn/assets/uploadAuth-fd8deac1.js"
+AUTH_MODULE_SHA = "1f8af13bbeefec34d1ce1a5dfb425182f62531828669dc8f044629976f278a24"
 UPLOAD_URL = "https://b2c-api.p2pah.cn/upload/file"
 
 
@@ -43,6 +43,10 @@ def upload_png(client: Any, path: Path) -> dict[str, Any]:
             "file", path.name, path.read_bytes())
         request = urllib.request.Request(UPLOAD_URL, data=body, method="POST",
                                          headers={"Content-Type": content_type, "Accept": "application/json"})
+    except urllib.error.HTTPError as exc:
+        code = "IMAGE_UPLOAD_SIGNER_NOT_FOUND" if exc.code in {404, 410} else "IMAGE_UPLOAD_PRECHECK_FAILED"
+        exc.close()
+        raise ImageUploadNotStarted(code) from None
     except (urllib.error.URLError, TimeoutError, OSError, ValueError, TypeError, KeyError):
         raise ImageUploadNotStarted("IMAGE_UPLOAD_PRECHECK_FAILED") from None
     try:

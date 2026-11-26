@@ -126,22 +126,77 @@
     const date=new Date(value);
     return value&&!Number.isNaN(date.getTime())?jobTimeFormatter.format(date)+" 北京时间":value||"—";
   }
+  const imagePrecheckErrors={
+    IMAGE_UPLOAD_SIGNER_NOT_FOUND:"Admin 上传组件已下线，需要更新",
+    IMAGE_UPLOAD_CONTRACT_CHANGED:"Admin 上传组件已变更，需要核对",
+    IMAGE_UPLOAD_PRECHECK_FAILED:"Admin 上传前检查失败"
+  };
+  function setImageJobStatus(id, message, kind="muted"){
+    if(state.imageJobId!==id)return;
+    const summary=message+" 任务 "+id+"。";
+    if($("imageResult").textContent!==summary)msg("imageResult",summary,kind);
+  }
+  function imageJobError(job){
+    const detail=job.events?.at(-1)?.detail;
+    if(job.step==="image_not_started")return imagePrecheckErrors[detail?.error_code];
+    if(job.step==="image_unknown"&&detail?.error_type){
+      const reasons={IMAGE_MODEL_CHANGED:"Admin 当前图片与原计划不一致",IMAGE_READBACK_INCOMPLETE:"Admin 回读的图片与本次附件不一致",IMAGE_READBACK_UNAVAILABLE:"暂时无法读取 Admin 上的图片",AdminHttpError:"Admin 请求未成功返回",StateError:"需要核对 Admin 模型与原附件"};
+      const code=detail.error_code||detail.error_type;
+      return "图片任务已暂停："+(reasons[code]||code);
+    }
+  }
+  function renderImageJobStatus(job){
+    if(state.imageJobId!==job.id)return;
+    const items=job.items||[];
+    const progress="已核验 "+items.filter(item=>item.status==="verified").length+" / "+items.length+" 张。";
+    if(job.status==="queued")setImageJobStatus(job.id,"图片任务正在排队。"+progress);
+    else if(job.status==="running")setImageJobStatus(job.id,"正在上传并核验图片。"+progress);
+    else if(job.status==="completed_readback")setImageJobStatus(job.id,"图片任务已完成。"+progress,"ok");
+    else setImageJobStatus(job.id,(imageJobError(job)||"图片任务已停止，请查看任务详情")+"。"+progress,
+      job.status==="failed"?"error":"warn");
+  }
+  function jobIsRunning(job){return job.status==="queued"||job.status==="running";}
+  function readJob(id){return api("/api/jobs/"+encodeURIComponent(id));}
+  async function followImageJob(id){
+    clearTimeout(state.imageJobPoll);
+    let job;
+    try{job=await readJob(id);}
+    catch{
+      if(state.imageJobId!==id)return;
+      state.imageJobFollowing=false;
+      setImageJobStatus(id,"暂时无法读取图片任务状态，请在任务进度中刷新。","warn");
+      return;
+    }
+    if(state.imageJobId!==id)return;
+    if(state.activeJobId===id)await showJob(id,false,job);
+    else renderImageJobStatus(job);
+    if(state.imageJobId!==id)return;
+    if(jobIsRunning(job))state.imageJobPoll=setTimeout(()=>followImageJob(id),2500);
+    else{
+      state.imageJobFollowing=false;
+      await loadJobs().catch(error=>msg("jobsList",error.message,"error"));
+    }
+  }
+  window.fc27PlayersFollowImageJob=(id)=>{
+    clearTimeout(state.jobPoll);
+    state.activeJobId=id;
+    state.imageJobId=id;
+    state.imageJobFollowing=true;
+    return followImageJob(id);
+  };
   async function loadJobs(){const data=await api("/api/jobs"),root=$("jobsList");root.replaceChildren();if(!data.items?.length){root.textContent="暂无任务";return;}const history=node("details");history.append(node("summary","较早任务（"+Math.max(0,data.items.length-5)+" 条）"));for(const [index,job] of data.items.entries()){const row=node("div",undefined,"job-row");row.append(node("span",jobTime(job.created_at)),node("span",job.status),node("span","步骤 "+job.step),button("查看结果",()=>showJob(job.id).catch(e=>msg("jobsList",e.message,"error"))));(index<5?root:history).append(row);}if(data.items.length>5)root.append(history);}
-  async function showJob(id, following=false){
+  async function showJob(id, following=false, snapshot=null){
     clearTimeout(state.jobPoll);
     state.activeJobId=id;
     const serial=state.jobSerial=(state.jobSerial||0)+1;
-    const job=await api("/api/jobs/"+encodeURIComponent(id));
+    const job=snapshot||await readJob(id);
     if(state.jobSerial!==serial)return;
     const root=$("jobResult");
     root.hidden=false;
     root.replaceChildren(node("h3","任务 "+job.id),node("p","状态："+job.status+" · 当前步骤："+job.step+" · 更新："+jobTime(job.updated_at)));
-    const latest=job.events?.at(-1)?.detail;
-    if(job.step==="image_unknown"&&latest?.error_type){
-      const reason={IMAGE_MODEL_CHANGED:"Admin 当前图片与原计划不一致",IMAGE_READBACK_INCOMPLETE:"Admin 回读的图片与本次附件不一致",IMAGE_READBACK_UNAVAILABLE:"暂时无法读取 Admin 上的图片",AdminHttpError:"Admin 请求未成功返回",StateError:"需要核对 Admin 模型与原附件"};
-      const code=latest.error_code||latest.error_type;
-      root.append(node("p","图片任务已暂停："+(reason[code]||code)+"。","warn"));
-    }
+    const imageError=imageJobError(job);
+    if(imageError)root.append(node("p",imageError+"。","warn"));
+    renderImageJobStatus(job);
     const phases=new Map();for(const event of job.events||[]){const fid=event.detail?.futbin_id;if(fid&&event.step.startsWith("direct_"))phases.set(fid+":"+event.step,{fid,step:event.step,status:event.status});}
     const unknown=[...new Set([...phases.values()].filter(row=>row.status==="unknown").map(row=>row.fid))],waiting=[...new Set([...phases.values()].filter(row=>row.step==="direct_shelves"&&row.status==="accepted").map(row=>row.fid))];
     if(unknown.length)root.append(node("p","新增请求结果未知（"+unknown.length+" 人）："+unknown.join("、")+"。请先核对原请求；系统不会重复发送已派发的请求。","warn"));
@@ -159,7 +214,10 @@
           await api("/api/jobs/"+encodeURIComponent(id)+"/resume","POST",{confirmed:true},false,false);
           submitted=true;
           pending.delete(id);
-          if(state.activeJobId===id)await showJob(id);
+            if(state.activeJobId===id){
+              if(job.image_resume&&$("imageResult"))await window.fc27PlayersFollowImageJob(id);
+              else await showJob(id);
+            }
           await loadJobs();
         }catch(error){
           progress.message.textContent=(submitted?"已提交，暂未读到结果：":"未能接续：")+error.message+"。请刷新任务查看原任务状态。";
@@ -172,12 +230,12 @@
       root.append(hint,resume,message);
     }
     if(job.items?.length)table(root,["模型 ID","状态","写前","回读"],job.items.map(item=>[item.model_id,item.status,JSON.stringify(item.before||item.planned?.before||{}),JSON.stringify(item.after||{})]));if(job.events?.length)table(root,["时间","步骤","状态","详情"],job.events.map(event=>[jobTime(event.created_at),event.step,event.status,JSON.stringify(event.detail)]));
-    if(job.status==="queued"||job.status==="running"){
+    if(jobIsRunning(job)&&!(state.imageJobId===id&&state.imageJobFollowing)){
       state.jobPoll=setTimeout(()=>showJob(id,true).catch(error=>{
         if(state.jobSerial===serial+1&&state.activeJobId===id)
           root.append(node("p","暂时无法刷新任务："+error.message+"。请点击刷新任务查看。","warn"));
       }),2500);
-    }else if(following)await loadJobs();
+    }else if(following&&!jobIsRunning(job))await loadJobs();
   }
   async function loadTagCatalog(){try{const data=await api("/api/tags"),select=$("tagCatalog");select.replaceChildren();for(const item of data.items||[]){const option=node("option",String(item.name||"")+" ("+item.id+")");option.value=String(item.id);select.append(option);}msg("tagCatalogSummary","FC27 Players 标签 "+select.options.length+" 个；筛选标签与操作标签独立。","ok");}catch(e){msg("tagCatalogSummary",e.message,"error");}}
   function syncSelectedTags(){const selected=[...$("tagCatalog").selectedOptions].map(item=>item.value);$("actionTagIds").value=selected.join(",");clearPlan();}
