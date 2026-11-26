@@ -383,7 +383,7 @@ class MediaContractTests(unittest.TestCase):
         import urllib.error
         opening = unittest.mock.Mock(side_effect=urllib.error.HTTPError('https://example.test/module.js', 404, 'missing', {}, None))
         with patch('player_web.media_client.urllib.request.build_opener', return_value=SimpleNamespace(open=opening)):
-            with self.assertRaisesRegex(ImageUploadNotStarted, 'IMAGE_UPLOAD_PRECHECK_FAILED'):
+            with self.assertRaisesRegex(ImageUploadNotStarted, 'IMAGE_UPLOAD_SIGNER_NOT_FOUND'):
                 upload_png(SimpleNamespace(authenticated=True, timeout=3), Path('unused.png'))
         self.assertEqual(opening.call_count, 1)
         self.assertEqual(opening.call_args.args[0].get_method(), 'GET')
@@ -412,8 +412,8 @@ class MediaContractTests(unittest.TestCase):
         import urllib.error
         material = 'synthetic-test-material'
         script = ('const UPLOAD_AUTH_SECRET=' + json.dumps(material) + ';').encode()
-        current_module = 'https://admin.p2pah.cn/assets/uploadAuth-e88263af.js'
-        retired_module = 'https://admin.p2pah.cn/assets/uploadAuth-ac6fbfe3.js'
+        current_module = 'https://admin.p2pah.cn/assets/uploadAuth-fd8deac1.js'
+        retired_module = 'https://admin.p2pah.cn/assets/uploadAuth-e88263af.js'
         fixed_time = 1793980000.125
         expected_timestamp = 1793980000125
         response = {'upload':{'picture':{'code':200,'file':{'id':778,'full_url':'https://example.test/778.png'}}}}
