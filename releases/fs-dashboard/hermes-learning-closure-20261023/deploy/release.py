@@ -16,19 +16,11 @@ RUNTIME.update({'approval/' + name: '/opt/fs-hermes-memory-approval/' + name
                 for name in ('review_queue.py', 'reviewed_skills.py')})
 RUNTIME['daily/daily_review.py'] = '/var/lib/fs-hermes-fc/profile/scripts/hermes-memory-review/daily_review.py'
 NEW_RUNTIME = {'runtime/reviewed_skills.py', 'approval/reviewed_skills.py'}
-ISOLATION_TARGETS = {name: RUNTIME[name] for name in NEW_RUNTIME}
 
 
 def targets(manifest):
     rows = manifest.get('files', [])
     result = {row['candidate']: row['target'] for row in rows}
-    if manifest.get('reviewedSkillIsolation') is True:
-        if (len(rows) != len(ISOLATION_TARGETS) or result != ISOLATION_TARGETS
-                or manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False
-                or any(not row.get('beforeSha256') for row in rows)
-                or len({row.get('sha256') for row in rows}) != 1):
-            raise ValueError('learning_exact_reviewed_skill_isolation_targets')
-        return result
     if len(rows) != len(result) or not RUNTIME.items() <= result.items():
         raise ValueError('learning_exact_runtime_targets')
     if len(set(result.values())) != len(result):
@@ -57,8 +49,7 @@ def load_base():
     manifest = json.loads((HERE / 'approved-manifest.json').read_text(encoding='utf-8'))
     adapter.HERE, adapter.SCOPE, adapter.TARGETS = HERE, SCOPE, targets(manifest)
     adapter.AUTHORIZED_TIMERS = frozenset()
-    adapter.NEW = (frozenset() if manifest.get('reviewedSkillIsolation') is True
-                   else frozenset(set(adapter.TARGETS) - set(RUNTIME) | NEW_RUNTIME))
+    adapter.NEW = frozenset(set(adapter.TARGETS) - set(RUNTIME) | NEW_RUNTIME)
     base = adapter.load_base()
     original_group = base.approved_daily_group
 

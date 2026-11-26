@@ -15,6 +15,21 @@ from unittest.mock import patch
 import reviewed_skills as skills
 
 
+class IsolationReleaseTests(unittest.TestCase):
+    def test_release_accepts_only_existing_identical_helper_copies(self):
+        import reviewed_skill_isolation_release as release
+        manifest = dict(businessWrites=False, timersChanged=False,
+                        files=[dict(candidate=name, target=target, beforeSha256='a' * 64, sha256='b' * 64)
+                               for name, target in release.TARGETS.items()])
+        self.assertEqual(release.targets(manifest), release.TARGETS)
+        for changed in (dict(beforeSha256=None), dict(sha256='c' * 64),
+                        dict(target='/var/lib/fs-hermes-fc/profile/skills/SKILL.md')):
+            wrong = copy.deepcopy(manifest)
+            wrong['files'][0].update(changed)
+            with self.assertRaisesRegex(ValueError, 'exact_reviewed_skill_isolation_targets'):
+                release.targets(wrong)
+
+
 class SkillReviewTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
