@@ -2,47 +2,75 @@
 import ast, io, json, os, re, subprocess, sys, unittest
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
-AGENTS_MD_MAX_BYTES = 20_000
-SKILL_ROOTS = (".agents/skills", ".claude/skills")
+AGENTS_MD_MAX_BYTES = 16_384
+AGENTS_MD_WARN_BYTES = 12_288
+AGENTS_CORE_MAX_BYTES = 6_144
+CORE_MARKER = re.compile(rb"^<!-- core-rules-end -->$", re.M)
+
+# Root CLAUDE.md only points to the shared AGENTS.md and has its own byte limit.
+CLIENT_RULE_ALLOWLIST = frozenset({"CLAUDE.md"})
+CLIENT_RULE_PARENTS = {
+    ".agent", ".agents", ".antigravity", ".claude", ".codex", ".cursor", ".gemini", ".roo", ".windsurf",
+}
+CLIENT_RULE_NAMES = {
+    "agents.override.md", "claude.md", "claude.local.md", "gemini.md", "copilot-instructions.md",
+    ".clinerules", ".cursorrules", ".windsurfrules",
+}
+
+
+def document_bytes(root, name):
+    path = root / name
+    if not path.is_file():
+        raise RuntimeError(f"agent-docs: {name} is missing")
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    data.decode("utf-8")
+    return data
+
+
+def require_document_limit(name, size, limit):
+    if size > limit:
+        raise RuntimeError(f"agent-docs: {name} is {size} bytes; limit is {limit}. "
+                           "Move detailed rules to docs/agents/ or history to docs/memory/.")
 
 
 def check_agents_md_size(root):
-    path = root / "AGENTS.md"
-    if not path.is_file():
-        raise RuntimeError("agents-md-size: AGENTS.md is missing")
-    size = path.stat().st_size
-    if size > AGENTS_MD_MAX_BYTES:
-        raise RuntimeError(
-            f"agents-md-size: AGENTS.md is {size} bytes; limit is {AGENTS_MD_MAX_BYTES}. "
-            "Move detailed rules to docs/agents/ and link to them from AGENTS.md."
-        )
+    data = document_bytes(root, "AGENTS.md")
+    require_document_limit("AGENTS.md", len(data), AGENTS_MD_MAX_BYTES)
+    markers = list(CORE_MARKER.finditer(data))
+    scenario_heading = "## 场景索引".encode("utf-8")
+    if len(markers) != 1 or data[markers[0].end():].lstrip().splitlines()[:1] != [scenario_heading]:
+        raise RuntimeError("agent-docs: put one <!-- core-rules-end --> before the AGENTS.md scenario index")
+    require_document_limit("AGENTS.md core", markers[0].start(), AGENTS_CORE_MAX_BYTES)
+    if len(data) > AGENTS_MD_WARN_BYTES:
+        print(f"WARNING: AGENTS.md is {len(data)} bytes; recommended limit is {AGENTS_MD_WARN_BYTES}. "
+              "Move details to docs/agents/.", file=sys.stderr)
 
 
-def check_skill_parity(root):
-    files_by_root = []
-    for name in SKILL_ROOTS:
-        directory = root / name
-        if not directory.is_dir():
-            raise RuntimeError(f"skill-parity: missing skill directory {name}")
-        files_by_root.append({
-            path.relative_to(directory).as_posix(): path
-            for path in directory.rglob("*") if path.is_file()
-        })
+def check_client_rules(root):
+    violations = []
+    for parent, directories, files in os.walk(root):
+        directories[:] = [name for name in directories if name not in {".git", ".codegraph", "node_modules"}]
+        for name in directories + files:
+            path = Path(parent, name).relative_to(root).as_posix()
+            parent_name = Path(parent).name.lower()
+            lower_name = name.lower()
+            client_rule = (
+                lower_name in CLIENT_RULE_NAMES
+                or (lower_name == "rules" and parent_name in CLIENT_RULE_PARENTS)
+                or (lower_name == "instructions" and parent_name == ".github")
+            )
+            if client_rule and path not in CLIENT_RULE_ALLOWLIST:
+                violations.append(path)
+    if violations:
+        raise RuntimeError("client-rule: move unregistered client-specific rules into AGENTS.md or docs/agents/: "
+                           + ", ".join(sorted(violations)))
 
-    agents, claude = files_by_root
-    problems = []
-    for files, other, other_root in ((agents, claude, SKILL_ROOTS[1]), (claude, agents, SKILL_ROOTS[0])):
-        missing = sorted(files.keys() - other.keys())
-        if missing:
-            problems.append(f"missing from {other_root}: {', '.join(missing)}")
-    different = [
-        name for name in sorted(agents.keys() & claude.keys())
-        if agents[name].read_bytes() != claude[name].read_bytes()
-    ]
-    if different:
-        problems.append(f"content differs: {', '.join(different)}")
-    if problems:
-        raise RuntimeError("skill-parity: keep both skill trees in sync\n" + "\n".join(problems))
+
+def check_agent_docs(root):
+    check_agents_md_size(root)
+    for name, limit in (("CLAUDE.md", 512), ("docs/memory/MEMORY.md", 6_144)):
+        require_document_limit(name, len(document_bytes(root, name)), limit)
+    check_client_rules(root)
 
 
 #: 已在版本库里的 6 个 /opt 运营模块。它们不走 releases/ 的按批次分组，
@@ -350,9 +378,10 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
-    check_agents_md_size(ROOT)
-    check_skill_parity(ROOT)
-    print("agent documentation checks: AGENTS.md size and skill parity passed")
+    check_agent_docs(ROOT)
+    print("agent documentation checks: size and shared rules passed")
+    subprocess.run([sys.executable, "-I", "-B", str(ROOT / "tools/sync_agent_skills.py"), "--check"],
+                   cwd=ROOT, check=True, timeout=45)
     if select(["releases/fs-dashboard/game-monitor-fc-calendar-20261103/calendar.json"]) != ["game-monitor-fc-calendar"]:
         raise RuntimeError("FC_calendar_check_missing")
     if select(['releases/fc-players/admin-api-repair-20261031/source/images.js']) != ['fc-players-api-repair']:
@@ -1074,7 +1103,7 @@ def select(paths):
             groups.add("hermes-navigation-range");continue
         if suffix in (".sql",".service",".timer") or (name.startswith(".github/workflows/") and name!=".github/workflows/pr-fast.yml"):
             unmapped.append(name);continue
-        if name.startswith("tools/pr_fast") or name==".github/workflows/pr-fast.yml":
+        if name.startswith("tools/pr_fast") or name in (".github/workflows/pr-fast.yml", "tools/sync_agent_skills.py"):
             groups.add("self");continue
         if suffix not in (".py",".js",".cjs",".sh",".html",".css"):continue
         if suffix in (".html",".css"):

@@ -26,7 +26,7 @@
 
 原部署器的锁、CAS、admission/provider fence、备份与回退继续使用，本批 16 精确目标、8 个新文件，其余活动对象保留保护 SHA。Nginx 仅三个目标 alias 与一个同身份静态资产入口定点调整，原路由保留。Admin 会话容器与认证配置不在发布范围。
 
-定向检查：`python fs_business_baseline_20261021/test_baseline.py`；该组登记到私库现有 `tools/pr_fast.py`，不新增 workflow。货币/零值/缺失/去重、映射隐私、旧档重用、知识替代、尾价预算、权限/调度边界与 Nginx 身份保持均有检查；JS 语法另验，真实浅暗/键盘与后台使用单列。
+定向检查：`python fs_business_baseline_20261021/test_baseline.py`；该组登记到仓库现有 `tools/pr_fast.py`，不新增 workflow。货币/零值/缺失/去重、映射隐私、旧档重用、知识替代、尾价预算、权限/调度边界与 Nginx 身份保持均有检查；JS 语法另验，真实浅暗/键盘与后台使用单列。
 
 访问缺口：原Admin会话曾credentials_rejected/503，后续运维改为single-owner并保持冷却停服。本Work保留新unit，最后只读状态inactive；最新项目HANDOFF给出的最早另行考虑验证点为2026-10-22 11:30上海时间，不是解封保证。本批不启动、登录、自动重试或修改凭据。浏览器现有登录态已用于口径核验，已有原导出用于真实渠道查询；新鲜数据恢复另验。
 

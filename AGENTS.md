@@ -17,9 +17,11 @@
 - **改全。** 同一事实在代码、文案、文档和测试中同步更新，并按旧说法搜索全仓确认覆盖。
 - **纠错固化。** 用户纠正或审查退回的问题，能机械判断就优先加测试或 CI 守卫，无法机械判断再写成文字规则。
 
+<!-- core-rules-end -->
+
 ## 场景索引
 
-Codex、Antigravity 和 Claude Code 共用本入口。按任务读取对应章节，项目技能分别从 `.agents/skills/` 和 `.claude/skills/` 加载。
+Codex、Antigravity 和 Claude Code 共用本入口。项目技能只编辑 `.agents/skills/`，运行 `python tools/sync_agent_skills.py --apply` 生成 Claude 镜像。
 
 - FS 授权、Hermes 职责与成员边界 → [FS 核心原则](docs/agents/agent-workflow.md#fs-principles)。
 - 新任务、续做、Worktree、CI 与交付 → [任务归属、Worktree 与交付](docs/agents/agent-workflow.md#start-work)。
@@ -28,6 +30,7 @@ Codex、Antigravity 和 Claude Code 共用本入口。按任务读取对应章�
 - 定位代码、查询调用关系、初始化或修复索引 → [CodeGraph 与源码核对](docs/agents/agent-workflow.md#codegraph)。
 - 执行任务、查负责人或来源映射、对账历史 UNKNOWN、写 FC27 或绿茵计划文档 → [AI 执行入口](docs/agents/agent-workflow.md#execution)。
 - 判断全局偏好、项目执行规则和模块合同的适用范围 → [全局偏好与项目规则分层](docs/agents/agent-workflow.md#rule-layers)。
+- 查环境事实、历史原因和已知坑 → 先读[共享开发记忆](docs/memory/MEMORY.md)。私有客户端记忆只放个人偏好，收尾时把项目事实归入 `docs/memory/`、AGENTS.md 或测试。
 - FC27 Coins 改价或追溯原操作 → [定价合同入口（V6.1 与旧标量）](docs/agents/fc-pricing.md#pricing-contracts)。
 - 核对三平台两段价、市场定位锚、分时段目标与成本保护 → [FC27 Coins 当前定价](docs/agents/fc-pricing.md#current-pricing)。
 - 调整改价依赖、资源和调度，或验收自动化 → [FC 自动改价 P0 可用性](docs/agents/fc-pricing.md#pricing-p0)。

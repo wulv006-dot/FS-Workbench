@@ -10,7 +10,7 @@
 
 - 体验：`http://127.0.0.1:8522/analytics/`，同源活动页：`http://127.0.0.1:8522/`。
 - 启动：在本目录运行 `node analytics/server.mjs`。仅监听本机 127.0.0.1；不要将此开发静态服务暴露公网。
-- 看板沿用私库本地核对副本 `ui-system/tokens/fs-tokens.css` 与 `components/fs-ui.css`；正式 FS 集成引用当时活动版本，不覆盖共享样式、不直接重放旧发布版本。
+- 看板沿用仓库本地核对副本 `ui-system/tokens/fs-tokens.css` 与 `components/fs-ui.css`；正式 FS 集成引用当时活动版本，不覆盖共享样式、不直接重放旧发布版本。
 - 原本 8520 的站点仍可使用。不同端口属于不同源，本机记录不能跨端口读取。
 
 ## 账户进度与待配置项

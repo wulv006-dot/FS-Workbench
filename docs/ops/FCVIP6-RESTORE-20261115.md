@@ -93,9 +93,9 @@ and one error involving missing `WindowsPath.is_junction`. This is not a Linux
 CI pass. Unrelated modules were not modified to make that run green.
 
 Source and recovery records were committed locally. GitHub push and draft PR
-creation were rejected by automatic approval review before execution. A
-read-only check confirmed origin is private `wulv006-dot/FS-Workbench`, with
-ADMIN access; one evidence-based push retry was also rejected because explicit
+creation were rejected by automatic approval review before execution. At that
+time, a read-only check confirmed that `wulv006-dot/FS-Workbench` was private
+and the connection had ADMIN access. One evidence-based push retry was also rejected because explicit
 authorization to transmit this code to that destination was required. No
 remote branch, PR, CI result or merge is claimed. Obtain that authorization
 before retrying publication; do not bypass the rejection. DSH work remains

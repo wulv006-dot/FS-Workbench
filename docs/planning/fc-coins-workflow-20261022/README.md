@@ -23,7 +23,7 @@
 
 新增一个只读工具，复用原取数、市场快照、模拟桥、账本、知识装配和学习注册；原正式CI及受控发布器保持。采价周期、自动化开关、10%底线、价格写入和SBC/Players等固定公式均不变。
 
-代码：`fs_coins_workflow_20261022/`；私库：`releases/fs-dashboard/fc-coins-workflow-20261022/`。维护映射见 SOURCE-MAP.json。状态以 ACCEPTANCE.md 及实际回执为准。
+代码：`fs_coins_workflow_20261022/`；仓库：`releases/fs-dashboard/fc-coins-workflow-20261022/`。维护映射见 SOURCE-MAP.json。状态以 ACCEPTANCE.md 及实际回执为准。
 
 
 ## 当前已完成与边界（2026-10-22）

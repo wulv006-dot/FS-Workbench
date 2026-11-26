@@ -18,4 +18,4 @@ Hermes及Codex/ChatGPT产出、指导或审核任何报告、文字分析，优�
 <!-- fc27-report-method-current-20261024 -->
 ## FC27经营报告字段与呈现
 
-FC 经营日报、周报、月报和专项分析成稿默认启用 [FC 经营分析图解](../../.agents/skills/fc-report-visuals/SKILL.md)，Claude Code 从同名项目技能发现。取证按[字段使用与呈现规则](../../docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)核来源、范围、单位、分母、计算、可支持的结论及主动补查；历史实例只作方法参考。Ads 和流量按经营重要性充分分析，详细界面设计和阅读顺序按本次问题自主安排。Git 版本、项目技能发现、Hermes 实际加载和真实报告应用分别验收。Admin 优先／Order 补缺、现行业务基准及财务口径、预算、调度及权限沿原合同。
+FC 经营日报、周报、月报和专项分析成稿默认使用 [FC 经营分析图解](../../.agents/skills/fc-report-visuals/SKILL.md)。Codex、Antigravity 和 Claude Code 使用同一份项目技能。取证按[字段使用与呈现规则](../../docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)核来源、范围、单位、分母、计算、可支持的结论及主动补查；历史实例只作方法参考。Ads 和流量按经营重要性充分分析，详细界面设计和阅读顺序按本次问题自主安排。Git 版本、项目技能发现、Hermes 实际加载和真实报告应用分别验收。Admin 优先／Order 补缺、现行业务基准及财务口径、预算、调度及权限沿原合同。

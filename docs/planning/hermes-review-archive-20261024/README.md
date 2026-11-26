@@ -2,7 +2,7 @@
 
 用户2026-10-24明确要求补齐已批准记忆和技能到项目Git、Notion的归档，并接入原每日审核任务。仅实现原已应用内容的脱敏归档，不改变正式业务规则、技能执行、权限、模型、共享范围或生产服务。
 
-Git私库为可复用归档的维护源，Notion只保存可读摘要、适用范围和固定版本链接，完整私密原件与备份继续留在原受控审计。归档位于`knowledge/reviewed/<原request_id>/`，不加入活动`knowledge/index.json`，不会因为Git合并或Notion同步再次发布或加载。
+公开 FS-Workbench 仓库维护经授权可公开的复用归档，Notion只保存可读摘要、适用范围和固定版本链接，完整私密原件与备份继续留在原受控审计。归档位于`knowledge/reviewed/<原request_id>/`，不加入活动`knowledge/index.json`，不会因为Git合并或Notion同步再次发布或加载。
 
 ## 已有入口与本次补齐
 
@@ -23,6 +23,6 @@ Git私库为可复用归档的维护源，Notion只保存可读摘要、适用�
 
 ## 经明确批准的路径引用导出
 
-默认隐私过滤保持。完整技能中确需保留内部路径或地址引用时，先列出原request、确切文件SHA、命中引用及私库/Notion范围，由用户明确确认后才在selection增加`reference_exports`：`source=direct_user`、`message_reference`和`files`。`files`按“包路径/相对文件路径”绑定`sha256`与逐项`values`；原批准记录保留在原closeout账本。候选或模型自述不构成批准。
+默认隐私过滤保持。完整技能中确需保留内部路径或地址引用时，先列出原request、确切文件SHA、命中引用及公开仓库/Notion各自的披露范围，由用户明确确认后才在selection增加`reference_exports`：`source=direct_user`、`message_reference`和`files`。`files`按“包路径/相对文件路径”绑定`sha256`与逐项`values`；原批准记录保留在原closeout账本。候选或模型自述不构成批准。
 
 仅路径前缀或地址引用可以按确切文件逐项批准，文件变更须重审。凭据、邮件、私人画像、客户身份及原对话仍不导出；审批元数据也不得夹带私密正文。不修改原包字节、不缩减支持文件，Notion仍只写脱敏摘要及固定Git链接。此机制不增加服务器发布、网关或调度权限。相同原请求重试先读原账本/回执，不重放技能应用。

@@ -22,6 +22,7 @@ FS 由创建者吴律统一掌控，是以 Hermes 为智能中枢的 AI 驱动�
 - 继续旧任务时沿用原会话及本任务原有分支、Worktree，保留未完成工作；不得默认复用另一个任务的开发目录。
 - 新开发任务由执行者自动获取最新 `origin/main`，记录实际基线提交，从该基线建立本任务独立分支和 Worktree。Codex 优先使用原生 Worktree 能力；DSH 使用独立明确的任务目录，不放入 Codex 管理或清理的临时目录。每个任务只有一个负责人。
 - DSH 的任务目录与分支固定为 `D:/FS/DSH-worktrees/<task-id>` 和 `dsh/<task-id>`；创建前先查是否已有同任务分支及 Worktree，存在则沿用并核对 HEAD，不另起副本、不为对齐基线重置旧任务。
+- Antigravity 优先用 T3 原生 Worktree，否则使用 `D:/FS/agy-worktrees/<task-id>` 和 `agy/<task-id>`。PR 合并且部署验收完成后，按 [fs-task 收尾](../../.agents/skills/fs-task/SKILL.md#收尾)快进正式 clone 的干净 `main`。
 - 每个开发 Worktree 接入自己的 CodeGraph 索引。首次使用由执行者自动初始化，已有索引先核对项目路径和状态；每次查询显式传入本任务 Worktree 的绝对路径 `projectPath`。索引、缓存及临时锁只留本机并被 Git 忽略，不跨任务复制索引数据库；索引故障按下文规则处理，不阻断可继续的源码分析。
 - 初始化新索引前，若正式 clone 存在本机 `codegraph.json`，仅在任务配置缺失时复用其排除配置并核对已被 Git 忽略；已有索引先查 `status`，必要时同步。MCP 接入以本会话实际 `codegraph_explore(projectPath=<本任务绝对路径>)` 返回源码及行号为准，仅配置存在或命令行查询成功不能代替该实调。
 - 不覆盖、清理或提交其他 Agent 的未提交代码，不为准备新任务而重置其他任务的分支或工作区；Git 与共享发布操作继续串行。
@@ -31,7 +32,7 @@ FS 由创建者吴律统一掌控，是以 Hermes 为智能中枢的 AI 驱动�
 
 ### 开工技能与技能选择（2026-11-16）
 
-开发任务的开工与收尾清单见 `fs-task` 技能（`.agents/skills/fs-task/` 供 Codex，`.claude/skills/fs-task/` 供 Claude，两份保持同内容）。它只按顺序落实本节与 HOTFIX 的既有规则，不新增规则；冲突以仓库根 [AGENTS.md](../../AGENTS.md) 和 `docs/ops/HOTFIX.md` 为准。开始改仓库前先用它。
+开发任务的开工与收尾清单见 `fs-task` 技能（`.agents/skills/fs-task/` 供 Codex 和 Antigravity，`.claude/skills/fs-task/` 由同步脚本生成供 Claude）。它只按顺序落实本节与 HOTFIX 的既有规则，不新增规则；冲突以仓库根 [AGENTS.md](../../AGENTS.md) 和 `docs/ops/HOTFIX.md` 为准。开始改仓库前先用它。
 
 技能按描述自动匹配，匹配不稳时按下表手动点名（Claude 侧技能名带 `mattpocock-skills:` 前缀）：
 

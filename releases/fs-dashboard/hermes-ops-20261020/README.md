@@ -12,7 +12,7 @@
 
 ## 文件与运行位置
 
-`source/{common,watch,host,github_api}.py` → `/opt/fs-hermes-ops/`；原生watch代码副本在官方允许的 `/var/lib/hermes-dingtalk/profile/scripts/fs-ops-watchdog/`，状态仍独立存于profile的ops-watchdog目录。本任务冻结UI发布器只复用仓库menu-cache既有字节SHA `5548d9c8…1357`，不上传副本进私库。
+`source/{common,watch,host,github_api}.py` → `/opt/fs-hermes-ops/`；原生watch代码副本在官方允许的 `/var/lib/hermes-dingtalk/profile/scripts/fs-ops-watchdog/`，状态仍独立存于profile的ops-watchdog目录。本任务冻结UI发布器只复用仓库menu-cache既有字节SHA `5548d9c8…1357`，不上传副本进源码仓库。
 
 `deploy/release_ui.py` 只适配 `/var/www/dashboard/fs-home/brain/index.html`；`deploy/publish_monitor.py` 沿用现有monitor发布器，只接受旧 `b326c548…` → 已验 `792b84ee…` 的单文件修复。模板、旧发布器和全站样式均不覆盖。
 
@@ -20,7 +20,7 @@
 
 ## 验证与重跑
 
-工程根运行 `python -B fs_hermes_ops_20261020/test_ops.py`。这是无生产写入的直接回归；私库复用现有pr-fast分组，无新workflow。
+工程根运行 `python -B fs_hermes_ops_20261020/test_ops.py`。这是无生产写入的直接回归；仓库复用现有pr-fast分组，无新workflow。
 
 原生只读检查与接单方法见 `skill/SKILL.md`。安装器检查确切文件及哈希，现有不同字节会拒绝，避免覆盖并行变更。单次消息发送、创建PR、合并和发布存在真实写入；不要盲重跑，先查原事件/消息/分支/PR和发布收据。桥和原生任务可分别暂停，原有采集/定价timer不受影响。
 

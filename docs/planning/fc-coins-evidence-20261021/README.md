@@ -30,7 +30,7 @@
 
 ## 复用与复核
 
-活动代码为 `fs_coins_evidence_20261021/source/`，私库对应 `releases/fs-dashboard/fc-coins-evidence-20261021/`。取当前服务器caller后最小修改，未用历史同名副本覆盖。原日报/周报准备机制追加只读账本及成本检查，无新采集器、timer或通知任务。
+活动代码为 `fs_coins_evidence_20261021/source/`，仓库对应 `releases/fs-dashboard/fc-coins-evidence-20261021/`。取当前服务器caller后最小修改，未用历史同名副本覆盖。原日报/周报准备机制追加只读账本及成本检查，无新采集器、timer或通知任务。
 
 按当前任务查询：`profile=FC27, kind=order_costs, start=2026-10-14, end=2026-10-20`；历史有下一页时沿同一窗口翻页。同窗营销pending沿原查询复查，失败保留回执，不换ID重发。默认只读检查档案；缺日通过原FS渠道机制取得，不复制采集链。
 

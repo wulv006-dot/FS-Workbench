@@ -4,7 +4,7 @@
 
 ## 资料与入口
 
-个人版为 https://chatgpt.com/space/page_6ae5813bdcf88191af4a69285736a9c1 。Business团队版位于FS规范，入口为 https://chatgpt.com/space/page_0685096df12881918422e94f9dbfe95d ，历史资料子页为 https://chatgpt.com/space/page_9827d03c50d08191a2b4478a253043e7 。页面、附件和仓库链接各自遵循访问权限，页面分享不授予私库访问权。
+个人版为 https://chatgpt.com/space/page_6ae5813bdcf88191af4a69285736a9c1 。Business团队版位于FS规范，入口为 https://chatgpt.com/space/page_0685096df12881918422e94f9dbfe95d ，历史资料子页为 https://chatgpt.com/space/page_9827d03c50d08191a2b4478a253043e7 。页面、附件和仓库链接各自遵循访问权限，FS-Workbench 源码仓库公开，页面分享不改变附件或其他仓库的访问权限。
 
 `tools/export_fs_space.py --ref origin/main --output <本次不可变目录>`导出固定提交下的AGENTS、docs与knowledge Markdown文档。正文脱敏，原文与导出内容哈希分开；源文档日期不自动成为生效日期。内容哈希不随仅代码提交变化，便于同步去重。已存在但内容不同的结果拒绝覆盖，先核原操作。
 

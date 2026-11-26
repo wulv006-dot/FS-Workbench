@@ -4,7 +4,7 @@
 
 ## 通道
 
-1. 工作区：`/profile/cache/workspaces/FS-Workbench`（管理端私有浅克隆，与线上 `/opt/*` 无写入关系）。
+1. 工作区：`/profile/cache/workspaces/FS-Workbench`（管理端受限浅克隆，与线上 `/opt/*` 无写入关系）。
 2. 分支：`dot/<topic>-<YYYYMMDD>`；一次改动一个分支、一个 PR。
 3. 校验：`main` 由 ruleset `main-pr-fast` 强制 PR + 必需状态检查 `pr-fast`（`strict`，base 落后须先更新），禁强推、禁删除。
 4. 合并：`pr-fast` 通过且 base 最新后 squash 合并；合并本身不授生产发布权限。
