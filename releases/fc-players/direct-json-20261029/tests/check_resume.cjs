@@ -13,8 +13,8 @@ class Element{
   click(){if(!this.disabled)return this.onclick?.();}
 }
 function all(root){return [root,...root.children.flatMap(all)];}
-function fixture({role='admin',auth=true,can_resume=true,image_resume=false}={}){
-  const roots={jobResult:new Element('div'),jobsList:new Element('div'),imageResult:new Element('p')},requests=[];
+function fixture({role='admin',auth=true,can_resume=true,image_resume=false,imagePanel=true}={}){
+  const roots={jobResult:new Element('div'),jobsList:new Element('div'),imageResult:imagePanel?new Element('p'):null},requests=[];
   const id='2b24ac5661fb404e8bef25f2e6c791f5';
   let job={id,created_at:'original-created',updated_at:'now',status:'needs_reconcile',step:'unknown',can_resume,image_resume,items:[],events:[]};
   let resolvePost,rejectPost,recoveries=0,listStatus=200;
@@ -25,7 +25,7 @@ function fixture({role='admin',auth=true,can_resume=true,image_resume=false}={})
   const context={clearTimeout:id=>scheduled.delete(id),setTimeout:callback=>{
       const id=++timerId;scheduled.set(id,callback);return id;
     },state:{role,auth,csrf:'csrf-fixture'},prefix:'/tools/fc27-players',window:{},
-    $:id=>{assert.ok(roots[id],id);return roots[id];},document:{createElement:tag=>new Element(tag)},
+    $:id=>{assert.ok(Object.hasOwn(roots,id),id);return roots[id];},document:{createElement:tag=>new Element(tag)},
     fetch:async(url,options)=>{
       requests.push({url,options});
       if(options.method==='POST')return deferred;
@@ -141,6 +141,20 @@ function fixture({role='admin',auth=true,can_resume=true,image_resume=false}={})
     assert.ok(all(f.roots.jobResult).some(node=>/completed_readback/.test(node.textContent)));
     assert.equal(f.scheduled.size,0);
     assert.equal(f.requests.filter(request=>request.options.method==='POST').length,1);scenarios++;
+  }
+  {
+    const f=fixture({image_resume:true,imagePanel:false});
+    await f.show();
+    const pending=f.buttons()[0].click();
+    f.setJob({status:'running',can_resume:false});
+    f.resolvePost(f.response(202,{execution_id:f.id,status:'queued'}));
+    await pending;
+    assert.equal(f.scheduled.size,1,'the new-player page follows the original job in task details');
+    f.setJob({status:'completed_readback',step:'done'});
+    await [...f.scheduled.values()][0]();
+    assert.ok(all(f.roots.jobResult).some(node=>/completed_readback/.test(node.textContent)));
+    assert.equal(f.requests.filter(request=>request.options.method==='POST').length,1);
+    scenarios++;
   }
   for(const failure of ['http403','network']){
     const f=fixture();await f.show();const resume=f.buttons()[0],pending=resume.click();

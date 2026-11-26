@@ -381,12 +381,14 @@ class ModelImageTests(unittest.TestCase):
 class MediaContractTests(unittest.TestCase):
     def test_get_failure_is_definitely_not_dispatched(self):
         import urllib.error
-        opening = unittest.mock.Mock(side_effect=urllib.error.HTTPError('https://example.test/module.js', 404, 'missing', {}, None))
+        response = io.BytesIO(b'not found')
+        opening = unittest.mock.Mock(side_effect=urllib.error.HTTPError('https://example.test/module.js', 404, 'missing', {}, response))
         with patch('player_web.media_client.urllib.request.build_opener', return_value=SimpleNamespace(open=opening)):
             with self.assertRaisesRegex(ImageUploadNotStarted, 'IMAGE_UPLOAD_SIGNER_NOT_FOUND'):
                 upload_png(SimpleNamespace(authenticated=True, timeout=3), Path('unused.png'))
         self.assertEqual(opening.call_count, 1)
         self.assertEqual(opening.call_args.args[0].get_method(), 'GET')
+        self.assertTrue(response.closed)
 
     def test_changed_signer_is_not_dispatched(self):
         opening = unittest.mock.Mock(return_value=io.BytesIO(b'changed module'))
@@ -422,7 +424,7 @@ class MediaContractTests(unittest.TestCase):
             calls.append(request)
             if request.get_method() == 'GET':
                 if request.full_url == retired_module:
-                    raise urllib.error.HTTPError(retired_module, 404, 'missing', {}, None)
+                    raise urllib.error.HTTPError(retired_module, 404, 'missing', {}, io.BytesIO(b'not found'))
                 self.assertEqual(request.full_url, current_module)
                 return io.BytesIO(script)
             self.assertEqual(request.get_method(), 'POST')

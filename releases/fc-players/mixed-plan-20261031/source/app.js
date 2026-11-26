@@ -215,7 +215,7 @@
           submitted=true;
           pending.delete(id);
             if(state.activeJobId===id){
-              if(job.image_resume)await window.fc27PlayersFollowImageJob(id);
+              if(job.image_resume&&$("imageResult"))await window.fc27PlayersFollowImageJob(id);
               else await showJob(id);
             }
           await loadJobs();
