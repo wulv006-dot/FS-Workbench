@@ -61,6 +61,18 @@ class Candidate(unittest.TestCase):
                 prepare.prepare(ROOT, Path(tmp) / 'stage', commit='a' * 40)
             self.assertFalse((Path(tmp) / 'stage').exists())
 
+    def test_reviewed_skill_isolation_is_two_existing_identical_helper_copies(self):
+        value = dict(reviewedSkillIsolation=True, businessWrites=False, timersChanged=False,
+                     files=[dict(candidate=name, target=target, beforeSha256='a' * 64, sha256='b' * 64)
+                            for name, target in scope.ISOLATION_TARGETS.items()])
+        self.assertEqual(scope.targets(value), scope.ISOLATION_TARGETS)
+        for changed in (dict(beforeSha256=None), dict(sha256='c' * 64),
+                        dict(target='/var/lib/fs-hermes-fc/profile/skills/SKILL.md')):
+            wrong = copy.deepcopy(value)
+            wrong['files'][0].update(changed)
+            with self.assertRaisesRegex(ValueError, 'exact_reviewed_skill_isolation_targets'):
+                scope.targets(wrong)
+
     def test_scope_rejects_policy_configuration_schedule_and_other_targets(self):
         value = dict(businessWrites=False, timersChanged=False,
                      files=[dict(candidate=name, target=target) for name, target in scope.RUNTIME.items()]

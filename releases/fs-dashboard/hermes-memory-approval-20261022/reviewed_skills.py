@@ -9,6 +9,8 @@ import stat
 
 CONTRACT = 'fs-hermes-reviewed-skills-v1'
 TARGET_CONTRACT = 'fs-hermes-skill-target-v1'
+# Curator owns this package's lifecycle. Keep its approvals for audit only.
+HERMES_MANAGED_SKILLS = frozenset({'fs-operations/fs-business-context-rulings'})
 PUBLISHED_ROOTS = ('/approved-skills', '/var/lib/fs-hermes-memory-approval/published-skills')
 NATIVE_SHA256 = {
     'write_approval': '8d8a15d29a73dceb2e8cf76f613d59d91115314c908a8086ffe1c72572382c7f',
@@ -210,7 +212,7 @@ def approved_index(receipts):
         for pkg in result['packages']:
             path = pkg['path']
             items.pop(path, None)
-            if pkg['exists']:
+            if pkg['exists'] and path not in HERMES_MANAGED_SKILLS:
                 metadata = result['reviewed_skills'][path]
                 items[path] = dict(id=path, sha256=pkg['sha256'], package_sha256=pkg['sha256'],
                                    relative_path=path, files=pkg['entries'],
@@ -226,6 +228,9 @@ def _catalog(skills_root, index, modules, expected_index_sha):
         raise ValueError('reviewed_skill_index_changed')
     items = []
     for row in index['items']:
+        # Old frozen indexes may still list the Hermes-managed package.
+        if row['id'] in HERMES_MANAGED_SKILLS:
+            continue
         if {m.casefold() for m in modules}.intersection(m.casefold() for m in row['modules']):
             current = package(skills_root, row['id'])
             if current['sha256'] != row['sha256'] or current['entries'] != row['files']:

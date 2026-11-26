@@ -110,6 +110,39 @@ class SkillReviewTests(unittest.TestCase):
         self.assertEqual(index['items'][0]['package_sha256'],skills.package(self.root,'alpha')['sha256'])
         self.assertEqual(index['items'][0]['candidate_id'],'skill:ab1234cd')
 
+    def test_hermes_managed_skill_is_outside_fs_projection_and_package_checks(self):
+        managed = 'fs-operations/fs-business-context-rulings'
+        active = self.root / managed
+        active.mkdir(parents=True)
+        (active / 'SKILL.md').write_text('Hermes-owned method', encoding='utf-8')
+        other = skills.apply_review(self.decision(), self.manager, self.approval)
+        managed_package = skills.package(self.root, managed)
+        receipt = self.receipt(other)
+        prior = skills.approved_index([receipt])
+        prior['items'].append(dict(id=managed, sha256=managed_package['sha256'],
+            package_sha256=managed_package['sha256'], files=managed_package['entries'],
+            modules=['FS', 'FC', 'RPG'], review_request_id='old-review'))
+        prior['sha256'] = skills.digest({k: v for k, v in prior.items() if k != 'sha256'})
+        index_path = self.root / 'index.json'
+        index_path.write_text(json.dumps(prior), encoding='utf-8')
+        archive = self.root / '.archive' / active.name
+        archive.parent.mkdir()
+        active.rename(archive)
+
+        listing = skills.list_reviewed(self.root, index_path, ['FC27', 'FS'],
+                                       expected_index_sha=prior['sha256'])
+        self.assertEqual([row['id'] for row in listing['items']], ['alpha'])
+        self.assertEqual(skills.read_reviewed_skill(self.root, index_path, ['FC27', 'FS'],
+            'alpha', prior['items'][0]['sha256'], expected_index_sha=prior['sha256'])['content'], 'method v2')
+        self.assertEqual((archive / 'SKILL.md').read_text(encoding='utf-8'), 'Hermes-owned method')
+
+        previous = dict(receipt, result=dict(other, packages=[*other['packages'], managed_package],
+            reviewed_skills={**other['reviewed_skills'], managed: dict(modules=['FS'], description='Hermes')}))
+        self.assertEqual(skills.approved_index([previous])['items'], prior['items'][:1])
+        (self.path / 'SKILL.md').write_text('unaudited edit', encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'reviewed_skill_package_changed'):
+            skills.list_reviewed(self.root, index_path, ['FC27', 'FS'], expected_index_sha=prior['sha256'])
+
     def test_delete_full_package_is_backed_up_and_removes_only_approved_index_item(self):
         edit=skills.apply_review(self.decision(),self.manager,self.approval)
         old=self.receipt(edit)
