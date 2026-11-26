@@ -22,7 +22,7 @@
 
 - 12:00 前后用 MLB 账号试登录，Order 回复「未设置谷歌验证器」，同时顶掉了原浏览器会话，P0 约 12:00–13:15 无写价（无错价）。根因：Order 只对 wulv、chenchao 免谷歌验证器，同账号任何新登录都会顶掉已有会话。
 - 处理：会话服务改用 wulv（凭据 `/etc/fs-order-session/order-account.json`，root 0600）；MLB 的 `_cred_order.json` 按用户要求删除，`mlb-online` 的 `coins_rate.cred` 指向同一文件（MLB 本就经共享会话取 cookie）。
-- 规则（用户要求程序约束）：AGENTS.md「Order 后台单会话」；pr-fast `order-single-session` 拦截新增的 Order 登录代码；会话服务记录 `session_lost_externally`。
+- 规则（用户要求程序约束）见 [AGENTS.md 硬约束](../../../AGENTS.md#硬约束)中的「Order 后台单会话」及[会话细则](../../agents/backend-access.md#order-single-session)。pr-fast `order-single-session` 拦截新增的 Order 登录代码。会话服务记录 `session_lost_externally`。
 - 14:15 自然轮旧浏览器采集器自身达 180 秒上限未取得成本（无写价），与会话无关。
 
 ## 未完成

@@ -2,6 +2,48 @@
 import ast, io, json, os, re, subprocess, sys, unittest
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
+AGENTS_MD_MAX_BYTES = 20_000
+SKILL_ROOTS = (".agents/skills", ".claude/skills")
+
+
+def check_agents_md_size(root):
+    path = root / "AGENTS.md"
+    if not path.is_file():
+        raise RuntimeError("agents-md-size: AGENTS.md is missing")
+    size = path.stat().st_size
+    if size > AGENTS_MD_MAX_BYTES:
+        raise RuntimeError(
+            f"agents-md-size: AGENTS.md is {size} bytes; limit is {AGENTS_MD_MAX_BYTES}. "
+            "Move detailed rules to docs/agents/ and link to them from AGENTS.md."
+        )
+
+
+def check_skill_parity(root):
+    files_by_root = []
+    for name in SKILL_ROOTS:
+        directory = root / name
+        if not directory.is_dir():
+            raise RuntimeError(f"skill-parity: missing skill directory {name}")
+        files_by_root.append({
+            path.relative_to(directory).as_posix(): path
+            for path in directory.rglob("*") if path.is_file()
+        })
+
+    agents, claude = files_by_root
+    problems = []
+    for files, other, other_root in ((agents, claude, SKILL_ROOTS[1]), (claude, agents, SKILL_ROOTS[0])):
+        missing = sorted(files.keys() - other.keys())
+        if missing:
+            problems.append(f"missing from {other_root}: {', '.join(missing)}")
+    different = [
+        name for name in sorted(agents.keys() & claude.keys())
+        if agents[name].read_bytes() != claude[name].read_bytes()
+    ]
+    if different:
+        problems.append(f"content differs: {', '.join(different)}")
+    if problems:
+        raise RuntimeError("skill-parity: keep both skill trees in sync\n" + "\n".join(problems))
+
 
 #: 已在版本库里的 6 个 /opt 运营模块。它们不走 releases/ 的按批次分组，
 #: 统一归 ops-modules（见 select 与 pr_fast_tests.OpsModuleContracts）。
@@ -308,6 +350,9 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    check_agents_md_size(ROOT)
+    check_skill_parity(ROOT)
+    print("agent documentation checks: AGENTS.md size and skill parity passed")
     if select(["releases/fs-dashboard/game-monitor-fc-calendar-20261103/calendar.json"]) != ["game-monitor-fc-calendar"]:
         raise RuntimeError("FC_calendar_check_missing")
     if select(['releases/fc-players/admin-api-repair-20261031/source/images.js']) != ['fc-players-api-repair']:
@@ -582,8 +627,8 @@ def selfcheck():
     rename_source_selfcheck()
     if select(["tools/pr_fast_order_single_session_test.py"]) != ["self"]:
         raise RuntimeError("order_single_session_selfcheck_mapping_missing")
-    # This fixture creates two commits in a disposable local repository.
-    subprocess.run([sys.executable, "-B", "-m", "unittest", "pr_fast_order_single_session_test"],
+    subprocess.run([sys.executable, "-B", "-m", "unittest",
+                    "pr_fast_order_single_session_test", "pr_fast_agent_docs_test"],
                    cwd=ROOT/"tools", check=True, timeout=45)
     print("selfcheck: PASS and FAIL/error/skip/zero propagate correctly")
 

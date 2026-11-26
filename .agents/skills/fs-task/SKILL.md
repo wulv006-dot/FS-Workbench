@@ -5,7 +5,7 @@ description: FS-Workbench 开发任务的开工与收尾流程。开始功能开
 
 # FS 任务：开工与收尾
 
-规则的唯一来源是仓库根 `AGENTS.md`（「任务归属、Worktree 与交付」「CodeGraph 与源码核对」）和 `docs/ops/HOTFIX.md`。本技能只是把它们按顺序做完的清单，不新增、不改变任何规则；冲突时以那两处为准。
+规则从仓库根 [AGENTS.md](../../../AGENTS.md) 进入，开工细则见[任务归属、Worktree 与交付](../../../docs/agents/agent-workflow.md#start-work)及 [CodeGraph 与源码核对](../../../docs/agents/agent-workflow.md#codegraph)，执行遵循 [HOTFIX](../../../docs/ops/HOTFIX.md)。本技能只是按顺序落实这些规则。
 
 ## 开工
 
@@ -17,7 +17,7 @@ description: FS-Workbench 开发任务的开工与收尾流程。开始功能开
    - Codex：优先用原生 Worktree 能力。
    - DSH：`D:/FS/DSH-worktrees/<task-id>`，分支 `dsh/<task-id>`。
 5. **CodeGraph**：纯文案、简单配置、范围明确的微小改动跳过。其余先 `codegraph_explore`，且每次显式传本任务 Worktree 的绝对路径 `projectPath`；必须有一次实调返回源码与行号才算接入（配置存在或命令行成功都不算）。无索引就在该 Worktree 初始化，不复制其他任务的索引库；初始化前先确认 `.codegraph/` 已被 Git 忽略。工具故障或索引过期时说明原因，改用源码检索继续。图只用于导航，不证明生产版本、权限或业务状态。
-6. **读合同**：按任务只读受影响的合同——FC 定价看 `AGENTS.md` 顶部合同入口（`fc27_curve_v6` 用 V6.1，旧标量用三平台旧合同），其余看对应模块合同、`docs/collaboration/OWNERS.json` 和 `SOURCE-MAP.json`。不重读全部历史。
+6. **读合同**：按任务读取受影响的合同。FC 定价看[定价合同入口](../../../docs/agents/fc-pricing.md#pricing-contracts)，其余看对应模块合同、`docs/collaboration/OWNERS.json` 和 `SOURCE-MAP.json`。
 7. **实施**：最小改动，修到根因和必要调用链；只运行相关回归；不碰其他 Agent 的未提交内容。
 
 ## 收尾
