@@ -1,4 +1,4 @@
-"""Opening announcements for the first two Eastern dates of Carnival 2026."""
+"""Opening announcements for every session in the live Carnival schedule."""
 import asyncio
 from datetime import datetime, timezone, timedelta
 
@@ -7,15 +7,13 @@ import discord
 
 EVENT = 'https://www.mmoexp.com/events/Carnival.html'
 SCHEDULE = 'http://127.0.0.1:8949/events/api/carnival/schedule'
-DATES = {'2026-11-27', '2026-11-28'}
-STOP = datetime.fromisoformat('2026-11-29T05:00:00+00:00')
 
 
 async def run(client, guild_id, channel_id):
     await client.wait_until_ready()
     sent = set()
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8)) as http:
-        while datetime.now(timezone.utc) < STOP and not client.is_closed():
+        while not client.is_closed():
             delay = 60
             try:
                 async with http.get(SCHEDULE) as response:
@@ -24,9 +22,11 @@ async def run(client, guild_id, channel_id):
                 if data.get('test'):
                     raise ValueError('test schedule')
                 now = datetime.now(timezone.utc)
+                if now >= datetime.fromisoformat(data['ends_at']):
+                    return
                 for row in data['sessions']:
                     raw = row['starts_at']
-                    if raw[:10] not in DATES or raw in sent:
+                    if raw in sent:
                         continue
                     start = datetime.fromisoformat(raw)
                     end = datetime.fromisoformat(row['ends_at'])
