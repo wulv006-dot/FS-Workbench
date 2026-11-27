@@ -88,6 +88,25 @@ class AdminFacts:
     def grants(self, uid):
         return self.pages('grants', [('member_id', '=', uid)])
 
+    def recent_grant_members(self, at):
+        """Reuse the grant source for the entire shortlist in bounded date pages."""
+        members = set()
+        cutoff = at - timedelta(days=30)
+        start = cutoff
+        while start < at:
+            end = min(at, start + timedelta(days=7))
+            bound = ','.join(point.astimezone(SHANGHAI).strftime('%Y-%m-%d %H:%M:%S')
+                             for point in (start, end))
+            for row in self.pages('grants', [('site_id', '=', SITE), ('start_time', 'RANGE', bound, 'datetime')]):
+                uid = member_id(row.get('member_id'))
+                issued = coupon_time(row.get('start_time'))
+                if str(row.get('site_id')) != SITE or not uid or not start.replace(microsecond=0) <= issued <= end:
+                    raise ValueError('maintenance_grant_scope')
+                if cutoff < issued <= at and not str(row.get('grant_batch_no') or '').startswith('FCSM_'):
+                    members.add(uid)
+            start = end
+        return members
+
     def logs(self, start, stop):
         source_time = lambda at: at.astimezone(SHANGHAI).strftime('%Y-%m-%d %H:%M:%S')
         bound = source_time(start) + ',' + source_time(stop)

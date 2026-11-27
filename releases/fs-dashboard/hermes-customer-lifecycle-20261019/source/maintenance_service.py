@@ -12,12 +12,14 @@ from threading import Lock
 from customer_segments import ConfigCommitUnknown, load_config, thresholds, write_config
 from maintenance_dispatch import Bridge, Dispatcher, checked_template
 from maintenance_effects import effects
-from maintenance_ledger import (AWAITING, Ledger, SHANGHAI, active_customer, enqueue_entry, fetch_entry, fetch_rule,
-                                marks, record_dispatch_identity, stamp, transition)
+from maintenance_ledger import (AWAITING, IN_FLIGHT, REVOCABLE, Ledger, SHANGHAI, active_customer,
+                                enqueue_entry, entry_view, fetch_entry, fetch_rule, marks, quota_used,
+                                record_dispatch_identity, rule_view, stamp, transition)
 from maintenance_review import (CouponIndex, canonical, coupon_time, digest, email_key,
                                 manual_evidence, member_id, review_evidence, valid_email)
 from maintenance_sources import AdminFacts, UserProjection, locally_flagged_order
-from maintenance_stages import FOLLOW_UP, GID, RANK, cohort, day_end, matches_rule, new_event, payment
+from maintenance_stages import (BANDS, FOLLOW_UP, GID, RANK, cohort, coupon_terms, day_end, matches_rule,
+                                new_event, payment, rank_customers, stock_event)
 from vip_maintenance import case_closed, events_for
 
 
@@ -52,6 +54,10 @@ CREATE TABLE IF NOT EXISTS maintenance_changes (
 CREATE TABLE IF NOT EXISTS maintenance_outcomes (
     days INTEGER PRIMARY KEY, observed_at TEXT NOT NULL, body TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS maintenance_decisions (
+    request_id TEXT PRIMARY KEY, actor TEXT NOT NULL, intent TEXT NOT NULL, receipt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS maintenance_stock_days (day TEXT PRIMARY KEY, observation_day TEXT NOT NULL UNIQUE);
 '''
 
 
@@ -76,11 +82,7 @@ def keys(body, fields):
         raise ValueError('maintenance_request_fields')
 
 
-def matching_cases(db, customer):
-    ident, email = customer['customer_id'], email_key(customer['email'])
-    exact, conflicts = [], []
-    uid_conflict = False
-    uid = member_id(customer.get('uid'))
+def case_identities(db):
     query = '''SELECT common.id,common.baseline,
                       preferred.baseline AS preferred, known.customer_id AS customer_id
                FROM vip_cases AS common
@@ -92,6 +94,31 @@ def matching_cases(db, customer):
         emails = {email_key(value) for item in identities for value in item.get('emails', ())
                   if isinstance(value, str)}
         uids = {member_id(value) for item in identities for value in item.get('uids', ())}
+        yield case, emails, uids
+
+
+def index_case_identities(db):
+    by_email, by_uid = defaultdict(list), defaultdict(list)
+    for item in case_identities(db):
+        _, emails, uids = item
+        for email in emails:
+            by_email[email].append(item)
+        for uid in uids - {None}:
+            by_uid[uid].append(item)
+    return by_email, by_uid
+
+
+def matching_cases(db, customer, case_index=None):
+    ident, email = customer['customer_id'], email_key(customer['email'])
+    exact, conflicts = [], []
+    uid_conflict = False
+    uid = member_id(customer.get('uid'))
+    if case_index is None:
+        candidates = case_identities(db)
+    else:
+        by_email, by_uid = case_index
+        candidates = {item[0]['id']: item for item in by_email[email] + by_uid[uid]}.values()
+    for case, emails, uids in candidates:
         if not (email in emails or uid and uid in uids) or case_closed(db, case['id']):
             continue
         if emails == {email} and case['customer_id'] in (None, ident):
@@ -119,14 +146,14 @@ def store_case_link(db, customer, case_id, status):
         db.execute('INSERT INTO maintenance_cases VALUES(?,?,?)', (customer, case_id, status))
 
 
-def case_binding(db, customer, *, entering_stage=False):
+def case_binding(db, customer, *, entering_stage=False, case_index=None):
     ident = customer['customer_id']
     prior = db.execute('SELECT case_id,status FROM maintenance_cases WHERE customer_id=?', (ident,)).fetchone()
     if customer.get('email_conflict'):
         return None, 'pending_identity', [], [], 'email_conflict'
     if not valid_email(customer['email']):
         return None, 'pending_identity', [], [], 'invalid_email'
-    exact, conflicts, uid_conflict = matching_cases(db, customer)
+    exact, conflicts, uid_conflict = matching_cases(db, customer, case_index)
     reason = 'case_binding_pending'
     if uid_conflict:
         reason = 'uid_case_conflict'
@@ -164,10 +191,7 @@ def case_link(db, customer, at):
     return case_id, status
 
 
-def contact_evidence(db, customer):
-    case_id, status, _, _, reason = case_binding(db, customer)
-    if status != 'linked':
-        raise PendingIdentity(reason)
+def case_contacts(db, case_id):
     contacts = []
     for request_id, actor, at, body in db.execute(
             'SELECT request_id,actor,at,payload FROM vip_events WHERE case_id=?', (case_id,)):
@@ -176,6 +200,13 @@ def contact_evidence(db, customer):
             contacts.append(dict(request_id=request_id, at=at, actor=actor,
                                  contacted_at=event.get('contacted_at')))
     return contacts
+
+
+def contact_evidence(db, customer):
+    case_id, status, _, _, reason = case_binding(db, customer)
+    if status != 'linked':
+        raise PendingIdentity(reason)
+    return case_contacts(db, case_id)
 
 
 def event_order_valid(facts, event, customer):
@@ -190,6 +221,17 @@ def dispatch_event(db, row):
                       (row['event_id'],)).fetchone()
 
 
+def same_cycle(entry, customer):
+    return all(entry['event'].get(key) == customer[key] for key in ('stage', 'last_order_key'))
+
+
+def recommendation_item(customer, rule, entry, source):
+    fields = ('tier', 'stage', 'customer_type', 'rank', 'score', 'reason', 'email',
+              'amount_usd', 'purchase_days', 'days_since_last_paid', 'last_paid_at')
+    return dict({key: customer[key] for key in fields}, source=source, coupon=coupon_terms(rule),
+                rule_id=rule['id'], id=entry['id'] if entry else None, state=entry['state'] if entry else 'stock')
+
+
 def assign_empty(db, case_id, owner, event, rule, at):
     if not case_id or owner is None:
         return
@@ -199,6 +241,194 @@ def assign_empty(db, case_id, owner, event, rule, at):
                (request_id, ACTOR, 'rule_assign' if updated else 'rule_assign_skipped', case_id,
                 'null', canonical(owner), stamp(at)))
 
+
+class RecommendationPool:
+    """Rank the four FC27 bands and apply one eligibility policy to stock and outreach."""
+
+    def __init__(self, ledger, admin, usage):
+        self.ledger = ledger
+        self.admin = admin
+        self.usage = usage
+        self._recent_grants = None
+
+    def _coupon_exclusions(self, facts, at, *, refresh=False):
+        cached = self._recent_grants
+        if refresh or not cached or not timedelta(0) <= at - cached[0] < timedelta(minutes=5):
+            cached = at, self.admin.recent_grant_members(at)
+            self._recent_grants = cached
+        grants = {customer for uid in cached[1] for customer in facts.uid_customers.get(uid, ())}
+        return grants, cached[1], self.usage(facts, at, refresh=refresh)
+
+    def _recommendation_inputs(self, db, facts):
+        customers = []
+        for row in db.execute('SELECT body FROM maintenance_customers'):
+            customer = json.loads(row['body'])
+            if (customer['tier'], customer['stage']) in BANDS:
+                if 'purchase_days' not in customer:
+                    # Read snapshots written before purchase-day counts were stored.
+                    end = day_end(date.fromisoformat(customer['observation_date']))
+                    customer['purchase_days'] = len({payment(order).date() for order in
+                        facts.customer_orders(customer['customer_id'])
+                        if order['valid'] and str(order['gid']) == GID and payment(order) < end})
+                customers.append(customer)
+        rules = [rule_view(row) for row in db.execute('SELECT * FROM maintenance_rules')]
+        rules = sorted((rule for rule in rules if rule['enabled'] and rule['template']),
+                       key=lambda rule: (rule['priority'], rule['id']))
+        entries = defaultdict(list)
+        rows = db.execute('SELECT e.*, v.body AS event_body, v.status AS event_status '
+                          'FROM maintenance_entries e JOIN maintenance_events v ON v.id=e.event_id '
+                          'JOIN maintenance_customers c ON c.customer_id=e.customer_id ORDER BY e.created_at,e.id')
+        for row in rows:
+            entry = entry_view(row)
+            entry['event'] = json.loads(entry.pop('event_body'))
+            entries[entry['customer_id']].append(entry)
+        return rank_customers(customers), rules, entries
+
+    def _candidate(self, db, customer, at, exclusions, case_index):
+        ident = customer['customer_id']
+        address = customer['email']
+        grants, members, usage = exclusions
+        if (not valid_email(address) or customer.get('email_conflict') or ident in grants
+                or member_id(customer.get('uid')) in members
+                or active_customer(db, ident, at)
+                or any(not str((row.get('memberCoupon') or {}).get('grant_batch_no') or '').startswith('FCSM_')
+                       for row in usage.for_customer(ident)['matched'])):
+            return None
+        case_id, status, exact, _, _ = case_binding(db, customer, entering_stage=True, case_index=case_index)
+        if status == 'pending_identity':
+            return None
+        case_id = case_id or next(iter(exact), None)
+        owner = db.execute('SELECT owner FROM vip_cases WHERE id=?', (case_id,)).fetchone()['owner'] if case_id else None
+        # A case may have been closed or replaced since the last actual contact.
+        email = email_key(address)
+        exact_history = [case['id'] for case, emails, _ in case_index[0][email]
+                         if emails == {email} and case['customer_id'] in (None, ident)]
+        contacts = (coupon_time(row['contacted_at'] or row['at'])
+                    for historical_id in exact_history for row in case_contacts(db, historical_id))
+        last_contact = max((contact for contact in contacts if contact <= at), default=None)
+        if last_contact and at - timedelta(days=14) <= last_contact:
+            return None
+        return dict(owner=owner, last_contact_date=last_contact.astimezone(SHANGHAI).date().isoformat()
+                    if last_contact else None)
+
+    def enqueue_stock(self, facts, at):
+        today = at.astimezone(SHANGHAI).date().isoformat()
+        observation = facts.day.isoformat()
+        processed = 'SELECT 1 FROM maintenance_stock_days WHERE day=? OR observation_day=?'
+        with self.ledger.db() as db:
+            if db.execute(processed, (today, observation)).fetchone():
+                return
+            if db.execute('SELECT max(day) FROM maintenance_runs').fetchone()[0] != observation:
+                return
+            if not any(rule['enabled'] and rule['template'] and (rule['tier'], rule['stage']) in BANDS
+                       for rule in (rule_view(row) for row in db.execute('SELECT * FROM maintenance_rules'))):
+                return
+        exclusions = self._coupon_exclusions(facts, at)
+        with self.ledger.db(write=True) as db:
+            if db.execute(processed, (today, observation)).fetchone():
+                return
+            if db.execute('SELECT max(day) FROM maintenance_runs').fetchone()[0] != observation:
+                return
+            ranked, rules, entries = self._recommendation_inputs(db, facts)
+            if not any(ranked.values()):
+                return
+            used = {rule['id']: quota_used(db, rule['id'], today) for rule in rules}
+            case_index = index_case_identities(db)
+            for band, pool in ranked.items():
+                pending = sum(any((entry['event'].get('tier'), entry['event'].get('stage')) == band
+                                  and entry['state'] in ('reviewing', 'ready', 'needs_decision')
+                                  for entry in history) for history in entries.values())
+                for customer in pool:
+                    if pending >= 10:
+                        break
+                    history = entries[customer['customer_id']]
+                    if any(entry['state'] in REVOCABLE + IN_FLIGHT or same_cycle(entry, customer)
+                           for entry in history):
+                        continue
+                    rule = next((rule for rule in rules if matches_rule(rule, customer)), None)
+                    if not rule or used[rule['id']] >= rule['daily_quota'] or self._candidate(
+                            db, customer, at, exclusions, case_index) is None:
+                        continue
+                    event = stock_event(customer, at)
+                    saved = db.execute("INSERT OR IGNORE INTO maintenance_events VALUES(?,?,?,?,?,'active',?)",
+                                       (event['id'], customer['customer_id'], event['last_order_key'],
+                                        event['event_at'], canonical(event), int(rule['alert'])))
+                    if not saved.rowcount:
+                        continue
+                    case_id, _ = case_link(db, customer, at)
+                    assign_empty(db, case_id, rule['owner'], event['id'], rule['id'], at)
+                    enqueue_entry(db, event['id'], customer['customer_id'], customer['email'], rule, at)
+                    used[rule['id']] += 1
+                    pending += 1
+            db.execute('INSERT INTO maintenance_stock_days VALUES (?,?)', (today, observation))
+
+    def view(self, facts, at, limit, *, export=False):
+        with self.ledger.db() as db:
+            has_customers = db.execute('SELECT 1 FROM maintenance_customers LIMIT 1').fetchone()
+        exclusions = None
+        verified = True
+        if has_customers:
+            try:
+                exclusions = self._coupon_exclusions(facts, at, refresh=export)
+            except REVIEW_READ_ERRORS:
+                if export:
+                    raise
+                verified = False
+        today = at.astimezone(SHANGHAI).date()
+        bands, decisions, exported = [], [], []
+        with self.ledger.db() as db:
+            db.execute('BEGIN')
+            ranked, rules, entries = self._recommendation_inputs(db, facts)
+            case_index = index_case_identities(db) if exclusions else None
+            for (tier, stage), pool in ranked.items():
+                offers = [rule for rule in rules if (rule['tier'], rule['stage']) == (tier, stage)]
+                quota = [dict(rule_id=rule['id'], customer_type=rule['customer_type'], coupon=coupon_terms(rule),
+                              used=quota_used(db, rule['id'], today.isoformat()), limit=rule['daily_quota'])
+                         for rule in offers]
+                ready, manual, decision_count = [], [], 0
+                for customer in pool:
+                    history = [entry for entry in entries[customer['customer_id']] if same_cycle(entry, customer)]
+                    ready_entry = next((entry for entry in history if entry['state'] == 'ready'
+                                        and entry['event_status'] == 'active'
+                                        and email_key(entry['email']) == email_key(customer['email'])
+                                        and any((offer['id'], offer['version']) == (entry['rule_id'], entry['rule_version'])
+                                                and matches_rule(offer, customer) for offer in offers)), None)
+                    reviews = [entry for entry in history if entry['state'] == 'needs_decision']
+                    offer = next((rule for rule in offers if matches_rule(rule, customer)), None)
+                    decision_count += bool(reviews)
+                    if not export:
+                        for review in reviews:
+                            item = recommendation_item(customer, review['rule_body'], review, 'decision')
+                            item['result'] = {key: review['result'][key] for key in ('reasons', 'digest')}
+                            order_keys = [row['order_key'] for row in review['result'].get('order_exceptions', [])]
+                            item['order_keys'] = list(dict.fromkeys(order_keys + [customer['last_order_key']]))
+                            decisions.append(item)
+                    if exclusions is None or (not export and not ready_entry):
+                        continue
+                    contact = self._candidate(db, customer, at, exclusions, case_index)
+                    if contact is None or facts.email_conflict(customer['customer_id'], customer['email']):
+                        continue
+                    if ready_entry:
+                        item = recommendation_item(customer, ready_entry['rule_body'], ready_entry, 'recommendation')
+                        ready.append(item)
+                    elif reviews:
+                        item = recommendation_item(customer, reviews[0]['rule_body'], reviews[0], 'decision')
+                    elif offer and not history and not any(entry['state'] in REVOCABLE + IN_FLIGHT
+                                                          for entry in entries[customer['customer_id']]):
+                        item = recommendation_item(customer, offer, None, 'stock')
+                    else:
+                        continue
+                    if export:
+                        manual.append(dict(item, **contact))
+                bands.append(dict(tier=tier, stage=stage, pool_count=len(pool), ready_count=len(ready) if verified else None,
+                                  decision_count=decision_count, rules=quota, items=ready[:limit]))
+                exported.extend(manual[:limit])
+        if export:
+            return dict(week=(today - timedelta(days=today.weekday())).isoformat(), items=exported)
+        return dict(bands=bands, decisions=decisions,
+                    ready_count=sum(band['ready_count'] for band in bands) if verified else None,
+                    decision_count=sum(band['decision_count'] for band in bands),
+                    coupon_verification='ready' if verified else 'unavailable')
 
 class Maintenance:
     def __init__(self, store, *, source=None, admin=None, bridge=None, config_path=CONFIG_PATH, clock=None):
@@ -211,6 +441,7 @@ class Maintenance:
         self.cache_lock = Lock()
         self._facts_cache = {}
         self._usage = None
+        self.recommendation_pool = RecommendationPool(self.ledger, self.admin, self.usage)
         self.dispatcher = Dispatcher(self.ledger, self.bridge, self.prepare_recheck, self.clock)
         with self.ledger.db() as db:
             db.executescript(SCHEMA)
@@ -236,6 +467,11 @@ class Maintenance:
             self._day(facts, day, config, at)
             day += timedelta(days=1)
         self._void_corrected(facts, at)
+        try:
+            self.recommendation_pool.enqueue_stock(facts, at)
+        except REVIEW_READ_ERRORS as error:
+            # A failed stock preflight must not interrupt the existing review queue.
+            LOGGER.warning('Maintenance stock preflight unavailable: %s', type(error).__name__)
 
     def _void_corrected(self, facts, at):
         with self.ledger.db(write=True) as db:
@@ -297,6 +533,9 @@ class Maintenance:
         self._usage = (at, index, facts.token)
         return index
 
+    def recommendations(self, limit, *, export=False):
+        return self.recommendation_pool.view(self.facts(latest=True), self.clock(), limit, export=export)
+
     def _evidence(self, entry, facts, at, logs, orders):
         with self.ledger.db() as db:
             event = db.execute('SELECT * FROM maintenance_events WHERE id=?', (entry['event_id'],)).fetchone()
@@ -306,7 +545,11 @@ class Maintenance:
         if facts.email_conflict(customer, entry['email']):
             raise PendingIdentity('email_conflict')
         event_at = coupon_time(event['event_at'])
-        if not orders or not facts.covered(event_at, facts.cutoff):
+        body = json.loads(event['body'])
+        # Stock is selected from the completed observation day. Recheck any
+        # payment since that snapshot, including before the stock event was written.
+        payment_start = day_end(date.fromisoformat(body['observation_date'])) if body.get('origin') == 'stock' else event_at
+        if not orders or not facts.covered(payment_start, facts.cutoff):
             raise LookupError('maintenance_order_coverage')
         if isinstance(logs, Exception):
             raise logs
@@ -322,7 +565,7 @@ class Maintenance:
         normal = [row for row in valid if row['order_key'] not in flagged]
         last_normal = max(normal, key=payment, default=None)
         payments = [dict(order_key=row['order_key'], paid_at=row['paid_at'])
-                    for row in normal if event_at <= payment(row) <= at]
+                    for row in normal if payment_start <= payment(row) <= at]
 
         used = logs.for_customer(customer)
         # Automatic batches are already covered by the local ledger.
@@ -644,13 +887,10 @@ class Maintenance:
             customer = customers.get(row['customer_id'], {})
             if view == 'ready':
                 event = events.get(row['event_id'], {})
-                template = row['rule_body'].get('template') or {}
                 item.update(tier=event.get('tier'), stage=event.get('stage'),
                             amount_usd=customer.get('amount_usd'),
                             unknown_amount_orders=customer.get('unknown_amount_orders'),
-                            coupon={key: template[key] for key in
-                                    ('mode_type', 'reduce', 'max_reduce', 'time_effect', 'days', 'start_time', 'end_time')
-                                    if key in template})
+                            coupon=coupon_terms(row['rule_body']))
             identity = identities.get(row['id'])
             review_check = row['result'] or {}
             if row['state'] == 'reviewing' and review_check.get('identity_reason'):
@@ -666,21 +906,36 @@ class Maintenance:
         return dict(status='ready', items=items, next_offset=offset+20 if len(rows) > 20 else None)
 
     def decide_entries(self, actor, body):
-        keys(body, 'ids decision')
+        request_id = strict_id(body['request_id']) if 'request_id' in body else None
+        keys(body, 'ids decision request_id' if request_id else 'ids decision')
         ids, decision = body['ids'], body['decision']
         if decision not in ('confirmed', 'removed'):
             raise ValueError('maintenance_decision')
+        legacy_all = request_id is None and ids == 'all' and decision == 'confirmed'
+        if not legacy_all and not (type(ids) is list and 1 <= len(ids) <= 100
+                                   and len(set(map(strict_id, ids))) == len(ids)):
+            raise ValueError('maintenance_decision_ids')
+        intent = canonical([decision, sorted(ids)]) if request_id else None
         with self.ledger.db(write=True) as db:
-            if ids == 'all' and decision == 'confirmed':
+            if request_id:
+                prior = db.execute('SELECT * FROM maintenance_decisions WHERE request_id=?', (request_id,)).fetchone()
+                if prior:
+                    if (prior['actor'], prior['intent']) != (actor, intent):
+                        raise ValueError('maintenance_request_conflict')
+                    return json.loads(prior['receipt'])
+            if legacy_all:
                 rows = db.execute("SELECT * FROM maintenance_entries WHERE state='ready'").fetchall()
-            elif type(ids) is list and 1 <= len(ids) <= 100 and len(set(map(strict_id, ids))) == len(ids):
+            else:
                 rows = db.execute(f"SELECT * FROM maintenance_entries WHERE state='ready' AND id IN ({marks(ids)})",
                                   ids).fetchall()
-            else:
-                raise ValueError('maintenance_decision_ids')
             at = self.clock()
-            changed = [row['id'] for row in rows if transition(db, row, decision, actor, at)]
-        return dict(changed=changed, skipped=0 if ids == 'all' else len(ids)-len(changed))
+            details = {'request_id': request_id} if request_id else None
+            changed = [row['id'] for row in rows if transition(db, row, decision, actor, at, details)]
+            receipt = dict(changed=changed, skipped=0 if legacy_all else len(ids)-len(changed))
+            if request_id:
+                db.execute('INSERT INTO maintenance_decisions VALUES (?,?,?,?)',
+                           (request_id, actor, intent, canonical(receipt)))
+        return receipt
 
     def decide_review(self, actor, body):
         account(actor)

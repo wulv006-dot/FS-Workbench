@@ -396,6 +396,14 @@ class TrackingController:
             raise ValueError('maintenance_rollback_only')
         from maintenance_service import keys, strict_id
         phase = self.phase()
+        if action in ('phase_recommendations', 'phase_outreach_export'):
+            export = action == 'phase_outreach_export'
+            keys(data, 'limit')
+            limit = data['limit']
+            choices = (10, 20) if export else (5, 10)
+            if limit != 'all' and (type(limit) is not int or limit not in choices):
+                raise ValueError('maintenance_recommendation_limit')
+            return phase.recommendations(None if limit == 'all' else limit, export=export)
         if action == 'phase_rule':
             return phase.save_rule(user, data)
         if action == 'phase_auto':

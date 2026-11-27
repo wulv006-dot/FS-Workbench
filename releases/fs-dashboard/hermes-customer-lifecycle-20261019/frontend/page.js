@@ -32,7 +32,7 @@
   }
   const get = (view, extra, signal) => fetchJson(params(view, extra), null, signal);
   const post = (action, fields) => fetchJson(api, {kind:'hermes_customer_tracking',action,...fields});
-  const clearPrivate = () => { clearVip(true); candidateAbort?.abort(); detailAbort?.abort(); clearTimeout(detailTimer); $('candidate-list').replaceChildren(); $('tracked-list').replaceChildren(); $('detail').replaceChildren(); $('detail-section').hidden = true; $('pool-reports').replaceChildren(); $('phase-overview')?.replaceChildren(); $('phase-content')?.replaceChildren(); $('app').hidden = true; };
+  const clearPrivate = () => { clearVip(true); candidateAbort?.abort(); detailAbort?.abort(); clearTimeout(detailTimer); $('candidate-list').replaceChildren(); $('tracked-list').replaceChildren(); $('detail').replaceChildren(); $('detail-section').hidden = true; $('pool-reports').replaceChildren(); $('app').hidden = true; document.dispatchEvent(new Event('fs-tracking-private-clear')); };
   const denied = () => { clearPrivate(); config = null; setStatus('当前账号没有智体客单追踪权限。请返回智体决策报告查看获准内容。', true); };
   function renderConfig(value) {
     if (!Number.isInteger(value?.version) || !Array.isArray(value?.product_types) || !Array.isArray(value?.customer_flags)) throw Error('配置格式异常。');
@@ -129,6 +129,7 @@
     review.href = 'https://order.p2pah.cn/order/admin_order/index.html?' + new URLSearchParams({status:'all', sn:orderNo});
     review.target = '_blank'; review.rel = 'noopener noreferrer'; review.referrerPolicy = 'no-referrer';
   }
+  window.fsTrackingOrderReview = orderReview;
   function candidateCard(item) {
     const card = node('article', undefined, $('candidate-list'), 'record');
     node('h3', '订单 ' + asText(item.order_no), card);
@@ -617,6 +618,9 @@
       vipStatuses[item.status],item.owner,(item.checks_before_contact || []).map(code => vipChecks[code] || '核对其他待确认资料').join('、'),
       vipOutcome(item),
     ]);
+    downloadCsv(headers, rows, 'FC27-' + vipScope + '-' + vipWeek + '.csv');
+  }
+  function downloadCsv(headers, rows, filename) {
     const cell = value => {
       const text = String(value ?? '');
       const safe = /^[\t\r\n]|^[\s\u200B\uFEFF]*[=+\-@]/u.test(text) ? "'" + text : text;
@@ -626,11 +630,12 @@
     const url = URL.createObjectURL(new Blob(['\uFEFF',csv], {type:'text/csv;charset=utf-8'}));
     const link = node('a', undefined, document.body);
     link.href = url;
-    link.download = 'FC27-' + vipScope + '-' + vipWeek + '.csv';
+    link.download = filename;
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
+  window.fsTrackingDownloadCsv = downloadCsv;
   function startVipBulk() {
     const job = vipBulkJobs.get(vipViewer);
     if (job && !job.stopped && job.done < job.ids.length) return runVipBulk(job);
@@ -1072,6 +1077,7 @@
     $('tracked-list').replaceChildren();
     $('detail').replaceChildren();
     $('detail-section').hidden = true;
+    document.dispatchEvent(new Event('fs-tracking-private-clear'));
   }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) clearVisibleData(); else onPrivateVisible();

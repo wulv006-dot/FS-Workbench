@@ -10,11 +10,11 @@
   <title>客户维护 · FS</title>
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css">
   <link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-ui.css">
-  <link rel="stylesheet" href="page.css?v=20261125-group-list">
+  <link rel="stylesheet" href="page.css?v=20261127-four-tiers">
   <script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script>
   <script defer src="/__hub/hubnav.js?v=3dda7cae"></script>
-  <script defer src="phase.js?v=20261127-review-decisions"></script>
-  <script defer src="page.js?v=20261125-group-list"></script>
+  <script defer src="phase.js?v=20261127-four-tiers"></script>
+  <script defer src="page.js?v=20261127-four-tiers"></script>
 <link rel="stylesheet" href="/__hub/hermes-nav.css?v=hermes-nav-20261019-v2">
 <script defer src="/__hub/nav.js?v=hermes-nav-20261019-v1"></script>
 </head>
@@ -107,8 +107,12 @@
         <div id="phase-panel" hidden>
           <div class="phase-heading">
             <h2>FC27 阶段维护</h2>
-            <p class="hint">按累计有效消费和末购阶段，跟进值得维护的客户。</p>
+            <button class="fs-btn" id="phase-refresh" type="button">刷新</button>
           </div>
+          <p id="phase-status" class="status" role="status" aria-live="polite"></p>
+          <div id="phase-recommendations" aria-busy="true"></div>
+          <details class="phase-advanced">
+          <summary>客户分层矩阵与完整待发区</summary>
           <div id="phase-overview" aria-busy="true"></div>
           <div class="section-head phase-toolbar">
             <h3>处理与查看</h3>
@@ -118,12 +122,20 @@
               <option value="effect">规则效果</option><option value="rules">维护规则</option>
               <option value="config">阶段和价值门槛</option>
             </select></label>
-            <button class="fs-btn" id="phase-refresh" type="button">刷新</button>
             <a href="/dashboard/customers/reconcile/">待人工核对</a>
           </div>
-          <p id="phase-status" class="status" role="status" aria-live="polite"></p>
           <div id="phase-content"></div>
           <button class="fs-btn" id="phase-more" type="button" hidden>下一页</button>
+          </details>
+          <dialog id="phase-confirm-dialog" aria-labelledby="phase-confirm-title">
+            <h2 id="phase-confirm-title">确认发券名单</h2>
+            <p class="hint">确认后进入发放前重验。</p>
+            <ul id="phase-confirm-offers"></ul>
+            <form method="dialog" class="phase-actions">
+              <button class="fs-btn" value="cancel" autofocus>取消</button>
+              <button class="fs-btn fs-btn--primary" value="confirm">确认名单</button>
+            </form>
+          </dialog>
           <dialog id="phase-remove-dialog" aria-labelledby="phase-remove-title" aria-describedby="phase-remove-copy">
             <h2 id="phase-remove-title">剔除所选待发条目？</h2>
             <p id="phase-remove-copy"></p>
