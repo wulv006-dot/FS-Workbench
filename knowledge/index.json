@@ -438,19 +438,19 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_two_band_unit_price_20261126",
+      "revision": "fc_v61_segmented_cost_promotion_cap_20261127",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-26",
+      "effective_at": "2026-11-27",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "f287cb3a574903294eae6e8983c5c6b7e9da0dd3a3366bd05d8f218af83a2e5e",
+        "sha256": "c7d1cbe87eebd21a1565fea114408bccb389beb6fe7acaddf56b6d6a48ea97f5",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -479,7 +479,8 @@
         "fc.pricing.constraints@fc_v61_market_packages_observers_20261124",
         "fc.pricing.constraints@fc_v61_market_observation_receipts_20261124",
         "fc.pricing.constraints@fc_v61_u4gm_only_observation_20261125",
-        "fc.pricing.constraints@fc_v61_cost_list_verification_20261125"
+        "fc.pricing.constraints@fc_v61_cost_list_verification_20261125",
+        "fc.pricing.constraints@fc_v61_two_band_unit_price_20261126"
       ],
       "provenance": [
         {
@@ -615,7 +616,13 @@
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
           "scope": "V6 Order delivery-list qualification uses amount reconciliation, platform reference and unique merchant order ID; exceptions use order detail."
         },
-        "Git PR #1381 (6fca9e61), V6.1 two-band unit_price"
+        "Git PR #1381 (6fca9e61), V6.1 two-band unit_price",
+        {
+          "kind": "direct_user",
+          "date": "2026-11-27",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "发货列表实发量分段并加权预测成本，活动让利默认最多吸收 4.5 个百分点，判断使用三日和 D-1 较高值。"
+        }
       ],
       "consumers": [
         "Codex",
@@ -623,7 +630,7 @@
       ],
       "time_precision": "date_only",
       "pricing_scope": "native_curve_average_discount",
-      "knowledge_updated_at": "2026-11-26"
+      "knowledge_updated_at": "2026-11-27"
     },
     {
       "id": "fs.experience.archive-cycle",
@@ -1450,7 +1457,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "f287cb3a574903294eae6e8983c5c6b7e9da0dd3a3366bd05d8f218af83a2e5e",
+        "sha256": "c7d1cbe87eebd21a1565fea114408bccb389beb6fe7acaddf56b6d6a48ea97f5",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "### 每周定位溢价修复（2026-11-17）"

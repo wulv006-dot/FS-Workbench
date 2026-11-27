@@ -184,6 +184,8 @@ def verified_delivery_cost(reader, record, order_cache, *, retry_timeout_ms=8000
                   quantity_evidence=dict(delivered_k=str(delivered * scale), ordered_k=str(purchased),
                                          native_quantity=str(delivered), native_unit='M' if scale == 1000 else 'K',
                                          total_cny=str(total)))
+    if quantity * scale != purchased or len(item_amounts) > 1:
+        result['quantity_evidence']['split_shipment_purchase_k'] = str(quantity * scale)
     return result
 
 
@@ -333,12 +335,17 @@ def list_verified_cost(record, reference, repeated_orders):
     quantity, gift, total = (shipment_number(native[key]) for key in ('quantity', 'gift', 'cost_total'))
     if None in (quantity, gift, total):
         return None
-    delivered = quantity + gift
+    # Current list quantities include gifts. Older list evidence may itemize
+    # them separately, so reconcile the amount before accepting either total.
+    delivered = quantity
+    if abs(price * delivered - total) > Decimal('.01'):
+        delivered += gift
     if not delivered or not total or abs(price * delivered - total) > Decimal('.01'):
         return None
     result = {key: value for key, value in record.items() if key != 'order_delivery'}
     return dict(result, verification='list_fast_path',
                 quantity_evidence=dict(delivered_k=str(delivered), ordered_k=None,
+                                       listed_shipment_k=str(quantity),
                                        native_quantity=str(delivered), native_unit='K',
                                        total_cny=str(total)))
 
@@ -390,8 +397,80 @@ def verified_v6_deliveries(reader, deliveries, order_cache, timed_out, list_veri
         yield record, dict(normal, verification='order_detail') if normal is not None else None
 
 
+def zero_purchase_shipment(row):
+    quantity = row.get('quantity_evidence') or {}
+    return shipment_number(quantity.get('split_shipment_purchase_k', quantity.get('listed_shipment_k'))) == 0
+
+
+def delivery_sample_band(row):
+    quantity = row.get('quantity_evidence') or {}
+    purchase = shipment_number(quantity.get('ordered_k') or quantity.get('listed_shipment_k'))
+    if not purchase or zero_purchase_shipment(row):
+        return None
+    return 'small' if purchase < 1000 else 'large'
+
+
+def fill_delivery_history(reader, platform, records, candidates, order_cache, list_verified, bounds,
+                          timed_out, *, fill_bands=False):
+    """Read the few older candidates needed to fill the combined or band samples."""
+    lower, upper = bounds
+    counts = dict(small=0, large=0)
+    qualified = 0
+
+    def count(row):
+        nonlocal qualified
+        if not zero_purchase_shipment(row) and lower <= Decimal(row['cny_per_1k']) <= upper:
+            qualified += 1
+            band = delivery_sample_band(row)
+            if band is not None:
+                counts[band] += 1
+
+    for row in records:
+        count(row)
+
+    def needs_bands():
+        return sum(counts.values()) > 0 and min(counts.values()) < 6
+
+    def eligible():
+        for item in candidates:
+            normal = list_verified.get(item[1]['record_id'])
+            band = delivery_sample_band(normal) if normal is not None else None
+            if not fill_bands or band is None or counts[band] < 6:
+                yield item
+
+    pending = eligible()
+    inspected = 0
+    history_gap = None
+    while needs_bands() if fill_bands else qualified < 6:
+        missing = sum(max(0, 6 - count) for count in counts.values()) if fill_bands else 6 - qualified
+        batch = list(islice(pending, min(2, missing)))
+        if not batch:
+            break
+        inspected += len(batch)
+        older_timeouts = set()
+        try:
+            for _, normal in verified_v6_deliveries(reader, batch, order_cache, older_timeouts, list_verified):
+                if normal is not None:
+                    band = delivery_sample_band(normal)
+                    if not fill_bands or band is None or counts[band] < 6:
+                        records.append(normal)
+                        count(normal)
+        except (ValueError, OSError) as error:
+            if not fill_bands:
+                raise
+            history_gap = str(error)
+            break
+        if older_timeouts:
+            if fill_bands:
+                history_gap = 'cost_order_detail_timeout'
+            else:
+                timed_out.add(platform)
+            break
+    return inspected, qualified, needs_bands(), history_gap
+
+
 def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_costs=None):
-    """Verify the latest three hours and, where needed, the latest six qualified rows."""
+    """Verify three hours of deliveries and fill recent sample gaps by quantity band."""
     end = datetime.now(SHANGHAI).replace(microsecond=0)
     recent_start = end - timedelta(hours=3)
     result = {p: dict(records=[], window_complete=False, history_complete=False) for p in PLATFORMS}
@@ -403,13 +482,23 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
     first_delivery_by_order = {}
     repeated_orders = set()
     timed_out = set()
+    combined_ready = False
+    needs_more = set(PLATFORMS)
     for hours in (3, 6, 12, 24, 48, 96, 192):
         start = end - timedelta(hours=hours)
         window = dict(start=start, end=end, area='0')
         deliveries = {}
         orders_in_window = set()
+        list_complete = False
         for page in range(1, 16):
-            data = read_page(reader, page, observations, window=window)
+            try:
+                data = read_page(reader, page, observations, window=window)
+            except CostPageError as error:
+                if not combined_ready:
+                    raise
+                for platform in needs_more:
+                    result[platform]['segment_history_gap'] = str(error)
+                break
             for raw in data['rows']:
                 # Widening the window rereads earlier rows. Count new deliveries
                 # across windows and repeated appearances within a single scan.
@@ -424,8 +513,9 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
                     raise ValueError('cost_time_window_filter_unverified')
                 remember(deliveries, valid)
             if data['deliveryRowCount'] == 0:
+                list_complete = True
                 break
-        else:
+        if not list_complete:
             break
 
         # Full windows still catch late inserts, removals and changes. Refresh any
@@ -450,30 +540,45 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
         for item in ordered[len(recent):]:
             older[item[1]['platform']].append(item)
         verified = {p: [] for p in PLATFORMS}
-        for record, normal in verified_v6_deliveries(reader, recent, order_cache, timed_out, list_verified):
-            if normal is not None:
-                verified[record['platform']].append(normal)
+        recent_timeouts = timed_out.copy()
+        try:
+            for record, normal in verified_v6_deliveries(
+                    reader, recent, order_cache, recent_timeouts, list_verified):
+                if normal is not None:
+                    verified[record['platform']].append(normal)
+            if combined_ready and recent_timeouts - timed_out:
+                raise ValueError('cost_order_detail_timeout')
+        except (ValueError, OSError) as error:
+            if not combined_ready:
+                raise
+            for platform in needs_more:
+                result[platform]['segment_history_gap'] = str(error)
+            break
+        timed_out = recent_timeouts
 
-        enough = []
+        history = {}
         for platform, records in verified.items():
             if platform in timed_out:
                 continue
-            lower, upper = bounds[platform]
-            within_bounds = sum(lower <= Decimal(row['cny_per_1k']) <= upper for row in records)
-            candidates = iter(sorted(older[platform], key=lambda item: (item[0], item[1]['record_id']),
-                                     reverse=True))
-            inspected = 0
-            while within_bounds < 6 and platform not in timed_out:
-                batch = list(islice(candidates, min(2, 6 - within_bounds)))
-                if not batch:
-                    break
-                inspected += len(batch)
-                for _, normal in verified_v6_deliveries(reader, batch, order_cache, timed_out, list_verified):
-                    if normal is not None:
-                        records.append(normal)
-                        within_bounds += lower <= Decimal(normal['cny_per_1k']) <= upper
+            ordered_older = sorted(older[platform], key=lambda item: (item[0], item[1]['record_id']), reverse=True)
+            older[platform] = ordered_older
+            history[platform] = fill_delivery_history(reader, platform, records, ordered_older, order_cache,
+                                                       list_verified, bounds[platform], timed_out)
+
+        combined_ready = all(qualified >= 6 for p, (_, qualified, _, _) in history.items()
+                             if p not in timed_out)
+        needs_more = set()
+        for platform, (inspected, qualified, band_gap, _) in history.items():
             if platform in timed_out:
                 continue
+            records = verified[platform]
+            remaining = older[platform][inspected:]
+            history_gap = None
+            if band_gap and (combined_ready or hours == 192):
+                extra, _, band_gap, history_gap = fill_delivery_history(
+                    reader, platform, records, remaining, order_cache, list_verified, bounds[platform],
+                    timed_out, fill_bands=True)
+                inspected += extra
             unchecked = len(older[platform]) - inspected
             scope = dict(list_start=start.isoformat(), list_end=end.isoformat(),
                          full_detail_start=recent_start.isoformat(), older_detail_rows_checked=inspected,
@@ -483,9 +588,13 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
                 scope['qualification_reference_cny_per_k'] = (
                     reference_inputs[platform] if references[platform] is not None else None)
             result[platform] = dict(records=records, window_complete=True,
-                                    history_complete=hours == 192 and not unchecked, detail_scope=scope)
-            enough.append(within_bounds >= 6)
-        if all(enough):
+                                    history_complete=hours == 192 and not unchecked and not history_gap,
+                                    detail_scope=scope)
+            if history_gap:
+                result[platform]['segment_history_gap'] = history_gap
+            if qualified < 6 or (band_gap and not history_gap):
+                needs_more.add(platform)
+        if not needs_more:
             break
     for platform in timed_out:
         result[platform] = dict(records=[], window_complete=False, history_complete=False,

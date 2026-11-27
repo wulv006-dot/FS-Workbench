@@ -32,7 +32,7 @@ Codex、Antigravity 和 Claude Code 共用本入口。项目技能只编辑 `.ag
 - 判断全局偏好、项目执行规则和模块合同的适用范围 → [全局偏好与项目规则分层](docs/agents/agent-workflow.md#rule-layers)。
 - 查环境事实、历史原因和已知坑 → 先读[共享开发记忆](docs/memory/MEMORY.md)。私有客户端记忆只放个人偏好，收尾时把项目事实归入 `docs/memory/`、AGENTS.md 或测试。
 - FC27 Coins 改价或追溯原操作 → [定价合同入口（V6.1 与旧标量）](docs/agents/fc-pricing.md#pricing-contracts)。
-- 核对三平台两段价、市场定位锚、分时段目标与成本保护 → [FC27 Coins 当前定价](docs/agents/fc-pricing.md#current-pricing)。
+- 核对三平台两段价、市场定位锚、分时段目标、分段数量加权成本与活动让利保护 → [FC27 Coins 当前定价](docs/agents/fc-pricing.md#current-pricing)。
 - 调整改价依赖、资源和调度，或验收自动化 → [FC 自动改价 P0 可用性](docs/agents/fc-pricing.md#pricing-p0)。
 - 回溯早期定价规则或旧标量版本 → [历史规则](docs/agents/fc-pricing.md#historical-pricing)及[旧标量版本](docs/agents/fc-pricing.md#legacy-pricing)。
 - 修改 FC 看板分类、趋势、导出或订单组利润 → [FC 看板分类](docs/agents/dashboards.md#fc-categories)。

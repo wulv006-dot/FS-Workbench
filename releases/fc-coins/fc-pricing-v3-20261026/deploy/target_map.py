@@ -410,6 +410,12 @@ CURVE_RECOVERY_TARGETS = {
         'coin_all_sync_job.py': '/opt/fc27-cloud-browser/coin_all_sync_job.py',
         **module_targets(('curve_strategy_v6.py', 'price_curve.py', 'runtime.py')),
     },
+    'bf-cost-guard': {
+        'collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
+        **{name: '/var/www/dashboard/' + name for name in ('fc-pricing-v3.js', 'fc27-coins.html')},
+        **module_targets(('api.py', 'average_discount_v6.py', 'cost_inputs_v6.py',
+                          'curve_strategy_v6.py', 'runtime.py')),
+    },
     'outcomes': module_targets(('business_source.py', 'daily.py')),
     'cost-incidents': module_targets(('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py')),
     'shared-evidence': {
@@ -424,6 +430,7 @@ CURVE_RECOVERY_SCOPES['observer-status'] = 'fc-pricing-v6-observer-status-202611
 CURVE_RECOVERY_SCOPES['observer-cache'] = 'fc-pricing-v6-observer-cache-20261124'
 CURVE_RECOVERY_SCOPES['observer-retirement'] = 'fc-pricing-v6-observer-retirement-20261125'
 CURVE_RECOVERY_SCOPES['order-http-cost'] = 'fc-pricing-v6-order-http-cost-20261125'
+CURVE_RECOVERY_SCOPES['bf-cost-guard'] = 'fc-pricing-v6-bf-cost-guard-20261127'
 CURVE_RECOVERY_SCOPES['unit-price-sync'] = 'fc-pricing-v6-unit-price-sync-20261125'
 CURVE_RECOVERY_SCOPES['shared-evidence'] = 'fc-pricing-v6-recovery-shared-evidence-20261120'
 

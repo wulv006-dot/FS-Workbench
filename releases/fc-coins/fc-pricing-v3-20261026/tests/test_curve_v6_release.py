@@ -83,6 +83,8 @@ class CurveV6Release(unittest.TestCase):
             'cycle-recovery': ('scheduler.py',),
             'targeted-price-reads': ('business_source.py', 'daily.py'),
             'unit-price-sync': ('curve_strategy_v6.py', 'price_curve.py', 'runtime.py'),
+            'bf-cost-guard': ('api.py', 'average_discount_v6.py', 'cost_inputs_v6.py', 'curve_strategy_v6.py',
+                              'runtime.py'),
             'outcomes': ('business_source.py', 'daily.py'),
             'cost-incidents': ('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py'),
             'shared-evidence': ('api.py', 'pricing_proof_v6.py', 'runtime.py'),
@@ -106,6 +108,11 @@ class CurveV6Release(unittest.TestCase):
                     expected['source/fc27_cloud_worker.py'] = '/opt/fc27-cloud-browser/fc27_cloud_worker.py'
                 if fix in ('targeted-price-reads', 'unit-price-sync'):
                     expected['source/coin_all_sync_job.py'] = '/opt/fc27-cloud-browser/coin_all_sync_job.py'
+                if fix == 'bf-cost-guard':
+                    self.assertEqual(provenance['scope'], 'fc-pricing-v6-bf-cost-guard-20261127')
+                    expected['source/collect_p2pah_cost.py'] = '/opt/fc27-cloud-browser/collect_p2pah_cost.py'
+                    for name in ('fc-pricing-v3.js', 'fc27-coins.html'):
+                        expected['source/' + name] = '/var/www/dashboard/' + name
                 if fix == 'cycle-recovery':
                     expected['source/snapshot_layer.py'] = '/opt/fc27-cloud-browser/snapshot_layer.py'
                 if fix == 'shared-evidence':
@@ -203,15 +210,26 @@ class CurveV6Release(unittest.TestCase):
             'source/collect_p2pah_cost.py': '/opt/fc27-cloud-browser/collect_p2pah_cost.py',
             'source/collect_p2pah_cost.sh': '/opt/fc27-cloud-browser/collect_p2pah_cost.sh',
         }
+        # Replay the immutable historical release, including its original collector.
+        commit = '48b7c3f77529399e2452e7987d14a9d982c27991'
+        payloads = {source: build_stage.git_blob(ROOT, ROOT / source, commit) for source in expected_sources.values()}
+        check_output = build_stage.subprocess.check_output
+
+        def historical_git(args, **kwargs):
+            if args[1] == 'rev-parse':
+                return commit
+            if args[1] == 'status':
+                return ''
+            return check_output(args, **kwargs)
+
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             output = root / 'cost.tar.gz'
-            with patch.object(build_stage.subprocess, 'check_output', side_effect=['a' * 40, '']) as git, \
-                 patch.object(build_stage, 'git_blob', side_effect=lambda _, path, rev:
-                              path.read_bytes().replace(b'\r\n', b'\n')):
+            with patch.object(build_stage.subprocess, 'check_output', side_effect=historical_git) as git:
                 built = build_stage.build(ROOT, output, curve_recovery=key)
             self.assertEqual(built['targets'], 3)
-            self.assertTrue(set(expected_sources.values()) <= set(git.call_args.args[0]))
+            status = next(call.args[0] for call in git.call_args_list if call.args[0][1] == 'status')
+            self.assertTrue(set(expected_sources.values()) <= set(status))
             with tarfile.open(output) as bundle:
                 bundle.extractall(root, filter='data')
             stage = root / 'fc-pricing-v3-20261026'
@@ -220,7 +238,7 @@ class CurveV6Release(unittest.TestCase):
             self.assertEqual(provenance['repositorySources'], expected_sources)
             after = {}
             for name, source in expected_sources.items():
-                payload = (ROOT / source).read_bytes().replace(b'\r\n', b'\n')
+                payload = payloads[source]
                 self.assertEqual((stage / 'candidate' / name).read_bytes(), payload)
                 after[name] = hashlib.sha256(payload).hexdigest()
             self.assertEqual(provenance['files'], after)

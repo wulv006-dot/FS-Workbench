@@ -621,12 +621,14 @@ def _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, 
         cost_gap = COST_SAMPLES_INSUFFICIENT if valid_records else COST_SOURCE_MISSING
     for quantity in sorted(tiers | {format(value.normalize(), 'f') for value in quantities.values()}, key=Decimal):
         path = quotes[quantity]
-        estimate = estimates.get(quantity_group(number(quantity)))
+        group = quantity_group(number(quantity))
+        estimate = estimates.get(group)
+        segment_cost = ((current_cost or {}).get('bands') or {}).get(group) or current_cost
         if smoothed and current_cost.get('status') == 'valid' and rate is not None and not insufficient_samples:
-            total = number(path['promised_delivered_k']) * number(current_cost['cny_per_1k']) / rate
+            total = number(path['promised_delivered_k']) * number(segment_cost['cny_per_1k']) / rate
             path.update(cost_status='verified', quantity_basis='PROMISED_DELIVERED_K',
                         cost_sample_contract=SMOOTH_COST_CONTRACT,
-                        cost_ref=fingerprint(dict(cost=current_cost, fx=fx_source)),
+                        cost_ref=fingerprint(dict(cost=segment_cost, fx=fx_source)),
                         **{kind + '_cost_usd': str(total) for kind in ('expected', 'safe', 'stress')})
         elif estimate and estimate['status'] == 'calculated' and not insufficient_samples:
             units = estimate['diagnostic_estimate']
@@ -1283,6 +1285,12 @@ def collect_curve_catalogues(evidence, platforms):
                                     context['confirmed_cost_cny_per_k'])
         entry['price_insurance'] = context
         entry['cost_sample_insurance'] = (cost or {}).get('sample_insurance')
+        entry['cost_by_band'] = {
+            band: {key: sample[key] for key in ('cny_per_1k', 'selected_count', 'recent_count', 'window', 'basis',
+                                                'weighting', 'segment_count', 'segment_recent_count', 'fallback_reason',
+                                                'segment_history_gap') if key in sample}
+            for band, sample in cost.get('bands', {}).items()
+        }
         entry['confirmed_cost_cny_per_k'] = (cost or {}).get('cny_per_1k') if (cost or {}).get('status') == 'valid' else None
         def proof(curve):
             return _average_discount_proof_input(curve, platform, closed, recent, paid_cutoff, now,
@@ -1357,47 +1365,77 @@ def margin_band_round(now, schedule_hours, history=(), *, automatic=True, collec
                 retry=automatic and retry)
 
 
-def _promotion_discount_selection(guard, average):
+def _promotion_discount_selection(guard, average, platform):
     from .cost_inputs_v6 import BEIJING
+    from .curve_strategy_v6 import DEFAULT_PROMOTION_MAX_ABSORB
 
+    max_absorb = Decimal(guard.get('max_absorb', DEFAULT_PROMOTION_MAX_ABSORB))
+    baseline = Decimal(guard['baseline'][platform])
+    audit = dict(campaign=guard['campaign'], start_day=guard['start_day'],
+                 last_redeem_day=guard['last_redeem_day'], baseline_revision=guard['baseline_revision'],
+                 baseline_discount=str(baseline), max_absorb=str(max_absorb), actual_discount=None,
+                 business_discount=None, absorbed=None, capped=None, active=None,
+                 window_start=None, window_end_exclusive=None, reason='discount_evidence_unavailable')
+    if not average:
+        return audit
     start = instant(average['start']).astimezone(BEIJING).date()
     end = instant(average['end_exclusive']).astimezone(BEIJING).date()
-    overlaps = start <= date.fromisoformat(guard['last_redeem_day']) and date.fromisoformat(guard['start_day']) < end
-    actual = Decimal(average['actual_discount_usd']) / Decimal(average['merchandise_before_discount_usd'])
-    baseline = Decimal(guard['baseline'][average['platform']])
-    business = min(actual, baseline) if overlaps else actual
-    reason = 'window_outside_campaign'
-    if overlaps:
-        reason = 'campaign_baseline' if business < actual else 'actual_at_or_below_baseline'
-    return dict(campaign=guard['campaign'], start_day=guard['start_day'],
-                last_redeem_day=guard['last_redeem_day'], baseline_revision=guard['baseline_revision'],
-                baseline_discount=str(baseline), actual_discount=str(actual), business_discount=str(business),
-                average_discount_revision=average['revision'], window_start=average['start'],
-                window_end_exclusive=average['end_exclusive'], active=overlaps, reason=reason)
+    active = start <= date.fromisoformat(guard['last_redeem_day']) and date.fromisoformat(guard['start_day']) < end
+    audit.update(active=active, average_discount_revision=average['revision'], window_start=average['start'],
+                 window_end_exclusive=average['end_exclusive'])
+    if average['status'] != 'complete':
+        return audit
+    three_day = Decimal(average['actual_discount_usd']) / Decimal(average['merchandise_before_discount_usd'])
+    yesterday = Decimal(average['yesterday_discount']) if average.get('yesterday_discount') is not None else None
+    actual = max(three_day, yesterday) if active and yesterday is not None else three_day
+    excess = max(actual - baseline, Decimal(0))
+    absorbed = min(excess, max_absorb) if active else Decimal(0)
+    capped = active and excess > 0 and excess >= max_absorb
+    if not active:
+        reason = 'window_outside_campaign'
+    elif capped:
+        reason = 'absorption_cap_reached'
+    elif absorbed:
+        reason = 'campaign_baseline'
+    else:
+        reason = 'actual_at_or_below_baseline'
+    return dict(audit, actual_discount=str(actual), business_discount=str(actual - absorbed),
+                absorbed=str(absorbed), capped=capped, reason=reason, three_day_discount=str(three_day),
+                discount_above_baseline=str(excess),
+                yesterday_discount=str(yesterday) if yesterday is not None else None,
+                yesterday_start=average.get('yesterday_start'))
 
 
 def margin_band_selection(proof, position, current, target, decision_round, *, cost_median,
-                          cost_sample_count, previous_decision_cost_median, promotion_guard=None):
+                          cost_sample_count, previous_decision_cost_median, promotion_guard=None,
+                          cost_by_band=None, previous_cost_by_band=None, average=None, platform=None):
     """Choose native band anchors before the original safety and insurance checks."""
-    from .average_discount_v6 import CENT, band_margin, band_target_price
+    from .average_discount_v6 import CENT, band_margin, band_target_price, quantity_group
 
     lower, upper = target - CENT, target + CENT
-    promotion = (_promotion_discount_selection(promotion_guard, proof['average_discount'])
-                 if promotion_guard and proof else None)
-    # The override is confined to margin-band judgment and target search.
+    average = average or (proof or {}).get('average_discount')
+    platform = platform or (average or {}).get('platform')
+    promotion = _promotion_discount_selection(promotion_guard, average, platform) if promotion_guard else None
+    # Apply the business discount only to margin-band judgment and target search.
     retained = (1 - Decimal(promotion['business_discount'])
-                if promotion and promotion['reason'] == 'campaign_baseline' else None)
-    drop = (cost_median is not None and previous_decision_cost_median is not None and cost_sample_count < 6
-            and Decimal(cost_median) <= Decimal(previous_decision_cost_median) * Decimal('.92'))
-    guarded = proof
-    if proof and drop:
-        ratio = Decimal(previous_decision_cost_median) / Decimal(cost_median)
-        guarded = dict(proof, paths=[
-            dict(row, safe_cost_usd=str(Decimal(row['safe_cost_usd']) * ratio))
-            if row.get('safe_cost_usd') is not None else row for row in proof['paths']
-        ])
+                if promotion and promotion['active'] and promotion['business_discount'] is not None else None)
     bands = {}
     for band, price in current.items():
+        segment_cost = (cost_by_band or {}).get(band) or {}
+        current_cost = segment_cost.get('cny_per_1k', cost_median)
+        current_count = segment_cost.get('recent_count', cost_sample_count)
+        prior_segment = (previous_cost_by_band or {}).get(band) or {}
+        prior_cost = prior_segment.get('cny_per_1k') or previous_decision_cost_median
+        drop = (current_cost is not None and prior_cost is not None and (current_count or 0) < 6
+                and Decimal(current_cost) <= Decimal(prior_cost) * Decimal('.92'))
+        guarded = proof
+        if proof and drop:
+            ratio = Decimal(prior_cost) / Decimal(current_cost)
+            guarded = dict(proof, paths=[
+                dict(row, safe_cost_usd=str(Decimal(row['safe_cost_usd']) * ratio))
+                if row.get('safe_cost_usd') is not None and quantity_group(row['purchase_k']) == band else row
+                for row in proof['paths']
+            ])
         low = position.get('low_anchors', {}).get(band)
         high = position['anchors'].get(band)
         actual_margin = band_margin(proof, band) if proof else None
@@ -1437,6 +1475,8 @@ def margin_band_selection(proof, position, current, target, decision_round, *, c
     result = dict(decision_round=decision_round, target=str(target), hold_range=[str(lower), str(upper)],
                   cost_median=cost_median, cost_sample_count=cost_sample_count,
                   previous_decision_cost_median=previous_decision_cost_median, bands=bands)
+    if cost_by_band:
+        result['cost_by_band'] = cost_by_band
     if promotion:
         result['promotion_guard'] = promotion
     return result
@@ -1499,7 +1539,9 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
                 position, observed, Decimal(configuration[platform]['target']), decision,
                 cost_median=entry.get('confirmed_cost_cny_per_k'), cost_sample_count=context.get('cost_sample_count', 0),
                 previous_decision_cost_median=prior.get('cost_median'),
-                promotion_guard=configuration.get('promotion_guard'),
+                promotion_guard=configuration.get('promotion_guard'), platform=platform,
+                average=current_input['evidence'].get('average_discount'),
+                cost_by_band=entry.get('cost_by_band'), previous_cost_by_band=prior.get('cost_by_band'),
             )
             preference = dict(preference, margin_band=margin_band)
             frozen['preference'] = preference
@@ -2143,6 +2185,7 @@ def _prove_temporary_curve(platform, inputs, current, state, previous):
     if 'price_insurance' in inputs:
         selection.update(price_insurance=frozen.get('price_insurance'),
                          cost_sample_insurance=inputs.get('cost_sample_insurance'),
+                         cost_by_band=inputs.get('cost_by_band'),
                          confirmed_cost_cny_per_k=inputs.get('confirmed_cost_cny_per_k'))
     # The pairing code checks the other band's exact confirmed tiers for both arms.
     small_unchanged = (selection['segment'] == 'small' and active.keys() == {'large'}
@@ -2431,9 +2474,12 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
             for platform, selected in missing.items():
                 decision = margin_band_round(at, configuration['schedule_hours'], history[platform],
                                              evaluated_at=now, **cycle)
+                data = frozen.get(platform) or {}
+                average = next(iter(data.get('primary_inputs', {}).values()), {}).get('evidence', {}).get('average_discount')
                 audit = margin_band_selection(None, {'anchors': {}}, dict.fromkeys(ANCHORS),
                     Decimal(configuration[platform]['target']), decision, cost_median=None, cost_sample_count=None,
-                    previous_decision_cost_median=None)
+                    previous_decision_cost_median=None, platform=platform, cost_by_band=data.get('cost_by_band'),
+                    promotion_guard=configuration.get('promotion_guard'), average=average)
                 decisions[platform]['selection'] = dict(selected, margin_band=audit)
     ready = [p for p in platforms if decisions[p]['status'] == 'READY']
     if restore_id and any(decisions[p]['status'] not in ('READY', 'KEEP') for p in platforms):

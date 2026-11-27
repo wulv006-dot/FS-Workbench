@@ -132,7 +132,7 @@
 
 ### 4.3 量段利润率
 
-- 用本轮证明输入（3 小时中位数成本、D-3 至 D-1 实际平均优惠、原赠送和舍入），计算**主篮**（`main`）中属于该量段的成员路径的组合采购毛利率：`Σ(净收入 − 安全成本) / Σ净收入`，按主篮原权重加权。
+- 用本轮证明输入（分段数量加权成本、D-3 至 D-1 实际平均优惠、原赠送和舍入），计算**主篮**（`main`）中属于该量段的成员路径的组合采购毛利率：`Σ(净收入 − 安全成本) / Σ净收入`，按主篮原权重加权。
 - 新增纯函数 `band_margin(proof, band)` 和 `band_target_price(proof, band, target, low, high)`，放在 `average_discount_v6.py`，紧挨 `minimum_band_price`，复用 `band_price_usd`、`forecast_receipt` 和同一套路径数据。`band_target_price` 写法照 `minimum_band_price`：在分值网格上二分，把 `HARD_MARGIN` 换成参数 `target`，搜索范围限定为 `[low, high]`。
 
 ### 4.4 决策轮怎么选价（逐平台、逐量段）
@@ -157,9 +157,9 @@
 
 | 防护 | 规则 |
 |---|---|
-| 中位数成本 | 沿用阶段 2：3 小时中位数，不足 6 笔用最近 6 笔中位数。单笔测试单、异常单拉不动中位数 |
+| 中位数成本 | 2026-11-27 用户确认。以 1000K 划分两段，分段计算近三小时按 K 加权的有效成本中位数。不足六笔取该段最近六笔，至少三笔，分段证据不足时明示回退到同平台合并成本。保留原离群过滤 |
 | 样本过滤 | 沿用阶段 1：偏离上次确认成本 [0.5, 2.0] 倍以外或低于 0.05 CNY/K 的样本先剔除 |
-| 成本骤降确认 | 只限决策轮的降价：本轮中位数比上一决策轮低 8% 以上，且 3 小时内有效样本少于 6 笔时，按两者中较高的成本算目标价，记 `cost_drop_unconfirmed`。下一决策轮仍低再按新成本。成本上涨不设确认 |
+| 成本骤降确认 | 只限决策轮的降价：本轮该段中位数比上一决策轮同段低至少 8%，且 3 小时内有效样本少于 6 笔时，按两者中较高的成本算目标价，记 `cost_drop_unconfirmed`。下一决策轮仍低再按新成本。成本上涨不设确认 |
 
 11-18 02:39Z 那一轮的 PC 测试单（记录 4632464，10K 卖 ¥0.01，0.001 CNY/K）会被样本过滤剔除；当时中位数也没被带偏。加一条测试固定这个行为。
 
@@ -213,7 +213,11 @@
 | 计划修订入口 | `revise-curve-strategy` 接受 `p_low` 和 `margin_band`，沿用原 CAS、真实登录身份和最新修订绑定 |
 | 周阶梯页面 | 文案从"定位 p"改为"目标利润率 t"，沿用现有组件 |
 
-每轮决策 `curve_selection.<平台>.margin_band` 必须记录：`decision_round`（是否决策轮、时段起点、是否补做）、`target`、`hold_range`、`cost_median`、`cost_sample_count`、`previous_decision_cost_median`，以及逐量段 `{margin_at_current, action（raise/hold/lower/none）, desired, low, high, capped, cost_drop_unconfirmed}`。监控和 Hermes 解释都只读这个字段。
+列表快速路径直接按本笔实发 K（含赠送）分段和加权。拆单及同单多行沿原订单详情查证，按订单购买量分段，部分发货按当笔数量加权。采集优先补足同平台合并证据，其后按需扩窗补量段。可选扩窗失败时保留已合格证据及失败原因。
+
+2026-11-27 用户确认，活动期经营判断的实际优惠取最近三完整日金额加权率与 D-1 完整日金额加权率的较高者。扣除最多 `max_absorb` 的基准以上超额优惠后，用剩余优惠做经营判断。默认吸收上限 4.5 个百分点，允许 0–5 个百分点，旧计划直接生效。基准 9%、实际 18% 时，判断用 13.5%，吸收 4.5 个百分点并记录触顶。逐档保本、18% 底线、保险继续使用实际三日优惠及分段成本。活动状态、窗口、各优惠率和吸收结果冻结到 `promotion_guard` 审计。
+
+每轮决策 `curve_selection.<平台>.margin_band` 必须记录：`decision_round`（是否决策轮、时段起点、是否补做）、`target`、`hold_range`、`cost_median`、`cost_sample_count`、`previous_decision_cost_median`，及 `cost_by_band` 的分段样本窗口、数量口径和回退证据，以及逐量段 `{margin_at_current, action（raise/hold/lower/none）, desired, low, high, capped, cost_drop_unconfirmed}`。监控和 Hermes 解释都只读这个字段。
 
 不改：writer、原 ID、CAS、回执、读回确认、UNKNOWN 对账、每 60 分钟调度、18% 底线算法、保险阈值、死区、成本口径、RPG 相关代码。两份 `runtime.py`（主服务和 Hermes）必须同版本，用原发布器发布。
 
