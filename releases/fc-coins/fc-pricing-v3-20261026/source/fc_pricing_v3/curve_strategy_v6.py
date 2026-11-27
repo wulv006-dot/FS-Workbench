@@ -86,10 +86,13 @@ def margin_band_parameters(value, anchors):
     return parsed
 
 
+DEFAULT_PROMOTION_MAX_ABSORB = Decimal('.03')
+
+
 def _promotion_guard_parameters(value):
     invalid = 'margin_band_parameters_invalid'
     if (not isinstance(value, dict)
-            or set(value) != {'campaign', 'start_day', 'last_redeem_day', 'baseline', 'baseline_revision'}
+            or set(value) - {'max_absorb'} != {'campaign', 'start_day', 'last_redeem_day', 'baseline', 'baseline_revision'}
             or value['campaign'] != CARNIVAL_CAMPAIGN or value['start_day'] != CARNIVAL_START_DAY
             or not isinstance(value['baseline_revision'], str)
             or not re.fullmatch(r'se_[0-9a-f]{32}', value['baseline_revision'])
@@ -98,10 +101,15 @@ def _promotion_guard_parameters(value):
     try:
         last_day = date.fromisoformat(value['last_redeem_day'])
         baseline = {platform: Decimal(str(ratio)) for platform, ratio in value['baseline'].items()}
-        if (last_day.isoformat() != value['last_redeem_day'] or last_day.isoformat() < CARNIVAL_START_DAY
+        max_absorb = Decimal(str(value.get('max_absorb', DEFAULT_PROMOTION_MAX_ABSORB)))
+        if (not max_absorb.is_finite() or not 0 <= max_absorb <= Decimal('.05')
+                or last_day.isoformat() != value['last_redeem_day'] or last_day.isoformat() < CARNIVAL_START_DAY
                 or any(not ratio.is_finite() or not 0 <= ratio < 1 for ratio in baseline.values())):
             raise ValueError(invalid)
-        return dict(value, baseline={platform: str(ratio.normalize()) for platform, ratio in baseline.items()})
+        parsed = dict(value, baseline={platform: str(ratio.normalize()) for platform, ratio in baseline.items()})
+        if 'max_absorb' in parsed:
+            parsed['max_absorb'] = str(max_absorb.normalize())
+        return parsed
     except (ArithmeticError, TypeError, ValueError):
         raise ValueError(invalid) from None
 

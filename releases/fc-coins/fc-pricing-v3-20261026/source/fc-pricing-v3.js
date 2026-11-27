@@ -287,6 +287,57 @@
     return readback?.write_protocol===curveProtocol&&readback.execution_id===operation.operation_id
       &&readback.status==='CONFIRMED'?'该操作的 Admin 主站价表已核对':'原操作已完成，主站价表回执待核';
   }
+  const discountPercent=rate=>rate==null?'待核':(Number(rate)*100).toFixed(2)+'%';
+  const percentagePoints=rate=>rate==null?'待核':Number((Number(rate)*100).toFixed(2))+' 个百分点';
+  function renderCurveGuard(plan,rows){
+    const configured=plan.parameters?.margin_band?.promotion_guard;
+    const grid=node('div');
+    grid.className='help-grid curve-guard-grid';
+    for(const platform of platforms){
+      const selection=rows.find(row=>row.platform===platform)?.selection;
+      const costs=selection?.cost_by_band;
+      const audit=selection?.promotion_guard;
+      const section=node('section');
+      section.append(node('h4',platform==='XBOX'?'Xbox':platform));
+      const facts=node('dl');
+      for(const [band,title] of [['small','小额段（<1000K）'],['large','大额段（≥1000K）']]){
+        const cost=costs?.[band];
+        const amount=cost?.cny_per_1k;
+        const basis=cost?.basis==='combined_fallback'?'（合并样本回退）':'';
+        facts.append(node('dt',title+'成本'),
+          node('dd',amount==null?'待核':Number(amount).toFixed(4)+' CNY/K'+basis));
+      }
+      if(configured||audit){
+        const settings=audit||configured;
+        const status=audit?.active==null?'已开启，等待窗口核对':audit.active?'已生效':'已开启，当前窗口在活动期外';
+        section.append(node('p','让利保护：'+status),node('p','核销期 '+settings.start_day+' 至 '+settings.last_redeem_day));
+        const actual=node('dd',discountPercent(audit?.actual_discount));
+        if(Number(audit?.discount_above_baseline)>=0.03){
+          actual.className='warning-text';
+          actual.append('（高于基准至少 3 个百分点）');
+        }
+        const cap=audit?.max_absorb??configured?.max_absorb??0.03;
+        const capped=audit?.capped==null?'待核':audit.capped?'已触顶':'未触顶';
+        facts.append(
+          node('dt','基准优惠率'),node('dd',discountPercent(audit?.baseline_discount??configured?.baseline?.[platform])),
+          node('dt','实际优惠率'),actual,
+          node('dt','判断用优惠率'),node('dd',discountPercent(audit?.business_discount)),
+          node('dt','吸收上限'),node('dd',percentagePoints(cap)),
+          node('dt','本轮吸收'),node('dd',percentagePoints(audit?.absorbed)+'（'+capped+'）'));
+        section.append(facts);
+        const start=audit?.window_start?.slice(0,10);
+        const end=audit?.window_end_exclusive?.slice(0,10);
+        const windowText=start&&end?start+' 至 '+end+'（不含末日）':'待当前快照';
+        const yesterday=audit?.yesterday_start?.slice(0,10);
+        section.append(node('p','北京时间优惠窗 '+windowText+(yesterday?'，D-1 '+yesterday:'')),
+          node('p','活动期最多替客户多吸收 '+percentagePoints(cap)+'优惠。超出部分计入定价，避免利润继续下滑。18% 底线始终按真实数据保护。'));
+      }else{
+        section.append(node('p','让利保护：未开启'),facts);
+      }
+      grid.append(section);
+    }
+    return grid;
+  }
   function renderCurveDecision(state,cards){
     const snapshotId=curveSnapshot(state),decision=snapshotId&&state.curve_decision;
     const card=node('article');card.className='panel';
@@ -300,6 +351,7 @@
       const gaps=(row.gaps||[]).map(statusText);
       card.append(node('p',platform+' · '+statusText(row.status)+assignment+(gaps.length?' · '+gaps.join('、'):'')));
     }
+    card.append(renderCurveGuard(state.plan,decision?.rows||[]));
     const operation=currentCurveOperation(state);
     if(operation){
       card.append(node('p','本轮原操作 · '+curveOperationStatus(operation)+' · '+operation.operation_id));

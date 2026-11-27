@@ -52,11 +52,13 @@ def average_discount(closed, platform, paid_cutoff):
             and proof.get('paid_window_start') and instant(proof['paid_window_start']) <= start
             and proof.get('paid_window_end_exclusive') and instant(proof['paid_window_end_exclusive']) >= end):
         gaps['average_discount_window_unavailable'] += 1
-    gross = discount = Decimal(0)
+    gross = discount = yesterday_gross = yesterday_off = Decimal(0)
+    yesterday_start = end - timedelta(days=1)
     eligible, matched = 0, 0
     seen = set()
     for row in (closed or {}).get('historical_orders', ()):
-        if not start <= instant(row['paid_at']) < end:
+        paid_at = instant(row['paid_at'])
+        if not start <= paid_at < end:
             continue
         if row.get('platform') not in ('PS', 'XBOX', 'PC'):
             gaps['average_discount_platform_unknown'] += 1
@@ -76,6 +78,9 @@ def average_discount(closed, platform, paid_cutoff):
         matched += 1
         gross += before
         discount += off
+        if paid_at >= yesterday_start:
+            yesterday_gross += before
+            yesterday_off += off
     if not gross:
         gaps['average_discount_positive_merchandise_missing'] += 1
     value = dict(contract=MODEL, platform=platform, site_id='266', status='partial' if gaps else 'complete',
@@ -86,6 +91,11 @@ def average_discount(closed, platform, paid_cutoff):
                  retained_ratio=str((gross - discount) / gross) if gross and not gaps else None,
                  publication_id=proof.get('shared_publication_id'), source_revision=proof.get('shared_source_revision'),
                  amount_basis='same_order_admin_before_discount_and_shared_es_discount_usd')
+    if not gaps and yesterday_gross:
+        value.update(yesterday_start=yesterday_start.isoformat(),
+                     yesterday_discount=str(yesterday_off / yesterday_gross),
+                     yesterday_merchandise_before_discount_usd=str(yesterday_gross),
+                     yesterday_actual_discount_usd=str(yesterday_off))
     return dict(value, revision=fingerprint(value))
 
 

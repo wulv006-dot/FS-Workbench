@@ -11,6 +11,9 @@ import json
 import os
 import re
 import traceback
+
+from fc_pricing_v3.cost_inputs_v6 import delivery_sample_purchase_k
+from fc_pricing_v3.price_curve import coin_quantity_band
 from urllib.error import HTTPError
 from zoneinfo import ZoneInfo
 
@@ -184,6 +187,8 @@ def verified_delivery_cost(reader, record, order_cache, *, retry_timeout_ms=8000
                   quantity_evidence=dict(delivered_k=str(delivered * scale), ordered_k=str(purchased),
                                          native_quantity=str(delivered), native_unit='M' if scale == 1000 else 'K',
                                          total_cny=str(total)))
+    if len(item_amounts) > 1:
+        result['quantity_evidence']['split_shipment_purchase_k'] = str(quantity * scale)
     return result
 
 
@@ -339,6 +344,7 @@ def list_verified_cost(record, reference, repeated_orders):
     result = {key: value for key, value in record.items() if key != 'order_delivery'}
     return dict(result, verification='list_fast_path',
                 quantity_evidence=dict(delivered_k=str(delivered), ordered_k=None,
+                                       listed_purchase_k=str(quantity),
                                        native_quantity=str(delivered), native_unit='K',
                                        total_cny=str(total)))
 
@@ -391,7 +397,7 @@ def verified_v6_deliveries(reader, deliveries, order_cache, timed_out, list_veri
 
 
 def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_costs=None):
-    """Verify the latest three hours and, where needed, the latest six qualified rows."""
+    """Verify three hours of deliveries and fill recent sample gaps by quantity band."""
     end = datetime.now(SHANGHAI).replace(microsecond=0)
     recent_start = end - timedelta(hours=3)
     result = {p: dict(records=[], window_complete=False, history_complete=False) for p in PLATFORMS}
@@ -459,22 +465,56 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
             if platform in timed_out:
                 continue
             lower, upper = bounds[platform]
-            within_bounds = sum(lower <= Decimal(row['cny_per_1k']) <= upper for row in records)
-            candidates = iter(sorted(older[platform], key=lambda item: (item[0], item[1]['record_id']),
-                                     reverse=True))
+            counts = dict(small=0, large=0)
+            within_bounds = 0
+
+            def count(row):
+                nonlocal within_bounds
+                if lower <= Decimal(row['cny_per_1k']) <= upper:
+                    within_bounds += 1
+                    purchase = delivery_sample_purchase_k(row)
+                    if purchase is not None:
+                        counts[coin_quantity_band(purchase)] += 1
+
+            for row in records:
+                count(row)
+
+            def needs_history():
+                return within_bounds < 6 or (sum(counts.values()) > 0 and min(counts.values()) < 6)
+
+            older_rows = sorted(older[platform], key=lambda item: (item[0], item[1]['record_id']), reverse=True)
+
+            def candidates():
+                for item in older_rows:
+                    normal = list_verified.get(item[1]['record_id'])
+                    purchase = delivery_sample_purchase_k(normal) if normal is not None else None
+                    if within_bounds < 6 or purchase is None or counts[coin_quantity_band(purchase)] < 6:
+                        yield item
+
+            pending = candidates()
             inspected = 0
-            while within_bounds < 6 and platform not in timed_out:
-                batch = list(islice(candidates, min(2, 6 - within_bounds)))
+            band_history_failed = False
+            while needs_history():
+                batch = list(islice(pending, 2 if within_bounds != 5 else 1))
                 if not batch:
                     break
                 inspected += len(batch)
-                for _, normal in verified_v6_deliveries(reader, batch, order_cache, timed_out, list_verified):
+                older_timeouts = set()
+                for _, normal in verified_v6_deliveries(reader, batch, order_cache, older_timeouts, list_verified):
                     if normal is not None:
-                        records.append(normal)
-                        within_bounds += lower <= Decimal(normal['cny_per_1k']) <= upper
+                        purchase = delivery_sample_purchase_k(normal)
+                        if within_bounds < 6 or purchase is None or counts[coin_quantity_band(purchase)] < 6:
+                            records.append(normal)
+                            count(normal)
+                if older_timeouts:
+                    if within_bounds < 6:
+                        timed_out.update(older_timeouts)
+                    else:
+                        band_history_failed = True
+                    break
             if platform in timed_out:
                 continue
-            unchecked = len(older[platform]) - inspected
+            unchecked = len(older_rows) - inspected
             scope = dict(list_start=start.isoformat(), list_end=end.isoformat(),
                          full_detail_start=recent_start.isoformat(), older_detail_rows_checked=inspected,
                          older_detail_rows_not_checked=unchecked)
@@ -483,8 +523,10 @@ def collect_v6_delivery_samples(reader, observations, order_cache, confirmed_cos
                 scope['qualification_reference_cny_per_k'] = (
                     reference_inputs[platform] if references[platform] is not None else None)
             result[platform] = dict(records=records, window_complete=True,
-                                    history_complete=hours == 192 and not unchecked, detail_scope=scope)
-            enough.append(within_bounds >= 6)
+                                    history_complete=hours == 192 and not band_history_failed
+                                    and (not unchecked or within_bounds >= 6),
+                                    detail_scope=scope)
+            enough.append(not needs_history() or band_history_failed)
         if all(enough):
             break
     for platform in timed_out:

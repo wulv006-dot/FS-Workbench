@@ -75,13 +75,14 @@ class CostListVerification(unittest.TestCase):
         self.rows[1].update(price='.52', total='58.24')
         rows = self.run_round(dict.fromkeys(PLATFORMS, '.4'))
         self.assertEqual(self.detail_reads, [])
-        self.assertEqual(self.page_reads, [1, 2, 3])
+        self.assertEqual(self.page_reads, [1, 2, 3] * 7)
         self.assertEqual(len(rows), 18)
         self.assertEqual({r['verification'] for r in rows.values()}, {'list_fast_path'})
         self.assertEqual(rows['800000']['cny_per_1k'], '0.28')
         self.assertEqual(rows['800000']['quantity_evidence']['delivered_k'], '112')
         self.assertEqual(rows['800000']['quantity_evidence']['total_cny'], '31.37')
         self.assertIsNone(rows['800000']['quantity_evidence']['ordered_k'])
+        self.assertEqual(rows['800000']['quantity_evidence']['listed_purchase_k'], '111')
 
     def test_abnormal_rows_use_the_existing_detail_verifier(self):
         self.rows[0]['total'] = '44.82'
@@ -147,15 +148,17 @@ class CostListVerification(unittest.TestCase):
             samples = cost['v6_delivery_samples']
             self.assertEqual(len(samples['records']), 6)
             scope = samples['detail_scope']
-            self.assertEqual(scope['older_detail_rows_not_checked'], 1)
-            expected = None if platform == 'PC' else references[platform]
-            self.assertEqual(scope['qualification_reference_cny_per_k'], expected)
+            self.assertEqual(scope['older_detail_rows_not_checked'], int(platform != 'PC'))
+            if platform == 'PC':
+                self.assertNotIn('qualification_reference_cny_per_k', scope)
+            else:
+                self.assertEqual(scope['qualification_reference_cny_per_k'], references[platform])
 
     def test_expanded_window_rechecks_a_recent_order_found_again_on_an_older_row(self):
         self.rows[-1]['trade'] -= timedelta(hours=4)
         self.rows[-1]['order'] = self.rows[2]['order']
         rows = self.run_round(dict.fromkeys(PLATFORMS, '.4'))
-        self.assertEqual(self.page_reads, [1, 2, 3, 1, 2, 3])
+        self.assertEqual(self.page_reads, [1, 2, 3] * 7)
         self.assertEqual(self.detail_reads, [self.rows[2]['order']])
         self.assertEqual(rows['800002']['verification'], 'order_detail')
         self.assertEqual(rows['800017']['verification'], 'order_detail')

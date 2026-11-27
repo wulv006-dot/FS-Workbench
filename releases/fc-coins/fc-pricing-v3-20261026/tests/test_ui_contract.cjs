@@ -28,7 +28,7 @@ assert.equal((html.match(/class="price-strip"/g)||[]).length,1);
 for (const platform of ['ps','xbox','pc']) assert(ids.includes('v3-price-large-'+platform));
 assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261125-observer-retirement/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261127-bf-cost-guard/);
 assert.equal((html.match(/<article data-platform=/g)||[]).length,3);
 assert.match(html,/竞品普通档报价/);
 assert.match(html,/相同购买量的普通档售价.*额外加赠档不参与比较/);
@@ -398,7 +398,12 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   state.captured_at=curveCapturedAt;
   state.source_checked_at=curveCapturedAt;
   state.curve_decision={status:'READY',rows:[
-    {platform:'PS',status:'READY',selection:{segment:'large',label:'C'}},
+    {platform:'PS',status:'READY',selection:{segment:'large',label:'C',
+      cost_by_band:{small:{cny_per_1k:'.25'},large:{cny_per_1k:'.286',basis:'combined_fallback'}},
+      promotion_guard:{active:true,start_day:'2026-11-19',last_redeem_day:'2026-12-03',
+        baseline_discount:'.09',actual_discount:'.18',business_discount:'.15',
+        max_absorb:'.03',absorbed:'.03',capped:true,discount_above_baseline:'.09',
+        window_start:'2026-11-24T00:00:00+08:00',window_end_exclusive:'2026-11-27T00:00:00+08:00'}}},
     {platform:'XBOX',status:'KEEP'},
     {platform:'PC',status:'PROOF_INCOMPLETE',gaps:['ordinary_cost_unavailable']}
   ]};
@@ -419,6 +424,9 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   const curveDecisionText=JSON.stringify(elements['v3-strategies'].children);
   assert.match(curveDecisionText,/PS.*已有可行方案.*大额段.*C.*Xbox.*保持现价.*PC.*核算待补/);
   assert.doesNotMatch(curveDecisionText,/双20|已写价|本轮最终候选|op-1/);
+  assert.match(curveDecisionText,/0.2500 CNY\/K.*0.2860 CNY\/K（合并样本回退）/);
+  assert.match(curveDecisionText,/9.00%.*18.00%.*warning-text.*15.00%.*3 个百分点.*已触顶/);
+  assert.match(curveDecisionText,/2026-11-24 至 2026-11-27.*18% 底线始终按真实数据保护/);
   assert.equal(elements['v3-legacy-proof-table'].hidden,true);
   assert.match(elements['version'].textContent,/V6.*curve-market-run/);
   assert.match(elements['v3-stage'].textContent,/已有可行方案/);

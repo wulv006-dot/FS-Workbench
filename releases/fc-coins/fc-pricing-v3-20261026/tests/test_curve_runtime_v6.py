@@ -321,12 +321,40 @@ class CurveRuntime(unittest.TestCase):
         path = next(row for row in frozen['evidence']['paths'] if row['purchase_k'] == '1000')
         self.assertEqual(path['cost_status'], 'verified')
         self.assertAlmostEqual(Decimal(path['stress_cost_usd']), Decimal('412') / 7)
-        self.assertEqual(path['cost_sample_contract'], 'latest_3h_valid_order_delivery_median_v1')
+        self.assertEqual(path['cost_sample_contract'], 'latest_3h_segmented_quantity_weighted_delivery_median_v2')
         missing = runtime._average_discount_proof_input(curve, 'PS', source, source, CUT.isoformat(), AS_OF,
             average=average_discount(source, 'PS', CUT), route={'propagation_revision': 'directory'},
             facts=facts(orders, cost='412', delivery_fields=dict(qty='1030', gift='0', cost_unit='.4')),
             fx=fx(), current_cost=smooth_delivery_cost(None, 'PS', AS_OF, '.4'))
         self.assertTrue(all(row.get('cost_status') != 'verified' for row in missing['evidence']['paths']))
+
+    def test_quantity_weighted_segment_cost_flows_into_financial_proof(self):
+        from decimal import Decimal
+        from fc_pricing_v3.average_discount_v6 import average_discount
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+        from test_cost_inputs_v6 import AS_OF, CUT, attachment, fx, rows_for
+        from test_curve_strategy_v6 import fixture
+
+        curve, _, _ = fixture()
+        source = attachment(list(rows_for([48] * 3)))
+        source['historical_orders_coverage'].update(shared_publication_id='pin', shared_source_revision='source',
+                                                   paid_window_start=(CUT-timedelta(days=8)).isoformat())
+        for row in source['historical_orders']:
+            row.update(single_line_unit_purchase=True, merchandise_before_discount_usd='100', actual_es_discount_usd='0')
+        rows = [dict(platform='PS', status='valid', record_id=str(i), trade_at=AS_OF.isoformat(),
+                     cny_per_1k=price, quantity_evidence=dict(ordered_k=quantity))
+                for i, (quantity, price) in enumerate([('100', '.25')] * 6 + [('1000', '.286')] * 6)]
+        cost = smooth_delivery_cost(dict(platform='PS', checked_at=AS_OF.isoformat(), v6_delivery_samples=dict(
+            window_complete=True, history_complete=True, records=rows)), 'PS', AS_OF, '.25')
+        frozen = runtime._average_discount_proof_input(curve, 'PS', source, source, CUT.isoformat(), AS_OF,
+            average=average_discount(source, 'PS', CUT), route={'propagation_revision': 'directory'},
+            facts=None, fx=fx(), current_cost=cost)
+        paths = {row['purchase_k']: row for row in frozen['evidence']['paths']}
+        for quantity, price in (('100', '.25'), ('1000', '.286')):
+            path = paths[quantity]
+            expected = Decimal(path['promised_delivered_k']) * Decimal(price) / 7
+            for kind in ('expected', 'safe', 'stress'):
+                self.assertEqual(Decimal(path[kind + '_cost_usd']), expected)
 
     def test_only_automatic_rounds_count_toward_the_two_round_margin_exception(self):
         now = datetime.now(timezone.utc)
@@ -401,7 +429,7 @@ class CurveRuntime(unittest.TestCase):
         proof = dict(status='PROVEN', contract=CONTRACT, scope={'platform': 'PS'}, curve_key=key)
         proof['proof_hash'] = fingerprint(proof)
         cost = dict(status='valid', platform='PS', source_platform='PS', selected_count=6,
-                    sample_contract='latest_3h_valid_order_delivery_median_v1',
+                    sample_contract='latest_3h_segmented_quantity_weighted_delivery_median_v2',
                     checked_at=(now - timedelta(minutes=2)).isoformat())
         from fc_pricing_v3.competitor_offers import POLICY
         evidence = dict(run_id=run, costs={'PS': cost}, competitor_policy=POLICY)

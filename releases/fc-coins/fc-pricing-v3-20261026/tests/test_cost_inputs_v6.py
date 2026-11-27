@@ -125,11 +125,29 @@ class CostInputs(unittest.TestCase):
         before = deepcopy(source)
         result = smooth_delivery_cost(source, 'PS', AS_OF, '.40')
         self.assertEqual(result['cny_per_1k'], '0.40')
-        self.assertEqual(result['sample_contract'], 'latest_3h_valid_order_delivery_median_v1')
+        self.assertEqual(result['sample_contract'], 'latest_3h_segmented_quantity_weighted_delivery_median_v2')
         self.assertEqual(result['selected_count'], 7)
         self.assertEqual(result['window'], 'three_hours')
         self.assertEqual(smooth_delivery_cost(source, 'XBOX', AS_OF, '.4')['status'], 'missing')
         self.assertEqual(source, before)
+
+    def test_v6_cost_separates_bands_and_weights_each_by_purchase_quantity(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+
+        purchases = [('100', '.25')] * 6 + [('1000', '.26')] * 4 + [('4000', '.286')] * 2
+        rows = [dict(platform='PS', record_id=str(i), status='valid', cny_per_1k=price,
+                     trade_at=(AS_OF-timedelta(minutes=i)).isoformat(),
+                     quantity_evidence=dict(ordered_k=purchase))
+                for i, (purchase, price) in enumerate(purchases)]
+        source = dict(platform='PS', checked_at=AS_OF.isoformat(),
+                      v6_delivery_samples=dict(records=rows, window_complete=True, history_complete=True))
+        result = smooth_delivery_cost(source, 'PS', AS_OF, '.25')
+        self.assertEqual(Decimal(result['bands']['small']['cny_per_1k']), Decimal('.25'))
+        self.assertEqual(Decimal(result['bands']['large']['cny_per_1k']), Decimal('.286'))
+        self.assertEqual(result['bands']['large']['selected_count'], 6)
+        source['v6_delivery_samples']['records'] = rows[:8]
+        result = smooth_delivery_cost(source, 'PS', AS_OF, '.25')
+        self.assertEqual(result['bands']['large']['basis'], 'combined_fallback')
 
     def test_current_samples_discard_thousandfold_costs_before_selecting_maximum(self):
         from fc_pricing_v3.cost_inputs_v6 import filter_cost_samples

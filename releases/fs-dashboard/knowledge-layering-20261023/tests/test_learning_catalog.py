@@ -275,7 +275,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'fc_v61_two_band_unit_price_20261126')
+        self.assertEqual(margin['revision'], 'fc_v61_segmented_cost_promotion_cap_20261127')
         self.assertIn('fc.pricing.constraints@fc_v61_insurance_15_40_20261117', margin['supersedes'])
         self.assertEqual(margin['source']['path'],'docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md')
         self.assertIn('fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4',margin['supersedes'])

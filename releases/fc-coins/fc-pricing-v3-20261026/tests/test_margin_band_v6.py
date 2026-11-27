@@ -220,20 +220,20 @@ class MarginBandDecisions(unittest.TestCase):
         guard = dict(campaign='carnival_202611', start_day='2026-11-19', last_redeem_day='2026-11-20',
                      baseline={'PS': '.05', 'XBOX': '.07', 'PC': '.09'}, baseline_revision='a' * 64)
         proof = dict(
-            average_discount=dict(platform='PS', retained_ratio='.75', revision='average-fixture',
+            average_discount=dict(platform='PS', retained_ratio='.75', status='complete', revision='average-fixture',
                                   actual_discount_usd='25', merchandise_before_discount_usd='100',
                                   start='2026-11-17T00:00:00+08:00', end_exclusive='2026-11-20T00:00:00+08:00'),
             paths=[
                 dict(path_id='small', purchase_k='100', regular_usd='10',
-                     net_receipt_usd='7.50', safe_cost_usd='6.40'),
+                     net_receipt_usd='7.50', safe_cost_usd='5.20'),
                 dict(path_id='large', purchase_k='1000', regular_usd='100',
-                     net_receipt_usd='75.00', safe_cost_usd='64.00'),
+                     net_receipt_usd='75.00', safe_cost_usd='52.00'),
             ],
             baskets={'main': {'members': [dict(path_id=band, weight='1') for band in ('small', 'large')]}},
         )
         position = dict(anchors={'small': '12', 'large': '120'}, low_anchors={'small': '8', 'large': '80'})
         recorded = {'small': '10', 'large': '100'}
-        for samples, expected in ((5, ('hold', '10', '100')), (6, ('lower', '9.77', '97.65'))):
+        for samples, expected in ((5, ('hold', '10', '100')), (6, ('lower', '9.67', '96.63'))):
             with self.subTest(samples=samples):
                 result = runtime.margin_band_selection(
                     proof, position, recorded, Decimal('.31'), {'is_decision_round': True},
@@ -254,7 +254,7 @@ class MarginBandDecisions(unittest.TestCase):
 
 class MarginBandRuntime(unittest.TestCase):
     def freeze(self, hour, large_cost, *, enabled=True, round_hour=None, offers=True, previous=None,
-               day=18, retained='1', promotion_guard=None, stress_cost=None, lootbar='10.4'):
+               day=18, retained='1', promotion_guard=None, stress_cost=None, lootbar='10.4', yesterday=None):
         from datetime import datetime, timedelta, timezone
         from fc_pricing_v3 import runtime
         from fc_pricing_v3.average_discount_v6 import MODEL, average_discount_window, forecast_receipt
@@ -279,6 +279,8 @@ class MarginBandRuntime(unittest.TestCase):
                            start=start.isoformat(), end_exclusive=end.isoformat(),
                            actual_discount_usd=str(100 * (1 - Decimal(retained))),
                            merchandise_before_discount_usd='100')
+            if yesterday is not None:
+                average['yesterday_discount'] = yesterday
             average['revision'] = fingerprint(average)
             domain.update(curve_key=key, source_revisions=dict(domain['source_revisions'], offers=average['revision']))
             evidence.update(curve_key=key, average_discount=average)
@@ -310,22 +312,74 @@ class MarginBandRuntime(unittest.TestCase):
                                         plan, dict(competitor_offers=quotes), now, previous or {})
         return entry['temporary_cost_protection']
 
+    def test_discount_uses_the_complete_beijing_day_and_weighted_three_day_amounts(self):
+        from datetime import datetime, timezone
+        from fc_pricing_v3.average_discount_v6 import average_discount, average_discount_window
+
+        now = datetime(2026, 11, 27, 12, tzinfo=timezone.utc)
+        start, end = average_discount_window(now)
+        data = dict(historical_orders_coverage=dict(window_complete=True, population_status='complete',
+            shared_publication_id='es', shared_source_revision='revision', paid_window_start=start.isoformat(),
+            paid_window_end_exclusive=end.isoformat()), historical_orders=[
+                dict(platform='PS', order_key=str(i), paid_at=day, merchandise_before_discount_usd=gross,
+                     actual_es_discount_usd=off)
+                for i, (day, gross, off) in enumerate([
+                    ('2026-11-25T15:59:59+00:00', '300', '18'),
+                    ('2026-11-25T16:00:00+00:00', '100', '18'),
+                    ('2026-11-26T16:00:00+00:00', '100', '75'),
+                ])])
+        average = average_discount(data, 'PS', now)
+        self.assertEqual(Decimal(average['retained_ratio']), Decimal('.91'))
+        self.assertEqual(Decimal(average['yesterday_discount']), Decimal('.18'))
+
+    def test_promotion_absorption_parameter_bounds_and_legacy_shape(self):
+        from fc_pricing_v3.curve_strategy_v6 import margin_band_parameters, market_anchor_parameters
+
+        anchors = market_anchor_parameters()
+        for bands in anchors.values():
+            for terms in bands.values():
+                terms['p_low'] = '-.10'
+        bands = {platform: {'target': '.31'} for platform in ('PS', 'XBOX', 'PC')}
+        guard = dict(campaign='carnival_202611', start_day='2026-11-19', last_redeem_day='2026-12-03',
+                     baseline=dict(PS='.09', XBOX='.09', PC='.09'), baseline_revision='se_' + 'a' * 32)
+        self.assertNotIn('max_absorb', margin_band_parameters(dict(bands, promotion_guard=guard), anchors)['promotion_guard'])
+        for cap in ('0', '.05'):
+            config = margin_band_parameters(dict(bands, promotion_guard=dict(guard, max_absorb=cap)), anchors)
+            self.assertEqual(Decimal(config['promotion_guard']['max_absorb']), Decimal(cap))
+        for cap in ('-.001', '.051', 'NaN', True):
+            with self.subTest(cap=cap), self.assertRaisesRegex(ValueError, 'margin_band_parameters_invalid'):
+                margin_band_parameters(dict(bands, promotion_guard=dict(guard, max_absorb=cap)), anchors)
+
+    def test_deep_discount_yesterday_is_counted_above_the_absorption_cap(self):
+        guard = dict(campaign='carnival_202611', start_day='2026-11-19', last_redeem_day='2026-12-03',
+                     baseline={'PS': '.09', 'XBOX': '.09', 'PC': '.09'}, baseline_revision='a' * 64)
+        frozen = self.freeze(13, '59.5', day=27, retained='.91', promotion_guard=guard, yesterday='.18')
+        decision = frozen['preference']['margin_band']
+        audit = decision['promotion_guard']
+        self.assertEqual(Decimal(audit['actual_discount']), Decimal('.18'))
+        self.assertEqual(Decimal(audit['business_discount']), Decimal('.15'))
+        self.assertEqual(Decimal(audit['absorbed']), Decimal('.03'))
+        self.assertTrue(audit['capped'])
+        self.assertEqual(decision['bands']['large']['action'], 'raise')
+
     def test_promotion_changes_business_selection_while_real_discount_still_repairs_the_floor(self):
         guard = dict(campaign='carnival_202611', start_day='2026-11-19', last_redeem_day='2026-11-20',
                      baseline={'PS': '.05', 'XBOX': '.07', 'PC': '.09'}, baseline_revision='a' * 64)
-        for day, action in ((19, 'raise'), (20, 'lower'), (23, 'lower'), (24, 'raise')):
+        for day, active in ((19, False), (20, True), (23, True), (24, False)):
             with self.subTest(day=day):
                 frozen = self.freeze(13, '60', day=day, retained='.75', promotion_guard=guard, lootbar='9.6')
                 decision = frozen['preference']['margin_band']
-                self.assertEqual(decision['bands']['large']['action'], action)
+                self.assertEqual(decision['bands']['large']['action'], 'raise')
                 self.assertEqual(Decimal(decision['promotion_guard']['actual_discount']), Decimal('.25'))
-                business = '.05' if action == 'lower' else '.25'
+                business = '.22' if active else '.25'
                 self.assertEqual(Decimal(decision['promotion_guard']['business_discount']), Decimal(business))
                 self.assertEqual(decision['promotion_guard']['baseline_revision'], guard['baseline_revision'])
-                if action == 'lower':
-                    self.assertEqual(frozen['status'], 'PROVEN')
-                    self.assertLess(Decimal(frozen['normal_anchors']['large']), Decimal('95'))
-                    self.assertGreaterEqual(Decimal(frozen['final_anchors']['large']), Decimal('97.57'))
+                self.assertEqual(decision['promotion_guard']['active'], active)
+
+        floor = self.freeze(15, '60', day=20, retained='.75', promotion_guard=guard, lootbar='9.6')
+        self.assertEqual(floor['status'], 'PROVEN')
+        self.assertEqual(Decimal(floor['normal_anchors']['large']), Decimal('95'))
+        self.assertGreaterEqual(Decimal(floor['final_anchors']['large']), Decimal('97.57'))
 
         minimum = self.freeze(13, '60', day=20, retained='.96', promotion_guard=guard, lootbar='9.6')
         audit = minimum['preference']['margin_band']['promotion_guard']

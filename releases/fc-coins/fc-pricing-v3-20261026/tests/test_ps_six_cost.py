@@ -227,7 +227,7 @@ class SixCost(unittest.TestCase):
         from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
         rows = [self.raw(1100 + platform_index * 100 + i, '.4', i, platform)
                 for platform_index, platform in enumerate(('PS', 'XBOX', 'PC'))
-                for i in range(5 if platform == 'PC' else 7)]
+                for i in range(11 if platform == 'PC' else 13)]
         extras = [self.raw(10000, '.5', 240, 'PC'), self.raw(9999, '.6', 240, 'PC'),
                   self.raw(8001, '.9', 250, 'PC'), self.raw(8002, '.8', 240, 'PS'),
                   self.raw(8003, '.8', 240, 'XBOX')]
@@ -235,11 +235,12 @@ class SixCost(unittest.TestCase):
         details = {}
         for row in rows:
             record_id = row['record_id']
-            total = str(Decimal(row['cny_per_1k']) * 100)
-            row.update(order_id=record_id, quantity='100', gift='0', cost_total=total)
+            quantity = '1000' if int(record_id) % 100 >= 6 or record_id in ('9999', '10000') else '100'
+            total = str(Decimal(row['cny_per_1k']) * Decimal(quantity))
+            row.update(order_id=record_id, quantity=quantity, gift='0', cost_total=total)
             details[record_id] = dict(complete=True,
-                goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty='100', used='100')],
-                deliveries=[dict(id=record_id, pid='9', qty='100', gift='0',
+                goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty=quantity, used=quantity)],
+                deliveries=[dict(id=record_id, pid='9', qty=quantity, gift='0',
                                  price=row['cny_per_1k'], total=total)])
         self.native_verifier.stop()
         requests, windows = [], []
@@ -264,11 +265,13 @@ class SixCost(unittest.TestCase):
         self.assertEqual(requests, ['9999'])
         costs = [smooth_delivery_cost(row, row['platform'], datetime.now(timezone.utc), '.4')
                  for row in result['costs']]
-        self.assertEqual([row['selected_count'] for row in costs], [7, 7, 6])
+        self.assertEqual([row['selected_count'] for row in costs], [13, 13, 11])
         self.assertEqual([row['cny_per_1k'] for row in costs], ['0.4'] * 3)
-        self.assertEqual(costs[-1]['sample_records'][-1]['record_id'], '9999')
+        large = costs[-1]['bands']['large']
+        self.assertEqual((large['selected_count'], large['window']), (6, 'latest_six'))
+        self.assertEqual(large['sample_records'][-1]['record_id'], '9999')
         self.assertEqual([row['v6_delivery_samples']['detail_scope']['older_detail_rows_not_checked']
-                          for row in result['costs']], [1, 1, 2])
+                          for row in result['costs']], [1, 1, 1])
 
     def test_v6_full_expand_refreshes_amended_detail_and_checks_late_insert(self):
         rows = [self.raw(1000+index*100+i, '.4', i, platform)

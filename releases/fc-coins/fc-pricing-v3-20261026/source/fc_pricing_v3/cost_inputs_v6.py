@@ -22,11 +22,36 @@ ADMIN_LOSS_BUCKETS = ('ts', 'tssj', 'dc', 'cb', 'tkwtg', 'wh', 'bftk', 'qt', 'bh
                       'ts_zhui', 'tssj_zhui', 'dc_zhui', 'cb_zhui',
                       'ts_zhui_no', 'tssj_zhui_no', 'dc_zhui_no', 'cb_zhui_no', 'pianzi')
 ORDINARY_COST_BASIS = 'same_order_ordinary_delivery_total_at_verified_promised_k'
-SMOOTH_COST_CONTRACT = 'latest_3h_valid_order_delivery_median_v1'
+SMOOTH_COST_CONTRACT = 'latest_3h_segmented_quantity_weighted_delivery_median_v2'
 COST_SOURCE_MISSING = 'ordinary_delivery_cost_sample_missing'
 COST_SAMPLES_INSUFFICIENT = 'curve_cost_samples_insufficient'
 COST_SAMPLE_OUTLIER = 'curve_cost_sample_outlier'
 CURVE_COST_GAPS = (COST_SOURCE_MISSING, COST_SAMPLES_INSUFFICIENT, COST_SAMPLE_OUTLIER)
+
+
+def delivery_sample_purchase_k(row):
+    quantity = row.get('quantity_evidence') or {}
+    return _number(quantity.get('ordered_k')) or _number(quantity.get('listed_purchase_k'))
+
+
+def _weighted_median(rows):
+    weighted = []
+    for row in rows:
+        quantity = row.get('quantity_evidence') or {}
+        weight = _number(quantity.get('split_shipment_purchase_k')) or delivery_sample_purchase_k(row)
+        if weight is not None:
+            weighted.append((Decimal(row['cny_per_1k']), weight))
+    weighted.sort()
+    if len(weighted) != len(rows):
+        return median(Decimal(row['cny_per_1k']) for row in rows), 'legacy_order_count_median'
+    half = sum(weight for _, weight in weighted) / 2
+    total = Decimal(0)
+    for index, (price, weight) in enumerate(weighted):
+        total += weight
+        if total > half:
+            return price, 'purchase_k_weighted_median'
+        if total == half:
+            return (price + weighted[index + 1][0]) / 2, 'purchase_k_weighted_median'
 
 
 def smooth_delivery_cost(source, platform, as_of, confirmed_cny_per_k=None):
@@ -58,13 +83,35 @@ def smooth_delivery_cost(source, platform, as_of, confirmed_cny_per_k=None):
     if filtered['status'] != 'valid':
         return dict(missing, reason=filtered['reason'], sample_insurance=insurance)
     ordered = sorted(filtered['sample_records'], key=lambda row: (_instant(row['trade_at']), str(row['record_id'])), reverse=True)
-    recent = [row for row in ordered if _instant(row['trade_at']) >= now - timedelta(hours=3)]
-    selected = recent if len(recent) >= 6 else ordered[:6]
-    value = str(median([Decimal(row['cny_per_1k']) for row in selected]))
-    return dict(selected[0], platform=platform, source_platform=platform, checked_at=captured.isoformat(),
-                cny_per_1k=value, cny_per_k=value, sample_contract=SMOOTH_COST_CONTRACT,
-                selected_count=len(selected), window='three_hours' if len(recent) >= 6 else 'latest_six',
-                sample_records=selected, sample_insurance=filtered['sample_insurance'])
+    from .price_curve import coin_quantity_band
+
+    def summarize(rows, basis):
+        recent = [row for row in rows if _instant(row['trade_at']) >= now - timedelta(hours=3)]
+        selected = recent if len(recent) >= 6 else rows[:6]
+        value, method = _weighted_median(selected)
+        return dict(selected[0], platform=platform, source_platform=platform, checked_at=captured.isoformat(),
+                    cny_per_1k=str(value), cny_per_k=str(value), sample_contract=SMOOTH_COST_CONTRACT,
+                    selected_count=len(selected), recent_count=len(recent),
+                    window='three_hours' if len(recent) >= 6 else 'latest_six',
+                    basis=basis, weighting=method, sample_records=selected, sample_insurance=insurance)
+
+    combined = summarize(ordered, 'combined')
+    groups = {'small': [], 'large': []}
+    for row in ordered:
+        purchase = delivery_sample_purchase_k(row)
+        if purchase is not None:
+            groups[coin_quantity_band(purchase)].append(row)
+    bands = {}
+    for band, rows in groups.items():
+        complete = evidence.get('history_complete') is True
+        if len(rows) >= 3:
+            bands[band] = summarize(rows, 'segment')
+        else:
+            bands[band] = dict(combined, basis='combined_fallback', segment_count=len(rows),
+                               recent_count=sum(_instant(row['trade_at']) >= now - timedelta(hours=3) for row in rows),
+                               fallback_reason='segment_samples_insufficient' if complete else
+                                               'segment_history_incomplete')
+    return dict(combined, bands=bands)
 
 
 def filter_cost_samples(cost, confirmed_cny_per_k=None):
