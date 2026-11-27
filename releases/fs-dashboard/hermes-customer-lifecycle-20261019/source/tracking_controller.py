@@ -398,8 +398,9 @@ class TrackingController:
         phase = self.phase()
         if action in ('phase_recommendations', 'phase_outreach_export'):
             export = action == 'phase_outreach_export'
-            keys(data, 'limit')
-            limit = data['limit']
+            if set(data) - {'limit'}:
+                raise ValueError('maintenance_request_fields')
+            limit = data.get('limit', 10 if export else 5)
             choices = (10, 20) if export else (5, 10)
             if limit != 'all' and (type(limit) is not int or limit not in choices):
                 raise ValueError('maintenance_recommendation_limit')
@@ -414,7 +415,11 @@ class TrackingController:
         if action == 'phase_config':
             return phase.save_config(data)
         if action == 'phase_decide':
+            keys(data, 'ids decision request_id')
             return phase.decide_entries(user, data)
+        if action == 'phase_decision_receipt':
+            keys(data, 'request_id')
+            return phase.decision_receipt(user, data['request_id'])
         if action == 'phase_review_decide':
             return phase.decide_review(user, data)
         if action == 'phase_case':

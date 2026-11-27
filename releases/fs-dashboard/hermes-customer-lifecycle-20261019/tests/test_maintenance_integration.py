@@ -78,9 +78,10 @@ class Admin:
             raise result
         return result
 
-    def recent_grant_members(self, at):
+    def recent_grant_members(self, uids, at):
         return {str(row['member_id']) for rows in self.coupons if isinstance(rows, list)
-                for row in rows if at - timedelta(days=30) < datetime.fromisoformat(row['start_time']) <= at}
+                for row in rows if str(row['member_id']) in uids
+                and at - timedelta(days=30) < datetime.fromisoformat(row['start_time']) <= at}
 
 
 class Bridge:
@@ -160,6 +161,9 @@ class Integration(unittest.TestCase):
         receipt = self.service.decide_entries('admin', request)
         self.assertEqual({'changed': [first['id']], 'skipped': 0}, receipt)
         self.assertEqual(receipt, self.service.decide_entries('admin', request))
+        self.assertEqual(dict(status='available', receipt=receipt),
+                         self.service.decision_receipt('admin', request['request_id']))
+        self.assertEqual(dict(status='unknown'), self.service.decision_receipt('another', request['request_id']))
         with self.assertRaisesRegex(ValueError, 'maintenance_request_conflict'):
             self.service.decide_entries('admin', dict(request, ids=[second['id']]))
         self.assertEqual([second['id']], [row['id'] for row in self.service.queue_view('ready')['items']])
@@ -209,15 +213,21 @@ class Integration(unittest.TestCase):
         query = dict(kind='hermes_customer_tracking', action='phase_outreach_export', limit=10)
         with self.assertRaises(PermissionError):
             controller.post('viewer', query)
+        view_query = dict(kind='hermes_customer_tracking', action='phase_recommendations')
+        with self.assertRaises(PermissionError):
+            controller.post('viewer', view_query)
         with self.assertRaises(ValueError):
             controller.post('admin', dict(query, limit=5))
+        with self.assertRaisesRegex(ValueError, 'maintenance_decision_ids'):
+            controller.post('admin', dict(kind='hermes_customer_tracking', action='phase_decide',
+                                          ids='all', decision='confirmed', request_id='explicit-only'))
         response = controller.post('admin', query)[1]
         self.assertEqual('2026-11-02', response['week'])
         self.assertEqual(['person-02@example.net', 'person-03@example.net'],
                          [row['email'] for row in response['items']])
         self.assertTrue(all(row['source'] == 'stock' and row['purchase_days'] == 1
                             and 'owner' in row and 'last_contact_date' in row for row in response['items']))
-        view = controller.post('admin', dict(query, action='phase_recommendations', limit=5))[1]
+        view = controller.post('admin', view_query)[1]
         self.assertEqual(0, view['ready_count'])
 
     def test_needs_decision_lists_order_and_can_be_exported_for_followup(self):
@@ -238,19 +248,36 @@ class Integration(unittest.TestCase):
             review_digest=row['result']['digest'], reason='核对退款'))
         self.assertEqual(1, self.service.recommendations(5)['ready_count'])
 
-    def test_recent_grant_query_checks_date_scope_and_excludes_automatic_batches(self):
+    def test_recent_grant_query_checks_member_scope_and_excludes_automatic_batches(self):
         requests = []
         def read(path, query):
             requests.append((path, query))
-            grants = [self.grant('8'), dict(self.grant('9'), member_id=101, grant_batch_no='FCSM_TEST')]
-            rows = grants if query['search[1][val]'].endswith('2026-10-14 08:00:00') else []
+            grants = [self.grant('8'), dict(self.grant('9'), member_id=101, grant_batch_no='FCSM_TEST'),
+                      dict(self.grant('10'), member_id=102, start_time='2026-09-01T08:00:00+08:00')]
+            rows = [row for row in grants if str(row['member_id']) in query['search[0][val]'].split(',')]
             return dict(total=len(rows), list=rows)
-        self.assertEqual({'100'}, AdminFacts(read).recent_grant_members(self.now))
-        self.assertEqual(5, len(requests))
-        self.assertTrue(all(path == '/admin/user.MemberCoupon/index' and query['search[0][val]'] == '266'
-                            and query['search[1][field]'] == 'start_time' for path, query in requests))
+        uids = {str(i) for i in range(100, 201)}
+        self.assertEqual({'100'}, AdminFacts(read).recent_grant_members(uids, self.now))
+        self.assertEqual(3, len(requests))
+        self.assertTrue(all(path == '/admin/user.MemberCoupon/index' and query['search[0][field]'] == 'member_id'
+                            and query['search[0][operator]'] == 'IN' for path, query in requests))
         with self.assertRaisesRegex(ValueError, 'maintenance_grant_scope'):
-            AdminFacts(lambda *_: dict(total=1, list=[self.grant('8')])).recent_grant_members(self.now)
+            AdminFacts(lambda *_: dict(total=1, list=[self.grant('8')])).recent_grant_members({'555'}, self.now)
+
+    def test_outreach_rechecks_last_order_and_does_not_attribute_shared_uid_grants(self):
+        self.source.orders = [dict(order(f'old-{i}', f'c-{i}', 100, f'person-{i}@example.net'), amount_usd='750')
+                              for i in range(3)]
+        self.tick(20)
+        self.service.save_rule('admin', dict(id='lost', expected_version=0, tier='high', stage='lost',
+            customer_type='new', enabled=True, priority=0, daily_quota=1, coupon_id=123, alert=False, owner=None))
+        self.service.update()
+        self.admin.coupons = [[self.grant('23')]]
+        self.source.orders.append(dict(order('correction', 'c-0', 100, 'person-0@example.net'),
+                                       paid_at='2026-11-01T12:00:00+08:00'))
+        self.tick(run=False)
+        exported = self.service.recommendations(None, export=True)['items']
+        self.assertEqual(['person-1@example.net', 'person-2@example.net'], [row['email'] for row in exported])
+        self.assertEqual(0, self.service.recommendations(5)['ready_count'])
 
     def test_maintenance_dashboard_reads_stored_queue_details_and_counts(self):
         template = dict(TEMPLATE, mode_type=2, reduce='88', max_reduce='50')

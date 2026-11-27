@@ -26,6 +26,16 @@ def payment(row):
     return datetime.fromisoformat(row['paid_at']).astimezone(SHANGHAI)
 
 
+def latest_fc_order_keys(orders):
+    latest = {}
+    for order in orders:
+        candidate = payment(order), order['order_key']
+        ident = order['customer_id']
+        if ident not in latest or candidate > latest[ident]:
+            latest[ident] = candidate
+    return {ident: key for ident, (_, key) in latest.items()}
+
+
 def cohort(orders, day, config, covered):
     by_customer = defaultdict(list)
     for row in orders:
@@ -95,10 +105,11 @@ def rank_customers(customers):
         days = customer['purchase_days']
         ceiling = 3000 if customer['tier'] == 'ultra' else 1000
         start, span = (30, 30) if customer['stage'] == 'lost' else (60, 90)
-        freshness = max(0, min(span, start + span - overdue))
-        score = (min(total / ceiling, 1) * 50 + Decimal(min(days, 10)) * 25 / 10
-                 + Decimal(freshness) * 25 / span)
-        reason = f"累计 ${total:,.2f}，{days} 个购买日，{('流失' if start == 30 else '长期流失')}第 {overdue} 天"
+        freshness = max(0, start + span - overdue)
+        score = min(100, min(total / ceiling, 1) * 50 + Decimal(min(days, 10)) * 25 / 10
+                    + Decimal(freshness) * 25 / span)
+        spend = '已知累计' if customer.get('unknown_amount_orders') else '累计'
+        reason = f"{spend} ${total:,.2f}，{days} 个购买日，{('流失' if start == 30 else '长期流失')}第 {overdue} 天"
         key = (-score, -total, overdue, customer['customer_id'])
         ranked[band].append((key, dict(customer, score=float(round(score, 2)),
                                        days_since_last_paid=overdue, reason=reason)))

@@ -15,7 +15,7 @@ from urllib.request import HTTPRedirectHandler, build_opener
 from customer_segments import tier
 from maintenance_ledger import marks
 from maintenance_review import coupon_time, email_key, member_id
-from maintenance_stages import GID, SHANGHAI, cohort, day_end, day_start, payment
+from maintenance_stages import GID, SHANGHAI, cohort, day_end, day_start, latest_fc_order_keys, payment
 
 
 DB_PATH = Path('/var/lib/fs-user-analytics/customers.sqlite3')
@@ -88,23 +88,21 @@ class AdminFacts:
     def grants(self, uid):
         return self.pages('grants', [('member_id', '=', uid)])
 
-    def recent_grant_members(self, at):
-        """Reuse the grant source for the entire shortlist in bounded date pages."""
+    def recent_grant_members(self, uids, at):
+        """Read bounded sets of uniquely mapped member IDs using the existing grant source."""
         members = set()
         cutoff = at - timedelta(days=30)
-        start = cutoff
-        while start < at:
-            end = min(at, start + timedelta(days=7))
-            bound = ','.join(point.astimezone(SHANGHAI).strftime('%Y-%m-%d %H:%M:%S')
-                             for point in (start, end))
-            for row in self.pages('grants', [('site_id', '=', SITE), ('start_time', 'RANGE', bound, 'datetime')]):
+        uids = sorted(uids)
+        for offset in range(0, len(uids), 50):
+            batch = set(uids[offset:offset+50])
+            for row in self.pages('grants', [('member_id', 'IN', ','.join(sorted(batch)))]):
                 uid = member_id(row.get('member_id'))
-                issued = coupon_time(row.get('start_time'))
-                if str(row.get('site_id')) != SITE or not uid or not start.replace(microsecond=0) <= issued <= end:
+                if uid not in batch:
                     raise ValueError('maintenance_grant_scope')
-                if cutoff < issued <= at and not str(row.get('grant_batch_no') or '').startswith('FCSM_'):
+                if str(row.get('site_id')) != SITE or str(row.get('grant_batch_no') or '').startswith('FCSM_'):
+                    continue
+                if cutoff < coupon_time(row.get('start_time')) <= at:
                     members.add(uid)
-            start = end
         return members
 
     def logs(self, start, stop):
@@ -233,6 +231,10 @@ class Facts(Coverage):
 
     def customer_orders(self, customer):
         return self.customers.get(customer, ())
+
+    def latest_fc_order_keys(self, customers):
+        return latest_fc_order_keys(row for customer in customers for row in self.customer_orders(customer)
+                                    if row['valid'] and str(row['gid']) == GID and payment(row) < self.cutoff)
 
     def stage_cohort(self, day, config):
         return cohort(self.orders, day, config, self.covered)
@@ -396,6 +398,12 @@ class ProjectionFacts(Coverage):
         flags = self.order_flags
         with self.snapshot() as db:
             return list(self._details(db, customers=(customer,), flags=flags))
+
+    def latest_fc_order_keys(self, customers):
+        with self.snapshot() as db:
+            return latest_fc_order_keys(row for batch in batches(customers) for row in
+                self._rows(db, customers=batch, fc=True, valid=True, columns='customer_id,order_key,paid_at')
+                if payment(row) < self.cutoff)
 
     def stage_cohort(self, day, config):
         end = day_end(day)

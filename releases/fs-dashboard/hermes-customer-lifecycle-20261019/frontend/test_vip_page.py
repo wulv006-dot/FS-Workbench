@@ -111,6 +111,10 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
             body = request.request.post_data_json
             assert body["kind"] == "hermes_customer_tracking"
             assert request.request.headers["x-fs-advisor-action"] == "submit"
+            if body['action'] == 'phase_decision_receipt':
+                state['phase_readback'] = body['request_id']
+                original = next(post for post in state['phase_posts'] if post['request_id'] == body['request_id'])
+                return request.fulfill(json=dict(status='available', receipt=dict(changed=original['ids'], skipped=0)))
             if body['action'] in ('phase_recommendations', 'phase_outreach_export'):
                 assert set(body) == {'kind', 'action', 'limit'} and not url.query
                 state.setdefault('recommendation_queries', []).append(body)
@@ -152,6 +156,8 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
                 state['phase_posts'].append(body)
                 if body['action'] == 'phase_decide':
                     assert isinstance(body['ids'], list) and 1 <= len(body['ids']) <= 100
+                    if state.pop('lost_phase_receipt', False):
+                        return request.fulfill(status=503, json=dict(error='tracking_unavailable'))
                     return request.fulfill(json=dict(changed=body['ids'], skipped=0))
                 return request.fulfill(json=dict(changed=True))
             if body["action"] == "vip_bulk_claim":
@@ -742,6 +748,9 @@ def check_four_tiers(browser):
     rec.get_by_label('每档显示').select_option('10')
     expect(rec.get_by_role('button', name='确认本档 2 人')).to_be_visible()
     assert state['recommendation_queries'][-1]['limit'] == 10
+    rec.get_by_role('button', name='确认本档 2 人').click()
+    page.get_by_role('dialog', name='确认发券名单').get_by_role('button', name='取消').click()
+    assert not state['phase_posts']
     rec.get_by_role('button', name='剔除 remove-candidate@example.invalid').click()
     page.get_by_role('button', name='确认剔除').click()
     expect(rec.get_by_role('button', name='一键确认四档 2 人')).to_be_visible()
@@ -751,10 +760,16 @@ def check_four_tiers(browser):
     expect(dialog).to_contain_text('高价值 × 长期流失，1 人')
     expect(dialog).to_contain_text('12% OFF，最多减 $50.00，7 天有效')
     expect(dialog.get_by_role('button', name='取消')).to_be_focused()
+    state['lost_phase_receipt'] = True
     dialog.get_by_role('button', name='确认名单').click()
+    recover = page.get_by_role('button', name='核对并补交上次请求')
+    expect(recover).to_be_visible()
+    recover.click()
+    expect(recover).to_be_hidden()
     expect(rec.get_by_role('button', name='一键确认四档 0 人')).to_be_disabled()
     assert [request['ids'] for request in state['phase_posts']] == [['rec-2'], ['rec-1', 'rec-3']]
     assert all(len(request['request_id']) == 32 for request in state['phase_posts'])
+    assert state['phase_readback'] == state['phase_posts'][-1]['request_id']
     rec.get_by_label('处理理由').fill('已核对原单')
     rec.get_by_role('button', name='放行').click()
     expect(rec.get_by_text('暂无需要人工判断的条目。')).to_be_visible()

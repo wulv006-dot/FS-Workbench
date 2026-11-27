@@ -22,6 +22,7 @@
   const queueFilter = {tier: '', stage: ''};
   let readyTimer;
   let bulkPending = false;
+  let unresolvedDecision = null;
   const more = get('phase-more');
   const API = '/dashboard/fs-home/advisor.json';
   const busy = new Set();
@@ -76,7 +77,7 @@
     const answer = await fetch(url, {cache: 'no-store', redirect: 'error', credentials: 'same-origin',
       signal: AbortSignal.timeout(35000), ...options});
     const data = await answer.json();
-    if (!answer.ok) throw Error(data.error || 'maintenance_request_failed');
+    if (!answer.ok) throw Object.assign(Error(data.error || 'maintenance_request_failed'), {httpStatus: answer.status});
     return data;
   }
   function post(action, fields) {
@@ -638,30 +639,51 @@
     }
     return {items: [...items.values()]};
   }
+  function verifyDecision(receipt, ids) {
+    if (!Array.isArray(receipt?.changed) || !Number.isInteger(receipt.skipped) || receipt.skipped < 0 ||
+        new Set(receipt.changed).size !== receipt.changed.length ||
+        !receipt.changed.every(id => ids.includes(id)) || receipt.changed.length + receipt.skipped !== ids.length) {
+      throw Error('maintenance_decision_receipt');
+    }
+    return receipt;
+  }
+  async function recoverDecision(event) {
+    if (!unresolvedDecision || bulkPending || busy.size) return;
+    const control = event.currentTarget;
+    const request = unresolvedDecision;
+    bulkPending = control.disabled = true;
+    try {
+      const value = await post('decision_receipt', {request_id: request.request_id});
+      const receipt = verifyDecision(value.status === 'unknown' ? await post('decide', request) : value.receipt, request.ids);
+      unresolvedDecision = null;
+      control.hidden = true;
+      await load();
+      status.textContent = '上次请求已核对，处理 ' + count(receipt.changed.length) + ' 条，跳过 ' + count(receipt.skipped) + ' 条。';
+    } catch {
+      status.textContent = '上次请求的结果仍待核对。';
+    } finally {
+      bulkPending = control.disabled = false;
+    }
+  }
   async function decideSelected(ids, decision, setDisabled) {
     if (!ids.length || bulkPending || busy.size) return;
+    if (unresolvedDecision) {
+      status.textContent = '请先核对上次请求。';
+      get('phase-decision-recovery').focus();
+      return;
+    }
     bulkPending = true;
     setDisabled();
     get('phase-view').disabled = get('phase-refresh').disabled = true;
     status.textContent = '正在处理所选条目…';
     let changed = 0;
     let skipped = 0;
+    let request;
     try {
       for (let start = 0; start < ids.length; start += 100) {
         const batch = ids.slice(start, start + 100);
-        const request = {ids: batch, decision, request_id: requestId()};
-        let receipt;
-        try {
-          receipt = await post('decide', request);
-        } catch (error) {
-          if (!(error instanceof TypeError) && error.name !== 'TimeoutError') throw error;
-          receipt = await post('decide', request);
-        }
-        if (!Array.isArray(receipt.changed) || !Number.isInteger(receipt.skipped) || receipt.skipped < 0 ||
-            new Set(receipt.changed).size !== receipt.changed.length ||
-            !receipt.changed.every(id => batch.includes(id)) || receipt.changed.length + receipt.skipped !== batch.length) {
-          throw Error('maintenance_decision_receipt_invalid');
-        }
+        request = {ids: batch, decision, request_id: requestId()};
+        const receipt = verifyDecision(await post('decide', request), batch);
         changed += receipt.changed.length;
         skipped += receipt.skipped;
       }
@@ -671,11 +693,15 @@
           (skipped ? '，' + count(skipped) + ' 条状态已变更' : '') + '。';
         status.textContent = [result, status.textContent].filter(Boolean).join(' ');
       }
-    } catch {
+    } catch (error) {
+      if (!error.httpStatus || error.httpStatus >= 500) {
+        unresolvedDecision = request;
+        get('phase-decision-recovery').hidden = false;
+      }
       if (!get('phase-panel').hidden) {
         await load();
-        status.textContent = '已核到 ' + count(changed) + ' 条，部分操作结果待核。已停止提交其余条目，请核对重新读取的待发区。' +
-          (status.textContent ? ' ' + status.textContent : '');
+        status.textContent = '已核到 ' + count(changed) + ' 条。' + (unresolvedDecision
+          ? '请先核对上次请求，其余批次已停止提交。' : '该批未接受，其余批次已停止提交。');
       }
     } finally {
       bulkPending = false;
@@ -692,7 +718,7 @@
   }
   function confirmRecommendations(bands, disable) {
     const ids = bands.flatMap(band => band.items.map(row => row.id));
-    if (!ids.length || bulkPending || busy.size || pending) return;
+    if (!ids.length || bulkPending || busy.size) return;
     const dialog = get('phase-confirm-dialog');
     const offers = get('phase-confirm-offers');
     offers.replaceChildren();
@@ -712,7 +738,7 @@
     dialog.onclose = () => {
       const confirmed = dialog.returnValue === 'confirm';
       dialog.returnValue = '';
-      if (confirmed && !pending && !recommendations.hidden) decideSelected(ids, 'confirmed', disable);
+      if (confirmed && !document.hidden && !get('app').hidden) decideSelected(ids, 'confirmed', disable);
     };
     dialog.showModal();
   }
@@ -723,7 +749,7 @@
     dialog.onclose = () => {
       const confirmed = dialog.returnValue === 'remove';
       dialog.returnValue = '';
-      if (confirmed && !pending) decideSelected(ids, 'removed', disable);
+      if (confirmed && !document.hidden && !get('app').hidden) decideSelected(ids, 'removed', disable);
     };
     dialog.showModal();
   }
@@ -794,7 +820,7 @@
       for (const rule of band.rules) {
         const offer = node('div', undefined, 'phase-rec-rule');
         offer.append(node('span', label(rule.customer_type), 'phase-chip'),
-          node('span', couponText(rule.coupon)),
+          couponDetails(rule.coupon, rule.rule_id),
           node('span', '今日配额 ' + count(rule.used) + '/' + count(rule.limit), 'phase-chip'));
         head.append(offer);
       }
@@ -804,6 +830,9 @@
         const person = node('li', undefined, 'phase-rec-person');
         const identity = node('div');
         identity.append(node('strong', row.email, 'phase-rec-email'), node('span', amount(row.amount_usd), 'phase-rec-spend'));
+        if (row.unknown_amount_orders) {
+          identity.append(node('span', count(row.unknown_amount_orders) + ' 笔金额待核', 'phase-chip phase-chip-alert'));
+        }
         const reason = node('p', row.reason, 'hint');
         const offer = couponDetails(row.coupon, row.rule_id);
         const remove = button('剔除', () => removeSelection([row.id], disable), 'fs-btn phase-danger');
@@ -943,6 +972,7 @@
     }, 15000);
   }
   async function load() {
+    if (!manual && (document.hidden || get('app').hidden || get('phase-panel').hidden)) return;
     const request = ++sequence;
     const current = view();
     const paged = ['groups', 'review', 'manual', 'delivery'].includes(current);
@@ -1010,6 +1040,7 @@
   more.addEventListener('click', () => { if (!pending && next !== null) { offset = next; load(); } });
   if (manual) load();
   else {
+    get('phase-decision-recovery').addEventListener('click', recoverDecision);
     document.addEventListener('fs-tracking-private-clear', () => {
       sequence++;
       clearInterval(readyTimer);

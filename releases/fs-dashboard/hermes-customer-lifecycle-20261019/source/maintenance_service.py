@@ -229,7 +229,8 @@ def recommendation_item(customer, rule, entry, source):
     fields = ('tier', 'stage', 'customer_type', 'rank', 'score', 'reason', 'email',
               'amount_usd', 'purchase_days', 'days_since_last_paid', 'last_paid_at')
     return dict({key: customer[key] for key in fields}, source=source, coupon=coupon_terms(rule),
-                rule_id=rule['id'], id=entry['id'] if entry else None, state=entry['state'] if entry else 'stock')
+                rule_id=rule['id'], unknown_amount_orders=customer.get('unknown_amount_orders', 0),
+                id=entry['id'] if entry else None, state=entry['state'] if entry else 'stock')
 
 
 def assign_empty(db, case_id, owner, event, rule, at):
@@ -251,13 +252,16 @@ class RecommendationPool:
         self.usage = usage
         self._recent_grants = None
 
-    def _coupon_exclusions(self, facts, at, *, refresh=False):
+    def _coupon_exclusions(self, facts, at, customers, *, refresh=False):
+        owners = {uid: next(iter(ids)) for uid, ids in facts.uid_customers.items()
+                  if len(ids) == 1 and not customers.isdisjoint(ids)}
         cached = self._recent_grants
-        if refresh or not cached or not timedelta(0) <= at - cached[0] < timedelta(minutes=5):
-            cached = at, self.admin.recent_grant_members(at)
+        if (refresh or not cached or not owners.keys() <= cached[1]
+                or not timedelta(0) <= at - cached[0] < timedelta(minutes=5)):
+            cached = at, set(owners), self.admin.recent_grant_members(owners, at)
             self._recent_grants = cached
-        grants = {customer for uid in cached[1] for customer in facts.uid_customers.get(uid, ())}
-        return grants, cached[1], self.usage(facts, at, refresh=refresh)
+        grants = {owners[uid] for uid in cached[2] if uid in owners}
+        return grants, self.usage(facts, at, refresh=refresh)
 
     def _recommendation_inputs(self, db, facts):
         customers = []
@@ -287,9 +291,8 @@ class RecommendationPool:
     def _candidate(self, db, customer, at, exclusions, case_index):
         ident = customer['customer_id']
         address = customer['email']
-        grants, members, usage = exclusions
+        grants, usage = exclusions
         if (not valid_email(address) or customer.get('email_conflict') or ident in grants
-                or member_id(customer.get('uid')) in members
                 or active_customer(db, ident, at)
                 or any(not str((row.get('memberCoupon') or {}).get('grant_batch_no') or '').startswith('FCSM_')
                        for row in usage.for_customer(ident)['matched'])):
@@ -311,7 +314,8 @@ class RecommendationPool:
         return dict(owner=owner, last_contact_date=last_contact.astimezone(SHANGHAI).date().isoformat()
                     if last_contact else None)
 
-    def enqueue_stock(self, facts, at):
+    def enqueue_stock(self, facts, clock):
+        at = clock()
         today = at.astimezone(SHANGHAI).date().isoformat()
         observation = facts.day.isoformat()
         processed = 'SELECT 1 FROM maintenance_stock_days WHERE day=? OR observation_day=?'
@@ -323,8 +327,18 @@ class RecommendationPool:
             if not any(rule['enabled'] and rule['template'] and (rule['tier'], rule['stage']) in BANDS
                        for rule in (rule_view(row) for row in db.execute('SELECT * FROM maintenance_rules'))):
                 return
-        exclusions = self._coupon_exclusions(facts, at)
+            ranked, rules, entries = self._recommendation_inputs(db, facts)
+        customers = {row['customer_id'] for pool in ranked.values() for row in pool
+                     if any(matches_rule(rule, row) for rule in rules) and not any(
+                         entry['state'] in REVOCABLE + IN_FLIGHT or same_cycle(entry, row)
+                         for entry in entries[row['customer_id']])}
+        if not customers:
+            return
+        exclusions = self._coupon_exclusions(facts, at, customers)
         with self.ledger.db(write=True) as db:
+            generation = clock()
+            if generation.astimezone(SHANGHAI).date().isoformat() != today:
+                return
             if db.execute(processed, (today, observation)).fetchone():
                 return
             if db.execute('SELECT max(day) FROM maintenance_runs').fetchone()[0] != observation:
@@ -336,11 +350,14 @@ class RecommendationPool:
             case_index = index_case_identities(db)
             for band, pool in ranked.items():
                 pending = sum(any((entry['event'].get('tier'), entry['event'].get('stage')) == band
+                                  and same_cycle(entry, customer)
                                   and entry['state'] in ('reviewing', 'ready', 'needs_decision')
-                                  for entry in history) for history in entries.values())
+                                  for entry in entries[customer['customer_id']]) for customer in pool)
                 for customer in pool:
                     if pending >= 10:
                         break
+                    if customer['customer_id'] not in customers:
+                        continue
                     history = entries[customer['customer_id']]
                     if any(entry['state'] in REVOCABLE + IN_FLIGHT or same_cycle(entry, customer)
                            for entry in history):
@@ -349,27 +366,31 @@ class RecommendationPool:
                     if not rule or used[rule['id']] >= rule['daily_quota'] or self._candidate(
                             db, customer, at, exclusions, case_index) is None:
                         continue
-                    event = stock_event(customer, at)
+                    event = stock_event(customer, generation)
                     saved = db.execute("INSERT OR IGNORE INTO maintenance_events VALUES(?,?,?,?,?,'active',?)",
                                        (event['id'], customer['customer_id'], event['last_order_key'],
                                         event['event_at'], canonical(event), int(rule['alert'])))
                     if not saved.rowcount:
                         continue
-                    case_id, _ = case_link(db, customer, at)
-                    assign_empty(db, case_id, rule['owner'], event['id'], rule['id'], at)
-                    enqueue_entry(db, event['id'], customer['customer_id'], customer['email'], rule, at)
+                    case_id, _ = case_link(db, customer, generation)
+                    assign_empty(db, case_id, rule['owner'], event['id'], rule['id'], generation)
+                    enqueue_entry(db, event['id'], customer['customer_id'], customer['email'], rule, generation)
                     used[rule['id']] += 1
                     pending += 1
             db.execute('INSERT INTO maintenance_stock_days VALUES (?,?)', (today, observation))
 
     def view(self, facts, at, limit, *, export=False):
         with self.ledger.db() as db:
-            has_customers = db.execute('SELECT 1 FROM maintenance_customers LIMIT 1').fetchone()
+            db.execute('BEGIN')
+            ranked, rules, entries = self._recommendation_inputs(db, facts)
+        customers = {row['customer_id'] for pool in ranked.values() for row in pool if export or any(
+            entry['state'] == 'ready' and same_cycle(entry, row) for entry in entries[row['customer_id']])}
         exclusions = None
         verified = True
-        if has_customers:
+        latest = facts.latest_fc_order_keys(customers) if customers else {}
+        if customers:
             try:
-                exclusions = self._coupon_exclusions(facts, at, refresh=export)
+                exclusions = self._coupon_exclusions(facts, at, customers, refresh=export)
             except REVIEW_READ_ERRORS:
                 if export:
                     raise
@@ -378,7 +399,6 @@ class RecommendationPool:
         bands, decisions, exported = [], [], []
         with self.ledger.db() as db:
             db.execute('BEGIN')
-            ranked, rules, entries = self._recommendation_inputs(db, facts)
             case_index = index_case_identities(db) if exclusions else None
             for (tier, stage), pool in ranked.items():
                 offers = [rule for rule in rules if (rule['tier'], rule['stage']) == (tier, stage)]
@@ -387,13 +407,18 @@ class RecommendationPool:
                          for rule in offers]
                 ready, manual, decision_count = [], [], 0
                 for customer in pool:
-                    history = [entry for entry in entries[customer['customer_id']] if same_cycle(entry, customer)]
+                    customer_entries = entries[customer['customer_id']]
+                    history = [entry for entry in customer_entries if same_cycle(entry, customer)]
                     ready_entry = next((entry for entry in history if entry['state'] == 'ready'
                                         and entry['event_status'] == 'active'
                                         and email_key(entry['email']) == email_key(customer['email'])
                                         and any((offer['id'], offer['version']) == (entry['rule_id'], entry['rule_version'])
                                                 and matches_rule(offer, customer) for offer in offers)), None)
-                    reviews = [entry for entry in history if entry['state'] == 'needs_decision']
+                    reviews = [entry for entry in customer_entries if entry['state'] == 'needs_decision'
+                               and entry['event_status'] == 'active'
+                               and (entry['event'].get('tier'), entry['event'].get('stage')) in BANDS
+                               and entry['event'].get('last_order_key') == customer['last_order_key']
+                               and email_key(entry['email']) == email_key(customer['email'])]
                     offer = next((rule for rule in offers if matches_rule(rule, customer)), None)
                     decision_count += bool(reviews)
                     if not export:
@@ -403,7 +428,8 @@ class RecommendationPool:
                             order_keys = [row['order_key'] for row in review['result'].get('order_exceptions', [])]
                             item['order_keys'] = list(dict.fromkeys(order_keys + [customer['last_order_key']]))
                             decisions.append(item)
-                    if exclusions is None or (not export and not ready_entry):
+                    if (exclusions is None or latest.get(customer['customer_id']) != customer['last_order_key']
+                            or (not export and not ready_entry)):
                         continue
                     contact = self._candidate(db, customer, at, exclusions, case_index)
                     if contact is None or facts.email_conflict(customer['customer_id'], customer['email']):
@@ -414,7 +440,7 @@ class RecommendationPool:
                     elif reviews:
                         item = recommendation_item(customer, reviews[0]['rule_body'], reviews[0], 'decision')
                     elif offer and not history and not any(entry['state'] in REVOCABLE + IN_FLIGHT
-                                                          for entry in entries[customer['customer_id']]):
+                                                          for entry in customer_entries):
                         item = recommendation_item(customer, offer, None, 'stock')
                     else:
                         continue
@@ -468,7 +494,7 @@ class Maintenance:
             day += timedelta(days=1)
         self._void_corrected(facts, at)
         try:
-            self.recommendation_pool.enqueue_stock(facts, at)
+            self.recommendation_pool.enqueue_stock(facts, self.clock)
         except REVIEW_READ_ERRORS as error:
             # A failed stock preflight must not interrupt the existing review queue.
             LOGGER.warning('Maintenance stock preflight unavailable: %s', type(error).__name__)
@@ -936,6 +962,12 @@ class Maintenance:
                 db.execute('INSERT INTO maintenance_decisions VALUES (?,?,?,?)',
                            (request_id, actor, intent, canonical(receipt)))
         return receipt
+
+    def decision_receipt(self, actor, request_id):
+        with self.ledger.db() as db:
+            row = db.execute('SELECT receipt FROM maintenance_decisions WHERE request_id=? AND actor=?',
+                             (strict_id(request_id), actor)).fetchone()
+        return dict(status='available', receipt=json.loads(row['receipt'])) if row else dict(status='unknown')
 
     def decide_review(self, actor, body):
         account(actor)

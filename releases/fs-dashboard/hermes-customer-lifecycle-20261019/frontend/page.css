@@ -227,7 +227,6 @@ main{max-width:1280px;margin:auto;padding:24px 20px 64px}.intro{margin-bottom:18
   color: var(--fs-text); background: var(--fs-surface); border: 1px solid var(--fs-line);
   border-radius: var(--fs-modal-radius); max-width: min(30rem, calc(100% - 24px)); box-sizing: border-box; padding: 18px;
 }
-#phase-remove-dialog:modal { overscroll-behavior: contain; }
 #phase-remove-dialog h2 { margin: 0; font-size: 1.2rem; }
 #phase-panel dialog::backdrop { background: color-mix(in srgb, var(--fs-text) 35%, transparent); overflow: hidden; overscroll-behavior: contain; }
 #phase-panel dialog:modal { overscroll-behavior: contain; }
