@@ -111,7 +111,7 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
             body = request.request.post_data_json
             assert body["kind"] == "hermes_customer_tracking"
             assert request.request.headers["x-fs-advisor-action"] == "submit"
-            if body['action'] in ('phase_decide', 'phase_result'):
+            if body['action'] in ('phase_decide', 'phase_result', 'phase_review_decide'):
                 state['phase_posts'].append(body)
                 if body['action'] == 'phase_decide':
                     assert isinstance(body['ids'], list) and 1 <= len(body['ids']) <= 100
@@ -186,6 +186,12 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
             row = dict(id='review-entry', email=EMAIL, rule_id='rule-A', state='reviewing',
                        identity_status='pending_identity', identity_reason='uid_case_conflict',
                        identity_checked_at='2026-11-24T02:35:00+00:00')
+            if state.get('phase_needs_decision'):
+                row.update(id='needs-decision-entry', state='needs_decision',
+                           result=dict(digest='a'*64, reason='exceptions', reasons=['exceptions']),
+                           review=dict(decision='needs_decision', reasons=['exceptions']))
+                state['phase_review_resolved'] = any(post['action'] == 'phase_review_decide'
+                                                     for post in state['phase_posts'])
             value = dict(items=[] if state.get('phase_review_resolved') else [row])
         elif view == 'phase_delivery':
             value = dict(items=[dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state='confirmed',
@@ -649,6 +655,32 @@ def check_phase(browser):
     assert not state['errors']
 
 
+def check_review_decisions(browser):
+    for label, decision in [('放行', 'ready'), ('剔除', 'removed')]:
+        page = browser.new_page(viewport=dict(width=390, height=900))
+        state = install(page)
+        state['phase_needs_decision'] = True
+        page.goto(WEB)
+        page.get_by_role('button', name='阶段维护', exact=True).click()
+        page.locator('#phase-view').select_option('review')
+        panel = page.locator('#phase-content')
+        expect(panel).to_contain_text('需你判断')
+        expect(panel).to_contain_text('售后、退款或问题单')
+        submit = panel.get_by_role('button', name=label, exact=True)
+        submit.click()
+        assert not state['phase_posts']
+        panel.get_by_label('处理理由').fill('已核对订单')
+        submit.click()
+        expect(panel).to_contain_text('暂无条目')
+        posted, = state['phase_posts']
+        assert posted['decision'] == decision
+        assert posted['review_digest'] == 'a'*64
+        assert posted['reason'] == '已核对订单' and len(posted['request_id']) == 32
+        assert page.evaluate('document.documentElement.scrollWidth === innerWidth')
+        assert not state['errors']
+        page.close()
+
+
 if __name__ == "__main__":
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=os.environ.get('FS_BROWSER_EXECUTABLE'))
@@ -657,5 +689,6 @@ if __name__ == "__main__":
         check_bulk_selection_and_csv(browser)
         check_phase_default_view(browser)
         check_phase(browser)
+        check_review_decisions(browser)
         browser.close()
     print("VIP tracking browser checks passed")

@@ -49,18 +49,22 @@ class AdminFacts:
         if len(body) > 4 * 1024 * 1024:
             raise ValueError('maintenance_admin_response_budget')
         value = json.loads(body)
-        if value.get('code') != 1 or not isinstance(value.get('data'), dict):
+        if not isinstance(value, dict) or value.get('code') != 1 or not isinstance(value.get('data'), dict):
             raise ValueError('maintenance_admin_read_failed')
         return value['data']
 
     def pages(self, kind, filters):
         params = {'limit': 100, 'order': 'id,desc'}
-        for index, (field, op, value) in enumerate(filters):
+        for index, (field, op, value, *render) in enumerate(filters):
+            if render:
+                params[f'search[{index}][render]'] = render[0]
             for name, item in (('field', field), ('operator', op), ('val', value)):
                 params[f'search[{index}][{name}]'] = item
         previous_total, found = None, {}
         for page in range(1, 201):
             payload = self.read(self.ROUTES[kind], dict(params, page=page))
+            if not isinstance(payload, dict):
+                raise ValueError('maintenance_admin_read_failed')
             rows, total = payload.get('list'), payload.get('total')
             if isinstance(total, str) and total.isascii() and total.isdecimal():
                 total = int(total)
@@ -69,6 +73,8 @@ class AdminFacts:
                 raise ValueError('maintenance_admin_pagination')
             previous_total = total
             for row in rows:
+                if not isinstance(row, dict):
+                    raise ValueError('maintenance_admin_read_failed')
                 ident = member_id(row.get('id'))
                 if not ident or ident in found:
                     raise ValueError('maintenance_admin_duplicate')
@@ -92,30 +98,64 @@ class AdminFacts:
 
     def exceptions(self, orders):
         """Refresh actual refund and issue evidence from the exact local order numbers."""
-        from vip_followup import preferred_disposition, project_order
-        wanted = {row['order_no']: row['order_key'] for row in orders if row.get('order_no') and not row.get('test_order')}
-        numbers = sorted(wanted)
-        if any(',' in number for number in numbers):
-            raise ValueError('maintenance_admin_order_number')
+        from vip_followup import project_order
+        by_day = {}
+        for row in orders:
+            if row.get('test_order'):
+                continue
+            number = row.get('order_no')
+            if not number or ',' in number:
+                raise ValueError('maintenance_admin_order_number')
+            paid = payment(row)
+            by_day.setdefault(paid.date(), {})[number] = row
         findings = []
-        for offset in range(0, len(numbers), 100):
-            scope = set(numbers[offset:offset + 100])
-            rows = self.pages('orders', [('site_id', '=', SITE), ('order_no', 'IN', ','.join(sorted(scope)))])
-            if ({row.get('order_no') for row in rows} != scope or len(rows) != len(scope)
-                    or any(str(row.get('site_id')) != SITE for row in rows)):
-                raise ValueError('maintenance_admin_order_scope')
-            for row in rows:
-                view = project_order(row)
-                if view['afterSales'] == 'unknown' or view['refundStatus'] == 'unknown':
-                    raise ValueError('maintenance_admin_order_state_unknown')
-                disposition = preferred_disposition(view)
-                if disposition == 'problem' or view['afterSales'] != 'none_observed':
-                    findings.append(dict(order_key=wanted[row['order_no']],
-                                         reason='problem' if disposition == 'problem' else 'after_sales',
-                                         after_sales=view['afterSales'],
-                                         refund=view['refundStatus'], refund_amount=view['sourceRefundAmount'],
-                                         pay_status=view['payStatus'], order_state=view['orderState']))
+        for day, wanted in sorted(by_day.items()):
+            window = f'{day} 00:00:00,{day} 23:59:59'
+            numbers = sorted(wanted)
+            for offset in range(0, len(numbers), 50):
+                batch = numbers[offset:offset + 50]
+                rows = self.pages('orders', [('site_id', '=', SITE), ('order_no', 'IN', ','.join(batch)),
+                                             ('paytime', 'RANGE', window, 'datetime')])
+                if ({row.get('order_no') for row in rows} != set(batch) or len(rows) != len(batch)
+                        or any(str(row.get('site_id')) != SITE for row in rows)):
+                    raise ValueError('maintenance_admin_order_scope')
+                for row in rows:
+                    view = project_order(row)
+                    if coupon_time(view['paidAtShanghai']).astimezone(SHANGHAI).date() != day:
+                        raise ValueError('maintenance_admin_order_scope')
+                    if view['afterSales'] == 'unknown' or view['refundStatus'] == 'unknown':
+                        raise ValueError('maintenance_admin_order_state_unknown')
+                    reason = order_exception(view)
+                    if reason:
+                        local = wanted[row['order_no']]
+                        findings.append(dict(order_key=local['order_key'], paid_at=local['paid_at'],
+                                             reason=reason,
+                                             after_sales=view['afterSales'], refund=view['refundStatus'],
+                                             refund_amount=view['sourceRefundAmount'], pay_status=view['payStatus'],
+                                             order_state=view['orderState']))
         return findings
+
+
+def order_exception(view):
+    from vip_followup import preferred_disposition
+    # Completed refunds are ordinary exceptions. A severe disposition still wins.
+    if preferred_disposition(dict(view, observedRefund=False)) == 'problem':
+        return 'problem'
+    refund_amount = view['sourceRefundAmount']
+    if view['observedRefund'] or view['afterSales'] == 'after_sales' or (
+            refund_amount is not None and Decimal(refund_amount) > 0):
+        return 'after_sales'
+    return None
+
+
+def locally_flagged_order(row):
+    if not row['valid']:
+        return True
+    if not row.get('status_format') and not row.get('source_refund_amount'):
+        return False
+    from vip_followup import project_order
+    view = project_order(dict(row, id=None, paytime=row['paid_at']))
+    return bool(order_exception(view))
 
 
 class Coverage:
@@ -279,7 +319,9 @@ class ProjectionFacts(Coverage):
         if self._identities is not None:
             return self._identities
         emails, customers, conflicts = {}, {}, set()
-        for ident, address in db.execute('SELECT customer_id,email FROM identities'):
+        query = '''SELECT i.customer_id,i.email FROM identities i
+                   WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id=i.customer_id AND o.site=?)'''
+        for ident, address in db.execute(query, (SITE,)):
             if ident in emails and emails[ident] != address:
                 raise ValueError('maintenance_projection_email_conflict')
             emails[ident] = address
@@ -318,6 +360,8 @@ class ProjectionFacts(Coverage):
             order.update(order_no=number, uid=body.get('uid'), email=emails.get(row['customer_id']),
                          amount_usd=body.get('amount_usd'), pay_status=body.get('pay_status'),
                          test_order=bool(body.get('test_order')),
+                         status_format=body.get('status_format'),
+                         source_refund_amount=body.get('source_refund_amount'),
                          new_customer_flag=flags.get(hashlib.sha256(number.encode()).hexdigest()))
             yield order
 

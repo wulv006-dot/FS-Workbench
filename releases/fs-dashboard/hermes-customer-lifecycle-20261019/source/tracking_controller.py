@@ -407,6 +407,8 @@ class TrackingController:
             return phase.save_config(data)
         if action == 'phase_decide':
             return phase.decide_entries(user, data)
+        if action == 'phase_review_decide':
+            return phase.decide_review(user, data)
         if action == 'phase_case':
             return phase.resolve_case(user, data)
         if action in ('phase_owner', 'phase_tier'):

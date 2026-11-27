@@ -60,6 +60,30 @@ class LedgerTest(unittest.TestCase):
         self.assertFalse(self.ledger.expire(entry, NOW + 4 * DAY))
         self.assertNotIn('dispatching', ALLOWED['removed'])
 
+    def test_retry_migration_keeps_existing_entries_and_resets_count_next_shanghai_day(self):
+        entry = self.ledger.enqueue('e', 'c', 'example@example.net', 'r1', NOW)
+        # Simulate the pre-migration ledger, then open the same file twice.
+        with self.connection() as db:
+            db.execute('DROP TABLE maintenance_review_retries')
+        self.ledger = Ledger(self.connection)
+        end_of_day = NOW + timedelta(hours=15, minutes=45)
+        for count in range(5):
+            self.ledger.fail_review(entry, end_of_day + timedelta(minutes=count), 'fixture_read_failure')
+        self.ledger = Ledger(self.connection)
+        tomorrow = NOW + DAY
+        self.ledger.fail_review(entry, tomorrow, 'fixture_read_failure')
+        self.assertEqual('reviewing', self.ledger.entry(entry)['state'])
+        self.assertEqual([], self.ledger.review_queue(tomorrow))
+        self.assertEqual([entry], [row['id'] for row in self.ledger.review_queue(tomorrow + timedelta(minutes=10))])
+
+    def test_auto_coupon_quota_ends_at_exactly_30_days(self):
+        entry = self.approved('before', 'customer', 'r1')
+        self.ledger.claim(entry, NOW)
+        self.ledger.result(entry, 'dispatching', dict(state='confirmed', member_coupon_id='12'), NOW)
+        self.assertEqual([entry], [row['id'] for row in self.ledger.active_customer(
+            'customer', NOW + 30 * DAY - timedelta(microseconds=1))])
+        self.assertEqual([], self.ledger.active_customer('customer', NOW + 30 * DAY))
+
     def test_timeout_uses_history_at_expiration_and_cas(self):
         on = self.entry('on')
         off = self.entry('off', rule='r2')

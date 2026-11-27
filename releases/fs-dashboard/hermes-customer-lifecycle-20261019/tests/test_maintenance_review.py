@@ -9,6 +9,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from maintenance_review import coupon_evidence, manual_evidence, review_evidence
 
 
+NOW = datetime(2026, 11, 24, 12, tzinfo=timezone.utc)
+EVENT = NOW - timedelta(days=20)
+
+
+def review(**changes):
+    base = dict(coupons=coupon_evidence([], [], 'alice'), payments=[], exceptions=[], automatic=[],
+                contacts=[], at=NOW, event_at=EVENT)
+    return review_evidence(**dict(base, **changes))
+
+
 class ReviewTest(unittest.TestCase):
     def test_order_owner_precedes_uid_and_only_unique_uids_fall_back(self):
         orders = [
@@ -29,32 +39,49 @@ class ReviewTest(unittest.TestCase):
 
     def test_unattributed_rows_are_a_gap_and_do_not_hold(self):
         coupons = coupon_evidence([], [{'id': 1, 'member_id': 3}], 'alice')
-        result = review_evidence(coupons=coupons, payments=[], exceptions=[], automatic=[], contacts=[])
+        result = review(coupons=coupons)
         self.assertEqual('pass', result['decision'])
         self.assertEqual(1, result['unattributed_coupon_logs'])
         self.assertIn('1 条用券记录无法归属客户', result['manual_coupon_notice'])
 
-    def test_which_check_held_and_actual_coupon_rows_are_hashed(self):
-        base = dict(coupons=coupon_evidence([], [], 'alice'),
-                    payments=[], exceptions=[], automatic=[], contacts=[])
-        before = review_evidence(**base)
-        for field in ('payments', 'exceptions', 'automatic', 'contacts'):
-            with self.subTest(field=field):
-                result = review_evidence(**dict(base, **{field: [{'id': 1}]}))
-                self.assertEqual('hold', result['decision'])
-                self.assertEqual([field], result['reasons'])
-        orders = [{'order_no': 'A', 'customer_id': 'alice'}]
-        for log_id in (10, 11):
-            result = review_evidence(**dict(base, coupons=coupon_evidence(
-                orders, [{'id': log_id, 'order_no': 'A'}], 'alice')))
-            self.assertEqual('hold', result['decision'])
-            self.assertEqual(['manual_coupons'], result['reasons'])
-            self.assertNotEqual(before['digest'], result['digest'])
-            before = result
+    def test_payment_coupon_and_severe_exception_have_distinct_outcomes(self):
+        cases = [
+            (dict(payments=[{'order_key': 'new'}]), 'skip', 'paid_after_event'),
+            (dict(automatic=[{'id': 'auto'}]), 'defer', 'automatic'),
+            (dict(coupons=coupon_evidence([{'order_no': 'X', 'customer_id': 'alice'}],
+                                         [{'id': 1, 'order_no': 'X'}], 'alice')), 'defer', 'manual_coupons'),
+            (dict(exceptions=[{'reason': 'problem'}], automatic=[{'id': 'auto'}]), 'hold', 'exceptions'),
+        ]
+        for evidence, decision, reason in cases:
+            with self.subTest(reason=reason):
+                self.assertEqual((decision, [reason]), (review(**evidence)['decision'], review(**evidence)['reasons']))
+
+    def test_ordinary_refund_boundary_and_later_normal_repurchase(self):
+        def assess(age, later_payment=True):
+            paid = NOW - timedelta(days=age)
+            return review(exceptions=[dict(order_key='X', paid_at=paid.isoformat(), reason='after_sales',
+                                          refund='partial_observed', after_sales='none_observed')],
+                          last_normal_paid_at=(NOW-timedelta(days=30)).isoformat() if later_payment else None)
+
+        self.assertEqual('needs_decision', assess(90)['decision'])
+        self.assertEqual('needs_decision', assess(91, later_payment=False)['decision'])
+        old = assess(91)
+        self.assertEqual('pass', old['decision'])
+        self.assertEqual(['historical_refund'], old['notices'])
+
+    def test_contact_at_14_day_boundary_or_after_event_requires_a_decision(self):
+        def assess(age, event_age):
+            return review(event_at=NOW-timedelta(days=event_age),
+                          contacts=[dict(at=NOW.isoformat(), contacted_at=(NOW-timedelta(days=age)).isoformat())])
+
+        self.assertEqual('needs_decision', assess(14, 20)['decision'])
+        self.assertEqual('pass', assess(15, 14)['decision'])
+        self.assertEqual('needs_decision', assess(15, 16)['decision'])
+        self.assertEqual('pass', assess(20, 20)['decision'])
 
     def test_missing_evidence_cannot_become_a_pass(self):
         with self.assertRaises(ValueError):
-            review_evidence(coupons=None, payments=[], exceptions=[], automatic=[], contacts=[])
+            review(coupons=None)
 
 class ManualGrantTest(unittest.TestCase):
     def test_window_covers_all_statuses_except_own_batches_and_other_sites(self):
@@ -84,7 +111,7 @@ class ManualGrantTest(unittest.TestCase):
         self.assertEqual([], actual['matched'])
         self.assertIn('仅核对已使用记录', actual['notice'])
         self.assertIn('1 条用券记录无法归属客户', actual['notice'])
-        result = review_evidence(coupons=actual, payments=[], exceptions=[], automatic=[], contacts=[])
+        result = review(coupons=actual)
         self.assertEqual('pass', result['decision'])
 
     def test_known_uid_read_failure_propagates_instead_of_confirming_no_coupon(self):
