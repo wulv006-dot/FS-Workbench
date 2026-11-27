@@ -356,6 +356,17 @@ class CurveRuntime(unittest.TestCase):
             for kind in ('expected', 'safe', 'stress'):
                 self.assertEqual(Decimal(path[kind + '_cost_usd']), expected)
 
+    def test_curve_state_omits_stale_promotion_audit_after_plan_revision(self):
+        from fc_pricing_v3.api import _curve_decision
+
+        audit = dict(active=True, max_absorb='.045')
+        snapshot = dict(plan_id='plan', plan_revision=1, result=dict(status='KEEP',
+            rows=[dict(platform='PS', status='KEEP', selection=dict(margin_band=dict(promotion_guard=audit)))]))
+        self.assertEqual(_curve_decision(snapshot, dict(plan_id='plan', revision=1))['rows'][0]
+                         ['selection']['promotion_guard'], audit)
+        self.assertNotIn('promotion_guard', _curve_decision(snapshot, dict(plan_id='plan', revision=2))
+                         ['rows'][0]['selection'])
+
     def test_only_automatic_rounds_count_toward_the_two_round_margin_exception(self):
         now = datetime.now(timezone.utc)
         for key, age, automatic, status, insurance in (

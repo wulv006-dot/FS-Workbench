@@ -109,7 +109,7 @@ def _curve_decision(snapshot, plan):
         chosen = {key: selection[key] for key in ('segment', 'label', 'reference_anchors', 'normal_anchors',
                                                    'final_anchors', 'cost_protection', 'large_market_reference') if key in selection}
         margin_band = selection.get('margin_band') or {}
-        if margin_band.get('promotion_guard'):
+        if margin_band.get('promotion_guard') and snapshot.get('plan_revision') == plan['revision']:
             chosen['promotion_guard'] = margin_band['promotion_guard']
         costs = selection.get('cost_by_band') or margin_band.get('cost_by_band')
         if costs:

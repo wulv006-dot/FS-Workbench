@@ -401,8 +401,8 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
     {platform:'PS',status:'READY',selection:{segment:'large',label:'C',
       cost_by_band:{small:{cny_per_1k:'.25'},large:{cny_per_1k:'.286',basis:'combined_fallback'}},
       promotion_guard:{active:true,start_day:'2026-11-19',last_redeem_day:'2026-12-03',
-        baseline_discount:'.09',actual_discount:'.18',business_discount:'.15',
-        max_absorb:'.03',absorbed:'.03',capped:true,discount_above_baseline:'.09',
+        baseline_discount:'.09',actual_discount:'.18',business_discount:'.135',
+        max_absorb:'.045',absorbed:'.045',capped:true,discount_above_baseline:'.09',
         window_start:'2026-11-24T00:00:00+08:00',window_end_exclusive:'2026-11-27T00:00:00+08:00'}}},
     {platform:'XBOX',status:'KEEP'},
     {platform:'PC',status:'PROOF_INCOMPLETE',gaps:['ordinary_cost_unavailable']}
@@ -425,7 +425,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(curveDecisionText,/PS.*已有可行方案.*大额段.*C.*Xbox.*保持现价.*PC.*核算待补/);
   assert.doesNotMatch(curveDecisionText,/双20|已写价|本轮最终候选|op-1/);
   assert.match(curveDecisionText,/0.2500 CNY\/K.*0.2860 CNY\/K（合并样本回退）/);
-  assert.match(curveDecisionText,/9.00%.*18.00%.*warning-text.*15.00%.*3 个百分点.*已触顶/);
+  assert.match(curveDecisionText,/9.00%.*18.00%.*warning-text.*13.50%.*4.5 个百分点.*已触顶/);
   assert.match(curveDecisionText,/2026-11-24 至 2026-11-27.*18% 底线始终按真实数据保护/);
   assert.equal(elements['v3-legacy-proof-table'].hidden,true);
   assert.match(elements['version'].textContent,/V6.*curve-market-run/);

@@ -236,10 +236,13 @@ class SixCost(unittest.TestCase):
         for row in rows:
             record_id = row['record_id']
             quantity = '1000' if int(record_id) % 100 >= 6 or record_id in ('9999', '10000') else '100'
+            purchased = '1200' if record_id == '1106' else quantity
+            if record_id == '1106':
+                quantity = '600'
             total = str(Decimal(row['cny_per_1k']) * Decimal(quantity))
             row.update(order_id=record_id, quantity=quantity, gift='0', cost_total=total)
             details[record_id] = dict(complete=True,
-                goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty=quantity, used=quantity)],
+                goods=[dict(pid='9', gid='1322', cid='1', unit='K', qty=purchased, used=quantity)],
                 deliveries=[dict(id=record_id, pid='9', qty=quantity, gift='0',
                                  price=row['cny_per_1k'], total=total)])
         self.native_verifier.stop()
@@ -262,11 +265,14 @@ class SixCost(unittest.TestCase):
         self.assertEqual([w['end'] - w['start'] for w in windows],
                          [timedelta(hours=3), timedelta(hours=6)])
         self.assertEqual(windows[0]['end'], windows[1]['end'])
-        self.assertEqual(requests, ['9999'])
+        self.assertCountEqual(requests, [row['record_id'] for row in rows if row not in extras] + ['10000', '9999'])
         costs = [smooth_delivery_cost(row, row['platform'], datetime.now(timezone.utc), '.4')
                  for row in result['costs']]
         self.assertEqual([row['selected_count'] for row in costs], [13, 13, 11])
         self.assertEqual([row['cny_per_1k'] for row in costs], ['0.4'] * 3)
+        split = next(row for row in costs[0]['bands']['large']['sample_records'] if row['record_id'] == '1106')
+        self.assertEqual(split['quantity_evidence']['ordered_k'], '1200')
+        self.assertEqual(split['quantity_evidence']['split_shipment_purchase_k'], '600')
         large = costs[-1]['bands']['large']
         self.assertEqual((large['selected_count'], large['window']), (6, 'latest_six'))
         self.assertEqual(large['sample_records'][-1]['record_id'], '9999')

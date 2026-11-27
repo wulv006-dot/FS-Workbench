@@ -218,7 +218,7 @@ class MarginBandDecisions(unittest.TestCase):
         from fc_pricing_v3 import runtime
 
         guard = dict(campaign='carnival_202611', start_day='2026-11-19', last_redeem_day='2026-11-20',
-                     baseline={'PS': '.05', 'XBOX': '.07', 'PC': '.09'}, baseline_revision='a' * 64)
+                     baseline={'PS': '.05', 'XBOX': '.07', 'PC': '.09'}, baseline_revision='a' * 64, max_absorb='.03')
         proof = dict(
             average_discount=dict(platform='PS', retained_ratio='.75', status='complete', revision='average-fixture',
                                   actual_discount_usd='25', merchandise_before_discount_usd='100',
@@ -357,8 +357,8 @@ class MarginBandRuntime(unittest.TestCase):
         decision = frozen['preference']['margin_band']
         audit = decision['promotion_guard']
         self.assertEqual(Decimal(audit['actual_discount']), Decimal('.18'))
-        self.assertEqual(Decimal(audit['business_discount']), Decimal('.15'))
-        self.assertEqual(Decimal(audit['absorbed']), Decimal('.03'))
+        self.assertEqual(Decimal(audit['business_discount']), Decimal('.135'))
+        self.assertEqual(Decimal(audit['absorbed']), Decimal('.045'))
         self.assertTrue(audit['capped'])
         self.assertEqual(decision['bands']['large']['action'], 'raise')
 
@@ -371,7 +371,7 @@ class MarginBandRuntime(unittest.TestCase):
                 decision = frozen['preference']['margin_band']
                 self.assertEqual(decision['bands']['large']['action'], 'raise')
                 self.assertEqual(Decimal(decision['promotion_guard']['actual_discount']), Decimal('.25'))
-                business = '.22' if active else '.25'
+                business = '.205' if active else '.25'
                 self.assertEqual(Decimal(decision['promotion_guard']['business_discount']), Decimal(business))
                 self.assertEqual(decision['promotion_guard']['baseline_revision'], guard['baseline_revision'])
                 self.assertEqual(decision['promotion_guard']['active'], active)

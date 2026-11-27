@@ -7,6 +7,7 @@ from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from http.client import BadStatusLine
 from io import StringIO
+from itertools import chain, repeat
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
@@ -60,7 +61,10 @@ class CostListVerification(unittest.TestCase):
         return path, html.encode('utf-8')
 
     def run_round(self, references=None):
-        with patch.object(self.collector, 'OrderHTTP', return_value=OrderHTTP(fetch=self.fetch)):
+        # Existing list and required-detail behavior when optional purchase
+        # classification has no remaining time in this collection round.
+        with patch.object(self.collector, 'monotonic', side_effect=chain([0], repeat(121))), \
+                patch.object(self.collector, 'OrderHTTP', return_value=OrderHTTP(fetch=self.fetch)):
             result = self.collector.collect(curve_v6=True, confirmed_costs=references)
         self.assertEqual(result['status'], 'valid')
         self.assertEqual(result['cost_protocol'], 'fc27_curve_v6')
@@ -75,14 +79,70 @@ class CostListVerification(unittest.TestCase):
         self.rows[1].update(price='.52', total='58.24')
         rows = self.run_round(dict.fromkeys(PLATFORMS, '.4'))
         self.assertEqual(self.detail_reads, [])
-        self.assertEqual(self.page_reads, [1, 2, 3] * 7)
+        self.assertEqual(self.page_reads, [1, 2, 3])
         self.assertEqual(len(rows), 18)
         self.assertEqual({r['verification'] for r in rows.values()}, {'list_fast_path'})
         self.assertEqual(rows['800000']['cny_per_1k'], '0.28')
         self.assertEqual(rows['800000']['quantity_evidence']['delivered_k'], '112')
         self.assertEqual(rows['800000']['quantity_evidence']['total_cny'], '31.37')
         self.assertIsNone(rows['800000']['quantity_evidence']['ordered_k'])
-        self.assertEqual(rows['800000']['quantity_evidence']['listed_purchase_k'], '111')
+        self.assertEqual(rows['800000']['quantity_evidence']['listed_shipment_k'], '111')
+
+    def test_optional_older_list_failure_preserves_the_qualified_recent_cost(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+
+        read = self.collector.read_page
+
+        def optional_window_times_out(reader, page, observations=None, window=None):
+            if window['end'] - window['start'] > timedelta(hours=3):
+                raise self.collector.CostPageError('order_page_navigation_timeout:1', {})
+            return read(reader, page, observations, window=window)
+
+        with patch.object(self.collector, 'read_page', side_effect=optional_window_times_out), \
+                patch.object(self.collector, 'OrderHTTP', return_value=OrderHTTP(fetch=self.fetch)):
+            result = self.collector.collect(curve_v6=True, confirmed_costs=dict.fromkeys(PLATFORMS, '.4'))
+
+        for row in result['costs']:
+            cost = smooth_delivery_cost(row, row['platform'], datetime.now(timezone.utc), '.4')
+            self.assertEqual(cost['selected_count'], 6)
+            self.assertEqual(cost['bands']['large']['fallback_reason'], 'order_page_navigation_timeout:1')
+
+    def test_unavailable_optional_older_order_detail_keeps_other_platforms_usable(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+
+        self.rows.append(dict(id='800030', order='900030', platform='PS',
+                              price='.6', total='67.20', trade=self.trade - timedelta(hours=4)))
+
+        def fetch(path, timeout):
+            if urlsplit(path).path.endswith('/900030.html'):
+                return path, b'<html><body></body></html>'
+            return self.fetch(path, timeout)
+
+        with patch.object(self.collector, 'OrderHTTP', return_value=OrderHTTP(fetch=fetch)):
+            result = self.collector.collect(curve_v6=True, confirmed_costs=dict.fromkeys(PLATFORMS, '.4'))
+
+        self.assertEqual(result['status'], 'valid')
+        costs = {row['platform']: smooth_delivery_cost(row, row['platform'], datetime.now(timezone.utc), '.4')
+                 for row in result['costs']}
+        self.assertTrue(all(row['status'] == 'valid' for row in costs.values()))
+        self.assertEqual(costs['PS']['bands']['large']['fallback_reason'], 'cost_order_detail_unavailable')
+
+    def test_required_combined_samples_take_priority_over_other_platform_history(self):
+        required = [row for row in self.rows if row['platform'] == 'XBOX'][-3:]
+        for row in required:
+            row.update(price='.6', total='67.20', trade=row['trade'] - timedelta(hours=4))
+        optional_orders = {str(900030 + i) for i in range(4)}
+        self.rows.extend(dict(id=str(800030 + i), order=str(900030 + i), platform='PS',
+                              price='.6', total='67.20', trade=self.trade - timedelta(hours=4, seconds=i))
+                         for i in range(4))
+        self.rows.sort(key=lambda row: row['trade'], reverse=True)
+        with patch.object(self.collector, 'OrderHTTP', return_value=OrderHTTP(fetch=self.fetch)):
+            result = self.collector.collect(curve_v6=True, confirmed_costs=dict.fromkeys(PLATFORMS, '.4'))
+
+        required_orders = {row['order'] for row in required}
+        older_reads = [order for order in self.detail_reads if order in required_orders | optional_orders]
+        self.assertCountEqual(older_reads[:3], required_orders)
+        self.assertTrue(all(row['status'] == 'valid' for row in result['costs']))
 
     def test_abnormal_rows_use_the_existing_detail_verifier(self):
         self.rows[0]['total'] = '44.82'
@@ -138,6 +198,7 @@ class CostListVerification(unittest.TestCase):
         references = {'PS': '.40', 'XBOX': .4, 'PC': 'invalid'}
         output = StringIO()
         with patch('order_http.OrderHTTP', return_value=OrderHTTP(fetch=self.fetch)), \
+                patch('time.monotonic', side_effect=chain([0], repeat(121))), \
                 patch.dict('os.environ', FC_V6_COST_REFERENCES=json.dumps(references)), \
                 redirect_stdout(output), self.assertRaises(SystemExit) as exit_status:
             runpy.run_path(str(SOURCE / 'collect_p2pah_cost.py'), run_name='__main__')
@@ -148,17 +209,15 @@ class CostListVerification(unittest.TestCase):
             samples = cost['v6_delivery_samples']
             self.assertEqual(len(samples['records']), 6)
             scope = samples['detail_scope']
-            self.assertEqual(scope['older_detail_rows_not_checked'], int(platform != 'PC'))
-            if platform == 'PC':
-                self.assertNotIn('qualification_reference_cny_per_k', scope)
-            else:
-                self.assertEqual(scope['qualification_reference_cny_per_k'], references[platform])
+            self.assertEqual(scope['older_detail_rows_not_checked'], 1)
+            expected = None if platform == 'PC' else references[platform]
+            self.assertEqual(scope['qualification_reference_cny_per_k'], expected)
 
     def test_expanded_window_rechecks_a_recent_order_found_again_on_an_older_row(self):
         self.rows[-1]['trade'] -= timedelta(hours=4)
         self.rows[-1]['order'] = self.rows[2]['order']
         rows = self.run_round(dict.fromkeys(PLATFORMS, '.4'))
-        self.assertEqual(self.page_reads, [1, 2, 3] * 7)
+        self.assertEqual(self.page_reads, [1, 2, 3] * 2)
         self.assertEqual(self.detail_reads, [self.rows[2]['order']])
         self.assertEqual(rows['800002']['verification'], 'order_detail')
         self.assertEqual(rows['800017']['verification'], 'order_detail')

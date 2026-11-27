@@ -86,7 +86,7 @@ def margin_band_parameters(value, anchors):
     return parsed
 
 
-DEFAULT_PROMOTION_MAX_ABSORB = Decimal('.03')
+DEFAULT_PROMOTION_MAX_ABSORB = Decimal('.045')
 
 
 def _promotion_guard_parameters(value):

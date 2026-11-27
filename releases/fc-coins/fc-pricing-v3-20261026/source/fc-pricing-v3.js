@@ -309,21 +309,23 @@
       }
       if(configured||audit){
         const settings=audit||configured;
-        const status=audit?.active==null?'已开启，等待窗口核对':audit.active?'已生效':'已开启，当前窗口在活动期外';
+        let status='已开启，等待窗口核对';
+        if(audit?.active===false)status='已开启，当前窗口在活动期外';
+        if(audit?.active===true)status=audit.actual_discount==null?'活动期内，优惠数据待核':'已生效';
         section.append(node('p','让利保护：'+status),node('p','核销期 '+settings.start_day+' 至 '+settings.last_redeem_day));
         const actual=node('dd',discountPercent(audit?.actual_discount));
         if(Number(audit?.discount_above_baseline)>=0.03){
           actual.className='warning-text';
           actual.append('（高于基准至少 3 个百分点）');
         }
-        const cap=audit?.max_absorb??configured?.max_absorb??0.03;
+        const cap=audit?.max_absorb??configured?.max_absorb??0.045;
         const capped=audit?.capped==null?'待核':audit.capped?'已触顶':'未触顶';
         facts.append(
           node('dt','基准优惠率'),node('dd',discountPercent(audit?.baseline_discount??configured?.baseline?.[platform])),
           node('dt','实际优惠率'),actual,
           node('dt','判断用优惠率'),node('dd',discountPercent(audit?.business_discount)),
           node('dt','吸收上限'),node('dd',percentagePoints(cap)),
-          node('dt','本轮吸收'),node('dd',percentagePoints(audit?.absorbed)+'（'+capped+'）'));
+          node('dt','本轮吸收'),node('dd',audit?.absorbed==null?'待核':percentagePoints(audit.absorbed)+'（'+capped+'）'));
         section.append(facts);
         const start=audit?.window_start?.slice(0,10);
         const end=audit?.window_end_exclusive?.slice(0,10);

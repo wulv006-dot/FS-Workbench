@@ -145,9 +145,42 @@ class CostInputs(unittest.TestCase):
         self.assertEqual(Decimal(result['bands']['small']['cny_per_1k']), Decimal('.25'))
         self.assertEqual(Decimal(result['bands']['large']['cny_per_1k']), Decimal('.286'))
         self.assertEqual(result['bands']['large']['selected_count'], 6)
+        unclassified = dict(rows[0], record_id='unevidenced', quantity_evidence={'listed_shipment_k': '600'})
+        source['v6_delivery_samples']['records'] = rows + [unclassified]
+        uncertain = smooth_delivery_cost(source, 'PS', AS_OF, '.25')
+        self.assertEqual(uncertain['bands']['large']['fallback_reason'], 'segment_purchase_quantity_unverified')
         source['v6_delivery_samples']['records'] = rows[:8]
         result = smooth_delivery_cost(source, 'PS', AS_OF, '.25')
         self.assertEqual(result['bands']['large']['basis'], 'combined_fallback')
+
+    def test_optional_history_gap_cannot_pass_a_sparse_band_or_weight_bonus_only_shipments(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+
+        rows = [dict(platform='PS', record_id=str(i), status='valid', cny_per_1k=price,
+                     trade_at=(AS_OF-timedelta(minutes=age)).isoformat(), quantity_evidence=quantity)
+                for i, (price, age, quantity) in enumerate([
+                    ('.2', 0, {'ordered_k': '1500'}),
+                    ('.2', 1, {'ordered_k': '1500'}),
+                    ('.2', 181, {'ordered_k': '1500'}),
+                    ('.4', 3, {'ordered_k': '4000', 'split_shipment_purchase_k': '0.00'}),
+                    ('.2', 2, {'ordered_k': '100'}),
+                    ('.2', 4, {'ordered_k': '100'}),
+                    ('.2', 5, {'ordered_k': '100'}),
+                ])]
+        evidence = dict(records=rows, window_complete=True, history_complete=False,
+                        segment_history_gap='optional_history_budget_exhausted')
+        source = dict(platform='PS', checked_at=AS_OF.isoformat(), v6_delivery_samples=evidence)
+        cost = smooth_delivery_cost(source, 'PS', AS_OF)
+        self.assertEqual(Decimal(cost['cny_per_1k']), Decimal('.2'))
+        self.assertEqual(cost['bands']['large']['fallback_reason'], 'optional_history_budget_exhausted')
+        evidence.update(history_complete=True, segment_history_gap=None)
+        large = smooth_delivery_cost(source, 'PS', AS_OF)['bands']['large']
+        self.assertEqual(large['selected_count'], 3)
+        self.assertEqual(large['basis'], 'segment')
+        evidence['records'] = [dict(rows[3], record_id=str(i)) for i in range(6)]
+        bonus_only = smooth_delivery_cost(source, 'PS', AS_OF)
+        self.assertEqual(bonus_only['status'], 'missing')
+        self.assertEqual(bonus_only['sample_insurance']['excluded_zero_purchase_record_ids'], list('012345'))
 
     def test_current_samples_discard_thousandfold_costs_before_selecting_maximum(self):
         from fc_pricing_v3.cost_inputs_v6 import filter_cost_samples

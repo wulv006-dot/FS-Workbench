@@ -31,19 +31,21 @@ CURVE_COST_GAPS = (COST_SOURCE_MISSING, COST_SAMPLES_INSUFFICIENT, COST_SAMPLE_O
 
 def delivery_sample_purchase_k(row):
     quantity = row.get('quantity_evidence') or {}
-    return _number(quantity.get('ordered_k')) or _number(quantity.get('listed_purchase_k'))
+    return _number(quantity.get('ordered_k'))
+
+
+def _sample_purchase_weight(row):
+    quantity = row.get('quantity_evidence') or {}
+    if 'split_shipment_purchase_k' in quantity:
+        return _number(quantity['split_shipment_purchase_k'], zero=True)
+    return delivery_sample_purchase_k(row) or _number(quantity.get('listed_shipment_k'), zero=True)
 
 
 def _weighted_median(rows):
-    weighted = []
-    for row in rows:
-        quantity = row.get('quantity_evidence') or {}
-        weight = _number(quantity.get('split_shipment_purchase_k')) or delivery_sample_purchase_k(row)
-        if weight is not None:
-            weighted.append((Decimal(row['cny_per_1k']), weight))
-    weighted.sort()
-    if len(weighted) != len(rows):
+    weighted = [(Decimal(row['cny_per_1k']), _sample_purchase_weight(row)) for row in rows]
+    if any(weight is None for _, weight in weighted):
         return median(Decimal(row['cny_per_1k']) for row in rows), 'legacy_order_count_median'
+    weighted.sort()
     half = sum(weight for _, weight in weighted) / 2
     total = Decimal(0)
     for index, (price, weight) in enumerate(weighted):
@@ -76,8 +78,10 @@ def smooth_delivery_cost(source, platform, as_of, confirmed_cny_per_k=None):
                 or traded is None or not captured - timedelta(days=8) <= traded <= captured):
             return missing
         ids.add(ident)
-    filtered = filter_cost_samples(dict(status='valid', sample_records=records), confirmed_cny_per_k)
-    insurance = filtered['sample_insurance']
+    zero_purchase_ids = [row['record_id'] for row in records if _sample_purchase_weight(row) == 0]
+    eligible = [row for row in records if _sample_purchase_weight(row) != 0]
+    filtered = filter_cost_samples(dict(status='valid', sample_records=eligible), confirmed_cny_per_k)
+    insurance = dict(filtered['sample_insurance'], excluded_zero_purchase_record_ids=zero_purchase_ids)
     if insurance['valid_count'] < 6 and evidence.get('history_complete') is not True:
         return dict(missing, sample_insurance=insurance)
     if filtered['status'] != 'valid':
@@ -93,24 +97,32 @@ def smooth_delivery_cost(source, platform, as_of, confirmed_cny_per_k=None):
                     cny_per_1k=str(value), cny_per_k=str(value), sample_contract=SMOOTH_COST_CONTRACT,
                     selected_count=len(selected), recent_count=len(recent),
                     window='three_hours' if len(recent) >= 6 else 'latest_six',
-                    basis=basis, weighting=method, sample_records=selected, sample_insurance=insurance)
+                    basis=basis, weighting=method, sample_records=selected, sample_insurance=insurance,
+                    segment_history_gap=evidence.get('segment_history_gap'))
 
     combined = summarize(ordered, 'combined')
     groups = {'small': [], 'large': []}
+    unknown_purchase_times = []
     for row in ordered:
         purchase = delivery_sample_purchase_k(row)
-        if purchase is not None:
+        if purchase is None:
+            unknown_purchase_times.append(_instant(row['trade_at']))
+        else:
             groups[coin_quantity_band(purchase)].append(row)
     bands = {}
+    recent_start = now - timedelta(hours=3)
+    complete = evidence.get('history_complete') is True
     for band, rows in groups.items():
-        complete = evidence.get('history_complete') is True
-        if len(rows) >= 3:
+        recent_count = sum(_instant(row['trade_at']) >= recent_start for row in rows)
+        cutoff = recent_start if recent_count >= 6 else _instant(rows[5]['trade_at']) if len(rows) >= 6 else None
+        purchase_gap = any(cutoff is None or trade >= cutoff for trade in unknown_purchase_times)
+        if not purchase_gap and (len(rows) >= 6 or len(rows) >= 3 and complete):
             bands[band] = summarize(rows, 'segment')
         else:
+            reason = ('segment_purchase_quantity_unverified' if purchase_gap else
+                      'segment_samples_insufficient' if complete else 'segment_history_incomplete')
             bands[band] = dict(combined, basis='combined_fallback', segment_count=len(rows),
-                               recent_count=sum(_instant(row['trade_at']) >= now - timedelta(hours=3) for row in rows),
-                               fallback_reason='segment_samples_insufficient' if complete else
-                                               'segment_history_incomplete')
+                               recent_count=recent_count, fallback_reason=evidence.get('segment_history_gap') or reason)
     return dict(combined, bands=bands)
 
 

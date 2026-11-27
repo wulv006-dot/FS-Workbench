@@ -450,7 +450,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "a6f2f329c04b94da4f9a3004623dd9185d278c584b92db141256f0d883c39438",
+        "sha256": "47f8a2dff8db9826f4f923597861dd7f0b0d609f694b9ee93a27c476a44a655b",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -621,7 +621,7 @@
           "kind": "direct_user",
           "date": "2026-11-27",
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-          "scope": "分段数量加权采购成本，活动让利默认最多吸收 3 个百分点，判断使用三日和 D-1 较高值。"
+          "scope": "分段数量加权采购成本，活动让利默认最多吸收 4.5 个百分点，判断使用三日和 D-1 较高值。"
         }
       ],
       "consumers": [
@@ -1457,7 +1457,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "a6f2f329c04b94da4f9a3004623dd9185d278c584b92db141256f0d883c39438",
+        "sha256": "47f8a2dff8db9826f4f923597861dd7f0b0d609f694b9ee93a27c476a44a655b",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "### 每周定位溢价修复（2026-11-17）"
