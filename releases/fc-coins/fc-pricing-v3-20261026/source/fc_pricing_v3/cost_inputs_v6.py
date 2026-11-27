@@ -31,7 +31,7 @@ CURVE_COST_GAPS = (COST_SOURCE_MISSING, COST_SAMPLES_INSUFFICIENT, COST_SAMPLE_O
 
 def delivery_sample_purchase_k(row):
     quantity = row.get('quantity_evidence') or {}
-    return _number(quantity.get('ordered_k'))
+    return _number(quantity.get('ordered_k')) or _number(quantity.get('listed_shipment_k'))
 
 
 def _sample_purchase_weight(row):
@@ -102,27 +102,21 @@ def smooth_delivery_cost(source, platform, as_of, confirmed_cny_per_k=None):
 
     combined = summarize(ordered, 'combined')
     groups = {'small': [], 'large': []}
-    unknown_purchase_times = []
     for row in ordered:
         purchase = delivery_sample_purchase_k(row)
-        if purchase is None:
-            unknown_purchase_times.append(_instant(row['trade_at']))
-        else:
+        if purchase is not None:
             groups[coin_quantity_band(purchase)].append(row)
     bands = {}
     recent_start = now - timedelta(hours=3)
     complete = evidence.get('history_complete') is True
     for band, rows in groups.items():
         recent_count = sum(_instant(row['trade_at']) >= recent_start for row in rows)
-        cutoff = recent_start if recent_count >= 6 else _instant(rows[5]['trade_at']) if len(rows) >= 6 else None
-        purchase_gap = any(cutoff is None or trade >= cutoff for trade in unknown_purchase_times)
-        if not purchase_gap and (len(rows) >= 6 or len(rows) >= 3 and complete):
+        if len(rows) >= 6 or len(rows) >= 3 and complete:
             bands[band] = summarize(rows, 'segment')
         else:
-            reason = ('segment_purchase_quantity_unverified' if purchase_gap else
-                      'segment_samples_insufficient' if complete else 'segment_history_incomplete')
+            reason = 'segment_samples_insufficient' if complete else 'segment_history_incomplete'
             bands[band] = dict(combined, basis='combined_fallback', segment_count=len(rows),
-                               recent_count=recent_count, fallback_reason=evidence.get('segment_history_gap') or reason)
+                               segment_recent_count=recent_count, fallback_reason=evidence.get('segment_history_gap') or reason)
     return dict(combined, bands=bands)
 
 

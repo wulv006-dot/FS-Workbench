@@ -360,12 +360,17 @@ class CurveRuntime(unittest.TestCase):
         from fc_pricing_v3.api import _curve_decision
 
         audit = dict(active=True, max_absorb='.045')
+        margins = dict(target='.31', bands=dict(small=dict(margin_at_current='.29',
+                                                           business_margin_at_current='.315', action='hold')))
         snapshot = dict(plan_id='plan', plan_revision=1, result=dict(status='KEEP',
-            rows=[dict(platform='PS', status='KEEP', selection=dict(margin_band=dict(promotion_guard=audit)))]))
-        self.assertEqual(_curve_decision(snapshot, dict(plan_id='plan', revision=1))['rows'][0]
-                         ['selection']['promotion_guard'], audit)
-        self.assertNotIn('promotion_guard', _curve_decision(snapshot, dict(plan_id='plan', revision=2))
-                         ['rows'][0]['selection'])
+            rows=[dict(platform='PS', status='KEEP', selection=dict(margin_band=dict(margins, promotion_guard=audit)))]))
+        current = _curve_decision(snapshot, dict(plan_id='plan', revision=1))['rows'][0]['selection']
+        self.assertEqual(current['promotion_guard'], audit)
+        self.assertEqual(current['margin_band'], dict(target='.31', bands=dict(
+            small=dict(margin_at_current='.29', business_margin_at_current='.315'))))
+        stale = _curve_decision(snapshot, dict(plan_id='plan', revision=2))['rows'][0]['selection']
+        self.assertNotIn('promotion_guard', stale)
+        self.assertNotIn('margin_band', stale)
 
     def test_only_automatic_rounds_count_toward_the_two_round_margin_exception(self):
         now = datetime.now(timezone.utc)

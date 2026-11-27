@@ -1287,7 +1287,8 @@ def collect_curve_catalogues(evidence, platforms):
         entry['cost_sample_insurance'] = (cost or {}).get('sample_insurance')
         entry['cost_by_band'] = {
             band: {key: sample[key] for key in ('cny_per_1k', 'selected_count', 'recent_count', 'window', 'basis',
-                                                'weighting', 'segment_count', 'fallback_reason', 'segment_history_gap') if key in sample}
+                                                'weighting', 'segment_count', 'segment_recent_count', 'fallback_reason',
+                                                'segment_history_gap') if key in sample}
             for band, sample in cost.get('bands', {}).items()
         }
         entry['confirmed_cost_cny_per_k'] = (cost or {}).get('cny_per_1k') if (cost or {}).get('status') == 'valid' else None
@@ -1424,7 +1425,7 @@ def margin_band_selection(proof, position, current, target, decision_round, *, c
         current_cost = segment_cost.get('cny_per_1k', cost_median)
         current_count = segment_cost.get('recent_count', cost_sample_count)
         prior_segment = (previous_cost_by_band or {}).get(band) or {}
-        prior_cost = prior_segment.get('cny_per_1k') if segment_cost else previous_decision_cost_median
+        prior_cost = prior_segment.get('cny_per_1k') or previous_decision_cost_median
         drop = (current_cost is not None and prior_cost is not None and (current_count or 0) < 6
                 and Decimal(current_cost) <= Decimal(prior_cost) * Decimal('.92'))
         guarded = proof

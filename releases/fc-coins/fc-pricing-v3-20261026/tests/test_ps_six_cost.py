@@ -239,6 +239,7 @@ class SixCost(unittest.TestCase):
             purchased = '1200' if record_id == '1106' else quantity
             if record_id == '1106':
                 quantity = '600'
+                row['cny_per_1k'] = '.6'  # Outside the list fast path's reference range.
             total = str(Decimal(row['cny_per_1k']) * Decimal(quantity))
             row.update(order_id=record_id, quantity=quantity, gift='0', cost_total=total)
             details[record_id] = dict(complete=True,
@@ -265,7 +266,7 @@ class SixCost(unittest.TestCase):
         self.assertEqual([w['end'] - w['start'] for w in windows],
                          [timedelta(hours=3), timedelta(hours=6)])
         self.assertEqual(windows[0]['end'], windows[1]['end'])
-        self.assertCountEqual(requests, [row['record_id'] for row in rows if row not in extras] + ['10000', '9999'])
+        self.assertCountEqual(requests, ['1106', '9999'])
         costs = [smooth_delivery_cost(row, row['platform'], datetime.now(timezone.utc), '.4')
                  for row in result['costs']]
         self.assertEqual([row['selected_count'] for row in costs], [13, 13, 11])
@@ -277,7 +278,39 @@ class SixCost(unittest.TestCase):
         self.assertEqual((large['selected_count'], large['window']), (6, 'latest_six'))
         self.assertEqual(large['sample_records'][-1]['record_id'], '9999')
         self.assertEqual([row['v6_delivery_samples']['detail_scope']['older_detail_rows_not_checked']
-                          for row in result['costs']], [1, 1, 1])
+                          for row in result['costs']], [1, 1, 2])
+
+    def test_v6_sparse_platform_does_not_block_other_band_history(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+
+        recent = [self.raw(1000 + 100*p + j, '.4', j, platform)
+                  for p, platform in enumerate(('PS', 'XBOX', 'PC'))
+                  for j in range(3 if platform == 'PC' else 6)]
+        older = [self.raw(2000+i, '.5', 240+i, platform)
+                 for i, platform in enumerate(('PS', 'XBOX') * 7)]
+        rows = recent + older
+        for row in rows:
+            large = row in older
+            quantity = '1030' if large else '100'
+            row.update(order_id=row['record_id'], quantity=quantity, gift='30' if large else '0',
+                       cost_total=str(Decimal(row['cny_per_1k']) * Decimal(quantity)))
+
+        def read(reader, page, observations=None, window=None):
+            return self.data([row for row in rows if window['start'] <=
+                              datetime.fromisoformat(row['trade_at']).replace(tzinfo=self.collector.SHANGHAI)
+                              <= window['end']] if page == 1 else [])
+
+        with patch.object(self.collector, 'read_page', side_effect=read), \
+                patch.object(self.collector, 'read_detail_pair', side_effect=AssertionError('unexpected detail read')):
+            result = self.collector.collect(curve_v6=True, confirmed_costs=dict.fromkeys(self.collector.PLATFORMS, '.4'))
+        for row in result['costs'][:2]:
+            history = row['v6_delivery_samples']
+            self.assertFalse(history['history_complete'])
+            self.assertEqual(history['detail_scope']['older_detail_rows_not_checked'], 1)
+            band = smooth_delivery_cost(row, row['platform'], datetime.now(timezone.utc), '.4')['bands']['large']
+            self.assertEqual((band['basis'], band['selected_count'], Decimal(band['cny_per_1k'])),
+                             ('segment', 6, Decimal('.5')))
+        self.assertTrue(result['costs'][2]['v6_delivery_samples']['history_complete'])
 
     def test_v6_full_expand_refreshes_amended_detail_and_checks_late_insert(self):
         rows = [self.raw(1000+index*100+i, '.4', i, platform)

@@ -66,7 +66,7 @@ class MarginBandCorridor(unittest.TestCase):
 
 class MarginBandDecisions(unittest.TestCase):
     def selection(self, margin, target='.31', low='8', high='12', *, hour=13,
-                  cost='.364', samples=6, previous_cost=None):
+                  cost='.364', samples=6, previous_cost=None, cost_by_band=None):
         from datetime import datetime, timedelta, timezone
         from fc_pricing_v3 import runtime
 
@@ -82,6 +82,7 @@ class MarginBandDecisions(unittest.TestCase):
         return runtime.margin_band_selection(
             proof, position, {'small': '10.00'}, Decimal(target), decision,
             cost_median=cost, cost_sample_count=samples, previous_decision_cost_median=previous_cost,
+            cost_by_band=cost_by_band,
         )['bands']['small']
 
     def test_ps_xbox_and_pc_targets_raise_hold_and_lower(self):
@@ -246,6 +247,14 @@ class MarginBandDecisions(unittest.TestCase):
                     self.assertEqual(decision['action'], action)
                     self.assertEqual(Decimal(decision['desired']), Decimal(price))
                     self.assertEqual(decision['cost_drop_unconfirmed'], samples == 5)
+
+    def test_upgrade_keeps_cost_drop_confirmation_with_legacy_combined_history(self):
+        for basis in ('segment', 'combined_fallback'):
+            with self.subTest(basis=basis):
+                result = self.selection('.33', previous_cost='.4', cost_by_band={
+                    'small': dict(cny_per_1k='.364', basis=basis, recent_count=5)})
+                self.assertTrue(result['cost_drop_unconfirmed'])
+                self.assertEqual(result['action'], 'hold')
 
     def test_eight_percent_cost_drop_is_guarded_with_five_samples(self):
         boundary = self.selection('.39', cost='.368', samples=5, previous_cost='.4')

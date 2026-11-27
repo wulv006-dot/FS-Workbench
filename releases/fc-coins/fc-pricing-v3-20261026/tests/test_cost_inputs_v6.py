@@ -148,10 +148,25 @@ class CostInputs(unittest.TestCase):
         unclassified = dict(rows[0], record_id='unevidenced', quantity_evidence={'listed_shipment_k': '600'})
         source['v6_delivery_samples']['records'] = rows + [unclassified]
         uncertain = smooth_delivery_cost(source, 'PS', AS_OF, '.25')
-        self.assertEqual(uncertain['bands']['large']['fallback_reason'], 'segment_purchase_quantity_unverified')
+        self.assertEqual(uncertain['bands']['large']['basis'], 'segment')
+        self.assertEqual(uncertain['bands']['small']['selected_count'], 7)
         source['v6_delivery_samples']['records'] = rows[:8]
         result = smooth_delivery_cost(source, 'PS', AS_OF, '.25')
         self.assertEqual(result['bands']['large']['basis'], 'combined_fallback')
+
+    def test_fallback_counts_the_combined_samples_used_for_cost_drop_confirmation(self):
+        from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost
+
+        rows = [dict(platform='PS', status='valid', record_id=str(i),
+                     cny_per_1k='.364', trade_at=AS_OF.isoformat(),
+                     quantity_evidence=dict(listed_shipment_k='1030' if i < 2 else '100'))
+                for i in range(20)]
+        source = dict(platform='PS', checked_at=AS_OF.isoformat(), v6_delivery_samples=dict(
+            records=rows, window_complete=True, history_complete=True))
+        large = smooth_delivery_cost(source, 'PS', AS_OF, '.4')['bands']['large']
+        self.assertEqual((large['basis'], large['selected_count'], large['recent_count']),
+                         ('combined_fallback', 20, 20))
+        self.assertEqual(large['segment_recent_count'], 2)
 
     def test_optional_history_gap_cannot_pass_a_sparse_band_or_weight_bonus_only_shipments(self):
         from fc_pricing_v3.cost_inputs_v6 import smooth_delivery_cost

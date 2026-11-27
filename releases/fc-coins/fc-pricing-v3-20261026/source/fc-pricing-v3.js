@@ -289,56 +289,86 @@
   }
   const discountPercent=rate=>rate==null?'待核':(Number(rate)*100).toFixed(2)+'%';
   const percentagePoints=rate=>rate==null?'待核':Number((Number(rate)*100).toFixed(2))+' 个百分点';
+  function promotionDataWindow(audit){
+    if(!audit?.window_start||!audit.window_end_exclusive)return '优惠数据待核';
+    const shortDate=text=>text.slice(5,10).replace('-','/');
+    const end=new Date(audit.window_end_exclusive.slice(0,10)+'T00:00:00Z');
+    end.setUTCDate(end.getUTCDate()-1);
+    const last=shortDate(end.toISOString());
+    const yesterday=audit.yesterday_start&&shortDate(audit.yesterday_start);
+    return '优惠数据：'+shortDate(audit.window_start)+'–'+last+(yesterday?'（含昨天 '+yesterday+'）':'');
+  }
   function renderCurveGuard(plan,rows){
-    const configured=plan.parameters?.margin_band?.promotion_guard;
+    const configuration=plan.parameters?.margin_band;
+    const configured=configuration?.promotion_guard;
+    const shared=configured||rows.find(row=>row.selection?.promotion_guard)?.selection.promotion_guard;
+    const panel=node('div');
+    if(shared){
+      const cap=shared.max_absorb??0.045;
+      panel.append(node('p','核销期 '+shared.start_day+' 至 '+shared.last_redeem_day),
+        node('p','活动期取三日平均优惠率和昨天单日优惠率中较高者，作为实际优惠率。'),
+        node('p','活动期最多替客户多吸收 '+percentagePoints(cap)+'优惠。超出部分计入定价，避免利润继续下滑。18% 底线始终按真实数据保护。'));
+    }
     const grid=node('div');
     grid.className='help-grid curve-guard-grid';
+    const bands=[['small','小额段（<1000K）','小单'],['large','大额段（≥1000K）','大单']];
     for(const platform of platforms){
       const selection=rows.find(row=>row.platform===platform)?.selection;
+      const margins=selection?.margin_band;
       const costs=selection?.cost_by_band;
       const audit=selection?.promotion_guard;
       const section=node('section');
       section.append(node('h4',platform==='XBOX'?'Xbox':platform));
-      const facts=node('dl');
-      for(const [band,title] of [['small','小额段（<1000K）'],['large','大额段（≥1000K）']]){
-        const cost=costs?.[band];
-        const amount=cost?.cny_per_1k;
-        const basis=cost?.basis==='combined_fallback'?'（合并样本回退）':'';
-        facts.append(node('dt',title+'成本'),
-          node('dd',amount==null?'待核':Number(amount).toFixed(4)+' CNY/K'+basis));
+      const target=node('dl');
+      target.append(node('dt','目标利润率'),node('dd',discountPercent(margins?.target??configuration?.[platform]?.target)));
+      section.append(target);
+      for(const [band,title] of bands){
+        const margin=margins?.bands?.[band];
+        const figures=node('dl');
+        figures.append(node('dt','按真实优惠的利润率'),node('dd',discountPercent(margin?.margin_at_current)),
+          node('dt','判断用利润率'),node('dd',discountPercent(margin?.business_margin_at_current)));
+        section.append(node('p',title),figures);
       }
+      const procurement=node('dl');
+      const procurementNotes=[];
+      for(const [band,,orders] of bands){
+        const cost=costs?.[band];
+        const amount=node('dd',cost?.cny_per_1k==null?'待核':Number(cost.cny_per_1k).toFixed(4)+' CNY/K');
+        if(cost?.basis==='combined_fallback'){
+          const note=node('p',orders+'样本不足，暂用全部订单成本');
+          note.className='footnote';
+          procurementNotes.push(note);
+        }
+        procurement.append(node('dt',orders+'采购成本'),amount);
+      }
+      section.append(procurement,...procurementNotes);
       if(configured||audit){
-        const settings=audit||configured;
         let status='已开启，等待窗口核对';
         if(audit?.active===false)status='已开启，当前窗口在活动期外';
         if(audit?.active===true)status=audit.actual_discount==null?'活动期内，优惠数据待核':'已生效';
-        section.append(node('p','让利保护：'+status),node('p','核销期 '+settings.start_day+' 至 '+settings.last_redeem_day));
         const actual=node('dd',discountPercent(audit?.actual_discount));
         if(Number(audit?.discount_above_baseline)>=0.03){
-          actual.className='warning-text';
-          actual.append('（高于基准至少 3 个百分点）');
+          const badge=node('span','偏高');
+          badge.className='tag warning-text';
+          actual.append(' ',badge);
         }
-        const cap=audit?.max_absorb??configured?.max_absorb??0.045;
         const capped=audit?.capped==null?'待核':audit.capped?'已触顶':'未触顶';
+        const facts=node('dl');
         facts.append(
           node('dt','基准优惠率'),node('dd',discountPercent(audit?.baseline_discount??configured?.baseline?.[platform])),
+          node('dt','三日平均优惠率'),node('dd',discountPercent(audit?.three_day_discount)),
+          node('dt','昨天单日优惠率'),node('dd',discountPercent(audit?.yesterday_discount)),
           node('dt','实际优惠率'),actual,
           node('dt','判断用优惠率'),node('dd',discountPercent(audit?.business_discount)),
-          node('dt','吸收上限'),node('dd',percentagePoints(cap)),
-          node('dt','本轮吸收'),node('dd',audit?.absorbed==null?'待核':percentagePoints(audit.absorbed)+'（'+capped+'）'));
-        section.append(facts);
-        const start=audit?.window_start?.slice(0,10);
-        const end=audit?.window_end_exclusive?.slice(0,10);
-        const windowText=start&&end?start+' 至 '+end+'（不含末日）':'待当前快照';
-        const yesterday=audit?.yesterday_start?.slice(0,10);
-        section.append(node('p','北京时间优惠窗 '+windowText+(yesterday?'，D-1 '+yesterday:'')),
-          node('p','活动期最多替客户多吸收 '+percentagePoints(cap)+'优惠。超出部分计入定价，避免利润继续下滑。18% 底线始终按真实数据保护。'));
+          node('dt','本轮吸收'),node('dd',audit?.absorbed==null?'待核':Number((Number(audit.absorbed)*100).toFixed(2))+' 点（'+capped+'）'));
+        section.append(node('p','让利保护：'+status),facts,node('p',promotionDataWindow(audit)));
       }else{
-        section.append(node('p','让利保护：未开启'),facts);
+        section.append(node('p','让利保护：未开启'));
       }
       grid.append(section);
     }
-    return grid;
+    panel.append(grid);
+    return panel;
   }
   function renderCurveDecision(state,cards){
     const snapshotId=curveSnapshot(state),decision=snapshotId&&state.curve_decision;
