@@ -26,6 +26,7 @@ from discord import app_commands
 
 import chat_brain
 import carnival_chat
+import fut_lookup
 import chat_panel
 import chat_schedule
 import matchday_engagement
@@ -867,7 +868,7 @@ class ChatClient(discord.Client):
         order_view = order_link_view(guild_id, content)
         if (trigger is None and guild_id == OFFICIAL_GUILD and
                 channel_id == FC_GAME_CHAT and
-                (PRICE_INTENT.search(content) or ORDER_INTENT.search(content))):
+                (PRICE_INTENT.search(content) or ORDER_INTENT.search(content) or fut_lookup.relevant(content))):
             trigger = 'help'
         if trigger is None:
             return False
