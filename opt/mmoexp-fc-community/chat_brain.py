@@ -115,6 +115,9 @@ class _Provider:
         return bool(self.api_key)
 
     def payload(self, messages):
+        if self.base_url == 'https://api.openai.com/v1' and self.model == 'gpt-6-luna':
+            return {'model': self.model, 'messages': messages,
+                    'max_completion_tokens': self.max_tokens, 'reasoning_effort': 'low'}
         payload = {
             'model': self.model,
             'messages': messages,

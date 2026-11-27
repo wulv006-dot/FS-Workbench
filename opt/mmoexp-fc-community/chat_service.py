@@ -25,6 +25,7 @@ import discord
 from discord import app_commands
 
 import chat_brain
+import carnival_chat
 import chat_panel
 import chat_schedule
 import matchday_engagement
@@ -168,6 +169,7 @@ class ChatClient(discord.Client):
             )
         self.history = {}
         self.topic_task = None
+        self.carnival_task = None
         self.topic_threads = {}
         self.topic_pool = list(self.chat_config.get('topics') or [])
         self.post_topic_now = bool(post_topic_now)
@@ -210,6 +212,8 @@ class ChatClient(discord.Client):
         for guild_id in guild_ids(self.chat_config):
             await self.tree.sync(guild=discord.Object(guild_id))
         targets = chat_panel.topic_targets(self.chat_config)
+        if self.chat_config.get('carnival_2026_first_weekend') and not self.post_topic_now:
+            self.carnival_task = asyncio.create_task(carnival_chat.run(self, OFFICIAL_GUILD, FC_GAME_CHAT))
         if self.post_topic_now:
             self.topic_task = asyncio.create_task(self.post_topics_once())
         elif targets and self.topic_pool:
@@ -403,7 +407,7 @@ class ChatClient(discord.Client):
                                         allowed_mentions=discord.AllowedMentions.none())
 
     async def close(self):
-        for task in (self.topic_task, self.followup_task, *self.focus_retry_tasks.values()):
+        for task in (self.topic_task, self.followup_task, self.carnival_task, *self.focus_retry_tasks.values()):
             if task is not None and task is not asyncio.current_task():
                 task.cancel()
         self.topic_task = None
