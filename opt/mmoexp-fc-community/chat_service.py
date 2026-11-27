@@ -857,6 +857,8 @@ class ChatClient(discord.Client):
 
         in_topic = self.topic_threads.get(guild_id) == channel_id
         mentioned = self.user is not None and self.user.mentioned_in(message)
+        if mentioned:
+            content = re.sub(r'<@!?' + str(self.user.id) + r'>', '', content).strip()
         replied = False
         reference = getattr(message, 'reference', None)
         if reference is not None and reference.resolved is not None:
