@@ -6,6 +6,7 @@ import aiohttp
 import discord
 
 EVENT = 'https://www.mmoexp.com/events/Carnival.html'
+FC27_ROLE_ID = 1568664882650288159
 SCHEDULE = 'http://127.0.0.1:8949/events/api/carnival/schedule'
 
 
@@ -56,7 +57,10 @@ async def run(client, guild_id, channel_id):
                         embed.set_footer(text=marker)
                         view = discord.ui.View()
                         view.add_item(discord.ui.Button(label='Open Black Friday sale', url=EVENT))
-                        await channel.send(embed=embed, view=view, allowed_mentions=discord.AllowedMentions.none())
+                        await channel.send(content=f'<@&{FC27_ROLE_ID}>', embed=embed, view=view,
+                            allowed_mentions=discord.AllowedMentions(
+                                everyone=False, users=False, roles=[discord.Object(id=FC27_ROLE_ID)],
+                                replied_user=False))
                     sent.add(raw)
             except (aiohttp.ClientError, asyncio.TimeoutError, discord.DiscordException,
                     KeyError, TypeError, ValueError, RuntimeError) as exc:
