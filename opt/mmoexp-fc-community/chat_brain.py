@@ -7,6 +7,7 @@ import re
 from zoneinfo import ZoneInfo
 
 import aiohttp
+import fut_lookup
 
 ARK_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
 DEEPSEEK_BASE_URL = 'https://api.deepseek.com'
@@ -115,6 +116,9 @@ class _Provider:
         return bool(self.api_key)
 
     def payload(self, messages):
+        if self.base_url == 'https://api.openai.com/v1' and self.model == 'gpt-6-luna':
+            return {'model': self.model, 'messages': messages,
+                    'max_completion_tokens': self.max_tokens, 'reasoning_effort': 'low'}
         payload = {
             'model': self.model,
             'messages': messages,
@@ -130,6 +134,7 @@ class ChatBrain:
     def __init__(self, config):
         validate_chat_config(config)
         self.providers = [_Provider(config, 'primary')]
+        self.lookup = fut_lookup.Lookup()
         for index, item in enumerate(config.get('fallbacks', ()), start=1):
             self.providers.append(_Provider(item, 'fallback{}'.format(index)))
 
@@ -150,6 +155,8 @@ class ChatBrain:
         return self.providers[0].base_url
 
     async def _ask(self, provider, messages):
+        if provider.model == 'gpt-6-luna' and not fut_lookup.reserve('chat'):
+            return 'Monthly chat limit reached. The FC27 channel cards are still available.'
         headers = {'Authorization': 'Bearer ' + provider.api_key, 'Content-Type': 'application/json'}
         timeout = aiohttp.ClientTimeout(total=provider.timeout)
         try:
@@ -176,6 +183,9 @@ class ChatBrain:
         return content
 
     async def reply(self, user_name, text, history=()):
+        first = self.providers[0]
+        if first.model == 'gpt-6-luna' and first.ready and fut_lookup.relevant(text):
+            return await self.lookup.answer(first.api_key, text)
         messages = build_messages(user_name, text, history)
         errors = []
         for provider in self.providers:
