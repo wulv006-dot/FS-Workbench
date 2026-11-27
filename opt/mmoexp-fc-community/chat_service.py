@@ -27,6 +27,7 @@ from discord import app_commands
 import chat_brain
 import carnival_chat
 import fut_lookup
+import squad_context
 import chat_panel
 import chat_schedule
 import matchday_engagement
@@ -870,7 +871,9 @@ class ChatClient(discord.Client):
         order_view = order_link_view(guild_id, content)
         if (trigger is None and guild_id == OFFICIAL_GUILD and
                 channel_id == FC_GAME_CHAT and
-                (PRICE_INTENT.search(content) or ORDER_INTENT.search(content) or fut_lookup.relevant(content))):
+                (PRICE_INTENT.search(content) or ORDER_INTENT.search(content) or fut_lookup.relevant(content)
+                 or (squad_context.picture(message) and squad_context.SQUAD.search(content)
+                     and squad_context.ASK.search(content)))):
             trigger = 'help'
         if trigger is None:
             return False
@@ -891,7 +894,16 @@ class ChatClient(discord.Client):
         history = list(self.history.get(channel_id, ()))
         async with message.channel.typing():
             try:
-                answer = await self.brain.reply(message.author.display_name, content, history)
+                post = None
+                if guild_id == OFFICIAL_GUILD and channel_id == FC_GAME_CHAT:
+                    try:
+                        post = await squad_context.resolve(message, content)
+                    except discord.HTTPException:
+                        pass
+                if post is not None:
+                    answer = await self.brain.squad_reply(content, post.content)
+                else:
+                    answer = await self.brain.reply(message.author.display_name, content, history)
             except chat_brain.ChatBrainError as exc:
                 print('Chat reply failed: ' + str(exc), flush=True)
                 return True

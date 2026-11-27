@@ -154,16 +154,19 @@ class ChatBrain:
     def base_url(self):
         return self.providers[0].base_url
 
-    async def _ask(self, provider, messages):
+    async def _ask(self, provider, messages, *, quick_answer=False):
         if provider.model == 'gpt-6-luna' and not fut_lookup.reserve('chat'):
             return 'Monthly chat limit reached. The FC27 channel cards are still available.'
         headers = {'Authorization': 'Bearer ' + provider.api_key, 'Content-Type': 'application/json'}
         timeout = aiohttp.ClientTimeout(total=provider.timeout)
+        payload = provider.payload(messages)
+        if quick_answer and 'reasoning_effort' in payload:
+            payload['reasoning_effort'] = 'none'
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(
                     provider.base_url + '/chat/completions',
-                    json=provider.payload(messages),
+                    json=payload,
                     headers=headers,
                 ) as response:
                     body = await response.text()
@@ -181,6 +184,17 @@ class ChatBrain:
         if not content:
             raise ChatBrainError('empty reply')
         return content
+
+    async def squad_reply(self, text, caption):
+        prompt = ('Discuss the football decision in the question using the player caption below. '
+                  'The screenshot itself has not been analyzed. Never invent what it shows. '
+                  'Give a concrete example of a forward or upgrade and explain the trade-off. '
+                  'If coins or chemistry matter, ask one short follow-up after giving advice. '
+                  'Do not ask for the same screenshot again or mention technical limitations unnecessarily.')
+        messages = build_messages('Player', text)
+        messages[0]['content'] += ' ' + prompt
+        messages.insert(1, {'role':'user','content':'Earlier squad post: ' + _scrub(caption, 400)})
+        return await self._ask(self.providers[0], messages, quick_answer=True)
 
     async def reply(self, user_name, text, history=()):
         first = self.providers[0]
