@@ -4,12 +4,14 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from customer_segments import SHANGHAI, stage, tier
-from maintenance_review import digest
+from maintenance_review import coupon_time, digest
 
 
 GID = '1327'
 RANK = {'recent': 0, 'silent': 1, 'lost': 2, 'long_lost': 3}
 FOLLOW_UP = ('silent', 'lost', 'long_lost')
+BANDS = tuple((value, phase) for value in ('ultra', 'high') for phase in ('lost', 'long_lost'))
+COUPON_FIELDS = ('mode_type', 'reduce', 'max_reduce', 'time_effect', 'days', 'start_time', 'end_time')
 
 
 def day_start(day):
@@ -22,6 +24,16 @@ def day_end(day):
 
 def payment(row):
     return datetime.fromisoformat(row['paid_at']).astimezone(SHANGHAI)
+
+
+def latest_fc_order_keys(orders):
+    latest = {}
+    for order in orders:
+        candidate = payment(order), order['order_key']
+        ident = order['customer_id']
+        if ident not in latest or candidate > latest[ident]:
+            latest[ident] = candidate
+    return {ident: key for ident, (_, key) in latest.items()}
 
 
 def cohort(orders, day, config, covered):
@@ -49,6 +61,7 @@ def cohort(orders, day, config, covered):
                                 customer_type=flag if flag in ('new', 'old') else 'unverified',
                                 email=last.get('email'), uid=last.get('uid'), last_order_key=last['order_key'],
                                 last_paid_at=last_paid.isoformat(), amount_usd=f'{total:.2f}',
+                                purchase_days=len({payment(row).date() for row in fc}),
                                 unknown_amount_orders=len(fc) - len(amounts),
                                 observation_date=day.isoformat(), config_version=config['version'])
     return result
@@ -69,3 +82,36 @@ def new_event(previous, current):
 def matches_rule(rule, customer):
     return (customer['tier'] == rule['tier'] and customer['stage'] == rule['stage']
             and (rule['customer_type'] is None or customer['customer_type'] == rule['customer_type']))
+
+
+def stock_event(customer, at):
+    key = [customer[field] for field in ('customer_id', 'stage', 'last_order_key', 'config_version')]
+    return dict(customer, id='me_' + digest([*key, 'stock']), event_at=at.isoformat(), origin='stock')
+
+
+def coupon_terms(rule):
+    return {key: value for key, value in (rule.get('template') or {}).items() if key in COUPON_FIELDS}
+
+
+def rank_customers(customers):
+    ranked = {band: [] for band in BANDS}
+    for customer in customers:
+        band = customer['tier'], customer['stage']
+        if band not in ranked:
+            continue
+        paid = coupon_time(customer['last_paid_at']).astimezone(SHANGHAI)
+        overdue = (date.fromisoformat(customer['observation_date']) - paid.date()).days
+        total = Decimal(customer['amount_usd'])
+        days = customer['purchase_days']
+        ceiling = 3000 if customer['tier'] == 'ultra' else 1000
+        start, span = (30, 30) if customer['stage'] == 'lost' else (60, 90)
+        freshness = max(0, start + span - overdue)
+        score = min(100, min(total / ceiling, 1) * 50 + Decimal(min(days, 10)) * 25 / 10
+                    + Decimal(freshness) * 25 / span)
+        spend = '已知累计' if customer.get('unknown_amount_orders') else '累计'
+        reason = f"{spend} ${total:,.2f}，{days} 个购买日，{('流失' if start == 30 else '长期流失')}第 {overdue} 天"
+        key = (-score, -total, overdue, customer['customer_id'])
+        ranked[band].append((key, dict(customer, score=float(round(score, 2)),
+                                       days_since_last_paid=overdue, reason=reason)))
+    return {band: [dict(row, rank=index) for index, (_, row) in enumerate(sorted(rows), 1)]
+            for band, rows in ranked.items()}

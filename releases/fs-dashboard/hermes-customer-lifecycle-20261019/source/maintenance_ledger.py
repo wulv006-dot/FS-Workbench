@@ -168,6 +168,12 @@ def active_customer(db, customer, at):
     return [dict(row) for row in occupied]
 
 
+def quota_used(db, rule_id, day):
+    return db.execute(
+        f'SELECT count(*) FROM maintenance_entries WHERE rule_id=? AND dispatch_day=? '
+        f'AND state IN ({marks(RESERVED)})', (rule_id, day, *RESERVED)).fetchone()[0]
+
+
 class Ledger:
     def __init__(self, connection):
         self.connection = connection
@@ -381,9 +387,7 @@ class Ledger:
             if reason:
                 transition(db, row, 'recheck_failed', actor, at, {'reason': reason})
                 return None
-            occupied = db.execute(
-                f'SELECT count(*) FROM maintenance_entries WHERE rule_id=? AND dispatch_day=? '
-                f'AND state IN ({marks(RESERVED)})', (row['rule_id'], day, *RESERVED)).fetchone()[0]
+            occupied = quota_used(db, row['rule_id'], day)
             if occupied >= rule['daily_quota']:
                 transition(db, row, 'deferred', actor, at, {'reason': 'daily_quota'}, deferred_day=day)
                 return None

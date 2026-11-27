@@ -6,6 +6,9 @@
   const manual = Boolean(get('phase-manual'));
   const status = get('phase-status');
   const overview = get('phase-overview');
+  const recommendations = get('phase-recommendations');
+  let recommendationLimit = '5';
+  let outreachLimit = '10';
   const moneyFormat = new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'});
   const numberFormat = new Intl.NumberFormat('zh-CN');
   const dateFormat = new Intl.DateTimeFormat('zh-CN', {
@@ -19,6 +22,8 @@
   const queueFilter = {tier: '', stage: ''};
   let readyTimer;
   let bulkPending = false;
+  const unresolvedDecisions = new Map();
+  let decisionViewer = null;
   const more = get('phase-more');
   const API = '/dashboard/fs-home/advisor.json';
   const busy = new Set();
@@ -73,7 +78,7 @@
     const answer = await fetch(url, {cache: 'no-store', redirect: 'error', credentials: 'same-origin',
       signal: AbortSignal.timeout(35000), ...options});
     const data = await answer.json();
-    if (!answer.ok) throw Error(data.error || 'maintenance_request_failed');
+    if (!answer.ok) throw Object.assign(Error(data.error || 'maintenance_request_failed'), {httpStatus: answer.status});
     return data;
   }
   function post(action, fields) {
@@ -624,8 +629,11 @@
   async function readReady() {
     const items = new Map();
     let pageOffset = 0;
+    let viewer;
     while (pageOffset !== null) {
       const data = await read('ready', {offset: pageOffset});
+      viewer ??= data.viewer;
+      if (data.viewer !== viewer) throw Error('maintenance_decision_actor');
       for (const row of data.items) items.set(row.id, row);
       const following = data.next_offset ?? null;
       if (following !== null && (!Number.isInteger(following) || following <= pageOffset)) {
@@ -633,25 +641,80 @@
       }
       pageOffset = following;
     }
-    return {items: [...items.values()]};
+    return {items: [...items.values()], viewer};
   }
-  async function decideSelected(ids, decision, setDisabled) {
-    if (!ids.length || bulkPending || busy.size) return;
+  function verifyDecision(receipt, ids) {
+    if (!Array.isArray(receipt?.changed) || !Number.isInteger(receipt.skipped) || receipt.skipped < 0 ||
+        new Set(receipt.changed).size !== receipt.changed.length ||
+        !receipt.changed.every(id => ids.includes(id)) || receipt.changed.length + receipt.skipped !== ids.length) {
+      throw Error('maintenance_decision_receipt');
+    }
+    return receipt;
+  }
+  function pendingDecision(viewer) {
+    if (!viewer) return null;
+    if (unresolvedDecisions.has(viewer)) return unresolvedDecisions.get(viewer);
+    try {
+      const stored = JSON.parse(sessionStorage.getItem('fs-phase-pending:' + viewer));
+      return stored?.viewer === viewer && Array.isArray(stored.ids) && stored.request_id ? stored : null;
+    } catch {
+      return null;
+    }
+  }
+  function storeDecision(viewer, request) {
+    if (request) unresolvedDecisions.set(viewer, request);
+    else unresolvedDecisions.delete(viewer);
+    try {
+      const key = 'fs-phase-pending:' + viewer;
+      if (request) sessionStorage.setItem(key, JSON.stringify(request));
+      else sessionStorage.removeItem(key);
+    } catch {
+      // The in-page receipt lookup remains available when storage is disabled.
+    }
+  }
+  async function recoverDecision(event) {
+    const request = pendingDecision(decisionViewer);
+    if (!request || bulkPending || busy.size) return;
+    const control = event.currentTarget;
+    bulkPending = control.disabled = true;
+    try {
+      const value = await post('decision_receipt', {request_id: request.request_id, viewer: request.viewer});
+      const receipt = verifyDecision(value.status === 'unknown' ? await post('decide', request) : value.receipt, request.ids);
+      storeDecision(request.viewer, null);
+      showDecisionRecovery(decisionViewer);
+      await load();
+      status.textContent = '上次请求已核对，处理 ' + count(receipt.changed.length) + ' 条，跳过 ' + count(receipt.skipped) + ' 条。';
+    } catch {
+      status.textContent = '上次请求的结果仍待核对。';
+    } finally {
+      bulkPending = control.disabled = false;
+    }
+  }
+  function showDecisionRecovery(viewer) {
+    decisionViewer = viewer;
+    get('phase-decision-recovery').hidden = !pendingDecision(viewer);
+  }
+  async function decideSelected(ids, decision, setDisabled, viewer) {
+    if (!ids.length || !viewer || decisionViewer !== viewer || bulkPending || busy.size) return;
+    if (pendingDecision(viewer)) {
+      status.textContent = '请先核对上次请求。';
+      get('phase-decision-recovery').focus();
+      return;
+    }
     bulkPending = true;
     setDisabled();
     get('phase-view').disabled = get('phase-refresh').disabled = true;
     status.textContent = '正在处理所选条目…';
     let changed = 0;
     let skipped = 0;
+    let request;
     try {
       for (let start = 0; start < ids.length; start += 100) {
         const batch = ids.slice(start, start + 100);
-        const receipt = await post('decide', {ids: batch, decision});
-        if (!Array.isArray(receipt.changed) || !Number.isInteger(receipt.skipped) || receipt.skipped < 0 ||
-            new Set(receipt.changed).size !== receipt.changed.length ||
-            !receipt.changed.every(id => batch.includes(id)) || receipt.changed.length + receipt.skipped !== batch.length) {
-          throw Error('maintenance_decision_receipt_invalid');
-        }
+        request = {ids: batch, decision, request_id: requestId(), viewer};
+        storeDecision(viewer, request);
+        const receipt = verifyDecision(await post('decide', request), batch);
+        storeDecision(viewer, null);
         changed += receipt.changed.length;
         skipped += receipt.skipped;
       }
@@ -661,18 +724,180 @@
           (skipped ? '，' + count(skipped) + ' 条状态已变更' : '') + '。';
         status.textContent = [result, status.textContent].filter(Boolean).join(' ');
       }
-    } catch {
+    } catch (error) {
+      if (error.httpStatus && error.httpStatus < 500) storeDecision(viewer, null);
+      showDecisionRecovery(decisionViewer);
       if (!get('phase-panel').hidden) {
         await load();
-        status.textContent = '已核到 ' + count(changed) + ' 条，部分操作结果待核。已停止提交其余条目，请核对重新读取的待发区。' +
-          (status.textContent ? ' ' + status.textContent : '');
+        status.textContent = '已核到 ' + count(changed) + ' 条。' + (pendingDecision(viewer)
+          ? '请先核对上次请求，其余批次已停止提交。' : '该批未接受，其余批次已停止提交。');
       }
     } finally {
       bulkPending = false;
       get('phase-view').disabled = get('phase-refresh').disabled = false;
     }
   }
+  function bandName(band) {
+    return label(band.tier) + '价值 × ' + label(band.stage);
+  }
+  function couponText(offer) {
+    const terms = couponTerms(offer);
+    const discount = terms.discount && (terms.mode === 1 ? '立减 ' + terms.discount : terms.discount + ' OFF');
+    return [discount || '折扣待核', terms.cap || '封顶金额待核', terms.validity || '有效期待核'].join('，');
+  }
+  function confirmRecommendations(bands, disable, viewer) {
+    const ids = bands.flatMap(band => band.items.map(row => row.id));
+    if (!ids.length || bulkPending || busy.size) return;
+    const dialog = get('phase-confirm-dialog');
+    const offers = get('phase-confirm-offers');
+    offers.replaceChildren();
+    dialog.returnValue = '';
+    for (const band of bands) {
+      const terms = new Map();
+      for (const row of band.items) {
+        const text = couponText(row.coupon);
+        terms.set(text, (terms.get(text) || 0) + 1);
+      }
+      if (!terms.size) continue;
+      const item = node('li');
+      item.append(node('strong', bandName(band) + '，' + count(band.items.length) + ' 人'));
+      for (const [text, quantity] of terms) item.append(node('p', count(quantity) + ' 人，' + text, 'hint'));
+      offers.append(item);
+    }
+    dialog.onclose = () => {
+      const confirmed = dialog.returnValue === 'confirm';
+      dialog.returnValue = '';
+      if (confirmed && !document.hidden && !get('app').hidden) decideSelected(ids, 'confirmed', disable, viewer);
+    };
+    dialog.showModal();
+  }
+  function removeSelection(ids, disable, viewer) {
+    const dialog = get('phase-remove-dialog');
+    dialog.returnValue = '';
+    get('phase-remove-copy').textContent = count(ids.length) + ' 条将标为已剔除，操作无法撤回。';
+    dialog.onclose = () => {
+      const confirmed = dialog.returnValue === 'remove';
+      dialog.returnValue = '';
+      if (confirmed && !document.hidden && !get('app').hidden) decideSelected(ids, 'removed', disable, viewer);
+    };
+    dialog.showModal();
+  }
+  async function exportOutreach(control) {
+    control.disabled = true;
+    const active = sequence;
+    status.textContent = '正在核对本周联系名单…';
+    try {
+      const data = await post('outreach_export', {limit: outreachLimit === 'all' ? 'all' : Number(outreachLimit)});
+      if (active !== sequence || document.hidden || get('app').hidden || get('phase-panel').hidden) return;
+      const headers = ['档位', '阶段', '新老客', '档内排名', '推荐分', '理由', '邮箱', 'FC27 累计消费 USD',
+        '购买日数', '距末单天数', '末单时间（北京时间）', '拟发券', '状态', '负责人', '上次联系日', '来源'];
+      const sources = {recommendation: '四档推荐', stock: '存量重点', decision: '需你判断'};
+      const rows = data.items.map(row => [label(row.tier), label(row.stage), label(row.customer_type), row.rank,
+        row.score, row.reason, row.email, row.amount_usd, row.purchase_days, row.days_since_last_paid,
+        shanghaiTime(row.last_paid_at), couponText(row.coupon), row.state === 'stock' ? '尚未入队' : label(row.state),
+        row.owner, row.last_contact_date, sources[row.source]]);
+      window.fsTrackingDownloadCsv(headers, rows, 'FC27-人工触达-' + data.week + '.csv');
+      status.textContent = '已导出 ' + count(rows.length) + ' 人。';
+    } catch {
+      if (active === sequence) status.textContent = '暂时无法核对人工触达名单，请稍后重试。';
+    } finally {
+      control.disabled = false;
+    }
+  }
+  function renderRecommendations(data) {
+    showDecisionRecovery(data.viewer);
+    const banner = node('a', undefined, 'phase-rec-banner');
+    banner.href = '#phase-rec-grid';
+    banner.append(node('span', '今天待你确认 ' + count(data.ready_count) + ' 人'),
+      node('span', '需你判断 ' + count(data.decision_count) + ' 人', 'phase-chip phase-chip-alert'));
+    const panel = board('四档重点推荐', '每档按累计消费、购买日数和流失时间排序。', 'phase-rec-panel');
+    const filters = node('div', undefined, 'phase-actions');
+    const size = control(filters, '每档显示', 'recommendation-limit', 'text', recommendationLimit,
+      [['5', '前 5 人'], ['10', '前 10 人'], ['all', '全部']]);
+    size.onchange = () => {
+      recommendationLimit = size.value;
+      load();
+    };
+    const shown = data.bands.reduce((total, band) => total + band.items.length, 0);
+    const disable = () => {
+      for (const item of panel.querySelectorAll('button, select')) item.disabled = true;
+    };
+    const confirm = button('一键确认四档 ' + count(shown) + ' 人',
+      () => confirmRecommendations(data.bands, disable, data.viewer), 'fs-btn fs-btn--primary');
+    confirm.disabled = !shown;
+    filters.append(confirm);
+    const csvSize = control(filters, '导出每档', 'outreach-limit', 'text', outreachLimit,
+      [['10', '前 10 人'], ['20', '前 20 人'], ['all', '全部']]);
+    csvSize.onchange = () => { outreachLimit = csvSize.value; };
+    const csv = button('导出本周人工触达 CSV', event => exportOutreach(event.currentTarget));
+    filters.append(csv);
+    if (data.coupon_verification === 'unavailable') {
+      panel.append(node('p', '暂时无法核对近期发券记录，四档确认已暂停。', 'phase-alert'));
+    }
+    const grid = node('div', undefined, 'phase-rec-grid');
+    grid.id = 'phase-rec-grid';
+    grid.tabIndex = -1;
+    for (const band of data.bands) {
+      const card = node('article', undefined, 'phase-rec-card');
+      const head = node('header', undefined, 'phase-rec-card-head');
+      const chips = node('div', undefined, 'phase-chips');
+      chips.append(node('span', label(band.stage), 'phase-chip phase-rec-' + band.stage),
+        node('span', '维护池 ' + count(band.pool_count) + ' 人', 'phase-chip'),
+        node('span', '需你判断 ' + count(band.decision_count) + ' 人', 'phase-chip'));
+      const main = node('p', undefined, 'phase-rec-count');
+      main.append(node('strong', count(band.ready_count)), node('span', '人待确认', 'hint'));
+      head.append(node('h4', bandName(band)), main, chips);
+      for (const rule of band.rules) {
+        const offer = node('div', undefined, 'phase-rec-rule');
+        offer.append(node('span', label(rule.customer_type), 'phase-chip'),
+          couponDetails(rule.coupon, rule.rule_id),
+          node('span', '今日配额 ' + count(rule.used) + '/' + count(rule.limit), 'phase-chip'));
+        head.append(offer);
+      }
+      if (!band.rules.length) head.append(node('p', '暂无启用的发券规则。', 'hint'));
+      const rows = node('ul', undefined, 'phase-rec-rows');
+      for (const row of band.items) {
+        const person = node('li', undefined, 'phase-rec-person');
+        const identity = node('div');
+        identity.append(node('strong', row.email, 'phase-rec-email'), node('span', amount(row.amount_usd), 'phase-rec-spend'));
+        if (row.unknown_amount_orders) {
+          identity.append(node('span', count(row.unknown_amount_orders) + ' 笔金额待核', 'phase-chip phase-chip-alert'));
+        }
+        const reason = node('p', row.reason, 'hint');
+        const offer = couponDetails(row.coupon, row.rule_id);
+        const remove = button('剔除', () => removeSelection([row.id], disable, data.viewer), 'fs-btn phase-danger');
+        remove.setAttribute('aria-label', '剔除 ' + row.email);
+        person.append(identity, reason, offer, remove);
+        rows.append(person);
+      }
+      const footer = node('footer');
+      const action = button('确认本档 ' + count(band.items.length) + ' 人',
+        () => confirmRecommendations([band], disable, data.viewer), 'fs-btn fs-btn--primary');
+      action.disabled = !band.items.length;
+      footer.append(action);
+      card.append(head, band.items.length ? rows : node('p',
+        band.ready_count == null ? '本档待确认人数待核。' : '本档暂无符合条件的待确认客户。', 'hint'), footer);
+      grid.append(card);
+    }
+    const review = board('需你判断', '核对订单和复核原因后，再决定是否放行。', 'phase-rec-review');
+    if (!data.decisions.length) review.append(node('p', '暂无需要人工判断的条目。', 'hint'));
+    for (const row of data.decisions) {
+      const item = node('article', undefined, 'phase-rec-decision');
+      const chips = node('div', undefined, 'phase-chips');
+      for (const reason of row.result.reasons) chips.append(node('span', label(reason), 'phase-chip phase-chip-alert'));
+      const orders = node('div', undefined, 'phase-actions');
+      for (const key of row.order_keys) {
+        if (key.startsWith('admin:266:')) window.fsTrackingOrderReview(orders, key.slice('admin:266:'.length));
+      }
+      item.append(node('h4', row.email, 'phase-rec-email'), node('p', bandName(row), 'hint'), chips, orders,
+        reviewDecisionForm(row));
+      review.append(item);
+    }
+    panel.append(filters, grid);
+    recommendations.replaceChildren(banner, panel, review);
+  }
   function pageReady(data) {
+    showDecisionRecovery(data.viewer);
     const rows = data.items;
     const selected = new Set();
     const section = board('待发区', '在当前筛选范围内勾选客户。确认后进入发放前重验，剔除为终态。', 'phase-ready');
@@ -690,18 +915,8 @@
     const selectAll = node('input');
     selectAll.type = 'checkbox';
     selector.append(selectAll, '全选当前筛选');
-    const confirm = button('确认所选', () => decideSelected([...selected], 'confirmed', disable), 'fs-btn fs-btn--primary');
-    const remove = button('剔除所选', () => {
-      const dialog = get('phase-remove-dialog');
-      dialog.returnValue = '';
-      get('phase-remove-copy').textContent = count(selected.size) + ' 条将标为已剔除，操作无法撤回。';
-      dialog.onclose = () => {
-        const confirmed = dialog.returnValue === 'remove';
-        dialog.returnValue = '';
-        if (confirmed) decideSelected([...selected], 'removed', disable);
-      };
-      dialog.showModal();
-    }, 'fs-btn phase-danger');
+    const confirm = button('确认所选', () => decideSelected([...selected], 'confirmed', disable, data.viewer), 'fs-btn fs-btn--primary');
+    const remove = button('剔除所选', () => removeSelection([...selected], disable, data.viewer), 'fs-btn phase-danger');
     actions.append(selector, confirm, remove);
     const counter = node('p', undefined, 'hint');
     counter.setAttribute('role', 'status');
@@ -788,6 +1003,7 @@
     }, 15000);
   }
   async function load() {
+    if (!manual && (document.hidden || get('app').hidden || get('phase-panel').hidden)) return;
     const request = ++sequence;
     const current = view();
     const paged = ['groups', 'review', 'manual', 'delivery'].includes(current);
@@ -799,6 +1015,18 @@
     status.textContent = '正在读取…';
     content.replaceChildren();
     if (overview) overview.setAttribute('aria-busy', 'true');
+    if (recommendations) {
+      recommendations.setAttribute('aria-busy', 'true');
+      recommendations.replaceChildren(node('p', '正在读取四档推荐…', 'hint'));
+      const limit = recommendationLimit === 'all' ? 'all' : Number(recommendationLimit);
+      post('recommendations', {limit}).then(data => {
+        if (request === sequence) renderRecommendations(data);
+      }).catch(() => {
+        if (request === sequence) recommendations.replaceChildren(node('p', '四档推荐暂不可用，请刷新。', 'phase-alert'));
+      }).finally(() => {
+        if (request === sequence) recommendations.setAttribute('aria-busy', 'false');
+      });
+    }
     const main = current === 'ready' ? readReady() : read(current, fields);
     const related = manual ? [] : [
       current === 'groups' ? main : read('groups'),
@@ -843,6 +1071,22 @@
   more.addEventListener('click', () => { if (!pending && next !== null) { offset = next; load(); } });
   if (manual) load();
   else {
+    get('phase-decision-recovery').addEventListener('click', recoverDecision);
+    document.addEventListener('fs-tracking-private-clear', () => {
+      sequence++;
+      showDecisionRecovery(null);
+      clearInterval(readyTimer);
+      for (const id of ['phase-confirm-dialog', 'phase-remove-dialog']) {
+        const dialog = get(id);
+        dialog.onclose = null;
+        if (dialog.open) dialog.close();
+      }
+      get('phase-confirm-offers').replaceChildren();
+      recommendations.replaceChildren();
+      overview.replaceChildren();
+      content.replaceChildren();
+      status.textContent = '';
+    });
     get('phase-view').addEventListener('change', () => { offset = 0; load(); });
     get('phase-scope').addEventListener('click', () => {
       if (bulkPending) return;

@@ -111,10 +111,56 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
             body = request.request.post_data_json
             assert body["kind"] == "hermes_customer_tracking"
             assert request.request.headers["x-fs-advisor-action"] == "submit"
+            if body['action'] == 'phase_decision_receipt':
+                assert body['viewer'] == state['viewer']
+                state['phase_readback'] = body['request_id']
+                original = next(post for post in state['phase_posts'] if post['request_id'] == body['request_id'])
+                return request.fulfill(json=dict(status='available', receipt=dict(changed=original['ids'], skipped=0)))
+            if body['action'] in ('phase_recommendations', 'phase_outreach_export'):
+                assert set(body) == {'kind', 'action', 'limit'} and not url.query
+                state.setdefault('recommendation_queries', []).append(body)
+                rules = [dict(rule_id='new-lost', customer_type='new', used=3, limit=50,
+                              coupon=dict(mode_type=2, reduce='88', max_reduce='50', days=7, time_effect=2))]
+                def sample(ident, email, tier, stage, source='recommendation'):
+                    spend = '2150.00' if tier == 'ultra' else '825.00'
+                    age, phase = (68, '长期流失') if stage == 'long_lost' else (33, '流失')
+                    return dict(id=ident, email=email, tier=tier, stage=stage, customer_type='new', rank=1,
+                                score=87.5, reason=f'累计 ${float(spend):,.0f}，6 个购买日，{phase}第 {age} 天',
+                                amount_usd=spend, purchase_days=6, days_since_last_paid=age,
+                                last_paid_at=NOW, state='ready', source=source, owner='wulv',
+                                last_contact_date=None, rule_id='new-lost', coupon=rules[0]['coupon'])
+                candidates = [
+                    sample('rec-1', EMAIL, 'ultra', 'lost'),
+                    sample('rec-2', 'remove-candidate@example.invalid', 'ultra', 'lost'),
+                    sample('rec-3', 'long-lost@example.invalid', 'high', 'long_lost'),
+                ] if state.get('four_tiers') else []
+                if body['action'] == 'phase_outreach_export':
+                    exported = [sample(None, ' =SUM(1,2)', 'high', 'lost', 'stock')]
+                    return request.fulfill(json=dict(week=WEEK, items=exported))
+                done = {ident for post in state['phase_posts'] if post['action'] == 'phase_decide' for ident in post['ids']}
+                decisions = []
+                if candidates and not any(post['action'] == 'phase_review_decide' for post in state['phase_posts']):
+                    decisions = [dict(sample('rec-4', 'review@example.invalid', 'ultra', 'long_lost', 'decision'),
+                                      state='needs_decision', result=dict(reasons=['exceptions'], digest='a'*64),
+                                      order_keys=['admin:266:FC27000001'])]
+                bands = []
+                for tier in ('ultra', 'high'):
+                    for stage in ('lost', 'long_lost'):
+                        rows = [row for row in candidates if (row['tier'], row['stage']) == (tier, stage)
+                                and row['id'] not in done]
+                        bands.append(dict(tier=tier, stage=stage, pool_count=42 if candidates else 0,
+                                          ready_count=len(rows), decision_count=int(bool(decisions) and
+                                          (tier, stage) == ('ultra', 'long_lost')), rules=rules, items=rows))
+                return request.fulfill(json=dict(bands=bands, decisions=decisions, decision_count=len(decisions),
+                                                 viewer=state['viewer'],
+                                                 ready_count=sum(band['ready_count'] for band in bands)))
             if body['action'] in ('phase_decide', 'phase_result', 'phase_review_decide'):
                 state['phase_posts'].append(body)
                 if body['action'] == 'phase_decide':
+                    assert body['viewer'] == state['viewer']
                     assert isinstance(body['ids'], list) and 1 <= len(body['ids']) <= 100
+                    if state.pop('lost_phase_receipt', False):
+                        return request.fulfill(status=503, json=dict(error='tracking_unavailable'))
                     return request.fulfill(json=dict(changed=body['ids'], skipped=0))
                 return request.fulfill(json=dict(changed=True))
             if body["action"] == "vip_bulk_claim":
@@ -210,7 +256,8 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
             removed = {ident for post in state['phase_posts'] if post['action'] == 'phase_decide' for ident in post['ids']}
             rest = [row for row in rows if row['id'] not in removed]
             offset = int(query.get('offset', ['0'])[0])
-            value = dict(items=rest[offset:offset+2], next_offset=offset+2 if len(rest) > offset+2 else None)
+            value = dict(items=rest[offset:offset+2], next_offset=offset+2 if len(rest) > offset+2 else None,
+                         viewer=state['viewer'])
         elif view == 'phase_manual':
             row = dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state='unknown', batch='FCSM_'+'A'*32,
                        job_id='original-job', result=dict(identity_conflicts=['grant_batch_no']))
@@ -551,6 +598,7 @@ def check_phase(browser):
     page.clock.set_fixed_time(datetime.fromisoformat('2026-11-25T01:30:00+00:00'))
     phase = page.get_by_role('button', name='阶段维护', exact=True)
     phase.click()
+    page.get_by_text('客户分层矩阵与完整待发区', exact=True).click()
     expect(page.locator('#phase-overview')).to_contain_text('观察日 2026-11-23')
     expect(page.locator('#phase-overview')).to_contain_text('客户分层与对应动作')
     matrix = page.get_by_role('region', name='客户分层与对应动作')
@@ -662,6 +710,7 @@ def check_review_decisions(browser):
         state['phase_needs_decision'] = True
         page.goto(WEB)
         page.get_by_role('button', name='阶段维护', exact=True).click()
+        page.get_by_text('客户分层矩阵与完整待发区', exact=True).click()
         page.locator('#phase-view').select_option('review')
         panel = page.locator('#phase-content')
         expect(panel).to_contain_text('需你判断')
@@ -681,6 +730,74 @@ def check_review_decisions(browser):
         page.close()
 
 
+def check_four_tiers(browser):
+    page = browser.new_page(viewport=dict(width=1440, height=900), accept_downloads=True)
+    state = install(page, weekly=False)
+    state['four_tiers'] = True
+    page.locator('#phase-refresh').click()
+    rec = page.locator('#phase-recommendations')
+    expect(rec.get_by_role('link', name='今天待你确认 3 人 需你判断 1 人')).to_be_visible()
+    expect(rec.locator('article.phase-rec-card')).to_have_count(4)
+    expect(page.locator('.phase-advanced')).not_to_have_attribute('open', '')
+    expect(rec.get_by_role('link', name='Order 复核订单与日志 ↗')).to_have_attribute(
+        'href', 'https://order.p2pah.cn/order/admin_order/index.html?status=all&sn=FC27000001')
+    for theme, width, tag in [('light', 1440, 'light'), ('dark', 1440, 'dark'), ('light', 390, '390')]:
+        page.set_viewport_size(dict(width=width, height=900))
+        page.locator('#theme').select_option(theme)
+        expect(page.locator('html')).to_have_attribute('data-fs-theme', theme)
+        assert page.evaluate('document.documentElement.scrollWidth === innerWidth')
+        if CAPTURE:
+            page.evaluate('scrollTo(0, 0)')
+            page.screenshot(path=str(CAPTURE / f'four-tiers-{tag}.png'), full_page=True, animations='disabled')
+    rec.get_by_label('每档显示').select_option('10')
+    expect(rec.get_by_role('button', name='确认本档 2 人')).to_be_visible()
+    assert state['recommendation_queries'][-1]['limit'] == 10
+    rec.get_by_role('button', name='确认本档 2 人').click()
+    page.get_by_role('dialog', name='确认发券名单').get_by_role('button', name='取消').click()
+    assert not state['phase_posts']
+    rec.get_by_role('button', name='剔除 remove-candidate@example.invalid').click()
+    page.get_by_role('button', name='确认剔除').click()
+    expect(rec.get_by_role('button', name='一键确认四档 2 人')).to_be_visible()
+    rec.get_by_role('button', name='一键确认四档 2 人').click()
+    dialog = page.get_by_role('dialog', name='确认发券名单')
+    expect(dialog).to_contain_text('超高价值 × 流失，1 人')
+    expect(dialog).to_contain_text('高价值 × 长期流失，1 人')
+    expect(dialog).to_contain_text('12% OFF，最多减 $50.00，7 天有效')
+    expect(dialog.get_by_role('button', name='取消')).to_be_focused()
+    state['lost_phase_receipt'] = True
+    dialog.get_by_role('button', name='确认名单').click()
+    recover = page.get_by_role('button', name='核对并补交上次请求')
+    expect(recover).to_be_visible()
+    state['viewer'] = 'other-admin'
+    page.reload()
+    expect(rec.get_by_role('button', name='一键确认四档 0 人')).to_be_disabled()
+    expect(recover).to_be_hidden()
+    assert not state.get('phase_readback')
+    state['viewer'] = 'wulv'
+    page.locator('#phase-refresh').click()
+    expect(recover).to_be_visible()
+    recover.click()
+    expect(recover).to_be_hidden()
+    expect(rec.get_by_role('button', name='一键确认四档 0 人')).to_be_disabled()
+    assert [request['ids'] for request in state['phase_posts']] == [['rec-2'], ['rec-1', 'rec-3']]
+    assert all(len(request['request_id']) == 32 for request in state['phase_posts'])
+    assert state['phase_readback'] == state['phase_posts'][-1]['request_id']
+    rec.get_by_label('处理理由').fill('已核对原单')
+    rec.get_by_role('button', name='放行').click()
+    expect(rec.get_by_text('暂无需要人工判断的条目。')).to_be_visible()
+    assert state['phase_posts'][-1]['review_digest'] == 'a'*64
+    rec.get_by_label('导出每档').select_option('20')
+    with page.expect_download() as downloaded:
+        rec.get_by_role('button', name='导出本周人工触达 CSV').click()
+    csv_bytes = Path(downloaded.value.path()).read_bytes()
+    assert csv_bytes.startswith(b'\xef\xbb\xbf')
+    exported, = list(csv.DictReader(io.StringIO(csv_bytes.decode('utf-8-sig'))))
+    assert len(exported) == 16 and exported['邮箱'] == "' =SUM(1,2)" and exported['来源'] == '存量重点'
+    assert state['recommendation_queries'][-1]['limit'] == 20
+    assert not state['errors'], state['errors']
+    page.close()
+
+
 if __name__ == "__main__":
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=os.environ.get('FS_BROWSER_EXECUTABLE'))
@@ -690,5 +807,6 @@ if __name__ == "__main__":
         check_phase_default_view(browser)
         check_phase(browser)
         check_review_decisions(browser)
+        check_four_tiers(browser)
         browser.close()
     print("VIP tracking browser checks passed")

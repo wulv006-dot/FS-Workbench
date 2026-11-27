@@ -15,7 +15,7 @@ from urllib.request import HTTPRedirectHandler, build_opener
 from customer_segments import tier
 from maintenance_ledger import marks
 from maintenance_review import coupon_time, email_key, member_id
-from maintenance_stages import GID, SHANGHAI, cohort, day_end, day_start, payment
+from maintenance_stages import GID, SHANGHAI, cohort, day_end, day_start, latest_fc_order_keys, payment
 
 
 DB_PATH = Path('/var/lib/fs-user-analytics/customers.sqlite3')
@@ -87,6 +87,23 @@ class AdminFacts:
 
     def grants(self, uid):
         return self.pages('grants', [('member_id', '=', uid)])
+
+    def recent_grant_members(self, uids, at):
+        """Read bounded sets of uniquely mapped member IDs using the existing grant source."""
+        members = set()
+        cutoff = at - timedelta(days=30)
+        uids = sorted(uids)
+        for offset in range(0, len(uids), 50):
+            batch = set(uids[offset:offset+50])
+            for row in self.pages('grants', [('member_id', 'IN', ','.join(sorted(batch)))]):
+                uid = member_id(row.get('member_id'))
+                if uid not in batch:
+                    raise ValueError('maintenance_grant_scope')
+                if str(row.get('site_id')) != SITE or str(row.get('grant_batch_no') or '').startswith('FCSM_'):
+                    continue
+                if cutoff < coupon_time(row.get('start_time')) <= at:
+                    members.add(uid)
+        return members
 
     def logs(self, start, stop):
         source_time = lambda at: at.astimezone(SHANGHAI).strftime('%Y-%m-%d %H:%M:%S')
@@ -214,6 +231,10 @@ class Facts(Coverage):
 
     def customer_orders(self, customer):
         return self.customers.get(customer, ())
+
+    def latest_fc_order_keys(self, customers, at):
+        return latest_fc_order_keys(row for customer in customers for row in self.customer_orders(customer)
+                                    if row['valid'] and str(row['gid']) == GID and payment(row) <= at)
 
     def stage_cohort(self, day, config):
         return cohort(self.orders, day, config, self.covered)
@@ -377,6 +398,18 @@ class ProjectionFacts(Coverage):
         flags = self.order_flags
         with self.snapshot() as db:
             return list(self._details(db, customers=(customer,), flags=flags))
+
+    def latest_fc_order_keys(self, customers, at):
+        if self.target != self.current:
+            raise LookupError('maintenance_current_orders_required')
+        # The observation cutoff still governs scoring. A settled order already
+        # visible in the current revision can veto outreach before the next day.
+        with self.snapshot() as db:
+            return latest_fc_order_keys(
+                row for batch in batches(customers) for row in db.execute(
+                    'SELECT customer_id,order_key,paid_at FROM orders '
+                    f'WHERE site=? AND gid=? AND valid=1 AND customer_id IN ({marks(batch)})', (SITE, GID, *batch))
+                if payment(row) <= at)
 
     def stage_cohort(self, day, config):
         end = day_end(day)

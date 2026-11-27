@@ -26,7 +26,7 @@ from maintenance_service import Maintenance
 from tracking_controller import TrackingController
 from user_contract import digest as publication_digest
 from user_weekly import CONTRACT as PUBLICATION_CONTRACT, META as PUBLICATION_META
-from vip_maintenance import PREFERRED, UK_US, VipMaintenance
+from vip_maintenance import PREFERRED, UK_US, VipMaintenance, record_event
 from test_vip_maintenance import FakeSource, buyer, payment
 
 
@@ -77,6 +77,11 @@ class Admin:
         if isinstance(result, Exception):
             raise result
         return result
+
+    def recent_grant_members(self, uids, at):
+        return {str(row['member_id']) for rows in self.coupons if isinstance(rows, list)
+                for row in rows if str(row['member_id']) in uids
+                and at - timedelta(days=30) < datetime.fromisoformat(row['start_time']) <= at}
 
 
 class Bridge:
@@ -131,6 +136,164 @@ class Integration(unittest.TestCase):
     def grant(self, ident):
         return dict(id=ident, member_id=100, site_id=266, status=2, grant_batch_no='manual',
                     start_time=(self.now-timedelta(hours=1)).isoformat())
+
+    def test_stock_recommendations_rank_before_limiting_and_confirm_only_displayed_ids(self):
+        self.source.orders = [
+            dict(order('late', 'customer-b', 101, 'b@example.net'), amount_usd='900'),
+            dict(order('early', 'customer-a', 102, 'a@example.net'), amount_usd='400'),
+            dict(order('same', 'customer-a', 102, 'a@example.net'),
+                 amount_usd='250', paid_at='2026-10-02T01:00:00+13:00'),
+            dict(order('next', 'customer-a', 102, 'a@example.net'),
+                 amount_usd='250', paid_at='2026-10-02T01:00:00+08:00'),
+        ]
+        self.tick(20)
+        self.service.save_rule('admin', dict(id='lost', expected_version=0, tier='high', stage='lost',
+            customer_type='new', enabled=True, priority=0, daily_quota=50, coupon_id=123, alert=False, owner=None))
+        self.service.update()
+        result = self.service.recommendations(5)
+        band = next(b for b in result['bands'] if (b['tier'], b['stage']) == ('high', 'lost'))
+        first, second = band['items']
+        self.assertEqual(2, band['pool_count'])
+        self.assertEqual(['a@example.net', 'b@example.net'], [first['email'], second['email']])
+        self.assertEqual((2, 74.17), (first['purchase_days'], first['score']))
+        self.assertEqual(2, result['ready_count'])
+        request = dict(ids=[first['id']], decision='confirmed', request_id='one-batch')
+        receipt = self.service.decide_entries('admin', request)
+        self.assertEqual({'changed': [first['id']], 'skipped': 0}, receipt)
+        self.assertEqual(receipt, self.service.decide_entries('admin', request))
+        self.assertEqual(dict(status='available', receipt=receipt),
+                         self.service.decision_receipt('admin', request['request_id']))
+        self.assertEqual(dict(status='unknown'), self.service.decision_receipt('another', request['request_id']))
+        with self.assertRaisesRegex(ValueError, 'maintenance_request_conflict'):
+            self.service.decide_entries('admin', dict(request, ids=[second['id']]))
+        self.assertEqual([second['id']], [row['id'] for row in self.service.queue_view('ready')['items']])
+
+    def test_stock_respects_rule_quota_and_band_backlog_across_daily_runs(self):
+        self.source.orders = [
+            dict(order(f'order-{i:02d}', f'c-{i:02d}', 100+i, f'person-{i:02d}@example.net'), amount_usd='750')
+            for i in range(18)
+        ]
+        self.tick(20)
+        self.service.save_rule('admin', dict(id='lost', expected_version=0, tier='high', stage='lost',
+            customer_type='new', enabled=True, priority=0, daily_quota=6, coupon_id=123, alert=False, owner=None))
+        self.service.update()
+        first = self.service.queue_view('ready')['items']
+        self.assertEqual(6, len(first))
+        self.assertEqual([f'person-{i:02d}@example.net' for i in range(5)],
+                         [item['email'] for band in self.service.recommendations(5)['bands'] for item in band['items']])
+        self.service.update()
+        self.assertEqual(6, len(self.service.queue_view('ready')['items']))
+        self.tick(1)
+        ready = self.service.queue_view('ready')['items']
+        self.assertEqual(10, len(ready))
+        self.assertTrue({row['id'] for row in first} <= {row['id'] for row in ready})
+        removed = next(row['id'] for row in first if row['email'] == 'person-00@example.net')
+        self.service.decide_entries('admin', dict(ids=[removed], decision='removed', request_id='remove-stock'))
+        self.tick(1)
+        ready = self.service.queue_view('ready')['items']
+        self.assertEqual([f'person-{i:02d}@example.net' for i in range(1, 11)], sorted(row['email'] for row in ready))
+
+    def test_stock_waits_for_the_current_completed_shanghai_observation(self):
+        self.tick(20)
+        self.service.save_rule('admin', dict(id='lost', expected_version=0, tier='high', stage='lost',
+            customer_type='new', enabled=True, priority=0, daily_quota=1, coupon_id=123, alert=False, owner=None))
+        self.now += timedelta(days=1)
+        self.service.update()
+        self.assertEqual([], self.service.queue_view('ready')['items'])
+        self.source.current += timedelta(days=1)
+        self.tick()
+        self.assertEqual(['buyer@example.net'], [row['email'] for row in self.service.queue_view('ready')['items']])
+
+    def test_private_outreach_excludes_recent_coupon_and_contact_but_returns_unentered_stock(self):
+        self.source.orders = [
+            dict(order(f'order-{i:02d}', f'c-{i:02d}', 100+i, f'person-{i:02d}@example.net'), amount_usd='750')
+            for i in range(4)
+        ]
+        self.tick(20)
+        self.service.save_rule('admin', dict(id='lost', expected_version=0, tier='high', stage='lost',
+            customer_type='new', enabled=True, priority=0, daily_quota=2, coupon_id=123, alert=False, owner='admin'))
+        self.service.update()
+        linked = self.service.customer_view('c-00')['case']['case_id']
+        with self.db() as db:
+            record_event(db, '1'*32, linked, 'admin', dict(event='contacted', contacted_at=self.now.isoformat()),
+                         self.now.isoformat())
+        self.admin.coupons = [[dict(self.grant('23'), member_id=101)]]
+        controller = TrackingController(self.path.parent / 'outreach-auth', lambda user: user == 'admin',
+                                        auto_start=False)
+        controller.maintenance = self.service
+        query = dict(kind='hermes_customer_tracking', action='phase_outreach_export', limit=10)
+        with self.assertRaises(PermissionError):
+            controller.post('viewer', query)
+        view_query = dict(kind='hermes_customer_tracking', action='phase_recommendations')
+        with self.assertRaises(PermissionError):
+            controller.post('viewer', view_query)
+        with self.assertRaises(ValueError):
+            controller.post('admin', dict(query, limit=5))
+        with self.assertRaisesRegex(ValueError, 'maintenance_decision_ids'):
+            controller.post('admin', dict(kind='hermes_customer_tracking', action='phase_decide',
+                                          ids='all', decision='confirmed', request_id='explicit-only', viewer='admin'))
+        for action, fields in [('phase_decide', dict(ids=['opaque-entry'], decision='confirmed')),
+                               ('phase_decision_receipt', {})]:
+            with self.assertRaises(PermissionError):
+                controller.post('admin', dict(kind='hermes_customer_tracking', action=action,
+                    request_id='different-actor', viewer='another', **fields))
+        response = controller.post('admin', query)[1]
+        self.assertEqual('2026-11-02', response['week'])
+        self.assertEqual(['person-02@example.net', 'person-03@example.net'],
+                         [row['email'] for row in response['items']])
+        self.assertTrue(all(row['source'] == 'stock' and row['purchase_days'] == 1
+                            and 'owner' in row and 'last_contact_date' in row for row in response['items']))
+        view = controller.post('admin', view_query)[1]
+        self.assertEqual(0, view['ready_count'])
+
+    def test_needs_decision_lists_order_and_can_be_exported_for_followup(self):
+        self.tick(20)
+        self.service.save_rule('admin', dict(id='lost', expected_version=0, tier='high', stage='lost',
+            customer_type='new', enabled=True, priority=0, daily_quota=1, coupon_id=123, alert=False, owner=None))
+        self.admin.issues = [dict(order_key='admin:266:a', paid_at=self.source.orders[0]['paid_at'],
+                                  reason='refund', refund='partial_observed', after_sales='none_observed')]
+        self.service.update()
+        result = self.service.recommendations(5)
+        self.assertEqual((0, 1), (result['ready_count'], result['decision_count']))
+        row, = result['decisions']
+        self.assertEqual(['admin:266:a'], row['order_keys'])
+        self.assertEqual(['exceptions'], row['result']['reasons'])
+        exported, = self.service.recommendations(None, export=True)['items']
+        self.assertEqual(('decision', 'needs_decision'), (exported['source'], exported['state']))
+        self.service.decide_review('admin', dict(id=row['id'], request_id='needs-refund', decision='ready',
+            review_digest=row['result']['digest'], reason='核对退款'))
+        self.assertEqual(1, self.service.recommendations(5)['ready_count'])
+
+    def test_recent_grant_query_checks_member_scope_and_excludes_automatic_batches(self):
+        requests = []
+        def read(path, query):
+            requests.append((path, query))
+            grants = [self.grant('8'), dict(self.grant('9'), member_id=101, grant_batch_no='FCSM_TEST'),
+                      dict(self.grant('10'), member_id=102, start_time='2026-09-01T08:00:00+08:00')]
+            rows = [row for row in grants if str(row['member_id']) in query['search[0][val]'].split(',')]
+            return dict(total=len(rows), list=rows)
+        uids = {str(i) for i in range(100, 201)}
+        self.assertEqual({'100'}, AdminFacts(read).recent_grant_members(uids, self.now))
+        self.assertEqual(3, len(requests))
+        self.assertTrue(all(path == '/admin/user.MemberCoupon/index' and query['search[0][field]'] == 'member_id'
+                            and query['search[0][operator]'] == 'IN' for path, query in requests))
+        with self.assertRaisesRegex(ValueError, 'maintenance_grant_scope'):
+            AdminFacts(lambda *_: dict(total=1, list=[self.grant('8')])).recent_grant_members({'555'}, self.now)
+
+    def test_outreach_rechecks_last_order_and_does_not_attribute_shared_uid_grants(self):
+        self.source.orders = [dict(order(f'old-{i}', f'c-{i}', 100, f'person-{i}@example.net'), amount_usd='750')
+                              for i in range(3)]
+        self.tick(20)
+        self.service.save_rule('admin', dict(id='lost', expected_version=0, tier='high', stage='lost',
+            customer_type='new', enabled=True, priority=0, daily_quota=1, coupon_id=123, alert=False, owner=None))
+        self.service.update()
+        self.admin.coupons = [[self.grant('23')]]
+        self.source.orders.append(dict(order('correction', 'c-0', 100, 'person-0@example.net'),
+                                       paid_at='2026-11-03T02:00:00+08:00'))
+        self.tick(run=False)
+        exported = self.service.recommendations(None, export=True)['items']
+        self.assertEqual(['person-1@example.net', 'person-2@example.net'], [row['email'] for row in exported])
+        self.assertEqual(0, self.service.recommendations(5)['ready_count'])
 
     def test_maintenance_dashboard_reads_stored_queue_details_and_counts(self):
         template = dict(TEMPLATE, mode_type=2, reduce='88', max_reduce='50')
