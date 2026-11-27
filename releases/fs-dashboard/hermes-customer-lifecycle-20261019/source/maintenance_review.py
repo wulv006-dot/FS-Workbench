@@ -80,7 +80,8 @@ def coupon_evidence(orders, logs, customer_id):
     return CouponIndex(orders, logs).for_customer(customer_id)
 
 
-def review_evidence(*, coupons, payments, exceptions, automatic, contacts):
+def review_evidence(*, coupons, payments, exceptions, automatic, contacts, at, event_at,
+                    last_normal_paid_at=None, approved=()):
     checks = dict(payments=payments, exceptions=exceptions, automatic=automatic, contacts=contacts)
     if not isinstance(coupons, dict) or any(not isinstance(rows, list) for rows in checks.values()):
         raise ValueError('maintenance_review_evidence_unavailable')
@@ -93,13 +94,47 @@ def review_evidence(*, coupons, payments, exceptions, automatic, contacts):
     notice = coupons.get('notice', MANUAL_COUPON_NOTICE)
     if coupons['unattributed'] and 'notice' not in coupons:
         notice += '；另有 {} 条用券记录无法归属客户'.format(coupons['unattributed'])
-    reasons = [field for field, rows in checks.items() if rows]
-    return dict(decision='hold' if reasons else 'pass', reasons=reasons,
-                digest=digest(evidence), manual_coupon_notice=notice,
+    soft = {}
+    historical = []
+    severe = False
+    for row in exceptions:
+        if row.get('reason') == 'problem':
+            severe = True
+            continue
+        paid = coupon_time(row['paid_at'])
+        if (paid < at - timedelta(days=90) and last_normal_paid_at
+                and coupon_time(last_normal_paid_at) > paid
+                and row['refund'] in ('partial_observed', 'full_observed', 'marked_amount_unknown')
+                and row['after_sales'] == 'none_observed'):
+            historical.append(row)
+        else:
+            soft[digest(['exceptions', row])] = 'exceptions'
+    for row in contacts:
+        contacted = coupon_time(row.get('contacted_at') or row['at'])
+        if contacted <= at and (contacted >= at - timedelta(days=14) or contacted > event_at):
+            soft[digest(['contacts', row])] = 'contacts'
+    pending = {key: reason for key, reason in soft.items() if key not in approved}
+    if payments:
+        decision, reasons = 'skip', ['paid_after_event']
+    elif severe:
+        decision, reasons = 'hold', ['exceptions']
+    elif automatic or checks['manual_coupons']:
+        decision = 'defer'
+        reasons = [key for key in ('automatic', 'manual_coupons') if checks[key]]
+    elif pending:
+        decision, reasons = 'needs_decision', sorted(set(pending.values()))
+    else:
+        decision, reasons = 'pass', []
+    notices = ['historical_refund'] if historical else []
+    fingerprints = sorted(soft)
+    return dict(decision=decision, reasons=reasons, notices=notices,
+                digest=digest([evidence, decision, reasons, notices, fingerprints]),
+                decision_evidence=fingerprints, manual_coupon_notice=notice,
                 unattributed_coupon_logs=coupons['unattributed'],
                 manual_coupon_uid_gaps=coupons.get('uid_gaps', []),
                 order_exceptions=evidence['exceptions'],
                 matches={field: len(rows) for field, rows in checks.items()})
+
 
 def coupon_time(value):
     if not isinstance(value, str):

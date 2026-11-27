@@ -24,12 +24,14 @@
   const busy = new Set();
   const labels = {
     ultra: '超高', high: '高', recent: '近期', silent: '沉默', lost: '流失', long_lost: '长期流失',
-    new: '新客', old: '老客', unverified: '待核', reviewing: '待复核', held: '暂缓',
+    new: '新客', old: '老客', unverified: '待核', reviewing: '待复核', held: '硬拦截',
+    needs_decision: '需你判断', skipped: '已跳过',
     ready: '待发区', confirmed: '已确认', auto_confirmed: '超时自动确认', expired: '已过期',
     removed: '已剔除', void: '已作废', deferred: '顺延', recheck_failed: '重验未过',
     dispatching: '派发中', issued: '已发放', limited: '限额', rejected: '已拒绝',
     unknown: 'UNKNOWN', pending_register: '待注册', manually_closed: '已人工结清',
-    payments: '已有新付款', exceptions: '售后、退款或问题单', automatic: '30 天内已有自动券',
+    paid_after_event: '阶段事件后已有 FC27 新付款', historical_refund: '有历史退款，之后已有正常 FC27 复购',
+    review_retry_exhausted: '当天复核读取已失败 6 次', exceptions: '售后、退款或问题单', automatic: '30 天内已有自动券',
     manual_coupons: '30 天内已有人工券', contacts: '已联系',
     tier_changed: '当前价值档不符', customer_type_changed: '当前新老客条件不符', stage_changed: '当前阶段不符',
     recipient_changed: '收件邮箱变化', rule_changed: '规则已变更', template_changed: '券模板已变更或过期',
@@ -182,7 +184,7 @@
     const steps = node('ol', undefined, 'phase-flow');
     for (const [index, [name, value, note]] of [
       ['规则挑人', activeRules?.length, '启用中的规则'],
-      ['程序复核', stateCount('reviewing'), '当前待复核条目'],
+      ['程序复核', stateCount('reviewing', 'needs_decision'), '当前待复核和需判断条目'],
       ['进入待发区', ready, '当前复核通过待确认'],
       ['确认或剔除', stateCount('confirmed', 'auto_confirmed', 'deferred'), '当前已确认、自动确认或顺延'],
       ['发券并对账', stateCount('dispatching', 'unknown', 'pending_register'), '当前派发中、待注册或待对账 · 累计已发放 ' + count(stateCount('issued')) + ' 条'],
@@ -391,18 +393,52 @@
       status.textContent = '客户详情读取失败。' + error.message;
     }
   }
+  function reviewDecisionForm(row) {
+    const form = node('form', undefined, 'phase-form');
+    const reason = control(form, '处理理由', 'reason', 'text', '');
+    reason.required = true;
+    reason.maxLength = 300;
+    for (const [decision, text] of [['ready', '放行'], ['removed', '剔除']]) {
+      const submit = node('button', text, decision === 'ready' ? 'fs-btn fs-btn--primary' : 'fs-btn phase-danger');
+      submit.type = 'submit';
+      submit.value = decision;
+      form.append(submit);
+    }
+    const requests = new Map();
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const text = reason.value.trim();
+      if (busy.size || pending || !event.submitter || !text) {
+        if (!text) reason.focus();
+        return;
+      }
+      const decision = event.submitter.value;
+      const intent = JSON.stringify([decision, text]);
+      if (!requests.has(intent)) requests.set(intent, requestId());
+      const controls = [...form.elements];
+      for (const item of controls) item.disabled = true;
+      await write(event.submitter, 'review_decide', {
+        id: row.id, decision, reason: text, review_digest: row.result.digest, request_id: requests.get(intent),
+      });
+      for (const item of controls) item.disabled = false;
+    });
+    return form;
+  }
   function pageQueue(data) {
     const current = view();
     const rows = data.items.map(row => {
       const evidence = node('div');
       if (row.review?.manual_coupon_notice) evidence.append(node('div', row.review.manual_coupon_notice));
-      const reasons = (row.review?.reasons || []).map(label);
-      if (row.result?.reason) reasons.push(label(row.result.reason));
+      const reasons = new Set([...(row.review?.reasons || []), ...(row.review?.notices || [])].map(label));
+      if (row.result?.decision && row.result.reason) reasons.add(label(row.result.reason));
+      else if (row.result?.reason && !row.result.evidence) reasons.add(label(row.result.reason));
+      if (row.result?.error_code) reasons.add(row.result.error_code);
       if (row.result?.identity_conflicts?.length) {
-        reasons.push('回执身份冲突（' + row.result.identity_conflicts.join('、') + '）');
+        reasons.add('回执身份冲突（' + row.result.identity_conflicts.join('、') + '）');
       }
-      if (reasons.length) evidence.append(node('div', reasons.join('、')));
+      if (reasons.size) evidence.append(node('div', [...reasons].join('、')));
       const actions = node('div', undefined, 'phase-actions');
+      if (current === 'review' && row.state === 'needs_decision') actions.append(reviewDecisionForm(row));
       if (current === 'manual') {
         const form = node('form', undefined, 'phase-form');
         const nextState = control(form, 'Admin 核对结果', 'state', 'text', 'issued',
@@ -710,7 +746,9 @@
           };
           const evidence = node('div');
           const review = row.review;
-          evidence.append(node('strong', review?.decision === 'pass' ? '复核通过' : '复核结论待核'));
+          evidence.append(node('strong', row.result?.evidence ? '已人工放行' :
+            review?.decision === 'pass' ? '复核通过' : '复核结论待核'));
+          for (const notice of review?.notices || []) evidence.append(node('small', label(notice), 'hint'));
           if (review?.manual_coupon_notice) evidence.append(node('small', review.manual_coupon_notice, 'hint'));
           if (row.identity_status === 'pending_identity') {
             evidence.append(node('small', '身份待核 · ' + label(row.identity_reason), 'phase-alert'));

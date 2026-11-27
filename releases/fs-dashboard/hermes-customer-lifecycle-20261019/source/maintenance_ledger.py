@@ -12,19 +12,21 @@ from maintenance_review import REVIEW_ACTOR, canonical, digest
 
 SHANGHAI = timezone(timedelta(hours=8))
 AWAITING = ('confirmed', 'auto_confirmed', 'deferred')
-REVOCABLE = ('reviewing', 'ready') + AWAITING
+REVOCABLE = ('reviewing', 'needs_decision', 'ready') + AWAITING
 RESERVED = ('dispatching', 'issued', 'pending_register', 'unknown')
 IN_FLIGHT = ('dispatching', 'pending_register', 'unknown')
 ALLOWED = {
-    'reviewing': {'ready', 'held', 'void'},
+    'reviewing': {'reviewing', 'ready', 'held', 'void', 'needs_decision', 'skipped'},
+    'needs_decision': {'ready', 'removed', 'void'},
     'ready': {'confirmed', 'removed', 'expired', 'auto_confirmed', 'void'},
-    **{state: {'dispatching', 'deferred', 'recheck_failed', 'void'} for state in AWAITING},
+    **{state: {'dispatching', 'deferred', 'recheck_failed', 'void', 'held', 'skipped', 'needs_decision'}
+       for state in AWAITING},
     'dispatching': {'dispatching', 'issued', 'pending_register', 'limited', 'rejected', 'unknown'},
     'pending_register': {'issued', 'limited', 'rejected', 'manually_closed', 'unknown'},
     'unknown': {'issued', 'limited', 'rejected', 'manually_closed', 'unknown'},
 }
 for terminal in ('held', 'removed', 'expired', 'void', 'recheck_failed', 'issued',
-                 'limited', 'rejected', 'manually_closed'):
+                 'limited', 'rejected', 'manually_closed', 'skipped'):
     ALLOWED[terminal] = frozenset()
 ALLOWED = {state: frozenset(targets) for state, targets in ALLOWED.items()}
 
@@ -52,6 +54,10 @@ CREATE TABLE IF NOT EXISTS maintenance_dispatch_checks (
 CREATE TABLE IF NOT EXISTS maintenance_reconcile_checks (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT, entry_id TEXT UNIQUE NOT NULL
 );
+CREATE TABLE IF NOT EXISTS maintenance_review_retries (
+    entry_id TEXT PRIMARY KEY, day TEXT NOT NULL, failures INTEGER NOT NULL,
+    attempted_at TEXT NOT NULL, retry_at TEXT
+);
 CREATE TABLE IF NOT EXISTS maintenance_reviews (
     entry_id TEXT NOT NULL, digest TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL, result TEXT NOT NULL,
     PRIMARY KEY(entry_id,digest)
@@ -60,6 +66,7 @@ CREATE TABLE IF NOT EXISTS maintenance_transitions (
     entry_id TEXT NOT NULL, prior TEXT NOT NULL, next TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL,
     details TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS maintenance_transition_approval ON maintenance_transitions(entry_id,prior,next);
 '''
 
 
@@ -111,6 +118,21 @@ def transition(db, row, state, actor, at, details=None, **fields):
         db.execute('INSERT INTO maintenance_transitions VALUES(?,?,?,?,?,?)',
                    (ident, prior, state, actor, stamp(at), fields['result']))
     return bool(updated)
+
+
+def apply_review(db, row, result, at, actor):
+    decision = result['decision']
+    state = {'pass': 'ready', 'hold': 'held', 'skip': 'skipped', 'needs_decision': 'needs_decision'}.get(decision)
+    day = None
+    if decision == 'defer':
+        state = 'reviewing' if row['state'] == 'reviewing' else 'deferred'
+        day = at.astimezone(SHANGHAI).date().isoformat()
+    if result.get('reasons'):
+        result = dict(result, reason=result['reasons'][0])
+    db.execute('INSERT OR IGNORE INTO maintenance_reviews VALUES(?,?,?,?,?)',
+               (row['id'], result['digest'], actor, stamp(at), canonical(result)))
+    return transition(db, row, state, actor, at, result,
+                      ready_at=stamp(at) if state == 'ready' else None, deferred_day=day)
 
 
 def enqueue_entry(db, event, customer, email, rule, at):
@@ -221,14 +243,55 @@ class Ledger:
             return [json.loads(row['result']) for row in db.execute(
                 'SELECT result FROM maintenance_reviews WHERE entry_id=? ORDER BY at', (ident,))]
 
+    def review_queue(self, at, limit=25):
+        day = at.astimezone(SHANGHAI).date().isoformat()
+        with self.db() as db:
+            rows = db.execute("""
+                SELECT e.* FROM maintenance_entries e
+                LEFT JOIN maintenance_review_retries r ON r.entry_id=e.id
+                WHERE e.state='reviewing' AND (e.deferred_day IS NULL OR e.deferred_day<?)
+                  AND (r.retry_at IS NULL OR r.retry_at<=?)
+                ORDER BY COALESCE(r.attempted_at,e.created_at),e.created_at,e.id LIMIT ?
+            """, (day, stamp(at), limit))
+            return [entry_view(row) for row in rows]
+
+    @staticmethod
+    def _record_review_attempt(db, ident, at, failed):
+        day = at.astimezone(SHANGHAI).date().isoformat()
+        prior = db.execute('SELECT day,failures FROM maintenance_review_retries WHERE entry_id=?',
+                           (ident,)).fetchone()
+        failures = (prior['failures'] if prior and prior['day'] == day else 0) + int(failed)
+        retry_at = stamp(at + timedelta(minutes=10 * 2**(failures - 1))) if failed and failures < 6 else None
+        values = (day, failures, stamp(at), retry_at, ident)
+        if prior:
+            db.execute("UPDATE maintenance_review_retries SET day=?,failures=?,attempted_at=?,retry_at=? "
+                       "WHERE entry_id=?", values)
+        else:
+            db.execute("INSERT INTO maintenance_review_retries(day,failures,attempted_at,retry_at,entry_id) "
+                       "VALUES(?,?,?,?,?)", values)
+        return failures
+
+    def fail_review(self, ident, at, error_code):
+        with self.db(write=True) as db:
+            row = fetch_entry(db, ident)
+            if not row or row['state'] != 'reviewing':
+                return
+            count = self._record_review_attempt(db, ident, at, failed=True)
+            if count >= 6:
+                result = dict(decision='needs_decision', reasons=['review_retry_exhausted'],
+                              error_code=error_code, attempts=count)
+                result['digest'] = digest([result, stamp(at)])
+                apply_review(db, row, result, at, REVIEW_ACTOR)
+
     def defer_review_identity(self, ident, at, reason):
         with self.db(write=True) as db:
             details = dict(identity_reason=reason, identity_checked_at=stamp(at))
-            db.execute("UPDATE maintenance_entries SET result=? WHERE id=? AND state='reviewing'",
-                       (canonical(details), ident))
+            updated = db.execute("UPDATE maintenance_entries SET result=? WHERE id=? AND state='reviewing'",
+                                 (canonical(details), ident))
+            if updated.rowcount:
+                self._record_review_attempt(db, ident, at, failed=False)
 
     def commit_review(self, ident, result, checked_digest, at):
-        state = {'pass': 'ready', 'hold': 'held'}[result['decision']]
         with self.db(write=True) as db:
             row = fetch_entry(db, ident)
             if not row or row['state'] != 'reviewing':
@@ -237,13 +300,8 @@ class Ledger:
                 checked_digest = checked_digest(db, row)
             if result['digest'] != checked_digest:
                 return False
-            if db.execute('SELECT 1 FROM maintenance_reviews WHERE entry_id=? AND digest=?',
-                          (ident, result['digest'])).fetchone():
-                return False
-            db.execute('INSERT INTO maintenance_reviews VALUES(?,?,?,?,?)',
-                       (ident, result['digest'], REVIEW_ACTOR, stamp(at), canonical(result)))
-            return transition(db, row, state, REVIEW_ACTOR, at, result,
-                              ready_at=stamp(at) if state == 'ready' else None)
+            db.execute('DELETE FROM maintenance_review_retries WHERE entry_id=?', (ident,))
+            return apply_review(db, row, result, at, REVIEW_ACTOR)
 
     def decide(self, ident, decision, actor, at):
         if decision not in ('confirmed', 'removed'):
@@ -317,6 +375,9 @@ class Ledger:
                 return None
             if not reason and validate is not None:
                 reason = validate(row, at)
+            if isinstance(reason, dict):
+                apply_review(db, row, reason, at, actor)
+                return None
             if reason:
                 transition(db, row, 'recheck_failed', actor, at, {'reason': reason})
                 return None

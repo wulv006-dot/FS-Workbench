@@ -152,6 +152,198 @@ class Integration(unittest.TestCase):
         self.assertNotIn('rule_body', ready)
         self.assertEqual({'ready': 1}, self.service.group_view()['queue_counts'])
 
+    def test_projection_email_conflict_requires_orders_on_site_266(self):
+        path = self.path.with_name('customers.sqlite3')
+        publication = dict(contract=PUBLICATION_CONTRACT, cadence='daily', cutoff=self.source.current.isoformat(),
+                           published_at=self.now.isoformat(), captured_at=self.now.isoformat(),
+                           refresh_health={}, coverage_context={}, source_status_rule_versions=[],
+                           data_version='1', config=dict(sites=['266']), flag_manifests=[], jobs=[])
+        publication['publication_id'] = 'uw_' + publication_digest(publication)[:32]
+        with closing(sqlite3.connect(path)) as db, db:
+            db.executescript("""
+                CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
+                INSERT INTO meta VALUES('revision','1');
+                CREATE TABLE orders(site TEXT, customer_id TEXT);
+                CREATE TABLE identities(customer_id TEXT,email TEXT);
+                INSERT INTO orders VALUES('266','customer-A'),('999','customer-B');
+                INSERT INTO identities VALUES('customer-A','buyer@example.net'),('customer-B','BUYER@example.net');
+            """)
+            db.execute('INSERT INTO meta VALUES (?,?)', (PUBLICATION_META, json.dumps(publication)))
+        projection = UserProjection(path)
+        self.assertFalse(projection.read(self.now).email_conflict('customer-A', 'buyer@example.net'))
+        with closing(sqlite3.connect(path)) as db, db:
+            db.execute("INSERT INTO orders VALUES('266','customer-B')")
+        self.assertTrue(projection.read(self.now).email_conflict('customer-A', 'buyer@example.net'))
+
+    def test_true_email_conflict_is_visible_in_the_review_queue(self):
+        entry = self.create()
+        self.source.orders += [order('other', customer='customer-B', uid=101)]
+        self.tick()
+        rows = self.service.queue_view('review')['items']
+        row = next(row for row in rows if row['id'] == entry['id'])
+        self.assertEqual('reviewing', row['state'])
+        self.assertEqual('pending_identity', row['identity_status'])
+        self.assertEqual('email_conflict', row['identity_reason'])
+        self.assertIn('identity_checked_at', row)
+
+    def test_admin_refund_reads_are_batched_by_shanghai_payment_day(self):
+        orders = [dict(order(str(i)), paid_at='2026-09-30T16:00:00+00:00') for i in range(51)]
+        orders.append(dict(order('previous'), paid_at='2026-09-30T15:59:59+00:00'))
+        calls = []
+        missing = False
+
+        def read(path, params):
+            self.assertEqual(AdminFacts.ROUTES['orders'], path)
+            if 'search[2][field]' not in params:
+                return dict(total=0, list=[])
+            fields = {params[f'search[{i}][field]']: i for i in range(3)}
+            window = fields['paytime']
+            self.assertEqual('RANGE', params[f'search[{window}][operator]'])
+            self.assertEqual('datetime', params[f'search[{window}][render]'])
+            day = params[f'search[{window}][val]'][:10]
+            self.assertEqual(f'{day} 00:00:00,{day} 23:59:59', params[f'search[{window}][val]'])
+            numbers = params[f"search[{fields['order_no']}][val]"].split(',')
+            calls.append((day, numbers))
+            rows = [dict(id=i, order_no=n, site_id=266, pay_status=1,
+                         paytime=f'{day} 12:00:00', amount_usd='500',
+                         status_format='已完成') for i, n in enumerate(numbers, 1)]
+            if missing:
+                rows.pop()
+            return dict(total=len(rows), list=rows)
+
+        admin = AdminFacts(read)
+        self.assertEqual([], admin.exceptions(orders))
+        self.assertEqual([('2026-09-30', 1), ('2026-10-01', 1), ('2026-10-01', 50)],
+                         sorted((day, len(numbers)) for day, numbers in calls))
+        self.assertEqual(['previous'], next(numbers for day, numbers in calls if day == '2026-09-30'))
+        missing = True
+        with self.assertRaisesRegex(ValueError, 'maintenance_admin_order_scope'):
+            admin.exceptions(orders)
+
+    def test_scopes_order_reads_and_only_a_new_fc27_payment_skips_review(self):
+        self.source.orders += [
+            dict(order('old-normal'), paid_at='2026-06-01T12:00:00+08:00', amount_usd='1'),
+            dict(order('old-flagged', valid=False), paid_at='2026-05-01T12:00:00+08:00'),
+        ]
+        entry = self.create()
+        self.source.orders += [dict(order('non-fc'), paid_at=self.source.current.isoformat(), gid='42')]
+        checked = []
+        self.admin.exceptions = lambda orders: checked.extend(row['order_no'] for row in orders) or []
+        self.tick(1)
+        self.assertEqual({'a', 'old-flagged'}, set(checked))
+        self.assertEqual('ready', self.service.ledger.entry(entry['id'])['state'])
+
+        self.setUp()
+        entry = self.create()
+        self.source.orders += [dict(order('new-fc'), paid_at=self.source.current.isoformat())]
+        self.tick(1)
+        row = self.service.ledger.entry(entry['id'])
+        self.assertEqual('skipped', row['state'])
+        self.assertEqual('paid_after_event', row['result']['reason'])
+
+    def test_manual_review_decision_receipt_and_fresh_dispatch_evidence(self):
+        for added in (None, 'refund', 'payment', 'coupon', 'remove'):
+            with self.subTest(added=added):
+                self.setUp()
+                entry = self.create()
+                original = dict(order_key='admin:266:a', paid_at=order()['paid_at'], reason='after_sales',
+                                refund='partial_observed', after_sales='none_observed', refund_amount='10')
+                self.admin.issues = [original]
+                self.service.update()
+                row = self.service.queue_view('review')['items'][0]
+                self.assertEqual('needs_decision', row['state'])
+                self.assertIsNone(row['ready_at'])
+                self.now += timedelta(days=4)
+                self.assertFalse(self.service.ledger.expire(entry['id'], self.now))
+                request = dict(kind='hermes_customer_tracking', action='phase_review_decide', id=row['id'],
+                               request_id='decision-1', review_digest=row['result']['digest'],
+                               decision='removed' if added == 'remove' else 'ready', reason='verified refund')
+                controller = TrackingController(self.path.parent / 'auth', lambda user: user == 'admin', auto_start=False)
+                controller.maintenance = self.service
+                with self.assertRaises(PermissionError):
+                    controller.post('viewer', request)
+                with self.assertRaisesRegex(ValueError, 'maintenance_review_conflict'):
+                    controller.post('admin', dict(request, review_digest='a' * 64))
+                self.assertTrue(controller.post('admin', request)[1]['changed'])
+                self.assertTrue(controller.post('admin', request)[1]['reused'])
+                with self.assertRaisesRegex(ValueError, 'maintenance_request_conflict'):
+                    controller.post('admin', dict(request, reason='changed'))
+                row = self.service.ledger.entry(entry['id'])
+                self.assertEqual(['exceptions'], row['result']['evidence']['reasons'])
+                with self.db() as db:
+                    actor, details = db.execute("SELECT actor,details FROM maintenance_transitions "
+                                                "WHERE entry_id=? AND prior='needs_decision'", (entry['id'],)).fetchone()
+                self.assertEqual('admin', actor)
+                self.assertEqual(request['reason'], json.loads(details)['reason'])
+                if added == 'remove':
+                    self.assertEqual('removed', row['state'])
+                    continue
+                self.assertEqual(self.now, datetime.fromisoformat(row['ready_at']))
+                self.service.decide_entries('admin', dict(ids=[entry['id']], decision='confirmed'))
+                if added == 'refund':
+                    self.admin.issues = [dict(original, refund_amount='20')]
+                elif added == 'payment':
+                    self.source.orders += [dict(order('new'), paid_at=self.source.current.isoformat())]
+                    self.tick(1, run=False)
+                elif added == 'coupon':
+                    self.admin.coupons = [[self.grant(22)]]
+                self.service.dispatch()
+                state = self.service.ledger.entry(entry['id'])['state']
+                self.assertEqual({None: 'issued', 'refund': 'needs_decision',
+                                  'payment': 'skipped', 'coupon': 'deferred'}[added], state)
+                self.assertEqual(0 if added else 1, len(self.bridge.sent))
+
+    def test_review_failures_back_off_and_escalate_after_six_attempts(self):
+        entry = self.create()
+        attempts = []
+
+        def unavailable(orders):
+            attempts.append(self.now)
+            raise TimeoutError('fixture timeout')
+
+        self.admin.exceptions = unavailable
+        with self.assertLogs('maintenance_service', 'WARNING') as log:
+            for _ in range(40):
+                self.service.update()
+                self.now += timedelta(minutes=10)
+        self.assertEqual(6, len(attempts))
+        self.assertEqual([10, 20, 40, 80, 160],
+                         [(b-a)//timedelta(minutes=1) for a, b in zip(attempts, attempts[1:])])
+        self.assertEqual(6, len(log.output))
+        row = self.service.queue_view('review')['items'][0]
+        self.assertEqual(entry['id'], row['id'])
+        self.assertEqual('needs_decision', row['state'])
+        self.assertEqual('review_retry_exhausted', row['result']['reason'])
+        self.assertEqual('TimeoutError', row['result']['error_code'])
+        self.assertIsNone(row['ready_at'])
+
+    def test_usage_is_read_once_per_update_and_fresh_during_dispatch(self):
+        self.source.orders += [order('b', 'customer-B', 101, 'other@example.net')]
+        self.create()
+        usage_reads = []
+        self.admin.logs = lambda start, stop: usage_reads.append((start, stop)) or []
+        self.service.update()
+        self.assertEqual(2, len(self.service.queue_view('ready')['items']))
+        self.assertEqual(5, len(usage_reads))  # 30 days, 7 days per Admin read.
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.service.dispatch()
+        self.assertEqual(15, len(usage_reads))
+        self.assertEqual(1, len(self.bridge.sent))  # One per rule per day in this fixture.
+
+    def test_review_coupon_defers_until_next_shanghai_day_and_then_reevaluates(self):
+        entry = self.create()
+        self.admin.coupons = [[dict(self.grant(22),
+                                    start_time=(self.now-timedelta(days=29, hours=23)).isoformat())]]
+        self.service.update()
+        row = self.service.ledger.entry(entry['id'])
+        self.assertEqual('reviewing', row['state'])
+        self.assertEqual('manual_coupons', row['result']['reason'])
+        self.now += timedelta(hours=2)
+        self.service.update()
+        self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
+        self.tick(1)
+        self.assertEqual('ready', self.service.ledger.entry(entry['id'])['state'])
+
     def test_admin_problem_status_blocks_review_and_dispatch(self):
         for status in ('CB(资料)', '调查中', '拒付', '退款中'):
             with self.subTest(status=status):
@@ -223,6 +415,7 @@ class Integration(unittest.TestCase):
         self.service.update()
         self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
         unavailable = False
+        self.now += timedelta(minutes=10)
         self.service.update()
         review, = self.service.ledger.reviews(entry['id'])
         self.assertEqual('pass', review['decision'])
@@ -287,9 +480,10 @@ class Integration(unittest.TestCase):
         review, = self.service.ledger.reviews(entry['id'])
         self.assertEqual(['manual_coupons'], review['reasons'])
         self.assertEqual(1, review['matches']['manual_coupons'])
-        self.assertEqual('held', self.service.ledger.entry(entry['id'])['state'])
+        self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
+        self.assertEqual('defer', review['decision'])
 
-    def test_changed_coupon_usage_during_review_discards_stale_pass(self):
+    def test_coupon_usage_visible_after_review_still_blocks_dispatch(self):
         entry = self.create()
         visible = False
 
@@ -300,21 +494,25 @@ class Integration(unittest.TestCase):
 
         self.admin_rows(usage=lambda: [self.coupon_use()] if visible else [], grants=grants)
         self.service.update()
-        self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
-        self.assertEqual([], self.service.ledger.reviews(entry['id']))
-        self.service.update()
-        self.assertEqual('held', self.service.ledger.entry(entry['id'])['state'])
-        self.assertEqual(['manual_coupons'], self.service.ledger.reviews(entry['id'])[0]['reasons'])
+        self.assertEqual('ready', self.service.ledger.entry(entry['id'])['state'])
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.service.dispatch()
+        row = self.service.ledger.entry(entry['id'])
+        self.assertEqual('deferred', row['state'])
+        self.assertEqual('manual_coupons', row['result']['reason'])
+        self.assertEqual([], self.bridge.sent)
 
-    def test_changed_admin_grant_evidence_does_not_write_stale_pass(self):
+    def test_admin_grant_visible_after_review_still_blocks_dispatch(self):
         entry = self.create()
         self.admin.coupons = [[], [self.grant(21)]]
         self.service.update()
-        self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
-        self.assertEqual([], self.service.ledger.reviews(entry['id']))
-        self.service.update()
-        self.assertEqual('held', self.service.ledger.entry(entry['id'])['state'])
-        self.assertEqual(['manual_coupons'], self.service.ledger.reviews(entry['id'])[0]['reasons'])
+        self.assertEqual('ready', self.service.ledger.entry(entry['id'])['state'])
+        self.service.decide_entries('admin', dict(ids='all', decision='confirmed'))
+        self.service.dispatch()
+        row = self.service.ledger.entry(entry['id'])
+        self.assertEqual('deferred', row['state'])
+        self.assertEqual('manual_coupons', row['result']['reason'])
+        self.assertEqual([], self.bridge.sent)
 
     def test_grant_read_failure_stays_pending_then_late_grant_blocks_dispatch(self):
         entry = self.create()
@@ -322,6 +520,7 @@ class Integration(unittest.TestCase):
         self.service.update()
         self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
         self.admin.coupons = []
+        self.now += timedelta(minutes=10)
         self.service.update()
         self.assertEqual('ready', self.service.ledger.entry(entry['id'])['state'])
         self.service.decide_entries('admin', dict(ids=[entry['id']], decision='confirmed'))
@@ -335,7 +534,8 @@ class Integration(unittest.TestCase):
         entry = self.create()
         self.service.update()
         self.service.decide_entries('admin', dict(ids=[entry['id']], decision='confirmed'))
-        self.admin.issues = [dict(order_key='admin:266:a', refund='partial_observed')]
+        self.admin.issues = [dict(order_key='admin:266:a', paid_at=order()['paid_at'],
+                                  refund='partial_observed', after_sales='none_observed')]
         self.service.dispatch()
         row = self.service.ledger.entry(entry['id'])
         self.assertEqual('exceptions', row['result']['reason'])
@@ -343,7 +543,7 @@ class Integration(unittest.TestCase):
         self.source.orders = [order(valid=False)]
         self.tick(1)
         timeline = self.service.ledger.entry(entry['id'])
-        self.assertEqual('recheck_failed', timeline['state'])
+        self.assertEqual('void', timeline['state'])
         self.assertEqual([], self.service.group_view()['items'])
 
     def test_template_is_read_after_external_evidence_and_checked_at_dispatch_time(self):
@@ -497,6 +697,11 @@ class Integration(unittest.TestCase):
                 if not move_during_review:
                     change_identity()
                 self.service.update()
+                if move_during_review:
+                    self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
+                    self.assertEqual([], self.service.ledger.reviews(entry['id']))
+                    self.now += timedelta(minutes=10)
+                    self.service.update()
                 self.assertEqual('reviewing', self.service.ledger.entry(entry['id'])['state'])
                 self.assertEqual([], self.service.ledger.reviews(entry['id']))
                 controller = TrackingController(self.path.parent / 'auth', lambda user: user == 'operator',
