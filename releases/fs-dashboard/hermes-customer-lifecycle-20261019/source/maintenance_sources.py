@@ -232,9 +232,9 @@ class Facts(Coverage):
     def customer_orders(self, customer):
         return self.customers.get(customer, ())
 
-    def latest_fc_order_keys(self, customers):
+    def latest_fc_order_keys(self, customers, at):
         return latest_fc_order_keys(row for customer in customers for row in self.customer_orders(customer)
-                                    if row['valid'] and str(row['gid']) == GID and payment(row) < self.cutoff)
+                                    if row['valid'] and str(row['gid']) == GID and payment(row) <= at)
 
     def stage_cohort(self, day, config):
         return cohort(self.orders, day, config, self.covered)
@@ -399,11 +399,17 @@ class ProjectionFacts(Coverage):
         with self.snapshot() as db:
             return list(self._details(db, customers=(customer,), flags=flags))
 
-    def latest_fc_order_keys(self, customers):
+    def latest_fc_order_keys(self, customers, at):
+        if self.target != self.current:
+            raise LookupError('maintenance_current_orders_required')
+        # The observation cutoff still governs scoring. A settled order already
+        # visible in the current revision can veto outreach before the next day.
         with self.snapshot() as db:
-            return latest_fc_order_keys(row for batch in batches(customers) for row in
-                self._rows(db, customers=batch, fc=True, valid=True, columns='customer_id,order_key,paid_at')
-                if payment(row) < self.cutoff)
+            return latest_fc_order_keys(
+                row for batch in batches(customers) for row in db.execute(
+                    'SELECT customer_id,order_key,paid_at FROM orders '
+                    f'WHERE site=? AND gid=? AND valid=1 AND customer_id IN ({marks(batch)})', (SITE, GID, *batch))
+                if payment(row) <= at)
 
     def stage_cohort(self, day, config):
         end = day_end(day)

@@ -258,7 +258,8 @@ class TrackingController:
         view=params.get('view',[''])[0]
         allowed={'mode','structure','view'}
         if view.startswith('phase_'):
-            return 200, self.phase_get(view, {key: value[0] for key, value in params.items() if key not in allowed})
+            result = self.phase_get(view, {key: value[0] for key, value in params.items() if key not in allowed})
+            return 200, dict(result, viewer=user) if view == 'phase_ready' else result
         if view == 'vip_week' and set(params) <= allowed | {'week','scope'}:
             scope = params.get('scope', ['uk_us'])[0]
             if scope not in ('uk_us', 'global_preferred'):
@@ -404,7 +405,8 @@ class TrackingController:
             choices = (10, 20) if export else (5, 10)
             if limit != 'all' and (type(limit) is not int or limit not in choices):
                 raise ValueError('maintenance_recommendation_limit')
-            return phase.recommendations(None if limit == 'all' else limit, export=export)
+            result = phase.recommendations(None if limit == 'all' else limit, export=export)
+            return result if export else dict(result, viewer=user)
         if action == 'phase_rule':
             return phase.save_rule(user, data)
         if action == 'phase_auto':
@@ -415,10 +417,14 @@ class TrackingController:
         if action == 'phase_config':
             return phase.save_config(data)
         if action == 'phase_decide':
-            keys(data, 'ids decision request_id')
-            return phase.decide_entries(user, data)
+            keys(data, 'ids decision request_id viewer')
+            if data['viewer'] != user:
+                raise PermissionError('maintenance_decision_actor')
+            return phase.decide_entries(user, {key: data[key] for key in ('ids', 'decision', 'request_id')})
         if action == 'phase_decision_receipt':
-            keys(data, 'request_id')
+            keys(data, 'request_id viewer')
+            if data['viewer'] != user:
+                raise PermissionError('maintenance_decision_actor')
             return phase.decision_receipt(user, data['request_id'])
         if action == 'phase_review_decide':
             return phase.decide_review(user, data)

@@ -22,7 +22,8 @@
   const queueFilter = {tier: '', stage: ''};
   let readyTimer;
   let bulkPending = false;
-  let unresolvedDecision = null;
+  const unresolvedDecisions = new Map();
+  let decisionViewer = null;
   const more = get('phase-more');
   const API = '/dashboard/fs-home/advisor.json';
   const busy = new Set();
@@ -628,8 +629,11 @@
   async function readReady() {
     const items = new Map();
     let pageOffset = 0;
+    let viewer;
     while (pageOffset !== null) {
       const data = await read('ready', {offset: pageOffset});
+      viewer ??= data.viewer;
+      if (data.viewer !== viewer) throw Error('maintenance_decision_actor');
       for (const row of data.items) items.set(row.id, row);
       const following = data.next_offset ?? null;
       if (following !== null && (!Number.isInteger(following) || following <= pageOffset)) {
@@ -637,7 +641,7 @@
       }
       pageOffset = following;
     }
-    return {items: [...items.values()]};
+    return {items: [...items.values()], viewer};
   }
   function verifyDecision(receipt, ids) {
     if (!Array.isArray(receipt?.changed) || !Number.isInteger(receipt.skipped) || receipt.skipped < 0 ||
@@ -647,16 +651,37 @@
     }
     return receipt;
   }
+  function pendingDecision(viewer) {
+    if (!viewer) return null;
+    if (unresolvedDecisions.has(viewer)) return unresolvedDecisions.get(viewer);
+    try {
+      const stored = JSON.parse(sessionStorage.getItem('fs-phase-pending:' + viewer));
+      return stored?.viewer === viewer && Array.isArray(stored.ids) && stored.request_id ? stored : null;
+    } catch {
+      return null;
+    }
+  }
+  function storeDecision(viewer, request) {
+    if (request) unresolvedDecisions.set(viewer, request);
+    else unresolvedDecisions.delete(viewer);
+    try {
+      const key = 'fs-phase-pending:' + viewer;
+      if (request) sessionStorage.setItem(key, JSON.stringify(request));
+      else sessionStorage.removeItem(key);
+    } catch {
+      // The in-page receipt lookup remains available when storage is disabled.
+    }
+  }
   async function recoverDecision(event) {
-    if (!unresolvedDecision || bulkPending || busy.size) return;
+    const request = pendingDecision(decisionViewer);
+    if (!request || bulkPending || busy.size) return;
     const control = event.currentTarget;
-    const request = unresolvedDecision;
     bulkPending = control.disabled = true;
     try {
-      const value = await post('decision_receipt', {request_id: request.request_id});
+      const value = await post('decision_receipt', {request_id: request.request_id, viewer: request.viewer});
       const receipt = verifyDecision(value.status === 'unknown' ? await post('decide', request) : value.receipt, request.ids);
-      unresolvedDecision = null;
-      control.hidden = true;
+      storeDecision(request.viewer, null);
+      showDecisionRecovery(decisionViewer);
       await load();
       status.textContent = '上次请求已核对，处理 ' + count(receipt.changed.length) + ' 条，跳过 ' + count(receipt.skipped) + ' 条。';
     } catch {
@@ -665,9 +690,13 @@
       bulkPending = control.disabled = false;
     }
   }
-  async function decideSelected(ids, decision, setDisabled) {
-    if (!ids.length || bulkPending || busy.size) return;
-    if (unresolvedDecision) {
+  function showDecisionRecovery(viewer) {
+    decisionViewer = viewer;
+    get('phase-decision-recovery').hidden = !pendingDecision(viewer);
+  }
+  async function decideSelected(ids, decision, setDisabled, viewer) {
+    if (!ids.length || !viewer || decisionViewer !== viewer || bulkPending || busy.size) return;
+    if (pendingDecision(viewer)) {
       status.textContent = '请先核对上次请求。';
       get('phase-decision-recovery').focus();
       return;
@@ -682,8 +711,10 @@
     try {
       for (let start = 0; start < ids.length; start += 100) {
         const batch = ids.slice(start, start + 100);
-        request = {ids: batch, decision, request_id: requestId()};
+        request = {ids: batch, decision, request_id: requestId(), viewer};
+        storeDecision(viewer, request);
         const receipt = verifyDecision(await post('decide', request), batch);
+        storeDecision(viewer, null);
         changed += receipt.changed.length;
         skipped += receipt.skipped;
       }
@@ -694,13 +725,11 @@
         status.textContent = [result, status.textContent].filter(Boolean).join(' ');
       }
     } catch (error) {
-      if (!error.httpStatus || error.httpStatus >= 500) {
-        unresolvedDecision = request;
-        get('phase-decision-recovery').hidden = false;
-      }
+      if (error.httpStatus && error.httpStatus < 500) storeDecision(viewer, null);
+      showDecisionRecovery(decisionViewer);
       if (!get('phase-panel').hidden) {
         await load();
-        status.textContent = '已核到 ' + count(changed) + ' 条。' + (unresolvedDecision
+        status.textContent = '已核到 ' + count(changed) + ' 条。' + (pendingDecision(viewer)
           ? '请先核对上次请求，其余批次已停止提交。' : '该批未接受，其余批次已停止提交。');
       }
     } finally {
@@ -716,7 +745,7 @@
     const discount = terms.discount && (terms.mode === 1 ? '立减 ' + terms.discount : terms.discount + ' OFF');
     return [discount || '折扣待核', terms.cap || '封顶金额待核', terms.validity || '有效期待核'].join('，');
   }
-  function confirmRecommendations(bands, disable) {
+  function confirmRecommendations(bands, disable, viewer) {
     const ids = bands.flatMap(band => band.items.map(row => row.id));
     if (!ids.length || bulkPending || busy.size) return;
     const dialog = get('phase-confirm-dialog');
@@ -738,18 +767,18 @@
     dialog.onclose = () => {
       const confirmed = dialog.returnValue === 'confirm';
       dialog.returnValue = '';
-      if (confirmed && !document.hidden && !get('app').hidden) decideSelected(ids, 'confirmed', disable);
+      if (confirmed && !document.hidden && !get('app').hidden) decideSelected(ids, 'confirmed', disable, viewer);
     };
     dialog.showModal();
   }
-  function removeSelection(ids, disable) {
+  function removeSelection(ids, disable, viewer) {
     const dialog = get('phase-remove-dialog');
     dialog.returnValue = '';
     get('phase-remove-copy').textContent = count(ids.length) + ' 条将标为已剔除，操作无法撤回。';
     dialog.onclose = () => {
       const confirmed = dialog.returnValue === 'remove';
       dialog.returnValue = '';
-      if (confirmed && !document.hidden && !get('app').hidden) decideSelected(ids, 'removed', disable);
+      if (confirmed && !document.hidden && !get('app').hidden) decideSelected(ids, 'removed', disable, viewer);
     };
     dialog.showModal();
   }
@@ -776,6 +805,7 @@
     }
   }
   function renderRecommendations(data) {
+    showDecisionRecovery(data.viewer);
     const banner = node('a', undefined, 'phase-rec-banner');
     banner.href = '#phase-rec-grid';
     banner.append(node('span', '今天待你确认 ' + count(data.ready_count) + ' 人'),
@@ -793,7 +823,7 @@
       for (const item of panel.querySelectorAll('button, select')) item.disabled = true;
     };
     const confirm = button('一键确认四档 ' + count(shown) + ' 人',
-      () => confirmRecommendations(data.bands, disable), 'fs-btn fs-btn--primary');
+      () => confirmRecommendations(data.bands, disable, data.viewer), 'fs-btn fs-btn--primary');
     confirm.disabled = !shown;
     filters.append(confirm);
     const csvSize = control(filters, '导出每档', 'outreach-limit', 'text', outreachLimit,
@@ -835,14 +865,14 @@
         }
         const reason = node('p', row.reason, 'hint');
         const offer = couponDetails(row.coupon, row.rule_id);
-        const remove = button('剔除', () => removeSelection([row.id], disable), 'fs-btn phase-danger');
+        const remove = button('剔除', () => removeSelection([row.id], disable, data.viewer), 'fs-btn phase-danger');
         remove.setAttribute('aria-label', '剔除 ' + row.email);
         person.append(identity, reason, offer, remove);
         rows.append(person);
       }
       const footer = node('footer');
       const action = button('确认本档 ' + count(band.items.length) + ' 人',
-        () => confirmRecommendations([band], disable), 'fs-btn fs-btn--primary');
+        () => confirmRecommendations([band], disable, data.viewer), 'fs-btn fs-btn--primary');
       action.disabled = !band.items.length;
       footer.append(action);
       card.append(head, band.items.length ? rows : node('p',
@@ -867,6 +897,7 @@
     recommendations.replaceChildren(banner, panel, review);
   }
   function pageReady(data) {
+    showDecisionRecovery(data.viewer);
     const rows = data.items;
     const selected = new Set();
     const section = board('待发区', '在当前筛选范围内勾选客户。确认后进入发放前重验，剔除为终态。', 'phase-ready');
@@ -884,8 +915,8 @@
     const selectAll = node('input');
     selectAll.type = 'checkbox';
     selector.append(selectAll, '全选当前筛选');
-    const confirm = button('确认所选', () => decideSelected([...selected], 'confirmed', disable), 'fs-btn fs-btn--primary');
-    const remove = button('剔除所选', () => removeSelection([...selected], disable), 'fs-btn phase-danger');
+    const confirm = button('确认所选', () => decideSelected([...selected], 'confirmed', disable, data.viewer), 'fs-btn fs-btn--primary');
+    const remove = button('剔除所选', () => removeSelection([...selected], disable, data.viewer), 'fs-btn phase-danger');
     actions.append(selector, confirm, remove);
     const counter = node('p', undefined, 'hint');
     counter.setAttribute('role', 'status');
@@ -1043,6 +1074,7 @@
     get('phase-decision-recovery').addEventListener('click', recoverDecision);
     document.addEventListener('fs-tracking-private-clear', () => {
       sequence++;
+      showDecisionRecovery(null);
       clearInterval(readyTimer);
       for (const id of ['phase-confirm-dialog', 'phase-remove-dialog']) {
         const dialog = get(id);

@@ -112,6 +112,7 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
             assert body["kind"] == "hermes_customer_tracking"
             assert request.request.headers["x-fs-advisor-action"] == "submit"
             if body['action'] == 'phase_decision_receipt':
+                assert body['viewer'] == state['viewer']
                 state['phase_readback'] = body['request_id']
                 original = next(post for post in state['phase_posts'] if post['request_id'] == body['request_id'])
                 return request.fulfill(json=dict(status='available', receipt=dict(changed=original['ids'], skipped=0)))
@@ -151,10 +152,12 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
                                           ready_count=len(rows), decision_count=int(bool(decisions) and
                                           (tier, stage) == ('ultra', 'long_lost')), rules=rules, items=rows))
                 return request.fulfill(json=dict(bands=bands, decisions=decisions, decision_count=len(decisions),
+                                                 viewer=state['viewer'],
                                                  ready_count=sum(band['ready_count'] for band in bands)))
             if body['action'] in ('phase_decide', 'phase_result', 'phase_review_decide'):
                 state['phase_posts'].append(body)
                 if body['action'] == 'phase_decide':
+                    assert body['viewer'] == state['viewer']
                     assert isinstance(body['ids'], list) and 1 <= len(body['ids']) <= 100
                     if state.pop('lost_phase_receipt', False):
                         return request.fulfill(status=503, json=dict(error='tracking_unavailable'))
@@ -253,7 +256,8 @@ def install(page, *, admin=True, bulk=False, weekly=True, late_phase=False):
             removed = {ident for post in state['phase_posts'] if post['action'] == 'phase_decide' for ident in post['ids']}
             rest = [row for row in rows if row['id'] not in removed]
             offset = int(query.get('offset', ['0'])[0])
-            value = dict(items=rest[offset:offset+2], next_offset=offset+2 if len(rest) > offset+2 else None)
+            value = dict(items=rest[offset:offset+2], next_offset=offset+2 if len(rest) > offset+2 else None,
+                         viewer=state['viewer'])
         elif view == 'phase_manual':
             row = dict(id='fixture-entry', email=EMAIL, rule_id='rule-A', state='unknown', batch='FCSM_'+'A'*32,
                        job_id='original-job', result=dict(identity_conflicts=['grant_batch_no']))
@@ -763,6 +767,14 @@ def check_four_tiers(browser):
     state['lost_phase_receipt'] = True
     dialog.get_by_role('button', name='确认名单').click()
     recover = page.get_by_role('button', name='核对并补交上次请求')
+    expect(recover).to_be_visible()
+    state['viewer'] = 'other-admin'
+    page.reload()
+    expect(rec.get_by_role('button', name='一键确认四档 0 人')).to_be_disabled()
+    expect(recover).to_be_hidden()
+    assert not state.get('phase_readback')
+    state['viewer'] = 'wulv'
+    page.locator('#phase-refresh').click()
     expect(recover).to_be_visible()
     recover.click()
     expect(recover).to_be_hidden()

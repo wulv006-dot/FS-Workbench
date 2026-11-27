@@ -193,6 +193,17 @@ class Integration(unittest.TestCase):
         ready = self.service.queue_view('ready')['items']
         self.assertEqual([f'person-{i:02d}@example.net' for i in range(1, 11)], sorted(row['email'] for row in ready))
 
+    def test_stock_waits_for_the_current_completed_shanghai_observation(self):
+        self.tick(20)
+        self.service.save_rule('admin', dict(id='lost', expected_version=0, tier='high', stage='lost',
+            customer_type='new', enabled=True, priority=0, daily_quota=1, coupon_id=123, alert=False, owner=None))
+        self.now += timedelta(days=1)
+        self.service.update()
+        self.assertEqual([], self.service.queue_view('ready')['items'])
+        self.source.current += timedelta(days=1)
+        self.tick()
+        self.assertEqual(['buyer@example.net'], [row['email'] for row in self.service.queue_view('ready')['items']])
+
     def test_private_outreach_excludes_recent_coupon_and_contact_but_returns_unentered_stock(self):
         self.source.orders = [
             dict(order(f'order-{i:02d}', f'c-{i:02d}', 100+i, f'person-{i:02d}@example.net'), amount_usd='750')
@@ -220,7 +231,12 @@ class Integration(unittest.TestCase):
             controller.post('admin', dict(query, limit=5))
         with self.assertRaisesRegex(ValueError, 'maintenance_decision_ids'):
             controller.post('admin', dict(kind='hermes_customer_tracking', action='phase_decide',
-                                          ids='all', decision='confirmed', request_id='explicit-only'))
+                                          ids='all', decision='confirmed', request_id='explicit-only', viewer='admin'))
+        for action, fields in [('phase_decide', dict(ids=['opaque-entry'], decision='confirmed')),
+                               ('phase_decision_receipt', {})]:
+            with self.assertRaises(PermissionError):
+                controller.post('admin', dict(kind='hermes_customer_tracking', action=action,
+                    request_id='different-actor', viewer='another', **fields))
         response = controller.post('admin', query)[1]
         self.assertEqual('2026-11-02', response['week'])
         self.assertEqual(['person-02@example.net', 'person-03@example.net'],
@@ -273,7 +289,7 @@ class Integration(unittest.TestCase):
         self.service.update()
         self.admin.coupons = [[self.grant('23')]]
         self.source.orders.append(dict(order('correction', 'c-0', 100, 'person-0@example.net'),
-                                       paid_at='2026-11-01T12:00:00+08:00'))
+                                       paid_at='2026-11-03T02:00:00+08:00'))
         self.tick(run=False)
         exported = self.service.recommendations(None, export=True)['items']
         self.assertEqual(['person-1@example.net', 'person-2@example.net'], [row['email'] for row in exported])

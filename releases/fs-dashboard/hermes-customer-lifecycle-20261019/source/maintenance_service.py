@@ -316,7 +316,10 @@ class RecommendationPool:
 
     def enqueue_stock(self, facts, clock):
         at = clock()
-        today = at.astimezone(SHANGHAI).date().isoformat()
+        local_day = at.astimezone(SHANGHAI).date()
+        if facts.day != local_day - timedelta(days=1):
+            return
+        today = local_day.isoformat()
         observation = facts.day.isoformat()
         processed = 'SELECT 1 FROM maintenance_stock_days WHERE day=? OR observation_day=?'
         with self.ledger.db() as db:
@@ -387,7 +390,7 @@ class RecommendationPool:
             entry['state'] == 'ready' and same_cycle(entry, row) for entry in entries[row['customer_id']])}
         exclusions = None
         verified = True
-        latest = facts.latest_fc_order_keys(customers) if customers else {}
+        latest = facts.latest_fc_order_keys(customers, at) if customers else {}
         if customers:
             try:
                 exclusions = self._coupon_exclusions(facts, at, customers, refresh=export)
