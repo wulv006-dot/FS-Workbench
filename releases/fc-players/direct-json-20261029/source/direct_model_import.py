@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+import unicodedata
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Mapping
@@ -35,6 +36,35 @@ def _source_rows(path):
         workbook.close()
 
 
+# Admin accepts a-z, 0-9, "-" and a fixed set of accented Latin letters
+# (e.g. "luka-vušković"); it rejects "ı" and silently drops ".".
+_SLUG_LETTER_FOLD = {"ı": "i", "ø": "o", "ł": "l", "đ": "d", "ð": "d", "ħ": "h", "ŀ": "l",
+                     "þ": "th", "ß": "ss", "æ": "ae", "œ": "oe", "ĸ": "k", "ŋ": "n", "ŧ": "t"}
+
+
+def product_slug(text):
+    """Admin-safe slug; idempotent, so it also repairs slugs frozen by older plans."""
+    out = []
+    for char in unicodedata.normalize("NFC", str(text).lower()):
+        if char.isascii():
+            if char.isalnum():
+                out.append(char)
+            elif char == "-" or char.isspace():
+                out.append("-")
+            continue  # ASCII punctuation such as "." is dropped, as Admin does.
+        if char in _SLUG_LETTER_FOLD:
+            out.append(_SLUG_LETTER_FOLD[char])
+            continue
+        if char.isspace():
+            out.append("-")
+            continue
+        base = "".join(part for part in unicodedata.normalize("NFD", char) if not unicodedata.combining(part))
+        if len(base) == 1 and base.isascii() and base.isalpha():
+            # Latin-1 / Latin Extended-A accents are stored by Admin as given.
+            out.append(char if "À" <= char <= "ſ" else base)
+    return "-".join(part for part in "".join(out).split("-") if part)
+
+
 def prepare_direct_items(artifact_path, candidates, add_form, *, business_defaults, icons=None, context_artifact_path=None):
     """Selected data is frozen; classification uses the same export's full context."""
     artifact = Path(artifact_path)
@@ -64,7 +94,7 @@ def prepare_direct_items(artifact_path, candidates, add_form, *, business_defaul
                                           business_defaults={**business_defaults, "players_type": types[futbin]})
         except ValueError as exc:
             error = str(exc).split(":", 1)[0]
-        slug = "-".join(str(source["name"]).lower().split()) + "-" + futbin
+        slug = product_slug(str(source["name"]) + "-" + futbin)
         result.append({"futbin_id": futbin, "product_slug": slug, "payload": payload, "payload_sha256": digest(payload),
                        "players_type": types.get(futbin), "blocked_error": error, "missing_platforms": missing_platforms(source),
                        "missing_price_policy": business_defaults.get("missing_price_policy", "reject"),
@@ -435,7 +465,11 @@ def execute_direct_plan(settings, repo, client, execution_id, plan, should_stop=
                     unresolved.append(fid)
                     continue
                 phases = ["add", "shelves"]
-                slug = item.get("product_slug")
+                frozen_slug = item.get("product_slug")
+                slug = product_slug(frozen_slug) if frozen_slug else frozen_slug
+                # A plan frozen before the Admin charset rule keeps its old receipts;
+                # the corrected slug is a new action under its own phase name.
+                slug_phase = "product_slug_" if slug == frozen_slug else "product_slug_admin_charset_"
                 if slug:
                     products = client.get_products(mid)
                     _products(client, mid, rows=products)
@@ -447,7 +481,7 @@ def execute_direct_plan(settings, repo, client, execution_id, plan, should_stop=
                         current_slug = _product_slug(client, mid, pid, aid, before_fill=slug)
                         if current_slug not in (None, "", slug):
                             raise StateError("DIRECT_PRODUCT_SLUG_MISMATCH")
-                        phase = "product_slug_" + str(pid)
+                        phase = slug_phase + str(pid)
                         if current_slug == slug:
                             with repo.connection() as db:
                                 receipt = _latest(db, execution_id, fid, phase)

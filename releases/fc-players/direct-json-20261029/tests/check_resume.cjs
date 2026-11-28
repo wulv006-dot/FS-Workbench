@@ -180,6 +180,19 @@ function fixture({role='admin',auth=true,can_resume=true,image_resume=false,imag
     assert.equal(f.requests.filter(request=>request.options.method==='POST').length,1);scenarios++;
   }
   {
+    const f=fixture();
+    f.setJob({step:'direct_partial',items:[{model_id:9,status:'verified',after:{futbin_id:'24576',model_id:9}}],events:[
+      {created_at:'x',step:'direct_product_slug_187764267',status:'unknown',detail:{futbin_id:'24567',diagnostic:{response_code:0,response_msg:'Slug仅允许英文字母'}}},
+      {created_at:'x',step:'direct_add',status:'unknown',detail:{futbin_id:'24576'}}]});
+    await f.show();
+    const warning=all(f.roots.jobResult).find(node=>/写入结果待核对/.test(node.textContent));
+    assert.ok(warning,'unknown writes name the step instead of always saying add');
+    assert.match(warning.textContent,/（1 人）：24567（商品 slug：Admin 返回“Slug仅允许英文字母”）/);
+    assert.ok(!/24576/.test(warning.textContent),'a verified player is no longer listed as unknown');
+    assert.ok(!all(f.roots.jobResult).some(node=>/新增请求结果未知/.test(node.textContent)));
+    scenarios++;
+  }
+  {
     // Retain the established history-five behavior using the actual candidate loadJobs.
     const f=fixture();await vm.runInContext('loadJobs()',f.context);
     const rows=f.roots.jobsList.children.filter(child=>child.className==='job-row');
