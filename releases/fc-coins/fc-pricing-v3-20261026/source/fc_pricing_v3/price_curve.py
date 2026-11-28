@@ -189,12 +189,12 @@ def band_price_usd(anchor_price, anchor_quantity, purchase):
 
 
 def two_band_unit_price(tiers):
-    """Keep the storefront custom-quantity floor at the cheaper band rate."""
+    """Synchronize the Admin unit price to the 1000K anchor."""
     rates = {row['purchase_k']: Decimal(str(row['native_price_usd'])) / Decimal(row['purchase_k'])
              for row in tiers if row['purchase_k'] in COIN_BAND_ANCHORS.values()}
     if len(rates) != len(COIN_BAND_ANCHORS):
         return None
-    return _number(min(rates.values()).quantize(Decimal('1e-8')), positive=True)
+    return _number(rates[COIN_BAND_ANCHORS['large']].quantize(Decimal('1e-8')), positive=True)
 
 
 def _compile_two_band_prices(checked, anchors, native_contract):
