@@ -1753,9 +1753,12 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
     final_key = curve_key(final)
     entry['primary_inputs'][final_key] = (normal_input if final_key == normal_key else inputs_for(final))
     exception = None
+    # Externally recovering bands must prove the full margin; other bands keep
+    # their ordinary two-round upward repair exception.
     upward = {band: row for band, row in (insurance or {}).get('clipped', {}).items()
-              if Decimal(row['bounded']) > Decimal(observed[band])}
-    if upward and not insurance['recovering_bands']:
+              if Decimal(row['bounded']) > Decimal(observed[band])
+              and band not in insurance.get('recovering_bands', ())}
+    if upward:
         exception = dict(before_anchors=observed, clipped=upward,
                          round=entry['price_insurance']['below_margin_rounds'] + 1)
         entry['primary_inputs'][final_key]['domain']['price_insurance'] = exception

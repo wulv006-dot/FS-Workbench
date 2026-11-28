@@ -319,7 +319,7 @@ def curve_catalog_plan(bundle, platform, capability):
         if insured['clipped']:
             raise ValueError('pricing_curve_single_move_requires_reproof')
         exception = proof.get('price_insurance')
-        if exception and insured['recovering_bands']:
+        if exception and set(exception.get('clipped') or {}) & set(insured['recovering_bands']):
             raise ValueError('pricing_curve_recovery_requires_full_margin')
         if exception and (restore or exception.get('round') != insurance_context.get('below_margin_rounds', 0) + 1
                           or exception.get('round') not in (1, 2)):
