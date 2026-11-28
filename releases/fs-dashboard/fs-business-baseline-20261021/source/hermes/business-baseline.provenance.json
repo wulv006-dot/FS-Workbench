@@ -8,8 +8,8 @@
   "canonical_sha256": "a80ea5db83e2d68e8888fad0811f3f5a47f1c61ce6800a258f7967ede26ea47a",
   "target": "/opt/fs-hermes-fc/business-baseline.md",
   "before_sha256": "7e33d7276b4cf034a3aff6af70f42dece13a515c4d3d6ac62472bc7018fcea08",
-  "after_sha256": "b28e671fb899eaf1cc05f03138cea1abc97b5c76a904010b2f62e5880f74d799",
-  "bytes": 55833,
+  "after_sha256": "d2da8ddd974cb80a5a645b561d2bb526239a42053ededd72016fb8e07e3b4122",
+  "bytes": 55898,
   "prior_provenance_commit": "643a27446861fe2785549739d264ee8e86eb35d0",
   "prior_provenance_sha256": "2ad94630b518101c93870d41cb9f522adf4ea71772e49394f85a011f82705967",
   "changes": [

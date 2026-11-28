@@ -240,7 +240,7 @@ FC27 `fc27_curve_v6` 的当前报价预测使用下文第6节的同平台三小�
 
 周一待 ES 周日发布后评估，提议周三 24 时到期。阶段 5 按两完整自然周、各平台两段合计同单实际毛利额及单量评估 t；阶段 4 每平台每周最多调一段 p。前四周吴律逐项确认，之后按授权自动。缺实际成本留空。
 
-Admin writer 保存 ALL 全表，凭本次成功回执和主站 266 全表核验。历史及未决操作按原 ID、CAS、UNKNOWN 对账。同单实收、实际成本用于复盘。见[现行合同](../fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md)。
+Admin writer 保存 ALL 全表，凭本次成功回执和主站 266 全表核验。历史及未决操作按原 ID、CAS、UNKNOWN 对账。同单实收、实际成本用于复盘。见[现行合同](https://github.com/wulv006-dot/FS-Workbench/blob/main/docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md)。
 
 ### 利润与反证的计算边界（v2澄清）
 
