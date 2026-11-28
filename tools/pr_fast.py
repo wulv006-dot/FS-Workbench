@@ -480,6 +480,8 @@ def selfcheck():
         raise RuntimeError('evolutions_admin_session_checks_missing')
     if select(['releases/fc-sbc/security-20261015/source/webapp.py'])!=['fc-sbc-security']:
         raise RuntimeError('SBC security checks missing')
+    if select(["releases/fc-sbc/reprice-receipt-contract-20261122/reprice_receipt.py"]) != ["fc-sbc-reprice-receipt"]:
+        raise RuntimeError("SBC reprice receipt tests missing")
     if select(['releases/fs-dashboard/hermes-report-tracks-20261015/source/pricing_report.py'])!=['hermes-report-tracks']:
         raise AssertionError('report track release must run affected checks')
     if select(['releases/fs-dashboard/hermes-fs-research-integration-20261015/source/official_intelligence.py'])!=['hermes-fs-research-integration']:
@@ -879,6 +881,8 @@ def select(paths):
         if name=="ui-system/modules/native/google.js":groups.add("traffic-hermes")
         if name.startswith("releases/fc-sbc/security-20261015/"):
             groups.add("fc-sbc-security");continue
+        if name.startswith("releases/fc-sbc/reprice-receipt-contract-20261122/"):
+            groups.add("fc-sbc-reprice-receipt");continue
         suffix=Path(name).suffix
         if name.startswith("releases/fs-dashboard/management-quality-20261016/"):
             groups.add("management-quality");continue
@@ -1699,6 +1703,8 @@ def main():
             units("releases/fc-sbc/admin-100k-rate-20261113/tests", ["test_pricing_admin_100k"])
         elif group=="fc-sbc-security":
             units("releases/fc-sbc/security-20261015/tests",["test_security","test_publisher"])
+        elif group=="fc-sbc-reprice-receipt":
+            units("releases/fc-sbc/reprice-receipt-contract-20261122", ["test_reprice_receipt", "test_shadow_verify", "test_site_binding", "test_reprice_plan", "test_site_reprice"])
         elif group=="news-weekly-schedule":
             units("releases/fs-dashboard/news-weekly-schedule-20261016/tests",["test_weekly","test_release_backend"])
             node("releases/fs-dashboard/news-weekly-schedule-20261016/tests/test_weekly_ui.cjs")
