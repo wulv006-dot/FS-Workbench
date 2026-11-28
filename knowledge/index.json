@@ -2301,6 +2301,37 @@
         "Codex",
         "Hermes formal knowledge entry"
       ]
+    },
+    {
+      "id": "fc.pricing.constraints",
+      "revision": "legacy-market-replay-20261128",
+      "layer": "archive",
+      "status": "archived",
+      "modules": [
+        "FC27"
+      ],
+      "effective_at": "2026-11-28",
+      "effective_at_basis": "2026-11-28 归档整理日；原策略生效时间沿历史账本。",
+      "owner": "吴律；原模块维护者",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+        "sha256": "be8d037396471dbc2555a79060be4484c321ae701859844d6bdfc4a7cce71d1f",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "### 历史回放：三站与试价",
+          "end": "## 财务、竞品和地区"
+        }
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "historical_contract_excerpt",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md"
+        }
+      ],
+      "time_precision": "date_only"
     }
   ],
   "base_commit": "b375b7835b7f3fdd2bbbea8470c228f4c555de79"

@@ -254,9 +254,9 @@ class LearningCatalog(unittest.TestCase):
 
     def test_current_entries_cover_rules_and_reporting_and_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 30)
+        self.assertEqual(len(entries), 31)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 30)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), len(entries))
         experience = next(r for r in entries if r['id'] == 'fc.evolutions.experience.current-state-cutover')
         self.assertEqual(experience['layer'], 'experience')
         self.assertEqual(experience['status'], 'verified')
@@ -297,6 +297,21 @@ class LearningCatalog(unittest.TestCase):
                                ['FS'], ['fs.dashboard.shipping-profit'], revision='shipping-profit-20261024-v1',history=True,preview=True)
         self.assertEqual(historical['entries'], [])
         self.assertEqual(catalog()['release_state'], 'candidate')
+
+    def test_market_replay_only_selected_by_historical_revision(self):
+        path = ROOT / 'knowledge/index.json'
+        args = (ROOT, 'knowledge/index.json', hashlib.sha256(lf(path)).hexdigest(),
+                ['FC27'], ['fc.pricing.constraints'])
+        current = kc.select(*args, preview=True)['entries']
+        historical = kc.select(*args, revision='legacy-market-replay-20261128',
+                               history=True, preview=True)['entries']
+        self.assertEqual(len(current), 1)
+        self.assertEqual(len(historical), 1)
+        self.assertEqual(historical[0]['layer'], 'archive')
+        for marker in ('此前的三站合同', '旧 `smart-three-platform-v3`', 'region 21'):
+            self.assertIn(marker, historical[0]['content'])
+            self.assertNotIn(marker, current[0]['content'])
+        self.assertNotIn('### 三日平均优惠与午夜归档', historical[0]['content'])
 
     def test_every_source_hash_and_selector_resolves_against_real_files(self):
         for row in catalog()['entries']:
