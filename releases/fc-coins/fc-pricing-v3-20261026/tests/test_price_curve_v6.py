@@ -39,13 +39,13 @@ class NativeCurve(unittest.TestCase):
 
         editor = dict(EDITOR_CONTRACT, price_edit_policy=TWO_BAND_PRICE_EDIT)
         row = catalogue()
-        row.update(unit_price='0.07499')
+        row.update(unit_price='0.0715')
         row['more']['price'] = ['0.71','3.57','7.15','57.20','71.50','107.25','143','357.50']
         original = read(row)
         result = compile_curve(original, {'anchor_prices_usd': {'1000': '74.99'}}, editor)
         expected = deepcopy(row)
         expected['more']['price'][4:] = [74.99, 112.48, 149.98, 374.95]
-        expected['unit_price'] = 0.07499
+        expected['unit_price'] = 0.0715
         self.assertEqual(result['native_payload'], expected)
         with self.assertRaisesRegex(ValueError, 'editor_segment_anchor_invalid'):
             compile_curve(original, {'anchor_prices_usd': {'2000': '149.98'}}, editor)
@@ -53,7 +53,7 @@ class NativeCurve(unittest.TestCase):
         self.assertEqual(quotes['999']['promised_bonus_k'], '0')
         self.assertEqual(quotes['1001']['regular_usd'], '75.06')
 
-    def test_two_band_small_edit_syncs_stale_unit_price_to_large_band(self):
+    def test_two_band_small_edit_syncs_stale_unit_price_to_cheaper_band(self):
         from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
 
         editor = dict(EDITOR_CONTRACT, price_edit_policy=TWO_BAND_PRICE_EDIT)
@@ -61,14 +61,14 @@ class NativeCurve(unittest.TestCase):
         row.update(unit_price='0.0839')
         row['more']['price'] = ['0.71','3.57','7.15','57.20','58.66','87.99','117.32','293.30']
         result = compile_curve(read(row), {'anchor_prices_usd': {'100': '5.70'}}, editor)
-        self.assertEqual(result['unit_price_usd_per_k'], '0.05866')
+        self.assertEqual(result['unit_price_usd_per_k'], '0.057')
         self.assertEqual(result['native_payload']['more']['price'][4:], ['58.66','87.99','117.32','293.30'])
 
     def test_unit_price_requires_both_anchors_in_either_price_order(self):
         from fc_pricing_v3.price_curve import two_band_unit_price
         small = dict(purchase_k='100', native_price_usd='6.28')
         large = dict(purchase_k='1000', native_price_usd='70.11')
-        self.assertEqual(two_band_unit_price([large, small]), '0.07011')
+        self.assertEqual(two_band_unit_price([large, small]), '0.0628')
         self.assertEqual(two_band_unit_price([small, dict(large, native_price_usd='57')]), '0.057')
         for rows in ([small], [large], []):
             self.assertIsNone(two_band_unit_price(rows))

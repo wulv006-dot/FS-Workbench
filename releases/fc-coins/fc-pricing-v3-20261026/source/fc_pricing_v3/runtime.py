@@ -1622,7 +1622,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
                 if recovery is not None:
                     prices[band] = str(recovery)
         # A hold round still recompiles when the saved unit_price is stale, so
-        # the two-band compile writes it back to the 1000K anchor rate.
+        # the two-band compile writes it back to the cheaper per-K rate.
         recompile = prices or (editor.get('price_edit_policy') == TWO_BAND_PRICE_EDIT
                                and current['unit_price_usd_per_k'] != two_band_unit_price(current['tiers']))
         normal = (compile_curve(current, dict(anchor_prices_usd={ANCHORS[band]: value

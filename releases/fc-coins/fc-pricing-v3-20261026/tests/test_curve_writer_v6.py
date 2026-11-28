@@ -45,7 +45,7 @@ def saved(row, origin=None):
 
 
 def two_band(curve):
-    """Switch a fixture curve to two-band with unit_price synced to 1000K / 1000."""
+    """Switch a fixture curve to two-band with the cheaper per-K rate."""
     from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT, two_band_unit_price
 
     curve['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
@@ -256,12 +256,13 @@ class CurveWriter(unittest.TestCase):
         proof['curve_key'] = curve_key(target)
         proof['proof_hash'] = fingerprint({k: v for k, v in proof.items() if k != 'proof_hash'})
 
-    def test_two_band_writer_rejects_unit_price_not_synced_to_large_band(self):
+    def test_two_band_writer_rejects_unit_price_not_synced_to_cheaper_band(self):
         from fc_pricing_v3.price_curve import TWO_BAND_PRICE_EDIT
 
         self.prepare()
         target = self.bundle['action']['curves'][PLATFORM]
         target['native_contract']['price_edit_policy'] = TWO_BAND_PRICE_EDIT
+        target['native_payload']['unit_price'] = '0.103'
         with self.assertRaisesRegex(ValueError, 'pricing_curve_two_band_unit_price_unsynced'):
             writer.curve_catalog_plan(self.bundle, PLATFORM, self.capabilities[PLATFORM])
 
@@ -309,7 +310,7 @@ class CurveWriter(unittest.TestCase):
 
         for small, before_large, large in (('8.62', '81.60', '86.12'), ('8.35', '86.00', '86.00')):
             with self.subTest(small=small, large=large):
-                unit = str(Decimal(large) / 1000)
+                unit = str(min(Decimal(small) / 100, Decimal(large) / 1000))
 
                 def admin_target(row):
                     row['unit_price'] = unit
