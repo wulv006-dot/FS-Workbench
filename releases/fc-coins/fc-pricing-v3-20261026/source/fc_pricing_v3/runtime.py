@@ -996,6 +996,51 @@ def _confirmed_cost_references(db, platforms=PLATFORMS, *, conn=None):
     return references
 
 
+def _external_curve_context(db, platform, current, read_started):
+    """Attribute ALL drift only against a confirmed write predating this observation."""
+    from contextlib import closing
+    from .curve_strategy_v6 import band_anchors
+    from .platforms import native_resources
+
+    with closing(db.connect()) as conn:
+        for raw, in conn.execute('SELECT body FROM operations ORDER BY rowid DESC'):
+            op = json.loads(raw)
+            bundle = op.get('bundle') or {}
+            expected = (bundle.get('action', {}).get('curves') or {}).get(platform)
+            if not expected and 'base:' + platform not in native_resources(op.get('resources', [])):
+                continue
+            if op['status'] in ('NO_CHANGE', 'CANCELLED_NOT_SENT', 'FAILED_BEFORE_WRITE', CURVE_REJECTED):
+                continue
+            if (not expected or op['status'] != 'COMPLETED' or not op.get('completed_at')
+                    or instant(op['completed_at']) > read_started):
+                return {}
+            try:
+                confirmed_curve_window(op)
+            except ValueError:
+                return {}
+            break
+        else:
+            return {}
+    old = {row['purchase_k']: row for row in expected['tiers']}
+    new = {row['purchase_k']: row for row in current['tiers']}
+    common = old.keys() & new.keys()
+    structure = (list(old) != list(new) or any(old[q][k] != new[q][k] for q in common
+                 for k in ('promised_bonus_k', 'native_discount')))
+    prices = (expected['unit_price_usd_per_k'] != current['unit_price_usd_per_k']
+              or any(old[q]['native_price_usd'] != new[q]['native_price_usd'] for q in common))
+    selection = (bundle.get('curve_selection') or {}).get(platform) or {}
+    bands = set((selection.get('price_insurance') or {}).get('continuing_recovery', []))
+    result = {}
+    if prices or structure:
+        result['external_change'] = dict(operation_id=op['operation_id'], price_changed=prices,
+                                         structure_changed=structure)
+        prior = band_anchors(expected)
+        bands.update(band for band, price in band_anchors(current).items() if price != prior.get(band))
+    if bands:
+        result['recovery_bands'] = sorted(bands)
+    return result
+
+
 def _curve_insurance_context(db, platform, evidence, now):
     from .curve_strategy_v6 import band_anchors
 
@@ -1222,6 +1267,7 @@ def collect_curve_catalogues(evidence, platforms):
             primary = read_catalogue_row(platform, 266, observed)
             current = read_curve(primary, {key: primary[key] for key in IDENTITY_FIELDS}, contract)
             stage = 'all'
+            read_started = clock()
             all_row = read_catalogue_row(platform, 0, observed)
             all_before = read_curve(all_row, {key: all_row[key] for key in IDENTITY_FIELDS}, contract)
         except (OSError, HTTPException, TypeError, ValueError, KeyError, AttributeError) as error:
@@ -1239,7 +1285,7 @@ def collect_curve_catalogues(evidence, platforms):
                        if key != curve_key(current)}
         collected[platform] = dict(primary_curve=current, all_before=all_before, editor_contract=editor,
                                    native_route=routes.get(platform), candidates=candidates, readbacks=observed,
-                                   all_targets=all_targets)
+                                   all_targets=all_targets, all_read_started=read_started.isoformat())
         if restore:
             try:
                 target = _curve_restore_target(all_before, restore[platform])
@@ -1281,6 +1327,7 @@ def collect_curve_catalogues(evidence, platforms):
         average = average_discount(discount_source, platform, paid_cutoff)
         from .cost_inputs_v6 import smooth_delivery_cost
         context = _curve_insurance_context(db, platform, evidence, now)
+        context.update(_external_curve_context(db, platform, entry['all_before'], instant(entry['all_read_started'])))
         cost = smooth_delivery_cost((evidence.get('costs') or {}).get(platform), platform, now,
                                     context['confirmed_cost_cny_per_k'])
         entry['price_insurance'] = context
@@ -1552,6 +1599,15 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
             observed = band_anchors(current)
             prices.update({band: prior['normal'] for band, prior in active.items()
                            if band not in position['anchors'] and observed[band] == prior['target']})
+        insurance_context = entry.get('price_insurance') or {}
+        if insurance_context.get('recovery_bands'):
+            from coin_all_sync_job import external_recovery_request
+            insurance_context.update(market_high=position['anchors'], market_low=position.get('low_anchors') or {})
+            for band, observed_price in band_anchors(current).items():
+                recovery = external_recovery_request(band, Decimal(observed_price),
+                    Decimal(prices.get(band, observed_price)), insurance_context)
+                if recovery is not None:
+                    prices[band] = str(recovery)
         # A hold round still recompiles when the saved unit_price is stale, so
         # the two-band compile writes it back to the cheaper per-K rate.
         recompile = prices or (editor.get('price_edit_policy') == TWO_BAND_PRICE_EDIT
@@ -1686,7 +1742,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
     exception = None
     upward = {band: row for band, row in (insurance or {}).get('clipped', {}).items()
               if Decimal(row['bounded']) > Decimal(observed[band])}
-    if upward:
+    if upward and not entry['price_insurance'].get('recovery_bands'):
         exception = dict(before_anchors=observed, clipped=upward,
                          round=entry['price_insurance']['below_margin_rounds'] + 1)
         entry['primary_inputs'][final_key]['domain']['price_insurance'] = exception
@@ -2489,6 +2545,11 @@ def calculate_curve_cycle(db, evidence, plan, request, now):
     catalogue_gaps = evidence.get('curve_catalogue_gaps') or {}
     for row in rows:
         platform = row['platform']
+        change = ((frozen.get(platform) or {}).get('price_insurance') or {}).get('external_change')
+        if change:
+            row['selection'] = dict(row.get('selection') or {}, external_change=change)
+            if active:
+                db.incident('pricing_curve_external_change', 'admin_all:' + platform, [platform], error=change)
         for gap in ((frozen.get(platform) or {}).get('recent_source_gap'), catalogue_gaps.get(platform)):
             if gap and gap not in row['gaps']:
                 row['gaps'] = [*row['gaps'], gap]

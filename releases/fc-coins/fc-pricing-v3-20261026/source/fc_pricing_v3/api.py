@@ -107,7 +107,7 @@ def _curve_decision(snapshot, plan):
     for row in result.get('rows', []):
         selection = row.get('selection') or {}
         chosen = {key: selection[key] for key in ('segment', 'label', 'reference_anchors', 'normal_anchors',
-                                                   'final_anchors', 'cost_protection', 'large_market_reference') if key in selection}
+                                                   'final_anchors', 'cost_protection', 'large_market_reference', 'external_change') if key in selection}
         margin_band = selection.get('margin_band') or {}
         if margin_band and snapshot.get('plan_revision') == plan['revision']:
             if margin_band.get('promotion_guard'):
@@ -493,7 +493,7 @@ def read(path):
                     minimum_safe_procurement_margin=proof['minimum_safe_procurement_margin'])
                 selection = selections.get(platform, {})
                 rows[platform].update({key: selection[key] for key in ('reference_anchors', 'normal_anchors',
-                    'final_anchors', 'cost_protection', 'large_market_reference') if key in selection})
+                    'final_anchors', 'cost_protection', 'large_market_reference', 'external_change') if key in selection})
                 rows[platform]['market_observations'] = (selection.get('market_anchor') or {}).get('observations', [])
             observation = db.get('market_observations',current['snapshot_id'])
             return dict(_curve_market_quotes(current,observation), price_basis={'rows': rows}, catalogue_samples=catalogues)

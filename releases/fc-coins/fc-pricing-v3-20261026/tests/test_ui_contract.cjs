@@ -398,7 +398,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   state.captured_at=curveCapturedAt;
   state.source_checked_at=curveCapturedAt;
   state.curve_decision={status:'READY',rows:[
-    {platform:'PS',status:'READY',selection:{segment:'large',label:'C',
+    {platform:'PS',status:'READY',selection:{segment:'large',label:'C',external_change:{price_changed:true,structure_changed:true},
       margin_band:{target:'.31',bands:{small:{margin_at_current:'.29',business_margin_at_current:'.31'},
         large:{margin_at_current:'.27',business_margin_at_current:'.30'}}},
       cost_by_band:{small:{cny_per_1k:'.25'},large:{cny_per_1k:'.286',basis:'combined_fallback'}},
@@ -428,6 +428,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   const curveDecisionText=JSON.stringify(elements['v3-strategies'].children);
   assert.match(curveDecisionText,/PS.*已有可行方案.*大额段.*C.*Xbox.*保持现价.*PC.*核算待补/);
   assert.doesNotMatch(curveDecisionText,/双20|已写价|本轮最终候选|op-1/);
+  assert.match(curveDecisionText,/检测到 Admin 外部改价.*价格偏离.*档位结构变化/);
   assert.match(curveDecisionText,/目标利润率.*31.00%.*按真实优惠的利润率.*29.00%.*判断用利润率.*31.00%/);
   assert.match(curveDecisionText,/大额段（≥1000K）.*27.00%.*30.00%.*0.2500 CNY\/K.*0.2860 CNY\/K.*大单样本不足，暂用全部订单成本/);
   assert.match(curveDecisionText,/三日平均优惠率.*9.00%.*昨天单日优惠率.*18.00%.*实际优惠率.*偏高.*warning-text.*13.50%.*4.5 点.*已触顶/);

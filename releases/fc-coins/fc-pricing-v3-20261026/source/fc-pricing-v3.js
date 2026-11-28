@@ -319,6 +319,13 @@
       const audit=selection?.promotion_guard;
       const section=node('section');
       section.append(node('h4',platform==='XBOX'?'Xbox':platform));
+      const change=selection?.external_change;
+      if(change){
+        const details=[change.price_changed&&'价格偏离',change.structure_changed&&'档位结构变化'].filter(Boolean);
+        const notice=node('p','检测到 Admin 外部改价（'+details.join('、')+'）。越界段通过保险后每轮最多回调 15%。');
+        notice.className='warning-text';
+        section.append(notice);
+      }
       const target=node('dl');
       target.append(node('dt','目标利润率'),node('dd',discountPercent(margins?.target??configuration?.[platform]?.target)));
       section.append(target);

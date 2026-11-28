@@ -1,6 +1,7 @@
 """Exercise original-operation coordination against the synthetic F4 transport."""
 from contextlib import ExitStack, closing
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 import json
 from pathlib import Path
 import sys
@@ -286,6 +287,31 @@ class CurveRuntime(unittest.TestCase):
                 self.assertEqual(stale_shadow['target_curve']['unit_price_usd_per_k'], '0.095')
                 self.assertEqual([row['native_price_usd'] for row in stale_shadow['target_curve']['tiers']],
                                  [row['native_price_usd'] for row in stale['tiers']])
+
+        # Re-run the same proof producer for natural off-hour and manual requests.
+        from fc_pricing_v3.price_curve import compile_curve
+        from fc_pricing_v3.curve_strategy_v6 import market_anchor_parameters
+        parameters = market_anchor_parameters()
+        for bands in parameters.values():
+            for terms in bands.values():
+                terms['p_low'] = '-.10'
+        reset = compile_curve(current, {'anchor_prices_usd': {1000: '119.49'}}, editor)
+        for automatic in (False, True):
+            entry = dict(primary_curve=reset, all_before=runtime._all_curve_target(before, reset),
+                editor_contract=editor, primary_inputs={}, all_inputs={}, all_targets={},
+                margin_band_context=dict(automatic=automatic, at=now.replace(hour=5)), price_insurance=dict(
+                    day_anchors={'small': '10', 'large': '70.11'}, recovery_bands=['large'],
+                    market_per_100k=['8'], below_margin_rounds=0))
+            plan = dict(mode='smart', smart_strategy_version='market-anchor-v1', parameters=dict(
+                market_anchor=parameters, margin_band={'schedule_hours': [6], PLATFORM: {'target': '.31'}}))
+            runtime._freeze_cost_protection(PLATFORM, entry, inputs, dict(reference=reference, episode=episode),
+                plan, dict(competitor_offers=position_offers(now, '7', '8')), now, {})
+            frozen = entry['temporary_cost_protection']
+            self.assertEqual(frozen['status'], 'PROVEN', frozen['gaps'])
+            self.assertEqual(frozen['final_anchors']['large'], '101.57')
+            self.assertEqual(frozen['normal_anchors']['small'], '10')
+            self.assertEqual(frozen['price_insurance']['continuing_recovery'], ['large'])
+            self.assertFalse(frozen['preference']['margin_band']['decision_round']['is_decision_round'])
 
     def test_market_anchor_plan_selects_both_bands_without_a_three_hour_trial(self):
         from test_curve_strategy_v6 import fixture
@@ -608,6 +634,58 @@ class CurveRuntime(unittest.TestCase):
         self.assertEqual(result['clipped']['small']['requested'], '12')
         with self.assertRaisesRegex(ValueError, 'pricing_curve_daily_move_exceeded'):
             curve_price_insurance(current, target, dict(context, day_anchors={'small': '8', 'large': '95'}))
+
+    def test_admin_drift_compares_last_confirmed_all_and_skips_intervening_writes(self):
+        from copy import deepcopy
+        from test_curve_writer_v6 import saved
+
+        self.prepare()
+        self.assertEqual(self.execute()['status'], 'COMPLETED')
+        now = datetime.now(timezone.utc)
+        after = self.bundle['action']['curves'][PLATFORM]
+        def compare(curve):
+            return runtime._external_curve_context(self.db, PLATFORM, curve, now)
+        self.assertFalse(compare(after).get('external_change'))
+        row = deepcopy(after['native_payload'])
+        for field, value in dict(gold='500', give='0', discount='100', price='50', hot='0', delivery_time='10').items():
+            row['more'][field].append(value)
+        change = compare(saved(row))['external_change']
+        self.assertEqual((change['price_changed'], change['structure_changed']), (False, True))
+        row['more']['price'][1] = '119.49'
+        context = compare(saved(row))
+        self.assertEqual(context['recovery_bands'], ['large'])
+        self.assertTrue(context['external_change']['price_changed'])
+        self.assertEqual(context['external_change']['operation_id'], OPERATION)
+        self.db.put('operations', 'in-flight', dict(status='UNKNOWN', resources=['base:PS']))
+        self.assertEqual(compare(saved(row)), {})
+
+    def test_external_reset_replay_uses_inward_cent_steps_and_requires_evidence(self):
+        from coin_all_sync_job import curve_price_insurance
+        from fc_pricing_v3.price_curve import compile_curve, TWO_BAND_PRICE_EDIT
+        from test_curve_strategy_v6 import fixture
+
+        source, _, _ = fixture()
+        editor = dict(source['native_contract'], price_edit_policy=TWO_BAND_PRICE_EDIT)
+        def curve(price):
+            return compile_curve(source, {'anchor_prices_usd': {1000: price}}, editor)
+        context = dict(day_anchors={'small': '10', 'large': '70.11'}, market_per_100k=['7'],
+                       recovery_bands=['large'], market_high={'large': '70.11'})
+        price = '119.49'
+        for expected in ('101.57', '86.34', '73.39', '70.11'):
+            result = curve_price_insurance(curve(price), curve('70.11'), context)
+            self.assertEqual(Decimal(result['anchors']['large']), Decimal(expected))
+            self.assertFalse(curve_price_insurance(curve(price), curve(expected), context)['clipped'])
+            price = expected
+        with self.assertRaisesRegex(ValueError, 'daily_move_exceeded'):
+            curve_price_insurance(curve('119.49'), curve('70.11'), dict(context, recovery_bands=[]))
+        with self.assertRaisesRegex(ValueError, 'daily_reference_unavailable'):
+            curve_price_insurance(curve('119.49'), curve('70.11'), dict(context, day_anchors={'small': '10'}))
+        # Low reset moves up, even when requested price stays low. Both sides stop inside the daily corridor.
+        context.update(day_anchors={'small': '10', 'large': '100'}, market_per_100k=['8'])
+        for current, requested, expected in [('52', '52', '59.80'), ('59', '1', '60'), ('141', '1', '119.85')]:
+            with self.subTest(current=current):
+                value = curve_price_insurance(curve(current), curve(requested), context)['anchors']['large']
+                self.assertEqual(Decimal(value), Decimal(expected))
 
     def test_insurance_both_directions_daily_boundaries_and_next_round(self):
         from coin_all_sync_job import curve_price_insurance
