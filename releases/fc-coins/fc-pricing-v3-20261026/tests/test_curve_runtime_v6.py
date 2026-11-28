@@ -561,7 +561,7 @@ class CurveRuntime(unittest.TestCase):
 
         entry = dict(primary_curve=current, all_before=before, editor_contract=editor, preferred_label='A',
             segment='large', native_route=None, primary_inputs={}, all_inputs={}, all_targets={},
-            price_insurance=dict(day_anchors={'small': '10', 'large': '95'}, market_per_100k=['10'],
+            price_insurance=dict(recovery_bands=['large'], day_anchors={'small': '10', 'large': '95'}, market_per_100k=['10'],
                                  below_margin_rounds=0))
         state = dict(reference=reference, episode=episode)
         now = datetime.now(timezone.utc)

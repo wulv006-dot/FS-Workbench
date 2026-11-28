@@ -1755,7 +1755,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
     exception = None
     upward = {band: row for band, row in (insurance or {}).get('clipped', {}).items()
               if Decimal(row['bounded']) > Decimal(observed[band])}
-    if upward and not entry['price_insurance'].get('recovery_bands'):
+    if upward and not insurance['recovering_bands']:
         exception = dict(before_anchors=observed, clipped=upward,
                          round=entry['price_insurance']['below_margin_rounds'] + 1)
         entry['primary_inputs'][final_key]['domain']['price_insurance'] = exception
