@@ -134,7 +134,7 @@ class BaselineTests(unittest.TestCase):
             for rule in ('低于 1000K 和 1000K 及以上', 'Lootbar、U7Buy 按同平台 100K、1000K 普通售价比较', 'U4GM 仅作观察',
                          'D-3 至 D-1', 'Admin 优惠前商品金额', '18% 组合采购毛利率底线',
                          '未启用 `margin_band` 时用 25% 作经营比较', 'MMOEXP 主站（site 266）完整价表一致',
-                         'market-anchor-v1', '同平台近三小时有效订单发货成交中位数',
+                         'market-anchor-v1', '购买 K 加权中位数',
                          'PS/Xbox 31%、PC 34%', '每小时仍核零线', '实际毛利额和订单量评估 t',
                          '前四周逐项由吴律确认', '缺实际成本不补零或用预测代替'):
                 self.assertIn(rule, current)
