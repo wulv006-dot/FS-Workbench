@@ -1280,6 +1280,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                "采购成本_旧": (_f(_actual.get(sv.get("key"))) if _f(_actual.get(sv.get("key"))) is not None else _known.get(sv.get("key"))),
                "利润率": rl, "对标档位": tier,
                "展示倍率": _dm, "展示单位": _ul}
+        row_factor = _f(sv.get("前台系数")) or front_factor_of(cfg, gm)
         _ig = ig
         # ⛔ 【2026-11-07 老板定案】AION2 取消 IGGM 查价与跟价 —— 它只跟 DD373。
         #   86 个区每轮 86 次 IGGM 请求，纯展示用，性价比太低；而且服务器出口被 CF 拦，
@@ -1293,7 +1294,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         try:
             if _aion2_ig_off:
                 raise _Aion2IggmOff("AION2 IGGM 查价已停用")
-            igd = _ig.fetch(sv.get("iggm_sid"), page=gp["IGGM金币页"])
+            igd = _ig.fetch(sv["iggm_sid"], page=gp["IGGM金币页"]) if sv.get("iggm_sid") else {}
             rec["IGGM每M"] = igd.get("unit_price")
             rec["IGGM档位"] = igd.get("tiers")
             rec["IGGM标题"] = igd.get("title")
@@ -1352,7 +1353,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             rec["我方前端折扣_对标档位"] = _disc_used
             rec["我方前端折扣_对标档位名"] = n
             try:
-                _assumed = round(front_factor_of(cfg, gm) * 100.0, 4)
+                _assumed = round(row_factor * 100.0, 4)
                 rec["前台折扣_假定值"] = _assumed
                 if _disc_used and abs(float(_disc_used) - _assumed) > 0.5:
                     rec["前台折扣不符提醒"] = (
@@ -2260,6 +2261,8 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         #    **不读 config 服务区[].利润率**（那字段全游戏应恒为 0.2，同事偶尔改后台
         #    30% 是人工控价，必须保留虚高、不能被这里抵消）。
         _div = cost_divisor_of(cfg, 0.20, gm)
+        if sv.get("前台系数"):
+            _div *= front_factor_of(cfg, gm) / row_factor
         rec["成本除数"] = _div
         # ── 2026-10-17 · IGGM「同档封顶」（仅 iggm_undercut，当前 = MSCW）────────
         # 病灶（2026-10-17 实测）：目标价只认 IGGM 的**基础单价**（$0.119/K = 50K 档的价），
@@ -2283,7 +2286,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     if _n1 and _a1:
                         _ig_map[_n1] = _a1 / _n1
                 if _ig_map:
-                    _div_base = _div * front_factor_of(cfg, gm)   # disc=100 档的除数
+                    _div_base = _div * row_factor   # disc=100 档的除数
                     _cap = _cap_tier = None
                     _cmp = []
                     for _t in _tiers_now:
