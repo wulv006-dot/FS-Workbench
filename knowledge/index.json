@@ -462,7 +462,7 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_bf_fixes_20261128",
+      "revision": "fc_v61_single_goods_unit_20261128",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -474,7 +474,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "e306eed25c880f6e2c04dc147f622ee35c0d06ac548062e2af5dc0984ef1c58d",
+        "sha256": "be8d037396471dbc2555a79060be4484c321ae701859844d6bdfc4a7cce71d1f",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -505,7 +505,8 @@
         "fc.pricing.constraints@fc_v61_u4gm_only_observation_20261125",
         "fc.pricing.constraints@fc_v61_cost_list_verification_20261125",
         "fc.pricing.constraints@fc_v61_two_band_unit_price_20261126",
-        "fc.pricing.constraints@fc_v61_segmented_cost_promotion_cap_20261127"
+        "fc.pricing.constraints@fc_v61_segmented_cost_promotion_cap_20261127",
+        "fc.pricing.constraints@fc_v61_bf_fixes_20261128"
       ],
       "provenance": [
         {
@@ -653,6 +654,11 @@
           "date": "2026-11-28",
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
           "scope": "两段单价、外部改价回调、标准档位与 revision 10。"
+        },
+        {
+          "kind": "direct_user",
+          "date": "2026-11-28",
+          "scope": "Clarify single product unit price and two derived band rates; retain historical market rules outside the active excerpt."
         }
       ],
       "consumers": [
@@ -1520,7 +1526,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "e306eed25c880f6e2c04dc147f622ee35c0d06ac548062e2af5dc0984ef1c58d",
+        "sha256": "be8d037396471dbc2555a79060be4484c321ae701859844d6bdfc4a7cce71d1f",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "### 每周定位溢价修复（2026-11-17）"

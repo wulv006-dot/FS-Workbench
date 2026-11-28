@@ -46,7 +46,7 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_bf_fixes_20261128')
+        self.assertEqual(v['entries'][0]['revision'], 'fc_v61_single_goods_unit_20261128')
         self.assertIn('verification=list_fast_path', v['entries'][0]['content'])
         self.assertIn('verification=order_detail', v['entries'][0]['content'])
         self.assertIn('U4GM 仅用于监控比价', v['entries'][0]['content'])
