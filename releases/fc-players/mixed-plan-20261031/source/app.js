@@ -197,9 +197,13 @@
     const imageError=imageJobError(job);
     if(imageError)root.append(node("p",imageError+"。","warn"));
     renderImageJobStatus(job);
-    const phases=new Map();for(const event of job.events||[]){const fid=event.detail?.futbin_id;if(fid&&event.step.startsWith("direct_"))phases.set(fid+":"+event.step,{fid,step:event.step,status:event.status});}
-    const unknown=[...new Set([...phases.values()].filter(row=>row.status==="unknown").map(row=>row.fid))],waiting=[...new Set([...phases.values()].filter(row=>row.step==="direct_shelves"&&row.status==="accepted").map(row=>row.fid))];
-    if(unknown.length)root.append(node("p","新增请求结果未知（"+unknown.length+" 人）："+unknown.join("、")+"。请先核对原请求；系统不会重复发送已派发的请求。","warn"));
+    const phases=new Map();for(const event of job.events||[]){const fid=event.detail?.futbin_id;if(fid&&event.step.startsWith("direct_"))phases.set(fid+":"+event.step,{fid,step:event.step,status:event.status,detail:event.detail});}
+    const verified=new Set((job.items||[]).filter(item=>item.status==="verified").map(item=>String(item.after?.futbin_id??item.planned?.futbin_id??"")));
+    const stepName=step=>step==="direct_add"?"新增模型":step==="direct_shelves"?"上架":step.startsWith("direct_product_slug_")?"商品 slug":step==="direct_sync"?"同步价格":step.startsWith("direct_product_status_")?"商品启用":step.slice(7);
+    const unknownText=new Map();
+    for(const row of phases.values()){if(row.status!=="unknown"||verified.has(String(row.fid))||unknownText.has(row.fid))continue;const reason=row.detail?.diagnostic?.response_msg;unknownText.set(row.fid,row.fid+"（"+stepName(row.step)+(reason?"：Admin 返回“"+reason+"”":"")+"）");}
+    const unknown=[...unknownText.keys()],waiting=[...new Set([...phases.values()].filter(row=>row.step==="direct_shelves"&&row.status==="accepted").map(row=>row.fid))];
+    if(unknown.length)root.append(node("p","写入结果待核对（"+unknown.length+" 人）："+[...unknownText.values()].join("、")+"。请先核对原请求；系统不会重复发送已派发的请求。","warn"));
     if(waiting.length)root.append(node("p","上架请求已受理、等待读回（"+waiting.length+" 人）。接续原任务会先只读核对，不重复上架。","warn"));
     if(job.can_resume&&state.role==="admin"&&state.auth){
       const pending=state.resumePending||(state.resumePending=new Map());

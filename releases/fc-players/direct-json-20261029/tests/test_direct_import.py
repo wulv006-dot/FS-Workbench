@@ -159,9 +159,20 @@ class Backend:
             for row in rows:
                 if row["id"] == pid:
                     self.case.assertEqual(row["site_id"], 266)
-                    self.intent("product_slug_" + str(pid), self.rows[mid]["futbin_id"])
-                    row["slug"] = slug
+                    fid = self.rows[mid]["futbin_id"]
+                    events = self.case.repo.get_execution(self.case.execution, "operator")["events"]
+                    phase = next(event["step"][len("direct_"):] for event in reversed(events)
+                                 if event["step"].startswith("direct_product_slug_")
+                                 and event["step"].endswith("_" + str(pid))
+                                 and event["detail"].get("futbin_id") == fid)
+                    self.intent(phase, fid)
                     self.calls.append(("slug", pid))
+                    # Live Admin rejects "ı" and silently drops ".".
+                    if "ı" in slug:
+                        raise AdminContractError("rejected", diagnostic={
+                            "method": "POST", "endpoint": "/admin/goods.Goods/edit", "response_code": 0,
+                            "response_msg": "Slug仅允许英文字母、指定扩展拉丁字母、数字和中划线"})
+                    row["slug"] = slug.replace(".", "")
                     return {"code": 1}
         raise AssertionError("unknown product")
 
@@ -190,7 +201,8 @@ class DirectImportTests(unittest.TestCase):
         self.lock.stop()
         self.temp.cleanup()
 
-    def plan(self, count=1, *, missing_pc=False, missing_ps=False, missing_policy="reject", existing=False, wrong_existing=False):
+    def plan(self, count=1, *, missing_pc=False, missing_ps=False, missing_policy="reject", existing=False, wrong_existing=False,
+             names=None, frozen_slug=None):
         artifact = self.root / "selected.xlsx"
         workbook = Workbook()
         sheet = workbook.active
@@ -202,7 +214,7 @@ class DirectImportTests(unittest.TestCase):
         for offset in range(count):
             row = source_row()
             row["FUTBIN ID"] = 23700 + offset
-            row["name"] = "Player " + str(offset)
+            row["name"] = (names or {}).get(offset, "Player " + str(offset))
             if missing_pc and offset == 0:
                 row["PC"] = None
             if missing_ps and offset == 0:
@@ -220,6 +232,8 @@ class DirectImportTests(unittest.TestCase):
         items = direct.prepare_direct_items(artifact, candidates, form(),
                     business_defaults={**DEFAULTS, "missing_price_policy": missing_policy},
                     context_artifact_path=context)
+        if frozen_slug:
+            items[0]["product_slug"] = frozen_slug  # plan frozen before the Admin charset rule
         ids = [item["futbin_id"] for item in items]
         extra = {}
         if existing:
@@ -315,6 +329,52 @@ class DirectImportTests(unittest.TestCase):
         self.assertFalse(any(call[0] == "slug" for call in self.backend.calls))
         self.assertEqual(self.run_plan()["completed_futbin_ids"], ["23700"])
         self.assertEqual(sum(call[0] == "slug" for call in self.backend.calls), 3)
+
+    def test_product_slug_follows_admin_charset(self):
+        self.assertEqual(direct.product_slug("Kenan Yıldız-24567"), "kenan-yildiz-24567")
+        self.assertEqual(direct.product_slug("Gabriel dos S. Magalhães-24560"), "gabriel-dos-s-magalhães-24560")
+        self.assertEqual(direct.product_slug("Dušan  Vlahović-24494"), "dušan-vlahović-24494")
+        self.assertEqual(direct.product_slug("Warren Zaïre-Emery-24376"), "warren-zaïre-emery-24376")
+        self.assertEqual(direct.product_slug("Martin Ødegaard-1"), "martin-odegaard-1")
+        for frozen in ("kenan-yıldız-24567", "gabriel-dos-s.-magalhães-24560", "player-0-23700"):
+            once = direct.product_slug(frozen)
+            self.assertEqual(direct.product_slug(once), once)
+        self.assertEqual(direct.product_slug("player-0-23700"), "player-0-23700")
+
+    def test_new_plan_freezes_admin_safe_slug(self):
+        self.plan(names={0: "Kenan Yıldız"})
+        self.assertEqual(self.frozen["direct_items"][0]["product_slug"], "kenan-yildiz-23700")
+        self.assertEqual(self.run_plan()["completed_futbin_ids"], ["23700"])
+
+    def test_old_plan_with_rejected_slug_resumes_with_corrected_slug(self):
+        self.plan(frozen_slug="kenan-yıldız-23700")
+        with patch.object(direct, "product_slug", lambda value: value):
+            self.assertEqual(self.run_plan()["unresolved_futbin_ids"], ["23700"])
+        self.assertEqual(sum(call[0] == "slug" for call in self.backend.calls), 1)
+        before = [call for call in self.backend.calls if call[0] in ("add", "shelves")]
+        self.assertEqual(self.run_plan()["completed_futbin_ids"], ["23700"])
+        self.assertEqual([call for call in self.backend.calls if call[0] in ("add", "shelves")], before)
+        rows = next(iter(self.backend.products.values()))
+        self.assertTrue(all(row["slug"] == ("kenan-yildiz-23700" if row["site_id"] == 266 else "") for row in rows))
+        self.assertEqual(self.scopes(), [])
+
+    def test_old_plan_with_admin_rewritten_slug_resumes_without_rewrite(self):
+        self.plan(frozen_slug="gabriel-dos-s.-23700")
+        original = self.backend.set_product_slug
+
+        def propagate(pid, slug):
+            result = original(pid, slug)
+            stored = next(row["slug"] for row in next(iter(self.backend.products.values())) if row["id"] == pid)
+            for row in next(iter(self.backend.products.values())):
+                row["slug"] = stored
+            return result
+
+        with patch.object(self.backend, "set_product_slug", propagate):
+            with patch.object(direct, "product_slug", lambda value: value):
+                self.assertEqual(self.run_plan()["unresolved_futbin_ids"], ["23700"])
+            self.assertEqual(self.run_plan()["completed_futbin_ids"], ["23700"])
+        self.assertEqual(sum(call[0] == "slug" for call in self.backend.calls), 1)
+        self.assertEqual(self.scopes(), [])
 
     def test_pilot_subselection_then_same_execution_full_plan(self):
         self.plan(2)
