@@ -85,6 +85,7 @@ class CurveV6Release(unittest.TestCase):
             'unit-price-sync': ('curve_strategy_v6.py', 'price_curve.py', 'runtime.py'),
             'bf-cost-guard': ('api.py', 'average_discount_v6.py', 'cost_inputs_v6.py', 'curve_strategy_v6.py',
                               'runtime.py'),
+            'bf-fixes': ('api.py', 'average_discount_v6.py', 'curve_strategy_v6.py', 'price_curve.py', 'runtime.py'),
             'outcomes': ('business_source.py', 'daily.py'),
             'cost-incidents': ('cost_inputs_v6.py', 'ledger.py', 'runtime.py', 'scheduler.py'),
             'shared-evidence': ('api.py', 'pricing_proof_v6.py', 'runtime.py'),
@@ -106,11 +107,14 @@ class CurveV6Release(unittest.TestCase):
                     expected['source/snapshot_layer.py'] = '/opt/fc27-cloud-browser/snapshot_layer.py'
                 if fix == 'round-latency':
                     expected['source/fc27_cloud_worker.py'] = '/opt/fc27-cloud-browser/fc27_cloud_worker.py'
-                if fix in ('targeted-price-reads', 'unit-price-sync'):
+                if fix in ('targeted-price-reads', 'unit-price-sync', 'bf-fixes'):
                     expected['source/coin_all_sync_job.py'] = '/opt/fc27-cloud-browser/coin_all_sync_job.py'
                 if fix == 'bf-cost-guard':
                     self.assertEqual(provenance['scope'], 'fc-pricing-v6-bf-cost-guard-20261127')
                     expected['source/collect_p2pah_cost.py'] = '/opt/fc27-cloud-browser/collect_p2pah_cost.py'
+                if fix == 'bf-fixes':
+                    self.assertEqual(provenance['scope'], 'fc-pricing-v6-bf-fixes-20261128')
+                if fix in ('bf-cost-guard', 'bf-fixes'):
                     for name in ('fc-pricing-v3.js', 'fc27-coins.html'):
                         expected['source/' + name] = '/var/www/dashboard/' + name
                 if fix == 'cycle-recovery':
