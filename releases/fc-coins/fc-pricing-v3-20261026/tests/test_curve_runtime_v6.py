@@ -273,7 +273,7 @@ class CurveRuntime(unittest.TestCase):
             self.assertEqual(shadow['would_write'], loot is not None)
             self.assertEqual(shadow['plan_revision'], 4)
             if loot is None:
-                # Same prices, stale unit_price: the hold round must still write the 1000K rate.
+                # Same prices, stale unit_price: the hold round must still write the cheaper band rate.
                 stale_all = dict(stale['native_payload'], id=all_row['id'], site_id=0)
                 stale_entry = dict(deepcopy(actual_entry), primary_curve=stale, all_before=read_curve(
                     stale_all, dict(stale['identity'], id=all_row['id'], site_id=0), editor))
@@ -1081,10 +1081,11 @@ class CurveRuntime(unittest.TestCase):
             row['more']['discount'].append('100')
             row['more']['delivery_time'].append('10')
             row['more']['hot'].append('0')
+        self.transport.rows[all_id]['unit_price'] = '0.12'
         old = read(self.transport.rows[all_id])
         changed_row = deepcopy(old['native_payload'])
         changed_row['more']['price'] = ['10', '103', '154.50']
-        changed_row['unit_price'] = '0.103'
+        changed_row['unit_price'] = '0.1'
         changed = read(changed_row)
         self.bundle['before_action']['curves'][PLATFORM] = old
         self.bundle['action']['curves'][PLATFORM] = changed
@@ -1130,6 +1131,7 @@ class CurveRuntime(unittest.TestCase):
         primary = read(self.transport.rows[site_id])
         before = read(self.transport.rows[all_id])
         after = runtime._curve_restore_target(before, old)
+        self.assertEqual(after['unit_price_usd_per_k'], '0.1')
         inputs = dict(captured_at=now.isoformat(), valid_until=(now + timedelta(minutes=10)).isoformat(),
                       primary_curve=primary, all_before=before,
                       price_insurance=dict(market_per_100k=['10']),

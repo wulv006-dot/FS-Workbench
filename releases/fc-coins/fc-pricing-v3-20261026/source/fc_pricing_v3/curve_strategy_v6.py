@@ -467,9 +467,11 @@ def update_reference_segments(reference, confirmed, segments, reference_id, rece
             for field in ('price', 'discount'):
                 more[field][index] = old_more[field][index]
     if confirmed['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT:
-        large = next(row for row in confirmed['tiers'] if row['purchase_k'] == ANCHORS['large'])
-        payload['unit_price'] = float(two_band_unit_price(
-            [dict(large, native_price_usd=more['price'][large['native_index']])]))
+        unit = two_band_unit_price([dict(row, native_price_usd=more['price'][row['native_index']])
+                                    for row in confirmed['tiers']])
+        if unit is None:
+            raise ValueError('pricing_curve_reference_anchor_missing')
+        payload['unit_price'] = float(unit)
     if not isinstance(raw, dict):
         payload['more'] = json.dumps(more, ensure_ascii=False, separators=(',', ':'))
     baseline = (confirmed if payload == confirmed['native_payload'] else

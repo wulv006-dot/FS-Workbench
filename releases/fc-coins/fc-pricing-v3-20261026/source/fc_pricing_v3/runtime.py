@@ -882,7 +882,7 @@ def _curve_restore_target(current, original):
 
     # Tier order belongs to the native editor. Every retained quantity, gift,
     # discount, and compatibility unit price must match the original table.
-    # Two-band unit_price is re-derived from the restored large-band prices.
+    # Two-band unit_price is re-derived from the restored band prices.
     saved = original['native_payload']
     live = current['native_payload']
     two_band = current['native_contract'].get('price_edit_policy') == TWO_BAND_PRICE_EDIT
@@ -897,7 +897,7 @@ def _curve_restore_target(current, original):
     if two_band:
         unit = two_band_unit_price(original['tiers'])
         if unit is None:
-            raise ValueError('pricing_restore_large_anchor_missing')
+            raise ValueError('pricing_restore_two_band_anchor_missing')
         payload['unit_price'] = float(unit)
     contract = dict(current['native_contract'], catalogue_origin=EDITOR_CATALOGUE_ORIGIN)
     return read_curve(payload, current['identity'], contract)
@@ -1553,7 +1553,7 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
             prices.update({band: prior['normal'] for band, prior in active.items()
                            if band not in position['anchors'] and observed[band] == prior['target']})
         # A hold round still recompiles when the saved unit_price is stale, so
-        # the two-band compile writes it back to the 1000K rate.
+        # the two-band compile writes it back to the cheaper per-K rate.
         recompile = prices or (editor.get('price_edit_policy') == TWO_BAND_PRICE_EDIT
                                and current['unit_price_usd_per_k'] != two_band_unit_price(current['tiers']))
         normal = (compile_curve(current, dict(anchor_prices_usd={ANCHORS[band]: value
