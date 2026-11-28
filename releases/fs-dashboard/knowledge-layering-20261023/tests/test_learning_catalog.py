@@ -275,7 +275,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'fc_v61_segmented_cost_promotion_cap_20261127')
+        self.assertEqual(margin['revision'], 'fc_v61_bf_fixes_20261128')
         self.assertIn('fc.pricing.constraints@fc_v61_insurance_15_40_20261117', margin['supersedes'])
         self.assertEqual(margin['source']['path'],'docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md')
         self.assertIn('fc.pricing.constraints@fc27_dual20_d9_d2_platform_100k_v4',margin['supersedes'])
@@ -324,9 +324,9 @@ class LearningCatalog(unittest.TestCase):
                 self.assertEqual(row['revision'],'fc_v61_insurance_15_40_20261117')
                 self.assertEqual(row['knowledge_updated_at'],'2026-11-17')
             elif row['id'] == 'fs.pricing.parameter-identity':
-                self.assertEqual(row['effective_at'],'2026-11-25')
-                self.assertEqual(row['revision'],'fc_v61_u4gm_only_observation_20261125')
-                self.assertIn('实际计划修订', row['effective_at_basis'])
+                self.assertEqual(row['effective_at'],'2026-11-28')
+                self.assertEqual(row['revision'],'fc_v61_bf_fixes_20261128')
+                self.assertIn('2026-11-28 用户确认', row['effective_at_basis'])
             elif row['id'] == 'fs.learning.methods':
                 self.assertEqual(row['effective_at'],'2026-11-18')
                 self.assertEqual(row['revision'],'fc_v61_margin_band_20261118')

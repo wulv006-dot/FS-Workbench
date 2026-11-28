@@ -135,6 +135,8 @@
 - 用本轮证明输入（分段数量加权成本、D-3 至 D-1 实际平均优惠、原赠送和舍入），计算**主篮**（`main`）中属于该量段的成员路径的组合采购毛利率：`Σ(净收入 − 安全成本) / Σ净收入`，按主篮原权重加权。
 - 新增纯函数 `band_margin(proof, band)` 和 `band_target_price(proof, band, target, low, high)`，放在 `average_discount_v6.py`，紧挨 `minimum_band_price`，复用 `band_price_usd`、`forecast_receipt` 和同一套路径数据。`band_target_price` 写法照 `minimum_band_price`：在分值网格上二分，把 `HARD_MARGIN` 换成参数 `target`，搜索范围限定为 `[low, high]`。
 
+2026-11-28 用户确认，改价页在每段并列显示调价前和目标锚点的预测毛利率。`margin_at_target` 使用实际优惠，`business_margin_at_target` 使用同轮判断用优惠，成本、数量权重和每笔分币舍入与调价前一致。相同显示“保持”，旧快照缺字段显示“未记录”。涨价目标到达该段市场上沿时 `capped_by_market` 显示“已到市场上限”。实际写价仍以本次回执和主站全表为准。
+
 ### 4.4 决策轮怎么选价（逐平台、逐量段）
 
 设该平台目标利润率为 `t`，保持区间为 `[t − 1, t + 1]`。
@@ -174,6 +176,8 @@
 - 参数范围：`p` 在 [0%, 15%]，`u` 在 [−5%, +3%]（与现行一致）；`p_low` 在 [−15%, 0%] 且 `p_low ≤ p`；`t` 在 [28%, 35%]，步长 0.5 点；保持区间固定为 `t ± 1` 点。超出范围的配置拒绝生效。
 - 参数位置：`parameters.market_anchor.<平台>.<量段>` 增加 `p_low`；新增 `parameters.margin_band = {schedule_hours, <平台>: {target}}`。`market_anchor_parameters` 的字段校验放宽为 `{'p','u','p_low'}`。旧计划没有 `p_low` 或 `margin_band` 时行为与现行完全一致。
 - PC 的 u 从 −3% 改为 0%：PC 成本低，上沿基本用不到，统一三平台便于理解。
+
+北京时间 2026-11-28，revision 10 已生效。三平台目标 31%，两段 p=.15、p_low=−.10。PS、PC 大额段 u=+.03，其余 u=0。[计划详情](../fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md#revision-10)
 
 ## 5. 周阶梯改为按毛利额调整目标利润率
 
