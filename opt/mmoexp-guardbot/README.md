@@ -297,3 +297,21 @@ Discord 官方限制：AutoMod 的资料名规则只能"阻止互动/要求改�
 | `_ops_list_channels.cjs` | 列出文本频道，挑 `logChannelId` 候选 |
 | `部署记录_服务器.md` | 服务器部署记录 + 排查记录 + 回滚步骤 |
 | `README.md` | 本文件 |
+
+
+## 2026-11-10：Official Club公开欢迎
+
+public-welcome.js由index.js在登录前接入，仅处理Official Club的新成员加入。在welcome-config.json指定的欢迎频道公开欢迎，并提供原游戏身份组菜单、规则和客服链接；不发送私信、不自动授予身份组、不处理其他服务器。保留既有防冒充规则，命中且非白名单的新成员不欢迎。按成员ID和入群时间先登记发送预占，重复事件/重启不重复欢迎，未知发送结果不自动重发。welcome-state/包含运行时面板和投递账本，必须保留且不入Git。
+
+验证：node test-public-welcome.cjs。79项品牌规则与27项状态自检事件测试在活动服务器源码的隔离副本通过；历史_test_match/_test_selfcheck在未改基线也分别失败4/5项，不作为本次新回归。生产守卫源码含既有未回填变更，本PR仅添加欢迎接线及独立模块，不以仓库旧整包覆盖生产。
+
+回滚：恢复本批部署前index.js并重启mmoexp-guardbot，保留全部配置/原账本/welcome-state及已发消息。正式备份：/opt/mmoexp-guardbot/backups/public-welcome-20261110/index.js。
+
+
+### 欢迎卡与紧凑游戏选择
+
+欢迎卡使用橙色Embed和表情分段，只保留Choose Roles与Contact Support。游戏角色采用13项多选下拉菜单（FC27、D4、POE2、WoW、ARC、MLB、COD、GTA、AION2、NBA、Dark and Darker、MapleStory Classic World、Other Games），统一图标和简短说明；先预览，点击Save Games才应用。菜单仅本人可见，旧成员历史角色不批量迁移，MapleStory使用已有普通角色。国家／地区仅方案，未部署角色或入口。
+
+角色保存只处理目录中的普通0权限角色，校验本人、服务器、欢迎频道、Bot层级及频道覆写；保留其他身份组和历史别名，接口结果不明时先读回确认。旧按钮给出刷新提示；My Game Channels已移除，历史欢迎卡已同步为两个入口。
+
+验证：公开欢迎测试与36项菜单/权限边界检查通过，真实Discord菜单13项、现有角色默认选中、仅本人可见及Save Games已核；未替真实成员保存。生产index/config.json/d4-guard.json/welcome-config.json保持。恢复备份三个模块/目录文件并重启可回退；备份/opt/mmoexp-guardbot/backups/role-compact-20261110，保留账本、消息和成员后续自选角色。
