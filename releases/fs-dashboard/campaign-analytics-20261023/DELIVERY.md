@@ -454,3 +454,12 @@
 - 线上读回：脚本 `carnival-proto.js?v=20261124a`、`carnival-live.js?v=20261124a`；游戏顺序 fc27,aion2,wow,poe1,poe2,d4,maple,arc,codmw4；FC PS 价 $6.05/$30.25/$62.30/$93.45/$124.60，球员 $81.68/$49.84/$287.94/$33.59；冒险岛 300K $12.21；球员图可加载。
 - 未验证：#1321 发布至 #1322 发布之间（约 14 分钟）打开页面的会员看到的是错映射商品；新概率的真实分布需积累抽取数据。
 - 回退：`/var/backups/fs-navigation-20261006/nav-20261124T023755Z`、`nav-20261124T025143Z`。
+
+## 2026-11-28 狂欢盛典 PoE 2 查价超出分页上限（PR #1399，release 95）
+
+- 现象：神秘商店 PoE 2 的 Bundle A/B/C 和 Mirror of Kalandra(1+1 Free) 显示 PRICE PENDING。
+- 原因：主站 PoE 2 通货类目（cid 1338）增至 385 件，页面最多读 10 页（280 件），这 4 件在第 14 页。
+- 修复：PoE 2 九件按关键词（Mirror/Divine/Bundle）查价；COD 机器人房间（类目 452 件）预防性加关键词 `Bot Lobbies`。`carnival-live.js` 版本 20261128a。
+- 发布：187 `nav-20261128T094729Z`，备份 `/var/backups/fs-navigation-20261006/nav-20261128T094729Z`；发布前两文件与上一版（779614c）无漂移；三个服务 active。
+- 读回：正式页加载 `carnival-live.js?v=20261128a`；PoE 2 九件全部有价（Mirror 1+1 $42，Bundle A/B/C $0.25/$0.27/$0.11）。
+- 未验证：手机实机。
