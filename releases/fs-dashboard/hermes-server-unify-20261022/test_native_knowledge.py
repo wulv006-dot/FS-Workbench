@@ -248,6 +248,18 @@ class Native(unittest.TestCase):
         self.assertEqual(len(set(prompts)),1)
         self.assertEqual(len(list((self.root/'knowledge/native').glob('session-*.json'))),1)
 
+    def test_short_index_displays_all_25_entries_and_full_index_keeps_revision(self):
+        self.index['entries'] = [dict(self.row, id=f'fc.pricing.rule.{i}', revision='published-revision-' * 3)
+                                 for i in range(25)]
+        self.save_index()
+        self.save_policy()
+        summary = json.loads(self.prompt(self.info).split('\n', 1)[1])
+        self.assertEqual(summary['additional_entries'], 0)
+        self.assertEqual([row['id'] for row in summary['entries']], [row['id'] for row in self.index['entries']])
+        full = self.adapter.call('fs_get_knowledge_index', {},
+                                 session_id=self.info['session_id'], task_id='original-task-1')
+        self.assertEqual(full['entries'][0]['revision'], self.index['entries'][0]['revision'])
+
     def test_short_index_remains_valid_json_with_actual_native_limit(self):
         self.index['entries']=[dict(self.row,id='fc.rule'+str(i)) for i in range(100)]
         self.save_index();self.save_policy()

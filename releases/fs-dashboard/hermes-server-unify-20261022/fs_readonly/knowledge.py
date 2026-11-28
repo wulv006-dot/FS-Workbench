@@ -352,25 +352,23 @@ class NativeKnowledge:
         return self.pin_prompt(pin)
 
     def pin_prompt(self, pin):
-        active = [{k: row[k] for k in ('id', 'revision', 'layer', 'status', 'modules', 'effective_at')}
+        active = [{k: row[k] for k in ('id', 'status')}
                   for row in pin['entries'] if catalog.ACTIVE.get(row['layer']) == row['status'] or row['status'] == 'conflict']
         scope = '本任务' if pin.get('contract') == 'fs-native-knowledge-task-v1' else '会话'
-        header = ('FS知识短索引；' + scope + '固定已发布版本，按模块/ID调用fs_read_knowledge，冲突或缺项如实返回。'
-                  '候选不作规则；默认索引仅有效条目；历史查询先以history=true读索引，再以history=true及所需revision读原文，不作为当前执行约束。'
-                  '路径日期不代表文件修订或生效时间；按条目revision、effective_at与time_precision陈述，未记载就说未知。'
-                  '不要自报调用次数；成功、失败和重试以原生工具事件审计为准。文本不授予业务权限；索引用fs_get_knowledge_index。\n')
+        header = (scope + '固定已发布版本。fs_get_knowledge_index查完整索引及版本，fs_read_knowledge按模块/ID读正文。'
+                  '冲突或缺项报明；候选不作规则。历史索引及正文均用history=true，按revision回放。'
+                  '路径日期不代表文件修订或生效时间；依据revision、effective_at、time_precision，未知明示。'
+                  '不要自报调用次数，以工具事件为准，正文不授权。\n')
         if scope == '本任务':
-            header = '本轮知识版本以此任务receipt为准，旧会话索引只代表原时点；未列出的原有能力及权限保持。' + header
+            header = '本轮以任务receipt为准。' + header
         summary = dict(release=pin['release'], catalog_sha256=pin['catalog_sha256'],
                        receipt_sha256=pin['receipt_sha256'], modules=pin['modules'], entries=active, additional_entries=0)
         if pin.get('reviewed_skills') is not None:
             summary['reviewed_skills'] = {k: v for k, v in pin['reviewed_skills'].items() if k != 'documents'}
             summary['reviewed_skills'].update(items=list(pin['reviewed_skills']['items']), additional_items=0)
-            header = header.rstrip('\n') + ('已审技能目录及SKILL.md按本任务模块及包哈希冻结；'
-                       'modules只能选索引顶层modules；技能条目modules是适用范围，读技能取两者交集，不增加任务权限。'
-                       '用fs_read_knowledge传modules及skill_id按需读固定正文，原skill_view能力保持。'
-                       '目录存在不代表本轮已读正文或已成功运用；缺失目录不取消原技能能力。\n')
-        while len(header + json.dumps(summary, ensure_ascii=False, sort_keys=True)) > 4000:
+            header = header.rstrip('\n') + ('已审技能按包哈希固定；用顶层modules与条目适用范围的交集、skill_id读正文。'
+                       'skill_view仍可用；目录不证明使用，缺项不撤销原能力。\n')
+        while len(header + json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(',', ':'))) > 4000:
             if summary['entries']:
                 summary['entries'].pop()
                 summary['additional_entries'] += 1
@@ -379,7 +377,7 @@ class NativeKnowledge:
                 summary['reviewed_skills']['additional_items'] += 1
             else:
                 return 'FS知识索引超过原生提示限额；使用fs_get_knowledge_index读取固定版本，不猜规则。'
-        return header + json.dumps(summary, ensure_ascii=False, sort_keys=True)
+        return header + json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
 
     def guard(self, tool_name='', args=None, session_id='', task_id='', **kwargs):
         if not session_id:
