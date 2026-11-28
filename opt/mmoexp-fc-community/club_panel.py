@@ -5,6 +5,18 @@ from urllib.parse import urlsplit
 import discord
 
 MENTIONS = discord.AllowedMentions.none()
+
+
+def newcomer_guide(guild_id):
+    if guild_id != OFFICIAL_GUILD:
+        return ''
+    base = f'https://discord.com/channels/{guild_id}/'
+    return (
+        '\n[Explore the FC event](' + base + '1568663362567413820/1576171859341221909) or '
+        '[join FC Chat](' + base + '1200330251016867880). '
+        'Which position would you upgrade first? Tell us your platform and coin budget.'
+    )
+
 CLUBS = {
     'england': (
         ('arsenal', 'Arsenal'), ('aston_villa', 'Aston Villa'), ('bournemouth', 'Bournemouth'),
@@ -152,6 +164,8 @@ class ClubButton(discord.ui.Button):
                         if previous:
                             await member.remove_roles(*previous, reason='MMOEXP club preference', atomic=True)
                         message = 'Your club is now **{}**. You can change it any time.'.format(self.label)
+                        if target in added and not previous:
+                            message += newcomer_guide(guild.id)
                 except discord.HTTPException:
                     for role in reversed(added):
                         try:

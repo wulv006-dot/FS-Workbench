@@ -1,7 +1,7 @@
 """Compact welcome navigation and opt-in, permissionless FC27 membership."""
 import discord
 
-from club_panel import CLUBS, ClubButton, ClubPanelView, MENTIONS, ROLE_CHANGE_LOCK, club_embed, safe_community_role
+from club_panel import CLUBS, ClubButton, ClubPanelView, MENTIONS, ROLE_CHANGE_LOCK, club_embed, newcomer_guide, safe_community_role
 
 OFFICIAL_GUILD = 1041923524601851914
 PLAYER_CHANNEL = 1568878333087719454
@@ -121,9 +121,12 @@ class WelcomeButton(discord.ui.Button):
                 try:
                     member = await guild.fetch_member(interaction.user.id)
                     if member.id == interaction.user.id and not member.bot:
-                        if target.id not in {role.id for role in member.roles}:
+                        newly_joined = target.id not in {role.id for role in member.roles}
+                        if newly_joined:
                             await member.add_roles(target, reason='MMOEXP FC27 opt-in', atomic=True)
                         message = '⚽ You’re in! Explore FC27 or choose your club.'
+                        if newly_joined:
+                            message += newcomer_guide(guild.id)
                 except discord.HTTPException:
                     pass
         await interaction.followup.send(message, ephemeral=True, allowed_mentions=MENTIONS)
