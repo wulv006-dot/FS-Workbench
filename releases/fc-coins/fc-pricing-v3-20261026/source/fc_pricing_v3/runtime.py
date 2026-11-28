@@ -1453,6 +1453,19 @@ def _promotion_discount_selection(guard, average, platform):
                 yesterday_start=average.get('yesterday_start'))
 
 
+def _record_target_margins(row, proof, band, current, final, retained):
+    from .average_discount_v6 import band_margin
+
+    row['capped_by_market'] = (row['action'] == 'raise' and final is not None and row['high'] is not None
+                               and Decimal(row['desired']) >= Decimal(row['high']) and final == Decimal(row['high']))
+    for field, ratio in (('margin', None), ('business_margin', retained)):
+        value = row[field + '_at_current']
+        if proof and final is not None and final != Decimal(current):
+            margin = band_margin(proof, band, retained=ratio, anchor_price=final)
+            value = str(margin) if margin is not None else None
+        row[field + '_at_target'] = value
+
+
 def margin_band_selection(proof, position, current, target, decision_round, *, cost_median,
                           cost_sample_count, previous_decision_cost_median, promotion_guard=None,
                           cost_by_band=None, previous_cost_by_band=None, average=None, platform=None):
@@ -1517,8 +1530,8 @@ def margin_band_selection(proof, position, current, target, decision_round, *, c
         bands[band] = dict(margin_at_current=str(actual_margin) if actual_margin is not None else None,
                            action=action, desired=str(desired) if desired is not None else None, low=low, high=high, capped=capped,
                            cost_drop_unconfirmed=unconfirmed)
-        if promotion:
-            bands[band]['business_margin_at_current'] = str(margin) if margin is not None else None
+        bands[band]['business_margin_at_current'] = str(margin) if margin is not None else None
+        _record_target_margins(bands[band], proof, band, price, desired, retained)
     result = dict(decision_round=decision_round, target=str(target), hold_range=[str(lower), str(upper)],
                   cost_median=cost_median, cost_sample_count=cost_sample_count,
                   previous_decision_cost_median=previous_decision_cost_median, bands=bands)
@@ -1771,6 +1784,13 @@ def _freeze_cost_protection(platform, entry, inputs_for, state, plan, evidence, 
                 frozen['gaps'].append('pricing_curve_margin_exception_exhausted')
             return
     normal_prices, final_prices = band_anchors(normal), band_anchors(final)
+    if margin_band:
+        audit = margin_band.get('promotion_guard') or {}
+        retained = (1 - Decimal(audit['business_discount']) if audit.get('active')
+                    and audit.get('business_discount') is not None else None)
+        for band, row in margin_band['bands'].items():
+            if Decimal(final_prices[band]) != Decimal(row['desired']):
+                _record_target_margins(row, current_proof, band, observed[band], Decimal(final_prices[band]), retained)
     if not insurance and any(Decimal(final_prices[band]) < Decimal(price) and band not in holds
                              for band, price in normal_prices.items()):
         frozen.update(status=FAILED, gaps=['curve_cost_protection_below_normal_candidate'])

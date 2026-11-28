@@ -113,7 +113,8 @@ def _curve_decision(snapshot, plan):
             if margin_band.get('promotion_guard'):
                 chosen['promotion_guard'] = margin_band['promotion_guard']
             chosen['margin_band'] = dict(target=margin_band.get('target'), bands={
-                band: {key: margin.get(key) for key in ('margin_at_current', 'business_margin_at_current')}
+                band: {key: margin.get(key) for key in ('margin_at_current', 'business_margin_at_current',
+                      'margin_at_target', 'business_margin_at_target', 'capped_by_market', 'action') if key in margin}
                 for band, margin in (margin_band.get('bands') or {}).items() if band in ('small', 'large')
             })
         costs = selection.get('cost_by_band') or margin_band.get('cost_by_band')

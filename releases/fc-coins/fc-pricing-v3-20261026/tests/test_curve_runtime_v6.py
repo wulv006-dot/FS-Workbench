@@ -387,13 +387,13 @@ class CurveRuntime(unittest.TestCase):
 
         audit = dict(active=True, max_absorb='.045')
         margins = dict(target='.31', bands=dict(small=dict(margin_at_current='.29',
-                                                           business_margin_at_current='.315', action='hold')))
+                                                           business_margin_at_current='.315', action='hold',
+            margin_at_target='.29', business_margin_at_target='.315', capped_by_market=False)))
         snapshot = dict(plan_id='plan', plan_revision=1, result=dict(status='KEEP',
             rows=[dict(platform='PS', status='KEEP', selection=dict(margin_band=dict(margins, promotion_guard=audit)))]))
         current = _curve_decision(snapshot, dict(plan_id='plan', revision=1))['rows'][0]['selection']
         self.assertEqual(current['promotion_guard'], audit)
-        self.assertEqual(current['margin_band'], dict(target='.31', bands=dict(
-            small=dict(margin_at_current='.29', business_margin_at_current='.315'))))
+        self.assertEqual(current['margin_band'], margins)
         stale = _curve_decision(snapshot, dict(plan_id='plan', revision=2))['rows'][0]['selection']
         self.assertNotIn('promotion_guard', stale)
         self.assertNotIn('margin_band', stale)

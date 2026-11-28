@@ -298,6 +298,11 @@
     const yesterday=audit.yesterday_start&&shortDate(audit.yesterday_start);
     return '优惠数据：'+shortDate(audit.window_start)+'–'+last+(yesterday?'（含昨天 '+yesterday+'）':'');
   }
+  function marginComparison(before,after){
+    if(before==null&&after==null)return '未记录';
+    if(before!=null&&after!=null&&Number(before)===Number(after))return '保持 '+discountPercent(before);
+    return '调价前 '+(before==null?'未记录':discountPercent(before))+' → 调价后 '+(after==null?'未记录':discountPercent(after));
+  }
   function renderCurveGuard(plan,rows){
     const configuration=plan.parameters?.margin_band;
     const configured=configuration?.promotion_guard;
@@ -332,9 +337,16 @@
       for(const [band,title] of bands){
         const margin=margins?.bands?.[band];
         const figures=node('dl');
-        figures.append(node('dt','按真实优惠的利润率'),node('dd',discountPercent(margin?.margin_at_current)),
-          node('dt','判断用利润率'),node('dd',discountPercent(margin?.business_margin_at_current)));
-        section.append(node('p',title),figures);
+        figures.append(node('dt','按真实优惠的利润率'),node('dd',marginComparison(margin?.margin_at_current,margin?.margin_at_target)),
+          node('dt','判断用利润率'),node('dd',marginComparison(margin?.business_margin_at_current,margin?.business_margin_at_target)));
+        const heading=node('p',title);
+        const label=margin?.capped_by_market?'已到市场上限':({raise:'涨价',lower:'降价'})[margin?.action];
+        if(label){
+          const badge=node('span',label);
+          badge.className='tag';
+          heading.append(' ',badge);
+        }
+        section.append(heading,figures);
       }
       const procurement=node('dl');
       const procurementNotes=[];
