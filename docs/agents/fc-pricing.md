@@ -32,7 +32,7 @@ FC 自动改价及必要依赖属于 P0 核心常驻链路，豁免全局节省�
 
 2026-11-28 用户确认（北京时间）：
 
-- 自定义数量的商品单价取两段每 K 单价的较低者。[单价合同](../planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md#two-band-unit)
+- Admin 商品单价取本平台 1000K 售价／1000。[单价合同](../planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md#two-band-unit)
 - 外部改价触发平台告警，已确认的越界段每轮向参考区间回调最多 15%。[回调规则](../planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md#external-recovery)
 - revision 10 已将 PS、PC 大额段 u 调到 +3%，三平台目标均为 31%。[计划参数](../planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md#revision-10)
 - Admin 改模型或档位后通知值班 Agent，按最近确认价补写并读回。[标准 15 档与核验](../planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md#admin-model)
