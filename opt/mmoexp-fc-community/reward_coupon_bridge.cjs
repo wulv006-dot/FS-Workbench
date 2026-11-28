@@ -15,7 +15,7 @@ function validEmail(value) {
   return value.trim().toLowerCase();
 }
 function validBatch(value) {
-  if (typeof value !== 'string' || !/^FC27R_[A-F0-9]{32}$/.test(value))
+  if (typeof value !== 'string' || !/^FC27[RW]_[A-F0-9]{32}$/.test(value))
     throw Error('invalid_batch');
   return value;
 }
