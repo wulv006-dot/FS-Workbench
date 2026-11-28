@@ -17,7 +17,7 @@ class CurrentDashboardBaselineTest(unittest.TestCase):
         spec.loader.exec_module(module)
         module.__file__ = str(RUNTIME.with_name("coins_evidence.py"))
         self.assertEqual(module.baseline_identity(), {
-            "version": "business-baseline-fc-v6-20261125",
+            "version": "business-baseline-fc-v6-20261128",
             "sha256": hashlib.sha256(RUNTIME.read_bytes()).hexdigest(),
         })
 

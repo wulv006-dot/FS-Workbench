@@ -189,16 +189,12 @@ def band_price_usd(anchor_price, anchor_quantity, purchase):
 
 
 def two_band_unit_price(tiers):
-    """Admin unit_price follows the large band: 1000K price / 1000.
-
-    The storefront prices custom quantities with max(tier rate, unit_price),
-    so a stale unit_price above the band rate overcharges them.
-    """
-    anchor = COIN_BAND_ANCHORS['large']
-    amount = next((row['native_price_usd'] for row in tiers if row['purchase_k'] == anchor), None)
-    if amount is None:
+    """Keep the storefront custom-quantity floor at the cheaper band rate."""
+    rates = {row['purchase_k']: Decimal(str(row['native_price_usd'])) / Decimal(row['purchase_k'])
+             for row in tiers if row['purchase_k'] in COIN_BAND_ANCHORS.values()}
+    if len(rates) != len(COIN_BAND_ANCHORS):
         return None
-    return _number((Decimal(amount) / Decimal(anchor)).quantize(Decimal('1e-8')), positive=True)
+    return _number(min(rates.values()).quantize(Decimal('1e-8')), positive=True)
 
 
 def _compile_two_band_prices(checked, anchors, native_contract):
@@ -217,7 +213,7 @@ def _compile_two_band_prices(checked, anchors, native_contract):
     unit = two_band_unit_price([dict(tier, native_price_usd=_number(more['price'][tier['native_index']]))
                                 for tier in checked['tiers']])
     if unit is None:
-        return _editor_gap('editor_two_band_large_anchor_missing', anchor_k=COIN_BAND_ANCHORS['large'])
+        return _editor_gap('editor_two_band_anchor_missing')
     payload['unit_price'] = float(unit)
     if isinstance(payload['more'], str):
         payload['more'] = json.dumps(more, ensure_ascii=False, separators=(',', ':'))

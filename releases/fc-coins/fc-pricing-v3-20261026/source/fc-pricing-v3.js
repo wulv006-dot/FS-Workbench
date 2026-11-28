@@ -298,6 +298,11 @@
     const yesterday=audit.yesterday_start&&shortDate(audit.yesterday_start);
     return '优惠数据：'+shortDate(audit.window_start)+'–'+last+(yesterday?'（含昨天 '+yesterday+'）':'');
   }
+  function marginComparison(before,after){
+    if(before==null&&after==null)return '未记录';
+    if(before!=null&&after!=null&&Number(before)===Number(after))return '保持 '+discountPercent(before);
+    return '调价前 '+(before==null?'未记录':discountPercent(before))+' → 调价后 '+(after==null?'未记录':discountPercent(after));
+  }
   function renderCurveGuard(plan,rows){
     const configuration=plan.parameters?.margin_band;
     const configured=configuration?.promotion_guard;
@@ -319,15 +324,29 @@
       const audit=selection?.promotion_guard;
       const section=node('section');
       section.append(node('h4',platform==='XBOX'?'Xbox':platform));
+      const change=selection?.external_change;
+      if(change){
+        const details=[change.price_changed&&'价格偏离',change.structure_changed&&'档位结构变化'].filter(Boolean);
+        const notice=node('p','检测到 Admin 外部改价（'+details.join('、')+'）。越界段通过保险后每轮最多回调 15%。');
+        notice.className='warning-text';
+        section.append(notice);
+      }
       const target=node('dl');
       target.append(node('dt','目标利润率'),node('dd',discountPercent(margins?.target??configuration?.[platform]?.target)));
       section.append(target);
       for(const [band,title] of bands){
         const margin=margins?.bands?.[band];
         const figures=node('dl');
-        figures.append(node('dt','按真实优惠的利润率'),node('dd',discountPercent(margin?.margin_at_current)),
-          node('dt','判断用利润率'),node('dd',discountPercent(margin?.business_margin_at_current)));
-        section.append(node('p',title),figures);
+        figures.append(node('dt','按真实优惠的利润率'),node('dd',marginComparison(margin?.margin_at_current,margin?.margin_at_target)),
+          node('dt','判断用利润率'),node('dd',marginComparison(margin?.business_margin_at_current,margin?.business_margin_at_target)));
+        const heading=node('p',title);
+        const label=margin?.capped_by_market?'已到市场上限':({raise:'涨价',lower:'降价'})[margin?.action];
+        if(label){
+          const badge=node('span',label);
+          badge.className='tag';
+          heading.append(' ',badge);
+        }
+        section.append(heading,figures);
       }
       const procurement=node('dl');
       const procurementNotes=[];

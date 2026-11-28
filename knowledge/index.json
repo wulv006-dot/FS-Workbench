@@ -55,7 +55,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+        "sha256": "86c662dbeef7613001d0c884544ca43675268f168e7705171798f828228ab25e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -162,6 +162,12 @@
           "date": "2026-11-25",
           "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
           "scope": "selected_section_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-28",
+          "prior_source_sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -186,7 +192,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+        "sha256": "86c662dbeef7613001d0c884544ca43675268f168e7705171798f828228ab25e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -250,6 +256,12 @@
           "date": "2026-11-25",
           "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
           "scope": "selected_section_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-28",
+          "prior_source_sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -273,7 +285,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+        "sha256": "86c662dbeef7613001d0c884544ca43675268f168e7705171798f828228ab25e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -338,6 +350,12 @@
           "date": "2026-11-25",
           "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
           "scope": "selected_section_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-28",
+          "prior_source_sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -362,7 +380,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+        "sha256": "86c662dbeef7613001d0c884544ca43675268f168e7705171798f828228ab25e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正",
@@ -427,6 +445,12 @@
           "date": "2026-11-25",
           "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
           "scope": "selected_section_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-28",
+          "prior_source_sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -438,19 +462,19 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "fc_v61_segmented_cost_promotion_cap_20261127",
+      "revision": "fc_v61_bf_fixes_20261128",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-27",
+      "effective_at": "2026-11-28",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "c7d1cbe87eebd21a1565fea114408bccb389beb6fe7acaddf56b6d6a48ea97f5",
+        "sha256": "e306eed25c880f6e2c04dc147f622ee35c0d06ac548062e2af5dc0984ef1c58d",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -480,7 +504,8 @@
         "fc.pricing.constraints@fc_v61_market_observation_receipts_20261124",
         "fc.pricing.constraints@fc_v61_u4gm_only_observation_20261125",
         "fc.pricing.constraints@fc_v61_cost_list_verification_20261125",
-        "fc.pricing.constraints@fc_v61_two_band_unit_price_20261126"
+        "fc.pricing.constraints@fc_v61_two_band_unit_price_20261126",
+        "fc.pricing.constraints@fc_v61_segmented_cost_promotion_cap_20261127"
       ],
       "provenance": [
         {
@@ -622,6 +647,12 @@
           "date": "2026-11-27",
           "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
           "scope": "发货列表实发量分段并加权预测成本，活动让利默认最多吸收 4.5 个百分点，判断使用三日和 D-1 较高值。"
+        },
+        {
+          "kind": "direct_user",
+          "date": "2026-11-28",
+          "decision": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
+          "scope": "两段单价、外部改价回调、标准档位与 revision 10。"
         }
       ],
       "consumers": [
@@ -630,7 +661,8 @@
       ],
       "time_precision": "date_only",
       "pricing_scope": "native_curve_average_discount",
-      "knowledge_updated_at": "2026-11-27"
+      "knowledge_updated_at": "2026-11-28",
+      "effective_at_basis": "2026-11-28 用户确认；代码修复随对应版本发布生效。"
     },
     {
       "id": "fs.experience.archive-cycle",
@@ -764,7 +796,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+        "sha256": "86c662dbeef7613001d0c884544ca43675268f168e7705171798f828228ab25e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -856,6 +888,12 @@
           "date": "2026-11-25",
           "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
           "scope": "selected_section_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-28",
+          "prior_source_sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [
@@ -884,7 +922,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+        "sha256": "86c662dbeef7613001d0c884544ca43675268f168e7705171798f828228ab25e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -950,6 +988,12 @@
           "date": "2026-11-25",
           "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
           "scope": "selected_section_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-28",
+          "prior_source_sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+          "scope": "selected_section_unchanged"
         }
       ],
       "effective_at_basis": "2026-11-17 confirmed FC V6 rule synchronization; other protocols retain their original meaning",
@@ -958,21 +1002,21 @@
     },
     {
       "id": "fs.pricing.parameter-identity",
-      "revision": "fc_v61_u4gm_only_observation_20261125",
+      "revision": "fc_v61_bf_fixes_20261128",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-11-25",
+      "effective_at": "2026-11-28",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+        "sha256": "86c662dbeef7613001d0c884544ca43675268f168e7705171798f828228ab25e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -988,7 +1032,8 @@
         "fs.pricing.parameter-identity@fc_v61_margin_band_20261118",
         "fs.pricing.parameter-identity@fc_v61_margin_band_hourly_20261119",
         "fs.pricing.parameter-identity@fc_v61_market_packages_observers_20261124",
-        "fs.pricing.parameter-identity@fc_v61_market_observation_receipts_20261124"
+        "fs.pricing.parameter-identity@fc_v61_market_observation_receipts_20261124",
+        "fs.pricing.parameter-identity@fc_v61_u4gm_only_observation_20261125"
       ],
       "provenance": [
         {
@@ -1076,11 +1121,17 @@
           "date": "2026-11-25",
           "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
           "scope": "selected_section_unchanged"
+        },
+        {
+          "kind": "direct_user",
+          "date": "2026-11-28",
+          "decision": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
+          "scope": "分段成本、31% 利润目标、活动让利及 revision 10。"
         }
       ],
-      "effective_at_basis": "2026-11-24 吴律确认监控比价来源与定价来源的职责，是否启用以实际计划修订为准",
+      "effective_at_basis": "2026-11-28 用户确认；代码修复随对应版本发布生效。",
       "original_effective_at": null,
-      "knowledge_updated_at": "2026-11-24"
+      "knowledge_updated_at": "2026-11-28"
     },
     {
       "id": "fs.product.identity",
@@ -1098,7 +1149,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+        "sha256": "86c662dbeef7613001d0c884544ca43675268f168e7705171798f828228ab25e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -1150,6 +1201,12 @@
           "kind": "source_file_hash_refreshed",
           "date": "2026-11-25",
           "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-28",
+          "prior_source_sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
           "scope": "selected_section_unchanged"
         }
       ],
@@ -1247,7 +1304,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
+        "sha256": "86c662dbeef7613001d0c884544ca43675268f168e7705171798f828228ab25e",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1316,6 +1373,12 @@
           "kind": "source_file_hash_refreshed",
           "date": "2026-11-25",
           "prior_source_sha256": "8b8275132dd2aaf8250ca51eea484820dd388fb78169dcce7e7fb575a6ef1752",
+          "scope": "selected_section_unchanged"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-28",
+          "prior_source_sha256": "fd9979f52653dd8e6fd39e0fd46d20602d73f67200b7c0ec66c73bd310f8cb56",
           "scope": "selected_section_unchanged"
         }
       ],
@@ -1457,7 +1520,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-fc-admin-es-20261112/HERMES-V61-CONTRACT.md",
-        "sha256": "c7d1cbe87eebd21a1565fea114408bccb389beb6fe7acaddf56b6d6a48ea97f5",
+        "sha256": "e306eed25c880f6e2c04dc147f622ee35c0d06ac548062e2af5dc0984ef1c58d",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "### 每周定位溢价修复（2026-11-17）"
@@ -1643,6 +1706,12 @@
         },
         {
           "decision": "docs/planning/fc27-market-quotes-20261124/CONTRACT.md"
+        },
+        {
+          "kind": "source_file_hash_refreshed",
+          "date": "2026-11-28",
+          "prior_source_sha256": "c7d1cbe87eebd21a1565fea114408bccb389beb6fe7acaddf56b6d6a48ea97f5",
+          "scope": "selected_section_unchanged"
         }
       ],
       "consumers": [

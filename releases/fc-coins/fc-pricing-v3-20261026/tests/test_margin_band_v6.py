@@ -95,6 +95,15 @@ class MarginBandDecisions(unittest.TestCase):
                     change = Decimal(value['desired']) - Decimal('10')
                     self.assertEqual((change > 0) - (change < 0), expected_sign)
 
+    def test_target_margin_uses_selected_cent_and_reports_market_ceiling(self):
+        band = self.selection('.20', high='11')
+        self.assertEqual(Decimal(band['margin_at_target']), Decimal(3) / 11)
+        self.assertEqual(band['margin_at_target'], band['business_margin_at_target'])
+        self.assertTrue(band['capped_by_market'])
+        held = self.selection('.31')
+        self.assertEqual(held['margin_at_current'], held['margin_at_target'])
+        self.assertFalse(held['capped_by_market'])
+
     def test_off_hour_holds_even_at_35_percent(self):
         band = self.selection('.35', hour=15)
         self.assertEqual(band['action'], 'none')

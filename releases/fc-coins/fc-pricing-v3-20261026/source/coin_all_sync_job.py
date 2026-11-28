@@ -221,6 +221,24 @@ def curve_admin_manager():
     return manager
 
 
+def external_recovery_request(band, current, requested, context):
+    """Return an inward cent target for a ledger-attributed out-of-range band."""
+    from decimal import ROUND_CEILING, ROUND_FLOOR
+
+    day = (context.get('day_anchors') or {}).get(band)
+    if band not in context.get('recovery_bands', ()) or day is None:
+        return None
+    low = (Decimal(day) * Decimal('.6')).quantize(Decimal('.01'), rounding=ROUND_CEILING)
+    high = (Decimal(day) * Decimal('1.4')).quantize(Decimal('.01'), rounding=ROUND_FLOOR)
+    if current > high:
+        ceiling = Decimal(context.get('market_high', {}).get(band, high))
+        return max(low, min(requested, high, ceiling))
+    if current < low:
+        floor = Decimal(context.get('market_low', {}).get(band, low))
+        return min(high, max(requested, low, floor))
+    return None
+
+
 def curve_price_insurance(before, target, context, *, restore=False):
     """Return bounded anchor controls; the caller must compile and prove them."""
     from decimal import ROUND_CEILING, ROUND_FLOOR
@@ -230,20 +248,25 @@ def curve_price_insurance(before, target, context, *, restore=False):
     observed, requested = band_anchors(before), band_anchors(target)
     day = context.get('day_anchors') or {}
     market_by_band = context.get('market_per_100k_by_band', {})
-    anchors, clipped = {}, {}
+    anchors, clipped, recovering, continuing = {}, {}, [], []
     for band, raw in requested.items():
         current, price = Decimal(observed[band]), Decimal(raw)
         if not restore:
             lower = (current * Decimal('.85')).quantize(Decimal('.01'), rounding=ROUND_CEILING)
             upper = (current * Decimal('1.15')).quantize(Decimal('.01'), rounding=ROUND_FLOOR)
-            bounded = min(upper, max(lower, price))
+            if band not in day:
+                raise ValueError('pricing_curve_daily_reference_unavailable')
+            recovery = external_recovery_request(band, current, price, context)
+            if recovery is not None:
+                recovering.append(band)
+            bounded = min(upper, max(lower, recovery if recovery is not None else price))
             if bounded != price:
                 clipped[band] = dict(requested=raw, bounded=str(bounded))
             price = bounded
-            if band not in day:
-                raise ValueError('pricing_curve_daily_reference_unavailable')
             if not Decimal('.60') <= price / Decimal(day[band]) <= Decimal('1.40'):
-                raise ValueError('pricing_curve_daily_move_exceeded')
+                if recovery is None or price == current:
+                    raise ValueError('pricing_curve_daily_move_exceeded')
+                continuing.append(band)
         quantity = '100' if band == 'small' else '1000'
         tier = next(row for row in target['tiers'] if row['purchase_k'] == quantity)
         unit = price * 100 / (Decimal(quantity) + Decimal(tier['promised_bonus_k']))
@@ -260,7 +283,7 @@ def curve_price_insurance(before, target, context, *, restore=False):
         if not low <= tested <= high:
             raise ValueError('pricing_curve_out_of_market_range')
         anchors[band] = str(price)
-    return dict(anchors=anchors, clipped=clipped)
+    return dict(anchors=anchors, clipped=clipped, recovering_bands=recovering, continuing_recovery=continuing)
 
 
 def curve_catalog_plan(bundle, platform, capability):
@@ -296,6 +319,8 @@ def curve_catalog_plan(bundle, platform, capability):
         if insured['clipped']:
             raise ValueError('pricing_curve_single_move_requires_reproof')
         exception = proof.get('price_insurance')
+        if exception and set(exception.get('clipped') or {}) & set(insured['recovering_bands']):
+            raise ValueError('pricing_curve_recovery_requires_full_margin')
         if exception and (restore or exception.get('round') != insurance_context.get('below_margin_rounds', 0) + 1
                           or exception.get('round') not in (1, 2)):
             raise ValueError('pricing_curve_margin_exception_exhausted')

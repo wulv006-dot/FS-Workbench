@@ -28,7 +28,7 @@ assert.equal((html.match(/class="price-strip"/g)||[]).length,1);
 for (const platform of ['ps','xbox','pc']) assert(ids.includes('v3-price-large-'+platform));
 assert.match(mainConsole,/id="v3-curve-activate"[^>]*disabled>启用新定价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261127-bf-cost-guard-r2/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261128-bf-fixes/);
 assert.equal((html.match(/<article data-platform=/g)||[]).length,3);
 assert.match(html,/竞品普通档报价/);
 assert.match(html,/相同购买量的普通档售价.*额外加赠档不参与比较/);
@@ -398,9 +398,9 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   state.captured_at=curveCapturedAt;
   state.source_checked_at=curveCapturedAt;
   state.curve_decision={status:'READY',rows:[
-    {platform:'PS',status:'READY',selection:{segment:'large',label:'C',
-      margin_band:{target:'.31',bands:{small:{margin_at_current:'.29',business_margin_at_current:'.31'},
-        large:{margin_at_current:'.27',business_margin_at_current:'.30'}}},
+    {platform:'PS',status:'READY',selection:{segment:'large',label:'C',external_change:{price_changed:true,structure_changed:true},
+      margin_band:{target:'.31',bands:{small:{margin_at_current:'.29',business_margin_at_current:'.31',margin_at_target:'.32',business_margin_at_target:'.34',action:'raise'},
+        large:{margin_at_current:'.27',business_margin_at_current:'.30',margin_at_target:'.27',business_margin_at_target:'.30',action:'raise',capped_by_market:true}}},
       cost_by_band:{small:{cny_per_1k:'.25'},large:{cny_per_1k:'.286',basis:'combined_fallback'}},
       promotion_guard:{active:true,start_day:'2026-11-19',last_redeem_day:'2026-12-03',
         baseline_discount:'.09',three_day_discount:'.09',yesterday_discount:'.18',
@@ -428,6 +428,10 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   const curveDecisionText=JSON.stringify(elements['v3-strategies'].children);
   assert.match(curveDecisionText,/PS.*已有可行方案.*大额段.*C.*Xbox.*保持现价.*PC.*核算待补/);
   assert.doesNotMatch(curveDecisionText,/双20|已写价|本轮最终候选|op-1/);
+  assert.match(curveDecisionText,/检测到 Admin 外部改价.*价格偏离.*档位结构变化/);
+  assert.match(curveDecisionText,/涨价.*调价前 29.00% → 调价后 32.00%/);
+  assert.match(curveDecisionText,/已到市场上限.*保持.*27.00%/);
+  assert.match(curveDecisionText,/未记录/);
   assert.match(curveDecisionText,/目标利润率.*31.00%.*按真实优惠的利润率.*29.00%.*判断用利润率.*31.00%/);
   assert.match(curveDecisionText,/大额段（≥1000K）.*27.00%.*30.00%.*0.2500 CNY\/K.*0.2860 CNY\/K.*大单样本不足，暂用全部订单成本/);
   assert.match(curveDecisionText,/三日平均优惠率.*9.00%.*昨天单日优惠率.*18.00%.*实际优惠率.*偏高.*warning-text.*13.50%.*4.5 点.*已触顶/);

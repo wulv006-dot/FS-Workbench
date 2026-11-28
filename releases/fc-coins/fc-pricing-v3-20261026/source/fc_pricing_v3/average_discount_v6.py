@@ -228,12 +228,19 @@ def _main_band_members(proof, band):
     return weighted
 
 
-def band_margin(proof, band, *, retained=None):
+def band_margin(proof, band, *, retained=None, anchor_price=None):
     """Current weighted procurement margin of the main basket within one band."""
     members = _main_band_members(proof, band)
-    revenue = sum((Decimal(row['net_receipt_usd']) if retained is None else
-                   forecast_receipt(Decimal(row['regular_usd']), retained)) * weight
-                  for row, weight in members)
+    def receipt(row):
+        if anchor_price is not None:
+            regular = band_price_usd(anchor_price, COIN_BAND_ANCHORS[band], row['purchase_k'])
+            ratio = retained if retained is not None else Decimal(proof['average_discount']['retained_ratio'])
+            return forecast_receipt(regular, ratio)
+        if retained is not None:
+            return forecast_receipt(Decimal(row['regular_usd']), retained)
+        return Decimal(row['net_receipt_usd'])
+
+    revenue = sum(receipt(row) * weight for row, weight in members)
     costs = sum(Decimal(row['safe_cost_usd']) * weight for row, weight in members)
     return (revenue - costs) / revenue if revenue > 0 else None
 
